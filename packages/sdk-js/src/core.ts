@@ -3,6 +3,7 @@ import {
   EvalContext,
   ContextualBanditDefinition,
   FeatureDefinition,
+  FeatureDefinitions,
   FeatureResult,
   Experiment,
   FeatureResultSource,
@@ -23,6 +24,7 @@ import {
   ReducePayloadOptions,
   PayloadMetadata,
   SavedGroupPayloadEntry,
+  InterleavingDefinitions,
 } from "./types/growthbook";
 import {
   evalCondition,
@@ -1126,21 +1128,25 @@ export function getHashAttribute(
 
   const attributes = getAttributes(ctx.user);
 
-  if (attributes[hashAttribute]) {
+  if (isHashable(attributes[hashAttribute])) {
     hashValue = attributes[hashAttribute];
   }
 
   // if no match, try fallback
-  if (!hashValue && fallback) {
-    if (attributes[fallback]) {
-      hashValue = attributes[fallback];
-    }
-    if (hashValue) {
-      hashAttribute = fallback;
-    }
+  if (!hashValue && fallback && isHashable(attributes[fallback])) {
+    hashValue = attributes[fallback];
+    hashAttribute = fallback;
   }
 
   return { hashAttribute, hashValue };
+}
+
+// Only strings and numbers identify a user. Anything else, along with "" and
+// 0, counts as missing.
+function isHashable(value: unknown): value is string | number {
+  if (typeof value === "string") return value !== "";
+  if (typeof value === "number") return value !== 0 && Number.isFinite(value);
+  return false;
 }
 
 function urlIsValid(urlRegex: RegExp, ctx: EvalContext): boolean {
@@ -1398,6 +1404,16 @@ export async function decryptPayload(
     }
     delete data.encryptedContextualBandits;
   }
+  if (data.encryptedInterleavings) {
+    try {
+      data.interleavings = JSON.parse(
+        await decrypt(data.encryptedInterleavings, decryptionKey, subtle),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    delete data.encryptedInterleavings;
+  }
   return data;
 }
 
@@ -1648,6 +1664,22 @@ export function reducePayload(
     // props reject.
     ...(ctx.global.contextualBandits ? { contextualBandits } : {}),
   };
+}
+
+// Interleavings whose `$interleave:` flag survived a reduction. The definitions
+// aren't features, so the filters never see them; keeping one whose flag was
+// dropped would serve every user the first ranker and log no exposure.
+export function reduceInterleavings(
+  interleavings: InterleavingDefinitions,
+  features: FeatureDefinitions | undefined,
+): InterleavingDefinitions {
+  const kept = features || {};
+  // Object.fromEntries keeps a `__proto__` key as a plain key
+  return Object.fromEntries(
+    Object.entries(interleavings).filter(([key]) =>
+      hasOwn(kept, "$interleave:" + key),
+    ),
+  );
 }
 
 export function getApiHosts(options: Options | ClientOptions): {

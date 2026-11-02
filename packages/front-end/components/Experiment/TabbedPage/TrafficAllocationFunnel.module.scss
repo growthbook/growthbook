@@ -1,32 +1,31 @@
+@import "../../../styles/hover-highlight";
+
 .connectorLine {
   width: 1px;
-  background-color: var(--slate-a7);
+  background-color: var(--slate-a6);
 }
 
 .caret {
-  color: var(--slate-a7);
+  color: var(--slate-a6);
 }
 
-.cell {
-  position: relative;
+.cardActions {
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+
+  .card:hover &,
+  &:focus-within,
+  &:has([data-state="open"]) {
+    opacity: 1;
+  }
 }
 
-// Horizontal bus halves forking from a column center into the grid gap.
-// calc(var(--space-4) / 2) tracks the real gap (incl. Theme scaling), so it
-// stays in sync with the grid's gap="4".
-.busSegment {
-  position: absolute;
-  top: 0;
-  height: 1px;
-  background-color: var(--slate-a7);
-}
+// The header opens the card's editor wherever it's clicked.
+.editableHeader {
+  @include hover-highlight;
+  @include click-row;
 
-.busSegmentLeft {
-  right: 50%;
-  left: calc(var(--space-4) / -2);
-}
-
-.busSegmentRight {
-  left: 50%;
-  right: calc(var(--space-4) / -2);
+  .edit {
+    @include click-row-target;
+  }
 }

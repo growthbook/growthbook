@@ -6,6 +6,7 @@
 export type EventForwarderSinkType = "bigquery" | "snowflake" | "databricks";
 
 export type EventForwarderStatus =
+  | "unconfigured"
   | "pending"
   | "ready"
   | "paused"

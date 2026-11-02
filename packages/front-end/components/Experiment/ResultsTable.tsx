@@ -36,7 +36,6 @@ import {
   funnelStepMetricId,
   isFactMetric,
 } from "shared/experiments";
-import { PiPencilSimpleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
@@ -46,11 +45,13 @@ import {
   RowResults,
   useDomain,
 } from "@/services/experiments";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
+import QuickEditButton from "@/components/Experiment/TabbedPage/QuickEditButton";
 import TimeSeriesButton from "@/components/TimeSeriesButton";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -147,7 +148,7 @@ export type ResultsTableProps = {
   oneSided?: boolean;
 };
 
-const ROW_HEIGHT = 46;
+export const ROW_HEIGHT = 46;
 const METRIC_LABEL_ROW_HEIGHT = 56;
 const LABEL_ONLY_ROW_HEIGHT = 36;
 const SPACER_ROW_HEIGHT = 6;
@@ -335,6 +336,7 @@ export default function ResultsTable({
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
+  const overflowing = useIsOverflowingX(tableContainerRef);
 
   const { isAuthenticated } = useAuth();
 
@@ -398,11 +400,14 @@ export default function ResultsTable({
       globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
 
-  // Watch for table container resizes (e.g., sidebar opening/closing)
+  // Watch for table container resizes (e.g., sidebar opening/closing), and the
+  // table's own once its graph column is resized to fit.
   useEffect(() => {
     if (!tableContainerRef.current) return;
     const resizeObserver = new ResizeObserver(() => onResize());
     resizeObserver.observe(tableContainerRef.current);
+    const table = tableContainerRef.current.querySelector("table");
+    if (table) resizeObserver.observe(table);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -546,7 +551,10 @@ export default function ResultsTable({
         onClick: onRowClick_,
       }) => (
         <div className="position-relative">
-          <div ref={tableContainerRef} className="experiment-results-wrapper">
+          <div
+            ref={tableContainerRef}
+            className={clsx("experiment-results-wrapper", { overflowing })}
+          >
             <div className="w-100" style={{ minWidth: 700 }}>
               <table id="main-results" className="experiment-results table-sm">
                 <thead>
@@ -574,16 +582,13 @@ export default function ResultsTable({
                           </div>
                           {editMetrics ? (
                             <div className="col d-flex align-items-end px-0">
-                              <a
-                                role="button"
-                                className="cursor-pointer link-purple"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  editMetrics();
-                                }}
-                              >
-                                <PiPencilSimpleFill size={15} />
-                              </a>
+                              <QuickEditButton
+                                label="Edit metrics"
+                                onClick={editMetrics}
+                                labelTooltip={false}
+                                dimmed
+                                inline
+                              />
                             </div>
                           ) : null}
                         </div>
@@ -1298,6 +1303,9 @@ export default function ResultsTable({
                                             ssrPolyfills={ssrPolyfills}
                                             suspiciousChange={
                                               rowResults.suspiciousChange
+                                            }
+                                            suspiciousThreshold={
+                                              rowResults.suspiciousThreshold
                                             }
                                             notEnoughData={
                                               !rowResults.enoughData

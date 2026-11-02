@@ -20,6 +20,8 @@ export type {
   FeatureDefinition,
   ContextualBanditDefinitions,
   ContextualBanditDefinition,
+  InterleavingDefinitions,
+  InterleavingDefinition,
   FeatureRule,
   FeatureResult,
   FeatureResultSource,

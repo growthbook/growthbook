@@ -8,11 +8,9 @@ import {
   RowFilter,
 } from "shared/types/fact-table";
 import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_MIN_SAMPLE_SIZE,
-  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   StatsigMetric,
@@ -207,11 +205,9 @@ export async function transformStatsigMetricToMetric(
       stddev: 0,
     },
     inverse: metric.directionality === "decrease",
-    loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
     maxPercentChange: DEFAULT_MAX_PERCENT_CHANGE,
     minPercentChange: DEFAULT_MIN_PERCENT_CHANGE,
     minSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
-    winRisk: DEFAULT_WIN_RISK_THRESHOLD,
     regressionAdjustmentEnabled: !!data.cupedAttributionWindow,
     regressionAdjustmentOverride: !!data.cupedAttributionWindow,
     regressionAdjustmentDays: data.cupedAttributionWindow || 0,

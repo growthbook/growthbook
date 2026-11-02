@@ -528,13 +528,13 @@ export const sendEventWebhookTestEvent = async (
   context: ReqContext,
   webhookId: string,
 ) => {
-  if (!context.permissions.canCreateEventWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
   const webhook = await getEventWebHookById(webhookId, context.org.id);
 
   if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
+
+  if (!context.permissions.canCreateEventWebhook(webhook)) {
+    context.permissions.throwPermissionError();
+  }
 
   await createEvent({
     context,

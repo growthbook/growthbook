@@ -36,6 +36,8 @@ import {
   isAutoSnapshotScheduled,
   ExperimentMetricInterface,
   withScheduledBy,
+  areVariationWeightsValid,
+  getDefaultRegressionAdjustmentDays,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -3145,5 +3147,56 @@ describe("getFactTableIdsForMetrics", () => {
         funnel(["ft_b", "ft_c", "ft_d"]),
       ]),
     ).toEqual(["ft_a", "ft_b", "ft_c", "ft_d"]);
+  });
+});
+
+describe("areVariationWeightsValid", () => {
+  it.each([
+    [[0.5, 0.5]],
+    [[1, 0]],
+    [[1]],
+    [[0.333, 0.333, 0.334]],
+    [[0.5, 0.505]],
+  ])("accepts %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(true);
+  });
+
+  it.each([
+    [[0.33, 0.4, 0.3]],
+    [[0.2, 0.2]],
+    [[50, 50]],
+    [[2, -1]],
+    [[1.5, -0.5]],
+    [[]],
+  ])("rejects %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(false);
+  });
+});
+
+describe("getDefaultRegressionAdjustmentDays", () => {
+  const metric = { regressionAdjustmentOverride: false };
+
+  it("uses the organization's lookback only while CUPED is on there", () => {
+    expect(
+      getDefaultRegressionAdjustmentDays(metric, {
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 7,
+      }),
+    ).toBe(7);
+    expect(
+      getDefaultRegressionAdjustmentDays(metric, {
+        regressionAdjustmentEnabled: false,
+        regressionAdjustmentDays: 7,
+      }),
+    ).toBe(14);
+  });
+
+  it("prefers a metric's own lookback", () => {
+    expect(
+      getDefaultRegressionAdjustmentDays(
+        { regressionAdjustmentOverride: true, regressionAdjustmentDays: 21 },
+        { regressionAdjustmentEnabled: true, regressionAdjustmentDays: 7 },
+      ),
+    ).toBe(21);
   });
 });

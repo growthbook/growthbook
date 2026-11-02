@@ -341,8 +341,6 @@ const makeFactMetric = (
     minSampleSize: 100,
     targetMDE: 0.1,
     displayAsPercentage: false,
-    winRisk: 0.1,
-    loseRisk: 0.05,
     regressionAdjustmentOverride: true,
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 10,

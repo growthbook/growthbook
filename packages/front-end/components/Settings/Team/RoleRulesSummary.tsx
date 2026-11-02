@@ -3,6 +3,7 @@ import { MemberRoleWithProjects } from "shared/types/organization";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { CollapsedRuleRows, memberRuleRows } from "./RoleRuleLabel";
@@ -36,10 +37,12 @@ export default function RoleRulesSummaryRow({
     <Frame px="3" py="2" mb="4">
       <Flex align="start" justify="between" gap="3">
         <Flex direction="column" gap="1">
-          <Heading as="h5" size="sm" mb="0">
+          <Heading as="h5" size="sm" weight="medium" mb="0">
             {label}
           </Heading>
-          <RoleRulesSummary value={value} />
+          <Text as="div" color="text-mid">
+            <RoleRulesSummary value={value} />
+          </Text>
         </Flex>
         <Button variant="ghost" disabled={disabled} onClick={onEdit}>
           Edit

@@ -37,3 +37,22 @@ export function componentSchema<T extends z.ZodType>(
   }
   return schema.meta({ id: name }) as T;
 }
+
+// Retired risk thresholds, kept so the documented API shape doesn't change.
+export const retiredRiskInput = () =>
+  z
+    .number()
+    .describe("No longer used. Accepted and ignored.")
+    .optional()
+    .meta({ deprecated: true });
+export const retiredRiskDefault = () =>
+  z.coerce
+    .number()
+    .describe("No longer used. Always the default value.")
+    .meta({ deprecated: true });
+export const retiredRiskOmitted = () =>
+  z.coerce
+    .number()
+    .describe("No longer used. Never returned.")
+    .optional()
+    .meta({ deprecated: true });

@@ -591,6 +591,26 @@ export class GrowthBook<
     return () => this._customEventSubs.delete(cb);
   }
 
+  // Internal — first-party plugin use only.
+  // The two gates runExperiment applies (core.ts): `enabled: false` turns
+  // experiments off, qaMode keeps QA users out of them and out of tracking.
+  // A forced feature rule never reaches runExperiment, so a plugin that assigns
+  // and tracks on its own has to apply them itself.
+  public _experimentsDisabled(): boolean {
+    return this._options.enabled === false || !!this._options.qaMode;
+  }
+
+  // Internal — first-party plugin use only.
+  // Whether logEvent would reach anything. Without it logEvent logs an error of
+  // its own, which a plugin logging per impression would repeat endlessly.
+  public _hasEventConsumer(): boolean {
+    return (
+      !!this._options.eventLogger ||
+      this._customEventSubs.size > 0 ||
+      !!this._options.enableDevMode
+    );
+  }
+
   private async _refreshForRemoteEval() {
     if (!this._options.remoteEval) return;
     if (!this._initialized) return;
@@ -1097,7 +1117,7 @@ export class GrowthBook<
       } catch (e) {
         console.error(e);
       }
-    } else {
+    } else if (!this._options.enableDevMode && !this._customEventSubs.size) {
       console.error("No event logger configured");
     }
   }

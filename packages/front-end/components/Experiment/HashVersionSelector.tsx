@@ -1,30 +1,9 @@
-import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { parseIntWithDefault } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
-
-export function HashVersionTooltip({ children }: { children: ReactNode }) {
-  return (
-    <Tooltip
-      body={
-        <>
-          V2 fixes potential bias issues when using similarly named tracking
-          keys, but is only supported in the following SDKs and versions:
-          <MinSDKVersionsList capability="bucketingV2" />
-          Unsupported SDKs will fall back to using the V1 algorithm
-          automatically.
-        </>
-      }
-    >
-      {children}
-    </Tooltip>
-  );
-}
 
 export default function HashVersionSelector({
   value,

@@ -1,6 +1,6 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { CustomFieldSection } from "shared/types/custom-fields";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
@@ -11,7 +11,11 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { customFieldDataListItems } from "./renderCustomFieldValue";
+import Metadata from "@/ui/Metadata";
+import {
+  customFieldDataListItems,
+  renderCustomFieldValue,
+} from "./renderCustomFieldValue";
 import CustomFieldEditModal, {
   CustomFieldDraftInfo,
 } from "./CustomFieldEditModal";
@@ -26,6 +30,10 @@ const CustomFieldDisplay: FC<{
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
   /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
   draftInfo?: CustomFieldDraftInfo;
+  /** A metadata row per field, to sit alongside other metadata in a narrow column. */
+  rows?: boolean;
+  /** In rows mode, the edit button a field's row reveals on hover. */
+  rowAction?: (field: CustomField) => ReactNode;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -35,6 +43,8 @@ const CustomFieldDisplay: FC<{
   target,
   mt,
   draftInfo,
+  rows,
+  rowAction,
 }) => {
   const [editModal, setEditModal] = useState(false);
 
@@ -56,6 +66,41 @@ const CustomFieldDisplay: FC<{
     customFields,
     currentCustomFields,
   );
+
+  if (rows) {
+    return (
+      <Flex direction="column" gap="3">
+        {customFields.map((field) => {
+          const value = currentCustomFields[field.id] ?? "";
+          return (
+            <Metadata
+              size="sm"
+              stacked
+              key={field.id}
+              label={field.name}
+              action={rowAction?.(field)}
+              value={
+                value === "" ? (
+                  <Text
+                    weight="regular"
+                    color="text-mid"
+                    size="sm"
+                    fontStyle="italic"
+                  >
+                    None
+                  </Text>
+                ) : (
+                  <Box style={{ fontSize: "var(--font-size-1)" }}>
+                    {renderCustomFieldValue(field, value)}
+                  </Box>
+                )
+              }
+            />
+          );
+        })}
+      </Flex>
+    );
+  }
 
   const editLink = canEdit ? (
     <Link onClick={() => setEditModal(true)}>

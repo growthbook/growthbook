@@ -82,6 +82,7 @@ export const verbOf = (action: string) => {
   if (verb === "unscopedRules")
     return "allow rules for All Environments and All Projects";
   if (verb === "visualEditor") return "AI Visual Editor";
+  if (verb === "checklist") return "launch checklist items";
   return verb.replace(/([A-Z])/g, " $1").toLowerCase();
 };
 

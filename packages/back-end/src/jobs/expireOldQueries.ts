@@ -5,6 +5,7 @@ import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
   ContextualBanditSnapshotInterface,
+  InterleavingSnapshotInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import {
@@ -223,6 +224,27 @@ const expireOldQueries = async () => {
     );
   }
 
+  const ilSnapshots = await findRunningInterleavingSnapshotsByQueryId([
+    ...queryIds,
+  ]);
+  for (const ilSnapshot of ilSnapshots) {
+    logger.info("Updating status of interleaving snapshot " + ilSnapshot.id);
+    updateQueryStatus(ilSnapshot.queries, queryIds);
+    await getCollection<InterleavingSnapshotInterface>(
+      "interleavingsnapshots",
+    ).updateOne(
+      // Guarded: the runner may have finalized it between the find and here.
+      { id: ilSnapshot.id, status: "running" },
+      {
+        $set: {
+          error: "Queries were interrupted. Please try updating results again.",
+          status: "error",
+          queries: ilSnapshot.queries,
+        },
+      },
+    );
+  }
+
   // Finalize matching aggregated runs: driven only by an in-memory QueryRunner
   // (no client polling), so a dead process leaves run pointers stuck even though
   // the query docs were flipped to failed.
@@ -248,6 +270,12 @@ const expireOldQueries = async () => {
     await reapStalledContextualBanditSnapshots();
   } catch (e) {
     logger.error(e, "Failed to reap stalled contextual bandit snapshots");
+  }
+
+  try {
+    await reapStalledInterleavingSnapshots();
+  } catch (e) {
+    logger.error(e, "Failed to reap stalled interleaving snapshots");
   }
 
   try {
@@ -593,6 +621,21 @@ async function findRunningContextualBanditSnapshotsByQueryId(
     .toArray();
 }
 
+async function findRunningInterleavingSnapshotsByQueryId(
+  ids: string[],
+): Promise<InterleavingSnapshotInterface[]> {
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  return getCollection<InterleavingSnapshotInterface>("interleavingsnapshots")
+    .find({
+      status: "running",
+      dateCreated: { $gt: earliestDate },
+      queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
+    })
+    .toArray();
+}
+
 // In-flight runs with a still-"running" pointer to a now-failed query. Mirrors findRunningSnapshotsByQueryId.
 async function findRunningAggregatedFactTableRunsByQueryId(
   ids: string[],
@@ -682,6 +725,147 @@ async function reapStalledContextualBanditSnapshots() {
         ? `Reaped orphaned contextual bandit snapshot ${snapshot.id} (cb ${snapshot.contextualBandit}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled contextual bandit snapshot ${snapshot.id} (cb ${snapshot.contextualBandit}): all ${queryIds.length} queries terminal but status still running`,
     );
+  }
+}
+
+// Oldest-first pages of running interleaving snapshots, excluding ids already
+// yielded so a page of live waiters can't hide newer dead snapshots behind it.
+// Mirrors stalledSnapshotCandidates over the raw collection.
+async function* stalledInterleavingSnapshotCandidates(stalledBefore: Date) {
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+  const collection = getCollection<InterleavingSnapshotInterface>(
+    "interleavingsnapshots",
+  );
+
+  const seen: string[] = [];
+  while (seen.length < STALLED_SNAPSHOT_REAP_MAX_PER_TICK) {
+    const page = await collection
+      .find({
+        status: "running",
+        dateCreated: { $gt: earliestDate, $lt: stalledBefore },
+        ...(seen.length ? { id: { $nin: seen } } : {}),
+      })
+      .sort({ dateCreated: 1 })
+      .limit(
+        Math.min(
+          STALLED_SNAPSHOT_REAP_LIMIT,
+          STALLED_SNAPSHOT_REAP_MAX_PER_TICK - seen.length,
+        ),
+      )
+      .toArray();
+    if (!page.length) return;
+    for (const snapshot of page) {
+      seen.push(snapshot.id);
+      yield snapshot;
+    }
+  }
+  logger.warn(
+    `Stalled interleaving snapshot reaper examined ${STALLED_SNAPSHOT_REAP_MAX_PER_TICK} candidates this tick; newer stalled snapshots may be delayed`,
+  );
+}
+
+async function reapStalledInterleavingSnapshots() {
+  // Same window as the general reaper: classifyStalledSnapshot does its own
+  // age reasoning, and the short window is what lets a dead runner's stale
+  // heartbeats be caught before the snapshot is a full hour old.
+  const stalledBefore = new Date(Date.now() - QUEUED_HEARTBEAT_STALE_MS);
+  const ilsCollection = getCollection<InterleavingSnapshotInterface>(
+    "interleavingsnapshots",
+  );
+
+  for await (const snapshot of stalledInterleavingSnapshotCandidates(
+    stalledBefore,
+  )) {
+    const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
+
+    if (!queryIds.length) {
+      if (
+        Date.now() - snapshot.dateCreated.getTime() <
+        STALLED_SNAPSHOT_THRESHOLD_MS
+      ) {
+        continue;
+      }
+      const res = await ilsCollection.updateOne(
+        { id: snapshot.id, status: "running" },
+        {
+          $set: {
+            status: "error",
+            error:
+              "Snapshot stalled: its queries were never recorded. This can happen when the server restarts mid-refresh. Please try updating results again.",
+          },
+        },
+      );
+      if (res.modifiedCount === 0) continue;
+      logger.warn(
+        `Reaped interleaving snapshot ${snapshot.id} (interleaving ${snapshot.interleavingId}): running with no queries recorded`,
+      );
+      continue;
+    }
+
+    const statuses = await getQueryStatusesByIds(
+      snapshot.organization,
+      queryIds,
+    );
+    if (statuses.length !== queryIds.length) continue;
+
+    // Shared with the general reaper, so a query queued behind a warehouse
+    // concurrency limit whose runner is still heartbeating stays "active".
+    const verdict = classifyStalledSnapshot({
+      queryStatuses: statuses,
+      snapshotDateCreated: snapshot.dateCreated,
+      now: Date.now(),
+    });
+    if (verdict === "active") continue;
+    const orphanedDag = verdict !== "stalled-terminal";
+
+    const statusById = new Map(statuses.map((s) => [s.id, s.status]));
+    snapshot.queries.forEach((q) => {
+      q.status = statusById.get(q.query) ?? q.status;
+    });
+
+    const error = orphanedDag
+      ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
+      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
+
+    const res = await ilsCollection.updateOne(
+      { id: snapshot.id, status: "running" },
+      {
+        $set: {
+          status: "error",
+          error,
+          queries: snapshot.queries,
+        },
+      },
+    );
+    if (res.modifiedCount === 0) continue;
+
+    logger.warn(
+      orphanedDag
+        ? `Reaped orphaned interleaving snapshot ${snapshot.id} (interleaving ${snapshot.interleavingId}): ${verdict}, ${queryIds.length} queries with nothing running`
+        : `Reaped stalled interleaving snapshot ${snapshot.id} (interleaving ${snapshot.interleavingId}): all ${queryIds.length} queries terminal but status still running`,
+    );
+
+    // Nothing ever dispatches a queued query doc from the collection, and the
+    // stale sweep only looks at "running" ones, so without this they stay
+    // non-terminal forever. Same cleanup the general reaper does.
+    if (orphanedDag) {
+      const queuedIds = statuses
+        .filter((q) => q.status === "queued")
+        .map((q) => q.id);
+      if (queuedIds.length) {
+        const context = await getContextForAgendaJobByOrgId(
+          snapshot.organization,
+        );
+        await markPendingQueriesAsFailed(
+          context,
+          queuedIds,
+          "Query was never started: the snapshot driving it was reaped as stalled.",
+        ).catch((e) =>
+          logger.warn(e, "Failed to mark orphaned queued queries as failed"),
+        );
+      }
+    }
   }
 }
 

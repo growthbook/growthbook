@@ -14,6 +14,7 @@ export {
   getEventForwarderSinkTypeForDatasource,
   getEventForwarderUserIdTypeSourceAttribute,
   isEventForwarderManaged,
+  isEventForwarderSetupStepComplete,
   normalizeUserIdTypeName,
   resolveEventForwarderManagedName,
   resolveEventForwarderManagedUserIdTypes,

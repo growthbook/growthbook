@@ -18,6 +18,15 @@ export function isAllowedHref(href: string): boolean {
   }
 }
 
+// A pasted URL's link text: its host, without `www.`.
+export function getLinkLabelFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || "Link";
+  } catch {
+    return "Link";
+  }
+}
+
 // Splits text into plain strings and links; a disallowed link stays as its original text.
 export function splitMarkdownLinks(text: string): MarkdownLinkSegment[] {
   const segments: MarkdownLinkSegment[] = [];

@@ -257,6 +257,7 @@ export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
 ) {
+  if (id && typeof id !== "string") return null;
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
     return (
@@ -276,6 +277,18 @@ export async function getDataSourceById(
   return context.permissions.canReadMultiProjectResource(datasource.projects)
     ? datasource
     : null;
+}
+
+// Whether it exists at all, readable or not: a reference to a deleted one
+// shouldn't read as restricted.
+export async function dataSourceExists(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<boolean> {
+  if (usingFileConfig()) {
+    return getConfigDatasources(context.org.id).some((d) => d.id === id);
+  }
+  return !!(await DataSourceModel.exists({ id, organization: context.org.id }));
 }
 
 export async function getDataSourcesByIds(

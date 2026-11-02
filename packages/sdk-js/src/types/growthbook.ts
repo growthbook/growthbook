@@ -67,6 +67,17 @@ export type ContextualBanditDefinitions = Record<
   ContextualBanditDefinition
 >;
 
+export type InterleavingDefinition = {
+  trackingKey: string;
+  // Carried here, not read off the pseudo flag's rule: remote evaluation
+  // replaces rules with a forced defaultValue, so the rule is gone client-side.
+  hashAttribute: string;
+  seed: string;
+  variations: { key: string; config: Record<string, unknown> }[];
+};
+
+export type InterleavingDefinitions = Record<string, InterleavingDefinition>;
+
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
@@ -520,6 +531,8 @@ export type FeatureApiResponse = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleavings?: InterleavingDefinitions;
+  encryptedInterleavings?: string;
 };
 
 // Alias

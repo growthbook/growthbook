@@ -18,7 +18,6 @@
       "back-end/*": ["./*"]
     },
     "resolveJsonModule": true,
-    "plugins": [{ "transform": "typescript-transform-paths" }],
     "inlineSources": true,
     "incremental": true,
     // Set `sourceRoot` to  "/" to strip the build path prefix
