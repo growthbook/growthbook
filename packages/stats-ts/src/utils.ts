@@ -20,11 +20,6 @@ export function normCdf(x: number, loc = 0, scale = 1): number {
   return normal.cdf(x, loc, scale);
 }
 
-/** Normal quantile function (via `@stdlib`). */
-export function normQuantile(p: number, loc = 0, scale = 1): number {
-  return normal.quantile(p, loc, scale);
-}
-
 /** Student's t cumulative distribution function (via `@stdlib`). */
 export function tCdf(x: number, dof: number): number {
   return t.cdf(x, dof);
