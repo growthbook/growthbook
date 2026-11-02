@@ -1,4 +1,5 @@
 import type {
+  ExplorationPopulation,
   MetricDataset,
   ProductAnalyticsDimension,
 } from "shared/validators";
@@ -23,28 +24,28 @@ function isSupportedWithPopulation(
 // The population applies to every metric in the request, so one incompatible
 // metric rejects the request.
 export function getPopulationViolations({
-  dataset,
+  population,
+  values,
   dimensions,
   datasource,
   metricMap,
   factTableMap,
 }: {
-  dataset: MetricDataset;
+  population: ExplorationPopulation;
+  values: MetricDataset["values"];
   dimensions: ProductAnalyticsDimension[];
   datasource: string;
   metricMap: Map<string, FactMetricInterface>;
   factTableMap: Map<string, FactTableInterface>;
 }): string[] {
-  const population = dataset.population;
-  if (!population) return [];
   const violations: string[] = [];
-  if (dataset.values.some((value) => value.draftMetric)) {
+  if (values.some((value) => value.draftMetric)) {
     violations.push("Metrics with populations require a saved metric.");
   }
   if (dimensions.some((d) => d.dimensionType !== "date")) {
     violations.push("Metrics with populations can only be grouped by date.");
   }
-  for (const value of dataset.values) {
+  for (const value of values) {
     const metric = metricMap.get(value.metricId);
     if (!metric) continue;
     if (!isSupportedWithPopulation(metric)) {

@@ -501,6 +501,9 @@ function getFactTableGroups({
           metricIndex++;
         }
         if (population) {
+          // the population applies to all metrics in the request
+          // so metrics dependent on fact tables other than
+          // the population's fact table are invalid.
           const group = groups[population.source.factTableId];
           if (
             !group ||
@@ -508,7 +511,7 @@ function getFactTableGroups({
             group.metrics.some((m) => m.unit !== population.unit)
           ) {
             throw new Error(
-              "Every metric must use the population's Fact Table and identifier type.",
+              "Every metric must use the population's Fact Table and identifier type in order to be filtered by population membership.",
             );
           }
           group.metrics.push(createPopulationCountSeries(population));

@@ -224,7 +224,8 @@ export async function runProductAnalyticsExploration(
 
     if (dataset.population) {
       const populationViolations = getPopulationViolations({
-        dataset,
+        population: dataset.population,
+        values: dataset.values,
         dimensions: config.dimensions,
         datasource: datasource.id,
         metricMap,

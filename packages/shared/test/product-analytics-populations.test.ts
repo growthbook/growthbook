@@ -244,8 +244,11 @@ function violations(
   config: MetricExplorationConfig,
   metrics: FactMetricInterface[] = ALL_METRICS,
 ) {
+  const { population, values } = config.dataset;
+  if (!population) throw new Error("Expected a population");
   return getPopulationViolations({
-    dataset: config.dataset,
+    population,
+    values,
     dimensions: config.dimensions,
     datasource: config.datasource,
     metricMap: new Map(metrics.map((m) => [m.id, m])),
@@ -502,13 +505,6 @@ describe("metric explorations with a population", () => {
       ],
     ])("rejects %s", (_, config, message) => {
       expect(violations(config)).toContain(message);
-      // Only the population makes these invalid.
-      expect(
-        violations({
-          ...config,
-          dataset: { ...config.dataset, population: null },
-        }),
-      ).toBe("");
     });
 
     it.each(
@@ -616,8 +612,8 @@ describe("metric explorations with a population", () => {
       expect(sql).not.toContain("JOIN");
     });
 
-    // The builder is also called without request validation, so it must not
-    // let a series escape membership.
+    // Request validation catches this first; the builder still refuses rather
+    // than return a series unfiltered by membership.
     it("rejects a metric outside the population's unit", () => {
       expect(() =>
         generate(
@@ -627,7 +623,7 @@ describe("metric explorations with a population", () => {
           }),
         ),
       ).toThrow(
-        "Every metric must use the population's Fact Table and identifier type.",
+        "Every metric must use the population's Fact Table and identifier type in order to be filtered by population membership.",
       );
     });
 
