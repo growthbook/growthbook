@@ -33,6 +33,7 @@ import {
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
+import EditSchemaOptions from "@/components/Settings/EditSchemaOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -791,18 +792,21 @@ export default function ConnectDataSourceLayout({
           setup,
         });
       } else {
-        // Create always starts from empty settings. The connect form never
-        // collects them, so there is nothing to merge with a seeded template.
         // Identifier types and exposure queries stay empty until Finish
-        // Setting Up writes them.
+        // Setting Up writes them. Keep settings the form did collect, such
+        // as query limits and cache time.
         const res = await apiCall<{ id: string }>("/datasources", {
           method: "POST",
           body: JSON.stringify({
             ...datasource,
             settings: {
+              ...datasource.settings,
               schemaFormat,
               userIdTypes: [],
-              queries: { exposure: [] },
+              queries: {
+                ...datasource.settings?.queries,
+                exposure: [],
+              },
             },
             ...(eventForwarderDraft
               ? { eventForwarderConfig: eventForwarderDraft }
@@ -951,6 +955,11 @@ export default function ConnectDataSourceLayout({
             generatedPassword={
               !existing && hasGeneratedPassword(datasource, initial)
             }
+          />
+          <EditSchemaOptions
+            datasource={datasource}
+            setDatasource={updateDatasource}
+            setDirty={setDirty}
           />
         </Frame>
 

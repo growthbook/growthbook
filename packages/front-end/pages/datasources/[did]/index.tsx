@@ -14,6 +14,7 @@ import {
   supportsEventForwarder,
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
+import { isTestableDataSourceType } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
@@ -30,6 +31,7 @@ import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSourc
 import { ContextualBanditAssignmentQueries } from "@/components/Settings/EditDataSource/ContextualBanditAssignmentQueries/ContextualBanditAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
+import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
@@ -201,6 +203,7 @@ function DataSourceDescriptionPreview({
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
+  const [editConn, setEditConn] = useState(false);
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dataSourceName, setDataSourceName] = useState("");
@@ -920,14 +923,22 @@ const DataSourcePage: FC = () => {
                       value={datetime(d.dateUpdated ?? "")}
                       size="sm"
                     />
-                    {canUpdateConnectionParams && (
-                      <LinkButton
-                        href={`/datasources/${d.id}/connect`}
-                        variant="outline"
-                      >
-                        Edit connection
-                      </LinkButton>
-                    )}
+                    {canUpdateConnectionParams &&
+                      (isTestableDataSourceType(d.type) ? (
+                        <LinkButton
+                          href={`/datasources/${d.id}/connect`}
+                          variant="outline"
+                        >
+                          Edit connection
+                        </LinkButton>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => setEditConn(true)}
+                        >
+                          Edit connection
+                        </Button>
+                      ))}
                   </Flex>
                 </Flex>
                 <DataSourceDescriptionSection
@@ -1049,6 +1060,23 @@ const DataSourcePage: FC = () => {
                 projects,
               }),
             });
+          }}
+        />
+      )}
+      {editConn && (
+        <DataSourceForm
+          existing={true}
+          data={d}
+          source="datasource-detail"
+          onSuccess={async () => {
+            await Promise.all([
+              mutateDefinitions({}),
+              mutateCurrentDataSource(),
+            ]);
+            setEditConn(false);
+          }}
+          onCancel={() => {
+            setEditConn(false);
           }}
         />
       )}
