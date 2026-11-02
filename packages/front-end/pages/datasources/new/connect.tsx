@@ -16,7 +16,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
+import { isCloud } from "@/services/env";
 import { dataSourceConnections } from "@/services/eventSchema";
 
 function first(value: string | string[] | undefined): string | undefined {
@@ -34,24 +34,26 @@ function parseType(
 
 const NewDataSourceConnectPage: FC = () => {
   const router = useRouter();
-  const { enabled, ready } = useNewDataSourceOnboarding();
   // Generated once per visit. `initial` is rebuilt as definitions load, and
   // the layout copies it back into the form until the user edits something,
   // so a password created inside that memo could change after the setup SQL
   // was already copied.
   const [generatedPassword] = useState(() => generateStrongPassword());
   const type = parseType(router.query.type);
-  const setup: ConnectSetupKind =
-    first(router.query.setup) === "event_forwarder"
-      ? "event_forwarder"
-      : "custom";
+  const eventForwarderRequested =
+    first(router.query.setup) === "event_forwarder";
+  // Event Forwarder runs on GrowthBook Cloud. A direct link should return to
+  // the options table instead of opening a setup this org cannot finish.
+  const eventForwarderBlocked = eventForwarderRequested && !isCloud();
+  const setup: ConnectSetupKind = eventForwarderRequested
+    ? "event_forwarder"
+    : "custom";
   const schemaFormat = (first(router.query.schema) || "custom") as SchemaFormat;
 
   useEffect(() => {
-    if (ready && !enabled) {
-      router.replace("/datasources");
-    }
-  }, [router, enabled, ready]);
+    if (!router.isReady || !eventForwarderBlocked) return;
+    router.replace("/datasources/new");
+  }, [router, eventForwarderBlocked]);
 
   const initial = useMemo((): Partial<DataSourceInterfaceWithParams> | null => {
     if (!type) return null;
@@ -85,7 +87,7 @@ const NewDataSourceConnectPage: FC = () => {
     } as Partial<DataSourceInterfaceWithParams>;
   }, [type, setup, generatedPassword]);
 
-  if (!ready || !enabled || !router.isReady) {
+  if (!router.isReady || eventForwarderBlocked) {
     return <LoadingOverlay />;
   }
 

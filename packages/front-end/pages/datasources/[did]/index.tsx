@@ -30,7 +30,6 @@ import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSourc
 import { ContextualBanditAssignmentQueries } from "@/components/Settings/EditDataSource/ContextualBanditAssignmentQueries/ContextualBanditAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
-import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
@@ -39,7 +38,6 @@ import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSetting
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 import { dataSourceConnections } from "@/services/eventSchema";
 import {
   getDataRegionLabel,
@@ -203,8 +201,6 @@ function DataSourceDescriptionPreview({
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
-  const newDataSourceOnboarding = useNewDataSourceOnboarding();
-  const [editConn, setEditConn] = useState(false);
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dataSourceName, setDataSourceName] = useState("");
@@ -246,7 +242,7 @@ const DataSourcePage: FC = () => {
   // Event Forwarder is first so an empty hash opens it when this Data Source
   // has one.
   const showEventForwarderTab = Boolean(
-    newDataSourceOnboarding.enabled &&
+    isCloud() &&
       d?.eventForwarderConfig &&
       d.eventForwarderConfig.status !== "unconfigured",
   );
@@ -313,7 +309,6 @@ const DataSourcePage: FC = () => {
     !!d &&
     d.properties?.queryLanguage === "sql" &&
     !isManagedWarehouse &&
-    newDataSourceOnboarding.enabled &&
     !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
 
   // Stretch the page to the bottom of the viewport, then give the explorer the
@@ -628,17 +623,6 @@ const DataSourcePage: FC = () => {
           </Frame>
         )}
 
-        {supportsSQL &&
-          !isManagedWarehouse &&
-          !newDataSourceOnboarding.enabled &&
-          d.dateUpdated === d.dateCreated &&
-          d.settings?.schemaFormat !== "custom" && (
-            <Callout status="info" mb="4">
-              We have prefilled the identifier types and assignment queries.
-              These may require editing to fit your data structure.
-            </Callout>
-          )}
-
         {isManagedWarehouse &&
           (managedWarehouseAwaitingProvisioning ? (
             <ManagedWarehouseNoEventsCallout />
@@ -936,22 +920,14 @@ const DataSourcePage: FC = () => {
                       value={datetime(d.dateUpdated ?? "")}
                       size="sm"
                     />
-                    {canUpdateConnectionParams &&
-                      (newDataSourceOnboarding.enabled ? (
-                        <LinkButton
-                          href={`/datasources/${d.id}/connect`}
-                          variant="outline"
-                        >
-                          Edit connection
-                        </LinkButton>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          onClick={() => setEditConn(true)}
-                        >
-                          Edit connection
-                        </Button>
-                      ))}
+                    {canUpdateConnectionParams && (
+                      <LinkButton
+                        href={`/datasources/${d.id}/connect`}
+                        variant="outline"
+                      >
+                        Edit connection
+                      </LinkButton>
+                    )}
                   </Flex>
                 </Flex>
                 <DataSourceDescriptionSection
@@ -1073,22 +1049,6 @@ const DataSourcePage: FC = () => {
                 projects,
               }),
             });
-          }}
-        />
-      )}
-      {editConn && (
-        <DataSourceForm
-          existing={true}
-          data={d}
-          source={"datasource-detail"}
-          onSuccess={async () => {
-            await Promise.all([
-              mutateDefinitions({}),
-              mutateCurrentDataSource(),
-            ]);
-          }}
-          onCancel={() => {
-            setEditConn(false);
           }}
         />
       )}

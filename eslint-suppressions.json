@@ -1379,14 +1379,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/NewDataSourceForm.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/NewExperimentChecklistItem.tsx": {
     "no-restricted-syntax": {
       "count": 1
