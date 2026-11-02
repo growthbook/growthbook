@@ -127,7 +127,7 @@ export default function InterleavingMetricsInput({
           allowedFactMetricTypes={["mean", "proportion"]}
           getMetricDisabledInfo={getMetricDisabledInfo}
           disabled={disabled || !datasource}
-          helpText="Paired analysis additionally needs a ranking_id column on the metric's fact table."
+          helpText="All metrics must come from a Fact Table with an `item_id` column. Paired analysis additionally needs a `ranking_id` column."
         />
       </Box>
       {value.length > 0 && (
