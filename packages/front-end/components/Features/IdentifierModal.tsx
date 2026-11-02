@@ -378,51 +378,47 @@ export default function IdentifierModal({
                     return (
                       <TableRow key={d.id}>
                         <TableCell>
-                          {linked ? (
-                            // Lines up with the names of the checkbox rows.
-                            <Flex align="center" gap="2" pl="5">
-                              <PiDatabase />
-                              <Text weight="medium" color="text-mid">
-                                {d.name}
-                              </Text>
-                            </Flex>
-                          ) : (
-                            <Checkbox
-                              label={
-                                <Flex align="center" gap="2">
-                                  <PiDatabase />
-                                  <Text>{d.name}</Text>
-                                </Flex>
+                          <Checkbox
+                            label={
+                              <Flex align="center" gap="2">
+                                <PiDatabase />
+                                {/* Full contrast even when disabled, so locked
+                                    rows don't read as unavailable. */}
+                                <Text color="text-high">{d.name}</Text>
+                              </Flex>
+                            }
+                            weight="medium"
+                            align="center"
+                            description={
+                              !isEdit &&
+                              userIdTypeNames(d).includes(defaultType)
+                                ? `Already has ${defaultType}`
+                                : undefined
+                            }
+                            value={isChecked}
+                            disabled={!!linked || !editable}
+                            disabledMessage={
+                              linked
+                                ? `Linked as ${linked}. Change it from the Data Source.`
+                                : "You don't have permission to edit this Data Source"
+                            }
+                            setValue={(v) => {
+                              if (isEdit) {
+                                setPicks((p) => {
+                                  const next = { ...p };
+                                  if (v) next[d.id] = defaultPick(d);
+                                  else delete next[d.id];
+                                  return next;
+                                });
+                              } else {
+                                setUncheckedIds((ids) =>
+                                  v
+                                    ? ids.filter((id) => id !== d.id)
+                                    : [...ids, d.id],
+                                );
                               }
-                              weight="medium"
-                              align="center"
-                              description={
-                                !isEdit &&
-                                userIdTypeNames(d).includes(defaultType)
-                                  ? `Already has ${defaultType}`
-                                  : undefined
-                              }
-                              value={isChecked}
-                              disabled={!editable}
-                              disabledMessage="You don't have permission to edit this Data Source"
-                              setValue={(v) => {
-                                if (isEdit) {
-                                  setPicks((p) => {
-                                    const next = { ...p };
-                                    if (v) next[d.id] = defaultPick(d);
-                                    else delete next[d.id];
-                                    return next;
-                                  });
-                                } else {
-                                  setUncheckedIds((ids) =>
-                                    v
-                                      ? ids.filter((id) => id !== d.id)
-                                      : [...ids, d.id],
-                                  );
-                                }
-                              }}
-                            />
-                          )}
+                            }}
+                          />
                         </TableCell>
                         {isEdit && (
                           <>
