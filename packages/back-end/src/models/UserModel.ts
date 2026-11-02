@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import escapeRegExp from "lodash/escapeRegExp";
 import { UserInterface } from "shared/types/user";
 import {
   usingOpenId,
@@ -69,8 +70,8 @@ function getUsersQuery(search?: string, superAdminsOnly?: boolean) {
   if (search) {
     and.push({
       $or: [
-        { name: { $regex: `${search}.*`, $options: "i" } },
-        { email: { $regex: `${search}`, $options: "i" } },
+        { name: { $regex: escapeRegExp(search), $options: "i" } },
+        { email: { $regex: escapeRegExp(search), $options: "i" } },
       ],
     });
   }
@@ -111,6 +112,8 @@ export async function getTotalNumUsers(
 }
 
 export async function getUserById(id: string): Promise<UserInterface | null> {
+  // Global collection: an object here would act as a query operator
+  if (id && typeof id !== "string") return null;
   const user = await getCollection(COLLECTION).findOne({ id });
   return user ? toInterface(user) : null;
 }
@@ -244,6 +247,7 @@ export async function getUserIdsAndEmailsForAllUsersInDb() {
 }
 
 export async function getEmailFromUserId(userId: string) {
+  if (userId && typeof userId !== "string") return "";
   const u = await getCollection(COLLECTION).findOne({ id: userId });
   return u?.email || "";
 }

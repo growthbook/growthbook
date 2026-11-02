@@ -5,9 +5,12 @@ import Callout from "@/ui/Callout";
 export default function HostWarning({
   host,
   setHost,
+  showAllowlist = true,
 }: {
   host?: string;
   setHost: (host: string) => void;
+  /** The connect page puts this in the setup instructions instead. */
+  showAllowlist?: boolean;
 }) {
   // Trying to connect to localhost
   if (
@@ -50,7 +53,7 @@ export default function HostWarning({
     );
   }
 
-  if (isCloud()) {
+  if (showAllowlist && isCloud()) {
     return (
       <Callout status="info" mb="3">
         If your database is behind a firewall, add GrowthBook Cloud&apos;s ip (
