@@ -372,6 +372,7 @@ export default function IdentifierModal({
                   {mappable.map((d) => {
                     const editable = canEdit(d);
                     const linked = linkedType(d);
+                    const locked = !!linked || !editable;
                     const isChecked = isEdit
                       ? !!linked || d.id in picks
                       : editable && !uncheckedIds.includes(d.id);
@@ -380,9 +381,21 @@ export default function IdentifierModal({
                         <TableCell>
                           <Checkbox
                             label={
-                              <Flex align="center" gap="2">
+                              <Flex
+                                align="center"
+                                gap="2"
+                                style={
+                                  locked
+                                    ? { color: "var(--color-text-disabled)" }
+                                    : undefined
+                                }
+                              >
                                 <PiDatabase />
-                                <Text>{d.name}</Text>
+                                <Text
+                                  color={locked ? "text-disabled" : undefined}
+                                >
+                                  {d.name}
+                                </Text>
                               </Flex>
                             }
                             weight="medium"
@@ -394,7 +407,7 @@ export default function IdentifierModal({
                                 : undefined
                             }
                             value={isChecked}
-                            disabled={!!linked || !editable}
+                            disabled={locked}
                             disabledMessage={
                               linked
                                 ? `Linked as ${linked}. Change it from the Data Source.`
