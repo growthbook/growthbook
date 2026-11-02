@@ -821,6 +821,7 @@ export async function getExperimentByTrackingKey(
   context: ReqContext | ApiReqContext,
   trackingKey: string,
 ): Promise<ExperimentInterface | null> {
+  if (trackingKey && typeof trackingKey !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     trackingKey,
