@@ -386,14 +386,12 @@ export default function IdentifierModal({
                                 gap="2"
                                 style={
                                   locked
-                                    ? { color: "var(--color-text-disabled)" }
+                                    ? { color: "var(--color-text-low)" }
                                     : undefined
                                 }
                               >
                                 <PiDatabase />
-                                <Text
-                                  color={locked ? "text-disabled" : undefined}
-                                >
+                                <Text color={locked ? "text-low" : undefined}>
                                   {d.name}
                                 </Text>
                               </Flex>
