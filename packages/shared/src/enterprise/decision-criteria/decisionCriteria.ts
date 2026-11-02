@@ -769,11 +769,7 @@ export function getExperimentResultStatus({
   const unhealthyStatuses = [
     ...(unhealthyData.srm ? ["SRM"] : []),
     ...(unhealthyData.multipleExposures
-      ? [
-          isClusterSummary
-            ? "Sub-unit multiple exposures"
-            : "Multiple exposures",
-        ]
+      ? [isClusterSummary ? "Subunit multiple exposures" : "Multiple exposures"]
       : []),
     ...(unhealthyData.lowPowered ? ["Low powered"] : []),
     ...(unhealthyData.covariateImbalance ? ["Pre-exposure bias"] : []),

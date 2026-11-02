@@ -232,15 +232,21 @@ export default function HealthTab({
       const hasClusterIssue =
         (!!assignment && !assignment.error && assignment.mixedClusters > 0) ||
         (!!mapping && !mapping.error && mapping.multiClusterUnits > 0);
-      const clusterNoun =
-        snapshot.settings.exposureQueryIdentifierType || "cluster";
+      const clusterId = snapshot.settings.exposureQueryIdentifierType;
       return (
         <>
           {hasClusterIssue ? (
             <Callout status="warning" mt="3">
               No units remain after the cluster checks below removed every
-              inconsistent {clusterNoun}. Fix the issues below, then refresh
-              results.
+              inconsistent{" "}
+              {clusterId ? (
+                <>
+                  <IdentifierCode>{clusterId}</IdentifierCode> value
+                </>
+              ) : (
+                "cluster"
+              )}
+              . Fix the issues below, then refresh results.
             </Callout>
           ) : (
             <Callout status="info" mt="3">

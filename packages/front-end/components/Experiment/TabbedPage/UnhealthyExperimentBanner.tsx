@@ -52,12 +52,12 @@ function getHealthIssues(
     multipleExposures
       ? {
           label: isClusterExperiment
-            ? "Sub-unit multiple exposures"
+            ? "Subunit multiple exposures"
             : "Multiple exposures",
           severe: true,
           detail: removedFromResults(
             multipleExposures.multipleExposedUsers,
-            isClusterExperiment ? "sub-unit" : "user",
+            isClusterExperiment ? "subunit" : "user",
             multipleExposures.rawDecimal,
             "saw more than one variation",
           ),

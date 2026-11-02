@@ -31,7 +31,16 @@ export default function MultipleExposureWarning({
   const settings = useOrgSettings();
 
   if (error) {
-    return <Callout status="error">Unable to run this check: {error}</Callout>;
+    return (
+      <Callout status="error">
+        <strong>
+          {isClusterExperiment
+            ? "Subunit Multiple Exposures Check"
+            : "Multiple Exposures Check"}
+        </strong>
+        . Unable to run this check: {error}
+      </Callout>
+    );
   }
 
   // For bandits, show warning only if sticky bucketing is enabled
@@ -64,11 +73,11 @@ export default function MultipleExposureWarning({
     <Callout status="warning">
       <strong>
         {isClusterExperiment
-          ? "Sub-unit Multiple Exposures Warning"
+          ? "Subunit Multiple Exposures Warning"
           : "Multiple Exposures Warning"}
       </strong>
       . {numberFormatter.format(multipleExposures)}{" "}
-      {isClusterExperiment ? "sub-units" : "users"} (
+      {isClusterExperiment ? "subunits" : "users"} (
       {percentFormatter.format(multipleExposureHealth.rawDecimal)}) saw multiple
       variations and were automatically removed from results. Check for bugs in
       your implementation, event tracking, or data pipeline.

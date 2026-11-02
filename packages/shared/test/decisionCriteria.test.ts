@@ -2222,7 +2222,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
           multipleExposedUsers: 200,
         },
       },
-      tooltip: "Sub-unit multiple exposures",
+      tooltip: "Subunit multiple exposures",
     });
   });
 
@@ -2259,7 +2259,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
           multipleExposedUsers: 200,
         },
       },
-      tooltip: "Sub-unit multiple exposures",
+      tooltip: "Subunit multiple exposures",
     });
   });
 

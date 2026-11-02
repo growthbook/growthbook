@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from "react";
-import { Separator } from "@radix-ui/themes";
 import { getMultipleExposureHealthData } from "shared/health";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
@@ -7,7 +6,7 @@ import {
 } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
-import { StatusBadge } from "./StatusBadge";
+import HealthCard from "./HealthCard";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
@@ -40,7 +39,11 @@ export default function MultipleExposuresCard({
 }: Props) {
   const settings = useOrgSettings();
 
-  const unitNoun = isClusterExperiment ? "sub-units" : "units";
+  const unitNoun = isClusterExperiment ? "subunits" : "units";
+  const title = isClusterExperiment
+    ? "Subunit Multiple Exposures Check"
+    : "Multiple Exposures Check";
+  const description = `Detects whether ${unitNoun} have been exposed to multiple variations`;
 
   const minPercentThreshold =
     settings?.multipleExposureMinPercent ??
@@ -61,7 +64,7 @@ export default function MultipleExposuresCard({
     if (!error && health.status === "unhealthy" && onNotify) {
       onNotify({
         label: isClusterExperiment
-          ? "Sub-unit Multiple Exposures"
+          ? "Subunit Multiple Exposures"
           : "Multiple Exposures",
         value: "multipleExposures",
       });
@@ -72,22 +75,9 @@ export default function MultipleExposuresCard({
 
   if (error) {
     return (
-      <div className="appbox p-3">
-        <h2 className="d-inline">
-          {isClusterExperiment
-            ? "Sub-unit Multiple Exposures Check"
-            : "Multiple Exposures Check"}
-        </h2>
-        <p className="mt-1">
-          Detects whether {unitNoun} have been exposed to multiple variations
-        </p>
-        <Separator size="4" my="3" />
-        <div className="row justify-content-start">
-          <div className="ml-2 mr-2 mt-1 w-100">
-            <Callout status="error">Unable to run this check: {error}</Callout>
-          </div>
-        </div>
-      </div>
+      <HealthCard title={title} description={description} status="healthy">
+        <Callout status="error">Unable to run this check: {error}</Callout>
+      </HealthCard>
     );
   }
 
@@ -96,50 +86,35 @@ export default function MultipleExposuresCard({
   }
 
   return (
-    <div className="appbox p-3">
-      <h2 className="d-inline">
-        {isClusterExperiment
-          ? "Sub-unit Multiple Exposures Check"
-          : "Multiple Exposures Check"}
-      </h2>{" "}
-      {health.status !== "healthy" && <StatusBadge status={health.status} />}
-      <p className="mt-1">
-        Detects whether {unitNoun} have been exposed to multiple variations
-      </p>
-      <Separator size="4" my="3" />
-      <div className="row justify-content-start">
-        <div className="ml-2 mr-2 mt-1 w-100">
-          {health.status === "healthy" ? (
-            <Callout status="success">
-              {multipleExposures === 0 ? (
-                <b>Multiple exposures were not detected.</b>
-              ) : (
-                `${numberFormatter.format(
-                  multipleExposures,
-                )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
-                  minPercentThreshold,
-                )}`
-              )}
-            </Callout>
+    <HealthCard title={title} description={description} status={health.status}>
+      {health.status === "healthy" ? (
+        <Callout status="success">
+          {multipleExposures === 0 ? (
+            <b>Multiple exposures were not detected.</b>
           ) : (
-            <Callout status="warning">
-              <strong>
-                {isClusterExperiment
-                  ? "Sub-unit Multiple Exposures Warning"
-                  : "Multiple Exposures Warning"}
-              </strong>
-              . {numberFormatter.format(multipleExposures)} {unitNoun} (
-              {percentFormatter.format(health.rawDecimal)}) saw multiple
-              variations
-              {isBandit
-                ? " and were left out of the balance check, but remain in results on their first exposure"
-                : " and were automatically removed from results"}
-              . Check for bugs in your implementation, event tracking, or data
-              pipeline.
-            </Callout>
+            `${numberFormatter.format(
+              multipleExposures,
+            )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
+              minPercentThreshold,
+            )}`
           )}
-        </div>
-      </div>
-    </div>
+        </Callout>
+      ) : (
+        <Callout status="warning">
+          <strong>
+            {isClusterExperiment
+              ? "Subunit Multiple Exposures Warning"
+              : "Multiple Exposures Warning"}
+          </strong>
+          . {numberFormatter.format(multipleExposures)} {unitNoun} (
+          {percentFormatter.format(health.rawDecimal)}) saw multiple variations
+          {isBandit
+            ? " and were left out of the balance check, but remain in results on their first exposure"
+            : " and were automatically removed from results"}
+          . Check for bugs in your implementation, event tracking, or data
+          pipeline.
+        </Callout>
+      )}
+    </HealthCard>
   );
 }
