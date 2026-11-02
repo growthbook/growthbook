@@ -22,7 +22,7 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
-import Tooltip from "@/ui/Tooltip";
+import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Table, {
   TableBody,
@@ -376,27 +376,21 @@ export default function IdentifierModal({
                       ? !!linked || d.id in picks
                       : editable && !uncheckedIds.includes(d.id);
                     return (
-                      <TableRow key={d.id}>
+                      <TableRow
+                        key={d.id}
+                        style={
+                          linked ? { background: "var(--gray-a2)" } : undefined
+                        }
+                      >
                         <TableCell>
-                          {linked || !editable ? (
-                            <Tooltip
-                              content={
-                                linked
-                                  ? `Linked as ${linked}. Change it from the Data Source.`
-                                  : "You don't have permission to edit this Data Source"
-                              }
-                            >
-                              <Flex align="center" gap="2">
-                                <PiLockSimple
-                                  aria-label={linked ? "Linked" : "Locked"}
-                                  color="var(--gray-11)"
-                                />
-                                <PiDatabase />
-                                <Text weight="medium" color="text-mid">
-                                  {d.name}
-                                </Text>
-                              </Flex>
-                            </Tooltip>
+                          {linked ? (
+                            // Lines up with the names of the checkbox rows.
+                            <Flex align="center" gap="2" pl="5">
+                              <PiDatabase />
+                              <Text weight="medium" color="text-mid">
+                                {d.name}
+                              </Text>
+                            </Flex>
                           ) : (
                             <Checkbox
                               label={
@@ -414,6 +408,8 @@ export default function IdentifierModal({
                                   : undefined
                               }
                               value={isChecked}
+                              disabled={!editable}
+                              disabledMessage="You don't have permission to edit this Data Source"
                               setValue={(v) => {
                                 if (isEdit) {
                                   setPicks((p) => {
@@ -437,9 +433,12 @@ export default function IdentifierModal({
                           <>
                             <TableCell>
                               {linked ? (
-                                <Text size="sm" color="text-mid" mono>
-                                  {linked}
-                                </Text>
+                                <Flex align="center" gap="2">
+                                  <Text size="sm" color="text-mid" mono>
+                                    {linked}
+                                  </Text>
+                                  <Badge label="Linked" color="gray" />
+                                </Flex>
                               ) : !(d.id in picks) ? (
                                 <Text color="text-low">—</Text>
                               ) : (
