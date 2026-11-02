@@ -5,6 +5,7 @@ import {
   SELF_HOSTED_DEFAULT_AI_MODELS,
 } from "shared/ai";
 import type { AIProvider } from "shared/ai";
+import type { AICustomModel } from "shared/validators";
 import type { AIKeySource } from "back-end/src/services/aiCredentials";
 
 // IS_CLOUD is captured at module load, so each case builds its own module
@@ -14,7 +15,11 @@ type AISettingsContext = Parameters<
   OrganizationsModule["getAISettingsForOrg"]
 >[0];
 
-const loadModule = (isCloud: boolean, owned: AIProvider[]) => {
+const loadModule = (
+  isCloud: boolean,
+  owned: AIProvider[],
+  customModels: AICustomModel[] = [],
+) => {
   let mod: OrganizationsModule | undefined;
   jest.isolateModules(() => {
     jest.doMock("back-end/src/util/secrets", () => ({
@@ -36,6 +41,7 @@ const loadModule = (isCloud: boolean, owned: AIProvider[]) => {
           ]),
         ),
       ),
+      getEnvCustomModels: () => customModels,
       canOrgChooseProviderModels: (
         source: Record<AIProvider, AIKeySource>,
         provider: AIProvider,
@@ -53,6 +59,12 @@ const makeContext = (settings: Record<string, unknown>): AISettingsContext =>
   ({
     org: { id: "org_1", settings: { aiEnabled: true, ...settings } },
   }) as unknown as AISettingsContext;
+
+const MY_GPT: AICustomModel = {
+  provider: "openai",
+  id: "my-gpt",
+  apiFormat: "chat",
+};
 
 describe("getAISettingsForOrg model resolution", () => {
   it("keeps the Visual Editor on Sonnet when a Cloud org sets its own default", async () => {
@@ -139,50 +151,22 @@ describe("getAISettingsForOrg model resolution", () => {
     expect(settings.visualEditorAIModel).toBe("gpt-5.2");
   });
 
-  it("uses a custom model the org defines", async () => {
-    const mod = loadModule(true, ["openai"]);
+  it("uses a custom model from AI_CUSTOM_MODELS", async () => {
+    const mod = loadModule(false, ["openai"], [MY_GPT]);
     const settings = await mod.getAISettingsForOrg(
-      makeContext({
-        defaultAIModel: "custom:openai:my-gpt",
-        aiCustomModels: [
-          {
-            provider: "openai",
-            id: "my-gpt",
-            apiFormat: "chat",
-            vision: false,
-          },
-        ],
-      }),
+      makeContext({ defaultAIModel: "custom:openai:my-gpt" }),
     );
 
     expect(settings.defaultAIModel).toBe("custom:openai:my-gpt");
+    expect(settings.customModels).toEqual([MY_GPT]);
   });
 
   it("ignores a custom model that is no longer defined", async () => {
     const mod = loadModule(false, ["openai"]);
     const settings = await mod.getAISettingsForOrg(
-      makeContext({ defaultAIModel: "custom:openai:gone", aiCustomModels: [] }),
+      makeContext({ defaultAIModel: "custom:openai:gone" }),
     );
 
     expect(settings.defaultAIModel).toBe("gpt-5.4-mini");
-  });
-
-  it("ignores a Cloud custom model whose provider runs on the managed key", async () => {
-    const mod = loadModule(true, ["anthropic"]);
-    const settings = await mod.getAISettingsForOrg(
-      makeContext({
-        defaultAIModel: "custom:openai:my-gpt",
-        aiCustomModels: [
-          {
-            provider: "openai",
-            id: "my-gpt",
-            apiFormat: "chat",
-            vision: false,
-          },
-        ],
-      }),
-    );
-
-    expect(settings.defaultAIModel).toBe(CLOUD_MANAGED_AI_MODEL);
   });
 });

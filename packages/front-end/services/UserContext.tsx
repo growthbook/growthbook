@@ -39,7 +39,11 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import Cookies from "js-cookie";
-import { AgreementType, SdkPayloadSizeAlert } from "shared/validators";
+import {
+  AICustomModel,
+  AgreementType,
+  SdkPayloadSizeAlert,
+} from "shared/validators";
 import { AIProvider, STTModel } from "shared/ai";
 import { NonJsonResponseError } from "shared/util";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
@@ -136,6 +140,8 @@ export interface UserContextValue {
   aiKeyProviders: AIProvider[];
   // Resolved dictation model, null when unavailable. Hides the mic button.
   sttModel: STTModel | null;
+  // Self-hosted models from AI_CUSTOM_MODELS, offered in every model picker.
+  aiCustomModels: AICustomModel[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
@@ -189,6 +195,7 @@ export const UserContext = createContext<UserContextValue>({
   agreements: [],
   aiKeyProviders: [],
   sttModel: null,
+  aiCustomModels: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -620,6 +627,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         agreements: currentOrg?.agreements || [],
         aiKeyProviders: currentOrg?.aiKeyProviders || [],
         sttModel: currentOrg?.sttModel || null,
+        aiCustomModels: currentOrg?.aiCustomModels || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,

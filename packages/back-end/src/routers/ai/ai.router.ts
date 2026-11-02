@@ -33,12 +33,7 @@ router.put(
     // No max length or format check: key formats are the providers' to change,
     // and a stale regex here would lock admins out of a valid key. The key is
     // verified against the provider before it is stored.
-    // The base URL travels with the key, so pointing a stored key at a new
-    // endpoint always means re-entering it.
-    body: z.object({
-      apiKey: z.string().min(1),
-      baseUrl: z.string().max(2048).optional(),
-    }),
+    body: z.object({ apiKey: z.string().min(1) }),
   }),
   AIController.putAICredential,
 );

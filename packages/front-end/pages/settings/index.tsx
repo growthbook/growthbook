@@ -220,7 +220,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       aiAskDataEnabled: settings.aiAskDataEnabled ?? false,
       aiAutocompleteEnabled: settings.aiAutocompleteEnabled ?? true,
       aiAutocompleteModel: knownTextModel(settings.aiAutocompleteModel),
-      aiCustomModels: settings.aiCustomModels ?? [],
       disabledAgentSkills: settings.disabledAgentSkills ?? [],
       // Seeding a model on Cloud would persist it on the next save of any
       // setting, silently taking the org off the managed default.
@@ -296,7 +295,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiAskDataEnabled: form.watch("aiAskDataEnabled"),
     aiAutocompleteEnabled: form.watch("aiAutocompleteEnabled"),
     aiAutocompleteModel: form.watch("aiAutocompleteModel") || undefined,
-    aiCustomModels: form.watch("aiCustomModels"),
     disabledAgentSkills: form.watch("disabledAgentSkills"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),

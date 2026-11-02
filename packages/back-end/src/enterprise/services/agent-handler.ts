@@ -6,7 +6,6 @@ import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import { getMessageText, stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 import { offScreenDashboardWriteRejection } from "shared/enterprise";
-import { getPublicAIErrorMessage } from "back-end/src/enterprise/services/aiProviderErrors";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
@@ -190,6 +189,8 @@ const activeStreamControllers = new Map<string, AbortController>();
 const SSE_KEEPALIVE_MS = 15_000;
 // Keep this below the client's 60-second stale-stream threshold.
 const DB_HEARTBEAT_MS = 30_000;
+const PUBLIC_STREAM_ERROR =
+  "The assistant ran into an unexpected error. Please try again.";
 
 // SSE pings keep the connection open; Mongo updates support reloads and
 // cancellation handled by another server instance.
@@ -370,14 +371,14 @@ async function executeAgentTurn<TParams>({
   // GrowthBook's model while a BYOK org gets the one it picked — silently
   // discarding those picks was the bug. Also catches a stored model
   // disallowed mid-conversation by a downgrade.
-  const { keySource, defaultAIModel, customModels } = await getAISettingsForOrg(
+  const { keySource, defaultAIModel } = await getAISettingsForOrg(
     context,
     false,
   );
   const overrideModel: AIModel | undefined =
-    getAllowedAIModel("text", storedModel, keySource, customModels) ||
-    getAllowedAIModel("text", body.model, keySource, customModels) ||
-    getAllowedAIModel("text", dbOverrideModel, keySource, customModels);
+    getAllowedAIModel("text", storedModel, keySource) ||
+    getAllowedAIModel("text", body.model, keySource) ||
+    getAllowedAIModel("text", dbOverrideModel, keySource);
 
   const resolvedModel = overrideModel || defaultAIModel;
 
@@ -1048,9 +1049,8 @@ async function processStream<TParams>(
             },
             "AI agent model stream failed",
           );
-          const message = getPublicAIErrorMessage((part as ErrorPart).error);
-          emit("error", { message });
-          processor.setError(message);
+          emit("error", { message: PUBLIC_STREAM_ERROR });
+          processor.setError(PUBLIC_STREAM_ERROR);
           break;
         }
         case "file":
@@ -1084,9 +1084,8 @@ async function processStream<TParams>(
         },
         "AI agent stream processing failed",
       );
-      const message = getPublicAIErrorMessage(err);
-      emit("error", { message });
-      processor.setError(message);
+      emit("error", { message: PUBLIC_STREAM_ERROR });
+      processor.setError(PUBLIC_STREAM_ERROR);
     }
   }
 

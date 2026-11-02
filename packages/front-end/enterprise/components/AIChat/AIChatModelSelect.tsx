@@ -27,8 +27,7 @@ export default function AIChatModelSelect({
 }: AIChatModelSelectProps) {
   const { defaultAIModel } = useAISettings();
   // From the org payload, so this doesn't add a request to every chat surface.
-  const { aiKeyProviders, settings } = useUser();
-  const customModels = settings?.aiCustomModels;
+  const { aiKeyProviders, aiCustomModels: customModels } = useUser();
   const options = useMemo(
     () => getAvailableAIModelOptions(aiKeyProviders, value, customModels),
     [aiKeyProviders, value, customModels],

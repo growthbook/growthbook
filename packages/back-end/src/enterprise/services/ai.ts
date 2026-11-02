@@ -61,6 +61,7 @@ import {
 } from "back-end/src/services/organizations";
 import {
   AIKeySource,
+  getAIClientOptions,
   missingAIKeyMessage,
 } from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
@@ -73,7 +74,6 @@ import {
   estimateAIStepsUsd,
 } from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { getAIClientOptions } from "back-end/src/services/aiEndpoint";
 
 const usesOwnAIKey = (
   keySource: Record<AIProvider, AIKeySource>,
@@ -106,7 +106,6 @@ export const getAIProviderClass = async (
     xaiAPIKey,
     mistralAPIKey,
     googleAPIKey,
-    baseUrls,
     customModels,
   } = await getAISettingsForOrg(context, true);
 
@@ -131,38 +130,34 @@ export const getAIProviderClass = async (
       throw new Error(missingAIKeyMessage("anthropic"));
     }
     const anthropic = createAnthropic(
-      getAIClientOptions(anthropicAPIKey, baseUrls.anthropic),
+      getAIClientOptions("anthropic", anthropicAPIKey),
     );
     return (m) => anthropic(modelId(m));
   } else if (selectedProvider === "xai") {
     if (!xaiAPIKey) {
       throw new Error(missingAIKeyMessage("xai"));
     }
-    const xai = createXai(getAIClientOptions(xaiAPIKey, baseUrls.xai));
+    const xai = createXai(getAIClientOptions("xai", xaiAPIKey));
     return (m) => xai(modelId(m));
   } else if (selectedProvider === "mistral") {
     if (!mistralAPIKey) {
       throw new Error(missingAIKeyMessage("mistral"));
     }
-    const mistral = createMistral(
-      getAIClientOptions(mistralAPIKey, baseUrls.mistral),
-    );
+    const mistral = createMistral(getAIClientOptions("mistral", mistralAPIKey));
     return (m) => mistral(modelId(m));
   } else if (selectedProvider === "google") {
     if (!googleAPIKey) {
       throw new Error(missingAIKeyMessage("google"));
     }
     const google = createGoogleGenerativeAI(
-      getAIClientOptions(googleAPIKey, baseUrls.google),
+      getAIClientOptions("google", googleAPIKey),
     );
     return (m) => google(modelId(m));
   } else {
     if (!openAIAPIKey) {
       throw new Error(missingAIKeyMessage("openai"));
     }
-    const openai = createOpenAI(
-      getAIClientOptions(openAIAPIKey, baseUrls.openai),
-    );
+    const openai = createOpenAI(getAIClientOptions("openai", openAIAPIKey));
     return (m) =>
       findCustomModel(m, customModels)?.apiFormat === "chat"
         ? openai.chat(modelId(m))
@@ -1288,7 +1283,6 @@ export async function generateEmbeddings({
     googleAPIKey,
     embeddingModel,
     keySource,
-    baseUrls,
   } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
@@ -1304,22 +1298,18 @@ export async function generateEmbeddings({
     if (!openAIAPIKey) {
       throw new Error("OpenAI API key not set");
     }
-    aiProvider = createOpenAI(
-      getAIClientOptions(openAIAPIKey, baseUrls.openai),
-    );
+    aiProvider = createOpenAI(getAIClientOptions("openai", openAIAPIKey));
   } else if (provider === "mistral") {
     if (!mistralAPIKey) {
       throw new Error("Mistral API key not set");
     }
-    aiProvider = createMistral(
-      getAIClientOptions(mistralAPIKey, baseUrls.mistral),
-    );
+    aiProvider = createMistral(getAIClientOptions("mistral", mistralAPIKey));
   } else if (provider === "google") {
     if (!googleAPIKey) {
       throw new Error("Google AI API key not set");
     }
     aiProvider = createGoogleGenerativeAI(
-      getAIClientOptions(googleAPIKey, baseUrls.google),
+      getAIClientOptions("google", googleAPIKey),
     );
   } else {
     throw new Error(`Unsupported embedding provider: ${provider}`);

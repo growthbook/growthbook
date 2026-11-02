@@ -405,6 +405,8 @@ export const ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL || "";
 export const XAI_BASE_URL = process.env.XAI_BASE_URL || "";
 export const MISTRAL_BASE_URL = process.env.MISTRAL_BASE_URL || "";
 export const GOOGLE_AI_BASE_URL = process.env.GOOGLE_AI_BASE_URL || "";
+// JSON array of extra model ids, e.g. ones only a gateway serves.
+export const AI_CUSTOM_MODELS = process.env.AI_CUSTOM_MODELS || "";
 // Pin a specific model ID — if your key returns 404, hit
 // /v1beta/models to find an ID your account has access to and override.
 export const GEMINI_IMAGE_MODEL =

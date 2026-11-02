@@ -13,8 +13,10 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
-import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
-import { getAIClientOptions } from "back-end/src/services/aiEndpoint";
+import {
+  getAIClientOptions,
+  missingAIKeyMessage,
+} from "back-end/src/services/aiCredentials";
 import { logger } from "back-end/src/util/logger";
 
 // Unified image-generation entrypoint. Dispatches between dedicated
@@ -69,7 +71,7 @@ async function getImageProvider(
   | ReturnType<typeof createOpenAI>
   | ReturnType<typeof createXai>
 > {
-  const { aiEnabled, googleAPIKey, openAIAPIKey, xaiAPIKey, baseUrls } =
+  const { aiEnabled, googleAPIKey, openAIAPIKey, xaiAPIKey } =
     await getAISettingsForOrg(context, true);
   if (!aiEnabled) {
     throw new Error(
@@ -80,17 +82,15 @@ async function getImageProvider(
     if (!googleAPIKey) {
       throw new Error(missingAIKeyMessage("google"));
     }
-    return createGoogleGenerativeAI(
-      getAIClientOptions(googleAPIKey, baseUrls.google),
-    );
+    return createGoogleGenerativeAI(getAIClientOptions("google", googleAPIKey));
   }
   if (meta.provider === "openai") {
     if (!openAIAPIKey) throw new Error(missingAIKeyMessage("openai"));
-    return createOpenAI(getAIClientOptions(openAIAPIKey, baseUrls.openai));
+    return createOpenAI(getAIClientOptions("openai", openAIAPIKey));
   }
   if (meta.provider === "xai") {
     if (!xaiAPIKey) throw new Error(missingAIKeyMessage("xai"));
-    return createXai(getAIClientOptions(xaiAPIKey, baseUrls.xai));
+    return createXai(getAIClientOptions("xai", xaiAPIKey));
   }
   throw new Error(`Unsupported image provider: ${meta.provider}`);
 }

@@ -296,8 +296,6 @@ export interface OrganizationSettings {
   // AI Assistant skill names turned off for this org, so new skills start enabled.
   disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
-  // Text models outside the built-in list, referenced as `custom:<provider>:<id>`.
-  aiCustomModels?: AICustomModel[];
   embeddingModel?: EmbeddingModel;
   // Voice dictation. Unset resolves in getAISettingsForOrg.
   sttModel?: STTModel;
@@ -593,6 +591,8 @@ export type GetOrganizationResponse = {
   aiKeyProviders: AIProvider[];
   // Resolved dictation model, null when unavailable. Hides the mic button.
   sttModel: STTModel | null;
+  // Self-hosted models from AI_CUSTOM_MODELS, offered in every model picker.
+  aiCustomModels: AICustomModel[];
 };
 
 export type DailyUsage = {

@@ -157,7 +157,7 @@ export const AI_PROVIDER_MODEL_MAP = {
 
 export type BuiltInAIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
-// How a setting refers to one of the org's custom models (see aiCustomModels).
+// How a setting refers to a custom model from AI_CUSTOM_MODELS.
 export type CustomAIModel = `custom:${AIProvider}:${string}`;
 
 export type AIModel = BuiltInAIModel | CustomAIModel;

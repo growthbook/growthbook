@@ -8,20 +8,18 @@ export const aiCredentialSchema = createBaseSchemaWithPrimaryKey({
 }).safeExtend({
   encryptedKey: z.string(),
   last4: z.string(),
-  // Empty or missing means the provider's own API.
-  baseUrl: z.string().optional(),
   updatedByEmail: z.string(),
 });
 
 // A model id the built-in list doesn't know, typically one a gateway exposes.
-// Everything we can't safely default is the admin's to state.
+// Self-hosted admins list these in the AI_CUSTOM_MODELS env var.
 export const aiCustomModelSchema = z
   .object({
     provider: z.enum(AI_PROVIDERS),
     id: z.string().trim().min(1).max(256),
     // OpenAI only. Many gateways implement Chat Completions but not Responses.
     apiFormat: z.enum(["responses", "chat"]).optional(),
-    vision: z.boolean(),
+    vision: z.boolean().optional(),
   })
   .strict()
   .refine((m) => (m.provider === "openai") === !!m.apiFormat, {

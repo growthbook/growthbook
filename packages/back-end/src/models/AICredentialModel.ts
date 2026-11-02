@@ -22,7 +22,6 @@ const BaseClass = MakeModelClass({
       "organization",
       "provider",
       "last4",
-      "baseUrl",
       "updatedByEmail",
       "dateCreated",
       "dateUpdated",
@@ -59,7 +58,6 @@ export class AICredentialModel extends BaseClass {
     fields: {
       encryptedKey: string;
       last4: string;
-      baseUrl: string;
       updatedByEmail: string;
     },
   ): Promise<AICredentialInterface> {
@@ -110,7 +108,6 @@ export class AICredentialModel extends BaseClass {
         organization,
         provider,
         last4,
-        baseUrl,
         updatedByEmail,
         dateCreated,
         dateUpdated,
@@ -118,7 +115,6 @@ export class AICredentialModel extends BaseClass {
         organization,
         provider,
         last4,
-        baseUrl,
         updatedByEmail,
         dateCreated,
         dateUpdated,

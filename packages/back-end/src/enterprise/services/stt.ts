@@ -6,10 +6,12 @@ import {
 } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
-import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
+import {
+  getEnvBaseUrl,
+  missingAIKeyMessage,
+} from "back-end/src/services/aiCredentials";
 import { recordSTTUsage } from "back-end/src/enterprise/services/ai";
 import { fetch } from "back-end/src/util/http.util";
-import { getAIEndpointFetch } from "back-end/src/services/aiEndpoint";
 
 const STT_PATHS: Record<STTProvider, string> = {
   openai: "/audio/transcriptions",
@@ -48,17 +50,13 @@ export async function transcribeAudio(
   // xAI's /v1/stt serves one model and documents no `model` field.
   if (provider !== "xai") form.append("model", sttModel);
 
-  const baseUrl = settings.baseUrls[provider];
-  const url = `${baseUrl || AI_PROVIDER_META[provider].defaultBaseUrl}${STT_PATHS[provider]}`;
-  const init = {
+  const baseUrl =
+    getEnvBaseUrl(provider) || AI_PROVIDER_META[provider].defaultBaseUrl;
+  const res = await fetch(`${baseUrl}${STT_PATHS[provider]}`, {
     method: "POST",
-    headers: { ...form.getHeaders(), Authorization: `Bearer ${apiKey}` },
-    body: form.getBuffer(),
-  };
-  const guardedFetch = getAIEndpointFetch(baseUrl);
-  const res = guardedFetch
-    ? await guardedFetch(url, init)
-    : await fetch(url, init);
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
   if (!res.ok) {
     throw new Error(`Transcription failed (HTTP ${res.status})`);
   }

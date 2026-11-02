@@ -1,8 +1,10 @@
 import { AES, enc } from "crypto-js";
 import { AIProvider, AI_PROVIDERS, AI_PROVIDER_META } from "shared/ai";
+import { AICustomModel, aiCustomModelsValidator } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  AI_CUSTOM_MODELS,
   ANTHROPIC_API_KEY,
   ANTHROPIC_BASE_URL,
   ENCRYPTION_KEY,
@@ -17,13 +19,8 @@ import {
   XAI_API_KEY,
   XAI_BASE_URL,
 } from "back-end/src/util/secrets";
-import { fetch } from "back-end/src/util/http.util";
+import { fetch, trimTrailingSlashes } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
-import {
-  getAIEndpointFetch,
-  isNonPublicAIEndpointError,
-  normalizeAIBaseUrl,
-} from "back-end/src/services/aiEndpoint";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -32,8 +29,6 @@ export type AIKeySource = "organization" | "env" | "none";
 export type ResolvedAIKey = {
   key: string;
   source: AIKeySource;
-  // "" means the provider's own API.
-  baseUrl: string;
 };
 
 export type ResolvedAIKeys = Record<AIProvider, ResolvedAIKey>;
@@ -71,28 +66,69 @@ function getEnvKey(provider: AIProvider): string {
   }
 }
 
+// A gateway or proxy to send a provider's requests to instead of its public
+// API. Self-hosted only; "" means the provider's own API.
 export function getEnvBaseUrl(provider: AIProvider): string {
+  if (IS_CLOUD) return "";
   const raw = {
     openai: OPENAI_BASE_URL,
     anthropic: ANTHROPIC_BASE_URL,
     xai: XAI_BASE_URL,
     mistral: MISTRAL_BASE_URL,
     google: GOOGLE_AI_BASE_URL,
-  }[provider];
+  }[provider].trim();
   if (!raw) return "";
-  const { baseUrl, error } = normalizeAIBaseUrl(raw, { cloud: false });
-  if (error !== undefined) {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("must start with https:// or http://");
+    }
+    return trimTrailingSlashes(url.toString());
+  } catch (e) {
     logger.error(
-      `aiCredentials: ignoring ${AI_PROVIDER_META[provider].baseUrlEnvVar}: ${error}`,
+      `aiCredentials: ignoring ${AI_PROVIDER_META[provider].baseUrlEnvVar}: ${e instanceof Error ? e.message : e}`,
     );
     return "";
   }
-  return baseUrl;
+}
+
+// Options shared by every AI SDK provider factory.
+export function getAIClientOptions(
+  provider: AIProvider,
+  apiKey: string,
+): { apiKey: string; baseURL?: string } {
+  const baseURL = getEnvBaseUrl(provider);
+  return baseURL ? { apiKey, baseURL } : { apiKey };
+}
+
+let envCustomModels: AICustomModel[] | null = null;
+
+// Self-hosted only. Parsed once; a bad value is logged and ignored.
+export function getEnvCustomModels(): AICustomModel[] {
+  if (IS_CLOUD || !AI_CUSTOM_MODELS) return [];
+  if (envCustomModels) return envCustomModels;
+  envCustomModels = [];
+  try {
+    const parsed = aiCustomModelsValidator.safeParse(
+      JSON.parse(AI_CUSTOM_MODELS),
+    );
+    if (parsed.success) {
+      envCustomModels = parsed.data;
+    } else {
+      const issue = parsed.error.issues[0];
+      logger.error(
+        `aiCredentials: ignoring AI_CUSTOM_MODELS: ${issue?.path.join(".")} ${issue?.message}`,
+      );
+    }
+  } catch {
+    logger.error("aiCredentials: ignoring AI_CUSTOM_MODELS: not valid JSON");
+  }
+  return envCustomModels;
 }
 
 const emptyResolvedKeys = (): ResolvedAIKeys =>
   AI_PROVIDERS.reduce((acc, provider) => {
-    acc[provider] = { key: "", source: "none", baseUrl: "" };
+    acc[provider] = { key: "", source: "none" };
     return acc;
   }, {} as ResolvedAIKeys);
 
@@ -105,12 +141,7 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
   for (const provider of AI_PROVIDERS) {
     const envKey = getEnvKey(provider);
     if (envKey) {
-      resolved[provider] = {
-        key: envKey,
-        source: "env",
-        // Cloud's env keys are GrowthBook's own and always use the provider's API.
-        baseUrl: IS_CLOUD ? "" : getEnvBaseUrl(provider),
-      };
+      resolved[provider] = { key: envKey, source: "env" };
     }
   }
 
@@ -144,14 +175,7 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
       continue;
     }
 
-    resolved[credential.provider] = {
-      key,
-      source: "organization",
-      // Self-hosted: a stored key without its own base URL follows the env var.
-      baseUrl:
-        credential.baseUrl ||
-        (IS_CLOUD ? "" : getEnvBaseUrl(credential.provider)),
-    };
+    resolved[credential.provider] = { key, source: "organization" };
   }
 
   return resolved;
@@ -222,39 +246,20 @@ const VERIFY_ENDPOINTS: Record<
 export async function verifyAIKey(
   provider: AIProvider,
   key: string,
-  baseUrl: string = "",
 ): Promise<{ valid: boolean; message?: string }> {
+  const baseUrl = getEnvBaseUrl(provider);
   const { label: providerLabel, defaultBaseUrl } = AI_PROVIDER_META[provider];
   const label = baseUrl ? `${providerLabel} endpoint` : providerLabel;
   const { path, headers } = VERIFY_ENDPOINTS[provider];
-  const url = `${baseUrl || defaultBaseUrl}${path}`;
 
-  let status: number;
-  let ok: boolean;
+  let response: Awaited<ReturnType<typeof fetch>>;
   try {
-    const guardedFetch = getAIEndpointFetch(baseUrl);
-    if (guardedFetch) {
-      const res = await guardedFetch(url, {
-        method: "GET",
-        headers: headers(key),
-        signal: AbortSignal.timeout(10000),
-      });
-      ({ status, ok } = res);
-    } else {
-      const res = await fetch(url, {
-        method: "GET",
-        headers: headers(key),
-        timeout: 10000,
-      });
-      ({ status, ok } = res);
-    }
+    response = await fetch(`${baseUrl || defaultBaseUrl}${path}`, {
+      method: "GET",
+      headers: headers(key),
+      timeout: 10000,
+    });
   } catch (e) {
-    if (isNonPublicAIEndpointError(e)) {
-      return {
-        valid: false,
-        message: "The base URL must point to a publicly reachable host.",
-      };
-    }
     logger.warn(
       e,
       `aiCredentials: could not reach ${label} to verify the API key`,
@@ -265,20 +270,20 @@ export async function verifyAIKey(
     };
   }
 
-  if (status === 401 || status === 403) {
+  if (response.status === 401 || response.status === 403) {
     return {
       valid: false,
       message: `${label} rejected this API key. Double-check that you copied it correctly and that it is still active.`,
     };
   }
 
-  if (!ok) {
+  if (!response.ok) {
     logger.warn(
-      `aiCredentials: ${label} returned ${status} while verifying an API key`,
+      `aiCredentials: ${label} returned ${response.status} while verifying an API key`,
     );
     return {
       valid: true,
-      message: `${label} returned an unexpected response (${status}), so the key was saved unchecked.`,
+      message: `${label} returned an unexpected response (${response.status}), so the key was saved unchecked.`,
     };
   }
 
@@ -286,8 +291,7 @@ export async function verifyAIKey(
   if (baseUrl) {
     return {
       valid: true,
-      message:
-        "Saved, but keys sent through a custom endpoint can't be fully verified. Try an AI feature to confirm it works.",
+      message: `Saved, but keys sent through ${baseUrl} can't be fully verified. Try an AI feature to confirm it works.`,
     };
   }
 

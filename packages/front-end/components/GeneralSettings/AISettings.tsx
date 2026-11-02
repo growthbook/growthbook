@@ -14,7 +14,6 @@ import {
   getProviderForAIModel,
   resolveDefaultSTTModel,
 } from "shared/ai";
-import type { AICustomModel } from "shared/validators";
 import {
   EMBEDDING_MODEL_OPTIONS,
   getAvailableAIModelOptions,
@@ -41,7 +40,6 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
-import CustomAIModels from "./CustomAIModels";
 import AgentSkillsSettings from "./AgentSkillsSettings";
 
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
@@ -234,7 +232,11 @@ export default function AISettings({
   const [loading, setLoading] = useState(false);
   const [embeddingMsg, setEmbeddingMsg] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const { hasCommercialFeature, aiKeyProviders } = useUser();
+  const {
+    hasCommercialFeature,
+    aiKeyProviders,
+    aiCustomModels: customModels,
+  } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const aiProviderAccess = useAIProviderKeys();
   const {
@@ -266,8 +268,6 @@ export default function AISettings({
         : defaultAIModel,
     ),
   };
-
-  const customModels: AICustomModel[] = form.watch("aiCustomModels") ?? [];
 
   const clearModelSettings = (keys: AIModelSettingKey[]) => {
     keys.forEach((key) => form.setValue(key, ""));
@@ -425,38 +425,6 @@ export default function AISettings({
                 aiEnabled={form.watch("aiEnabled") && aiAgreedTo}
                 onCleared={clearModelSettings}
               />
-
-              {form.watch("aiEnabled") && canChooseModels && (
-                <CustomAIModels
-                  models={customModels}
-                  providers={availableProviders ?? []}
-                  canEdit={canEdit}
-                  onChange={(models, removedKey) => {
-                    form.setValue("aiCustomModels", models, {
-                      shouldDirty: true,
-                    });
-                    if (!removedKey) return;
-                    (
-                      [
-                        "defaultAIModel",
-                        "aiAutocompleteModel",
-                        "visualEditorAIModel",
-                      ] as const
-                    ).forEach((key) => {
-                      if (form.getValues(key) === removedKey) {
-                        form.setValue(key, "", { shouldDirty: true });
-                      }
-                    });
-                    Object.entries(promptForm.getValues()).forEach(
-                      ([key, value]) => {
-                        if (key.endsWith("-model") && value === removedKey) {
-                          promptForm.setValue(key, "", { shouldDirty: true });
-                        }
-                      },
-                    );
-                  }}
-                />
-              )}
 
               {form.watch("aiEnabled") && canChooseModels && (
                 <>
