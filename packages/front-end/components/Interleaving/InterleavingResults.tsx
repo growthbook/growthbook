@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowClockwise, PiInfo } from "react-icons/pi";
+import { PiArrowClockwise } from "react-icons/pi";
 import { startCase } from "lodash";
 import type {
   ApiInterleavingInterface,
@@ -25,12 +25,11 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import Metadata from "@/ui/Metadata";
+import AnalysisSettingInfo from "@/ui/AnalysisSettingInfo";
 import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import StatusErrorCallout from "@/components/ContextualBandit/StatusErrorCallout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Text from "@/ui/Text";
 
 const SECTIONS: {
   type: InterleavingAnalysis["type"];
@@ -155,15 +154,7 @@ export default function InterleavingResults({
       </Flex>
       <Frame px="0" py="0" style={{ overflow: "hidden" }}>
         <Box px="3" pt="3" pb="1">
-          <Flex align="center" justify="between" gapX="6" gapY="2" wrap="wrap">
-            <Box style={{ flex: "1 0 auto", order: -1 }}>
-              <QueriesLastRun
-                status={queryStatus}
-                dateCreated={
-                  snapshot ? new Date(snapshot.dateCreated) : undefined
-                }
-              />
-            </Box>
+          <Flex align="center" justify="end" gapX="6" gapY="2" wrap="wrap">
             <Flex align="center" gap="4">
               {usersExposed !== undefined && (
                 <Metadata
@@ -172,6 +163,12 @@ export default function InterleavingResults({
                   style={{ whiteSpace: "nowrap" }}
                 />
               )}
+              <QueriesLastRun
+                status={queryStatus}
+                dateCreated={
+                  snapshot ? new Date(snapshot.dateCreated) : undefined
+                }
+              />
               <Flex align="center" gap="2">
                 <Button
                   onClick={refresh}
@@ -244,11 +241,10 @@ export default function InterleavingResults({
                   labelHeader={
                     <Flex align="center" gap="1">
                       {INTERLEAVING_ANALYSIS_TITLES[type]}
-                      <Tooltip body={description}>
-                        <Text size="lg">
-                          <PiInfo style={{ color: "var(--violet-11)" }} />
-                        </Text>
-                      </Tooltip>
+                      <AnalysisSettingInfo
+                        ariaLabel={`What ${INTERLEAVING_ANALYSIS_TITLES[type]} analysis measures`}
+                        description={description}
+                      />
                     </Flex>
                   }
                   renderLabelColumn={renderLabelColumn}

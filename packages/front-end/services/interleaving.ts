@@ -22,8 +22,32 @@ export function interleavingResultToSnapshotMetrics(
 ): [SnapshotMetric, SnapshotMetric] {
   const { test } = r;
   const denominator = r.denominator ?? r.users;
+  const control = {
+    value: r.control.value,
+    cr: r.control.cr,
+    users: r.users,
+    denominator,
+  };
+
+  // A failed test has no bounds to draw. ResultsTable only shows the error row
+  // for computeFailed with no users, so widening null bounds to +/-Infinity
+  // here would draw an invented interval instead.
+  if (test.errorMessage) {
+    return [
+      { ...control, users: 0 },
+      {
+        value: r.treatment.value,
+        cr: r.treatment.cr,
+        users: 0,
+        denominator,
+        errorMessage: test.errorMessage,
+        computeFailed: true,
+      },
+    ];
+  }
+
   return [
-    { value: r.control.value, cr: r.control.cr, users: r.users, denominator },
+    control,
     {
       value: r.treatment.value,
       cr: r.treatment.cr,
@@ -32,7 +56,6 @@ export function interleavingResultToSnapshotMetrics(
       expected: test.expected,
       ci: [test.ci[0] ?? -Infinity, test.ci[1] ?? Infinity],
       pValue: test.pValue ?? undefined,
-      errorMessage: test.errorMessage ?? undefined,
     },
   ];
 }

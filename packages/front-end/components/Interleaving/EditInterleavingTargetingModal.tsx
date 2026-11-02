@@ -27,6 +27,9 @@ export default function EditInterleavingTargetingModal({
     .map((a) => a.property);
 
   const [hashAttribute, setHashAttribute] = useState(il.hashAttribute);
+  // The server rejects a hashAttribute change while running, and rejects the
+  // whole update with it, so coverage edits would be lost too.
+  const isRunning = il.status === "running";
   const [coverage, setCoverage] = useState(il.coverage ?? 1);
   const [condition, setCondition] = useState(il.condition ?? "");
   const [conditionKey, setConditionKey] = useState(0);
@@ -66,10 +69,10 @@ export default function EditInterleavingTargetingModal({
         await mutate();
       }}
     >
-      {il.status === "running" && (
+      {isRunning && (
         <Callout status="warning" mb="3">
           This experiment is running. Saved changes apply to live traffic
-          immediately.
+          immediately, and the hash attribute is locked.
         </Callout>
       )}
       <Flex gap="3">
@@ -79,8 +82,13 @@ export default function EditInterleavingTargetingModal({
             value={hashAttribute}
             onChange={setHashAttribute}
             options={hashAttributes.map((a) => ({ value: a, label: a }))}
-            createable
-            helpText="Decides which units are interleaved."
+            createable={!isRunning}
+            disabled={isRunning}
+            helpText={
+              isRunning
+                ? "Stop this experiment to change which units are interleaved. Changing it mid-flight would rebucket everyone."
+                : "Decides which units are interleaved."
+            }
           />
         </Box>
         <Box flexGrow="1">

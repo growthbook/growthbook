@@ -19,6 +19,7 @@ import VariationLabel from "@/ui/VariationLabel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SortedTags from "@/components/Tags/SortedTags";
 import Owner from "@/components/Avatar/Owner";
+import InterleavingForm from "@/enterprise/components/Interleaving/InterleavingForm";
 import InterleavingOverview from "./InterleavingOverview";
 import InterleavingResults from "./InterleavingResults";
 import InterleavingMoreMenu from "./InterleavingMoreMenu";
@@ -52,6 +53,7 @@ export default function InterleavingDetailPage({
   const [analysisModal, setAnalysisModal] = useState(false);
   const [environmentsModal, setEnvironmentsModal] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [duplicateModal, setDuplicateModal] = useState(false);
   const [descriptionModal, setDescriptionModal] = useState(false);
 
   const canRun =
@@ -116,6 +118,7 @@ export default function InterleavingDetailPage({
             mutate={mutate}
             onEditInfo={() => setInfoModal(true)}
             onEditStatus={() => setStatusModal(true)}
+            onDuplicate={() => setDuplicateModal(true)}
             onAuditLog={() => setAuditModal(true)}
           />
         </Flex>
@@ -246,6 +249,13 @@ export default function InterleavingDetailPage({
         <CompareInterleavingEventsModal
           interleavingId={il.id}
           onClose={() => setAuditModal(false)}
+        />
+      )}
+      {duplicateModal && (
+        <InterleavingForm
+          onClose={() => setDuplicateModal(false)}
+          initialValue={il}
+          duplicate
         />
       )}
 

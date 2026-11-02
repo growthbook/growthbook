@@ -21,12 +21,14 @@ export default function InterleavingMoreMenu({
   mutate,
   onEditInfo,
   onEditStatus,
+  onDuplicate,
   onAuditLog,
 }: {
   interleaving: ApiInterleavingInterface;
   mutate: () => Promise<unknown>;
   onEditInfo?: () => void;
   onEditStatus?: () => void;
+  onDuplicate?: () => void;
   onAuditLog?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -54,6 +56,9 @@ export default function InterleavingMoreMenu({
   const canDelete =
     permissionsUtil.canDeleteInterleaving({ project: il.project }) &&
     !interleavingInSDKPayload(il);
+  const canDuplicate = permissionsUtil.canCreateInterleaving({
+    project: il.project,
+  });
 
   const setArchived = async (archived: boolean) => {
     await restApiCall(interleavingEndpoints.updateInterleaving, {
@@ -63,7 +68,7 @@ export default function InterleavingMoreMenu({
     await mutate();
   };
 
-  if (!canUpdate && !canDelete && !onAuditLog) return null;
+  if (!canUpdate && !canDelete && !canDuplicate && !onAuditLog) return null;
 
   const togglingArchiveServes =
     interleavingInSDKPayload(il) ||
@@ -108,6 +113,16 @@ export default function InterleavingMoreMenu({
           }}
         >
           Edit status
+        </DropdownMenuItem>
+      )}
+      {canDuplicate && onDuplicate && (
+        <DropdownMenuItem
+          onClick={() => {
+            setOpen(false);
+            onDuplicate();
+          }}
+        >
+          Duplicate
         </DropdownMenuItem>
       )}
       {onAuditLog && (

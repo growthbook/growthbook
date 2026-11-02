@@ -11,7 +11,6 @@ import InterleavingAnalysisFields, {
   getAnalysisError,
   InterleavingAnalysisValue,
 } from "./InterleavingAnalysisFields";
-import { getMetricsError } from "./InterleavingMetricsInput";
 
 export function analysisOf(
   il: ApiInterleavingInterface,
@@ -74,8 +73,7 @@ export default function EditInterleavingAnalysisModal({
       cta="Save"
       size="lg"
       submit={async () => {
-        const error =
-          getAnalysisError(analysis) ?? getMetricsError(analysis.metrics);
+        const error = getAnalysisError(analysis);
         if (error) throw new Error(error);
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },

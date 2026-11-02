@@ -33,6 +33,34 @@ describe("interleavingResultToSnapshotMetrics", () => {
     expect(treatment.expected).toBe(0.05);
     expect(treatment.pValue).toBeUndefined();
     expect(treatment.errorMessage).toBeUndefined();
+    expect(treatment.computeFailed).toBeUndefined();
+  });
+
+  it("reports a failed test instead of inventing bounds", () => {
+    const [control, treatment] = interleavingResultToSnapshotMetrics({
+      metricId: "fact__m",
+      analysis: { type: "paired" },
+      users: 100,
+      denominator: 250,
+      control: { value: 10, cr: 0.04 },
+      treatment: { value: 15, cr: 0.06 },
+      test: {
+        method: "paired_delta_t",
+        expected: 0,
+        ci: [null, null],
+        pValue: null,
+        errorMessage: "ZERO_VARIANCE",
+        pValueErrorMessage: null,
+      },
+    });
+    // ResultsTable gates its error row on computeFailed && !users
+    expect(treatment.computeFailed).toBe(true);
+    expect(treatment.errorMessage).toBe("ZERO_VARIANCE");
+    expect(treatment.users).toBe(0);
+    expect(control.users).toBe(0);
+    expect(treatment.ci).toBeUndefined();
+    expect(treatment.expected).toBeUndefined();
+    expect(treatment.pValue).toBeUndefined();
   });
 });
 

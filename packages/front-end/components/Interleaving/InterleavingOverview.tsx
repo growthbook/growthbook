@@ -16,8 +16,7 @@ import { INTERLEAVING_ANALYSIS_TITLES } from "@/services/interleaving";
 import Markdown from "@/components/Markdown/Markdown";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import InterleavingVariationsInput from "./InterleavingVariationsInput";
-import { rankersOf } from "./EditInterleavingRankersModal";
+import InterleavingRankersDisplay from "./InterleavingRankersDisplay";
 
 const EMPTY = <Text color="text-mid">--</Text>;
 
@@ -192,11 +191,9 @@ export default function InterleavingOverview({
       </OverviewSection>
 
       <OverviewSection title="Rankers" onEdit={editRankers}>
-        <InterleavingVariationsInput
-          value={rankersOf(il)}
-          setValue={() => undefined}
+        <InterleavingRankersDisplay
+          variations={il.variations}
           jsonSchema={il.jsonSchema}
-          disabled
         />
       </OverviewSection>
 

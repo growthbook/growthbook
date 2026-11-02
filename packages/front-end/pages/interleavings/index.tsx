@@ -55,8 +55,7 @@ const DATE_LABELS: Record<Exclude<ListTab, "all">, string> = {
 };
 
 const InterleavingsPage = (): React.ReactElement => {
-  const { ready, project, getProjectById, getDatasourceById } =
-    useDefinitions();
+  const { ready, project, getProjectById } = useDefinitions();
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const gb = useGrowthBook<AppFeatures>();
@@ -88,11 +87,9 @@ const InterleavingsPage = (): React.ReactElement => {
           projectName: il.project
             ? (getProjectById(il.project)?.name ?? il.project)
             : "",
-          datasourceName:
-            getDatasourceById(il.datasourceId)?.name ?? il.datasourceId,
         };
       }),
-    [interleavings, getOwnerDisplay, getProjectById, getDatasourceById],
+    [interleavings, getOwnerDisplay, getProjectById],
   );
 
   const {
@@ -262,8 +259,8 @@ const InterleavingsPage = (): React.ReactElement => {
                         Project
                       </SortableTableColumnHeader>
                     )}
-                    <SortableTableColumnHeader field="datasourceName">
-                      Data Source
+                    <SortableTableColumnHeader field="key">
+                      Key
                     </SortableTableColumnHeader>
                     <SortableTableColumnHeader field="tags">
                       Tags
@@ -289,29 +286,13 @@ const InterleavingsPage = (): React.ReactElement => {
                             color: "var(--gray-12)",
                           }}
                         >
-                          <div
-                            style={{ display: "flex", flexDirection: "column" }}
-                          >
-                            <span className="testname">{il.name}</span>
-                            {isFiltered && il.key !== il.name && (
-                              <span
-                                className="testid"
-                                title="Key"
-                                style={{
-                                  fontSize: "var(--font-size-1)",
-                                  color: "var(--gray-10)",
-                                }}
-                              >
-                                {il.key}
-                              </span>
-                            )}
-                          </div>
+                          <span className="testname">{il.name}</span>
                         </Link>
                       </TableCell>
                       {showProjectColumn && (
                         <TableCell>{il.projectName || <em>None</em>}</TableCell>
                       )}
-                      <TableCell>{il.datasourceName}</TableCell>
+                      <TableCell>{il.key}</TableCell>
                       <TableCell>
                         <SortedTags
                           tags={il.tags}

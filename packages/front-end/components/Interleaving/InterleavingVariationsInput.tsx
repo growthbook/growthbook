@@ -51,12 +51,10 @@ export default function InterleavingVariationsInput({
   value,
   setValue,
   jsonSchema = null,
-  disabled,
 }: {
   value: InterleavingRankers;
   setValue: (value: InterleavingRankers) => void;
   jsonSchema?: ApiInterleavingInterface["jsonSchema"];
-  disabled?: boolean;
 }) {
   const update = (
     role: keyof InterleavingRankers,
@@ -96,7 +94,6 @@ export default function InterleavingVariationsInput({
                 label="Key"
                 value={ranker.key}
                 onChange={(e) => update(role, { key: e.target.value })}
-                disabled={disabled}
                 required
                 containerClassName="flex-1"
               />
@@ -104,7 +101,6 @@ export default function InterleavingVariationsInput({
                 label="Name"
                 value={ranker.name}
                 onChange={(e) => update(role, { name: e.target.value })}
-                disabled={disabled}
                 containerClassName="flex-1"
               />
             </Flex>
@@ -112,7 +108,6 @@ export default function InterleavingVariationsInput({
               label="Description"
               value={ranker.description ?? ""}
               onChange={(e) => update(role, { description: e.target.value })}
-              disabled={disabled}
             />
             <CodeTextArea
               label="Config (JSON)"
@@ -121,7 +116,6 @@ export default function InterleavingVariationsInput({
               setValue={(config) => update(role, { config })}
               minLines={4}
               maxLines={16}
-              disabled={disabled}
               error={getRankerConfigError(ranker.config, jsonSchema) ?? ""}
               helpText="Passed to getList() in the SDK for this ranker."
             />

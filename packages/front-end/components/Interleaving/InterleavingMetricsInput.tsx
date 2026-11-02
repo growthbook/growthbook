@@ -1,6 +1,6 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { useCallback } from "react";
+import { Box } from "@radix-ui/themes";
 import {
-  INTERLEAVING_RANKING_ID_COLUMN,
   type InterleavingAnalysis,
   type InterleavingMetricConfig,
 } from "shared/validators";
@@ -8,8 +8,6 @@ import { isFactMetric } from "shared/experiments";
 import { getInterleavingMetricIssue } from "shared/util";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/ui/MultiSelectField";
-import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { INTERLEAVING_ANALYSIS_TITLES } from "@/services/interleaving";
 
@@ -19,23 +17,24 @@ const PREFERENCE: InterleavingAnalysis = {
   attribution: "exposureCount",
 };
 
-// Declaration order is the display order; the select is rendered with
-// sort={false} so it stays Paired then Preference.
-const ANALYSIS_OPTIONS: {
+const SELECTORS: {
   type: InterleavingAnalysis["type"];
   analysis: InterleavingAnalysis;
+  description: string;
 }[] = [
-  { type: "paired", analysis: PAIRED },
-  { type: "preference", analysis: PREFERENCE },
+  {
+    type: "paired",
+    analysis: PAIRED,
+    description:
+      "Credited per engaged impression, compared within the same ranked list. Additionally needs a `ranking_id` column.",
+  },
+  {
+    type: "preference",
+    analysis: PREFERENCE,
+    description:
+      "Each exposed user is credited to the ranker whose items they engaged with more.",
+  },
 ];
-
-export function getMetricsError(
-  metrics: InterleavingMetricConfig[],
-): string | null {
-  return metrics.some((m) => m.analyses.length === 0)
-    ? "Select at least one analysis for each metric"
-    : null;
-}
 
 export default function InterleavingMetricsInput({
   value,
@@ -54,129 +53,92 @@ export default function InterleavingMetricsInput({
 }) {
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
-  const supportsPaired = (metricId: string) => {
-    const metric = getExperimentMetricById(metricId);
-    if (!metric || !isFactMetric(metric) || !metric.numerator) return false;
-    const factTable = getFactTableById(metric.numerator.factTableId);
-    return !!factTable?.columns.some(
-      (c) => c.column === INTERLEAVING_RANKING_ID_COLUMN && !c.deleted,
-    );
-  };
+  // The shared util's only use of `analyses` is to require ranking_id for
+  // paired, so each selector gates itself by passing its own analysis.
+  const issueFor = useCallback(
+    (metricId: string, analyses: InterleavingAnalysis[]) => {
+      const metric = getExperimentMetricById(metricId);
+      if (!metric || !isFactMetric(metric)) return { disabled: false };
+      const factTable = metric.numerator
+        ? getFactTableById(metric.numerator.factTableId)
+        : undefined;
+      const issue = getInterleavingMetricIssue({
+        metric,
+        factTable: factTable ?? undefined,
+        userIdType,
+        analyses,
+      });
+      return issue ? { disabled: true, reason: issue } : { disabled: false };
+    },
+    [getExperimentMetricById, getFactTableById, userIdType],
+  );
 
-  const getMetricDisabledInfo = (metricId: string) => {
-    const metric = getExperimentMetricById(metricId);
-    if (!metric || !isFactMetric(metric)) return { disabled: false };
-    const factTable = metric.numerator
-      ? getFactTableById(metric.numerator.factTableId)
-      : undefined;
-    const issue = getInterleavingMetricIssue({
-      metric,
-      factTable: factTable ?? undefined,
-      userIdType,
-      analyses: [],
-    });
-    return issue ? { disabled: true, reason: issue } : { disabled: false };
-  };
+  const pairedDisabledInfo = useCallback(
+    (metricId: string) => issueFor(metricId, [PAIRED]),
+    [issueFor],
+  );
+  const preferenceDisabledInfo = useCallback(
+    (metricId: string) => issueFor(metricId, []),
+    [issueFor],
+  );
 
-  const setAnalyses = (metricId: string, types: string[]) =>
-    setValue(
-      value.map((m) =>
-        m.id === metricId
-          ? {
-              ...m,
-              // Rebuild from the canonical objects so attribution survives
-              analyses: ANALYSIS_OPTIONS.filter((o) =>
-                types.includes(o.type),
-              ).map((o) => o.analysis),
-            }
-          : m,
-      ),
-    );
+  const selectedFor = (type: InterleavingAnalysis["type"]) =>
+    value
+      .filter((m) => m.analyses.some((a) => a.type === type))
+      .map((m) => m.id);
+
+  // Rebuilt from both lists on every change: a metric in neither is omitted
+  // (Zod requires analyses.min(1)) and one in both is a single config.
+  const setSelected = (type: InterleavingAnalysis["type"], ids: string[]) => {
+    const next = new Map<string, InterleavingAnalysis[]>();
+    for (const { type: t, analysis } of SELECTORS) {
+      const selected = t === type ? ids : selectedFor(t);
+      for (const id of selected) {
+        next.set(id, [...(next.get(id) ?? []), analysis]);
+      }
+    }
+    setValue([...next].map(([id, analyses]) => ({ id, analyses })));
+  };
 
   return (
     <Box>
-      <Box mb="3">
-        <Box mb="2">
-          <Text as="label" weight="semibold">
-            Metrics
-          </Text>
+      {SELECTORS.map(({ type, description }) => (
+        <Box key={type} mb="3">
+          <Box mb="1">
+            <Text as="label" weight="semibold">
+              {INTERLEAVING_ANALYSIS_TITLES[type]} metrics
+            </Text>
+          </Box>
+          <Box mb="2">
+            <Text as="p" size="sm" color="text-mid">
+              {description}
+            </Text>
+          </Box>
+          <MetricsSelector
+            datasource={datasource}
+            exposureQueryIdentifierType={userIdType}
+            project={project}
+            selected={selectedFor(type)}
+            onChange={(ids) => setSelected(type, ids)}
+            includeFacts
+            includeGroups={false}
+            noLegacyMetrics
+            noManual
+            excludeQuantiles
+            allowedFactMetricTypes={["mean", "proportion"]}
+            getMetricDisabledInfo={
+              type === "paired" ? pairedDisabledInfo : preferenceDisabledInfo
+            }
+            disabled={disabled || !datasource}
+          />
         </Box>
-        <MetricsSelector
-          datasource={datasource}
-          exposureQueryIdentifierType={userIdType}
-          project={project}
-          selected={value.map((m) => m.id)}
-          onChange={(ids) =>
-            setValue(
-              ids.map(
-                (id) =>
-                  value.find((m) => m.id === id) ?? {
-                    id,
-                    analyses: supportsPaired(id)
-                      ? [PAIRED, PREFERENCE]
-                      : [PREFERENCE],
-                  },
-              ),
-            )
-          }
-          includeFacts
-          includeGroups={false}
-          noLegacyMetrics
-          noManual
-          excludeQuantiles
-          allowedFactMetricTypes={["mean", "proportion"]}
-          getMetricDisabledInfo={getMetricDisabledInfo}
-          disabled={disabled || !datasource}
-          helpText="All metrics must come from a Fact Table with an `item_id` column. Paired analysis additionally needs a `ranking_id` column."
-        />
+      ))}
+      <Box mb="3">
+        <Text as="p" size="sm" color="text-mid">
+          All metrics must come from a Fact Table with an <code>item_id</code>{" "}
+          column.
+        </Text>
       </Box>
-      {value.length > 0 && (
-        <Flex direction="column" gap="2" mb="3">
-          {value.map((m) => {
-            const pairedOk = supportsPaired(m.id);
-            return (
-              <Flex key={m.id} align="center" gap="4">
-                <Box flexGrow="1">
-                  <Text weight="medium">
-                    {getExperimentMetricById(m.id)?.name ?? m.id}
-                  </Text>
-                </Box>
-                <Box width="260px">
-                  <MultiSelectField
-                    aria-label="Analyses"
-                    containerClassName="mb-0"
-                    showCopyButton={false}
-                    sort={false}
-                    placeholder="Select analyses"
-                    value={m.analyses.map((a) => a.type)}
-                    options={ANALYSIS_OPTIONS.map((o) => ({
-                      value: o.type,
-                      label: INTERLEAVING_ANALYSIS_TITLES[o.type],
-                      tooltip:
-                        o.type === "paired" && !pairedOk
-                          ? `Paired analysis needs a '${INTERLEAVING_RANKING_ID_COLUMN}' column on this metric's fact table.`
-                          : undefined,
-                    }))}
-                    // A stale paired selection stays removable; it just can't
-                    // be added back without the column.
-                    isOptionDisabled={(o) =>
-                      !("options" in o) &&
-                      o.value === "paired" &&
-                      !pairedOk &&
-                      !m.analyses.some((a) => a.type === "paired")
-                    }
-                    onChange={(types) => setAnalyses(m.id, types)}
-                    disabled={disabled}
-                  />
-                </Box>
-              </Flex>
-            );
-          })}
-          {getMetricsError(value) && (
-            <HelperText status="error">{getMetricsError(value)}</HelperText>
-          )}
-        </Flex>
-      )}
     </Box>
   );
 }

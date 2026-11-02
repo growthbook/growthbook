@@ -290,6 +290,25 @@ describe("getInterleavingMetricQuery", () => {
     expect(sql).toMatch(/GROUP BY\s+e\."user-id",/);
   });
 
+  // Quoting is exact-match, so the identifier has to be folded the way the
+  // warehouse folded the customer's unquoted `AS user_id` alias first.
+  it("folds the exposure identifier to the dialect's unquoted case", () => {
+    const snowflake = getInterleavingMetricQuery(snowflakeDialect, {
+      ...baseParams,
+      userIdType: "user_id",
+      metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
+    });
+    expect(snowflake).toContain('e."USER_ID"');
+    expect(snowflake).not.toContain('e."user_id"');
+
+    const postgres = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      userIdType: "userId",
+      metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
+    });
+    expect(postgres).toContain('e."userid"');
+  });
+
   it("resolves a virtual item_id through getColumnExpression", () => {
     const virtualTable = factTableFactory.build({
       id: "ft_virtual",

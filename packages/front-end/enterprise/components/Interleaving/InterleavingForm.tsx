@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
+import type { ApiInterleavingInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
@@ -21,8 +22,8 @@ import InterleavingAnalysisFields, {
   getAnalysisError,
   InterleavingAnalysisValue,
 } from "@/components/Interleaving/InterleavingAnalysisFields";
-import { getMetricsError } from "@/components/Interleaving/InterleavingMetricsInput";
 import AddEditInterleavingExposureQueryModal from "@/components/Interleaving/AddEditInterleavingExposureQueryModal";
+import { rankersOf } from "@/components/Interleaving/EditInterleavingRankersModal";
 
 const DEFAULT_RANKERS: InterleavingRankers = {
   control: { key: "control", name: "Control", config: "{}" },
@@ -50,7 +51,18 @@ type InterleavingFormValues = {
   hashAttribute: string;
 };
 
-export default function InterleavingForm({ onClose }: { onClose: () => void }) {
+export default function InterleavingForm({
+  onClose,
+  initialValue,
+  duplicate,
+}: {
+  onClose: () => void;
+  // Prefilled copy for Duplicate. `key` is carried over deliberately: several
+  // experiments may share one so you can iterate without changing code, and
+  // the serving conflict is only checked on Start.
+  initialValue?: ApiInterleavingInterface;
+  duplicate?: boolean;
+}) {
   const router = useRouter();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
@@ -63,23 +75,24 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
   const { userId } = useUser();
 
   const [step, setStep] = useState(0);
-  const [keyEdited, setKeyEdited] = useState(false);
+  const [keyEdited, setKeyEdited] = useState(!!initialValue);
   const [addingQuery, setAddingQuery] = useState(false);
   const [analysis, setAnalysis] = useState<InterleavingAnalysisValue>({
-    datasourceId: "",
-    interleavingExposureQueryId: "",
-    userIdType: "",
-    metrics: [],
+    datasourceId: initialValue?.datasourceId ?? "",
+    interleavingExposureQueryId:
+      initialValue?.interleavingExposureQueryId ?? "",
+    userIdType: initialValue?.userIdType ?? "",
+    metrics: initialValue?.metrics ?? [],
   });
 
   const form = useForm<InterleavingFormValues>({
     defaultValues: {
-      project: currentProject,
-      name: "",
-      key: "",
-      owner: userId || "",
-      tags: [],
-      hashAttribute: "id",
+      project: initialValue?.project ?? currentProject,
+      name: initialValue ? `${initialValue.name} (Copy)` : "",
+      key: initialValue?.key ?? "",
+      owner: initialValue?.owner || userId || "",
+      tags: initialValue?.tags ?? [],
+      hashAttribute: initialValue?.hashAttribute ?? "id",
     },
   });
   const project = form.watch("project");
@@ -111,7 +124,14 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
     Object.fromEntries(
       environments.map((e) => [
         e.id,
-        { enabled: (e.defaultState ?? true) && canEnableEnvironment(e.id) },
+        {
+          // A copy keeps the original's key, which can only serve in one
+          // environment at a time, so start it everywhere off.
+          enabled:
+            !duplicate &&
+            (e.defaultState ?? true) &&
+            canEnableEnvironment(e.id),
+        },
       ]),
     ),
   );
@@ -123,7 +143,6 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
 
   const submit = form.handleSubmit(async (data) => {
     assertNoError(getAnalysisError(analysis));
-    assertNoError(getMetricsError(analysis.metrics));
     const res = await restApiCall(interleavingEndpoints.createInterleaving, {
       body: {
         name: data.name.trim(),
@@ -132,13 +151,18 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
         owner: data.owner || undefined,
         tags: data.tags,
         hashAttribute: data.hashAttribute,
-        variations: DEFAULT_RANKERS,
+        variations: initialValue ? rankersOf(initialValue) : DEFAULT_RANKERS,
         environmentSettings: Object.fromEntries(
           Object.entries(environmentSettings).map(([id, s]) => [
             id,
             { ...s, enabled: s.enabled && canEnableEnvironment(id) },
           ]),
         ),
+        jsonSchema: initialValue?.jsonSchema ?? undefined,
+        coverage: initialValue?.coverage,
+        condition: initialValue?.condition,
+        savedGroups: initialValue?.savedGroups,
+        prerequisites: initialValue?.prerequisites,
         ...analysis,
       },
     });
@@ -177,7 +201,11 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
   return (
     <PagedModal
       trackingEventModalType="interleaving-form"
-      header="Add Interleaving Experiment"
+      header={
+        duplicate
+          ? "Duplicate Interleaving Experiment"
+          : "Add Interleaving Experiment"
+      }
       close={onClose}
       submit={submit}
       cta="Create"

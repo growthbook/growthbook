@@ -1,4 +1,8 @@
-import { buildMinimalOrCondition, format, quoteIdentifier } from "shared/sql";
+import {
+  buildMinimalOrCondition,
+  format,
+  quoteColumnIdentifier,
+} from "shared/sql";
 import {
   getColumnExpression,
   getColumnRefWhereClause,
@@ -247,7 +251,7 @@ export function getInterleavingMetricQuery(
   const castKey = dialect.castToFilterString ?? dialect.castToString;
   const itemId = castKey(item(INTERLEAVING_ITEM_FIELD_ITEM_ID));
   const exposureRankingId = castKey(`e.${INTERLEAVING_RANKING_ID_COLUMN}`);
-  const exposureUserId = `e.${quoteIdentifier(userIdType, dialect.identifierQuote)}`;
+  const exposureUserId = `e.${quoteColumnIdentifier(userIdType, dialect)}`;
 
   // One row per (user, ranking, competitive item). Grouping collapses
   // double-logged impressions (SDK retries) and repeated items in a list.
