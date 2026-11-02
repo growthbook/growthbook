@@ -76,6 +76,7 @@
                     "pages": [
                       "features/rules",
                       "features/targeting",
+                      "features/remote-saved-groups",
                       "features/safe-rollouts",
                       "features/ramp-schedules",
                       "features/prerequisites",

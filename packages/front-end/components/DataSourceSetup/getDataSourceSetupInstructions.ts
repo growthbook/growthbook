@@ -74,7 +74,6 @@ const CLOUD_EGRESS_IP = "52.70.79.40";
 // Event Forwarder ingestors write from the egress IP, plus this one when the
 // eu-west-1 region is selected.
 const EU_INGESTOR_IP = "54.74.233.97";
-const EU_INGESTOR_NOTE = `\`${EU_INGESTOR_IP}\` is only needed if you choose the eu-west-1 data region when setting up the Event Forwarder.`;
 
 // Every field the SQL above depends on is already in the form by now, so the
 // last step is only the test.
@@ -165,9 +164,8 @@ function sqlStringLiteral(value: string, dialect: SqlDialect): string {
 
 /**
  * The credential a user statement sets, in two forms: `display` for the
- * screen and `copy` for the clipboard. A password in the form shows as a mask
- * with the exact value on Copy, so the query runs without the secret ever
- * being visible. A public key or identity binding is the same in both.
+ * screen and `copy` for the clipboard. A password or generated public key
+ * shows as a mask, and Copy includes the real value.
  */
 type CredentialLiteral = {
   /** The form holds a real value, as opposed to a placeholder. */
@@ -274,9 +272,9 @@ function cidrList(ips: string[]): string {
 
 /**
  * The "Allow network access" step. Lists the Cloud egress IP, plus the EU
- * ingestor when the Event Forwarder may write from eu-west-1. The note only
- * appears while the region is still the user's to choose. `code` formats the
- * list for the warehouse; the default is one CIDR per line.
+ * ingestor when the Event Forwarder may write from eu-west-1. Both addresses
+ * are listed together. `code` formats the list for the warehouse; the default
+ * is one CIDR per line.
  */
 function networkAccessStep({
   description,
@@ -294,10 +292,6 @@ function networkAccessStep({
     title: "Allow network access",
     description,
     code: code(ips),
-    codeNote:
-      mayUseEu && eventForwarderRegions.length > 1
-        ? EU_INGESTOR_NOTE
-        : undefined,
   };
 }
 
@@ -364,7 +358,7 @@ gcloud projects add-iam-policy-binding ${projectId} \\
       title: "Grant write access for Event Forwarder",
       description:
         "Create the dataset in the same region as your event data (BigQuery cannot join across regions), then grant BigQuery Data Editor on it.",
-      code: `CREATE SCHEMA \`${destinationProjectId}\`.${efDataset}
+      code: `CREATE SCHEMA IF NOT EXISTS \`${destinationProjectId}\`.${efDataset}
   OPTIONS (location = "<region>");
 GRANT \`roles/bigquery.dataEditor\`
   ON SCHEMA \`${destinationProjectId}\`.${efDataset}
@@ -418,11 +412,13 @@ const snowflakeSteps: StepBuilder<"snowflake"> = (p, ctx) => {
     : PUBLIC_KEY_PLACEHOLDER;
   const publicKey: CredentialLiteral = {
     present: !!p.privateKey,
-    display: publicKeyLiteral,
+    display: usingGeneratedKey ? PASSWORD_MASK : publicKeyLiteral,
     copy: publicKeyLiteral,
-    note: p.privateKey
-      ? undefined
-      : "Add or generate a private key before copying the query.",
+    note: !p.privateKey
+      ? "Add or generate a private key before copying the query."
+      : usingGeneratedKey
+        ? "The public key is hidden here. Copy includes the full key."
+        : undefined,
   };
 
   const wifBinding =
@@ -457,7 +453,7 @@ GRANT SELECT ON ALL TABLES
   const efGrants =
     isEventForwarder && authMethod !== "workload-identity"
       ? `GRANT CREATE SCHEMA ON DATABASE ${database} TO ROLE ${role};
-CREATE SCHEMA ${database}.${efSchema};
+CREATE SCHEMA IF NOT EXISTS ${database}.${efSchema};
 GRANT USAGE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT CREATE TABLE ON SCHEMA ${database}.${efSchema} TO ROLE ${role};
 GRANT INSERT ON ALL TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
@@ -466,9 +462,16 @@ GRANT INSERT ON FUTURE TABLES IN SCHEMA ${database}.${efSchema} TO ROLE ${role};
 
   // TYPE = SERVICE marks a programmatic user: no MFA prompts, and
   // Snowflake's password retirement does not apply to it.
-  const createUser = (auth: string) => `CREATE ROLE ${role};
-CREATE USER ${user}
-${auth}
+  // CREATE USER IF NOT EXISTS does not change an existing user, so the
+  // credential is applied with ALTER and a rerun still picks up a new key
+  // or password.
+  const createUser = (
+    options: string,
+    alter: string,
+  ) => `CREATE ROLE IF NOT EXISTS ${role};
+CREATE USER IF NOT EXISTS ${user}
+${options}
+${alter}
 GRANT ROLE ${role} TO USER ${user};
 ${readGrants}${efGrants ? `\n\n${efGrants}` : ""}`;
 
@@ -478,7 +481,7 @@ ${readGrants}${efGrants ? `\n\n${efGrants}` : ""}`;
   if (changed(p, saved, "role", SNOWFLAKE_FALLBACKS.role)) {
     changes.push({
       label: "role",
-      sql: `CREATE ROLE ${role};
+      sql: `CREATE ROLE IF NOT EXISTS ${role};
 GRANT ROLE ${role} TO USER ${user};
 ALTER USER ${user} SET DEFAULT_ROLE = ${role};
 ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
@@ -527,8 +530,10 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
           description: isEventForwarder
             ? "Self-hosted only. The Event Forwarder requires key-pair authentication."
             : "Self-hosted only. Run as ACCOUNTADMIN.",
-          code: createUser(`  WORKLOAD_IDENTITY = ${wifBinding}
-  TYPE = SERVICE;`),
+          code: createUser(
+            `  TYPE = SERVICE;`,
+            `ALTER USER ${user} SET WORKLOAD_IDENTITY = ${wifBinding};`,
+          ),
         };
   } else if (authMethod === "password") {
     userStep = hasSavedUser(p, saved)
@@ -545,8 +550,10 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
             ? "Run as ACCOUNTADMIN. The Event Forwarder requires key-pair authentication."
             : "Run as ACCOUNTADMIN.",
           ...withCredential(password, (pw) =>
-            createUser(`  DEFAULT_ROLE = ${role}
-  PASSWORD = ${pw};`),
+            createUser(
+              `  DEFAULT_ROLE = ${role};`,
+              `ALTER USER ${user} SET PASSWORD = ${pw};`,
+            ),
           ),
           codeNote: password.note,
         };
@@ -561,9 +568,13 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
       : {
           title: "Create a user and grant access",
           description: "Run as ACCOUNTADMIN.",
-          code: createUser(`  TYPE = SERVICE
-  DEFAULT_ROLE = ${role}
-  RSA_PUBLIC_KEY = ${publicKeyLiteral};`),
+          ...withCredential(publicKey, (key) =>
+            createUser(
+              `  TYPE = SERVICE
+  DEFAULT_ROLE = ${role};`,
+              `ALTER USER ${user} SET RSA_PUBLIC_KEY = ${key};`,
+            ),
+          ),
           codeNote: publicKey.note,
         };
   }
@@ -573,10 +584,22 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
     networkAccessStep({
       description: "Only if a network policy restricts IPs.",
       ctx,
-      code: (ips) => `CREATE NETWORK POLICY GROWTHBOOK_POLICY
-  ALLOWED_IP_LIST = (${ips.map((ip) => `'${ip}'`).join(", ")});
+      // GROWTHBOOK_POLICY is one shared, named object per Snowflake account,
+      // not scoped to this connection. Always list every address GrowthBook
+      // might connect from (ignoring this connection's own region), so the
+      // SET below never drops an address another connection's Event
+      // Forwarder still relies on.
+      code: () => {
+        const list = [CLOUD_EGRESS_IP, EU_INGESTOR_IP]
+          .map((ip) => `'${ip}'`)
+          .join(", ");
+        return `CREATE NETWORK POLICY IF NOT EXISTS GROWTHBOOK_POLICY
+  ALLOWED_IP_LIST = (${list});
+ALTER NETWORK POLICY GROWTHBOOK_POLICY SET
+  ALLOWED_IP_LIST = (${list});
 ALTER USER ${user}
-  SET NETWORK_POLICY = GROWTHBOOK_POLICY;`,
+  SET NETWORK_POLICY = GROWTHBOOK_POLICY;`;
+      },
     }),
     TEST_STEP,
   ];
@@ -726,7 +749,7 @@ const athenaSteps: StepBuilder<"athena"> = () => [
   TEST_STEP,
 ];
 
-const prestoSteps: StepBuilder<"presto"> = () => [
+const prestoSteps: StepBuilder<"presto"> = (_p, ctx) => [
   {
     title: "Choose engine and auth",
     description:
@@ -737,6 +760,10 @@ const prestoSteps: StepBuilder<"presto"> = () => [
     description:
       "Host includes http:// or https://. Port defaults to 8080. Set catalog and schema. Source defaults to GrowthBook.",
   },
+  networkAccessOrDockerStep(
+    ctx,
+    "If Presto or Trino is behind a firewall, allow this IP.",
+  ),
   TEST_STEP,
 ];
 
@@ -831,7 +858,12 @@ FLUSH PRIVILEGES;`;
             "Grant SELECT on the database. Restrict the host from '%' when you can.",
           ...withCredential(
             password,
-            (pw) => `CREATE USER '${user}'@'%' IDENTIFIED BY ${pw};
+            // IDENTIFIED BY on CREATE too, so a failed ALTER (e.g. a
+            // password-policy rejection) never leaves a passwordless account.
+            (
+              pw,
+            ) => `CREATE USER IF NOT EXISTS '${user}'@'%' IDENTIFIED BY ${pw};
+ALTER USER '${user}'@'%' IDENTIFIED BY ${pw};
 ${selectGrant}`,
           ),
           codeNote: password.note,
@@ -873,8 +905,13 @@ const mssqlSteps: StepBuilder<"mssql"> = (p, ctx) => {
           description: "Grant SELECT on the schema.",
           ...withCredential(
             password,
-            (pw) => `CREATE LOGIN ${user} WITH PASSWORD = ${pw};
-${databaseUser}
+            (
+              pw,
+            ) => `IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = '${user}')
+  CREATE LOGIN ${user} WITH PASSWORD = ${pw};
+ALTER LOGIN ${user} WITH PASSWORD = ${pw};
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = '${user}')
+  ${databaseUser}
 ${schemaGrant}`,
           ),
           codeNote: password.note,
