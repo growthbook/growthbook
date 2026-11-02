@@ -174,14 +174,14 @@ const SEPT_1_TO_3: ExplorationDateRange = {
 
 function explore({
   metrics,
-  population = null,
+  population,
   overall = false,
   dimensions = overall ? [] : DAILY,
   dateRange = SEPT_1_TO_3,
   unit = "user_id",
 }: {
   metrics: FactMetricInterface[];
-  population?: ExplorationPopulation | null;
+  population?: ExplorationPopulation;
   overall?: boolean;
   dimensions?: ProductAnalyticsDimension[];
   dateRange?: ExplorationDateRange;
@@ -628,7 +628,7 @@ describe("metric explorations with a population", () => {
     });
 
     it.each([
-      ["without a population", null],
+      ["without a population", undefined],
       ["with a population", mobileRevenueOver10],
     ])("matches the snapshot %s", (_, population) => {
       expect(

@@ -404,7 +404,7 @@ function getFactTableGroups({
     case "metric":
       return (() => {
         const groups: Record<string, FactTableGroup> = {};
-        const population = config.dataset.population ?? undefined;
+        const population = config.dataset.population;
         let metricIndex = 0;
         for (const value of config.dataset.values) {
           const originalMetric = metricMap.get(value.metricId);
@@ -1102,7 +1102,7 @@ function getMetricData(
   let rollupCountExpr: string | null = null;
   if (
     selectedUnit &&
-    role !== "populationCount" &&
+    role === "value" &&
     metric.metricType !== "ratio" &&
     metric.metricType !== "quantile"
   ) {
