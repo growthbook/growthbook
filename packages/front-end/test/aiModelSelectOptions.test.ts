@@ -118,6 +118,14 @@ describe("getAvailableAIModelOptions", () => {
     expect(groupLabels(options)).toContain("Selected, no API key");
   });
 
+  it("marks a saved model no provider serves any more as unavailable", () => {
+    const options = getAvailableAIModelOptions(["openai"], "o3");
+
+    expect(values(options)).toContain("o3");
+    expect(groupLabels(options)).toContain("No longer available");
+    expect(groupLabels(options)).not.toContain("Selected, no API key");
+  });
+
   it("shows every provider when none has a key", () => {
     expect(groupLabels(getAvailableAIModelOptions([]))).toEqual(
       groupLabels(getAvailableAIModelOptions(undefined)),

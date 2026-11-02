@@ -1,4 +1,10 @@
-import type { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
+import type {
+  AIModel,
+  AIModelKind,
+  AIProvider,
+  EmbeddingModel,
+  STTModel,
+} from "shared/ai";
 import {
   AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
@@ -113,6 +119,7 @@ export const STT_MODEL_OPTIONS = ensureValuesExactlyMatchUnion<STTModel>()([
 ]);
 
 function withSelectedOption<T extends FlatOption | GroupedOption>(
+  kind: AIModelKind,
   options: T[],
   selected: string | undefined,
   label: (value: string) => string,
@@ -126,7 +133,11 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
   if (present) return options;
   return [
     {
-      label: "Selected, no API key",
+      // A saved id no provider serves any more is ignored server-side.
+      label:
+        getProviderForAIModel(kind, selected) === null
+          ? "No longer available"
+          : "Selected, no API key",
       options: [{ value: selected, label: label(selected) }],
     },
     ...options,
@@ -157,6 +168,7 @@ export function getAvailableAIModelOptions(
     .sort((a, b) => a.label.localeCompare(b.label));
 
   return withSelectedOption(
+    "text",
     groups,
     selectedModel,
     (value) => AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
@@ -244,6 +256,7 @@ export function getAvailableImageModelOptions(
   };
 
   return withSelectedOption(
+    "image",
     [
       { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
       ...group("Supports reference image", true),
@@ -267,6 +280,7 @@ export function getAvailableEmbeddingModelOptions(
         });
 
   return withSelectedOption(
+    "embedding",
     [USE_DEFAULT_EMBEDDING_MODEL_OPTION, ...options],
     selectedModel,
     (value) =>
@@ -288,6 +302,7 @@ export function getAvailableSTTModelOptions(
         });
 
   return withSelectedOption(
+    "stt",
     [USE_DEFAULT_STT_MODEL_OPTION, ...options],
     selectedModel,
     (value) => STT_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,
