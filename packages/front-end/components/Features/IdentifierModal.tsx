@@ -382,9 +382,7 @@ export default function IdentifierModal({
                             label={
                               <Flex align="center" gap="2">
                                 <PiDatabase />
-                                {/* Full contrast even when disabled, so locked
-                                    rows don't read as unavailable. */}
-                                <Text color="text-high">{d.name}</Text>
+                                <Text>{d.name}</Text>
                               </Flex>
                             }
                             weight="medium"
