@@ -263,7 +263,7 @@ export default function IdentifierModal({
           markRequired
           autoFocus={!isEdit}
           value={name}
-          placeholder={PLACEHOLDER_NAME}
+          placeholder="e.g. userId"
           onChange={(e) => setName(e.target.value)}
           helpText="Must match the key your SDK passes in."
           error={
@@ -288,7 +288,7 @@ export default function IdentifierModal({
         <DescriptionField
           value={description}
           setValue={setDescription}
-          placeholder="Add notes about this identifier (markdown supported)"
+          placeholder="Where this value comes from, e.g. set at login from the account ID"
         />
         <Select
           label="Data type"

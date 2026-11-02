@@ -18,6 +18,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import TextField from "@/ui/TextField";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -251,7 +252,7 @@ export default function AttributeModal({
       cta={attribute ? "Save" : "Add Attribute"}
       size="xl"
       ctaEnabled={!!property.trim() && hasProjectPermission}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         if (value.datatype !== "string") {
           value.format = "";
           value.disableEqualityConditions = false;
@@ -355,7 +356,7 @@ export default function AttributeModal({
           required
           markRequired
           autoFocus={!attribute}
-          placeholder={PLACEHOLDER_NAME}
+          placeholder="e.g. country"
           value={property}
           onChange={(e) => form.setValue("property", e.target.value)}
           helpText="Must match the key your SDK passes in."
@@ -379,7 +380,7 @@ export default function AttributeModal({
         <DescriptionField
           value={form.watch("description") || ""}
           setValue={(value) => form.setValue("description", value)}
-          placeholder="Add notes about this attribute (markdown supported)"
+          placeholder="What this value means, e.g. the visitor's country from an IP lookup"
         />
 
         <Flex direction="column" gap="2">
@@ -489,6 +490,11 @@ export default function AttributeModal({
                 label={datatype === "enum" ? "Values" : "Allowed values"}
                 required={datatype === "enum"}
                 markRequired={datatype === "enum"}
+                placeholder={
+                  datatype === "number[]"
+                    ? "e.g. 1, 2, 3"
+                    : "e.g. free, pro, enterprise"
+                }
                 value={enumValue}
                 onChange={(e) => form.setValue("enum", e.target.value)}
                 helpText={
