@@ -44,6 +44,8 @@ export const docSections = {
   webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
   contextualBandits: "/bandits/contextual",
+  contextualBanditsAssignmentQuery:
+    "/bandits/contextual-config#4-create-a-contextual-bandit-assignment-query",
   targeting: "/features/targeting",
   namespaces: "/features/feature-flag-experiments#namespaces",
   environments: "/features/environments",
