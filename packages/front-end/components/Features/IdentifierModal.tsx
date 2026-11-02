@@ -162,21 +162,20 @@ export default function IdentifierModal({
   const automatic = shown.filter(syncsIdentifiersAutomatically);
   const mappable = shown.filter((d) => !syncsIdentifiersAutomatically(d));
 
-  const pickedType = (d: DataSourceInterfaceWithParams) => {
-    const pick = picks[d.id];
-    return pick === NEW_TYPE ? defaultType : (pick ?? null);
-  };
-  // Add links every checked Data Source to the default type. Edit links each
-  // checked Data Source to the type picked for it.
+  // Links to an existing type with a similar name, or else creates one.
+  const defaultPick = (d: DataSourceInterfaceWithParams) =>
+    findSimilarUserIdType(userIdTypeNames(d), newProperty) ?? NEW_TYPE;
+  const pickFor = (d: DataSourceInterfaceWithParams) =>
+    picks[d.id] ?? defaultPick(d);
+  // Add starts with every Data Source checked; edit starts with none.
+  const isChecked = (d: DataSourceInterfaceWithParams) =>
+    isEdit
+      ? !!linkedType(d) || d.id in picks
+      : canEdit(d) && !uncheckedIds.includes(d.id);
   const links = mappable.flatMap((d) => {
-    if (!canEdit(d)) return [];
-    if (!isEdit) {
-      return uncheckedIds.includes(d.id)
-        ? []
-        : [{ id: d.id, userIdType: defaultType }];
-    }
-    if (linkedType(d) || !(d.id in picks)) return [];
-    return [{ id: d.id, userIdType: pickedType(d) ?? defaultType }];
+    if (!canEdit(d) || linkedType(d) || !isChecked(d)) return [];
+    const pick = pickFor(d);
+    return [{ id: d.id, userIdType: pick === NEW_TYPE ? defaultType : pick }];
   });
 
   const shownTypes = [
@@ -185,10 +184,6 @@ export default function IdentifierModal({
       ...links.map((l) => l.userIdType).filter(Boolean),
     ]),
   ];
-
-  // Links to an existing type with a similar name, or else creates one.
-  const defaultPick = (d: DataSourceInterfaceWithParams) =>
-    findSimilarUserIdType(userIdTypeNames(d), newProperty) ?? NEW_TYPE;
 
   return (
     <ModalStandard
@@ -350,8 +345,9 @@ export default function IdentifierModal({
                   </>
                 ) : (
                   <>
-                    Adds the identifier type <code>{defaultType}</code> to each
-                    Data Source you check.
+                    Links this identifier to an identifier type in each Data
+                    Source you check, so experiments using it pick the right
+                    assignment query.
                   </>
                 )}
               </Text>
@@ -361,11 +357,9 @@ export default function IdentifierModal({
                 <TableHeader>
                   <TableRow>
                     <TableColumnHeader>Data Source</TableColumnHeader>
-                    {isEdit && (
-                      <TableColumnHeader style={{ width: 240 }}>
-                        Identifier type
-                      </TableColumnHeader>
-                    )}
+                    <TableColumnHeader style={{ width: 240 }}>
+                      Identifier type
+                    </TableColumnHeader>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -373,9 +367,7 @@ export default function IdentifierModal({
                     const editable = canEdit(d);
                     const linked = linkedType(d);
                     const locked = !!linked || !editable;
-                    const isChecked = isEdit
-                      ? !!linked || d.id in picks
-                      : editable && !uncheckedIds.includes(d.id);
+                    const checked = isChecked(d);
                     return (
                       <TableRow key={d.id}>
                         <TableCell>
@@ -398,13 +390,7 @@ export default function IdentifierModal({
                             }
                             weight="medium"
                             align="center"
-                            description={
-                              !isEdit &&
-                              userIdTypeNames(d).includes(defaultType)
-                                ? `Already has ${defaultType}`
-                                : undefined
-                            }
-                            value={isChecked}
+                            value={checked}
                             disabled={locked}
                             disabledMessage={
                               linked
@@ -429,49 +415,43 @@ export default function IdentifierModal({
                             }}
                           />
                         </TableCell>
-                        {isEdit && (
-                          <>
-                            <TableCell>
-                              {linked ? (
-                                <Flex align="center" gap="2">
-                                  <Text size="sm" color="text-mid" mono>
-                                    {linked}
-                                  </Text>
-                                  <Badge label="Linked" color="gray" />
-                                </Flex>
-                              ) : !(d.id in picks) ? (
-                                <Text color="text-low">—</Text>
-                              ) : (
-                                <Select
-                                  size="sm"
-                                  value={picks[d.id]}
-                                  aria-label={`Identifier type in ${d.name}`}
-                                  setValue={(v) =>
-                                    setPicks((p) => ({ ...p, [d.id]: v }))
-                                  }
-                                >
-                                  {userIdTypeNames(d).map((t) => (
-                                    <SelectItem key={t} value={t}>
-                                      {t}
-                                    </SelectItem>
-                                  ))}
-                                  {!userIdTypeNames(d).includes(
-                                    defaultType,
-                                  ) && (
-                                    <>
-                                      {userIdTypeNames(d).length > 0 && (
-                                        <SelectSeparator />
-                                      )}
-                                      <SelectItem value={NEW_TYPE}>
-                                        New type: {defaultType}
-                                      </SelectItem>
-                                    </>
+                        <TableCell>
+                          {linked ? (
+                            <Flex align="center" gap="2">
+                              <Text size="sm" color="text-mid" mono>
+                                {linked}
+                              </Text>
+                              <Badge label="Linked" color="gray" />
+                            </Flex>
+                          ) : !checked ? (
+                            <Text color="text-low">—</Text>
+                          ) : (
+                            <Select
+                              size="sm"
+                              value={pickFor(d)}
+                              aria-label={`Identifier type in ${d.name}`}
+                              setValue={(v) =>
+                                setPicks((p) => ({ ...p, [d.id]: v }))
+                              }
+                            >
+                              {userIdTypeNames(d).map((t) => (
+                                <SelectItem key={t} value={t}>
+                                  {t}
+                                </SelectItem>
+                              ))}
+                              {!userIdTypeNames(d).includes(defaultType) && (
+                                <>
+                                  {userIdTypeNames(d).length > 0 && (
+                                    <SelectSeparator />
                                   )}
-                                </Select>
+                                  <SelectItem value={NEW_TYPE}>
+                                    New type: {defaultType}
+                                  </SelectItem>
+                                </>
                               )}
-                            </TableCell>
-                          </>
-                        )}
+                            </Select>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
