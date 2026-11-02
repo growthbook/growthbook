@@ -7,8 +7,26 @@ on:
     types: [completed]
 
 jobs:
-  docker:
+  # A run cancelled after its docker job already pushed needs no rebuild.
+  check:
     if: ${{ github.repository == 'growthbook/growthbook' && github.event.workflow_run.conclusion == 'cancelled' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      exists: ${{ steps.inspect.outputs.exists }}
+    steps:
+      - name: Check for existing image
+        id: inspect
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if docker buildx imagetools inspect "growthbook/growthbook:git-${SHA::7}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  docker:
+    needs: [check]
+    if: ${{ needs.check.outputs.exists != 'true' }}
     permissions:
       contents: read
       id-token: write
