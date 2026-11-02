@@ -1,23 +1,15 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
-import { getFactMetricCommercialFeature } from "@/services/factMetrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  duplicateFactMetric,
-  resolveFactMetricCreation,
-} from "@/services/metrics";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Modal from "@/ui/Modal";
 import Callout from "@/ui/Callout";
 import Button, { Props as ButtonProps } from "@/ui/Button";
@@ -32,7 +24,6 @@ type FactMetricCreationTarget = {
 };
 
 type ModalTarget = FactMetricCreationTarget & {
-  edit?: FactMetricInterface;
   source: string;
 };
 
@@ -43,10 +34,8 @@ export default function useFactMetricFlow(
     embedded = false,
   }: { onInlineEdit?: (source: string) => void; embedded?: boolean } = {},
 ) {
-  const newFlow = useFeatureIsOn("new-metric-creation-flow");
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature } = useUser();
   const { factTables, project, projects, ready } = useDefinitions();
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [tableTarget, setTableTarget] = useState<ModalTarget | null>(null);
@@ -73,7 +62,14 @@ export default function useFactMetricFlow(
         : (!target.datasource || table.datasource === target.datasource) &&
           isProjectListValidForProject(table.projects, targetProject),
     );
-    const mode = resolveFactMetricCreation(ready, newFlow, !!table, embedded);
+    // Without a fact table, the metric editor has nothing to build on
+    const mode = !ready
+      ? "pending"
+      : !table
+        ? "fact-table"
+        : embedded
+          ? "inline"
+          : "page";
     const canCreate =
       mode === "fact-table"
         ? permissionsUtil.canViewCreateFactTableModal(targetProject, projects)
@@ -135,21 +131,17 @@ export default function useFactMetricFlow(
   const edit = useCallback(
     (metric: FactMetricInterface, editSource = source) => {
       if (!ready) return false;
-      if (newFlow) {
-        if (onInlineEdit) onInlineEdit(editSource);
-        else {
-          const params = new URLSearchParams({
-            edit: "true",
-            source: editSource,
-          });
-          void router.push(`/fact-metrics/${metric.id}?${params}`);
-        }
-      } else {
-        setModalTarget({ edit: metric, source: editSource });
+      if (onInlineEdit) onInlineEdit(editSource);
+      else {
+        const params = new URLSearchParams({
+          edit: "true",
+          source: editSource,
+        });
+        void router.push(`/fact-metrics/${metric.id}?${params}`);
       }
       return true;
     },
-    [ready, newFlow, onInlineEdit, router, source],
+    [ready, onInlineEdit, router, source],
   );
 
   const createButton = (
@@ -217,10 +209,6 @@ export default function useFactMetricFlow(
     setTableTarget(null);
     setError(null);
   };
-  const duplicate = modalTarget?.duplicate;
-  const commercialFeature = getFactMetricCommercialFeature(
-    duplicate?.metricType,
-  );
   const modal = tableTarget ? (
     <FactTableModal
       close={() => setTableTarget(null)}
@@ -264,28 +252,11 @@ export default function useFactMetricFlow(
         </Modal.Close>
       </Modal.Footer>
     </Modal.Root>
-  ) : !modalTarget ? null : commercialFeature &&
-    !hasCommercialFeature(commercialFeature) ? (
-    <UpgradeModal
-      close={close}
-      source={`${modalTarget.source}-${commercialFeature}`}
-      commercialFeature={commercialFeature}
-    />
-  ) : (
+  ) : !modalTarget ? null : (
     <FactMetricModal
       close={close}
       initialFactTable={modalTarget.factTable}
       datasource={modalTarget.datasource}
-      existing={
-        modalTarget.edit ??
-        (duplicate
-          ? duplicateFactMetric(
-              duplicate,
-              permissionsUtil.canCreateOfficialResources(duplicate),
-            )
-          : undefined)
-      }
-      duplicate={!!duplicate}
       source={modalTarget.source}
     />
   );
