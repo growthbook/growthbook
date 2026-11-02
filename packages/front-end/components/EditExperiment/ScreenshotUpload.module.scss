@@ -1,49 +1,29 @@
-@import "../../styles/colors.scss";
-
-.droparea {
-  z-index: 910;
-  position: relative;
-  box-sizing: border-box;
-  border: 1px solid transparent;
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-
-  .message {
-    display: none;
-    position: absolute;
-    inset: 0;
-    align-items: center;
-    justify-content: center;
-    padding: 0 4px;
-    overflow: hidden;
-    line-height: 1.3;
-    font-size: 1.2em;
-    color: var(--violet-a11);
-  }
-  .textlink {
-    color: $primary-blue;
-  }
-
-  &:hover {
-    //border: 1px dashed $darker-blue;
-    .textlink {
-      color: $darker-blue;
-    }
-  }
+// Opaque, since text showing through would collide with its own.
+.overlay {
+  position: absolute;
+  inset: 0;
+  // Above the carousel's ribbon, which shares this stacking context.
+  z-index: 1;
+  border-radius: inherit;
 }
-.droparea.dragging {
-  background: var(--violet-2);
-  border-color: var(--violet-a9);
-  border-style: dashed;
-  border-radius: 6px;
 
-  .message {
-    display: flex;
-  }
+.dropping {
+  // Drag events reach the target beneath, so it doesn't flicker on mount.
+  pointer-events: none;
+  border: 2px dashed var(--violet-a9);
+  background-color: var(--violet-2);
+  color: var(--violet-11);
+}
+
+.rejecting {
+  pointer-events: none;
+  border: 2px dashed var(--red-a9);
+  background-color: var(--red-2);
+  color: var(--red-11);
+}
+
+// Takes clicks too, so nothing hidden beneath it can be pressed.
+.uploading {
+  background-color: var(--color-panel-solid);
+  color: var(--gray-11);
 }

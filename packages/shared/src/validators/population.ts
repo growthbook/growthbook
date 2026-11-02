@@ -2,7 +2,7 @@ import { z } from "zod";
 import { MAX_POPULATION_STEPS } from "shared/populations";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
-import { rowFilterValidator, windowSettingsValidator } from "./fact-table";
+import { rowFilterValidator } from "./fact-table";
 import {
   ownerEmailField,
   ownerField,
@@ -26,7 +26,7 @@ export const populationStepValidator = z.strictObject({
     .string()
     .optional()
     .describe(
-      'Conditions on each unit\'s total within the window, such as ">=3" or ">=3,<10". Requires aggregateFilterColumn',
+      'Conditions on each unit\'s total within the queried date range, such as ">=3" or ">=3,<10". Requires aggregateFilterColumn',
     ),
   aggregateFilterColumn: z
     .string()
@@ -34,7 +34,6 @@ export const populationStepValidator = z.strictObject({
     .describe(
       'Numeric column to total, or "$$count" to count rows. Requires aggregateFilter',
     ),
-  windowSettings: windowSettingsValidator,
 });
 
 export const populationValidator = baseSchema
@@ -74,11 +73,6 @@ export type ApiPopulation = z.infer<typeof apiPopulationValidator>;
 
 const apiPopulationStepInput = populationStepValidator.extend({
   rowFilters: z.array(rowFilterValidator).optional(),
-  windowSettings: windowSettingsValidator
-    .optional()
-    .describe(
-      "Defaults to no window. Conversion windows are only allowed on steps after the first",
-    ),
 });
 
 export const apiCreatePopulationBody = z
@@ -92,7 +86,7 @@ export const apiCreatePopulationBody = z
       .array(z.string())
       .min(1)
       .describe(
-        "Identifier types the population can be joined on. Every step's fact table must support all of them",
+        "Identifier types the Population can be joined on. Every step's fact table must support all of them",
       ),
     steps: z
       .array(apiPopulationStepInput)
@@ -102,10 +96,10 @@ export const apiCreatePopulationBody = z
         `Steps a unit must complete, in order, to be included. Currently limited to ${MAX_POPULATION_STEPS} step with support for multiple steps coming soon.`,
       ),
   })
-  .describe("Create a population");
+  .describe("Create a Population");
 
 export const apiUpdatePopulationBody = apiCreatePopulationBody
   .omit({ datasource: true, owner: true })
   .partial()
   .extend({ owner: ownerInputField.optional() })
-  .describe("Update a population");
+  .describe("Update a Population");

@@ -335,6 +335,8 @@ export default function UpgradeModal({
     "audit-logging": "Easily export historical audit logs",
     "unlimited-managed-warehouse-usage":
       "Access to all your tracked events in the Managed Warehouse",
+    "unlimited-event-forwarder-usage":
+      "Forward unlimited events to your warehouse",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
     holdouts: "Measure aggregate impact with Holdouts",

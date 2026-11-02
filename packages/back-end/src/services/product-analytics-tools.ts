@@ -474,6 +474,7 @@ export async function getProductAnalyticsColumnValues(
       sql: factTable.sql,
       eventName: factTable.eventName ?? "",
       timestampColumn: factTable.timestampColumn,
+      columns: factTable.columns,
     },
     columnsToQuery,
     {

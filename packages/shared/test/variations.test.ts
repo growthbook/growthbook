@@ -1,7 +1,10 @@
 /// <reference types="jest" />
 
 import { ExperimentInterface } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "../src/experiments/variations";
+import {
+  getLatestPhaseVariations,
+  snapshotColumnVariationIds,
+} from "../src/experiments/variations";
 
 declare const describe: (name: string, fn: () => void) => void;
 declare const it: (name: string, fn: () => void) => void;
@@ -150,5 +153,25 @@ describe("getLatestPhaseVariations", () => {
         status: "active",
       },
     ]);
+  });
+});
+
+describe("snapshotColumnVariationIds", () => {
+  it("names each column by its saved key, whatever the order now", () => {
+    expect(
+      snapshotColumnVariationIds(makeExperiment(), [
+        { id: "control" },
+        { id: "treatment" },
+      ]),
+    ).toEqual(["v0", "v1"]);
+  });
+
+  it("leaves a key no variation has now unnamed", () => {
+    expect(
+      snapshotColumnVariationIds(makeExperiment(), [
+        { id: "control" },
+        { id: "removed" },
+      ]),
+    ).toEqual(["v0", ""]);
   });
 });

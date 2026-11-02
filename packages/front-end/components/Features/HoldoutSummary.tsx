@@ -2,13 +2,9 @@ import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
+import { coveragePercentFormatter } from "@/services/utils";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 export default function HoldoutSummary({
   value,
@@ -29,7 +25,7 @@ export default function HoldoutSummary({
           color="gray"
           label={
             <Text style={{ color: "var(--slate-12)" }}>
-              {percentFormatter.format(holdoutWeight)}
+              {coveragePercentFormatter.format(holdoutWeight)}
             </Text>
           }
         />

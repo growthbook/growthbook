@@ -1,3 +1,4 @@
+import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
@@ -27,7 +28,7 @@ import PopulationSearchFilters from "@/components/Search/PopulationSearchFilters
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import { usePopulations } from "@/hooks/usePopulations";
+import { usePopulations, useRefreshPopulations } from "@/hooks/usePopulations";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
 
@@ -35,6 +36,7 @@ const CREATE_POPULATION_DOCS =
   "https://docs.growthbook.io/api/Populations/operation/createPopulation";
 
 export default function PopulationsPage() {
+  const router = useRouter();
   const gb = useGrowthBook<AppFeatures>();
   const populationsEnabled = !!gb?.isOn("populations");
   const { project, projects, getDatasourceById, getProjectById } =
@@ -43,6 +45,7 @@ export default function PopulationsPage() {
   const { populations, loading, error, mutate } = usePopulations(project, {
     enabled: populationsEnabled,
   });
+  const refreshPopulations = useRefreshPopulations();
   const populationsWithLabels = useAddComputedFields(
     populations,
     (p) => ({
@@ -194,49 +197,84 @@ export default function PopulationsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    <Flex direction="column">
-                      <Text weight="medium">{p.name}</Text>
-                      {p.description && (
-                        <Text size="sm" color="text-low">
-                          {truncateString(p.description, 80)}
-                        </Text>
-                      )}
-                    </Flex>
-                  </TableCell>
-                  <TableCell>{p.datasourceName}</TableCell>
-                  <TableCell>
-                    <ProjectBadges
-                      resourceType="population"
-                      projectIds={
-                        p.projects.length > 0 ? p.projects : undefined
+              {items.map((p) => {
+                const href = `/populations/${p.id}`;
+                return (
+                  <TableRow
+                    key={p.id}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      if (
+                        e.target instanceof HTMLElement &&
+                        e.target.closest("a, button, [role=menu]")
+                      ) {
+                        return;
                       }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Flex gap="1" wrap="wrap">
-                      {p.userIdTypes.map((t) => (
-                        <Badge key={t} label={t} color="gray" variant="solid" />
-                      ))}
-                    </Flex>
-                  </TableCell>
-                  <TableCell title={datetime(p.dateUpdated)}>
-                    {date(p.dateUpdated)}
-                  </TableCell>
-                  <TableCell>
-                    <Owner ownerId={p.owner} />
-                  </TableCell>
-                  <TableCell style={{ width: 40 }}>
-                    <PopulationMoreMenu
-                      population={p}
-                      onDuplicated={() => mutate()}
-                      onDeleted={() => mutate()}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
+                      if (
+                        e.metaKey ||
+                        e.ctrlKey ||
+                        e.shiftKey ||
+                        e.button === 1
+                      ) {
+                        window.open(href, "_blank");
+                        return;
+                      }
+                      e.preventDefault();
+                      router.push(href);
+                    }}
+                  >
+                    <TableCell>
+                      <Flex direction="column">
+                        <Link href={href} weight="medium">
+                          {p.name}
+                        </Link>
+                        {p.description && (
+                          <Text size="sm" color="text-low">
+                            {truncateString(p.description, 80)}
+                          </Text>
+                        )}
+                      </Flex>
+                    </TableCell>
+                    <TableCell>{p.datasourceName}</TableCell>
+                    <TableCell>
+                      <ProjectBadges
+                        resourceType="population"
+                        projectIds={
+                          p.projects.length > 0 ? p.projects : undefined
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Flex gap="1" wrap="wrap">
+                        {p.userIdTypes.map((t) => (
+                          <Badge
+                            key={t}
+                            label={t}
+                            color="gray"
+                            variant="solid"
+                          />
+                        ))}
+                      </Flex>
+                    </TableCell>
+                    <TableCell title={datetime(p.dateUpdated)}>
+                      {date(p.dateUpdated)}
+                    </TableCell>
+                    <TableCell>
+                      <Owner ownerId={p.owner} />
+                    </TableCell>
+                    <TableCell
+                      style={{ width: 40 }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <PopulationMoreMenu
+                        population={p}
+                        onDuplicated={() => refreshPopulations()}
+                        onDeleted={() => refreshPopulations()}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {!items.length && isFiltered && (
                 <TableRow>
                   <TableCell colSpan={7} style={{ textAlign: "center" }}>

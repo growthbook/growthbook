@@ -6,6 +6,10 @@ on:
     workflows: [Deploy]
     types: [completed]
 
+# Read-only token by default; a job that needs more declares it itself.
+permissions:
+  contents: read
+
 jobs:
   # A run cancelled after its docker job already pushed needs no rebuild.
   check:

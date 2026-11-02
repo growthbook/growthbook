@@ -22,6 +22,7 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
@@ -283,7 +284,7 @@ export default function LinkFeatureToContextualBanditModal({
       close={close}
       ctaEnabled={ctaEnabled}
       aboveFooterContent={unscopedRuleBanner}
-      submit={form.handleSubmit(async (values) => {
+      submit={validatedSubmit(form, async (values) => {
         const { variations, existing, ...feature } = values;
 
         const newFeatureEnvSettings: Record<string, FeatureEnvironment> = {};
@@ -558,7 +559,6 @@ export default function LinkFeatureToContextualBanditModal({
                 setValue={(val) => form.setValue(`variations.${i}.value`, val)}
                 valueType={valueType}
                 feature={existing ? existingFeature : undefined}
-                useCodeInput={true}
                 showFullscreenButton={true}
                 sparse={isConfigBacked}
                 allowConfigBacking={isConfigBacked}

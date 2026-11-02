@@ -77,6 +77,7 @@ describe("updateVisualChangeset", () => {
           },
           {
             $set: {
+              dateUpdated: expect.any(Date),
               ...updates,
               visualChanges: visualChangeset.visualChanges,
             },
@@ -134,6 +135,7 @@ describe("updateVisualChangeset", () => {
           },
           {
             $set: {
+              dateUpdated: expect.any(Date),
               ...updates,
             },
           },
@@ -175,6 +177,7 @@ describe("updateVisualChangeset", () => {
           },
           {
             $set: {
+              dateUpdated: expect.any(Date),
               ...updates,
               visualChanges: [],
             },
@@ -216,6 +219,7 @@ describe("updateVisualChangeset", () => {
           },
           {
             $set: {
+              dateUpdated: expect.any(Date),
               visualChanges: [
                 {
                   id: expect.stringMatching(/^vc_/),
@@ -314,6 +318,7 @@ describe("updateVisualChangeset", () => {
           },
           {
             $set: {
+              dateUpdated: expect.any(Date),
               visualChanges: [expectedMerged],
             },
           },
@@ -353,6 +358,7 @@ describe("updateVisualChangeset", () => {
           },
           {
             $set: {
+              dateUpdated: expect.any(Date),
               editorUrl: "https://editor2.url",
               visualChanges: visualChangeset.visualChanges,
             },
@@ -391,6 +397,7 @@ describe("updateVisualChangeset", () => {
           },
           {
             $set: {
+              dateUpdated: expect.any(Date),
               editorUrl: "https://editor2.url",
               visualChanges: visualChangeset.visualChanges,
             },

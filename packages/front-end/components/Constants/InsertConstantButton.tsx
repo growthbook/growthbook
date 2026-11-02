@@ -162,10 +162,12 @@ export function UsedConstantTags({
   value,
   valueType,
   project,
+  compact = false,
 }: {
   value: string;
   valueType: "string" | "json";
   project?: string;
+  compact?: boolean;
 }) {
   const { constants } = useDefinitions();
 
@@ -194,10 +196,21 @@ export function UsedConstantTags({
   if (!used.length) return null;
 
   return (
-    <Flex align="center" wrap="wrap" gap="2">
-      <Text size="sm" color="text-low" weight="medium">
-        Constants used:
-      </Text>
+    <Flex
+      align="center"
+      wrap="wrap"
+      gap={compact ? "1" : "2"}
+      style={compact ? { marginTop: -2 } : undefined}
+    >
+      <span style={compact ? { fontSize: 11, lineHeight: "16px" } : undefined}>
+        <Text
+          size={compact ? "inherit" : "sm"}
+          color="text-low"
+          weight="medium"
+        >
+          Constants used:
+        </Text>
+      </span>
       {used.map((c) => (
         <ConstantValuePreview key={c.id} constant={c}>
           <Link
@@ -211,6 +224,7 @@ export function UsedConstantTags({
               variant="soft"
               color={c.type === "json" ? "violet" : "gray"}
               label={c.key}
+              size={compact ? "xs" : undefined}
             />
           </Link>
         </ConstantValuePreview>
@@ -226,6 +240,7 @@ export default function InsertConstantButton({
   disabled,
   excludeKeys,
   iconOnly = false,
+  indicator = false,
 }: {
   valueType: "string" | "json";
   project?: string;
@@ -236,6 +251,7 @@ export default function InsertConstantButton({
   excludeKeys?: string[];
   // Compact icon-only trigger for inline (beside-the-field) layouts.
   iconOnly?: boolean;
+  indicator?: boolean;
 }) {
   const { constants } = useDefinitions();
 
@@ -267,15 +283,40 @@ export default function InsertConstantButton({
   if (!hasConstants) return null;
 
   const glyph = (
-    <span style={{ fontFamily: "monospace", fontWeight: 500 }}>
+    <span
+      style={{
+        fontFamily: "var(--code-font-family)",
+        fontWeight: 500,
+        // The indicator matches a copy button beside it.
+        ...(indicator && { fontSize: "10px", letterSpacing: "-0.05em" }),
+      }}
+    >
       {"{"}
-      <span style={{ color: "var(--ruby-11)" }}>@</span>
+      <span
+        className={indicator ? "gb-field-indicator__accent" : undefined}
+        style={indicator ? undefined : { color: "var(--ruby-11)" }}
+      >
+        @
+      </span>
       {"}"}
     </span>
   );
 
   // Tooltip wraps only the icon so it doesn't interfere with the menu.
-  const trigger = iconOnly ? (
+  const trigger = indicator ? (
+    <button
+      type="button"
+      className="gb-field-indicator gb-field-indicator--reveal"
+      disabled={disabled}
+      aria-label="Insert constant"
+    >
+      <Tooltip content="Insert Constant">
+        <Flex align="center" justify="center">
+          {glyph}
+        </Flex>
+      </Tooltip>
+    </button>
+  ) : iconOnly ? (
     <IconButton
       type="button"
       size="2"
@@ -283,7 +324,7 @@ export default function InsertConstantButton({
       color="gray"
       disabled={disabled}
       ml="1"
-      mt="2"
+      mt="0"
     >
       <Tooltip content="Insert Constant">
         <Flex align="center" justify="center">

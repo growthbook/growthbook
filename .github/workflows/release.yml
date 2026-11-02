@@ -6,6 +6,10 @@ on:
     tags:
       - "v*"
 
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   # Build the tagged commit itself, so the version tag never picks up later commits from :latest
   docker:

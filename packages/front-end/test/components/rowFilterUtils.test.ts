@@ -15,6 +15,7 @@ import {
   getRowFilterOperatorChange,
   getRowFilterInputState,
   isRowFilterComplete,
+  getRowFilterDescription,
 } from "@/components/FactTables/rowFilterUtils";
 
 /** Wall-clock the picker would display for a parsed value. */
@@ -418,6 +419,141 @@ describe("isRowFilterComplete", () => {
     expect(
       isRowFilterComplete({ operator: "=", column: "a", values: ["x"] }),
     ).toBe(true);
+  });
+});
+
+describe("getRowFilterDescription", () => {
+  const ft: Pick<FactTableInterface, "columns" | "filters"> = {
+    columns: [col("country", { name: "Country" }), col("amount")],
+    filters: [
+      {
+        id: "flt_purchases",
+        dateCreated: new Date(0),
+        dateUpdated: new Date(0),
+        name: "Purchases only",
+        description: "",
+        value: "event_name = 'purchase'",
+      },
+    ],
+  };
+
+  it("uses the column display name and operator label", () => {
+    expect(
+      getRowFilterDescription(
+        { column: "country", operator: "not_in", values: ["US", "CA"] },
+        ft,
+      ),
+    ).toBe("Country not in US, CA");
+  });
+
+  it("uses the column key when the column has no display name", () => {
+    expect(
+      getRowFilterDescription(
+        { column: "amount", operator: ">", values: ["100"] },
+        ft,
+      ),
+    ).toBe("amount > 100");
+  });
+
+  it("omits values for value-less operators", () => {
+    expect(
+      getRowFilterDescription({ column: "country", operator: "is_null" }, ft),
+    ).toBe("Country is null");
+  });
+
+  it("ignores empty values", () => {
+    expect(
+      getRowFilterDescription(
+        { column: "country", operator: "in", values: ["US", ""] },
+        ft,
+      ),
+    ).toBe("Country in US");
+  });
+
+  it("falls back to the filter's column key when the column isn't on the fact table", () => {
+    expect(
+      getRowFilterDescription(
+        { column: "browser", operator: "=", values: ["Chrome"] },
+        ft,
+      ),
+    ).toBe("browser = Chrome");
+    expect(
+      getRowFilterDescription(
+        { column: "country", operator: "=", values: ["US"] },
+        null,
+      ),
+    ).toBe("country = US");
+  });
+
+  it("includes the SQL of a SQL expression filter", () => {
+    expect(
+      getRowFilterDescription(
+        { operator: "sql_expr", values: ["amount > 0"] },
+        ft,
+      ),
+    ).toBe("SQL Expression: amount > 0");
+  });
+
+  it("says when a SQL expression filter is empty", () => {
+    expect(getRowFilterDescription({ operator: "sql_expr" }, ft)).toBe(
+      "Empty SQL Expression filter",
+    );
+    expect(
+      getRowFilterDescription({ operator: "sql_expr", values: [""] }, ft),
+    ).toBe("Empty SQL Expression filter");
+  });
+
+  describe("saved filters", () => {
+    it("uses the saved filter's name", () => {
+      expect(
+        getRowFilterDescription(
+          { operator: "saved_filter", values: ["flt_purchases"] },
+          ft,
+        ),
+      ).toBe("Purchases only");
+    });
+
+    it("shows the saved filter id when the saved filter has no name", () => {
+      expect(
+        getRowFilterDescription(
+          { operator: "saved_filter", values: ["flt_unnamed"] },
+          {
+            ...ft,
+            filters: [{ ...ft.filters[0], id: "flt_unnamed", name: "" }],
+          },
+        ),
+      ).toBe("Saved Filter: flt_unnamed");
+    });
+
+    it("says the saved filter was deleted when the fact table no longer has it", () => {
+      expect(
+        getRowFilterDescription(
+          { operator: "saved_filter", values: ["flt_gone"] },
+          ft,
+        ),
+      ).toBe("Deleted Saved Filter");
+    });
+
+    it("shows the saved filter id when the fact table is missing", () => {
+      expect(
+        getRowFilterDescription(
+          { operator: "saved_filter", values: ["flt_purchases"] },
+          null,
+        ),
+      ).toBe("Saved Filter: flt_purchases");
+    });
+
+    it("says when a saved filter has no id, even without the fact table", () => {
+      expect(getRowFilterDescription({ operator: "saved_filter" }, ft)).toBe(
+        "Missing Saved Filter id",
+      );
+      expect(
+        getRowFilterDescription(
+          { operator: "saved_filter", values: [""] },
+          null,
+        ),
+      ).toBe("Missing Saved Filter id");
+    });
   });
 });
 

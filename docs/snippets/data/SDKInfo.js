@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.8.0",
+    version: "2.0.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -24,6 +24,15 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        interleaving: "≥ v2.0.0",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v2.0.0",
+      },
+      {
+        contextualBanditsAuto: "≥ v2.0.0",
       },
       {
         savedGroupReferencesV2: "≥ v1.8.0",
@@ -86,7 +95,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.8.0",
+    version: "2.0.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -115,6 +124,15 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        interleaving: "≥ v2.0.0",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v2.0.0",
+      },
+      {
+        contextualBanditsAuto: "≥ v2.0.0",
       },
       {
         savedGroupReferencesV2: "≥ v1.8.0",
@@ -286,7 +304,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.8.0",
+    version: "2.0.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -307,6 +325,15 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        interleaving: "≥ v2.0.0",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v2.0.0",
+      },
+      {
+        contextualBanditsAuto: "≥ v2.0.0",
       },
       {
         savedGroupReferencesV2: "≥ v1.8.0",
@@ -590,7 +617,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.11.2",
+    version: "0.11.3",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -765,7 +792,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "8.0.0",
+    version: "9.0.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -824,7 +851,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.3.3",
+    version: "1.3.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -883,7 +910,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.8.0",
+    version: "2.0.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -904,6 +931,15 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        interleaving: "≥ v2.0.0",
+      },
+      {
+        savedGroupReferencesRemote: "≥ v2.0.0",
+      },
+      {
+        contextualBanditsAuto: "≥ v2.0.0",
       },
       {
         savedGroupReferencesV2: "≥ v1.8.0",

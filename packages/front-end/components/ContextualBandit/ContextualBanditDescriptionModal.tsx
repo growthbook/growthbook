@@ -6,6 +6,7 @@ import { useRestApiCall } from "@/services/restApi";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
 
 export default function ContextualBanditDescriptionModal({
@@ -48,7 +49,7 @@ export default function ContextualBanditDescriptionModal({
       size="lg"
       close={close}
       cta="Save"
-      submit={form.handleSubmit(async ({ description }) => {
+      submit={validatedSubmit(form, async ({ description }) => {
         await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
           params: { id: cb.id },
           body: { description },

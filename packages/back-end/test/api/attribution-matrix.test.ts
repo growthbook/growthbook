@@ -1345,11 +1345,18 @@ describe("attribution across callers", () => {
             })
           ).status,
         ).toBe(200);
-        const entry = await collection("featurerevisionlog").findOne({
-          organization: ORG_ID,
-          featureId: "checkout-flow",
-          action: "Comment",
-        });
+        // The comment is logged after the response, like discard above.
+        const logged = () =>
+          collection("featurerevisionlog").findOne({
+            organization: ORG_ID,
+            featureId: "checkout-flow",
+            action: "Comment",
+          });
+        for (let i = 0; i < 20 && !(await logged()); i++) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        const entry = await logged();
+        expect(entry).toBeTruthy();
         expect(
           (await reviewer.put(`${path}/log/${entry?.id}`, { comment: "Fine" }))
             .status,

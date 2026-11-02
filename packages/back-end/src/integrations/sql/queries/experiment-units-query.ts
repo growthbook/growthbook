@@ -1,4 +1,11 @@
 import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getSnapshotCutoffDate,
+} from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -77,8 +84,10 @@ export function getExperimentUnitsQuery(
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
 
+  // __experimentExposures reads the mapped columns and aliases them to the
+  // standard names, so every CTE after it reads e.timestamp
+  const rawTimestampColumn = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
   const timestampColumn = "e.timestamp";
-  const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
   const overrideConversionWindows =
     unitsSettings.attributionModel === "experimentDuration" ||
     unitsSettings.attributionModel === "lookbackOverride";
@@ -156,9 +165,11 @@ export function getExperimentUnitsQuery(
     __experimentExposures AS (
       -- Viewed Experiment
       SELECT
-        e.${baseIdType} as ${baseIdType}
-        , ${dialect.castToString("e.variation_id")} as variation
-        , ${timestampDateTimeColumn} as timestamp
+        e.${getExposureQueryIdentifierColumn(exposureQuery, baseIdType)} as ${baseIdType}
+        , ${dialect.castToString(
+          `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
+        )} as variation
+        , ${dialect.castUserDateCol(rawTimestampColumn)} as timestamp
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -175,11 +186,13 @@ export function getExperimentUnitsQuery(
       FROM
           __rawExperiment e
       WHERE
-          e.experiment_id = '${unitsSettings.experimentId}'
-          AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
+          e.${getExposureQueryExperimentIdColumn(
+            exposureQuery,
+          )} = '${unitsSettings.experimentId}'
+          AND ${rawTimestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate
-              ? `AND ${timestampColumn} <= ${dialect.toTimestamp(endDate)}`
+              ? `AND ${rawTimestampColumn} <= ${dialect.toTimestamp(endDate)}`
               : ""
           }
           ${
@@ -203,6 +216,7 @@ export function getExperimentUnitsQuery(
               [activationMetric],
               unitsSettings.endDate,
               overrideConversionWindows,
+              getSnapshotCutoffDate(unitsSettings),
             ),
             experimentId: unitsSettings.experimentId,
             phase: unitsSettings.phase,

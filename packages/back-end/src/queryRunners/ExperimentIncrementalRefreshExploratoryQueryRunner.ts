@@ -468,7 +468,12 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       this.context,
       {
         ...params,
-        asOf: this.model.sourceSnapshotDateCreated,
+        // Judge in-progress conversions against the same data end as the
+        // Overall Results; breakdowns older than the field fall back to its
+        // run time.
+        asOf:
+          this.model.sourceSnapshotEndDate ??
+          this.model.sourceSnapshotDateCreated,
       },
       this.integration,
       this.startQuery.bind(this),

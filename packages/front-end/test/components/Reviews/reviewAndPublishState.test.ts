@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  checklistReadiness,
   getReviewAndPublishState,
   RnPStateInput,
 } from "@/components/Reviews/reviewAndPublishState";
@@ -20,6 +21,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     adminPublish: false,
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
+    scheduledStartDay: null,
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule: false,
@@ -121,15 +123,20 @@ describe("getReviewAndPublishState", () => {
       expect(s.submitAction).toBe("publish");
     });
 
-    it("uses 'Schedule to Start' when only scheduled experiments are selected", () => {
-      const s = getReviewAndPublishState(
-        base({
-          hasSelectedExperiments: true,
-          experimentsStep: true,
-          onlyScheduledSelected: true,
-        }),
+    it("uses 'Schedule to start' when only scheduled experiments are selected, naming the day they share", () => {
+      const scheduled = {
+        hasSelectedExperiments: true,
+        experimentsStep: true,
+        onlyScheduledSelected: true,
+      };
+      expect(getReviewAndPublishState(base(scheduled)).ctaLabel).toBe(
+        "Schedule to start",
       );
-      expect(s.ctaLabel).toBe("Schedule to Start");
+      expect(
+        getReviewAndPublishState(
+          base({ ...scheduled, scheduledStartDay: "Oct 29" }),
+        ).ctaLabel,
+      ).toBe("Schedule to start (Oct 29)");
     });
 
     it("requires admin bypass to publish through a ramp lockdown", () => {
@@ -546,5 +553,65 @@ describe("changes-requested depends on whether edits reset the status", () => {
         submitAction: "none",
       });
     }
+  });
+});
+
+describe("checklistReadiness", () => {
+  const ready = {
+    hasHardBlockers: false,
+    hasSoftBlockers: false,
+    loading: false,
+  };
+  const hard = { ...ready, hasHardBlockers: true };
+  const soft = { ...ready, hasSoftBlockers: true };
+
+  it.each<{
+    name: string;
+    selected: string[];
+    reports: Parameters<typeof checklistReadiness>[1];
+    want: boolean[];
+  }>([
+    {
+      name: "nothing selected",
+      selected: [],
+      reports: {},
+      want: [false, false, false],
+    },
+    {
+      name: "a real blocker",
+      selected: ["a"],
+      reports: { a: hard },
+      want: [false, true, true],
+    },
+    {
+      name: "only to-do items",
+      selected: ["a"],
+      reports: { a: soft },
+      want: [false, false, true],
+    },
+    {
+      name: "a checklist still loading",
+      selected: ["a"],
+      reports: { a: { ...hard, loading: true } },
+      want: [true, false, true],
+    },
+    {
+      name: "a selected one that hasn't reported",
+      selected: ["a", "b"],
+      reports: { a: ready },
+      want: [true, false, true],
+    },
+    {
+      name: "a deselected one's blockers",
+      selected: ["a"],
+      reports: { a: ready, b: hard },
+      want: [false, false, false],
+    },
+  ])("$name", ({ selected, reports, want }) => {
+    const { loading, blocked, incomplete } = checklistReadiness(
+      selected,
+      reports,
+    );
+    expect([loading, blocked, incomplete]).toEqual(want);
   });
 });

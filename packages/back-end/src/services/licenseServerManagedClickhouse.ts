@@ -253,7 +253,10 @@ export async function getDailyUsageForOrg(
       "Unexpected response shape from daily-usage-for-org endpoint",
     );
   }
-  return parsed.data.days;
+  return parsed.data.days.map((d) => ({
+    ...d,
+    eventForwarderEvents: d.eventForwarderEvents ?? 0,
+  }));
 }
 
 export async function getDailyUsageByKeyForOrg(

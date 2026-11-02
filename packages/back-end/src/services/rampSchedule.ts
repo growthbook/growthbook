@@ -861,7 +861,7 @@ export function resolveRampStartState({
       return {
         warning:
           `Ramp start state was inferred from rule "${ruleId}"'s current coverage ` +
-          `(${Math.round(coverage * 100)}%); a rollback will return the rule there, ` +
+          `(${parseFloat((coverage * 100).toFixed(4))}%); a rollback will return the rule there, ` +
           `not to 0%. Pass startState: { "coverage": 0 } to anchor rollbacks at 0%.`,
       };
     }

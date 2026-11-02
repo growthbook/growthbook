@@ -4,6 +4,9 @@ import { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import uniqBy from "lodash/uniqBy";
+import uniqWith from "lodash/uniqWith";
+import type { Request } from "express";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
@@ -51,6 +54,9 @@ import {
   getSavedGroupPayloadStrategy,
   withoutUnsupportedSavedGroupCapabilities,
   findAllReferencedSavedGroupIds,
+  forEachRemoteGroupIdInCondition,
+  getDerivedRemoteGroups,
+  parseDerivedGroupId,
   readSavedGroupReferenceId,
   savedGroupFormatFromConnection,
   SavedGroupPayloadStrategy,
@@ -83,6 +89,7 @@ import {
   ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
+  FeatureMetadata,
   InterleavingDefinitions,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
@@ -143,6 +150,7 @@ import {
   getEnvsForRampTarget,
 } from "shared/util";
 import { measureSdkPayloadSize } from "shared/health";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import {
@@ -462,17 +470,23 @@ export function generateInterleavingsPayload({
   environment,
   projects,
   savedGroupStrategy,
+  metadataOptions,
+  projectsMap,
 }: {
   interleavings: InterleavingInterface[];
   environment: string;
   projects: string[];
   savedGroupStrategy: SavedGroupPayloadStrategy;
+  metadataOptions?: Parameters<typeof buildPayloadMetadata>[1];
+  projectsMap?: Map<string, ProjectInterface>;
 }): {
   features: Record<string, FeatureDefinition>;
   interleavings?: InterleavingDefinitions;
 } {
   const features: Record<string, FeatureDefinition> = {};
-  const defs: InterleavingDefinitions = {};
+  // Null-prototype: an interleaving key may be `__proto__`, which on a plain
+  // object would set the prototype instead of adding an entry.
+  const defs: InterleavingDefinitions = Object.create(null);
   interleavings.forEach((il) => {
     if (!interleavingInPayloadScope(il, environment, projects)) return;
 
@@ -489,7 +503,12 @@ export function generateInterleavingsPayload({
       );
       return;
     }
-    defs[il.key] = { trackingKey: il.trackingKey, variations };
+    defs[il.key] = {
+      trackingKey: il.trackingKey,
+      hashAttribute: il.hashAttribute,
+      seed: il.seed,
+      variations,
+    };
 
     const id = getInterleavingFeatureDefId(il.key);
     const rule: FeatureDefinitionRule = {
@@ -522,6 +541,17 @@ export function generateInterleavingsPayload({
       defaultValue: il.variations[0].key,
       rules: [rule],
     };
+
+    // Without it reducePayload's project and tag filters drop the flag, which
+    // takes the interleaving's definition down with it
+    if (metadataOptions) {
+      const metadata = buildPayloadMetadata<FeatureMetadata>(
+        { project: il.project, tags: il.tags },
+        metadataOptions,
+        projectsMap,
+      );
+      if (metadata) features[id].metadata = metadata;
+    }
   });
 
   return {
@@ -1036,21 +1066,39 @@ export function getUsedSavedGroupIds(
       });
     }
   };
+  // Remote groups can also appear as `__gb_remoteGroupIds` checks, for SDKs that
+  // can't read their references, e.g. {"__gb_remoteGroupIds": {"$in": ["grp_1"]}}.
+  // Their entries still tell the SDK which attribute to look up.
+  const addConditionToUsedGroupIds = (condition: unknown) => {
+    recursiveWalk(condition, addToUsedGroupIds);
+    forEachRemoteGroupIdInCondition(condition, groupMap, (id) =>
+      seedIds.add(id),
+    );
+  };
   Object.values(features).forEach((feature) => {
     if (!feature.rules) {
       return;
     }
     feature.rules.forEach((rule) => {
-      recursiveWalk(rule.condition, addToUsedGroupIds);
-      recursiveWalk(rule.parentConditions, addToUsedGroupIds);
+      addConditionToUsedGroupIds(rule.condition);
+      addConditionToUsedGroupIds(rule.parentConditions);
     });
   });
   experimentsDefinitions.forEach((experimentDefinition) => {
-    recursiveWalk(experimentDefinition.condition, addToUsedGroupIds);
-    recursiveWalk(experimentDefinition.parentConditions, addToUsedGroupIds);
+    addConditionToUsedGroupIds(experimentDefinition.condition);
+    addConditionToUsedGroupIds(experimentDefinition.parentConditions);
   });
 
-  return findAllReferencedSavedGroupIds(seedIds, groupMap);
+  const used = findAllReferencedSavedGroupIds(seedIds, groupMap);
+  // A derived group, e.g. "grp_vip:parent_id", needs its source group's entry
+  // too: its lookups use the source's attribute. Checked after following
+  // condition groups, which can name derived groups too. Sources are remote
+  // groups, so they reference nothing further.
+  [...used].forEach((id) => {
+    const derived = parseDerivedGroupId(id, groupMap);
+    if (derived) used.add(derived.sourceId);
+  });
+  return used;
 }
 
 export function filterUsedContextualBandits(
@@ -1144,16 +1192,24 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
   }
 }
 
-// This is a synchronous wrapper around refreshSDKPayloadCache
-// We shouldn't need to await the refresh in most cases
-export function queueSDKPayloadRefresh(data: {
+type QueueSDKPayloadRefreshData = {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
   auditContext?: { event: string; model: string; id?: string };
-}) {
+};
+
+// Keyed by request, not context: getContextFromReq builds a new context per call.
+const pendingRefreshByRequest = new WeakMap<
+  Request,
+  QueueSDKPayloadRefreshData & { stackTrace: string }
+>();
+
+// This is a synchronous wrapper around refreshSDKPayloadCache
+// We shouldn't need to await the refresh in most cases
+export function queueSDKPayloadRefresh(data: QueueSDKPayloadRefreshData) {
   // Bulk-publish side-effect buffer: while a multi-entity commit is applying,
   // collect the affected keys instead of refreshing per write — the publisher
   // flushes one deduped refresh (at most one rebuild per SDK connection) after
@@ -1169,6 +1225,43 @@ export function queueSDKPayloadRefresh(data: {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
+
+  // Merge every refresh queued during one request into one rebuild when it ends.
+  const req = data.context.req;
+  const res = req?.res;
+  if (
+    req &&
+    res &&
+    !res.headersSent &&
+    !res.destroyed &&
+    !data.skipRefreshForProject
+  ) {
+    const pending = pendingRefreshByRequest.get(req);
+    if (pending) {
+      pending.context = data.context;
+      pending.payloadKeys = uniqWith(
+        [...pending.payloadKeys, ...data.payloadKeys],
+        isEqual,
+      );
+      pending.sdkConnections = uniqBy(
+        [...(pending.sdkConnections ?? []), ...(data.sdkConnections ?? [])],
+        "key",
+      );
+      pending.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
+      return;
+    }
+    pendingRefreshByRequest.set(req, { ...data, stackTrace });
+    res.once("close", () => {
+      const merged = pendingRefreshByRequest.get(req);
+      pendingRefreshByRequest.delete(req);
+      if (!merged) return;
+      refreshSDKPayloadCache(merged).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload Cache");
+      });
+    });
+    return;
+  }
+
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
@@ -2218,6 +2311,11 @@ export async function buildSDKPayloadForConnection(
         environment,
         projects: projectList,
         savedGroupStrategy,
+        metadataOptions: {
+          includeProjectIdInMetadata,
+          includeTagsInMetadata,
+        },
+        projectsMap,
       })
     : undefined;
 
@@ -2232,9 +2330,11 @@ export async function buildSDKPayloadForConnection(
     experimentsDefinitions,
     data.groupMap,
   );
-  const usedSavedGroups = data.savedGroups.filter((sg) =>
-    usedSavedGroupIds.has(sg.id),
-  );
+  const usedSavedGroups = [
+    ...data.savedGroups.filter((sg) => usedSavedGroupIds.has(sg.id)),
+    // Remote groups checked against another attribute
+    ...getDerivedRemoteGroups(usedSavedGroupIds, data.savedGroups),
+  ];
 
   const contextualBanditsInUse = filterUsedContextualBandits(
     cbMap,
@@ -2923,6 +3023,7 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         sparse: rule.sparse,
         coverage: rule.coverage ?? 1,
         hashAttribute: rule.hashAttribute,
+        fallbackAttribute: rule.fallbackAttribute,
         seed: rule.seed,
         // Emit so a GET→edit→PUT round-trip preserves it (else the rollout re-buckets).
         hashVersion: rule.hashVersion,
@@ -3735,6 +3836,8 @@ export function applySavedGroupHashing(
 ): SavedGroupInterface[] {
   const clonedGroups = clone(savedGroups);
   clonedGroups.forEach((group) => {
+    // Remote IDs are not in the payload; resolvers look them up unhashed.
+    if (group.type === "remote") return;
     const attribute = attributes.find(
       (attr) => attr.property === group.attributeKey,
     );
@@ -3892,22 +3995,26 @@ export function validateFeatureRuleValues(
   switch (rule.type) {
     case "force":
     case "rollout":
-      validateFeatureValue(feature, rule.value, "Value");
+      assertStorableFeatureValue(feature, rule.value, "Value");
       break;
     case "experiment":
       (rule.values ?? []).forEach((v, i) =>
-        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+        assertStorableFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );
       break;
     case "experiment-ref":
     case "contextual-bandit-ref":
       (rule.variations ?? []).forEach((v, i) =>
-        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+        assertStorableFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );
       break;
     case "safe-rollout":
-      validateFeatureValue(feature, rule.controlValue, "Control value");
-      validateFeatureValue(feature, rule.variationValue, "Variation value");
+      assertStorableFeatureValue(feature, rule.controlValue, "Control value");
+      assertStorableFeatureValue(
+        feature,
+        rule.variationValue,
+        "Variation value",
+      );
       break;
   }
 }
@@ -3926,7 +4033,7 @@ export function assertFeatureValuesValid(
     : feature;
   mapChangedFeatureValues(
     values,
-    (value, label) => validateFeatureValue(valueFeature, value, label),
+    (value, label) => assertStorableFeatureValue(valueFeature, value, label),
     previous,
   );
 }
@@ -4156,6 +4263,9 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           condition: r.condition,
           savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
+          ...(r.fallbackAttribute && {
+            fallbackAttribute: r.fallbackAttribute,
+          }),
           // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
           ...(r.seed !== undefined && { seed: r.seed }),
           ...(r.hashVersion !== undefined && { hashVersion: r.hashVersion }),

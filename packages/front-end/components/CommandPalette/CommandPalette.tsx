@@ -18,11 +18,16 @@ import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { isCloud } from "@/services/env";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
 import { buildSidebarLinkFilterProps } from "@/components/Layout/SidebarLink";
 import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
+import {
+  ORG_PAGE_KEYWORDS,
+  SETTINGS_SECTIONS,
+} from "@/components/GeneralSettings/settingsSections";
 import { getDocSectionsForCommandPalette } from "@/components/DocLink";
 import {
   buildCommandPaletteIndex,
@@ -191,7 +196,17 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const { experiments } = useExperiments();
   const { dashboards } = useDashboards(false);
 
-  const docPaletteRows = useMemo(() => getDocSectionsForCommandPalette(), []);
+  // The flag only applies on Cloud
+  const remoteGroupsOn =
+    !isCloud() || (growthbook?.isOn("remote-saved-groups") ?? false);
+  const docPaletteRows = useMemo(
+    () =>
+      getDocSectionsForCommandPalette().filter(
+        // Its docs page is unlisted while the feature is behind a flag on Cloud
+        (row) => row.section !== "remoteSavedGroups" || remoteGroupsOn,
+      ),
+    [remoteGroupsOn],
+  );
   const apiReferenceRows = useMemo(() => getApiReferencePaletteRows(), []);
 
   // Build unified item list
@@ -213,8 +228,22 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       name: row.parentName ? `${row.parentName} → ${row.name}` : row.name,
       description: row.parentName ? row.name : "",
       url: row.href,
-      tags: row.parentName ? `${row.parentName} ${row.name}` : row.name,
+      tags: [row.parentName, row.name, ORG_PAGE_KEYWORDS[row.href]]
+        .filter(Boolean)
+        .join(" "),
     }));
+    if (flatNav.some((row) => row.href === "/settings")) {
+      for (const s of SETTINGS_SECTIONS) {
+        result.push({
+          id: `nav::/settings#${s.id}`,
+          type: "navigation",
+          name: `Settings → ${s.title}`,
+          description: s.description,
+          url: `/settings#${s.id}`,
+          tags: `Settings General ${s.title}`,
+        });
+      }
+    }
 
     for (const f of features) {
       if (f.archived) continue;

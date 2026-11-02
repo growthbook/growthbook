@@ -352,11 +352,12 @@ export async function getSignedPublicImageToken(
       }
     }
 
-    // Check experiment description for image references
+    // The description and hypothesis, which the public page shows
     if (
       !imageFound &&
-      experiment.description &&
-      experiment.description.includes(fullPath)
+      [experiment.description, experiment.hypothesis].some((text) =>
+        text?.includes(fullPath),
+      )
     ) {
       imageFound = true;
     }

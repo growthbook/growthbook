@@ -4,7 +4,7 @@
   font-size: 10px;
   line-height: 12px;
   word-break: break-all;
-  font-family: monospace;
+  font-family: var(--code-font-family);
   padding: 4px 6px;
   &::placeholder {
     font-style: italic;

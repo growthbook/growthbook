@@ -1,6 +1,12 @@
 import { format, quoteIdentifier, SQL_ROW_LIMIT } from "shared/sql";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import { stringRowFilterOperators } from "shared/validators";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+} from "shared/util";
 import type { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import type { ExperimentExposuresQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -94,20 +100,35 @@ export function getExperimentExposuresQuery(
 
   params.dimensions.forEach((d) => assertSafeIdentifier(d, "Dimension"));
 
+  const { exposureQuery } = params;
+  const timestampColumn = getExposureQueryTimestampColumn(exposureQuery);
+  const experimentIdColumn = getExposureQueryExperimentIdColumn(exposureQuery);
+  // Filters name roles canonically, but the query returns the mapped columns
+  const physicalColumns: Record<string, string> = {
+    timestamp: timestampColumn,
+    variation_id: getExposureQueryVariationIdColumn(exposureQuery),
+    [exposureQuery.identifierType]: getExposureQueryIdentifierColumn(
+      exposureQuery,
+      exposureQuery.identifierType,
+    ),
+  };
+  const toPhysical = (column: string) => physicalColumns[column] ?? column;
+
   // Ordering on every configured column keeps paging stable for rows that tie
   // on timestamp. Rows identical across all of them can still swap places
   // between pages — the exposure query has no unique key to break that tie.
-  const orderColumns = Array.from(
+  const filterableColumns = Array.from(
     new Set([
       "timestamp",
-      params.exposureQuery.identifierType,
+      exposureQuery.identifierType,
       "variation_id",
       ...params.dimensions,
     ]),
   );
-  orderColumns.forEach((c) => assertSafeIdentifier(c, "Column"));
-
-  const filterableColumns = orderColumns;
+  const orderColumns = Array.from(new Set(filterableColumns.map(toPhysical)));
+  [...orderColumns, experimentIdColumn].forEach((c) =>
+    assertSafeIdentifier(c, "Column"),
+  );
 
   const rowFilters = params.rowFilters ?? [];
   rowFilters.forEach((f) => {
@@ -126,9 +147,10 @@ export function getExperimentExposuresQuery(
     ? buildRowFilterWhereClause({
         rowFilters: rowFilters.map((f) => ({
           ...f,
+          column: toPhysical(f.column ?? ""),
           values: f.values?.map((v) => v.toLowerCase()),
         })),
-        factTable: exposureColumnsAsFactTable(filterableColumns, dialect),
+        factTable: exposureColumnsAsFactTable(orderColumns, dialect),
         dialect,
       })
     : "";
@@ -137,9 +159,9 @@ export function getExperimentExposuresQuery(
       AND ${rowFilterWhere}`
     : "";
 
-  const whereAndOrderBy = `WHERE ${quoteColumnIdentifier("experiment_id", dialect)} = '${trackingKey}'
-      AND ${quoteColumnIdentifier("timestamp", dialect)} >= ${dialect.toTimestamp(params.startDate)}
-      AND ${quoteColumnIdentifier("timestamp", dialect)} < ${dialect.toTimestamp(params.endDate)}${extraWhere}
+  const whereAndOrderBy = `WHERE ${quoteColumnIdentifier(experimentIdColumn, dialect)} = '${trackingKey}'
+      AND ${quoteColumnIdentifier(timestampColumn, dialect)} >= ${dialect.toTimestamp(params.startDate)}
+      AND ${quoteColumnIdentifier(timestampColumn, dialect)} < ${dialect.toTimestamp(params.endDate)}${extraWhere}
     ORDER BY ${orderColumns.map((column) => `${quoteColumnIdentifier(column, dialect)} DESC`).join(", ")}`;
 
   // SELECT * rather than an explicit column list: every column the exposure
