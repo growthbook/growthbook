@@ -252,6 +252,46 @@ describe("clientToolArgs for previewScreenshot", () => {
     expect(ins.html).toBe(`<div class="${ins.scopeToken}"><p/></div>`);
   });
 
+  it("accepts the final answer's nulls and its replacement css", () => {
+    const args = clientToolArgs(PREVIEW_SCREENSHOT_TOOL, {
+      mutations: [
+        {
+          selector: ".cta",
+          action: "set",
+          attribute: "position",
+          value: null,
+          parentSelector: ".hero",
+          insertBeforeSelector: null,
+        },
+        {
+          selector: "h1",
+          action: "set",
+          attribute: "html",
+          value: "Hi",
+          parentSelector: null,
+          insertBeforeSelector: null,
+        },
+      ],
+      cssAppend: null,
+      css: "body { background: blue; }",
+      insert: null,
+    }) as { draft: Record<string, unknown> };
+    expect(args.draft).toEqual({
+      mutations: [
+        {
+          selector: ".cta",
+          action: "set",
+          attribute: "position",
+          parentSelector: ".hero",
+        },
+        { selector: "h1", action: "set", attribute: "html", value: "Hi" },
+      ],
+      css: undefined,
+      replaceCss: "body { background: blue; }",
+      inserts: [],
+    });
+  });
+
   it("sends no draft when there is nothing to apply", () => {
     expect(clientToolArgs(PREVIEW_SCREENSHOT_TOOL, { selector: "h1" })).toEqual(
       { selector: "h1", draft: null },

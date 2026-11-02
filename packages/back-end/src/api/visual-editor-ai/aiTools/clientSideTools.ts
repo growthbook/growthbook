@@ -156,7 +156,7 @@ const getInnerHTMLDef = {
 
 // Stateless loop only: the image comes back in `resume.images` (see screenshots.ts).
 const previewScreenshotDef = {
-  description: `Render your DRAFT on the live page and see a screenshot of it. The draft is applied on top of the variation's current changes, captured, then removed (nothing is saved). Pass the same mutations / cssAppend / insert you plan to return, or none of them to see the page as it is now.
+  description: `Render your DRAFT on the live page and see a screenshot of it. The draft is applied on top of the variation's current changes, captured, then removed (nothing is saved). Pass the same mutations / cssAppend / css / insert you plan to return, or none of them to see the page as it is now.
 When to call it — decide from your draft, not from how hard the request sounds:
 - Only text, link, alt or other attribute changes: don't, unless the new text is much longer than the old and could wrap or overflow.
 - Layout, CSS, moves, inserts or images: once, after drafting.
@@ -177,19 +177,26 @@ At most ${SCREENSHOTS_PER_TURN_MAX} per request. The shot shows only the visible
           selector: z.string().min(1).max(500),
           action: z.enum(["set", "append", "remove"]),
           attribute: z.string().min(1).max(100),
-          value: z.string().max(50000).optional(),
-          parentSelector: z.string().max(500).optional(),
-          insertBeforeSelector: z.string().max(500).optional(),
+          value: z.string().max(50000).nullish(),
+          parentSelector: z.string().max(500).nullish(),
+          insertBeforeSelector: z.string().max(500).nullish(),
         }),
       )
       .max(50)
-      .optional()
+      .nullish()
       .describe("Draft DOM mutations, same shape as the final output."),
     cssAppend: z
       .string()
       .max(50000)
-      .optional()
+      .nullish()
       .describe("Draft global CSS to add after the variation's existing CSS."),
+    css: z
+      .string()
+      .max(50000)
+      .nullish()
+      .describe(
+        "Draft replacement for the variation's whole global CSS, as in the final output.",
+      ),
     insert: z
       .array(
         z.object({
@@ -204,7 +211,7 @@ At most ${SCREENSHOTS_PER_TURN_MAX} per request. The shot shows only the visible
         }),
       )
       .max(10)
-      .optional()
+      .nullish()
       .describe("Draft inserted elements, same shape as the final output."),
   }),
 };
@@ -256,17 +263,39 @@ export function deferredDomTools() {
 function previewScreenshotArgs(input: unknown) {
   const parsed = previewScreenshotDef.inputSchema.safeParse(input);
   if (!parsed.success) return input;
-  const { selector, mutations = [], cssAppend, insert = [] } = parsed.data;
+  const { selector, cssAppend, css } = parsed.data;
+  const mutations = parsed.data.mutations ?? [];
+  const insert = parsed.data.insert ?? [];
   const hasDraft =
-    mutations.length > 0 || !!cssAppend?.trim() || insert.length > 0;
+    mutations.length > 0 ||
+    !!cssAppend?.trim() ||
+    !!css?.trim() ||
+    insert.length > 0;
   return {
     selector: selector ?? null,
     draft: hasDraft
       ? {
-          mutations: mutations.map((m) =>
-            m.attribute === "text" ? { ...m, attribute: "html" } : m,
-          ),
+          // Nulls dropped the way the final answer drops them.
+          mutations: mutations.map((m) => {
+            const attribute = m.attribute === "text" ? "html" : m.attribute;
+            const isPosition = attribute === "position";
+            return {
+              selector: m.selector,
+              action: m.action,
+              attribute,
+              ...(!isPosition && (m.value ?? null) !== null
+                ? { value: m.value }
+                : {}),
+              ...(isPosition && m.parentSelector
+                ? { parentSelector: m.parentSelector }
+                : {}),
+              ...(isPosition && m.insertBeforeSelector
+                ? { insertBeforeSelector: m.insertBeforeSelector }
+                : {}),
+            };
+          }),
           css: cssAppend?.trim() || undefined,
+          replaceCss: css?.trim() || undefined,
           inserts: insert.map((ins) => {
             const scopeToken = makeScopeToken();
             return {
