@@ -376,12 +376,7 @@ export default function IdentifierModal({
                       ? !!linked || d.id in picks
                       : editable && !uncheckedIds.includes(d.id);
                     return (
-                      <TableRow
-                        key={d.id}
-                        style={
-                          linked ? { background: "var(--gray-a2)" } : undefined
-                        }
-                      >
+                      <TableRow key={d.id}>
                         <TableCell>
                           {linked ? (
                             // Lines up with the names of the checkbox rows.
