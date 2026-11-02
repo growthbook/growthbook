@@ -7,7 +7,6 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { resolveFactMetricCreation } from "@/services/metrics";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
@@ -63,7 +62,14 @@ export default function useFactMetricFlow(
         : (!target.datasource || table.datasource === target.datasource) &&
           isProjectListValidForProject(table.projects, targetProject),
     );
-    const mode = resolveFactMetricCreation(ready, !!table, embedded);
+    // Without a fact table, the metric editor has nothing to build on
+    const mode = !ready
+      ? "pending"
+      : !table
+        ? "fact-table"
+        : embedded
+          ? "inline"
+          : "page";
     const canCreate =
       mode === "fact-table"
         ? permissionsUtil.canViewCreateFactTableModal(targetProject, projects)

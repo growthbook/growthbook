@@ -40,16 +40,6 @@ import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
-export function resolveFactMetricCreation(
-  ready: boolean,
-  hasFactTable: boolean,
-  embedded = false,
-): "pending" | "page" | "fact-table" | "inline" {
-  if (!ready) return "pending";
-  if (!hasFactTable) return "fact-table";
-  return embedded ? "inline" : "page";
-}
-
 export function duplicateFactMetric(
   metric: FactMetricInterface,
   canCreateOfficial: boolean,

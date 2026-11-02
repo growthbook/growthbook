@@ -140,6 +140,22 @@ describe("useFactMetricFlow", () => {
     expect(result.current.modal).toBeNull();
   });
 
+  it("waits for definitions, then opens the fact table step when embedded without one", () => {
+    state.ready = false;
+    const { result, rerender } = renderHook(() =>
+      useFactMetricFlow("test", { embedded: true }),
+    );
+    expect(result.current.creation().mode).toBe("pending");
+    state.ready = true;
+    rerender();
+    expect(result.current.creation().mode).toBe("fact-table");
+    act(() => {
+      result.current.open();
+    });
+    expect(result.current.modal).not.toBeNull();
+    expect(state.router.push).not.toHaveBeenCalled();
+  });
+
   it("opens the creation modal inline when embedded", () => {
     state.factTables = [{ id: "ft_1", datasource: "ds", projects: [] }];
     const { result } = renderHook(() =>

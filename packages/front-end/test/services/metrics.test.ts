@@ -2,7 +2,6 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   duplicateFactMetric,
-  resolveFactMetricCreation,
   CreateFactMetricFormProps,
   formatDurationMilliseconds,
   formatDurationSeconds,
@@ -445,36 +444,6 @@ describe("getDefaultFactMetricProps datasource", () => {
         .datasource,
     ).toBe("ds_default");
   });
-});
-
-describe("fact metric creation flow", () => {
-  it.each([
-    [false, false, "pending"],
-    [false, true, "pending"],
-    [true, false, "fact-table"],
-    [true, true, "page"],
-  ] as const)(
-    "resolves ready=%s, fact table=%s to %s",
-    (ready, hasFactTable, expected) => {
-      expect(resolveFactMetricCreation(ready, hasFactTable)).toBe(expected);
-    },
-  );
-});
-
-describe("embedded fact metric creation", () => {
-  it.each([
-    [false, false, "pending"],
-    [false, true, "pending"],
-    [true, true, "inline"],
-    [true, false, "fact-table"],
-  ] as const)(
-    "keeps ready=%s, table=%s on the current form",
-    (ready, hasFactTable, expected) => {
-      expect(resolveFactMetricCreation(ready, hasFactTable, true)).toBe(
-        expected,
-      );
-    },
-  );
 });
 
 describe("duplicateFactMetric", () => {
