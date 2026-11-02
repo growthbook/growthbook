@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import React, { ReactElement } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import { useInterleaving } from "@/hooks/useInterleavings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -17,7 +18,7 @@ const InterleavingPage = (): ReactElement => {
   const { ilid } = useRouter().query;
   const { organization, hasCommercialFeature } = useUser();
   const gb = useGrowthBook<AppFeatures>();
-  const interleavingEnabled = !!gb?.isOn("interleave-exp");
+  const interleavingEnabled = isInterleavingEnabled(gb);
   const { interleaving, loading, mutate } = useInterleaving(
     typeof ilid === "string" ? ilid : undefined,
     { enabled: interleavingEnabled },

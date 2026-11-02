@@ -18,8 +18,10 @@ import { isTestableDataSourceType } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureValue, useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import { getDataSourceSqlDialect } from "shared/dialects";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -368,7 +370,8 @@ const DataSourcePage: FC = () => {
   const { hasCommercialFeature, settings: orgSettings } = useUser();
   // Default ON; the remote flag only turns this off for specific orgs.
   const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
-  const interleavingEnabled = useFeatureIsOn("interleave-exp");
+  const interleavingEnabled =
+    isInterleavingEnabled(useGrowthBook<AppFeatures>());
 
   // Only the never-provisioned state replaces the settings UI with the onboarding
   // callout. A transient migration must NOT blank the config page — query sub-surfaces

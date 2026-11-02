@@ -34,7 +34,10 @@ import Table, {
 } from "@/ui/Table";
 import InterleavingForm from "@/enterprise/components/Interleaving/InterleavingForm";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import { interleavingStatusIndicatorData } from "@/services/interleaving";
+import {
+  interleavingStatusIndicatorData,
+  isInterleavingEnabled,
+} from "@/services/interleaving";
 import Custom404 from "@/pages/404";
 
 const LIST_TABS = ["all", "running", "drafts", "stopped", "archived"] as const;
@@ -59,7 +62,7 @@ const InterleavingsPage = (): React.ReactElement => {
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const gb = useGrowthBook<AppFeatures>();
-  const interleavingEnabled = !!gb?.isOn("interleave-exp");
+  const interleavingEnabled = isInterleavingEnabled(gb);
   const { interleavings, loading, error } = useInterleavings(project, {
     enabled: interleavingEnabled,
   });
