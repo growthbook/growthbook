@@ -347,6 +347,8 @@ export function getInterleavingMetricQuery(
           ]),
         ])}
       FROM __eventRows m
+      WHERE ${eventRankingId} IS NOT NULL
+        AND ${eventItemId} IS NOT NULL
       GROUP BY ${eventUserId}, ${eventRankingId}, ${eventItemId}
     )`;
 
@@ -508,14 +510,29 @@ export function getInterleavingMetricQuery(
     ...(includePreference ? [preferenceUserCTE] : []),
   ].filter(Boolean);
 
+  // Both per-user CTEs keep every exposed user (each LEFT JOINs engagement
+  // onto all exposures), so either drives the final SELECT. Re-reading
+  // __exposures for the user list would cost another pass over the exposure
+  // source on warehouses that re-evaluate CTEs per reference (BigQuery, Trino).
+  let users: string;
+  if (includePaired) {
+    users = `__pairedUser pu${
+      includePreference
+        ? "\n    LEFT JOIN __preferenceUser pref ON pref.user_id = pu.user_id"
+        : ""
+    }`;
+  } else if (includePreference) {
+    users = "__preferenceUser pref";
+  } else {
+    throw new Error("Interleaving metric query requires at least one analysis");
+  }
+
   return format(
     `-- Interleaving metrics (one query per fact table)
     WITH ${ctes.join(",")}
     SELECT
       ${cols(["COUNT(*) AS users_exposed", ...finalCols])}
-    FROM (SELECT DISTINCT user_id FROM __exposures) u
-    ${includePaired ? "LEFT JOIN __pairedUser pu ON pu.user_id = u.user_id" : ""}
-    ${includePreference ? "LEFT JOIN __preferenceUser pref ON pref.user_id = u.user_id" : ""}`,
+    FROM ${users}`,
     dialect.formatDialect,
   );
 }

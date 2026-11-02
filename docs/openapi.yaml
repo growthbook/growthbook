@@ -56257,7 +56257,7 @@ paths:
                         - enabled
                       additionalProperties: false
                     - type: 'null'
-                datasource:
+                datasourceId:
                   type: string
                 interleavingExposureQueryId:
                   type: string
@@ -56610,7 +56610,7 @@ paths:
                     - simple
                     - enabled
                   additionalProperties: false
-                datasource:
+                datasourceId:
                   type: string
                 interleavingExposureQueryId:
                   type: string
@@ -56707,7 +56707,7 @@ paths:
                 - name
                 - key
                 - variations
-                - datasource
+                - datasourceId
                 - interleavingExposureQueryId
                 - userIdType
               additionalProperties: false
@@ -84142,7 +84142,7 @@ components:
                 - date
               additionalProperties: false
             - type: 'null'
-        datasource:
+        datasourceId:
           type: string
         interleavingExposureQueryId:
           type: string
@@ -84250,7 +84250,7 @@ components:
         - seed
         - variations
         - jsonSchema
-        - datasource
+        - datasourceId
         - interleavingExposureQueryId
         - userIdType
         - metrics

@@ -53,7 +53,7 @@ const baseDoc = {
     treatment: ranker("var_b", "price-first", '{"algorithm":"price-first"}'),
   },
   jsonSchema: null,
-  datasource: "ds_1",
+  datasourceId: "ds_1",
   interleavingExposureQueryId: "ileq_1",
   userIdType: "user_id",
   metrics: [{ id: "fact__clicks", analyses: [{ type: "paired" }] }],

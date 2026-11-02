@@ -120,7 +120,7 @@ export const interleavingValidator = baseSchema
     jsonSchema: JSONSchemaDef.nullable(),
 
     // Analysis inputs.
-    datasource: z.string(),
+    datasourceId: z.string(),
     interleavingExposureQueryId: z.string(),
     userIdType: z.string(),
     metrics: z
@@ -208,7 +208,7 @@ export const apiInterleavingValidator = namedSchema(
       .describe("Validation schema for the rankers' configs")
       .nullable(),
 
-    datasource: z.string(),
+    datasourceId: z.string(),
     interleavingExposureQueryId: z.string(),
     userIdType: z.string(),
     metrics: z.array(interleavingMetricConfigValidator),
@@ -254,7 +254,7 @@ export const apiCreateInterleavingBody = z.strictObject({
   variations: apiInterleavingVariationsInput,
   jsonSchema: apiJSONSchemaDefInput.optional(),
 
-  datasource: z.string(),
+  datasourceId: z.string(),
   interleavingExposureQueryId: z.string(),
   userIdType: z.string(),
   metrics: z.array(interleavingMetricConfigValidator).optional(),
@@ -296,7 +296,7 @@ export const apiUpdateInterleavingBody = z.strictObject({
     .describe("Replaces both rankers. Each keeps its id."),
   jsonSchema: apiJSONSchemaDefInput.nullable().optional(),
 
-  datasource: z.string().optional(),
+  datasourceId: z.string().optional(),
   interleavingExposureQueryId: z.string().optional(),
   userIdType: z.string().optional(),
   metrics: z.array(interleavingMetricConfigValidator).optional(),
@@ -322,7 +322,7 @@ export const INTERLEAVING_API_UPDATE_FIELDS = [
   "trackingKey",
   "hashAttribute",
   "seed",
-  "datasource",
+  "datasourceId",
   "interleavingExposureQueryId",
   "userIdType",
   "metrics",

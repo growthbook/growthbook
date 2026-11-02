@@ -61,7 +61,7 @@ const interleaving = (overrides: Partial<InterleavingInterface> = {}) =>
     id: "il_1",
     project: "prj_1",
     trackingKey: "search-ranking",
-    datasource: DATASOURCE,
+    datasourceId: DATASOURCE,
     interleavingExposureQueryId: "ileq_1",
     userIdType: USER_ID_TYPE,
     metrics: [{ id: "fact__goal", analyses: [{ type: "paired" }] }],

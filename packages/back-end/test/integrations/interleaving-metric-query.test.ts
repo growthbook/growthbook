@@ -153,11 +153,19 @@ describe("getInterleavingMetricQuery", () => {
     expect(cteBefore(both, "__events", "__preferenceEventRows")).toBe(
       cteBefore(paired, "__events", "__credited"),
     );
+    // Events that can't match an exposure are dropped before grouping
     expect(both).toMatch(
-      /GROUP BY\s+m\.user_id,\s+cast\(m\.ranking_id as varchar\),\s+cast\(m\.item_id as varchar\)/,
+      /WHERE\s+cast\(m\.ranking_id as varchar\) IS NOT NULL\s+AND cast\(m\.item_id as varchar\) IS NOT NULL\s+GROUP BY\s+m\.user_id,\s+cast\(m\.ranking_id as varchar\),\s+cast\(m\.item_id as varchar\)/,
     );
-    expect(both).toContain("LEFT JOIN __pairedUser pu");
-    expect(both).toContain("LEFT JOIN __preferenceUser pref");
+    // The per-user CTEs drive the final SELECT; __exposures isn't re-read
+    expect(both).toMatch(
+      /FROM\s+__pairedUser pu\s+LEFT JOIN __preferenceUser pref ON pref\.user_id = pu\.user_id\s*$/,
+    );
+    expect(paired).toMatch(/FROM\s+__pairedUser pu\s*$/);
+    expect(preference).toMatch(/FROM\s+__preferenceUser pref\s*$/);
+    for (const sql of [paired, preference, both]) {
+      expect(sql).not.toContain("DISTINCT");
+    }
 
     // Exposures collapse to one row per (user, ranking, item) by grouping,
     // with both team arms explicit so an unknown variation is NULL, not 0
