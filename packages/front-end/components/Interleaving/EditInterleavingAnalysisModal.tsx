@@ -17,7 +17,7 @@ export function analysisOf(
   il: ApiInterleavingInterface,
 ): InterleavingAnalysisValue {
   return {
-    datasource: il.datasource,
+    datasourceId: il.datasourceId,
     interleavingExposureQueryId: il.interleavingExposureQueryId,
     userIdType: il.userIdType,
     metrics: il.metrics,
@@ -38,10 +38,10 @@ export default function EditInterleavingAnalysisModal({
   const [analysis, setAnalysis] = useState(() => analysisOf(il));
   const [addingQuery, setAddingQuery] = useState(false);
   const { mutate: mutateQueries } = useInterleavingExposureQueries(
-    analysis.datasource,
+    analysis.datasourceId,
   );
-  const datasource = analysis.datasource
-    ? getDatasourceById(analysis.datasource)
+  const datasource = analysis.datasourceId
+    ? getDatasourceById(analysis.datasourceId)
     : null;
 
   // Swap modals because Radix renders beneath the legacy modal portal.

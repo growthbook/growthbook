@@ -137,7 +137,7 @@ export default function InterleavingDetailPage({
         <Metadata label="Owner" value={<Owner ownerId={il.owner} />} />
         <Metadata
           label="Data Source"
-          value={getDatasourceById(il.datasource)?.name ?? il.datasource}
+          value={getDatasourceById(il.datasourceId)?.name ?? il.datasourceId}
         />
         {il.tags.length > 0 && (
           <Metadata

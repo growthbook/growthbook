@@ -72,7 +72,7 @@ export default function InterleavingResults({
     refreshing,
     refreshError,
   } = useInterleavingResults(il.id);
-  const datasource = getDatasourceById(il.datasource);
+  const datasource = getDatasourceById(il.datasourceId);
   const canRefresh =
     !!datasource && permissionsUtil.canRunExperimentQueries(datasource);
 

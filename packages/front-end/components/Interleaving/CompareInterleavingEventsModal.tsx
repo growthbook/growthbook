@@ -66,7 +66,7 @@ const INTERLEAVING_DIFF_CONFIG: AuditDiffConfig<InterleavingInterface> = {
     {
       label: "Analysis & Metrics",
       keys: [
-        "datasource",
+        "datasourceId",
         "interleavingExposureQueryId",
         "userIdType",
         "metrics",

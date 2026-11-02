@@ -89,7 +89,7 @@ const InterleavingsPage = (): React.ReactElement => {
             ? (getProjectById(il.project)?.name ?? il.project)
             : "",
           datasourceName:
-            getDatasourceById(il.datasource)?.name ?? il.datasource,
+            getDatasourceById(il.datasourceId)?.name ?? il.datasourceId,
         };
       }),
     [interleavings, getOwnerDisplay, getProjectById, getDatasourceById],

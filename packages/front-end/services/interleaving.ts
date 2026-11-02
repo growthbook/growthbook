@@ -43,7 +43,7 @@ export function interleavingStatusIndicatorData(
     | "status"
     | "archived"
     | "variations"
-    | "datasource"
+    | "datasourceId"
     | "coverage"
     | "condition"
     | "seed"
@@ -79,7 +79,7 @@ export function interleavingStatusIndicatorData(
     goalMetrics: [],
     secondaryMetrics: [],
     guardrailMetrics: [],
-    datasource: il.datasource,
+    datasourceId: il.datasourceId,
     decisionFrameworkSettings: {},
     nextScheduledStatusUpdate: null,
   } as unknown as ExperimentDataForStatusStringDates;

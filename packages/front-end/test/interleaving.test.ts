@@ -51,7 +51,7 @@ describe("interleavingStatusIndicatorData", () => {
         config: "{}",
       },
     },
-    datasource: "ds_1",
+    datasourceId: "ds_1",
     coverage: 0.5,
     condition: '{"country":"US"}',
     seed: "seed_1",

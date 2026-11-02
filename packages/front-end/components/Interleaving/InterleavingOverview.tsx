@@ -75,7 +75,7 @@ export default function InterleavingOverview({
 }) {
   const environments = useEnvironments();
   const { getDatasourceById, getExperimentMetricById } = useDefinitions();
-  const { exposureQueries } = useInterleavingExposureQueries(il.datasource);
+  const { exposureQueries } = useInterleavingExposureQueries(il.datasourceId);
 
   const exposureQuery = exposureQueries.find(
     (q) => q.id === il.interleavingExposureQueryId,
@@ -122,7 +122,8 @@ export default function InterleavingOverview({
     { label: "Tracking key", value: il.trackingKey || EMPTY },
     {
       label: "Data Source",
-      value: getDatasourceById(il.datasource)?.name || il.datasource || EMPTY,
+      value:
+        getDatasourceById(il.datasourceId)?.name || il.datasourceId || EMPTY,
     },
     {
       label: "Interleaving Exposure Query",

@@ -66,7 +66,7 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
   const [keyEdited, setKeyEdited] = useState(false);
   const [addingQuery, setAddingQuery] = useState(false);
   const [analysis, setAnalysis] = useState<InterleavingAnalysisValue>({
-    datasource: "",
+    datasourceId: "",
     interleavingExposureQueryId: "",
     userIdType: "",
     metrics: [],
@@ -147,10 +147,10 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
   });
 
   const { mutate: mutateQueries } = useInterleavingExposureQueries(
-    analysis.datasource,
+    analysis.datasourceId,
   );
-  const analysisDatasource = analysis.datasource
-    ? getDatasourceById(analysis.datasource)
+  const analysisDatasource = analysis.datasourceId
+    ? getDatasourceById(analysis.datasourceId)
     : null;
 
   // Swap modals because Radix renders beneath the legacy PagedModal portal.
