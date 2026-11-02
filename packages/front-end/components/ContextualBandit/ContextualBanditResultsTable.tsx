@@ -553,18 +553,20 @@ export default function ContextualBanditResultsTable({
           configured variation key (<CommaCodeList vals={configuredKeys} />
           ). Rows with an unrecognized <code>variation_id</code> are dropped, so
           affected variations show 0 {unitDisplayName.toLowerCase()}.
-          <ul style={{ marginTop: "var(--space-2)", marginBottom: 0 }}>
-            {unknownVariationCauses.map((cause) => (
-              <li key={cause.value}>
-                {cause.kind === "empty" ? (
-                  <em>(empty value)</em>
-                ) : (
-                  <code>{cause.value}</code>
-                )}{" "}
-                {unknownVariationHint(cause)}
-              </li>
-            ))}
-          </ul>
+          <Box asChild mt="2" mb="0">
+            <ul>
+              {unknownVariationCauses.map((cause) => (
+                <li key={cause.value}>
+                  {cause.kind === "empty" ? (
+                    <em>(empty value)</em>
+                  ) : (
+                    <code>{cause.value}</code>
+                  )}{" "}
+                  {unknownVariationHint(cause)}
+                </li>
+              ))}
+            </ul>
+          </Box>
           <Text as="div" mt="2">
             Map <code>variation_id</code> to your variation keys in the query.{" "}
             <Link href={assignmentQueryDocUrl} target="_blank" rel="noreferrer">
