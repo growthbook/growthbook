@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - ".github/workflows/deploy.yml"
+      - ".github/workflows/build-image.yml"
       - "packages/**"
       - "!**.md"
       - "pnpm-lock.yaml"
