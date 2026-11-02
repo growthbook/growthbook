@@ -1,5 +1,6 @@
 import {
   PENDING_APPROVAL_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
   type ManualLaunchChecklistItem,
 } from "shared/validators";
 import type { CheckListItem } from "./PreLaunchChecklistItems";
@@ -58,9 +59,6 @@ export function summarizeChecklist(items: CheckListItem[]): ChecklistSummary {
   };
 }
 
-export const STALE_VALUES_ITEM_PREFIX = "staleVariationValues:";
-const MERGE_CONFLICT_ITEM_PREFIX = "mergeConflict:";
-
 export function isPendingApprovalItem(item: Pick<CheckListItem, "key">) {
   return item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX);
 }
@@ -85,16 +83,4 @@ export function nextManualChecklist(
   return list.some((e) => e.key === key)
     ? list.map((e) => (e.key === key ? entry : e))
     : [...list, entry];
-}
-
-/** The rows about one Feature Flag's draft: its conflict, staleness and approval. */
-export function isFlagDraftItem(
-  item: Pick<CheckListItem, "key">,
-  featureId: string,
-): boolean {
-  return [
-    MERGE_CONFLICT_ITEM_PREFIX,
-    STALE_VALUES_ITEM_PREFIX,
-    PENDING_APPROVAL_ITEM_PREFIX,
-  ].some((prefix) => item.key === `${prefix}${featureId}`);
 }

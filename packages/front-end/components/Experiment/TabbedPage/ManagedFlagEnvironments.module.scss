@@ -1,0 +1,28 @@
+@import "../../../styles/hover-highlight";
+
+// Opens the environments editor wherever the row is clicked.
+.editable {
+  @include hover-highlight;
+  @include click-row;
+
+  .edit {
+    @include click-row-target;
+    margin-left: var(--space-2);
+    opacity: 0;
+    transition: opacity 0.1s ease-in-out;
+  }
+
+  &:hover .edit,
+  .edit:focus-visible {
+    opacity: 1;
+  }
+}
+
+// Takes no room, cancelling the row's gap before it, so the row centers on
+// its environments and the pencil spills past them.
+.pencil {
+  display: flex;
+  align-items: center;
+  width: 0;
+  margin-left: calc(-1 * var(--space-3));
+}

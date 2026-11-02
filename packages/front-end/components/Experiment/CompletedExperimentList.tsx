@@ -9,6 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import {
   ImplementationTypeIcon,
+  implementationNoun,
   LIST_ICON_STYLE,
 } from "@/components/Experiment/ImplementationTypeSelect";
 import Pagination from "@/components/Pagination";
@@ -169,6 +170,7 @@ const CompletedExperimentList = ({
                 <ImplementationTypeIcon
                   key={e.id + "-feature-flag"}
                   type={getManagedFlag(e.id) ? "values" : "feature"}
+                  noun={implementationNoun(e.type)}
                   style={LIST_ICON_STYLE}
                 />,
               );

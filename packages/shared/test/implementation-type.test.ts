@@ -43,6 +43,12 @@ describe("getImplementationType", () => {
     ).toBe("values");
   });
 
+  it("is values for a managed flag adopted before the type was stored", () => {
+    expect(
+      getImplementationType({ linkedFeatures: ["f"], hasManagedFlag: true }),
+    ).toBe("values");
+  });
+
   it("uses the stored value while nothing is linked", () => {
     expect(getImplementationType({ implementationType: "none" })).toBe("none");
     expect(getImplementationType({ implementationType: "visual" })).toBe(

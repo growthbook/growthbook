@@ -84,6 +84,7 @@ export function ColumnHeader({
   title = null,
   problem = null,
   kind = null,
+  pinKind = false,
   menu = [],
   menuLabel,
 }: {
@@ -92,10 +93,15 @@ export function ColumnHeader({
   title?: ReactNode;
   problem?: ColumnProblem | null;
   kind?: ReactNode;
+  // Beside the title at all times, rather than with the menu on hover.
+  pinKind?: boolean;
   menu?: ReactNode[];
   menuLabel: string;
 }) {
-  const menuOnly = !kind && menu.length > 0;
+  const kindNode =
+    typeof kind === "string" ? <HeaderKind>{kind}</HeaderKind> : kind;
+  const hoverKind = pinKind ? null : kindNode;
+  const menuOnly = !hoverKind && menu.length > 0;
   return (
     <div
       className={clsx(
@@ -133,11 +139,21 @@ export function ColumnHeader({
           </Flex>
         ) : null}
         {title ? (
-          <Flex align="baseline" gap="1" minWidth="0">
+          <Flex
+            align="baseline"
+            gap="1"
+            minWidth="0"
+            flexGrow={pinKind ? "1" : undefined}
+          >
             {title}
+            {pinKind && kindNode ? (
+              <Flex ml="auto" pl="2" flexShrink="0">
+                {kindNode}
+              </Flex>
+            ) : null}
           </Flex>
         ) : null}
-        {kind || menu.length ? (
+        {hoverKind || menu.length ? (
           <Flex
             align="center"
             gap="2"
@@ -147,8 +163,8 @@ export function ColumnHeader({
               menuOnly && styles.menuOnly,
             )}
           >
-            {typeof kind === "string" ? <HeaderKind>{kind}</HeaderKind> : kind}
-            {kind && menu.length ? <CardHeaderDivider /> : null}
+            {hoverKind}
+            {hoverKind && menu.length ? <CardHeaderDivider /> : null}
             {menu.length ? (
               <DropdownMenu
                 trigger={<MoreMenuTrigger label={menuLabel} />}

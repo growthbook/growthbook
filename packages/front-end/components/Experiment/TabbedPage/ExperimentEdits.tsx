@@ -124,14 +124,6 @@ type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 
-interface LiveViewValue {
-  /** The page shows live values in place of unpublished ones; nothing edits. */
-  live: boolean;
-  setLive: (live: boolean) => void;
-}
-
-const LiveViewContext = createContext<LiveViewValue | null>(null);
-
 // `onPage` when it's resolved on the page, by its fields or the save bar.
 export type SaveRefusal = { message: string; onPage: boolean };
 
@@ -317,16 +309,6 @@ export function ExperimentEditsProvider({
 }) {
   const { apiCall } = useAuth();
   const experimentId = experiment.id;
-  // Held against the experiment it was picked on, so it doesn't follow the
-  // page to another one.
-  const [liveFor, setLiveFor] = useState<string | null>(null);
-  const liveView = useMemo(
-    () => ({
-      live: liveFor === experimentId,
-      setLive: (live: boolean) => setLiveFor(live ? experimentId : null),
-    }),
-    [liveFor, experimentId],
-  );
   const scope = stagedEditsScope(experiment);
   const edits = useRef(new Map<string, PendingEdit>());
 
@@ -664,9 +646,7 @@ export function ExperimentEditsProvider({
 
   return (
     <ExperimentEditsContext.Provider value={value}>
-      <LiveViewContext.Provider value={liveView}>
-        {children}
-      </LiveViewContext.Provider>
+      {children}
       {/* Never submitted: Save checks it. The disabled default button keeps
           Enter in a field from submitting it. */}
       <form id={formId} ref={form} hidden>
@@ -698,11 +678,6 @@ export function ExperimentEditsProvider({
       ) : null}
     </ExperimentEditsContext.Provider>
   );
-}
-
-/** Whether the page is showing live values, read-only, rather than unpublished ones. */
-export function useLiveView(): LiveViewValue {
-  return useContext(LiveViewContext) ?? { live: false, setLive: () => {} };
 }
 
 export function useExperimentEdits() {

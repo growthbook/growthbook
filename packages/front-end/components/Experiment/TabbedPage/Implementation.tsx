@@ -18,9 +18,12 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   canEditDeliveryInPlace,
   experimentHasLinkedChanges,
+  getImplementationType,
   getLinkedChangeEnvs,
   hasPendingScheduledStart,
+  isManagedByExperiment,
 } from "shared/util";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import {
   getActivePhaseIndex,
   getLatestPhaseVariations,
@@ -39,8 +42,10 @@ import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import {
   ColumnLayout,
   ImplementationColumn,
+  StagedNote,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
@@ -71,6 +76,7 @@ import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
   FlagEnvironmentsDraft,
   HoldoutDraft,
+  ImplementationTypeDraft,
   useExperimentEdits,
   useExperimentFieldEdit,
   useRegisterExperimentEdit,
@@ -116,6 +122,7 @@ export interface Props {
   // Viewing an old phase: nothing staged here can change.
   disableEditing?: boolean;
   holdoutDraft?: HoldoutDraft;
+  implementationTypeDraft?: ImplementationTypeDraft;
   holdout?: HoldoutInterfaceStringDates;
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
@@ -144,6 +151,7 @@ export default function Implementation({
   datasourceMissing = false,
   disableEditing,
   holdoutDraft,
+  implementationTypeDraft,
   holdout,
   holdoutExperiments,
   holdoutFeatures,
@@ -226,6 +234,7 @@ export default function Implementation({
   const pendingScheduledStart = hasPendingScheduledStart(experiment);
 
   const permissionsUtil = usePermissionsUtil();
+  const { requireProjectForFeatures } = useOrgSettings();
 
   const [linkedDraft, setLinkedDraft] = useStagedState<LinkedChangesDraft>(
     LINKED_CHANGES_EDIT_ID,
@@ -355,6 +364,39 @@ export default function Implementation({
         kind
       ],
   );
+  const hasManagedFlag = linkedFeatures.some((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  );
+  const stagedType = implementationTypeDraft?.value?.type ?? null;
+  // Staged changes included. Once chosen, a single kind only adds more of
+  // itself; changing it means changing the implementation type.
+  const implementationType = getImplementationType({
+    implementationType: stagedType ?? experiment.implementationType,
+    linkedFeatures: [
+      ...linkedFeatures.map((f) => f.feature.id),
+      ...addedFlags.map((a) => a.feature.id),
+    ],
+    hasVisualChangesets: hasVisual,
+    hasURLRedirects: hasRedirects,
+    hasManagedFlag,
+  });
+  const addKind =
+    implementationType === "multi"
+      ? shownKinds[0]
+      : (ADDABLE_KINDS.find((kind) => kind === implementationType) ?? null);
+  // Saving creates the flag, as the server does for any Values experiment
+  // without one.
+  const canChooseValues =
+    !!implementationTypeDraft &&
+    permissionsUtil.canCreateFeature(
+      { project: experiment.project ?? "" },
+      NO_ENVIRONMENT_BINDING,
+    );
+  const valuesBlockedReason =
+    addBlockedReason ??
+    (requireProjectForFeatures && !experiment.project
+      ? "Feature Flags need a Project in this organization. Set the experiment's Project first."
+      : null);
   const implementationColumns: ImplementationColumn[] = [
     ...shownRedirects.map((r) => ({
       key: `redirect:${r.key}`,
@@ -401,26 +443,45 @@ export default function Implementation({
       .map((v) => v.id)
       .join();
   const [saveBeforeVisual, setSaveBeforeVisual] = useState(false);
-  const addImplementation = canAddAny ? (
-    <AddImplementationMenu
-      experiment={experiment}
-      onAdd={{
-        feature: () => setFeatureModal(true),
-        visual: () =>
-          variationsUnsaved
-            ? setSaveBeforeVisual(true)
-            : setVisualEditorModal(true),
-        urlredirect: () => setRedirectModal({ target: null }),
-      }}
-      // In priority order, the first kind it already has.
-      primary={shownKinds[0] ?? null}
-      blockedReasons={{
-        feature: addBlockedReason,
-        visual: linkedChangesLockedReason,
-        urlredirect: linkedChangesLockedReason,
-      }}
-    />
-  ) : null;
+  // The experiment's own Feature Flag is its whole implementation.
+  const addImplementation =
+    stagedType === "values" && !hasManagedFlag ? (
+      <StagedNote onUndo={() => implementationTypeDraft?.set(null)}>
+        Saving creates this experiment&apos;s Feature Flag to serve its
+        variation values.
+      </StagedNote>
+    ) : canAddAny && implementationType !== "values" ? (
+      <AddImplementationMenu
+        experiment={experiment}
+        onAdd={{
+          feature: () => setFeatureModal(true),
+          visual: () =>
+            variationsUnsaved
+              ? setSaveBeforeVisual(true)
+              : setVisualEditorModal(true),
+          urlredirect: () => setRedirectModal({ target: null }),
+        }}
+        primary={addKind}
+        mixed={implementationType === "multi"}
+        blockedReasons={{
+          feature: addBlockedReason,
+          visual: linkedChangesLockedReason,
+          urlredirect: linkedChangesLockedReason,
+        }}
+        values={
+          canChooseValues
+            ? {
+                choose: () =>
+                  implementationTypeDraft?.set({
+                    type: "values",
+                    deletesManagedFlag: false,
+                  }),
+                blockedReason: valuesBlockedReason,
+              }
+            : null
+        }
+      />
+    ) : null;
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;

@@ -19,7 +19,10 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
-import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
+import {
+  IMPLEMENTATION_TYPE_OPTIONS,
+  implementationNoun,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
@@ -110,8 +113,10 @@ export default function ChangeImplementationTypeModal({
 }) {
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
-  // Experiments adopted before the type was stored only carry the flag's marker.
-  const current = managedFeature ? "values" : getImplementationType(experiment);
+  const current = getImplementationType({
+    ...experiment,
+    hasManagedFlag: !!managedFeature,
+  });
   // Every kind it has, so a mix reads as several rather than none.
   const kinds: ImplementationType[] = [];
   if (managedFeature) kinds.push("values");
@@ -199,7 +204,9 @@ export default function ChangeImplementationTypeModal({
           return {
             value: type,
             label: option.header,
-            description: option.description,
+            description: option.description(
+              implementationNoun(experiment.type),
+            ),
             avatar: (
               <Avatar
                 radius="small"

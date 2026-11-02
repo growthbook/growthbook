@@ -14,6 +14,7 @@ import Pagination from "@/ui/Pagination";
 import { useManagedExperimentFlagStates } from "@/hooks/useManagedExperimentFlagStates";
 import {
   ImplementationTypeIcon,
+  implementationNoun,
   LIST_ICON_STYLE,
 } from "@/components/Experiment/ImplementationTypeSelect";
 import UITooltip from "@/ui/Tooltip";
@@ -170,6 +171,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       {(e.linkedFeatures || []).length > 0 ? (
                         <ImplementationTypeIcon
                           type={getManagedFlag(e.id) ? "values" : "feature"}
+                          noun={implementationNoun(e.type)}
                           style={LIST_ICON_STYLE}
                         />
                       ) : null}

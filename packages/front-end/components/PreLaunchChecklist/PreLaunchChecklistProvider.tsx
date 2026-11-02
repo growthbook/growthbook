@@ -19,12 +19,8 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
-import { CheckListItem, getChecklistItems } from "./PreLaunchChecklistItems";
-import {
-  CHECKLIST_TIERS,
-  ChecklistSummary,
-  summarizeChecklist,
-} from "./checklistSummary";
+import { getChecklistItems } from "./PreLaunchChecklistItems";
+import { ChecklistSummary, summarizeChecklist } from "./checklistSummary";
 import { useManualChecklistToggle } from "./useManualChecklistToggle";
 
 interface PreLaunchChecklistContextValue {
@@ -52,21 +48,6 @@ export function usePreLaunchChecklist(): PreLaunchChecklistContextValue {
     );
   }
   return ctx;
-}
-
-/** The checklist's summary, less the rows a surface shows its own way. */
-export function useChecklistSummary(
-  omit?: ((item: CheckListItem) => boolean) | null,
-): ChecklistSummary {
-  const { summary } = usePreLaunchChecklist();
-  if (!omit) return summary;
-  return summarizeChecklist(
-    [
-      ...CHECKLIST_TIERS.flatMap((tier) => summary.incomplete[tier]),
-      ...summary.flagged,
-      ...summary.complete,
-    ].filter((item) => !omit(item)),
-  );
 }
 
 /** The org's custom checklist and the project's SDK Connections. */

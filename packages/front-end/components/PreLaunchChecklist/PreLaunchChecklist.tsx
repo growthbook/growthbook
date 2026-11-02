@@ -20,7 +20,6 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import styles from "./PreLaunchChecklist.module.scss";
 import {
-  useChecklistSummary,
   useLaunchChecklistData,
   usePreLaunchChecklist,
 } from "./PreLaunchChecklistProvider";
@@ -328,20 +327,9 @@ export function ChecklistTodoHeading({
   );
 }
 
-export function PreLaunchChecklistPanel({
-  omit = null,
-}: {
-  // Rows the surface shows its own way, e.g. the start popover's values.
-  omit?: ((item: CheckListItem) => boolean) | null;
-}) {
-  const {
-    summary: fullSummary,
-    loading,
-    loadError,
-    toggleManualItem,
-    toggleError,
-  } = usePreLaunchChecklist();
-  const summary = useChecklistSummary(omit);
+export function PreLaunchChecklistPanel() {
+  const { summary, loading, loadError, toggleManualItem, toggleError } =
+    usePreLaunchChecklist();
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -356,10 +344,7 @@ export function PreLaunchChecklistPanel({
           mt="-1"
           mb="1"
         >
-          {/* What's shown apart from here still counts. */}
-          {fullSummary.remaining > 0
-            ? "No other unresolved items remain."
-            : "All items are complete."}
+          All items are complete.
         </Callout>
       ) : null}
       <ChecklistItems

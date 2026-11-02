@@ -17,12 +17,7 @@ import {
   ChecklistTodoHeading,
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
-import {
-  useChecklistSummary,
-  usePreLaunchChecklist,
-} from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
-import { isFlagDraftItem } from "@/components/PreLaunchChecklist/checklistSummary";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
@@ -46,8 +41,6 @@ type ContentProps = {
   linkedFeatures: LinkedFeatureInfo[];
   start: StartExperiment;
   editSchedule: (() => void) | null;
-  // The Values flag's review status and next step; its To Do rows give way.
-  valuesStatus?: ReactNode;
 };
 
 export type Props = ContentProps & {
@@ -117,7 +110,6 @@ function StartContent({
   linkedFeatures,
   start,
   editSchedule,
-  valuesStatus,
   close,
   handOff,
 }: ContentProps & { close: () => void; handOff: () => void }) {
@@ -142,20 +134,13 @@ function StartContent({
     ? scheduledTime(gate.scheduledStartAt)
     : null;
   const pastSchedule = gate.schedule === "past" && dateLabel;
-  const { checklistItemsRemaining, loadError } = usePreLaunchChecklist();
+  const { checklistItemsRemaining, loadError, summary } =
+    usePreLaunchChecklist();
   const managedId =
     useManagedExperimentFlags({ experiment, linkedFeatures }).managedFeature
       ?.feature.id ?? null;
-  // The values' own row stands in for their To Do rows.
-  const omitted =
-    valuesStatus && managedId !== null
-      ? (item: CheckListItem) => isFlagDraftItem(item, managedId)
-      : null;
-  const shown = useChecklistSummary(omitted);
-  const shownRemaining =
-    checklistItemsRemaining === null ? null : shown.remaining;
   const showTodo =
-    !!omitted || shownRemaining !== 0 || loadError || shown.flagged.length > 0;
+    checklistItemsRemaining !== 0 || loadError || summary.flagged.length > 0;
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
 
@@ -226,8 +211,7 @@ function StartContent({
         <>
           <Separator size="4" />
           <Flex direction="column" gap="3">
-            <ChecklistTodoHeading remaining={shownRemaining} />
-            {valuesStatus}
+            <ChecklistTodoHeading remaining={checklistItemsRemaining} />
             {/* Bleeds out so the scroll box doesn't clip the rows' hover tint. */}
             <ScrollArea
               gutter
@@ -257,7 +241,7 @@ function StartContent({
                   });
                 }}
               >
-                <PreLaunchChecklistPanel omit={omitted} />
+                <PreLaunchChecklistPanel />
               </Flex>
             </ScrollArea>
           </Flex>

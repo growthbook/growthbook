@@ -8,7 +8,7 @@ type DiffInput = Pick<
 > & { feature: Pick<FeatureInterface, "defaultValue"> };
 
 /** Whether the draft would move where the experiment runs. */
-function environmentStatesDiffer(
+export function environmentStatesDiffer(
   info: Pick<DiffInput, "liveEnvironmentStates" | "pendingDraft">,
 ): boolean {
   if (!info.pendingDraft) return false;

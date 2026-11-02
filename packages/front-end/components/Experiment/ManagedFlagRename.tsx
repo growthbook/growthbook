@@ -13,10 +13,7 @@ import type { FeatureInterface, ImplementationType } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
-import {
-  useLiveView,
-  useRegisterExperimentEdit,
-} from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { useRegisterExperimentEdit } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { TextField } from "@/ui/TextField";
 import Callout from "@/ui/Callout";
@@ -65,7 +62,6 @@ export function ManagedFlagRenameProvider({
 }) {
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
-  const { setLive } = useLiveView();
   const [staged, setStaged] = useState<string | null>(null);
   // Saved, but shown until the page reloads the flag under its new id.
   const [landedId, setLandedId] = useState<string | null>(null);
@@ -103,19 +99,12 @@ export function ManagedFlagRenameProvider({
       storedId: feature.id,
       featureId: staged ?? feature.id,
       staged: !!staged,
-      // The Values menu shows in the read-only Live view too.
-      edit: renamable
-        ? () => {
-            setLive(false);
-            setOpen(true);
-          }
-        : null,
+      edit: renamable ? () => setOpen(true) : null,
     };
   }, [
     feature,
     allEnvironments,
     canEdit,
-    setLive,
     released,
     experiment.status,
     experiment.archived,

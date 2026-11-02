@@ -20,6 +20,7 @@ import {
   type BuiltInChecklistItemKey,
   getHiddenBuiltInChecklistItems,
   PENDING_APPROVAL_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
 } from "../validators/experiment-launch-checklist";
 import { getLatestPhaseVariations } from "./variations";
 import { areVariationWeightsValid } from "./experiments";
@@ -272,9 +273,11 @@ export function getLaunchChecklistItems({
 
   const isManaged = (f: LinkedFeatureInfo) =>
     isManagedByExperiment(f.feature, experiment.id);
-  const implementationType = getImplementationType(experiment);
-  const valuesMode =
-    linkedFeatures.some(isManaged) || implementationType === "values";
+  const implementationType = getImplementationType({
+    ...experiment,
+    hasManagedFlag: linkedFeatures.some(isManaged),
+  });
+  const valuesMode = implementationType === "values";
 
   const publishesLinkedFeature =
     !!publishingFeatureId &&
@@ -339,6 +342,21 @@ export function getLaunchChecklistItems({
           armed
             ? `Reschedule the start as someone who can publish ${subject(f)}`
             : `Have someone who can publish ${subject(f)} start this ${isBandit ? "Bandit" : "experiment"}`,
+        ),
+      ),
+    // A start won't publish the managed flag's draft while it's behind live.
+    ...linkedFeatures
+      .filter(
+        (f) =>
+          isManaged(f) &&
+          !!f.pendingDraft?.rebaseRequired &&
+          !f.pendingDraft.hasMergeConflict,
+      )
+      .map((f) =>
+        flagItem(
+          f,
+          STALE_VALUES_ITEM_PREFIX,
+          "Update the variation values from live",
         ),
       ),
     // Publishing a flag's own draft is what approves it.

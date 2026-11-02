@@ -20,13 +20,13 @@ import {
   isManagedByExperiment,
   startBypassCovers,
 } from "shared/util";
-import { PENDING_APPROVAL_ITEM_PREFIX } from "shared/validators";
+import {
+  PENDING_APPROVAL_ITEM_PREFIX,
+  STALE_VALUES_ITEM_PREFIX,
+} from "shared/validators";
 import track from "@/services/track";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
-import {
-  isPendingApprovalItem,
-  STALE_VALUES_ITEM_PREFIX,
-} from "./checklistSummary";
+import { isPendingApprovalItem } from "./checklistSummary";
 
 export type ChecklistAction =
   | { onClick: () => void }
@@ -176,7 +176,8 @@ export function getChecklistItems({
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
   const valuesMode =
-    !!managed || getImplementationType(experiment) === "values";
+    getImplementationType({ ...experiment, hasManagedFlag: !!managed }) ===
+    "values";
   // The flag page refuses writes on a managed flag, so its rows open the
   // experiment's values or their review instead.
   const managedRowAction = (
@@ -188,6 +189,7 @@ export function getChecklistItems({
         // Resolved by discarding the draft, which only its review offers.
         return onClick(openManagedApproval ?? editVariationValues);
       case PENDING_APPROVAL_ITEM_PREFIX:
+      case STALE_VALUES_ITEM_PREFIX:
         return onClick(openManagedApproval);
       case "missingVariationValues:":
       case "malformedVariationValues:":
@@ -295,22 +297,5 @@ export function getChecklistItems({
     }
   });
 
-  // Starting would fail on it; the review is where the values update.
-  const managedDraft = managed?.pendingDraft;
-  if (
-    managed &&
-    managedDraft?.rebaseRequired &&
-    !managedDraft.hasMergeConflict
-  ) {
-    const firstFlagRow = rows.findIndex((row) => !!row.featureId);
-    rows.splice(firstFlagRow === -1 ? rows.length : firstFlagRow, 0, {
-      ...blockingRow({
-        key: `${STALE_VALUES_ITEM_PREFIX}${managed.feature.id}`,
-        display: "Update the variation values from live",
-        action: onClick(openManagedApproval),
-      }),
-      featureId: managed.feature.id,
-    });
-  }
   return rows;
 }

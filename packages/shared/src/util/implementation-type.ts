@@ -5,10 +5,14 @@ export type ImplementationLinkages = {
   hasVisualChangesets?: boolean | null;
   hasURLRedirects?: boolean | null;
   implementationType?: ImplementationType | null;
+  // The experiment owns one of its flags. Experiments adopted before the type
+  // was stored only carry the flag's marker.
+  hasManagedFlag?: boolean;
 };
 
-// "multi" is only ever derived; "none" is only assigned by an import.
+// "multi" is only ever derived. "none" picks a kind later, or never.
 export const SELECTABLE_IMPLEMENTATION_TYPES: ImplementationType[] = [
+  "none",
   "values",
   "feature",
   "urlredirect",
@@ -52,6 +56,7 @@ export function deriveImplementationType(
 export function getImplementationType(
   exp: ImplementationLinkages,
 ): ImplementationType | undefined {
+  if (exp.hasManagedFlag) return "values";
   const stored = exp.implementationType ?? undefined;
   const derived = deriveImplementationType(exp);
   if (!derived) return stored === "multi" ? undefined : stored;

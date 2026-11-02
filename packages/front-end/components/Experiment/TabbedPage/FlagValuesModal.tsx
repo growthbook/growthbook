@@ -24,6 +24,7 @@ export default function FlagValuesModal({
   initialSparse,
   sparseEligible,
   configBackingOptionKeys,
+  controlId = null,
   focusVariationId,
   close,
   apply,
@@ -34,6 +35,8 @@ export default function FlagValuesModal({
   initialSparse: boolean;
   sparseEligible: boolean;
   configBackingOptionKeys?: string[];
+  // The experiment's own flag patches every other variation onto control.
+  controlId?: string | null;
   focusVariationId: string;
   close: () => void;
   apply: (result: FlagValuesResult) => void;
@@ -68,19 +71,27 @@ export default function FlagValuesModal({
   }, [focusVariationId]);
 
   const configBacked = !!configBackingOptionKeys;
+  const baseOf = (current: Record<string, string>) =>
+    (controlId ? current[controlId] : undefined) ?? feature.defaultValue;
+  const shownFeature = controlId
+    ? { ...feature, defaultValue: baseOf(values) }
+    : feature;
 
   // Rewrites every value, like the rule editors.
   const toggleSparse = (checked: boolean) => {
-    setValues((prev) =>
-      Object.fromEntries(
+    setValues((prev) => {
+      const base = baseOf(prev);
+      return Object.fromEntries(
         Object.entries(prev).map(([id, v]) => [
           id,
-          checked
-            ? stripDefaultsForSparse(v, feature.defaultValue)
-            : expandSparseToFull(v, feature.defaultValue),
+          id === controlId
+            ? v
+            : checked
+              ? stripDefaultsForSparse(v, base)
+              : expandSparseToFull(v, base),
         ]),
-      ),
-    );
+      );
+    });
     setSparse(checked);
   };
 
@@ -143,11 +154,11 @@ export default function FlagValuesModal({
                   setValues((prev) => ({ ...prev, [v.id]: next }))
                 }
                 valueType={feature.valueType}
-                feature={feature}
+                feature={shownFeature}
                 renderJSONInline
                 showFullscreenButton
                 codeInputDefaultHeight={FIVE_LINES_HEIGHT}
-                sparse={sparse}
+                sparse={sparse && v.id !== controlId}
                 allowConfigBacking={configBacked}
                 configBackingOptionKeys={configBackingOptionKeys}
                 configBackingShowPatch={configBacked}

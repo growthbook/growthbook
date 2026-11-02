@@ -85,7 +85,9 @@ import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
-import ImplementationTypeSelect from "@/components/Experiment/ImplementationTypeSelect";
+import ImplementationTypeSelect, {
+  implementationNoun,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import Link from "@/ui/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -267,8 +269,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       implementationType:
         initialValue?.implementationType === "multi"
           ? undefined
-          : (initialValue?.implementationType ??
-            (isImport ? "none" : "values")),
+          : (initialValue?.implementationType ?? "none"),
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,
@@ -966,6 +967,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {!isImport && (
               <Box mb="4">
                 <ImplementationTypeSelect
+                  noun={implementationNoun(type)}
                   value={form.watch("implementationType")}
                   setValue={(v) => form.setValue("implementationType", v)}
                 />

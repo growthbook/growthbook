@@ -111,10 +111,9 @@ export function ExperimentDataFields({
     (q) => q.id === exposureQueryId,
   );
   const isHoldout = experiment.type === "holdout";
-  // Experiments adopted before the type was stored only carry the flag's marker.
   const implementationType =
     stagedImplementationType ||
-    (managedFlagId ? "values" : getImplementationType(experiment));
+    getImplementationType({ ...experiment, hasManagedFlag: !!managedFlagId });
 
   return (
     <Flex direction="column" gap="3">

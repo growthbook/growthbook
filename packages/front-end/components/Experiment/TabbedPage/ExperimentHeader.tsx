@@ -135,11 +135,6 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
-  // PROTOTYPE: which version the page shows, in the tab row.
-  revisionControl?: ReactNode;
-  // The Values flag's review status, for the start popover.
-  startValuesStatus?: ReactNode;
-  detailsWidth?: number;
 }
 
 const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
@@ -233,9 +228,6 @@ export default function ExperimentHeader({
   holdout,
   showDashboardView,
   editSchedule,
-  revisionControl,
-  detailsWidth,
-  startValuesStatus,
 }: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -666,7 +658,6 @@ export default function ExperimentHeader({
       linkedFeatures={linkedFeatures}
       start={start}
       editSchedule={editSchedule ?? null}
-      valuesStatus={startValuesStatus}
       open={startOpen}
       setOpen={setStartOpen}
       trigger={startButton}
@@ -1560,24 +1551,6 @@ export default function ExperimentHeader({
                     </Flex>
                   </TabsList>
                 </Tabs>
-                {revisionControl ? (
-                  <Box
-                    flexShrink="0"
-                    style={
-                      // PROTOTYPE: ?revisionPicker=right sits it by the toggle;
-                      // otherwise it ends where the details column begins.
-                      router.query.revisionPicker !== "right" &&
-                      detailsOpen &&
-                      detailsWidth
-                        ? {
-                            marginRight: `calc(${detailsWidth}px - var(--space-5) - var(--space-3))`,
-                          }
-                        : undefined
-                    }
-                  >
-                    {revisionControl}
-                  </Box>
-                ) : null}
                 <DetailsPanelToggle
                   open={detailsOpen}
                   setOpen={setDetailsOpen}
