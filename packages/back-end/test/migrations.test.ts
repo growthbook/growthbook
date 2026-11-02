@@ -2211,6 +2211,25 @@ describe("Experiment Migration", () => {
       ],
     });
   });
+
+  it("drops target MDE overrides saved without a value", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        decisionFrameworkSettings: {
+          decisionCriteriaId: "dcr_1",
+          decisionFrameworkMetricOverrides: [
+            { id: "met_a", targetMDE: null },
+            { id: "met_b" },
+            { id: "met_c", targetMDE: 0.02 },
+          ],
+        },
+      }).decisionFrameworkSettings,
+    ).toEqual({
+      decisionCriteriaId: "dcr_1",
+      decisionFrameworkMetricOverrides: [{ id: "met_c", targetMDE: 0.02 }],
+    });
+  });
 });
 
 describe("Organization Migration", () => {

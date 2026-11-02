@@ -40,6 +40,7 @@ import {
   getMetricSampleSize,
   getMetricResultStatus,
   hasEnoughData,
+  getDefaultRegressionAdjustmentDays,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -3249,5 +3250,33 @@ describe("sample size source", () => {
     expect(
       hasEnoughData(baseline, stats, metric, defaults, "denominator"),
     ).toBe(false);
+  });
+});
+
+describe("getDefaultRegressionAdjustmentDays", () => {
+  const metric = { regressionAdjustmentOverride: false };
+
+  it("uses the organization's lookback only while CUPED is on there", () => {
+    expect(
+      getDefaultRegressionAdjustmentDays(metric, {
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 7,
+      }),
+    ).toBe(7);
+    expect(
+      getDefaultRegressionAdjustmentDays(metric, {
+        regressionAdjustmentEnabled: false,
+        regressionAdjustmentDays: 7,
+      }),
+    ).toBe(14);
+  });
+
+  it("prefers a metric's own lookback", () => {
+    expect(
+      getDefaultRegressionAdjustmentDays(
+        { regressionAdjustmentOverride: true, regressionAdjustmentDays: 21 },
+        { regressionAdjustmentEnabled: true, regressionAdjustmentDays: 7 },
+      ),
+    ).toBe(21);
   });
 });

@@ -11,9 +11,6 @@
  * Record<string, unknown> here; the pricing config is schema-validated with
  * zod at the read site (back-end services/plan-limits.ts).
  *
- * Exception: "new-metric-creation-flow" is added ahead of the flag's creation
- * for the metric editor experiment (front-end hooks/useFactMetricFlow.tsx).
- *
  * Exception: "interleave-exp" gates the in-development interleaving UI.
  */
 export type AppFeatures = {
@@ -153,5 +150,4 @@ export type AppFeatures = {
   populations: boolean;
   "interleave-exp": boolean;
   "new-data-source-onboarding": boolean;
-  "new-metric-creation-flow": boolean;
 };

@@ -19,6 +19,8 @@ import {
   apiListInterleavingSnapshotsValidator,
 } from "./interleaving-snapshot";
 
+/** REST API surface for interleaving experiments under `/api/v1/interleavings/*`. */
+
 export const startInterleavingEndpoint = {
   pathFragment: "/:id/start",
   verb: "post" as const,

@@ -223,8 +223,7 @@
                       "statistics/aggregation",
                       "statistics/contextual-bandit-technical",
                       "app/sticky-bucketing",
-                      "experimentation-analysis/cluster-experiments",
-                      "experimentation-analysis/interleaving"
+                      "experimentation-analysis/cluster-experiments"
                     ]
                   },
                   {
