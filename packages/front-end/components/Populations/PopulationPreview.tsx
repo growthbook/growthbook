@@ -1,10 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  ApiPopulation,
-  PopulationExplorationConfig,
-  ProductAnalyticsExploration,
-} from "shared/validators";
+import { ApiPopulation, ProductAnalyticsExploration } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
@@ -15,7 +11,10 @@ import {
   usePreviewDateRange,
   formatPreviewHeadline,
 } from "@/components/QueryPreview/previewUtils";
-import { getActivityChart } from "@/components/QueryPreview/activityChart";
+import {
+  getPopulationMemberCounts,
+  getPopulationPreviewConfig,
+} from "@/components/Populations/populationUtils";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -27,7 +26,7 @@ function MembersChart({
   exploration: ProductAnalyticsExploration;
   hasAggregateFilter: boolean;
 }) {
-  const chart = getActivityChart(exploration);
+  const chart = getPopulationMemberCounts(exploration);
   const average = chart.days.length ? chart.total / chart.days.length : null;
   return (
     <>
@@ -71,29 +70,8 @@ export default function PopulationPreview({
       ? selectedUnit
       : population.userIdTypes[0];
   const dateRange = usePreviewDateRange();
-  const config = useMemo<PopulationExplorationConfig>(
-    () => ({
-      type: "population",
-      datasource: population.datasource,
-      chartType: "bar",
-      showAs: "total",
-      dateRange,
-      dimensions: [
-        { dimensionType: "date", column: "date", dateGranularity: "day" },
-      ],
-      dataset: {
-        type: "population",
-        values: population.steps.map((step) => ({
-          type: "population",
-          name: "Members",
-          unit,
-          source: step.source,
-          rowFilters: step.rowFilters,
-          aggregateFilter: step.aggregateFilter,
-          aggregateFilterColumn: step.aggregateFilterColumn,
-        })),
-      },
-    }),
+  const config = useMemo(
+    () => getPopulationPreviewConfig(population, unit, dateRange),
     [population, unit, dateRange],
   );
   const datasource = getDatasourceById(population.datasource);
@@ -120,12 +98,15 @@ export default function PopulationPreview({
           trackingSource="population-preview"
           emptyDescription="Run the query to see daily member counts for the last 7 complete days."
           warehouseUnavailableText="The preview will be available when the warehouse is ready."
-          renderChart={({ exploration }) => (
+          renderChart={({ exploration, submittedExploreState }) => (
             <MembersChart
               exploration={exploration}
-              hasAggregateFilter={population.steps.some(
-                (step) => !!step.aggregateFilter,
-              )}
+              hasAggregateFilter={
+                submittedExploreState.dataset.type === "population" &&
+                submittedExploreState.dataset.values.some(
+                  (value) => !!value.aggregateFilter,
+                )
+              }
             />
           )}
           controls={

@@ -1,6 +1,13 @@
-import type { PopulationStep } from "shared/validators";
+import type {
+  ApiPopulation,
+  ExplorationConfig,
+  PopulationExplorationConfig,
+  PopulationStep,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import type { FactTableDefinition } from "shared/types/fact-table";
 import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
+import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
 
 export type PopulationStepDescriptionSegment =
   | string
@@ -58,4 +65,55 @@ export function describePopulationStep({
   return ["Has ", factTableSegment, conditionsDescriptions].filter(
     (segment) => segment !== "",
   );
+}
+
+// The preview query for a Population: one daily member count per step,
+// carrying each step's filters so the preview counts the same people.
+export function getPopulationPreviewConfig(
+  population: Pick<ApiPopulation, "datasource" | "steps">,
+  unit: string,
+  dateRange: ExplorationConfig["dateRange"],
+): PopulationExplorationConfig {
+  return {
+    type: "population",
+    datasource: population.datasource,
+    chartType: "bar",
+    showAs: "total",
+    dateRange,
+    dimensions: [
+      { dimensionType: "date", column: "date", dateGranularity: "day" },
+    ],
+    dataset: {
+      type: "population",
+      values: population.steps.map((step) => ({
+        type: "population",
+        name: "Members",
+        unit,
+        source: step.source,
+        rowFilters: step.rowFilters,
+        aggregateFilter: step.aggregateFilter,
+        aggregateFilterColumn: step.aggregateFilterColumn,
+      })),
+    },
+  };
+}
+
+// Reads the result of getPopulationPreviewConfig: daily member counts for
+// every day in range, with missing days as 0.
+// shortcut: counts only the first step (values[0]); update when multi-step Populations ship.
+export function getPopulationMemberCounts(
+  exploration: Pick<
+    ProductAnalyticsExploration,
+    "dateStart" | "dateEnd" | "result"
+  >,
+) {
+  const days = getDailyBuckets(exploration);
+  const byDay = new Map(
+    (exploration.result?.rows ?? []).map((row) => [
+      row.dimensions[0]?.slice(0, 10),
+      row.values?.[0]?.numerator ?? 0,
+    ]),
+  );
+  const counts = days.map((day) => byDay.get(day) ?? 0);
+  return { days, counts, total: counts.reduce((sum, count) => sum + count, 0) };
 }
