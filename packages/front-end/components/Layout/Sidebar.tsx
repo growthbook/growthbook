@@ -39,6 +39,7 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
+import { TooltipContainerContext } from "@/ui/Tooltip";
 import { BOTTOM_TOOLTIP_DELAY_MS, SidebarTooltip } from "./SidebarTooltip";
 import GrowthBookLogo from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
@@ -599,6 +600,8 @@ export default function Sidebar() {
   // inside the app's root, nothing it does can reach above the panel.
   const [bodyHost, setBodyHost] = useState<HTMLElement | null>(null);
   useEffect(() => setBodyHost(document.body), []);
+  // The layer's tooltips portal into it rather than to body, under it.
+  const [drawerLayer, setDrawerLayer] = useState<HTMLDivElement | null>(null);
   // Drawn by the menu itself (SidebarMenu.tsx) into menuHost.
   const [drawerMenu, setDrawerMenu] = useState<
     "project" | "profile" | "help" | null
@@ -1089,13 +1092,16 @@ export default function Sidebar() {
       {isNarrow && bodyHost
         ? createPortal(
             <div
+              ref={setDrawerLayer}
               className={styles.drawerLayer}
               // Over the panel and what it opens.
               style={
                 drawer ? { zIndex: AGENT_PANEL_PORTAL_Z_INDEX + 1 } : undefined
               }
             >
-              <RadixTheme>{sidebar}</RadixTheme>
+              <TooltipContainerContext.Provider value={drawerLayer}>
+                <RadixTheme>{sidebar}</RadixTheme>
+              </TooltipContainerContext.Provider>
             </div>,
             bodyHost,
           )

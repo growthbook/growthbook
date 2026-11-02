@@ -62,6 +62,12 @@
 .drawerLayer {
   position: relative;
   z-index: 0;
+
+  // Its tooltips portal in here (Sidebar.tsx): over the drawer (1030) and its
+  // overlay. Radix copies the content's z-index onto its positioned wrapper.
+  :global(.rt-TooltipContent) {
+    z-index: 1031;
+  }
 }
 
 .drawerOverlay {
