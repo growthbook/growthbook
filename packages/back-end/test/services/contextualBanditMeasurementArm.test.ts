@@ -16,7 +16,10 @@ import {
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { queueExperimentUpdate } from "back-end/src/jobs/queueExperimentUpdate";
-import { assertMeasurementArmExperimentEditable } from "back-end/src/enterprise/services/measurementArmGuards";
+import {
+  assertManagedTypeUnchanged,
+  assertMeasurementArmExperimentEditable,
+} from "back-end/src/enterprise/services/managedExperimentGuards";
 import {
   assertMeasurementArmChangeAllowed,
   buildMeasurementArmSubdoc,
@@ -213,6 +216,59 @@ describe("assertMeasurementArmChangeAllowed", () => {
       }),
     ).not.toThrow();
     expect(() => assertMeasurementArmChangeAllowed(running, {})).not.toThrow();
+  });
+});
+
+describe("assertManagedTypeUnchanged", () => {
+  const asExp = (type?: string) => ({ type }) as unknown as ExperimentInterface;
+
+  it("allows the standard and bandit conversions", () => {
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("standard"), {
+        type: "multi-armed-bandit",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("multi-armed-bandit"), {
+        type: "standard",
+      }),
+    ).not.toThrow();
+  });
+
+  it("allows an update that does not touch the type", () => {
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("standard"), {}),
+    ).not.toThrow();
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("contextualBanditMeasurementArm"), {}),
+    ).not.toThrow();
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("holdout"), { type: "holdout" }),
+    ).not.toThrow();
+  });
+
+  it("rejects converting an ordinary experiment into a managed type", () => {
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("standard"), {
+        type: "contextualBanditMeasurementArm",
+      }),
+    ).toThrow(/into or out of/);
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("standard"), { type: "holdout" }),
+    ).toThrow(/into or out of/);
+  });
+
+  it("rejects converting a managed experiment back out", () => {
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("contextualBanditMeasurementArm"), {
+        type: "standard",
+      }),
+    ).toThrow(/into or out of/);
+    expect(() =>
+      assertManagedTypeUnchanged(asExp("holdout"), {
+        type: "multi-armed-bandit",
+      }),
+    ).toThrow(/into or out of/);
   });
 });
 

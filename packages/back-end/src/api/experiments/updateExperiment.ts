@@ -81,6 +81,7 @@ import {
   requireConfirmation,
   unarchiveActions,
 } from "back-end/src/services/confirmations";
+import { assertManagedTypeUnchanged } from "back-end/src/enterprise/services/managedExperimentGuards";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -362,6 +363,8 @@ export const updateExperiment = createApiRequestHandler(
       });
     }
   }
+
+  assertManagedTypeUnchanged(experiment, payload);
 
   if (
     payload.type &&

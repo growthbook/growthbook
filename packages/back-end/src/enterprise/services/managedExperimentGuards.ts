@@ -1,5 +1,6 @@
 import {
   isContextualBanditMeasurementArm,
+  isManagedExperiment,
   MEASUREMENT_ARM_EDITABLE_FIELDS,
 } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -41,4 +42,21 @@ export function assertNotMeasurementArmExperiment(
       `Cannot ${action}: this experiment measures a Contextual Bandit and is managed from the Bandit`,
     );
   }
+}
+
+export function assertManagedTypeUnchanged(
+  experiment: Pick<ExperimentInterface, "type">,
+  changes: { type?: ExperimentInterface["type"] | null },
+): void {
+  const next = changes.type;
+  if (next === undefined || next === experiment.type) return;
+  if (
+    !isManagedExperiment({ type: next }) &&
+    !isManagedExperiment(experiment)
+  ) {
+    return;
+  }
+  throw new BadRequestError(
+    "Cannot change an experiment into or out of a Holdout or Contextual Bandit measurement arm; these are created and removed by the resource that manages them",
+  );
 }

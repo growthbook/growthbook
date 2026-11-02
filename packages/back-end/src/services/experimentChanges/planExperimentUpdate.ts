@@ -68,7 +68,10 @@ import { getLivePayloadChanges } from "back-end/src/services/experimentLivePaylo
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
-import { assertMeasurementArmExperimentEditable } from "back-end/src/enterprise/services/measurementArmGuards";
+import {
+  assertManagedTypeUnchanged,
+  assertMeasurementArmExperimentEditable,
+} from "back-end/src/enterprise/services/managedExperimentGuards";
 
 export type ExperimentUpdateInput = Partial<ExperimentInterfaceStringDates> &
   // The latest phase's targeting.
@@ -206,6 +209,7 @@ export async function planExperimentUpdate(
   if (!context.permissions.canUpdateExperiment(experiment, input)) {
     context.permissions.throwPermissionError();
   }
+  assertManagedTypeUnchanged(experiment, input);
   assertMeasurementArmExperimentEditable(experiment, input);
 
   const attributeScope = lazyAttributeScope(() =>

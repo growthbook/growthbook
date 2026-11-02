@@ -193,7 +193,7 @@ import {
   planExperimentUpdate,
 } from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/measurementArmGuards";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/managedExperimentGuards";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 

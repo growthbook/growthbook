@@ -73,7 +73,7 @@ import { trackEventForContext } from "back-end/src/services/growthbook";
 import {
   assertMeasurementArmExperimentEditable,
   assertNotMeasurementArmExperiment,
-} from "back-end/src/enterprise/services/measurementArmGuards";
+} from "back-end/src/enterprise/services/managedExperimentGuards";
 import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { assertScheduledStartAllowsChange } from "back-end/src/services/experimentChanges/scheduledStartLock";
 

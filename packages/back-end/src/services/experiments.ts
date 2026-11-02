@@ -209,7 +209,7 @@ import {
   EXPERIMENT_REFRESH_FREQUENCY,
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/measurementArmGuards";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/managedExperimentGuards";
 import { logger } from "back-end/src/util/logger";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";

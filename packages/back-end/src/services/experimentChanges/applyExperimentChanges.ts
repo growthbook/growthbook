@@ -64,7 +64,7 @@ import {
   insertNewFeature,
   prepareNewFeature,
 } from "back-end/src/services/featureCreate";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/measurementArmGuards";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/managedExperimentGuards";
 import {
   ExperimentUpdatePlan,
   finishExperimentUpdate,
