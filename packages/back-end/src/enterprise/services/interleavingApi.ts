@@ -69,7 +69,7 @@ export function toApiInterleaving(
     jsonSchema: doc.jsonSchema
       ? { ...doc.jsonSchema, date: doc.jsonSchema.date.toISOString() }
       : null,
-    datasource: doc.datasource,
+    datasourceId: doc.datasourceId,
     interleavingExposureQueryId: doc.interleavingExposureQueryId,
     userIdType: doc.userIdType,
     metrics: doc.metrics,

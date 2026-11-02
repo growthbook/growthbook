@@ -42,7 +42,7 @@ function interleaving(
       },
     },
     jsonSchema: null,
-    datasource: "ds_1",
+    datasourceId: "ds_1",
     interleavingExposureQueryId: "ilq_1",
     userIdType: "user_id",
     metrics: [],
@@ -112,7 +112,7 @@ describe("toApiInterleavingSnapshot", () => {
       settings: {
         interleavingId: il.id,
         trackingKey: il.trackingKey,
-        datasourceId: il.datasource,
+        datasourceId: il.datasourceId,
         interleavingExposureQueryId: il.interleavingExposureQueryId,
         interleavingExposureQuerySql: "SELECT 1",
         userIdType: il.userIdType,

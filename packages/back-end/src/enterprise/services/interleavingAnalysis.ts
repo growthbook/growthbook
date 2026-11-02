@@ -19,7 +19,7 @@ export async function resolveInterleavingExposureQuery(
   context: Context,
   interleaving: Pick<
     InterleavingInterface,
-    "interleavingExposureQueryId" | "datasource" | "userIdType"
+    "interleavingExposureQueryId" | "datasourceId" | "userIdType"
   >,
 ) {
   const query = await context.models.interleavingExposureQueries.getById(
@@ -30,7 +30,7 @@ export async function resolveInterleavingExposureQuery(
       `Interleaving exposure query not found: ${interleaving.interleavingExposureQueryId}`,
     );
   }
-  if (query.datasourceId !== interleaving.datasource) {
+  if (query.datasourceId !== interleaving.datasourceId) {
     throw new Error(
       `Interleaving exposure query "${query.name}" belongs to a different Data Source than this interleaving experiment`,
     );
@@ -94,7 +94,7 @@ async function getInterleavingSnapshotSettings(
   return {
     interleavingId: interleaving.id,
     trackingKey: interleaving.trackingKey,
-    datasourceId: interleaving.datasource,
+    datasourceId: interleaving.datasourceId,
     interleavingExposureQueryId: interleavingExposureQuery.id,
     interleavingExposureQuerySql: interleavingExposureQuery.query,
     userIdType: interleaving.userIdType,

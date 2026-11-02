@@ -268,7 +268,7 @@ export class InterleavingModel extends BaseClass {
     const { projectId, datasourceId, trackingKey, key } = req.query;
     const filter: Record<string, string> = {};
     if (projectId) filter.project = projectId;
-    if (datasourceId) filter.datasource = datasourceId;
+    if (datasourceId) filter.datasourceId = datasourceId;
     if (trackingKey) filter.trackingKey = trackingKey;
     if (key) filter.key = key;
     const docs = Object.keys(filter).length
@@ -290,7 +290,7 @@ export class InterleavingModel extends BaseClass {
         body.key,
         new Set(
           (await this.scanAllInterleavings())
-            .filter((il) => il.datasource === body.datasource)
+            .filter((il) => il.datasourceId === body.datasourceId)
             .map((il) => il.trackingKey),
         ),
       );
@@ -402,7 +402,7 @@ export class InterleavingModel extends BaseClass {
     const identityChanged =
       doc.key !== previousDoc?.key ||
       doc.trackingKey !== previousDoc?.trackingKey ||
-      doc.datasource !== previousDoc?.datasource;
+      doc.datasourceId !== previousDoc?.datasourceId;
     const servingChanged =
       doc.status !== previousDoc?.status ||
       doc.archived !== previousDoc?.archived ||
@@ -435,7 +435,7 @@ export class InterleavingModel extends BaseClass {
       if (
         others.some(
           (other) =>
-            other.datasource === doc.datasource &&
+            other.datasourceId === doc.datasourceId &&
             other.trackingKey === doc.trackingKey,
         )
       ) {
@@ -504,11 +504,11 @@ export class InterleavingModel extends BaseClass {
     if (
       !previousDoc ||
       !isEqual(doc.metrics, previousDoc.metrics) ||
-      doc.datasource !== previousDoc.datasource ||
+      doc.datasourceId !== previousDoc.datasourceId ||
       doc.userIdType !== previousDoc.userIdType
     ) {
       await resolveInterleavingMetrics(this.context, {
-        datasourceId: doc.datasource,
+        datasourceId: doc.datasourceId,
         userIdType: doc.userIdType,
         metrics: doc.metrics,
       });
@@ -521,7 +521,7 @@ export class InterleavingModel extends BaseClass {
       starting ||
       doc.interleavingExposureQueryId !==
         previousDoc.interleavingExposureQueryId ||
-      doc.datasource !== previousDoc.datasource ||
+      doc.datasourceId !== previousDoc.datasourceId ||
       doc.userIdType !== previousDoc.userIdType
     ) {
       await resolveInterleavingExposureQuery(this.context, doc);
