@@ -1,3 +1,4 @@
+import type { ContextualBanditVariationStatus } from "shared/validators";
 import type {
   ContextualBanditSnapshot,
   ContextualBanditResponseSnapshot,
@@ -11,6 +12,7 @@ import {
   computeOverallVariationMeans,
   computeOverallVariationWeights,
 } from "./contextual-bandit-weights";
+import { isActiveVariation } from "./contextual-bandit-variation-changes";
 
 /** Minimal variation identity needed to label the leaf-first results view. */
 export type ContextualBanditResultsVariation = {
@@ -228,13 +230,14 @@ export function buildContextualBanditResultsView(
   };
 }
 
-export type ContextualBanditVariationIdentity = { id: string; key: string };
+export type ContextualBanditVariationIdentity = {
+  id: string;
+  key: string;
+  status?: ContextualBanditVariationStatus;
+};
 
-/**
- * Likely root cause of a warehouse `variation_id` value matching no configured
- * variation key. Ordered most-specific first in {@link classifyUnknownVariation}.
- */
 export type UnknownVariationCause =
+  | { kind: "empty"; value: string }
   | { kind: "caseOrWhitespace"; value: string; expectedKey: string }
   | { kind: "growthbookId"; value: string; expectedKey?: string }
   | { kind: "index"; value: string; expectedKey?: string }
@@ -247,6 +250,10 @@ export function classifyUnknownVariation(
   value: string,
   variations: ContextualBanditVariationIdentity[],
 ): UnknownVariationCause {
+  if (value === "") {
+    return { kind: "empty", value };
+  }
+
   const byId = variations.find((v) => v.id === value);
   if (byId) {
     return { kind: "growthbookId", value, expectedKey: byId.key };
@@ -269,8 +276,17 @@ export function classifyUnknownVariation(
 
   if (/^\d+$/.test(value)) {
     const index = Number(value);
-    if (Number.isInteger(index) && index >= 0 && index < variations.length) {
-      return { kind: "index", value, expectedKey: variations[index]?.key };
+    const activeVariations = variations.filter(isActiveVariation);
+    if (
+      Number.isInteger(index) &&
+      index >= 0 &&
+      index < activeVariations.length
+    ) {
+      return {
+        kind: "index",
+        value,
+        expectedKey: activeVariations[index]?.key,
+      };
     }
   }
 

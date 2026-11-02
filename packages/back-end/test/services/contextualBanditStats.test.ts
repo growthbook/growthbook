@@ -259,7 +259,7 @@ describe("detectUnknownContextualVariations", () => {
     ).toEqual(["Control"]);
   });
 
-  it("ignores __multiple__ and empty values", () => {
+  it("ignores __multiple__ but reports empty values (deduped) so dropped units surface", () => {
     expect(
       detectUnknownContextualVariations(
         rows([
@@ -269,7 +269,7 @@ describe("detectUnknownContextualVariations", () => {
         ]),
         variations,
       ),
-    ).toEqual([]);
+    ).toEqual([""]);
   });
 
   it("reports every value when none match (the 0-user incident)", () => {

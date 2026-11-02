@@ -319,6 +319,13 @@ describe("classifyUnknownVariation", () => {
     { id: "var_def", key: "treatment" },
   ];
 
+  it("flags an empty value so dropped units are reported rather than ignored", () => {
+    expect(classifyUnknownVariation("", keyed)).toEqual({
+      kind: "empty",
+      value: "",
+    });
+  });
+
   it("flags a case-only difference and names the expected key", () => {
     expect(classifyUnknownVariation("Control", keyed)).toEqual({
       kind: "caseOrWhitespace",
@@ -362,6 +369,36 @@ describe("classifyUnknownVariation", () => {
     expect(classifyUnknownVariation("7", keyed)).toEqual({
       kind: "unrecognized",
       value: "7",
+    });
+  });
+
+  it("resolves a numeric index against active arms, skipping pending/deactivated", () => {
+    // SDK numbers only active arms, so index "2" over [A, B, X(pending),
+    // Y(active)] is Y — not X, which sits at position 2 of the full list.
+    const withPending = [
+      { id: "var_a", key: "alpha", status: "active" as const },
+      { id: "var_b", key: "beta", status: "active" as const },
+      { id: "var_x", key: "xray", status: "pending" as const },
+      { id: "var_y", key: "yankee", status: "active" as const },
+    ];
+    expect(classifyUnknownVariation("2", withPending)).toEqual({
+      kind: "index",
+      value: "2",
+      expectedKey: "yankee",
+    });
+  });
+
+  it("treats an index past the active arm count as unrecognized", () => {
+    // Three active arms (indices 0-2); "3" only exists in the full list.
+    const withDeactivated = [
+      { id: "var_a", key: "alpha", status: "active" as const },
+      { id: "var_b", key: "beta", status: "deactivated" as const },
+      { id: "var_c", key: "gamma", status: "active" as const },
+      { id: "var_d", key: "delta", status: "active" as const },
+    ];
+    expect(classifyUnknownVariation("3", withDeactivated)).toEqual({
+      kind: "unrecognized",
+      value: "3",
     });
   });
 

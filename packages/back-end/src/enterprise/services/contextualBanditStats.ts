@@ -127,7 +127,7 @@ export function detectUnknownContextualVariations(
   const unknown = new Set<string>();
   for (const row of prepareRowsForContextualStats(rows)) {
     const value = String(row.variation ?? "");
-    if (value === "" || ignoreIds.has(value) || keys.has(value)) {
+    if (ignoreIds.has(value) || keys.has(value)) {
       continue;
     }
     unknown.add(value);

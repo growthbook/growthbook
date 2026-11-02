@@ -147,6 +147,13 @@ function CommaCodeList({ vals }: { vals: string[] }) {
 
 function unknownVariationHint(cause: UnknownVariationCause): ReactNode {
   switch (cause.kind) {
+    case "empty":
+      return (
+        <>
+          is empty (a <code>NULL</code> or blank <code>variation_id</code>);
+          return a configured variation key instead.
+        </>
+      );
     case "caseOrWhitespace":
       return (
         <>
@@ -549,7 +556,12 @@ export default function ContextualBanditResultsTable({
           <ul style={{ marginTop: "var(--space-2)", marginBottom: 0 }}>
             {unknownVariationCauses.map((cause) => (
               <li key={cause.value}>
-                <code>{cause.value}</code> {unknownVariationHint(cause)}
+                {cause.kind === "empty" ? (
+                  <em>(empty value)</em>
+                ) : (
+                  <code>{cause.value}</code>
+                )}{" "}
+                {unknownVariationHint(cause)}
               </li>
             ))}
           </ul>
