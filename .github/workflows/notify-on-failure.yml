@@ -12,14 +12,15 @@ on:
         PR Preview Environment,
         Release,
         Rollback to SHA,
+        Backfill image,
       ]
     types: [completed]
-    branches: [main]
 
 jobs:
   notify-not-success:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out' }}
+    # Release runs on a tag, not main
+    if: ${{ (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out') && (github.event.workflow_run.head_branch == 'main' || (github.event.workflow_run.name == 'Release' && github.event.workflow_run.event == 'push')) }}
     steps:
       - name: Send GitHub Action data to a Slack workflow
         uses: slackapi/slack-github-action@v2.1.0
