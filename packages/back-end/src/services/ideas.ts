@@ -39,7 +39,8 @@ export async function createIdea(data: Partial<IdeaInterface>) {
   return idea;
 }
 
-export function getIdeaById(id: string) {
+export async function getIdeaById(id: string) {
+  if (id && typeof id !== "string") return null;
   return IdeaModel.findOne({
     id,
   });

@@ -23,7 +23,7 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { hasFileConfig } from "@/services/env";
+import { hasFileConfig, isCloud } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
@@ -371,10 +371,6 @@ const DataSourcePage: FC = () => {
   // Default ON; the remote flag only turns this off for specific orgs.
   const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
   const interleavingEnabled = useFeatureIsOn("interleave-exp");
-  const eventsForwarderFlag = useFeatureValue(
-    "events-forwarder-multi-step",
-    "OFF",
-  );
 
   // Only the never-provisioned state replaces the settings UI with the onboarding
   // callout. A transient migration must NOT blank the config page — query sub-surfaces
@@ -516,12 +512,10 @@ const DataSourcePage: FC = () => {
       : hashTab;
   const exploreFillsViewport = activeTab === "explore" && !showFinishSettingUp;
   const supportsEvents = d.properties?.events || false;
-  // The tab is the Event Forwarder surface for the new setup. Orgs still on
-  // the older flag, and unconfigured forwarders, keep the card in Settings.
+  // The tab is the Event Forwarder surface for the new setup. Unconfigured
+  // forwarders keep the card in Settings.
   const showEventForwarderSettings =
-    !showEventForwarderTab &&
-    supportsEventForwarder(d) &&
-    eventsForwarderFlag !== "OFF";
+    !showEventForwarderTab && supportsEventForwarder(d) && isCloud();
   const refreshDataSource = async () => {
     await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
   };
