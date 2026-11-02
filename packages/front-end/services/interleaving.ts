@@ -1,10 +1,21 @@
 import type {
   ApiInterleavingInterface,
+  InterleavingAnalysis,
   InterleavingMetricResult,
 } from "shared/validators";
 import { interleavingVariationsList } from "shared/util";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { ExperimentDataForStatusStringDates } from "shared/types/experiment";
+
+// Shared so the results sections, the overview card and the analysis picker
+// can't drift on what an analysis type is called.
+export const INTERLEAVING_ANALYSIS_TITLES: Record<
+  InterleavingAnalysis["type"],
+  string
+> = {
+  paired: "Paired",
+  preference: "Preference",
+};
 
 export function interleavingResultToSnapshotMetrics(
   r: InterleavingMetricResult,

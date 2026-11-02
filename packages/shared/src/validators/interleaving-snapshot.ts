@@ -121,6 +121,7 @@ export const interleavingSnapshotValidator = baseSchema
     queries: z.array(queryPointerValidator),
     settings: interleavingSnapshotSettingsValidator,
     results: z.array(interleavingMetricResultValidator).optional(),
+    usersExposed: z.number().optional(),
   })
   .strict();
 
@@ -156,6 +157,12 @@ export const apiInterleavingSnapshotValidator = namedSchema(
         .array(interleavingMetricResultValidator)
         .optional()
         .describe("Present once status is success"),
+      usersExposed: z
+        .number()
+        .optional()
+        .describe(
+          "Distinct units in the exposure query. Absent on snapshots run before this was recorded.",
+        ),
     })
     .strict(),
 );

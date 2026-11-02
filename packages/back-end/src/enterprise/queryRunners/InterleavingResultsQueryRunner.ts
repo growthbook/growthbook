@@ -22,6 +22,7 @@ export type InterleavingResultsQueryParams = {
 
 export type InterleavingQueryRunResult = {
   results: InterleavingMetricResult[];
+  usersExposed: number;
 };
 
 export class InterleavingResultsQueryRunner extends QueryRunner<
@@ -247,7 +248,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       }
     }
 
-    return { results };
+    return { results, usersExposed };
   }
 
   async getLatestModel(): Promise<InterleavingSnapshotInterface> {
@@ -287,6 +288,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
 
     if (status === "succeeded" && result) {
       updates.results = result.results;
+      updates.usersExposed = result.usersExposed;
     }
 
     const updated =

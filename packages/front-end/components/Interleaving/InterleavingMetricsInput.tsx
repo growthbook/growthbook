@@ -8,15 +8,26 @@ import { isFactMetric } from "shared/experiments";
 import { getInterleavingMetricIssue } from "shared/util";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Checkbox from "@/ui/Checkbox";
+import MultiSelectField from "@/ui/MultiSelectField";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
+import { INTERLEAVING_ANALYSIS_TITLES } from "@/services/interleaving";
 
 const PAIRED: InterleavingAnalysis = { type: "paired" };
 const PREFERENCE: InterleavingAnalysis = {
   type: "preference",
   attribution: "exposureCount",
 };
+
+// Declaration order is the display order; the select is rendered with
+// sort={false} so it stays Paired then Preference.
+const ANALYSIS_OPTIONS: {
+  type: InterleavingAnalysis["type"];
+  analysis: InterleavingAnalysis;
+}[] = [
+  { type: "paired", analysis: PAIRED },
+  { type: "preference", analysis: PREFERENCE },
+];
 
 export function getMetricsError(
   metrics: InterleavingMetricConfig[],
@@ -67,17 +78,19 @@ export default function InterleavingMetricsInput({
     return issue ? { disabled: true, reason: issue } : { disabled: false };
   };
 
-  const toggle = (
-    metricId: string,
-    analysis: InterleavingAnalysis,
-    on: boolean,
-  ) =>
+  const setAnalyses = (metricId: string, types: string[]) =>
     setValue(
-      value.map((m) => {
-        if (m.id !== metricId) return m;
-        const rest = m.analyses.filter((a) => a.type !== analysis.type);
-        return { ...m, analyses: on ? [...rest, analysis] : rest };
-      }),
+      value.map((m) =>
+        m.id === metricId
+          ? {
+              ...m,
+              // Rebuild from the canonical objects so attribution survives
+              analyses: ANALYSIS_OPTIONS.filter((o) =>
+                types.includes(o.type),
+              ).map((o) => o.analysis),
+            }
+          : m,
+      ),
     );
 
   return (
@@ -128,30 +141,34 @@ export default function InterleavingMetricsInput({
                     {getExperimentMetricById(m.id)?.name ?? m.id}
                   </Text>
                 </Box>
-                {[PAIRED, PREFERENCE].map((analysis) => {
-                  const checked = m.analyses.some(
-                    (a) => a.type === analysis.type,
-                  );
-                  // Still allow unchecking a stale paired selection
-                  const unsupported =
-                    analysis.type === "paired" && !pairedOk && !checked;
-                  return (
-                    <Checkbox
-                      key={analysis.type}
-                      label={
-                        analysis.type === "paired" ? "Paired" : "Preference"
-                      }
-                      value={checked}
-                      setValue={(on) => toggle(m.id, analysis, on)}
-                      disabled={disabled || unsupported}
-                      disabledMessage={
-                        unsupported
+                <Box width="260px">
+                  <MultiSelectField
+                    aria-label="Analyses"
+                    containerClassName="mb-0"
+                    showCopyButton={false}
+                    sort={false}
+                    placeholder="Select analyses"
+                    value={m.analyses.map((a) => a.type)}
+                    options={ANALYSIS_OPTIONS.map((o) => ({
+                      value: o.type,
+                      label: INTERLEAVING_ANALYSIS_TITLES[o.type],
+                      tooltip:
+                        o.type === "paired" && !pairedOk
                           ? `Paired analysis needs a '${INTERLEAVING_RANKING_ID_COLUMN}' column on this metric's fact table.`
-                          : undefined
-                      }
-                    />
-                  );
-                })}
+                          : undefined,
+                    }))}
+                    // A stale paired selection stays removable; it just can't
+                    // be added back without the column.
+                    isOptionDisabled={(o) =>
+                      !("options" in o) &&
+                      o.value === "paired" &&
+                      !pairedOk &&
+                      !m.analyses.some((a) => a.type === "paired")
+                    }
+                    onChange={(types) => setAnalyses(m.id, types)}
+                    disabled={disabled}
+                  />
+                </Box>
               </Flex>
             );
           })}

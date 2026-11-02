@@ -11,6 +11,8 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import DataList, { DataListItem } from "@/ui/DataList";
+import Badge from "@/ui/Badge";
+import { INTERLEAVING_ANALYSIS_TITLES } from "@/services/interleaving";
 import Markdown from "@/components/Markdown/Markdown";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
@@ -130,11 +132,22 @@ export default function InterleavingOverview({
     {
       label: "Metrics",
       value: il.metrics.length ? (
-        <Flex direction="column" gap="1">
+        <Flex direction="column" gap="2">
           {il.metrics.map((m) => (
-            <Link key={m.id} href={getMetricLink(m.id)}>
-              {getExperimentMetricById(m.id)?.name ?? m.id}
-            </Link>
+            <Flex key={m.id} align="center" gap="2" wrap="wrap">
+              <Link href={getMetricLink(m.id)}>
+                {getExperimentMetricById(m.id)?.name ?? m.id}
+              </Link>
+              {m.analyses.map((a) => (
+                <Badge
+                  key={a.type}
+                  label={INTERLEAVING_ANALYSIS_TITLES[a.type]}
+                  color="violet"
+                  variant="soft"
+                  size="sm"
+                />
+              ))}
+            </Flex>
           ))}
         </Flex>
       ) : (

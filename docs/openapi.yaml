@@ -84497,6 +84497,11 @@ components:
               - treatment
               - test
             additionalProperties: false
+        usersExposed:
+          description: >-
+            Distinct units in the exposure query. Absent on snapshots run before
+            this was recorded.
+          type: number
       required:
         - id
         - interleavingId

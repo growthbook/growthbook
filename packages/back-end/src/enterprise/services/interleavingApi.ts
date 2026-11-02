@@ -30,6 +30,7 @@ export function toApiInterleavingSnapshot(
       endDate: s.endDate.toISOString(),
     },
     results: doc.results,
+    usersExposed: doc.usersExposed,
   };
 }
 
