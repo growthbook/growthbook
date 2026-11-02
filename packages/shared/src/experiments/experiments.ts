@@ -1592,12 +1592,12 @@ export function getClusterExperimentMetricEligibility(
     if (options.clusterIdentifier) {
       return {
         allowed: false,
-        reason: `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`,
+        reason: `This metric's fact table exposes neither the subunit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`,
       };
     }
     return {
       allowed: false,
-      reason: `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
+      reason: `This metric's fact table does not expose the subunit identifier "${options.clusterSubUnitIdentifier}".`,
     };
   }
   return { allowed: true, level };

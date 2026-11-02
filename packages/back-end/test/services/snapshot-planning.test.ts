@@ -908,7 +908,7 @@ describe("snapshot planning", () => {
         metricGroups: [],
         datasource,
       }),
-    ).toThrow(/sub-unit identifier type "user_id"/);
+    ).toThrow(/subunit identifier type "user_id"/);
   });
 
   it("expands legacy report metric groups consistently", () => {

@@ -636,7 +636,7 @@ export function validateClusterExperimentIdentifiers(
     return {
       ok: false,
       error:
-        "Cluster experiments require an assignment query that declares both the cluster and sub-unit identifier types.",
+        "Cluster experiments require an assignment query that declares both the cluster and subunit identifier types.",
     };
   }
   if (!clusterIdentifierType) {
@@ -648,14 +648,14 @@ export function validateClusterExperimentIdentifiers(
   if (!subUnitIdentifierType) {
     return {
       ok: false,
-      error: "Cluster experiments require a sub-unit identifier type.",
+      error: "Cluster experiments require a subunit identifier type.",
     };
   }
   if (clusterIdentifierType === subUnitIdentifierType) {
     return {
       ok: false,
       error:
-        "The cluster identifier type and the sub-unit identifier type must be different.",
+        "The cluster identifier type and the subunit identifier type must be different.",
     };
   }
   const name = query.name || query.id;
@@ -669,7 +669,7 @@ export function validateClusterExperimentIdentifiers(
   if (!declared.includes(subUnitIdentifierType)) {
     return {
       ok: false,
-      error: `Assignment query "${name}" doesn't declare the sub-unit identifier type "${subUnitIdentifierType}".`,
+      error: `Assignment query "${name}" doesn't declare the subunit identifier type "${subUnitIdentifierType}".`,
     };
   }
   return { ok: true };
