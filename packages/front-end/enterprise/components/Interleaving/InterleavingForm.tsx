@@ -85,14 +85,26 @@ export default function InterleavingForm({
     metrics: initialValue?.metrics ?? [],
   });
 
+  // Resolved against the starting project, like ContextualBanditForm. A copy
+  // keeps the original's attribute; a new one falls back to the project's.
+  const initialProject = initialValue?.project ?? currentProject;
+  const initialAttributeSchema = useAttributeSchema(false, initialProject);
+  const initialHashAttribute = useMemo(() => {
+    if (initialValue?.hashAttribute) return initialValue.hashAttribute;
+    const available = initialAttributeSchema
+      .filter((attribute) => attribute.hashAttribute)
+      .map((attribute) => attribute.property);
+    return available.includes("id") ? "id" : (available[0] ?? "id");
+  }, [initialValue?.hashAttribute, initialAttributeSchema]);
+
   const form = useForm<InterleavingFormValues>({
     defaultValues: {
-      project: initialValue?.project ?? currentProject,
+      project: initialProject,
       name: initialValue ? `${initialValue.name} (Copy)` : "",
       key: initialValue?.key ?? "",
       owner: initialValue?.owner || userId || "",
       tags: initialValue?.tags ?? [],
-      hashAttribute: initialValue?.hashAttribute ?? "id",
+      hashAttribute: initialHashAttribute,
     },
   });
   const project = form.watch("project");
@@ -104,16 +116,21 @@ export default function InterleavingForm({
         .map((attribute) => attribute.property),
     [attributeSchema],
   );
-  const previousProject = useRef<string | undefined>(undefined);
 
+  // Only on a real Project change, and only when the current attribute isn't
+  // offered by the new one. Resetting unconditionally would discard a copy's
+  // attribute on mount; leaving it alone would submit one the server rejects.
+  const previousProject = useRef(initialProject);
+  const hashAttribute = form.watch("hashAttribute");
   useEffect(() => {
     if (previousProject.current === project) return;
     previousProject.current = project;
+    if (hashAttributes.includes(hashAttribute)) return;
     form.setValue(
       "hashAttribute",
       hashAttributes.includes("id") ? "id" : (hashAttributes[0] ?? "id"),
     );
-  }, [form, hashAttributes, project]);
+  }, [form, hashAttributes, hashAttribute, project]);
 
   const canCreate = permissionsUtil.canCreateInterleaving({ project });
 

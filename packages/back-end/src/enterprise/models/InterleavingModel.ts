@@ -95,7 +95,12 @@ function payloadAffectingChanges(
 const trackingKeyCollisionMessage = (trackingKey: string) =>
   `Another interleaving experiment already reports as "${trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`;
 
-const TRACKING_KEY_INDEX = "interleaving_datasource_trackingkey_unique";
+// Keyed on datasourceId. The original index named `datasource`, which no
+// document carries any more, so Mongo indexed it as null and the constraint
+// collapsed to one tracking key per organization. LEGACY_TRACKING_KEY_INDEX is
+// dropped through the model's indexesToRemove.
+const TRACKING_KEY_INDEX = "interleaving_datasourceid_trackingkey_unique";
+const LEGACY_TRACKING_KEY_INDEX = "interleaving_datasource_trackingkey_unique";
 const trackingKeyUniquenessIndex = {
   name: TRACKING_KEY_INDEX,
   unique: true,
@@ -104,7 +109,7 @@ const trackingKeyUniquenessIndex = {
 async function ensureTrackingKeyIndex() {
   await ensureIndexOnce(
     getCollection("interleavings"),
-    { organization: 1, datasource: 1, trackingKey: 1 },
+    { organization: 1, datasourceId: 1, trackingKey: 1 },
     trackingKeyUniquenessIndex,
   );
 }
@@ -134,6 +139,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "interleaving.update",
     deleteEvent: "interleaving.delete",
   },
+  indexesToRemove: [LEGACY_TRACKING_KEY_INDEX],
   additionalIndexes: [
     {
       fields: {

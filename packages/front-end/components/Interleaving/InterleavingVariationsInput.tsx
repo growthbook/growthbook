@@ -1,4 +1,4 @@
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Flex, Grid } from "@radix-ui/themes";
 import type {
   ApiCreateInterleavingBody,
   ApiInterleavingInterface,
@@ -6,14 +6,9 @@ import type {
 import { parseInterleavingRankerConfig } from "shared/util";
 import Field from "@/components/Forms/Field";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
-import VariationLabel from "@/ui/VariationLabel";
+import RankerCard, { RANKERS } from "./RankerCard";
 
 export type InterleavingRankers = ApiCreateInterleavingBody["variations"];
-
-const RANKERS = [
-  { role: "control", label: "Control" },
-  { role: "treatment", label: "Treatment" },
-] as const;
 
 function toSchemaDef(jsonSchema: ApiInterleavingInterface["jsonSchema"]) {
   return jsonSchema ? { ...jsonSchema, date: new Date(jsonSchema.date) } : null;
@@ -66,29 +61,11 @@ export default function InterleavingVariationsInput({
       {RANKERS.map(({ role, label }, i) => {
         const ranker = value[role];
         return (
-          <Box
+          <RankerCard
             key={role}
-            p="5"
-            pb="3"
-            className="appbox mb-0 position-relative variation"
+            index={i}
+            name={ranker.name || ranker.key || label}
           >
-            <Box
-              className={`variation variation${i} with-variation-color`}
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                right: 0,
-                height: "6px",
-              }}
-            />
-            <Box mb="3">
-              <VariationLabel
-                number={i}
-                name={ranker.name || ranker.key || label}
-                size="lg"
-              />
-            </Box>
             <Flex gap="3">
               <Field
                 label="Key"
@@ -119,7 +96,7 @@ export default function InterleavingVariationsInput({
               error={getRankerConfigError(ranker.config, jsonSchema) ?? ""}
               helpText="Passed to getList() in the SDK for this ranker."
             />
-          </Box>
+          </RankerCard>
         );
       })}
     </Grid>

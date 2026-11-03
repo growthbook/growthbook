@@ -4,13 +4,11 @@ import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { interleavingEnvsForChange } from "shared/permissions";
 import { interleavingInSDKPayload } from "shared/util";
-import { IconButton } from "@radix-ui/themes";
-import { PiDotsThreeVertical } from "react-icons/pi";
-import { radixSize } from "@/ui/sizes";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import { useRestApiCall } from "@/services/restApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -80,17 +78,11 @@ export default function InterleavingMoreMenu({
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size={radixSize("md")}
-          highContrast
+        <MoreMenuTrigger
+          label="Interleaving experiment actions"
+          size="lg"
           ml="2"
-          aria-label="Interleaving experiment actions"
-        >
-          <PiDotsThreeVertical size={18} />
-        </IconButton>
+        />
       }
       menuPlacement="end"
       variant="soft"

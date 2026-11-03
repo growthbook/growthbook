@@ -15,7 +15,6 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Metadata from "@/ui/Metadata";
-import VariationLabel from "@/ui/VariationLabel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SortedTags from "@/components/Tags/SortedTags";
 import Owner from "@/components/Avatar/Owner";
@@ -30,6 +29,7 @@ import EditInterleavingTargetingModal from "./EditInterleavingTargetingModal";
 import EditInterleavingAnalysisModal from "./EditInterleavingAnalysisModal";
 import EditInterleavingEnvironmentsModal from "./EditInterleavingEnvironmentsModal";
 import CompareInterleavingEventsModal from "./CompareInterleavingEventsModal";
+import StopInterleavingWarning from "./StopInterleavingWarning";
 import EditInterleavingDescriptionModal from "./EditInterleavingDescriptionModal";
 
 export default function InterleavingDetailPage({
@@ -262,17 +262,7 @@ export default function InterleavingDetailPage({
       {confirmStop && (
         <ConfirmDialog
           title="Stop this interleaving experiment?"
-          content={
-            <Flex align="center" gap="1" wrap="wrap">
-              Users will get
-              <VariationLabel
-                number={0}
-                name={il.variations.control.name || il.variations.control.key}
-                size="sm"
-              />
-              &apos;s list. Results stay available.
-            </Flex>
-          }
+          content={<StopInterleavingWarning />}
           yesText="Stop"
           onConfirm={async () => {
             await stop();

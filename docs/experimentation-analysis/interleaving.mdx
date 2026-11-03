@@ -75,4 +75,4 @@ Users who are not interleaved — because targeting excluded them, or the experi
 
 ## Lifecycle
 
-An interleaving experiment is a draft until you start it and runs until you stop it. You can archive it at any time; archiving a running experiment immediately removes it from SDK payloads. Results are refreshed on demand from the Results tab, and the previous results stay on screen while a new analysis runs.
+An interleaving experiment is a draft until you start it and runs until you stop it. Stopping removes it from SDK payloads, so both rankers stop serving and `interleave()` falls back to the `fallbackConfig` passed at the call site. You can archive it at any time; archiving a running experiment immediately removes it from SDK payloads. Results are refreshed on demand from the Results tab, and the previous results stay on screen while a new analysis runs.

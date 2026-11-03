@@ -3,13 +3,8 @@ import type { ApiInterleavingInterface } from "shared/validators";
 import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import VariationLabel from "@/ui/VariationLabel";
 import { getRankerConfigError } from "./InterleavingVariationsInput";
-
-const RANKERS = [
-  { role: "control", label: "Control" },
-  { role: "treatment", label: "Treatment" },
-] as const;
+import RankerCard, { RANKERS } from "./RankerCard";
 
 // Read-only twin of InterleavingVariationsInput, sharing its card shell so the
 // overview and the edit modal stay visually continuous.
@@ -26,31 +21,15 @@ export default function InterleavingRankersDisplay({
         const ranker = variations[role];
         const configError = getRankerConfigError(ranker.config, jsonSchema);
         return (
-          <Box
+          <RankerCard
             key={role}
-            p="5"
-            pb="3"
-            className="appbox mb-0 position-relative variation"
+            index={i}
+            name={ranker.name || ranker.key || label}
           >
-            <Box
-              className={`variation variation${i} with-variation-color`}
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                right: 0,
-                height: "6px",
-              }}
-            />
-            <Box mb="3">
-              <VariationLabel
-                number={i}
-                name={ranker.name || ranker.key || label}
-                size="lg"
-              />
-            </Box>
             <Flex direction="column" gap="2">
-              <code className="small">ID: {ranker.key}</code>
+              <Text size="sm">
+                <code>ID: {ranker.key}</code>
+              </Text>
               {ranker.description ? (
                 <Text>{ranker.description}</Text>
               ) : (
@@ -73,7 +52,7 @@ export default function InterleavingRankersDisplay({
                 )}
               </Box>
             </Flex>
-          </Box>
+          </RankerCard>
         );
       })}
     </Grid>

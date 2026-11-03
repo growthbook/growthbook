@@ -25,7 +25,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import Metadata from "@/ui/Metadata";
-import AnalysisSettingInfo from "@/ui/AnalysisSettingInfo";
+import AnalysisSettingInfo from "@/components/AnalysisSettingInfo";
 import Link from "@/ui/Link";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import StatusErrorCallout from "@/components/ContextualBandit/StatusErrorCallout";

@@ -33,7 +33,7 @@ import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import AnalysisSettingInfo from "@/ui/AnalysisSettingInfo";
+import AnalysisSettingInfo from "@/components/AnalysisSettingInfo";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
