@@ -14,7 +14,7 @@ import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
 ## Why interleaving
 
-Search, recommendation, and feed teams regularly iterate on their **rankers** with new models, new data, and new parameters and weights. A mature ranker is already good, so most changes have small effects, and small effects need a lot of users. Testing rankers one A/B test at a time becomes the bottleneck. Offline evaluation is fast, but it is a [poor predictor](https://dl.acm.org/doi/10.1145/3292500.3330744) of which ranker wins with real users.
+Search and recommendation teams regularly iterate on their **rankers** with new models, new data, and new parameters and weights. A mature ranker is already good, so most changes have small effects, and small effects need a lot of users. Testing rankers one A/B test at a time becomes the bottleneck. Offline evaluation is fast, but it is a [poor predictor](https://dl.acm.org/doi/10.1145/3292500.3330744) of which ranker wins with real users.
 
 Interleaving sits between offline evaluation and A/B testing. Instead of showing ranker A to one group of users and ranker B to another, it **merges both rankers' lists into one** every time a list is shown, so every user sees items from both rankers. Every user compares both rankers, so each user is their own control. Companies that run interleaving report needing a small fraction of the traffic a standard experiment needs:
 
@@ -37,7 +37,7 @@ Most teams use it as a screen:
 
 1. **Offline evaluation** to discard the clearly bad candidates.
 2. **Interleaving** to compare the remaining candidates with real users, on a small share of traffic.
-3. **An A/B test** (or a switchback or synethic control test where interference is a risk) on the one or two finalists to measure the effect size before shipping or as periodic validation.
+3. **An A/B test** (or a switchback or synthetic control test where interference is a risk) on the one or two finalists to measure the effect size before shipping or as periodic validation.
 
 Once you have a track record of interleaving and A/B tests agreeing on your surface, you can rely on interleaving alone more often. See [Understanding interleaving results](/experimentation-analysis/interleaving/results#how-interleaving-relates-to-ab-test-results) for when and why the two can disagree.
 
@@ -63,7 +63,7 @@ Round 1 - Both rankers want Kaito Sushi, so it goes in but belongs to neither. T
 
 Round 2 - Ranker A wants Umi Sushi and Ranker B wants Hana Sushi Bar. We flip a coin and ranker A picks first. Umi Sushi goes in and belongs to ranker A. Hana Sushi Bar goes in and belongs to ranker B.
 
-This continue until we end up with the following draft:
+This continues until we end up with the following draft:
 
 ![Final Draft](/static/images/interleaving/team-draft-final.png)
 
@@ -71,10 +71,10 @@ Now any click on an item attributed to a ranker boosts that ranker's score.
 
 ### Two ways to pick a winner
 
-The draft decides what the user sees and whether an item in the list is competitive (e.g. helps us differentiate between rankers). There are two different ways, then, to attribute positive outcomes with one ranker vs the other:
+The draft decides what the user sees and whether an item in the list is competitive (i.e. helps us differentiate between rankers). There are two different ways, then, to attribute positive outcomes with one ranker vs the other:
 
-- **Paired analysis** compares the two rankers within each merged list and requires the search/query ID (what we internally call the `ranking_id`) to be tracked with the exposure and with all downstream engagements within the list. An engagement with a competitive item credits the ranker that drafted the item, and the test asks whether one ranker earns more engagements on competitive items than the other. It is the most sensitive option and fits in-context signals such as clicks, add-to-cart, or orders placed straight from the list.
-- **Preference analysis** gives each user one vote for the ranker whose items they engaged with more across the whole experiment. It fits outcomes that build up over several visits, such as a booking after a week of searching, and it keeps a few very active users from deciding the result. There are a few different ways to determine how user-level preference is counted up across multiple queries/rankings, which we cover in [Understanding interleaving results](/experimentation-analysis/interleaving/results).
+- **Paired analysis** compares the two rankers within each merged list and requires the search/query ID (the `ranking_id`) to be tracked with the exposure and with all downstream engagements within the list. An engagement with a competitive item credits the ranker that drafted the item, and the test asks whether one ranker earns more engagements on competitive items than the other. It is the most sensitive option and fits in-context signals such as clicks, add-to-cart, or orders placed straight from the list.
+- **Preference analysis** gives each user one vote for the ranker whose items they engaged with more across the whole experiment. It fits outcomes that build up over several visits, such as a booking after a week of searching, and it keeps a few very active users from deciding the result. We cover how preference is counted across multiple queries/rankings in [Understanding interleaving results](/experimentation-analysis/interleaving/results).
 
 You can run both in the same experiment, for example paired analysis on clicks and preference analysis on orders. [Understanding interleaving results](/experimentation-analysis/interleaving/results) covers both in detail.
 

@@ -77,7 +77,7 @@ Every option, return field, and fallback path is documented in the [API referenc
 
 ### Rules for `rankingId` and `result`
 
-- **One `rankingId` per query.** A new search or feed load is a new id. A filter change is a new query. Pagination continues the same draft: fetch the full lists once and page through `result`.
+- **One `rankingId` per query.** A new search or page load is a new id. A filter change is a new query. Pagination continues the same draft: fetch the full lists once and page through `result`.
 - **A user-selected sort is not a ranking.** Pass `enabled: false`.
 - **Never re-sort or re-filter `result`.** It breaks the recorded positions and which items count as competitive. Apply diversity caps, pinned items, and filters inside each ranker's list, before the merge.
 
@@ -411,7 +411,7 @@ export type InterleaveOptions<T, C extends object = InterleaveConfig> = {
   fallbackConfig: C;
 
   /**
-   * One id per impression (one search, one feed load). Seeds the draft, so
+   * One id per impression (one search, one page load). Seeds the draft, so
    * reusing it replays the same list; pass it down from server to client to
    * keep SSR and hydration consistent. Pagination continues the same id;
    * a filter change is a new id. Defaults to a UUID.

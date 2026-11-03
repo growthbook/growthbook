@@ -13,12 +13,12 @@ Every interleaving result answers the same question: **which ranker's items did 
 |                         | Paired                                               | Preference                                                                                                                    |
 | ----------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **One observation is**  | One impression: the merged list the user saw         | One user, over the whole experiment                                                                                           |
-| **Credit goes to**      | The ranker that drafted the item in that impression  | Depends on attribution, but while in beta we use the ranker that drafted the user the item more, across all their impressions |
-| **An event is tied to** | The exact impression, via `ranking_id` and `item_id` | The item only, via `item_id`                                                                                                  |
+| **Credit goes to**      | The ranker that drafted the item in that impression  | Depends on attribution, but while in beta we use the ranker that drafted the item more often for that user, across all their impressions |
+| **An event is linked to** | The exact impression, via `ranking_id` and `item_id` | The item only, via `item_id`                                                                                                  |
 | **Attribution setting** | None. The impression decides.                        | Yes. Decides how credit is split when both rankers showed the item.                                                           |
-| **Statistic**           | Difference in engagement per competitive item        | Net share of users who preferred the treatment                                                                                |
+| **Statistic**           | Difference in engagement per pair of competitive items        | Net share of users who preferred the treatment                                                                                |
 
-Paired analysis is the better powered tool when the engagement happens on the list itself, such as a click. Preference analysis is the one to use when the outcome is recorded somewhere that never sees the list, such as an order or booking, and when you want every user to count equally. This is often most useful for downstream metrics that are recorded outside the list, such as an order or booking (see AirBnB [blog post](https://medium.com/airbnb-engineering/beyond-a-b-test-speeding-up-airbnb-search-ranking-experimentation-through-interleaving-7087afa09c8e) and [paper](https://arxiv.org/abs/2508.00751) for more details, which largely we follow here).
+Paired analysis is the better powered tool when the engagement happens on the list itself, such as a click. Preference analysis is the one to use when the outcome is recorded somewhere that never sees the list, such as an order or booking, and when you want every user to count equally (see Airbnb's [blog post](https://medium.com/airbnb-engineering/beyond-a-b-test-speeding-up-airbnb-search-ranking-experimentation-through-interleaving-7087afa09c8e) and [paper](https://arxiv.org/abs/2508.00751) for more details, which we largely follow here).
 
 The Results tab shows one row per metric and analysis. An orders metric with both analyses produces two rows; a clicks metric with paired analysis produces one.
 
@@ -28,13 +28,13 @@ Every row compares the second ranker (treatment) with the first (control) and sh
 
 ## Paired analysis
 
-Paired analysis compares the two rankers **within each merged list**. Every engagement with a competitive item credits the ranker that drafted it, so each impression yields a pair of credit totals, one per ranker. Only impressions where the user engaged with at least one item matching the metric count, because an impression with no engagement says nothing about either ranker.
+Paired analysis compares the two rankers **within each merged list**. Every engagement with a competitive item credits the ranker that drafted it, so each impression yields a pair of credit totals, one per ranker. Only impressions where the user engaged with at least one competitive item matching the metric count, because an impression with no engagement says nothing about either ranker.
 
 | Column                  | Meaning                                                                                                                          |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | **Users**               | Users with at least one engaged impression.                                                                                      |
 | **Control / Treatment** | The metric's total credited to each ranker, divided by the number of competitive items each ranker drafted in those impressions. |
-| **Difference**          | Treatment minus control, per competitive item shown. A positive value means users engaged more with the treatment's picks.       |
+| **Difference**          | Treatment minus control, per pair of competitive items. A positive value means users engaged more with the treatment's picks.       |
 
 Attribution is fixed: an event joins to one impression through `ranking_id`, and the ranker that drafted that item in that impression gets the credit. Events without a `ranking_id`, or with a timestamp before the impression's, are not counted.
 
@@ -69,7 +69,7 @@ Preference analysis has a choice to make that paired analysis does not. An event
 
 | Attribution           | How credit is split                                                                                                                                                                                                                 | Status                   |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| **Exposure count**    | By the share of the item's competitive appearances to this user that each ranker drafted. A user who ordered from a restaurant that the treatment drafted in two of their three lists gives the treatment two thirds of that order. | Available in closed beta |
+| **Exposure count**    | By the share of the item's competitive appearances to this user that each ranker drafted. A user who ordered from a restaurant that the treatment drafted in two of their three lists gives the treatment two thirds of that order. | Available in private beta |
 | **Engagement signal** | By a separate signal metric, such as the click that led to the order. The ranker credited with the signal event gets the conversion.                                                                                                | Planned                  |
 
 Exposure count is the same idea as Airbnb's attribution of bookings to the ranker that championed the booked listing. Events count from the first time the user saw the item, and only competitive appearances count. Because attribution works from `item_id` alone, preference analysis fits conversions recorded outside the list, such as a booking logged days later by another system.
