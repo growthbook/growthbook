@@ -6,7 +6,6 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
-import { TOP_NAV_HEIGHT_PX } from "@/components/Layout/constants";
 import {
   StoryMeta,
   StoryModule,
@@ -67,11 +66,10 @@ function buildSections() {
     .filter((s) => s.entries.length > 0);
 }
 
+const TOP_NAV_HEIGHT = 56;
 const PAGE_TOP_PADDING = 24;
 const PAGE_BOTTOM_PADDING = 16;
-const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT_PX + PAGE_TOP_PADDING;
-// Anchor jumps land a heading level with the top of the sticky sidebar.
-const SCROLL_MARGIN_TOP = SIDEBAR_TOP_OFFSET;
+const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;
 const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
   SIDEBAR_TOP_OFFSET + PAGE_BOTTOM_PADDING
 }px)`;
@@ -124,7 +122,7 @@ export default function DesignSystemPage() {
                 id={section.id}
                 direction="column"
                 gap="7"
-                style={{ scrollMarginTop: SCROLL_MARGIN_TOP }}
+                style={{ scrollMarginTop: 56 }}
               >
                 <Heading as="h2" size="xl">
                   {section.label}
@@ -147,7 +145,7 @@ function StoryFrame({ id, meta, Stories }: Entry) {
       id={id}
       pb="7"
       style={{
-        scrollMarginTop: SCROLL_MARGIN_TOP,
+        scrollMarginTop: 56,
         borderBottom: "1px solid var(--gray-a4)",
       }}
     >
