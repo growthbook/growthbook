@@ -4,6 +4,7 @@ import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
+import GeneratedPasswordNote from "./GeneratedPasswordNote";
 import HostWarning from "./HostWarning";
 
 const MssqlForm: FC<{
@@ -13,11 +14,21 @@ const MssqlForm: FC<{
   setParams: (params: {
     [key: string]: string | boolean | number | Record<string, unknown>;
   }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+  generatedPassword?: boolean;
+  showAllowlist?: boolean;
+}> = ({
+  params,
+  existing,
+  onParamChange,
+  setParams,
+  generatedPassword,
+  showAllowlist,
+}) => {
   return (
     <>
       <HostWarning
         host={params.server ?? ""}
+        showAllowlist={showAllowlist}
         setHost={(host) => {
           setParams({
             server: host,
@@ -80,6 +91,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
             placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
+          <GeneratedPasswordNote show={generatedPassword} />
         </div>
         <div className="form-group col-md-6">
           <label>Request Timeout</label>
