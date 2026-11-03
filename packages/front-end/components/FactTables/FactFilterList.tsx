@@ -1,14 +1,7 @@
-import {
-  FactTableInterface,
-  FactFilterInterface,
-} from "shared/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
@@ -16,101 +9,16 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import ExpandableBlock from "@/ui/ExpandableBlock";
-import {
-  DropdownMenu,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
+import Link from "@/ui/Link";
 import FactFilterModal from "./FactFilterModal";
-
-function FactFilterRowMenu({
-  filter,
-  factTableId,
-  canEdit,
-  canDelete,
-  onEdit,
-}: {
-  filter: FactFilterInterface;
-  factTableId: string;
-  canEdit: boolean;
-  canDelete: boolean;
-  onEdit: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
-
-  return (
-    <DropdownMenu
-      trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
-        >
-          <BsThreeDotsVertical size={16} />
-        </IconButton>
-      }
-      open={open}
-      onOpenChange={setOpen}
-      menuPlacement="end"
-    >
-      <DropdownMenuGroup>
-        {canEdit && (
-          <DropdownMenuItem
-            onClick={() => {
-              onEdit();
-              setOpen(false);
-            }}
-          >
-            Edit
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuGroup>
-      {canDelete && (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem
-              color="red"
-              confirmation={{
-                confirmationTitle: "Delete Saved Filter",
-                cta: "Delete",
-                getConfirmationContent: async () =>
-                  "This will remove the Saved Filter from all metrics that are using it.",
-                submit: async () => {
-                  await apiCall(
-                    `/fact-tables/${factTableId}/filter/${filter.id}`,
-                    { method: "DELETE" },
-                  );
-                  mutateDefinitions();
-                },
-                closeDropdown: () => setOpen(false),
-              }}
-            >
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </>
-      )}
-    </DropdownMenu>
-  );
-}
 
 export interface Props {
   factTable: FactTableInterface;
-  hideSearch?: boolean;
 }
 
 const FILTER_PAGE_SIZE = 10;
 
-export default function FactFilterList({
-  factTable,
-  hideSearch = false,
-}: Props) {
+export default function FactFilterList({ factTable }: Props) {
   const router = useRouter();
   const requestedFilterId =
     typeof router.query.filter === "string" ? router.query.filter : "";
@@ -186,11 +94,12 @@ export default function FactFilterList({
           close={() => setEditOpen("")}
           factTable={factTable}
           existing={factTable.filters.find((f) => f.id === editOpen)}
+          canDelete={canDelete}
         />
       )}
 
       <div className="row align-items-center">
-        {factTable.filters.length > 0 && !hideSearch && (
+        {factTable.filters.length > 0 && (
           <div className="col-auto mr-auto">
             <Field
               size="legacy"
@@ -200,7 +109,7 @@ export default function FactFilterList({
             />
           </div>
         )}
-        <div className="col-auto">
+        <div className="col-auto ml-auto">
           <Tooltip
             body={
               canAddAndEdit
@@ -215,7 +124,7 @@ export default function FactFilterList({
               }}
               disabled={!canAddAndEdit}
             >
-              Add Saved Filter
+              New filter
             </Button>
           </Tooltip>
         </div>
@@ -231,7 +140,6 @@ export default function FactFilterList({
               <tr>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="value">Filter SQL</SortableTH>
-                <th style={{ width: 30 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -249,7 +157,16 @@ export default function FactFilterList({
                   }
                 >
                   <td style={{ verticalAlign: "top" }}>
-                    {filter.name}
+                    {canAddAndEdit && !filter.managedBy ? (
+                      <Link
+                        weight="bold"
+                        onClick={() => setEditOpen(filter.id)}
+                      >
+                        {filter.name}
+                      </Link>
+                    ) : (
+                      filter.name
+                    )}
                     <OfficialBadge type="filter" managedBy={filter.managedBy} />
                   </td>
                   <td style={{ verticalAlign: "top" }}>
@@ -262,20 +179,11 @@ export default function FactFilterList({
                       </ExpandableBlock>
                     </div>
                   </td>
-                  <td style={{ verticalAlign: "top" }}>
-                    <FactFilterRowMenu
-                      filter={filter}
-                      factTableId={factTable.id}
-                      canEdit={canAddAndEdit && !filter.managedBy}
-                      canDelete={canDelete && !filter.managedBy}
-                      onEdit={() => setEditOpen(filter.id)}
-                    />
-                  </td>
                 </tr>
               ))}
               {!items.length && isFiltered && (
                 <tr>
-                  <td colSpan={3} align={"center"}>
+                  <td colSpan={2} align={"center"}>
                     No matching filters.{" "}
                     <a
                       href="#"

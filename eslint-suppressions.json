@@ -448,14 +448,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/FactTables/FactFilterModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/FactTables/FactMetricList.tsx": {
     "no-restricted-imports": {
       "count": 1
