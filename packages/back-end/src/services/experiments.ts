@@ -263,6 +263,7 @@ import {
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   InvalidTrackingKeyError,
+  UnrecoverableSnapshotError,
 } from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import { isoOrNull } from "back-end/src/services/experimentChanges/loadedBase";
@@ -667,6 +668,15 @@ export function getSnapshotSettings({
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
+  }
+
+  if (
+    isContextualBanditMeasurementArm(experiment) &&
+    !experiment.contextualBanditId
+  ) {
+    throw new UnrecoverableSnapshotError(
+      `Measurement arm "${experiment.id}" is not linked to a Contextual Bandit, so there is no assignment data to analyze. Re-create the measurement arm from its Bandit.`,
+    );
   }
 
   const defaultPriorSettings = orgPriorSettings ?? {

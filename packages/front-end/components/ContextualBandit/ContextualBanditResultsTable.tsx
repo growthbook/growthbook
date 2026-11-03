@@ -2,7 +2,6 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";
-import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
@@ -35,11 +34,8 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
 import ContextualBanditOverviewTable from "@/components/ContextualBandit/ContextualBanditOverviewTable";
-import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
-import RunQueriesButton, {
-  getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 
 const numberFormatter = Intl.NumberFormat();
@@ -172,7 +168,6 @@ export default function ContextualBanditResultsTable({
     results,
     latest,
     refresh,
-    cancel,
     refreshError,
     statusError,
     mutate: refetchSnapshot,
@@ -394,54 +389,11 @@ export default function ContextualBanditResultsTable({
           style={{ whiteSpace: "nowrap" }}
         />
       ) : null}
-      <QueriesLastRun
-        status={status}
-        dateCreated={
-          queryLatest ? getValidDate(queryLatest.dateCreated) : undefined
-        }
-        latestQueryDate={
-          queryLatest ? getValidDate(queryLatest.dateCreated) : undefined
-        }
-        nextUpdate={
-          cb.nextSnapshotAttempt
-            ? getValidDate(cb.nextSnapshotAttempt)
-            : undefined
-        }
-        autoUpdateEnabled={cb.status === "running" && !!cb.autoSnapshots}
-        showAutoUpdateWidget={true}
-        failedString={
-          queryLatest && !queryLatest.queries.length && queryLatest.error
-            ? `Snapshot update failed: ${queryLatest.error}`
-            : undefined
-        }
-        queries={
-          showQueries ? queryLatest.queries.map((q) => q.query) : undefined
-        }
-        onViewQueries={
-          showQueries ? () => setQueriesModalOpen(true) : undefined
-        }
-      />
       {isOutdated && hasTableData ? (
         <OutdatedBadge
           reasons={[
             "The Contextual Bandit's variations have changed since the last results were computed. Update results to reflect the current variation set.",
           ]}
-        />
-      ) : null}
-      {canRunQueries ? (
-        <RunQueriesButton
-          cta="Update results"
-          icon="refresh"
-          model={{
-            queries: queryLatest?.queries ?? [],
-            runStarted: queryLatest?.runStarted ?? null,
-          }}
-          onCancel={cancel}
-          mutate={mutate}
-          onSubmit={async () => {
-            await refresh();
-            mutate();
-          }}
         />
       ) : null}
       <ResultMoreMenu

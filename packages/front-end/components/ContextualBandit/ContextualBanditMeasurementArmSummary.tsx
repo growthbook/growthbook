@@ -152,7 +152,7 @@ export default function ContextualBanditMeasurementArmSummary({
           {result.banditUsers !== null ? formatNumber(result.banditUsers) : "—"}{" "}
           users)
           {measurementArm?.resultsSnapshot
-            ? ` · Updated ${ago(measurementArm.resultsSnapshot.dateCreated)}`
+            ? ` · Results as of ${ago(measurementArm.resultsSnapshot.dateCreated)}`
             : ""}
         </Text>
         {latestAttempt}
@@ -162,7 +162,7 @@ export default function ContextualBanditMeasurementArmSummary({
   }
 
   return (
-    <Frame mb="4">
+    <Frame mb="0">
       <Flex justify="between" align="start" gap="4" wrap="wrap">
         <Box>
           <Flex align="center" gap="2" mb="2">

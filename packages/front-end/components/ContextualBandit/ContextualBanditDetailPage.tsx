@@ -51,6 +51,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
+import ContextualBanditAnalysisSettingsSummary from "@/components/ContextualBandit/ContextualBanditAnalysisSettingsSummary";
 import ContextualBanditMeasurementArmSummary from "@/components/ContextualBandit/ContextualBanditMeasurementArmSummary";
 import ContextualBanditHealthTab from "@/components/ContextualBandit/ContextualBanditHealthTab";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
@@ -881,6 +882,10 @@ export default function ContextualBanditDetailPage({
         {showResultsTab ? (
           <TabsContent value="results">
             <Box pt="4">
+              <ContextualBanditAnalysisSettingsSummary
+                cb={cb}
+                mutate={mutate}
+              />
               <ContextualBanditMeasurementArmSummary cb={cb} />
               <Frame>
                 <ContextualBanditResultsTable cb={cb} mutate={mutate} />
