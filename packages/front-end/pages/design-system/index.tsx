@@ -122,7 +122,7 @@ export default function DesignSystemPage() {
                 id={section.id}
                 direction="column"
                 gap="7"
-                style={{ scrollMarginTop: 56 }}
+                style={{ scrollMarginTop: 80 }}
               >
                 <Heading as="h2" size="xl">
                   {section.label}
@@ -145,7 +145,7 @@ function StoryFrame({ id, meta, Stories }: Entry) {
       id={id}
       pb="7"
       style={{
-        scrollMarginTop: 56,
+        scrollMarginTop: 80,
         borderBottom: "1px solid var(--gray-a4)",
       }}
     >
