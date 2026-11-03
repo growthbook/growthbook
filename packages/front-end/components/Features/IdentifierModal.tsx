@@ -10,6 +10,7 @@ import {
 } from "shared/util";
 import { PiDatabase, PiLockSimple } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
+import { hasFileConfig } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -190,8 +191,10 @@ export default function IdentifierModal({
       : canEdit(d) &&
         !uncheckedIds.includes(d.id) &&
         (!settledName || pickFor(d) !== null);
+  // The server can't update Data Sources defined in config.yml.
+  const fileConfig = hasFileConfig();
   const linksFor = (base: string) =>
-    mappable.flatMap((d) => {
+    (fileConfig ? [] : mappable).flatMap((d) => {
       if (!canEdit(d) || linkedType(d) || !isChecked(d)) return [];
       const pick = pickFor(d, base);
       if (pick === null) return [];
@@ -361,7 +364,16 @@ export default function IdentifierModal({
           />
         )}
 
-        {shown.length > 0 && (
+        {fileConfig && shown.length > 0 && (
+          <Box>
+            <Text weight="semibold">Data Sources</Text>
+            <Text as="div" size="sm" color="text-low">
+              Data Sources are managed in <code>config.yml</code>, so this
+              identifier isn&apos;t linked to them here.
+            </Text>
+          </Box>
+        )}
+        {!fileConfig && shown.length > 0 && (
           <Flex direction="column" gap="2">
             <Box>
               <Text weight="semibold">Data Sources</Text>
