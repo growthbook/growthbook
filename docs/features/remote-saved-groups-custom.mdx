@@ -73,6 +73,25 @@ scoped.isOn("my-feature");
 
 `redisResolver` reads the Redis keys GrowthBook's loader writes. It takes a node-redis client, or any object with an `sMembers` method; for ioredis, pass `{ sMembers: (key) => redis.smembers(key) }`. If the lookup fails, `addRemoteSavedGroups` returns the user context unchanged, so rules using Remote Groups don't match.
 
+<Warning>
+Unlike the Proxy, `redisResolver` doesn't check whether a group has been loaded, so a "not in group" rule matches everyone until it is. Publish such rules after the group's version shows in the **Data stores** column, or check in your resolver. The loader records each loaded group in the `gb:group-attributes` hash, and throwing makes the user count as being in no Remote Groups:
+
+```ts
+const resolver: SavedGroupResolver = async (args) => {
+  const loaded = await redis.hKeys("gb:group-attributes");
+  for (const group of args.groups) {
+    if (!loaded.includes(group.valuesFrom ?? group.id)) {
+      throw new Error(`Remote Group ${group.id} isn't loaded`);
+    }
+  }
+  return redisResolver(redis)(args);
+};
+```
+
+This turns off all Remote Groups while any one of them is loading. The Proxy blocks only the rules that use the unloaded group.
+
+</Warning>
+
 If you look up groups some other way, pass them directly with the `remoteGroupIds` option, or with `growthbook.setRemoteGroupIds([...])` on a `GrowthBook` instance.
 
 ### Your Own Resolver
