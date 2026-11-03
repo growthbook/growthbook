@@ -581,26 +581,32 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
 
   return [
     userStep,
-    networkAccessStep({
-      description: "Only if a network policy restricts IPs.",
-      ctx,
-      // GROWTHBOOK_POLICY is one shared, named object per Snowflake account,
-      // not scoped to this connection. Always list every address GrowthBook
-      // might connect from (ignoring this connection's own region), so the
-      // SET below never drops an address another connection's Event
-      // Forwarder still relies on.
-      code: () => {
-        const list = [CLOUD_EGRESS_IP, EU_INGESTOR_IP]
-          .map((ip) => `'${ip}'`)
-          .join(", ");
-        return `CREATE NETWORK POLICY IF NOT EXISTS GROWTHBOOK_POLICY
+    // GROWTHBOOK_POLICY is one shared, named object per Snowflake account,
+    // not scoped to this connection. On Cloud, always list every address
+    // GrowthBook might connect from (ignoring this connection's own region),
+    // so the SET below never drops an address another connection's Event
+    // Forwarder still relies on. Self-hosted has no fixed IP; applying that
+    // policy would lock out the server running GrowthBook.
+    ctx.cloud
+      ? networkAccessStep({
+          description: "Only if a network policy restricts IPs.",
+          ctx,
+          code: () => {
+            const list = [CLOUD_EGRESS_IP, EU_INGESTOR_IP]
+              .map((ip) => `'${ip}'`)
+              .join(", ");
+            return `CREATE NETWORK POLICY IF NOT EXISTS GROWTHBOOK_POLICY
   ALLOWED_IP_LIST = (${list});
 ALTER NETWORK POLICY GROWTHBOOK_POLICY SET
   ALLOWED_IP_LIST = (${list});
 ALTER USER ${user}
   SET NETWORK_POLICY = GROWTHBOOK_POLICY;`;
-      },
-    }),
+          },
+        })
+      : networkAccessOrDockerStep(
+          ctx,
+          "Only if a network policy restricts IPs.",
+        ),
     TEST_STEP,
   ];
 };
@@ -655,10 +661,7 @@ GRANT USE SCHEMA, CREATE TABLE
         : "Replace the application ID and schema.",
       code: grantCode,
     },
-    networkAccessStep({
-      description: "Only if IP access lists are on.",
-      ctx,
-    }),
+    networkAccessOrDockerStep(ctx, "Only if IP access lists are on."),
     TEST_STEP,
   ];
 };
@@ -773,10 +776,10 @@ const clickhouseSteps: StepBuilder<"clickhouse"> = (p, ctx) => [
     description:
       "In ClickHouse Cloud, copy the connection string. Use read-only credentials.",
   },
-  networkAccessStep({
-    description: "If ClickHouse is behind a firewall, allow this IP.",
+  networkAccessOrDockerStep(
     ctx,
-  }),
+    "If ClickHouse is behind a firewall, allow this IP.",
+  ),
   TEST_STEP,
 ];
 
@@ -931,10 +934,7 @@ const verticaSteps: StepBuilder<"vertica"> = (p, ctx) => [
     description:
       "Optional. Grant SELECT, and allow HOST password auth from GrowthBook Cloud.",
   },
-  networkAccessStep({
-    description: "If Vertica is firewalled, allow this IP.",
-    ctx,
-  }),
+  networkAccessOrDockerStep(ctx, "If Vertica is firewalled, allow this IP."),
   TEST_STEP,
 ];
 

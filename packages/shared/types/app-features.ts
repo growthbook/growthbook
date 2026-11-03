@@ -148,6 +148,6 @@ export type AppFeatures = {
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
   populations: boolean;
+  "new-metric-creation-flow": boolean;
   "interleave-exp": boolean;
-  "new-data-source-onboarding": boolean;
 };
