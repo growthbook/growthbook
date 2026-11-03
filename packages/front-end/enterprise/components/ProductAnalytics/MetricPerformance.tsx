@@ -6,7 +6,7 @@ import {
   useDefinitions,
 } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/ui/Button";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 import Text from "@/ui/Text";
 import {
   getMetricPreviewConfig,
@@ -14,10 +14,9 @@ import {
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import { usePreviewDateRange } from "@/components/QueryPreview/previewUtils";
 import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
-import PreviewEmptyState from "@/components/QueryPreview/PreviewEmptyState";
 import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import MetricPreviewChart from "./MainSection/MetricPreviewChart";
-import PreviewExplorer, { PreviewFooter } from "./PreviewExplorer";
+import PreviewExplorer, { DisabledPreview } from "./PreviewExplorer";
 
 export default function MetricPerformance({
   metric,
@@ -79,20 +78,15 @@ export default function MetricPerformance({
   const datasource = getDatasourceById(datasourceId);
   if (!datasource)
     return (
-      <Flex direction="column" gap="3">
-        <PreviewEmptyState description="Select a fact table to see live sample data for the last 7 days." />
-        <PreviewFooter>
-          <Flex justify="end">
-            <Button disabled>Run query</Button>
-          </Flex>
-        </PreviewFooter>
-      </Flex>
+      <DisabledPreview description="Select a fact table to see live sample data for the last 7 days." />
     );
   if (!permissions.canRunMetricQueries(datasource))
     return (
-      <Text color="text-mid">
-        You don’t have permission to load this metric’s performance.
-      </Text>
+      <DisabledPreview description="Live sample data for the last 7 days appears here.">
+        <PermissionBlocker>
+          You don’t have permission to load this metric’s performance.
+        </PermissionBlocker>
+      </DisabledPreview>
     );
   return (
     <DefinitionsContext.Provider value={previewDefinitions}>

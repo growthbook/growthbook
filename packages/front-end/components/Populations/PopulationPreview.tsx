@@ -5,7 +5,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
 import PreviewHeadline from "@/components/QueryPreview/PreviewHeadline";
-import PreviewExplorer from "@/enterprise/components/ProductAnalytics/PreviewExplorer";
+import PreviewExplorer, {
+  DisabledPreview,
+} from "@/enterprise/components/ProductAnalytics/PreviewExplorer";
 import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import {
   usePreviewDateRange,
@@ -17,6 +19,7 @@ import {
 } from "@/components/Populations/populationUtils";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 import Text from "@/ui/Text";
 
 function MembersChart({
@@ -90,9 +93,11 @@ export default function PopulationPreview({
       {!datasource ? (
         <Callout status="error">The Data Source is unavailable.</Callout>
       ) : !permissions.canRunMetricQueries(datasource) ? (
-        <Text color="text-mid">
-          You don’t have permission to run queries on this Data Source.
-        </Text>
+        <DisabledPreview description="Daily member counts for the last 7 complete days appear here.">
+          <PermissionBlocker>
+            You don’t have permission to run queries on this Data Source.
+          </PermissionBlocker>
+        </DisabledPreview>
       ) : (
         <PreviewExplorer
           config={config}

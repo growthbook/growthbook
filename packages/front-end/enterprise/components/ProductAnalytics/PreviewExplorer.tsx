@@ -40,8 +40,30 @@ type PreviewExplorerProps = {
 };
 
 // The divider and spacing above a preview's run/refresh controls.
-export function PreviewFooter({ children }: { children: ReactNode }) {
+function PreviewFooter({ children }: { children: ReactNode }) {
   return <Box className={styles.footer}>{children}</Box>;
+}
+
+// The preview frame when it can't run at all; `children` says why, under the
+// disabled button.
+export function DisabledPreview({
+  description,
+  children,
+}: {
+  description: string;
+  children?: ReactNode;
+}) {
+  return (
+    <Flex direction="column" gap="3">
+      <PreviewEmptyState description={description} />
+      <PreviewFooter>
+        <Flex direction="column" align="end" gap="2">
+          <Button disabled>Run query</Button>
+          {children}
+        </Flex>
+      </PreviewFooter>
+    </Flex>
+  );
 }
 
 // A passive 7-day preview: runs `config` through the explorer and frames the
