@@ -403,6 +403,11 @@ export default function IdentifierModal({
                             }
                             weight="medium"
                             align="center"
+                            description={
+                              !editable && !linked
+                                ? "You don't have permission to edit this Data Source"
+                                : undefined
+                            }
                             value={checked}
                             disabled={locked}
                             disabledMessage={
@@ -436,10 +441,6 @@ export default function IdentifierModal({
                               </Text>
                               <Badge label="Linked" color="gray" />
                             </Flex>
-                          ) : !editable ? (
-                            <Text size="sm" color="text-low">
-                              No permission
-                            </Text>
                           ) : !checked || !settledName ? (
                             <Text color="text-low">—</Text>
                           ) : (
