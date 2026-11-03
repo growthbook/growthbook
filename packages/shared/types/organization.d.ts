@@ -4,7 +4,6 @@ import {
   OWNER_JOB_TITLES,
   USAGE_INTENTS,
   attributeDataTypes,
-  selectableImplementationTypes,
 } from "shared/constants";
 import {
   ENV_SCOPED_PERMISSIONS,
@@ -33,6 +32,7 @@ import {
   pendingMember,
   projectMemberRole,
   SdkPayloadSizeAlert,
+  SelectableImplementationType,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { ApiKeyInterface } from "shared/types/apikey";
@@ -409,7 +409,7 @@ export interface OrganizationSettings {
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   // A Project's own setting overrides it.
-  defaultExperimentImplementation?: (typeof selectableImplementationTypes)[number];
+  defaultExperimentImplementation?: SelectableImplementationType;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;

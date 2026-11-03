@@ -49,9 +49,10 @@ const ScrollArea = forwardRef<
     wheelScrollsSideways?: boolean;
     /**
      * Marks each edge with more content past it: the content fades out there,
-     * or a shadow falls over it.
+     * or a shadow falls over it. `deep-shadow` is for a header the content
+     * scrolls under, which reads as lifting off it.
      */
-    edgeCue?: "fade" | "shadow";
+    edgeCue?: "fade" | "shadow" | "deep-shadow";
     /**
      * Edges left unmarked. Content pinned (sticky) to one, given `pinnedTo`'s
      * class, casts the shadow past itself instead.
@@ -173,7 +174,7 @@ const ScrollArea = forwardRef<
     return () => el.removeEventListener("wheel", onWheel);
   }, [wheelScrollsSideways]);
 
-  const shadowed = edgeCue === "shadow";
+  const shadowed = edgeCue === "shadow" || edgeCue === "deep-shadow";
   const marked = more.filter((edge) => !skipEdges.includes(edge));
   const underPinned = more.filter((edge) => skipEdges.includes(edge));
   const scrollArea = (
@@ -220,7 +221,14 @@ const ScrollArea = forwardRef<
   if (!shadowed) return scrollArea;
 
   return (
-    <div className={clsx(styles.shadowed, className)} style={style}>
+    <div
+      className={clsx(
+        styles.shadowed,
+        edgeCue === "deep-shadow" && styles.deep,
+        className,
+      )}
+      style={style}
+    >
       {scrollArea}
       {marked.map((edge) => (
         <span key={edge} className={styles.shadow} data-edge={edge} />

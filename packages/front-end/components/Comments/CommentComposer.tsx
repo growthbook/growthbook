@@ -38,7 +38,7 @@ export default function CommentComposer({
   autofocusAtEnd,
   onCancel,
   height = "sm",
-  maxHeight = "lg",
+  maxHeight,
   compact = false,
 }: CommentComposerProps) {
   const buttonSize = compact ? "sm" : "md";

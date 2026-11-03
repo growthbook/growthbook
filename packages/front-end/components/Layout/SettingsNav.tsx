@@ -159,7 +159,7 @@ export default function SettingsNav() {
         </div>
       )}
       {/* The search sits above it, its shadow cast once the list scrolls under. */}
-      <ScrollArea edgeCue="shadow" className={styles.scrollArea}>
+      <ScrollArea edgeCue="deep-shadow" className={styles.scrollArea}>
         <div className={styles.scroll}>
           {showGeneral && (
             <nav

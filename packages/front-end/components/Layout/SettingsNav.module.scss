@@ -45,13 +45,9 @@
   color: var(--gray-11);
 }
 
-// Under the search, a little deeper than the default so the header reads as
-// lifting off the list.
 .scrollArea {
   flex: 1;
   min-height: 0;
-  --edge-shadow-color: var(--gray-a4);
-  --edge-shadow-size: 12px;
 }
 
 .scroll {

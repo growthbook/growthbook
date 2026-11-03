@@ -46,6 +46,11 @@
   position: relative;
 }
 
+.deep .shadow {
+  --shadow-color: var(--gray-a4);
+  --shadow-size: 12px;
+}
+
 .fillsWrapper {
   height: 100%;
 }
@@ -90,10 +95,9 @@
 
 // A narrow shadow over an edge with more past it, as beside a pinned column;
 // most of it in the first third, so it reads as an edge, not a band.
-// A caller can deepen it with --edge-shadow-color and --edge-shadow-size.
 .shadow {
-  --shadow-color: var(--edge-shadow-color, var(--gray-a2));
-  --shadow-size: var(--edge-shadow-size, 6px);
+  --shadow-color: var(--gray-a2);
+  --shadow-size: 6px;
   position: absolute;
   z-index: 1;
   pointer-events: none;

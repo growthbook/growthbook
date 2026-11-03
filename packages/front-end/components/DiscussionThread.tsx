@@ -1,4 +1,4 @@
-import { CSSProperties, FC, useState } from "react";
+import { FC, useState } from "react";
 import {
   DiscussionParentType,
   DiscussionInterface,
@@ -189,16 +189,9 @@ const DiscussionThread: FC<{
         // The thread scrolls in whatever height the composer leaves, shadowed
         // above the composer while more of it is below.
         <ScrollArea
-          edgeCue="shadow"
+          edgeCue="deep-shadow"
           skipEdges={["top"]}
-          style={
-            {
-              flex: 1,
-              minHeight: 0,
-              "--edge-shadow-color": "var(--gray-a4)",
-              "--edge-shadow-size": "12px",
-            } as CSSProperties
-          }
+          style={{ flex: 1, minHeight: 0 }}
         >
           {/* Less on the left, where the avatars already set the cards in. */}
           <Box pl="4" pr="5" py="4">
