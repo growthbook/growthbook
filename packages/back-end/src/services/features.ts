@@ -74,7 +74,7 @@ import {
 import {
   getActiveVariations,
   getLatestPhaseVariations,
-  getActiveMeasurementArm,
+  getPayloadMeasurementArm,
   getContextualBanditMeasurementArmFeatureDefId,
   measurementArmWeights,
   MEASUREMENT_ARM_BANDIT_VALUE,
@@ -458,14 +458,16 @@ export function generateHoldoutsPayload({
 export function generateContextualBanditMeasurementArmsPayload({
   cbMap,
   savedGroupStrategy,
+  capabilities,
 }: {
   cbMap: Map<string, ContextualBanditInterface> | undefined;
   savedGroupStrategy: SavedGroupPayloadStrategy;
+  capabilities?: SDKCapability[];
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   if (!cbMap) return defs;
   cbMap.forEach((cb) => {
-    const arm = getActiveMeasurementArm(cb);
+    const arm = getPayloadMeasurementArm(cb, capabilities);
     if (!arm) return;
 
     const id = getContextualBanditMeasurementArmFeatureDefId(cb.id);
@@ -946,10 +948,7 @@ function generateCbVisualExperimentsPayload({
       capabilities === undefined || capabilities.includes("prerequisites");
     if (!hasPrerequisites && parsedPrerequisites.length) return null;
 
-    const cbCapable =
-      capabilities === undefined || capabilities.includes("contextualBandits");
-    const measurementArm =
-      hasPrerequisites && cbCapable ? getActiveMeasurementArm(cb) : null;
+    const measurementArm = getPayloadMeasurementArm(cb, capabilities);
 
     const condition = measurementArm
       ? undefined
@@ -2404,6 +2403,7 @@ export async function buildSDKPayloadForConnection(
     generateContextualBanditMeasurementArmsPayload({
       cbMap,
       savedGroupStrategy,
+      capabilities,
     });
 
   const gatingFeaturesInUse = pruneUnreferencedGatingFeatures(

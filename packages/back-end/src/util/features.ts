@@ -33,8 +33,8 @@ import {
 import {
   getActiveVariations,
   getLatestPhaseVariations,
-  getActiveMeasurementArm,
   getContextualBanditMeasurementArmFeatureDefId,
+  getPayloadMeasurementArm,
   MEASUREMENT_ARM_BANDIT_VALUE,
   MEASUREMENT_ARM_CONTROL_VALUE,
 } from "shared/experiments";
@@ -1503,8 +1503,7 @@ export function getFeatureDefinition({
           const cbCapable =
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
-          const measurementArm =
-            hasPrerequisites && cbCapable ? getActiveMeasurementArm(cb) : null;
+          const measurementArm = getPayloadMeasurementArm(cb, capabilities);
 
           if (measurementArm) {
             rule.parentConditions = [

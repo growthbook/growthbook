@@ -42,6 +42,22 @@ export function getActiveMeasurementArm(
   return { ...arm, experimentId: arm.experimentId };
 }
 
+export function getPayloadMeasurementArm(
+  cb: Pick<ContextualBanditInterface, "status" | "measurementArm">,
+  capabilities?: readonly string[],
+): ActiveMeasurementArm | null {
+  if (
+    capabilities !== undefined &&
+    !(
+      capabilities.includes("prerequisites") &&
+      capabilities.includes("contextualBandits")
+    )
+  ) {
+    return null;
+  }
+  return getActiveMeasurementArm(cb);
+}
+
 export function getContextualBanditMeasurementArmFeatureDefId(
   cbId: string,
 ): string {

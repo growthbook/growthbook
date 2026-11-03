@@ -4,6 +4,7 @@ import {
 } from "shared/validators";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { getPayloadMeasurementArm } from "shared/experiments";
 import { ReqContext } from "back-end/types/request";
 import {
   createExperiment,
@@ -174,6 +175,45 @@ describe("buildMeasurementArmSubdoc", () => {
         rederiveTrackingKey: true,
       }).trackingKey,
     ).toBe("renamed__measurement_arm");
+  });
+});
+
+describe("getPayloadMeasurementArm", () => {
+  const serving = {
+    status: "running",
+    measurementArm: {
+      enabled: true,
+      percent: 0.05,
+      experimentId: "exp-ma",
+      seed: "s",
+    },
+  } as unknown as ContextualBanditInterface;
+
+  it("serves the arm when the SDK can evaluate the prerequisite", () => {
+    expect(
+      getPayloadMeasurementArm(serving, ["prerequisites", "contextualBandits"]),
+    ).toMatchObject({ experimentId: "exp-ma" });
+  });
+
+  it("serves the arm when capabilities are unconstrained", () => {
+    expect(getPayloadMeasurementArm(serving, undefined)).toMatchObject({
+      experimentId: "exp-ma",
+    });
+  });
+
+  it("withholds the arm from an SDK missing either capability", () => {
+    expect(getPayloadMeasurementArm(serving, ["contextualBandits"])).toBeNull();
+    expect(getPayloadMeasurementArm(serving, ["prerequisites"])).toBeNull();
+    expect(getPayloadMeasurementArm(serving, [])).toBeNull();
+  });
+
+  it("withholds an arm the Bandit isn't serving", () => {
+    expect(
+      getPayloadMeasurementArm({ ...serving, status: "draft" } as never, [
+        "prerequisites",
+        "contextualBandits",
+      ]),
+    ).toBeNull();
   });
 });
 
