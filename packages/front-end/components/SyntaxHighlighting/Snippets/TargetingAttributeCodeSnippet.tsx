@@ -313,29 +313,51 @@ const LINE_COMMENT: Partial<Record<Language, string>> = {
 export function getAddAttributeCode(
   language: SDKLanguage,
   property: string,
-  { version, value = "foo" }: { version?: string; value?: unknown } = {},
+  {
+    version,
+    value = "foo",
+    nested = false,
+  }: {
+    version?: string;
+    value?: unknown;
+    // Targeting reads dotted names as nested paths, but experiment assignment
+    // reads the hash attribute as a literal key, so identifiers stay flat.
+    nested?: boolean;
+  } = {},
 ): { snippet: SetAttributesCodeSnippet; highlightLine: number } | null {
+  const path = nested ? property.split(".") : [property];
+  const attributes = path.reduceRight<unknown>(
+    (inner, key) => ({ [key]: inner }),
+    value,
+  );
   const snippet = getSetAttributesCode(
     language,
-    { [property]: value },
+    attributes as Record<string, unknown>,
     { version, onePerLine: true },
   );
   if (!snippet) return null;
 
   const lines = snippet.code.split("\n");
   const index = lines.findIndex((line) =>
-    line.includes(JSON.stringify(property)),
+    line.includes(JSON.stringify(path[0])),
   );
+  const leaf =
+    index === -1
+      ? -1
+      : lines.findIndex(
+          (line, i) =>
+            i >= index && line.includes(JSON.stringify(path[path.length - 1])),
+        );
   const comment = LINE_COMMENT[snippet.language];
   if (index === -1 || !comment) {
-    return { snippet, highlightLine: index + 1 };
+    return { snippet, highlightLine: leaf + 1 };
   }
 
   const indent = lines[index].match(/^\s*/)?.[0] ?? "";
   lines.splice(index, 0, `${indent}${comment} ...your other attributes`);
   return {
     snippet: { ...snippet, code: lines.join("\n") },
-    highlightLine: index + 2,
+    highlightLine: leaf + 2,
   };
 }
 

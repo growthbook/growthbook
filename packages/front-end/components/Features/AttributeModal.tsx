@@ -315,6 +315,7 @@ export default function AttributeModal({
               property={property.trim() || PLACEHOLDER_NAME}
               value={exampleValue(datatype, format, enumOptions)}
               projects={selectedProjects}
+              nested
             />
             {snippetHelp && (
               <Text size="sm" color="text-low">

@@ -30,10 +30,12 @@ export default function AddAttributeSnippet({
   property,
   value,
   projects,
+  nested = false,
 }: {
   property: string;
   value: unknown;
   projects: string[];
+  nested?: boolean;
 }) {
   const [pickedLanguage, setPickedLanguage] = useState<SDKLanguage | null>(
     null,
@@ -59,6 +61,7 @@ export default function AddAttributeSnippet({
   const sdkCode = getAddAttributeCode(language, property, {
     version: getLatestSDKVersion(language),
     value,
+    nested,
   });
 
   return (
