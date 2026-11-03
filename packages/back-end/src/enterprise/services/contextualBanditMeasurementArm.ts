@@ -104,7 +104,7 @@ function buildVariations(): Variation[] {
 }
 
 function buildPhase(
-  cb: ContextualBanditInterface,
+  cb: GoverningCb,
   arm: ContextualBanditMeasurementArm,
   variations: Variation[],
   existing?: ExperimentPhase,
@@ -153,6 +153,11 @@ export const MEASUREMENT_ARM_GOVERNING_CB_FIELDS = [
   "measurementArm",
 ] as const satisfies readonly (keyof ContextualBanditInterface)[];
 
+type GoverningCb = Pick<
+  ContextualBanditInterface,
+  (typeof MEASUREMENT_ARM_GOVERNING_CB_FIELDS)[number] | "id"
+>;
+
 export function measurementArmSyncFieldsChanged(
   before: ContextualBanditInterface,
   after: ContextualBanditInterface,
@@ -163,7 +168,7 @@ export function measurementArmSyncFieldsChanged(
 }
 
 export function cbGovernedChanges(
-  cb: ContextualBanditInterface,
+  cb: GoverningCb,
   arm: ContextualBanditMeasurementArm,
   cbQuery: Pick<ContextualBanditQueryInterface, "userIdType"> | null,
   experiment?: ExperimentInterface,
