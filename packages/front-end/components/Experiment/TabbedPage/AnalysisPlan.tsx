@@ -44,6 +44,8 @@ import {
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { getOverridesBlockedReason } from "@/services/metricOverrides";
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -120,7 +122,7 @@ export default function AnalysisPlan({
     getSegmentById,
     getProjectById,
   } = useDefinitions();
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
   const targetingDefaults = useTargetingDefaults(experiment);
@@ -538,6 +540,17 @@ export default function AnalysisPlan({
       exposureQueryIdentifierType: identifierType || undefined,
     },
   );
+  const overridesBlockedReason = (goal: boolean) =>
+    getOverridesBlockedReason({
+      hasFeature: hasCommercialFeature("override-metrics"),
+      incremental: getIsExperimentIncludedInIncrementalRefresh(
+        getDatasourceById(datasource) ?? undefined,
+        experiment.id,
+        experiment.type,
+      ),
+      targetMDEsEditable: !!targetMDEOverrides,
+      goal,
+    });
   const metricRow = (
     field: MetricField,
     selected: string[],
@@ -568,6 +581,9 @@ export default function AnalysisPlan({
           field === "goalMetrics" ? targetMDEOverrides : undefined
         }
         onManageOverrides={canEdit ? setOverridesFor : undefined}
+        manageOverridesBlockedReason={overridesBlockedReason(
+          field === "goalMetrics",
+        )}
         settingsScope={settingsScope}
         disabled={!canEdit}
       />
@@ -587,20 +603,17 @@ export default function AnalysisPlan({
             guardrailMetrics,
             activationMetric: activationMetric || "",
           }}
-          // A single metric without an override yet opens ready to add one.
-          overrides={
-            overridesFor.length === 1 &&
-            !metricOverrides.some((o) => o.id === overridesFor[0])
-              ? [...metricOverrides, { id: overridesFor[0] }]
-              : metricOverrides
-          }
+          overrides={metricOverrides}
           focusMetricIds={overridesFor}
           targetMDEOverrides={targetMDEOverrides}
           close={() => setOverridesFor(null)}
-          stageChanges={(next, nextTargetMDEs) => {
+          stageChanges={({
+            targetMDEOverrides: nextTargetMDEs,
+            ...changes
+          }) => {
             // The same bounds the full settings modal stages through.
             const parsed = experimentAnalysisSettingsDraft.parse({
-              metricOverrides: next,
+              ...changes,
               ...(nextTargetMDEs
                 ? {
                     decisionFrameworkSettings: {
@@ -722,6 +735,9 @@ export default function AnalysisPlan({
                   ])
               : undefined
           }
+          manageOverridesBlockedReason={overridesBlockedReason(
+            goalMetrics.length > 0,
+          )}
           canEdit={canEdit}
         />
       </Box>
