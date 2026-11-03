@@ -705,7 +705,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       );
     });
 
-    it("on a repeat `succeeded` call, does NOT re-persist when the CBS already has a CBE", async () => {
+    it("on a repeat `succeeded` call, re-persists no CBE but still refreshes the arm", async () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const runner = newRunner(context);
@@ -741,7 +741,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       });
 
       expect(persistContextualBanditEventMock).not.toHaveBeenCalled();
-      expect(refreshMeasurementArmMock).not.toHaveBeenCalled();
+      expect(refreshMeasurementArmMock).toHaveBeenCalledWith(context, cb.id);
       expect(
         context.models.contextualBanditSnapshots.updateById,
       ).toHaveBeenCalledWith(
