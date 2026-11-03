@@ -140,7 +140,10 @@ export default function ValueCard({
       const factMetric = getFactMetricById(
         draftExploreState.dataset.values[index].metricId ?? "",
       );
-      if (
+      // The population sets every metric's unit.
+      if (draftExploreState.dataset.population) {
+        break;
+      } else if (
         factMetric?.metricType === "mean" ||
         factMetric?.metricType === "proportion" ||
         factMetric?.metricType === "retention" ||

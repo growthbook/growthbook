@@ -22,6 +22,7 @@ import { AreaChartIcon } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
+  getUnstackedChartType,
   isTimelessSqlExploration,
   isTimeSeriesChart,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -72,6 +73,9 @@ const chartTypes: {
 export default function GraphTypeSelector() {
   const { draftExploreState, changeChartType } = useExplorerContext();
   const timelessSql = isTimelessSqlExploration(draftExploreState);
+  const hasPopulation =
+    draftExploreState.dataset.type === "metric" &&
+    !!draftExploreState.dataset.population;
   const groups = chartTypes.filter(
     (group) => !group.sqlOnly || draftExploreState.dataset.type === "sql",
   );
@@ -89,7 +93,11 @@ export default function GraphTypeSelector() {
           <SelectGroup>
             <SelectLabel>{group.groupLabel}</SelectLabel>
             {group.items.map((item) => {
-              const disabled = timelessSql && isTimeSeriesChart(item.value);
+              const timeSeriesDisabled =
+                timelessSql && isTimeSeriesChart(item.value);
+              const stackingDisabled =
+                hasPopulation && !!getUnstackedChartType(item.value);
+              const disabled = timeSeriesDisabled || stackingDisabled;
               const selectItem = (
                 <SelectItem value={item.value} disabled={disabled}>
                   <Flex align="center" gap="2">
@@ -101,7 +109,11 @@ export default function GraphTypeSelector() {
               return disabled ? (
                 <Tooltip
                   key={item.value}
-                  body="Update your SQL query to return a date or timestamp column to use time-series charts."
+                  body={
+                    timeSeriesDisabled
+                      ? "Update your SQL query to return a date or timestamp column to use time-series charts."
+                      : "This chart stacks values, and Population rates can't be added together."
+                  }
                 >
                   {selectItem}
                 </Tooltip>

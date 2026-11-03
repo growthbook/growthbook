@@ -14,10 +14,10 @@ import { comparisonMode } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
 import {
   buildExplorationColumns,
-  getEffectiveMetricValue,
-  getEffectiveShowAs,
   getExplorationCellValue,
+  getExplorationRenderOpts,
   getIsRatioByIndex,
+  getRowMetricValue,
   sortExplorationRows,
 } from "./utils";
 
@@ -945,10 +945,10 @@ export function computeExplorationComparisonPayload(
     };
   }
 
-  const renderOpts = {
-    showAs: getEffectiveShowAs(submittedConfig, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(submittedConfig, getFactMetricById),
-  };
+  const renderOpts = getExplorationRenderOpts(
+    submittedConfig,
+    getFactMetricById,
+  );
 
   const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
   const hasAnyRatio = columns.some(
@@ -978,19 +978,17 @@ export function computeExplorationComparisonPayload(
   }
 
   const bigNumberTrends = Array.from({ length: n }, (_, metricIndex) => {
-    const currCell = primary.result.rows[0]?.values?.[metricIndex];
-    const prevCell = exploration.result.rows[0]?.values?.[metricIndex];
-    if (!currCell || !prevCell) return null;
-
-    const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
-    const currentValue = getEffectiveMetricValue(currCell, {
-      showAs: renderOpts.showAs,
-      isRatio,
-    });
-    const previousValue = getEffectiveMetricValue(prevCell, {
-      showAs: renderOpts.showAs,
-      isRatio,
-    });
+    const currentValue = getRowMetricValue(
+      primary.result.rows[0] ?? {},
+      metricIndex,
+      renderOpts,
+    );
+    const previousValue = getRowMetricValue(
+      exploration.result.rows[0] ?? {},
+      metricIndex,
+      renderOpts,
+    );
+    if (currentValue === null || previousValue === null) return null;
 
     if (previousValue === 0) {
       return null;

@@ -23,8 +23,7 @@ import {
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
+  getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
   formatDateByGranularity,
@@ -50,6 +49,7 @@ function formatCellForTable(
       dimensions?: { dimensionType?: string }[];
     } | null;
     hasNoDimensions: boolean;
+    populationDenominatorByIndex: boolean[];
   },
 ): unknown {
   if (col.kind === "dimension") {
@@ -71,6 +71,13 @@ function formatCellForTable(
   }
   if (raw == null) return "";
   if (col.sub === "numerator" || col.sub === "denominator") return raw;
+  if (
+    col.sub === "value" &&
+    context.populationDenominatorByIndex[col.metricIndex] &&
+    typeof raw === "number"
+  ) {
+    return formatPct(raw);
+  }
   return typeof raw === "number" ? raw.toFixed(2) : raw;
 }
 
@@ -519,13 +526,7 @@ export default function useExplorationTableData(
   }, [exploration, submittedExploreState]);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 
@@ -683,18 +684,27 @@ export default function useExplorationTableData(
       if (col.sub === "numerator") {
         row1.push({ label: metricName, colSpan: 3 });
       }
+      const byPopulation =
+        renderOpts.populationDenominatorByIndex[col.metricIndex];
       row2Labels.push(
         col.sub === "numerator"
-          ? "Numerator"
+          ? byPopulation
+            ? "Count"
+            : "Numerator"
           : col.sub === "denominator"
-            ? "Denominator"
-            : "Value",
+            ? byPopulation
+              ? "Members"
+              : "Denominator"
+            : byPopulation
+              ? "Rate"
+              : "Value",
       );
     }
     return { row1, row2Labels };
   }, [
     hasAnyRatio,
     columns,
+    renderOpts,
     submittedExploreState,
     compareHeadings,
     firstDimensionIsDate,
@@ -727,6 +737,7 @@ export default function useExplorationTableData(
       resolvedGranularity,
       submittedExploreState,
       hasNoDimensions,
+      populationDenominatorByIndex: renderOpts.populationDenominatorByIndex,
     };
 
     if (tableCompareActive && comparisonExploration?.result?.rows) {

@@ -22,8 +22,7 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   clearInapplicableShowAs,
-  getEffectiveShowAs,
-  getIsRatioByIndex,
+  getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
   getRelevantFactTableIds,
@@ -355,10 +354,7 @@ function buildResultCsv(
   const columns = buildExplorationColumns(config, getFactMetricById);
   if (columns.length === 0) return null;
 
-  const renderOpts = {
-    showAs: getEffectiveShowAs(config, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
-  };
+  const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
 
   const hasNoDimensions = !config.dimensions || config.dimensions.length === 0;
 

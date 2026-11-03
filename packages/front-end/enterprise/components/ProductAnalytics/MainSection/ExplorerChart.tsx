@@ -18,10 +18,9 @@ import {
 } from "shared/enterprise";
 import {
   shouldChartSectionShow,
-  getEffectiveMetricValue,
   computeDimensionTotals,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
+  getExplorationRenderOpts,
+  getRowMetricValue,
   getDefaultValueAxisName,
   formatDateByGranularity,
   type ResolvedGranularity,
@@ -92,6 +91,10 @@ function formatNumber(value: number): string {
     return `${(value / 1000).toFixed(1)}K`;
   }
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`;
 }
 
 function seriesNameFromEChartsSeriesConfig(s: unknown): string | undefined {
@@ -195,20 +198,26 @@ export default function ExplorerChart({
   useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
+  // A population limits the chart to Proportion metrics, all shown as rates.
+  const showsPopulationRates =
+    renderOpts.populationDenominatorByIndex.some(Boolean);
+  const formatValue = showsPopulationRates ? formatPercent : formatNumber;
 
-  const defaultValueAxisName = getDefaultValueAxisName(
-    submittedExploreState,
-    getFactMetricById,
-  );
+  // Membership is decided per bucket, so name the bucket the rate is out of.
+  const populationDateDimension = showsPopulationRates
+    ? submittedExploreState.dimensions.find((d) => d.dimensionType === "date")
+    : undefined;
+  const defaultValueAxisName = !showsPopulationRates
+    ? getDefaultValueAxisName(submittedExploreState, getFactMetricById)
+    : populationDateDimension
+      ? `% of each ${getDateGranularity(
+          populationDateDimension.dateGranularity,
+          calculateProductAnalyticsDateRange(submittedExploreState.dateRange),
+        )}'s members`
+      : "% of members in this date range";
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
@@ -256,24 +265,19 @@ export default function ExplorerChart({
     if (submittedExploreState.dataset?.type === "journey") return null;
     const valuesMeta = submittedExploreState.dataset?.values ?? [];
     return valuesMeta.map((v, metricIndex) => {
-      const cell = row?.values?.[metricIndex];
-      const value = cell
-        ? getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[metricIndex] ?? false,
-          })
+      const value = row
+        ? (getRowMetricValue(row, metricIndex, renderOpts) ?? 0)
         : 0;
       return {
         value,
-        label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
+        label: `${v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`}${
+          renderOpts.populationDenominatorByIndex[metricIndex]
+            ? " (% of Population members in this date range)"
+            : ""
+        }`,
       };
     });
-  }, [
-    exploration?.result?.rows,
-    submittedExploreState,
-    renderOpts.showAs,
-    renderOpts.isRatioByIndex,
-  ]);
+  }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
 
   // Compare is on and the previous-period query finished, but returned no rows
   // (e.g. a grouped breakdown with no prior data that densification can't fill).
@@ -659,7 +663,7 @@ export default function ExplorerChart({
       ...axisTitle(valueAxisName, valueNameMaxWidth),
       nameLocation: "middle" as const,
       nameTextStyle,
-      axisLabel: { color: textColor, formatter: formatNumber },
+      axisLabel: { color: textColor, formatter: formatValue },
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
@@ -699,7 +703,7 @@ export default function ExplorerChart({
       alignedComparisonOverlay,
       sortedXValues,
       seriesConfigsLength: seriesConfigs.length,
-      formatNumber,
+      formatNumber: formatValue,
       comparisonAlignment,
     });
 
@@ -773,6 +777,7 @@ export default function ExplorerChart({
     submittedPreviousTimeFrame,
     submittedComparisonMode,
     renderOpts,
+    formatValue,
     textColor,
     gridLineColor,
     tooltipBackgroundColor,
@@ -1020,7 +1025,7 @@ export default function ExplorerChart({
                 >
                   <BigValueChart
                     value={card.value}
-                    formatter={formatNumber}
+                    formatter={formatValue}
                     label={card.label}
                     fillContainer
                     compareSlot={

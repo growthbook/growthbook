@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
+import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import SelectField, {
   GroupedValue,
@@ -9,11 +10,15 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   generateUniqueValueName,
   getLockedMixClass,
   getMetricMixClass,
+  getMetricPopulationConflict,
+  countsEveryPopulationMember,
+  getEffectiveShowAs,
   MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -21,6 +26,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import ValueCard from "./ValueCard";
+import PopulationSection from "./PopulationSection";
 import styles from "./ValueCard.module.scss";
 
 export default function MetricTabContent() {
@@ -34,6 +40,10 @@ export default function MetricTabContent() {
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
+  const population =
+    draftExploreState.dataset?.type === "metric"
+      ? (draftExploreState.dataset.population ?? null)
+      : null;
 
   // Build the base grouped options list for this datasource. All metrics are
   // always shown; compat is enforced per-slot via isOptionDisabled so users
@@ -83,8 +93,32 @@ export default function MetricTabContent() {
         ? "Quantile metrics can't be combined with other metric types."
         : "Only the same metric type can be combined in one chart.";
 
+  /** Why a metric can't go in a slot locked to `lockedClass`, or null. */
+  const getDisabledReason = (
+    metric: FactMetricInterface,
+    lockedClass: Exclude<MetricMixClass, "unknown"> | null,
+  ): string | null => {
+    if (population) {
+      const conflict = getMetricPopulationConflict(
+        metric,
+        population.source.factTableId,
+      );
+      if (conflict === "metricType") {
+        return "Populations only work with Proportion metrics.";
+      }
+      if (conflict === "factTable") {
+        return "This metric uses a different Fact Table than the Population.";
+      }
+    }
+    if (lockedClass && getMetricMixClass(metric.metricType) !== lockedClass) {
+      return mixTooltip(lockedClass);
+    }
+    return null;
+  };
+
   return (
     <Flex direction="column" gap="4">
+      <PopulationSection />
       {!values.length && (
         <Text size="sm" color="text-low">
           Add at least one metric to chart
@@ -93,7 +127,7 @@ export default function MetricTabContent() {
 
       {values.map((v, idx) => {
         const lockedClass = getLockedClassForSlot(idx);
-        const disabledTooltip = lockedClass ? mixTooltip(lockedClass) : "";
+        const selectedMetric = getFactMetricById(v.metricId ?? "");
         return (
           <ValueCard key={idx} index={idx}>
             <Flex direction="column">
@@ -115,7 +149,12 @@ export default function MetricTabContent() {
                     : null;
 
                   let unit = v.unit;
-                  if (!unit || !newFactTable?.userIdTypes.includes(unit)) {
+                  if (population) {
+                    unit = population.unit;
+                  } else if (
+                    !unit ||
+                    !newFactTable?.userIdTypes.includes(unit)
+                  ) {
                     unit = newFactTable?.userIdTypes[0] ?? null;
                   }
 
@@ -138,10 +177,10 @@ export default function MetricTabContent() {
                 }}
                 options={groupedOptions}
                 isOptionDisabled={(option) => {
-                  if (!lockedClass || !("value" in option)) return false;
+                  if (!("value" in option)) return false;
                   const metric = factMetrics.find((m) => m.id === option.value);
                   if (!metric) return false;
-                  return getMetricMixClass(metric.metricType) !== lockedClass;
+                  return !!getDisabledReason(metric, lockedClass);
                 }}
                 formatOptionLabel={({ value }, meta) => {
                   const metric = factMetrics.find((m) => m.id === value);
@@ -149,14 +188,13 @@ export default function MetricTabContent() {
                   // Only attach the mix-restriction tooltip inside the open
                   // menu (not in the selected-value display) so it doesn't
                   // fire on every hover over the selected option.
-                  const isDisabledInMenu =
-                    meta.context === "menu" &&
-                    !!lockedClass &&
-                    !!metric &&
-                    getMetricMixClass(metric.metricType) !== lockedClass;
-                  if (isDisabledInMenu) {
+                  const disabledReason =
+                    meta.context === "menu" && metric
+                      ? getDisabledReason(metric, lockedClass)
+                      : null;
+                  if (disabledReason) {
                     return (
-                      <Tooltip body={disabledTooltip} usePortal>
+                      <Tooltip body={disabledReason} usePortal>
                         <span>{label}</span>
                       </Tooltip>
                     );
@@ -170,6 +208,29 @@ export default function MetricTabContent() {
                 placeholder="Select metric..."
                 forceUndefinedValueToNull
               />
+              {selectedMetric && (
+                <Link
+                  href={`/fact-metrics/${selectedMetric.id}`}
+                  external
+                  size="sm"
+                  mt="1"
+                >
+                  <Flex align="center" gap="1">
+                    View definition
+                    <PiArrowSquareOut />
+                  </Flex>
+                </Link>
+              )}
+              {population &&
+              getEffectiveShowAs(draftExploreState, getFactMetricById) ===
+                "per_unit" &&
+              selectedMetric &&
+              countsEveryPopulationMember(selectedMetric, v) ? (
+                <Text size="sm" color="text-mid">
+                  Every Population member counts for this metric, so its rate is
+                  always 100%. Add a filter to measure a specific action.
+                </Text>
+              ) : null}
             </Flex>
           </ValueCard>
         );

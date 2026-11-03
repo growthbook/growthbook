@@ -10,12 +10,16 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import { PiArrowsClockwise, PiChartLineUp, PiDotsSix } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   explorerMainPresentation,
+  getEffectiveShowAs,
+  hasSmallPopulation,
   hasSubmittablePayload,
   isTableChartType,
+  SMALL_POPULATION_SIZE,
   isTimelessSqlExploration,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
@@ -78,6 +82,7 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
     submittedPreviousTimeFrame,
     submittedComparisonMode,
   } = useExplorerContext();
+  const { getFactMetricById } = useDefinitions();
 
   const slowJourneyLoading = useSlowJourneyLoading();
   const { showChart, showTable } = explorerMainPresentation({
@@ -119,6 +124,14 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
       id="main-section-visuals"
     >
       <Toolbar />
+      {!loading &&
+        getEffectiveShowAs(submittedExploreState, getFactMetricById) ===
+          "per_unit" &&
+        hasSmallPopulation(exploration?.result?.rows ?? []) && (
+          <Callout status="info" size="sm">
+            {`Some rates are based on fewer than ${SMALL_POPULATION_SIZE} Population members, so they can change a lot between periods. A longer date grouping gives steadier rates.`}
+          </Callout>
+        )}
       {compareEnabled && comparisonError && !loading && (
         <Callout status="warning" size="sm">
           {`The comparison period could not be loaded, so only the current period is shown: ${comparisonError}`}
