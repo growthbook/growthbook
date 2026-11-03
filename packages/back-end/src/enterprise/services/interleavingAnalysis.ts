@@ -5,6 +5,7 @@ import {
   InterleavingVariation,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
+import { getInterleavingConfigError } from "shared/util";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -12,6 +13,8 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
+import { determineNextDate } from "back-end/src/services/experiments";
+import { logger } from "back-end/src/util/logger";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -126,6 +129,9 @@ export async function runInterleavingSnapshot(
   if (!interleaving) {
     context.throwNotFoundError(`Interleaving not found: ${interleavingId}`);
   }
+  const configError = getInterleavingConfigError(interleaving);
+  if (configError) context.throwBadRequestError(configError);
+
   const settings = await getInterleavingSnapshotSettings(context, interleaving);
 
   const integration = await getIntegration(context, settings.datasourceId);
@@ -147,6 +153,25 @@ export async function runInterleavingSnapshot(
   if (!(await context.models.interleavings.getById(interleavingId))) {
     await context.models.interleavingSnapshots.delete(snapshot);
     context.throwNotFoundError(`Interleaving not found: ${interleavingId}`);
+  }
+
+  if (interleaving.status === "running" && interleaving.autoSnapshots) {
+    const nextSnapshotAttempt = determineNextDate(
+      context.org.settings?.updateSchedule || null,
+    );
+    if (nextSnapshotAttempt) {
+      try {
+        await context.models.interleavings.update(interleaving, {
+          nextSnapshotAttempt,
+          lastSnapshotAttempt: new Date(),
+        });
+      } catch (e) {
+        logger.error(
+          e,
+          `Failed to advance interleaving schedule: ${interleavingId}`,
+        );
+      }
+    }
   }
 
   const runner = new InterleavingResultsQueryRunner(

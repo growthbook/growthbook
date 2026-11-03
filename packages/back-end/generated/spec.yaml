@@ -56707,9 +56707,6 @@ paths:
                 - name
                 - key
                 - variations
-                - datasourceId
-                - interleavingExposureQueryId
-                - userIdType
               additionalProperties: false
       responses:
         '200':
@@ -84235,6 +84232,11 @@ components:
             required:
               - enabled
             additionalProperties: false
+        autoSnapshots:
+          type: boolean
+        nextSnapshotAttempt:
+          type: string
+          format: date-time
       required:
         - id
         - dateCreated

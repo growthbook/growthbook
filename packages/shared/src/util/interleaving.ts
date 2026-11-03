@@ -54,6 +54,36 @@ export function interleavingInSDKPayload(il: {
   return il.status === "running" && !il.archived;
 }
 
+type InterleavingAnalysisConfig = {
+  datasourceId: string;
+  interleavingExposureQueryId: string;
+  userIdType: string;
+};
+
+export function interleavingAnalysisConfigured(
+  il: InterleavingAnalysisConfig,
+): boolean {
+  return (
+    !!il.datasourceId && !!il.interleavingExposureQueryId && !!il.userIdType
+  );
+}
+
+export function getInterleavingConfigError(
+  il: InterleavingAnalysisConfig,
+): string | null {
+  return interleavingAnalysisConfigured(il)
+    ? null
+    : "Choose a data source, exposure query, and identifier type for this interleaving experiment before updating results.";
+}
+
+export function interleavingAutoSnapshotScheduled(il: {
+  status: string;
+  archived: boolean;
+  autoSnapshots?: boolean;
+}): boolean {
+  return il.status === "running" && !il.archived && !!il.autoSnapshots;
+}
+
 export function interleavingInPayloadScope(
   il: InterleavingInterface,
   environment: string,

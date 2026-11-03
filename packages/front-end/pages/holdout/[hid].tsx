@@ -81,7 +81,8 @@ const HoldoutPage = (): ReactElement => {
     permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects }) &&
     !experiment.archived;
 
-  let canRunExperiment = !experiment.archived;
+  // The server asks for both: edit rights, and run rights where it serves.
+  let canRunExperiment = canEditExperiment;
   if (envs.length > 0) {
     if (!permissionsUtil.canRunHoldout(holdout, envs)) {
       canRunExperiment = false;

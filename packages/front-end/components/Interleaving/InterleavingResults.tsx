@@ -6,7 +6,11 @@ import type {
   InterleavingAnalysis,
 } from "shared/validators";
 import { ago, getValidDate } from "shared/dates";
-import { interleavingVariationsList } from "shared/util";
+import {
+  getInterleavingConfigError,
+  interleavingAutoSnapshotScheduled,
+  interleavingVariationsList,
+} from "shared/util";
 import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { useInterleavingResults } from "@/hooks/useInterleavings";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -72,8 +76,11 @@ export default function InterleavingResults({
     refreshError,
   } = useInterleavingResults(il.id);
   const datasource = getDatasourceById(il.datasourceId);
+  const configError = getInterleavingConfigError(il);
   const canRefresh =
-    !!datasource && permissionsUtil.canRunExperimentQueries(datasource);
+    !configError &&
+    !!datasource &&
+    permissionsUtil.canRunExperimentQueries(datasource);
 
   if (loading) return <LoadingOverlay />;
   const variations = (
@@ -164,6 +171,12 @@ export default function InterleavingResults({
                 dateCreated={
                   snapshot ? new Date(snapshot.dateCreated) : undefined
                 }
+                nextUpdate={
+                  il.nextSnapshotAttempt
+                    ? getValidDate(il.nextSnapshotAttempt)
+                    : undefined
+                }
+                autoUpdateEnabled={interleavingAutoSnapshotScheduled(il)}
               />
               <Flex align="center" gap="2">
                 <Button
@@ -193,6 +206,11 @@ export default function InterleavingResults({
             </Flex>
           </Flex>
         </Box>
+        {configError && (
+          <Callout status="info" mx="3" mb="3">
+            {configError}
+          </Callout>
+        )}
         {(error || refreshError) && (
           <Callout status="error" mx="3" mb="3">
             {refreshError || error?.message}

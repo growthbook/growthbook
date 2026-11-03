@@ -191,12 +191,13 @@ const expireOldQueries = async () => {
     await getCollection<SafeRolloutSnapshotInterface>(
       "saferolloutsnapshots",
     ).updateOne(
-      { id: srSnapshot.id },
+      { id: srSnapshot.id, status: "running" },
       {
         $set: {
           error: "Queries were interrupted. Please try updating results again.",
           status: "error",
           queries: srSnapshot.queries,
+          dateUpdated: new Date(),
         },
       },
     );
@@ -213,12 +214,13 @@ const expireOldQueries = async () => {
     await getCollection<ContextualBanditSnapshotInterface>(
       "contextualbanditsnapshots",
     ).updateOne(
-      { id: cbSnapshot.id },
+      { id: cbSnapshot.id, status: "running" },
       {
         $set: {
           error: "Queries were interrupted. Please try updating results again.",
           status: "error",
           queries: cbSnapshot.queries,
+          dateUpdated: new Date(),
         },
       },
     );
@@ -718,6 +720,7 @@ async function reapStalledContextualBanditSnapshots() {
           status: "error",
           error,
           queries: snapshot.queries,
+          dateUpdated: new Date(),
         },
       },
     );

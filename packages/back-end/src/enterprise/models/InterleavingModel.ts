@@ -25,6 +25,7 @@ import {
 import {
   assertUsableRankerSchema,
   generateVariationId,
+  interleavingAnalysisConfigured,
   interleavingInSDKPayload,
   interleavingTargetingServes,
   mapInterleavingVariations,
@@ -101,6 +102,7 @@ const trackingKeyCollisionMessage = (trackingKey: string) =>
 // dropped through the model's indexesToRemove.
 const TRACKING_KEY_INDEX = "interleaving_datasourceid_trackingkey_unique";
 const LEGACY_TRACKING_KEY_INDEX = "interleaving_datasource_trackingkey_unique";
+const INTERLEAVING_AUTOSNAPSHOT_SCAN_INDEX = "interleaving_autosnapshot_scan";
 const trackingKeyUniquenessIndex = {
   name: TRACKING_KEY_INDEX,
   unique: true,
@@ -139,6 +141,10 @@ const BaseClass = MakeModelClass({
     updateEvent: "interleaving.update",
     deleteEvent: "interleaving.delete",
   },
+  // The cron owns these; stamping them would churn dateUpdated (which
+  // updateIfUnchanged guards on) and write an audit row every tick.
+  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   indexesToRemove: [LEGACY_TRACKING_KEY_INDEX],
   additionalIndexes: [
     {
@@ -152,6 +158,13 @@ const BaseClass = MakeModelClass({
         organization: 1,
         trackingKey: 1,
       },
+    },
+    {
+      name: INTERLEAVING_AUTOSNAPSHOT_SCAN_INDEX,
+      fields: {
+        nextSnapshotAttempt: 1,
+      },
+      partialFilterExpression: { status: "running", autoSnapshots: true },
     },
   ],
   apiConfig: {
@@ -341,6 +354,7 @@ export class InterleavingModel extends BaseClass {
 
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateInterleavingBody.parse(rawBody);
+    const datasourceId = body.datasourceId ?? "";
     // An explicit tracking key is honoured as given; customValidation rejects it
     // if taken. Otherwise suffix the code key so reusing one to iterate works.
     const trackingKey =
@@ -349,7 +363,7 @@ export class InterleavingModel extends BaseClass {
         body.key,
         new Set(
           (await this.scanAllInterleavings())
-            .filter((il) => il.datasourceId === body.datasourceId)
+            .filter((il) => il.datasourceId === datasourceId)
             .map((il) => il.trackingKey),
         ),
       );
@@ -369,6 +383,9 @@ export class InterleavingModel extends BaseClass {
         id: generateVariationId(),
       })),
       jsonSchema: toJSONSchema(body.jsonSchema),
+      datasourceId,
+      interleavingExposureQueryId: body.interleavingExposureQueryId ?? "",
+      userIdType: body.userIdType ?? "",
       metrics: body.metrics ?? [],
       environmentSettings: body.environmentSettings ?? {},
     };
@@ -600,13 +617,19 @@ export class InterleavingModel extends BaseClass {
 
     const starting =
       doc.status === "running" && previousDoc?.status !== "running";
+    if (!interleavingAnalysisConfigured(doc) && doc.status !== "draft") {
+      throw new Error(
+        "Set a data source, exposure query, and identifier type — only a draft interleaving experiment can have an incomplete analysis.",
+      );
+    }
     if (
-      !previousDoc ||
       starting ||
-      doc.interleavingExposureQueryId !==
-        previousDoc.interleavingExposureQueryId ||
-      doc.datasourceId !== previousDoc.datasourceId ||
-      doc.userIdType !== previousDoc.userIdType
+      (interleavingAnalysisConfigured(doc) &&
+        (!previousDoc ||
+          doc.interleavingExposureQueryId !==
+            previousDoc.interleavingExposureQueryId ||
+          doc.datasourceId !== previousDoc.datasourceId ||
+          doc.userIdType !== previousDoc.userIdType))
     ) {
       await resolveInterleavingExposureQuery(this.context, doc);
     }
@@ -824,8 +847,42 @@ export class InterleavingModel extends BaseClass {
     );
   }
 
+  public async dangerousDeferSnapshotSchedule(
+    id: string,
+    nextSnapshotAttempt: Date,
+  ): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { id, organization: this.context.org.id },
+      { $set: { nextSnapshotAttempt } },
+    );
+  }
+
   /** Looks up an interleaving by its code-facing key (what `interleave()` receives). */
   public getByKey(key: string): Promise<InterleavingInterface | null> {
     return this._findOne({ key });
   }
+}
+export async function dangerousFindInterleavingsToUpdate(
+  excludeIds: string[],
+): Promise<Pick<InterleavingInterface, "id" | "organization">[]> {
+  const docs = await getCollection<InterleavingInterface>("interleavings")
+    .find({
+      status: "running",
+      autoSnapshots: true,
+      nextSnapshotAttempt: { $exists: true, $lte: new Date() },
+      archived: { $ne: true },
+      datasourceId: { $exists: true, $ne: "" },
+      dateStarted: { $exists: true },
+      "metrics.0": { $exists: true },
+      id: { $nin: excludeIds },
+    })
+    .project<Pick<InterleavingInterface, "id" | "organization">>({
+      id: true,
+      organization: true,
+    })
+    .limit(100)
+    .sort({ nextSnapshotAttempt: 1 })
+    .toArray();
+
+  return docs.map((d) => ({ id: d.id, organization: d.organization }));
 }

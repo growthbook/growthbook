@@ -137,6 +137,10 @@ export const interleavingValidator = baseSchema
 
     // Per-environment on/off for the generated pseudo flag (holdout pattern).
     environmentSettings: z.record(z.string(), interleavingEnvironment),
+
+    autoSnapshots: z.boolean().optional(),
+    lastSnapshotAttempt: z.date().optional(),
+    nextSnapshotAttempt: z.date().optional(),
   })
   .strict();
 
@@ -218,6 +222,10 @@ export const apiInterleavingValidator = namedSchema(
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     environmentSettings: z.record(z.string(), interleavingEnvironment),
+
+    // lastSnapshotAttempt stays internal, as it does for contextual bandits.
+    autoSnapshots: z.boolean().optional(),
+    nextSnapshotAttempt: z.iso.datetime().optional(),
   }),
 );
 
@@ -254,9 +262,9 @@ export const apiCreateInterleavingBody = z.strictObject({
   variations: apiInterleavingVariationsInput,
   jsonSchema: apiJSONSchemaDefInput.optional(),
 
-  datasourceId: z.string(),
-  interleavingExposureQueryId: z.string(),
-  userIdType: z.string(),
+  datasourceId: z.string().optional(),
+  interleavingExposureQueryId: z.string().optional(),
+  userIdType: z.string().optional(),
   metrics: z.array(interleavingMetricConfigValidator).optional(),
 
   coverage: z.number().min(0).max(1).optional(),

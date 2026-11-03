@@ -117,10 +117,20 @@ describe("canRunInterleavingControl", () => {
     ).toBe(true);
   });
 
-  it("refuses an archived experiment outright", () => {
+  // Archived is a business rule, not a permission: stopInterleaving accepts an
+  // archived running experiment. Only startInterleaving rejects archived, and
+  // that term lives at the Start call site.
+  it("ignores archived, which the server never checks to authorize", () => {
     expect(
       canRunInterleavingControl(
         user(ANALYST),
+        { ...inA, archived: true },
+        envs,
+      ),
+    ).toBe(true);
+    expect(
+      canRunInterleavingControl(
+        user(ENGINEER),
         { ...inA, archived: true },
         envs,
       ),
