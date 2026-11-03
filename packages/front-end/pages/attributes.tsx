@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { SDKAttribute } from "shared/types/organization";
-import { PiInfo } from "react-icons/pi";
+import { PiInfo, PiMagnifyingGlass } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import RadixTooltip from "@/ui/Tooltip";
@@ -666,9 +666,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <Flex justify="between" gap="3" align="center">
                   <Box style={{ width: "40%", minWidth: 240 }}>
                     <TextField
-                      placeholder="Search..."
+                      placeholder="Search identifiers"
                       type="search"
                       aria-label="Search identifiers"
+                      prepend={<PiMagnifyingGlass aria-hidden="true" />}
                       {...identifierSearchInputProps}
                     />
                   </Box>
@@ -877,9 +878,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   <Flex justify="between" gap="3" align="center">
                     <Box style={{ width: "40%", minWidth: 240 }}>
                       <TextField
-                        placeholder="Search..."
+                        placeholder="Search attributes"
                         type="search"
                         aria-label="Search attributes"
+                        prepend={<PiMagnifyingGlass aria-hidden="true" />}
                         {...searchInputProps}
                       />
                     </Box>
@@ -953,11 +955,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     ))}
                     {!filteredAttributes.length && isFiltered && (
                       <TableRow>
-                        <TableCell
-                          colSpan={colSpan}
-                          className="text-center text-gray"
-                        >
-                          No matching attributes found.
+                        <TableCell colSpan={colSpan}>
+                          <Text color="text-low">
+                            No attributes match this search.
+                          </Text>
                         </TableCell>
                       </TableRow>
                     )}
