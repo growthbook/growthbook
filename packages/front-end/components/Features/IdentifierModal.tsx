@@ -55,9 +55,16 @@ function syncsIdentifiersAutomatically(
   datasource: DataSourceInterfaceWithParams,
 ) {
   return (
-    datasource.type === "growthbook_clickhouse" ||
+    (datasource.type === "growthbook_clickhouse" &&
+      !!datasource.settings.useJsonColumns) ||
     !!datasource.eventForwarderConfig
   );
+}
+
+// Older Managed Warehouses have fixed event columns, so they can only link to
+// the identifier types they were created with.
+function hasFixedUserIdTypes(datasource: DataSourceInterfaceWithParams) {
+  return datasource.type === "growthbook_clickhouse";
 }
 
 function userIdTypeNames(datasource: DataSourceInterfaceWithParams) {
@@ -165,20 +172,29 @@ export default function IdentifierModal({
   const automatic = shown.filter(syncsIdentifiersAutomatically);
   const mappable = shown.filter((d) => !syncsIdentifiersAutomatically(d));
 
-  // Links to an existing type with a similar name, or else creates one.
+  // Links to an existing type with a similar name, or else creates one. Null
+  // when there's no match and the Data Source can't take a new type.
   const defaultPick = (d: DataSourceInterfaceWithParams, base = settledName) =>
-    findSimilarUserIdType(userIdTypeNames(d), base) ?? NEW_TYPE;
+    findSimilarUserIdType(userIdTypeNames(d), base) ??
+    (hasFixedUserIdTypes(d) ? null : NEW_TYPE);
   const pickFor = (d: DataSourceInterfaceWithParams, base = settledName) =>
     picks[d.id] ?? defaultPick(d, base);
-  // Add starts with every Data Source checked; edit starts with none.
+  // What checking a row selects when there's no default to fall back on.
+  const pickOnCheck = (d: DataSourceInterfaceWithParams) =>
+    defaultPick(d) ?? userIdTypeNames(d)[0] ?? NEW_TYPE;
+  // Add starts with every Data Source checked that has a type to link to;
+  // edit starts with none.
   const isChecked = (d: DataSourceInterfaceWithParams) =>
     isEdit
       ? !!linkedType(d) || d.id in picks
-      : canEdit(d) && !uncheckedIds.includes(d.id);
+      : canEdit(d) &&
+        !uncheckedIds.includes(d.id) &&
+        (!settledName || pickFor(d) !== null);
   const linksFor = (base: string) =>
     mappable.flatMap((d) => {
       if (!canEdit(d) || linkedType(d) || !isChecked(d)) return [];
       const pick = pickFor(d, base);
+      if (pick === null) return [];
       return [
         {
           id: d.id,
@@ -419,7 +435,7 @@ export default function IdentifierModal({
                               if (isEdit) {
                                 setPicks((p) => {
                                   const next = { ...p };
-                                  if (v) next[d.id] = defaultPick(d);
+                                  if (v) next[d.id] = pickOnCheck(d);
                                   else delete next[d.id];
                                   return next;
                                 });
@@ -429,6 +445,12 @@ export default function IdentifierModal({
                                     ? ids.filter((id) => id !== d.id)
                                     : [...ids, d.id],
                                 );
+                                if (v && pickFor(d) === null) {
+                                  setPicks((p) => ({
+                                    ...p,
+                                    [d.id]: pickOnCheck(d),
+                                  }));
+                                }
                               }
                             }}
                           />
@@ -446,7 +468,7 @@ export default function IdentifierModal({
                           ) : (
                             <Select
                               size="sm"
-                              value={pickFor(d)}
+                              value={pickFor(d) ?? undefined}
                               aria-label={`Identifier type in ${d.name}`}
                               setValue={(v) =>
                                 setPicks((p) => ({ ...p, [d.id]: v }))
@@ -457,16 +479,17 @@ export default function IdentifierModal({
                                   {t}
                                 </SelectItem>
                               ))}
-                              {!userIdTypeNames(d).includes(defaultType) && (
-                                <>
-                                  {userIdTypeNames(d).length > 0 && (
-                                    <SelectSeparator />
-                                  )}
-                                  <SelectItem value={NEW_TYPE}>
-                                    New type: {defaultType}
-                                  </SelectItem>
-                                </>
-                              )}
+                              {!hasFixedUserIdTypes(d) &&
+                                !userIdTypeNames(d).includes(defaultType) && (
+                                  <>
+                                    {userIdTypeNames(d).length > 0 && (
+                                      <SelectSeparator />
+                                    )}
+                                    <SelectItem value={NEW_TYPE}>
+                                      New type: {defaultType}
+                                    </SelectItem>
+                                  </>
+                                )}
                             </Select>
                           )}
                         </TableCell>

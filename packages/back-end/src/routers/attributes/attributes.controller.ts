@@ -22,8 +22,8 @@ import { yieldEventLoop } from "back-end/src/util/yield";
 import { logger } from "back-end/src/util/logger";
 import { usingFileConfig } from "back-end/src/init/config";
 import {
+  _dangerourslyGetAllDatasourcesByOrganizations,
   getDataSourcesByIds,
-  getDataSourcesByOrganization,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import { getEventForwarderForDatasource } from "back-end/src/services/eventForwarder/config";
@@ -154,6 +154,18 @@ async function getIdentifierLinkTargets(
           `${datasource.name} updates its identifiers automatically`,
         );
       }
+      // Its event tables have a fixed set of columns, so a new type would
+      // point at a column that doesn't exist.
+      if (
+        datasource.type === "growthbook_clickhouse" &&
+        !datasource.settings?.userIdTypes?.some(
+          (t) => t.userIdType === userIdType,
+        )
+      ) {
+        context.throwBadRequestError(
+          `${datasource.name} can only link to its existing identifier types`,
+        );
+      }
       return { datasource, userIdType };
     }),
   );
@@ -163,8 +175,10 @@ async function syncsIdentifiersAutomatically(
   context: ReqContext,
   datasource: DataSourceInterface,
 ) {
+  // Managed Warehouses without JSON columns keep the types they were created with.
   return (
-    datasource.type === "growthbook_clickhouse" ||
+    (datasource.type === "growthbook_clickhouse" &&
+      !!datasource.settings?.useJsonColumns) ||
     !!(await getEventForwarderForDatasource(context, datasource.id))
   );
 }
@@ -261,7 +275,11 @@ export const putIdentifier = async (
     previousName && previousName !== property ? previousName : null;
   const renamed: DataSourceInterface[] = [];
   if (renamedFrom && !usingFileConfig()) {
-    for (const d of await getDataSourcesByOrganization(context)) {
+    // Includes Data Sources the user can't read, whose links would otherwise
+    // keep the old name without anyone noticing.
+    for (const d of await _dangerourslyGetAllDatasourcesByOrganizations([
+      context.org.id,
+    ])) {
       if (
         d.settings?.userIdTypes?.some((t) =>
           t.attributes?.includes(renamedFrom),
@@ -274,6 +292,15 @@ export const putIdentifier = async (
   }
   // Renaming without moving every link would leave those links pointing at a
   // name that no longer exists.
+  if (
+    renamed.some(
+      (d) => !context.permissions.canReadMultiProjectResource(d.projects),
+    )
+  ) {
+    context.throwBadRequestError(
+      `Can't rename ${renamedFrom}: it's linked in a Data Source you don't have access to`,
+    );
+  }
   const locked = renamed.filter(
     (d) => !context.permissions.canUpdateDataSourceSettings(d),
   );
