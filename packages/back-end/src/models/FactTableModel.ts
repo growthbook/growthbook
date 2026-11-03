@@ -90,6 +90,7 @@ const factTableSchema = new mongoose.Schema({
       conditionalInlineFilters: {},
       topValues: [String],
       topValuesDate: Date,
+      topValueCounts: [{ _id: false, value: String, count: Number }],
       isAutoSliceColumn: Boolean,
       autoSlices: [String],
       lockedAutoSlices: [String],
@@ -668,7 +669,8 @@ export async function updateColumn({
   context?: ReqContext | ApiReqContext;
   factTable: FactTableInterface;
   column: string;
-  changes: UpdateColumnProps;
+  // topValueCounts is internal-only, so it isn't in the public validator
+  changes: UpdateColumnProps & Pick<ColumnInterface, "topValueCounts">;
 }) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
   if (columnIndex < 0) throw new Error("Could not find that column");

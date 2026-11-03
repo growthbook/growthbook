@@ -233,6 +233,7 @@ export function mergeRefreshedTopValues({
       ...currentColumn,
       topValues: refreshedColumn.topValues,
       topValuesDate: refreshedColumn.topValuesDate,
+      topValueCounts: refreshedColumn.topValueCounts,
     };
 
     if (currentColumn.isAutoSliceColumn) {
@@ -413,7 +414,7 @@ export async function refreshColumnTopValues(
 
     for (const columnChunk of columnChunks) {
       try {
-        const topValuesByColumn = await runColumnsTopValuesQuery(
+        const countsByColumn = await runColumnsTopValueCountsQuery(
           context,
           datasource,
           // The query needs a column list to resolve JSON paths and virtual
@@ -425,8 +426,10 @@ export async function refreshColumnTopValues(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const topValues = topValuesByColumn[col.column] || [];
+          const counts = countsByColumn[col.column] || [];
+          const topValues = counts.map((c) => c.value);
           col.topValues = topValues;
+          col.topValueCounts = counts;
           col.topValuesDate = new Date();
 
           if (col.isAutoSliceColumn) {

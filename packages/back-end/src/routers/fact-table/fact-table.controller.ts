@@ -58,7 +58,6 @@ import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTable
 import {
   runColumnDetectionQuery,
   refreshColumnTopValues,
-  runColumnsTopValuesQuery,
   runColumnsTopValueCountsQuery,
   populateAutoSlices,
 } from "back-end/src/services/factTableColumns";
@@ -930,8 +929,9 @@ export const postColumnTopValues = async (
         context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS;
 
-      const changes: UpdateColumnProps = {
+      const changes: Parameters<typeof updateColumn>[0]["changes"] = {
         topValues,
+        topValueCounts: values,
       };
 
       if (column.isAutoSliceColumn) {
@@ -1046,15 +1046,16 @@ export const putColumn = async (
     }
 
     if (context.permissions.canRunFactQueries(datasource)) {
-      runColumnsTopValuesQuery(context, datasource, factTable, [col])
-        .then(async (topValuesByColumn) => {
-          const values = topValuesByColumn[col.column] || [];
-          if (!values.length) return;
+      runColumnsTopValueCountsQuery(context, datasource, factTable, [col])
+        .then(async (countsByColumn) => {
+          const counts = countsByColumn[col.column] || [];
+          if (!counts.length) return;
           await updateColumn({
             factTable,
             column: col.column,
             changes: {
-              topValues: values,
+              topValues: counts.map((c) => c.value),
+              topValueCounts: counts,
             },
           });
         })

@@ -217,7 +217,7 @@ describe("refreshColumnTopValues", () => {
     const runColumnsTopValuesQuery = jest
       .fn()
       .mockResolvedValueOnce({
-        rows: [{ column: "col_0", value: "fresh" }],
+        rows: [{ column: "col_0", value: "fresh", count: 3 }],
       })
       .mockRejectedValueOnce(new Error("query failed"));
     // @ts-expect-error - this test only needs the top-values query methods
@@ -250,6 +250,7 @@ describe("refreshColumnTopValues", () => {
       columns.slice(0, 25).map((column) => column.column),
     );
     expect(columns[0].topValues).toEqual(["fresh"]);
+    expect(columns[0].topValueCounts).toEqual([{ value: "fresh", count: 3 }]);
     expect(columns[1].topValues).toEqual([]);
     expect(columns[25].topValues).toEqual(["stale_25"]);
     expect(columns[25].topValuesDate).toBeUndefined();
@@ -275,6 +276,10 @@ describe("mergeRefreshedTopValues", () => {
       description: "Stale description",
       topValues: ["US", "CA"],
       topValuesDate,
+      topValueCounts: [
+        { value: "US", count: 5 },
+        { value: "CA", count: 2 },
+      ],
     });
 
     const result = mergeRefreshedTopValues({
@@ -288,6 +293,10 @@ describe("mergeRefreshedTopValues", () => {
         ...currentCountry,
         topValues: ["US", "CA"],
         topValuesDate,
+        topValueCounts: [
+          { value: "US", count: 5 },
+          { value: "CA", count: 2 },
+        ],
       },
       addedVirtualColumn,
     ]);

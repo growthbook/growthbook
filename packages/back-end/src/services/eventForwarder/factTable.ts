@@ -378,6 +378,9 @@ export function mergeEventForwarderFactTableColumnFromDesired(
     ...(existing?.topValuesDate !== undefined && {
       topValuesDate: existing.topValuesDate,
     }),
+    ...(existing?.topValueCounts !== undefined && {
+      topValueCounts: existing.topValueCounts,
+    }),
   };
 }
 
