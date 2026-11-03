@@ -8,7 +8,7 @@ import { isProjectListValidForProject } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics } from "@/services/env";
-import FactTableModal from "@/components/FactTables/FactTableModal";
+import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import Modal from "@/ui/Modal";
 import Callout from "@/ui/Callout";
@@ -210,9 +210,9 @@ export default function useFactMetricFlow(
     setError(null);
   };
   const modal = tableTarget ? (
-    <FactTableModal
+    <NewFactTableModal
       close={() => setTableTarget(null)}
-      initialDatasource={tableTarget.datasource}
+      datasourceId={tableTarget.datasource}
       onCreate={(factTable) => {
         setCreatedTable(factTable);
         setTableTarget(null);

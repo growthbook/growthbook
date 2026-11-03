@@ -8,6 +8,7 @@ import {
 } from "shared/types/fact-table";
 import { getFactMetricFactTableIds } from "shared/experiments";
 import { hasStartDateFilter } from "shared/sql";
+import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -17,10 +18,11 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
-import FactTableModal from "@/components/FactTables/FactTableModal";
+import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ColumnList from "@/components/FactTables/ColumnList";
 import AggregatedFactTablesCard from "@/components/FactTables/AggregatedFactTablesCard";
+import AggregatedFactTableSettingsModal from "@/components/FactTables/AggregatedFactTableSettingsModal";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import VirtualColumnList from "@/components/FactTables/VirtualColumnList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
@@ -34,7 +36,6 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OfficialResourceModal from "@/components/OfficialResourceModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
@@ -51,6 +52,8 @@ import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import { DocLink } from "@/components/DocLink";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { getAutoSliceUpdateFrequencyText } from "@/services/env";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -75,6 +78,7 @@ export default function FactTablePage() {
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [aggregatedSettingsOpen, setAggregatedSettingsOpen] = useState(false);
 
   const [duplicateFactTable, setDuplicateFactTable] = useState<
     FactTableInterface | undefined
@@ -84,6 +88,9 @@ export default function FactTablePage() {
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
+  const topValuesLookbackDays =
+    useOrgSettings().topValuesLookbackValue ??
+    DEFAULT_TOP_VALUES_LOOKBACK_VALUE;
 
   const {
     getFactTableById,
@@ -145,6 +152,15 @@ export default function FactTablePage() {
     canDelete = false;
   }
 
+  const pipelineSettings = datasource?.settings?.pipelineSettings;
+  const canEditAggregatedSettings =
+    canEdit &&
+    hasCommercialFeature("pipeline-mode") &&
+    pipelineSettings?.allowWriting === true &&
+    pipelineSettings?.mode === "incremental" &&
+    !!datasource &&
+    permissionsUtil.canUpdateDataSourceSettings(datasource);
+
   // Editing columns is less restrictive than editing the whole fact table
   const canEditColumns = permissionsUtil.canUpdateFactTable(factTable, {
     columns: [],
@@ -158,27 +174,27 @@ export default function FactTablePage() {
 
   return (
     <div className="pagecontents container-fluid">
-      {editOpen && (
-        <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
+      {(editOpen || editSQLOpen) && (
+        <NewFactTableModal
+          close={() => {
+            setEditOpen(false);
+            setEditSQLOpen(false);
+          }}
+          existing={factTable}
+          editSql={editSQLOpen}
+        />
       )}
       {duplicateFactTable && (
-        <FactTableModal
+        <NewFactTableModal
           close={() => setDuplicateFactTable(undefined)}
           existing={duplicateFactTable}
           duplicate
         />
       )}
-      {editSQLOpen && (
-        <EditFactTableSQLModal
-          close={() => setEditSQLOpen(false)}
+      {aggregatedSettingsOpen && (
+        <AggregatedFactTableSettingsModal
           factTable={factTable}
-          save={async (data) => {
-            await apiCall(`/fact-tables/${factTable.id}`, {
-              method: "PUT",
-              body: JSON.stringify(data),
-            });
-            await mutateDefinitions();
-          }}
+          close={() => setAggregatedSettingsOpen(false)}
         />
       )}
       {editOwnerModal && (
@@ -336,6 +352,65 @@ export default function FactTablePage() {
                     Convert to Official Fact Table
                   </DropdownMenuItem>
                 )}
+              {factTable.managedBy === "admin" &&
+                canEdit &&
+                permissionsUtil.canCreateOfficialResources(factTable) &&
+                hasCommercialFeature("manage-official-resources") && (
+                  <DropdownMenuItem
+                    confirmation={{
+                      confirmationTitle: "Remove official status",
+                      cta: "Remove",
+                      getConfirmationContent: async () =>
+                        "Anyone with edit access will be able to change this Fact Table.",
+                      submit: async () => {
+                        await apiCall(`/fact-tables/${factTable.id}`, {
+                          method: "PUT",
+                          body: JSON.stringify({ managedBy: "" }),
+                        });
+                        mutateDefinitions();
+                      },
+                      closeDropdown: () => setDropdownOpen(false),
+                    }}
+                  >
+                    Remove official status
+                  </DropdownMenuItem>
+                )}
+              {canEdit &&
+                hasCommercialFeature("metric-slices") &&
+                factTable.columns.some(
+                  (c) => c.isAutoSliceColumn && !c.deleted,
+                ) && (
+                  <DropdownMenuItem
+                    tooltip={`Updates Auto Slice levels every ${getAutoSliceUpdateFrequencyText()} from the top values over the last ${topValuesLookbackDays} days. Locked levels are kept.`}
+                    onClick={async (e) => {
+                      // Stays open to show a failed save
+                      e.preventDefault();
+                      await apiCall(`/fact-tables/${factTable.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          autoSliceUpdatesEnabled:
+                            !factTable.autoSliceUpdatesEnabled,
+                        }),
+                      });
+                      await mutateDefinitions();
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    {factTable.autoSliceUpdatesEnabled
+                      ? "Turn off Auto Slice updates"
+                      : "Turn on Auto Slice updates"}
+                  </DropdownMenuItem>
+                )}
+              {canEditAggregatedSettings && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAggregatedSettingsOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Edit daily aggregation settings
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => {
                   setAuditModal(true);
