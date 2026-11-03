@@ -32,6 +32,7 @@ const env: EnvironmentInitValue = {
   hasMistralKey: false,
   hasGoogleAIKey: false,
   uploadMethod: "local",
+  interleavingEnabled: false,
 };
 
 export async function initEnv() {
@@ -95,6 +96,9 @@ export function envAllowsCreatingMetrics() {
 }
 export function envAllowsCreatingDimensions() {
   return env.allowCreateDimensions;
+}
+export function envEnablesInterleaving() {
+  return env.interleavingEnabled;
 }
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;

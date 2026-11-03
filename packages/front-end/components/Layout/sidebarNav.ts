@@ -7,6 +7,7 @@ import {
   GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import type { SidebarLinkFilterProps, SidebarLinkProps } from "./SidebarLink";
 import styles from "./Layout.module.scss";
 
@@ -74,7 +75,7 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Interleaving",
         href: "/interleavings",
         path: /^interleavings?($|\/)/,
-        filter: ({ gb }) => !!gb?.isOn("interleave-exp"),
+        filter: ({ gb }) => isInterleavingEnabled(gb),
       },
       {
         name: "Holdouts",

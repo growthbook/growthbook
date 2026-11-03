@@ -1,8 +1,45 @@
+import { beforeEach, vi } from "vitest";
 import type { ApiInterleavingInterface } from "shared/validators";
+import type { GrowthBook } from "@growthbook/growthbook-react";
+import type { AppFeatures } from "shared/types/app-features";
 import {
   interleavingResultToSnapshotMetrics,
   interleavingStatusIndicatorData,
+  isInterleavingEnabled,
 } from "@/services/interleaving";
+
+const envInterleaving = vi.hoisted(() => ({ value: false }));
+
+vi.mock("@/services/env", () => ({
+  envEnablesInterleaving: () => envInterleaving.value,
+}));
+
+describe("isInterleavingEnabled", () => {
+  const gbWithFlag = (on: boolean) =>
+    ({ isOn: () => on }) as unknown as GrowthBook<AppFeatures>;
+
+  beforeEach(() => {
+    envInterleaving.value = false;
+  });
+
+  it("is off when neither the env var nor the remote flag is set", () => {
+    expect(isInterleavingEnabled(gbWithFlag(false))).toBe(false);
+  });
+
+  it("is off when gb is absent and the env var is unset", () => {
+    expect(isInterleavingEnabled(undefined)).toBe(false);
+  });
+
+  it("follows the remote flag", () => {
+    expect(isInterleavingEnabled(gbWithFlag(true))).toBe(true);
+  });
+
+  it("lets the env var override a missing or off remote flag", () => {
+    envInterleaving.value = true;
+    expect(isInterleavingEnabled(undefined)).toBe(true);
+    expect(isInterleavingEnabled(gbWithFlag(false))).toBe(true);
+  });
+});
 
 describe("interleavingResultToSnapshotMetrics", () => {
   it("puts the test on treatment and widens null CI bounds", () => {
