@@ -2025,12 +2025,12 @@ describe("SDK payload generation (scenario-specific)", () => {
             ],
           }),
         });
-        expect(out.features["$cbma:cb1"]).toBeDefined();
         const exp = out.experiments?.find((e) => e.key === "cb-track");
         expect(exp?.parentConditions).toEqual([
           { id: "$cbma:cb1", condition: { value: "bandit" } },
         ]);
         expect(exp?.coverage).toBe(1);
+        expect(Object.keys(out.features)).toContain("$cbma:cb1");
       });
 
       it("drops the wrapper while the CB is stopped", async () => {
