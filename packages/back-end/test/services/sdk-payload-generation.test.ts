@@ -2026,11 +2026,21 @@ describe("SDK payload generation (scenario-specific)", () => {
           }),
         });
         const exp = out.experiments?.find((e) => e.key === "cb-track");
-        expect(exp?.parentConditions).toEqual([
-          { id: "$cbma:cb1", condition: { value: "bandit" } },
-        ]);
-        expect(exp?.coverage).toBe(1);
-        expect(Object.keys(out.features)).toContain("$cbma:cb1");
+        expect({
+          experimentKeys: (out.experiments ?? []).map((e) => e.key),
+          parentConditions: exp?.parentConditions,
+          coverage: exp?.coverage,
+          gatingFeatureKeys: Object.keys(out.features).filter((k) =>
+            k.startsWith("$"),
+          ),
+        }).toEqual({
+          experimentKeys: ["cb-track"],
+          parentConditions: [
+            { id: "$cbma:cb1", condition: { value: "bandit" } },
+          ],
+          coverage: 1,
+          gatingFeatureKeys: ["$cbma:cb1"],
+        });
       });
 
       it("drops the wrapper while the CB is stopped", async () => {
