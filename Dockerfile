@@ -129,15 +129,30 @@ COPY skills-src ./skills-src
 # Prod-only tree in place: install --prod re-links the workspace projects (CI=true
 # auto-confirms the no-TTY purge; .pnpm is kept), prune then drops dev deps from
 # .pnpm. prune alone empties the workspace projects' node_modules (pnpm 10).
+# Lakehouse RT rejects the Thrift protocol. @databricks/sql >= 2.2 retries that
+# session on the Statement Execution API, whose native kernel is an optional
+# dependency — stash the platform package before --no-optional drops it, then
+# copy it back beside the driver so Node can resolve it.
 RUN \
   pnpm build \
   && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
   && rm -rf packages/front-end/.next/cache \
+  && kernel_pkg="$(find node_modules/.pnpm -path '*/node_modules/@databricks/databricks-sql-kernel-linux-*-gnu/package.json' -print -quit)" \
+  && { test -n "$kernel_pkg" || { echo "ERROR: Databricks SQL kernel was not installed for this platform" && exit 1; }; } \
+  && kernel_name="$(basename "$(dirname "$kernel_pkg")")" \
+  && rm -rf /tmp/dbsql-kernel && mkdir -p /tmp/dbsql-kernel \
+  && cp -a "$(dirname "$kernel_pkg")" /tmp/dbsql-kernel/pkg \
   && CI=true GB_SKIP_PREPARE=1 pnpm install --frozen-lockfile --offline --prod --no-optional \
   && CI=true pnpm prune --prod --no-optional \
   && find node_modules \( -name "*.md" -o -name "*.map" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "README*" -o \( -name "*.ts" ! -name "*.d.ts" \) \) -type f -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
-  && rm -f packages/stats/poetry.lock
+  && rm -f packages/stats/poetry.lock \
+  && find node_modules/.pnpm -type d -path '*/node_modules/@databricks/sql' | while read -r sql_dir; do \
+       rm -rf "$(dirname "$sql_dir")/$kernel_name"; \
+       cp -a /tmp/dbsql-kernel/pkg "$(dirname "$sql_dir")/$kernel_name"; \
+     done \
+  && { find node_modules/.pnpm -path "*/node_modules/@databricks/$kernel_name/*.node" -type f | grep -q . \
+       || { echo "ERROR: Databricks SQL kernel missing from the prod node_modules tree" && exit 1; }; }
 
 # Drop front-end TS source + tsconfig so `next start` never tries to enable
 # TypeScript at runtime. The stock image did this in a final-stage RUN; the

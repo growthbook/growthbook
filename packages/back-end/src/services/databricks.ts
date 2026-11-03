@@ -150,6 +150,8 @@ export async function runDatabricksQuery<T>(
         })
         .connect(buildDatabricksConnectionOptions(conn))
         .then(async () => {
+          // Lakehouse RT rejects Thrift (sqlState KP001). Driver >= 2.2 retries
+          // this openSession on the Statement Execution API.
           const session = await client.openSession();
           const queryOperation = await session.executeStatement(sql, {
             runAsync: true,
