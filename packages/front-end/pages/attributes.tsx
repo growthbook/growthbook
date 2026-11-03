@@ -307,7 +307,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
   useEffect(() => {
     setShowArchived(
       syntaxFilters.some(
-        (f) => f.field === "is" && !f.negated && f.values.includes("archived"),
+        (f) =>
+          f.field === "is" &&
+          !f.negated &&
+          f.values.some((v) => v.toLowerCase() === "archived"),
       ),
     );
   }, [syntaxFilters]);
@@ -369,7 +372,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
   useEffect(() => {
     setShowArchivedIdentifiers(
       identifierSyntaxFilters.some(
-        (f) => f.field === "is" && !f.negated && f.values.includes("archived"),
+        (f) =>
+          f.field === "is" &&
+          !f.negated &&
+          f.values.some((v) => v.toLowerCase() === "archived"),
       ),
     );
   }, [identifierSyntaxFilters]);

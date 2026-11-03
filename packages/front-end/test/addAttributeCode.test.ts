@@ -35,6 +35,24 @@ describe("getAddAttributeCode", () => {
     expect(result?.highlightLine).toBe(4);
   });
 
+  it("nests in each language's own syntax where JSON isn't valid code", () => {
+    const result = getAddAttributeCode("android", "address.country", {
+      nested: true,
+    });
+    expect(result?.snippet.code).toContain(
+      'attrs.put("address", mapOf("country" to "foo"))',
+    );
+  });
+
+  it("keeps a nested object intact when Node.js substitutes request values", () => {
+    const result = getAddAttributeCode("nodejs", "query.campaign", {
+      nested: true,
+      version: "1.4.0",
+    });
+    expect(result?.snippet.code).toContain('"query": {');
+    expect(result?.snippet.code).toContain('"campaign": "foo"');
+  });
+
   it("highlights the attribute without a comment when the language has none", () => {
     const result = getAddAttributeCode("go", "plan");
     expect(result?.snippet.code).not.toContain("your other attributes");

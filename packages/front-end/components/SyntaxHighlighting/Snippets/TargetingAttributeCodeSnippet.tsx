@@ -13,7 +13,31 @@ function phpArrayFormat(json: string) {
 }
 
 function swiftArrayFormat(json: string) {
-  return json.replace(/\{/, "[").replace(/\}/g, "]");
+  return json.replace(/\{/g, "[").replace(/\}/g, "]");
+}
+
+// Nested attribute values as literals in languages where JSON isn't valid code.
+// Scalars and arrays stay JSON, as before.
+function nestedLiteral(
+  value: unknown,
+  language: "kotlin" | "java" | "csharp" | "elixir",
+): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+  const entries = Object.entries(value).map(
+    ([k, v]) => [JSON.stringify(k), nestedLiteral(v, language)] as const,
+  );
+  switch (language) {
+    case "kotlin":
+      return `mapOf(${entries.map(([k, v]) => `${k} to ${v}`).join(", ")})`;
+    case "java":
+      return `new JSONObject()${entries.map(([k, v]) => `.put(${k}, ${v})`).join("")}`;
+    case "csharp":
+      return `new JObject { ${entries.map(([k, v]) => `[${k}] = ${v}`).join(", ")} }`;
+    case "elixir":
+      return `%{${entries.map(([k, v]) => `${k} => ${v}`).join(", ")}}`;
+  }
 }
 
 function indentLines(code: string, indent: number | string = 2) {
@@ -27,7 +51,8 @@ function replaceAttributeValues(
 ) {
   Object.entries(values).forEach(([key, value]) => {
     attributesStr = attributesStr.replace(
-      new RegExp(`"${key}": [^\n,]+`, "g"),
+      // Scalars only: a nested object or array keeps its own lines.
+      new RegExp(`"${key}": (?![{\\[])[^\n,]+`, "g"),
       `"${key}": ${value}`,
     );
   });
@@ -170,7 +195,7 @@ export const identify = dedupe(async () => {
 val attrs = HashMap<String, Any>()
 ${Object.keys(exampleAttributes)
   .map((k) => {
-    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
+    return `attrs.put("${k}", ${nestedLiteral(exampleAttributes[k], "kotlin")})`;
   })
   .join("\n")}
 
@@ -233,8 +258,9 @@ client,err := client.WithAttributes(gb.Attributes(jsonMap))
 JSONObject userAttributesObj = new JSONObject();
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
-    return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
+    return `userAttributesObj.put(${JSON.stringify(key)}, ${nestedLiteral(
       value,
+      "java",
     )});`;
   })
   .join("\n")}
@@ -264,7 +290,7 @@ gb.setAttributes(attrs);
 var attrs = new JObject();
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
-    return `attrs.Add(${JSON.stringify(key)}, ${JSON.stringify(value)});`;
+    return `attrs.Add(${JSON.stringify(key)}, ${nestedLiteral(value, "csharp")});`;
   })
   .join("\n")}
 gb.SetAttributes(attrs);
@@ -278,7 +304,7 @@ gb.SetAttributes(attrs);
 attrs = %{
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
-    return `  ${JSON.stringify(key)} => ${JSON.stringify(value)}`;
+    return `  ${JSON.stringify(key)} => ${nestedLiteral(value, "elixir")}`;
   })
   .join(",\n")}
 }
