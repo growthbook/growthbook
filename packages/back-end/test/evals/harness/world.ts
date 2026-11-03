@@ -308,6 +308,12 @@ async function insertExperiment(
     targetURLRegex: "",
     ideaSource: "",
     releasedVariationId: "",
+    // Starting or stopping writes the org's analysis defaults onto the
+    // experiment, so the seed carries them like an experiment created in the
+    // app; otherwise the state grader sees them as unrequested changes.
+    statsEngine: "bayesian",
+    regressionAdjustmentEnabled: false,
+    postStratificationEnabled: true,
     ...(status === "stopped"
       ? { results: "lost", winner: 0, excludeFromPayload: true }
       : {}),
@@ -321,7 +327,6 @@ async function insertExperiment(
           banditScheduleUnit: "days",
           banditBurnInValue: 1,
           banditBurnInUnit: "days",
-          statsEngine: "bayesian",
           attributionModel: "firstExposure",
         }
       : {}),
