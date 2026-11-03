@@ -23,14 +23,13 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
+import Callout from "@/ui/Callout";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
 
-  const canManageWebhooks =
-    permissionsUtil.canCreateEventWebhook() ||
-    permissionsUtil.canUpdateEventWebhook() ||
-    permissionsUtil.canDeleteEventWebhook();
+  const canManageWebhooks = permissionsUtil.canManageSomeEventWebhooks();
+  const canManageSecrets = permissionsUtil.canManageWebhookSecrets();
 
   const { apiCall } = useAuth();
 
@@ -74,15 +73,23 @@ const WebhooksPage: FC = () => {
             </>
           }
           actions={
-            <Button
-              variant="outline"
-              icon={<PiPlus />}
-              onClick={() => setNewSecretOpen(true)}
-            >
-              Add secret
-            </Button>
+            canManageSecrets && (
+              <Button
+                variant="outline"
+                icon={<PiPlus />}
+                onClick={() => setNewSecretOpen(true)}
+              >
+                Add secret
+              </Button>
+            )
           }
         />
+        {!canManageSecrets && (
+          <Callout status="info" mb="3">
+            Webhook secrets are shared by every webhook, so managing them
+            requires access that is not limited by environment or Project.
+          </Callout>
+        )}
         <Table variant="surface">
           <TableHeader>
             <TableRow>
@@ -111,41 +118,46 @@ const WebhooksPage: FC = () => {
                 <TableCell>{datetime(secret.dateCreated)}</TableCell>
                 <TableCell>{datetime(secret.dateUpdated)}</TableCell>
                 <TableCell>
-                  <DropdownMenu
-                    trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        aria-label="Webhook secret actions"
+                  {canManageSecrets && (
+                    <DropdownMenu
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          aria-label="Webhook secret actions"
+                        >
+                          <PiDotsThreeVertical size={18} />
+                        </IconButton>
+                      }
+                      menuPlacement="end"
+                    >
+                      <DropdownMenuItem
+                        onClick={() => setEditSecretId(secret.id)}
                       >
-                        <PiDotsThreeVertical size={18} />
-                      </IconButton>
-                    }
-                    menuPlacement="end"
-                  >
-                    <DropdownMenuItem
-                      onClick={() => setEditSecretId(secret.id)}
-                    >
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      color="red"
-                      confirmation={{
-                        confirmationTitle: "Delete Webhook Secret",
-                        cta: "Delete secret",
-                        ctaColor: "red",
-                        submit: async () => {
-                          await apiCall<void>(`/webhook-secrets/${secret.id}`, {
-                            method: "DELETE",
-                          });
-                          await mutateDefinitions();
-                        },
-                      }}
-                    >
-                      Delete secret
-                    </DropdownMenuItem>
-                  </DropdownMenu>
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          confirmationTitle: "Delete Webhook Secret",
+                          cta: "Delete secret",
+                          ctaColor: "red",
+                          submit: async () => {
+                            await apiCall<void>(
+                              `/webhook-secrets/${secret.id}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
+                            await mutateDefinitions();
+                          },
+                        }}
+                      >
+                        Delete secret
+                      </DropdownMenuItem>
+                    </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -167,7 +179,7 @@ const WebhooksPage: FC = () => {
           </TableBody>
         </Table>
       </Box>
-      {newSecretOpen && (
+      {newSecretOpen && canManageSecrets && (
         <WebhookSecretModal
           close={() => {
             setNewSecretOpen(false);

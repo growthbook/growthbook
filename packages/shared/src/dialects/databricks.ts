@@ -42,6 +42,13 @@ export const databricksDialect: SqlDialect = {
     const raw = `${jsonCol}:${path}`;
     return isNumeric ? databricksDialect.castToFloat(raw) : raw;
   },
+  // from_json with an array<string> schema keeps each element as its raw
+  // JSON text, which the `:` path operator then reads
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `LATERAL VIEW explode(from_json(CAST(${jsonColumn} AS STRING), 'array<string>')) ${itemAlias}_t AS ${itemAlias}`,
+    fieldText: (itemAlias, field) => `${itemAlias}:${field}`,
+  },
   // Spark SQL (Databricks) — `collect_list` skips NULLs by default; we
   // then sort the resulting array ascending. `min_by` is native.
   arrayAggSorted: (col: string) => `array_sort(collect_list(${col}))`,

@@ -513,11 +513,14 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                 state,
               )
             : ReactSelectProps.styles.multiValueLabel(base);
-          // With no remove button, the label closes the tag as it opens it.
+          // With no remove button, the label closes the tag as it opens it. It
+          // still takes the pointer, so its title or hover card reads while the
+          // field can't change.
           return state.selectProps.isDisabled
             ? {
                 ...styled,
                 paddingRight: styled.paddingLeft ?? base.paddingLeft,
+                pointerEvents: "auto",
               }
             : styled;
         },
@@ -577,7 +580,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     classNamePrefix="gb-multi-select"
                     helperClass={`multi-select-container gb-multi-select--${styleSize}`}
                     axis="xy"
-                    shouldCancelStart={() => !sort}
+                    shouldCancelStart={() => !sort || !!disabled}
                     onSortEnd={(s, e) => {
                       onSortEnd(s, e);
                       // The following is a hack to clean up elements that might be
