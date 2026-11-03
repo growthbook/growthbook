@@ -388,7 +388,7 @@ Instead of reading Langfuse or Phoenix, GrowthBook can store your OpenTelemetry 
 
    Every span in the export is stored, including HTTP, database, and other non-AI spans, so you can send your whole trace. The fact tables below only read AI spans: spans with `gen_ai.*` attributes or the OpenInference, Langfuse, Traceloop, or Vercel AI SDK conventions.
 
-3. Optionally turn on content capture. Most GenAI instrumentations only record prompts and completions when you opt in, for example with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` or the instrumentation's own option. GrowthBook doesn't store prompt or completion text: it replaces it with counts (messages by role, tool calls and tool names, media) on the span. Without content capture, spans still carry tokens, cost, and latency.
+3. Optionally turn on content capture. Most GenAI instrumentations only record prompts and completions when you opt in, for example with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` or the instrumentation's own option. GrowthBook doesn't store prompt or completion text: it replaces it with counts (messages by role, tool calls and tool names, media) on the span. Without content capture, spans still carry tokens and latency.
 4. Wrap each request in `withTracingContext`, so every span inside it gets `user.id` and the conversation id as `session.id`:
 
    ```ts
@@ -403,11 +403,9 @@ Instead of reading Langfuse or Phoenix, GrowthBook can store your OpenTelemetry 
 
 This adds three fact tables. No identifier types or assignment queries are added.
 
-- `AI spans` — one row per span. Filters: **Model calls** (`chat`, `text_completion`, `generate_content`, and `embeddings` operations), **Errors**, **Tool calls**, and **Agent runs**. Metrics: the five LLM metrics listed above, measured over model calls only, plus **Tokens per user**. Agent and workflow spans repeat their children's token counts, so token and cost metrics only count model calls.
-- `AI turns` — one row per trace, with its latency, model calls, tool calls, tokens, cost, and errors. Metric: **Turns per user**.
+- `AI spans` — one row per span. Filters: **Model calls** (`chat`, `text_completion`, `generate_content`, and `embeddings` operations), **Errors**, **Tool calls**, and **Agent runs**. Metrics: **LLM calls per user**, **LLM error rate**, **p95 LLM latency**, and **Tokens per LLM call**, measured over model calls only, plus **Tokens per user**. Agent and workflow spans repeat their children's token counts, so token metrics only count model calls.
+- `AI turns` — one row per trace, with its latency, model calls, tool calls, tokens, and errors. Metric: **Turns per user**.
 - `AI conversations` — one row per conversation, with its number of turns and the same totals. Metric: **Turns per conversation**.
-
-Cost comes from GrowthBook's model price table. Spans from models it has no price for count as zero cost.
 
 Usage is billed by GB stored. Prompt and completion text is dropped, and each span is capped at 64KB before storage, so you only pay for what's kept.
 
