@@ -1,15 +1,4 @@
-import { fillDailyBuckets, formatUtcWeekday } from "./activityChart";
-
-describe("fillDailyBuckets", () => {
-  it("adds missing days and keeps warehouse-formatted keys", () => {
-    expect(
-      fillDailyBuckets(["2026-09-03 00:00:00", "2026-09-01 00:00:00"], {
-        dateStart: "2026-09-01T00:00:00Z",
-        dateEnd: "2026-09-03T23:59:59.999Z",
-      }),
-    ).toEqual(["2026-09-01 00:00:00", "2026-09-02", "2026-09-03 00:00:00"]);
-  });
-});
+import { formatUtcWeekday } from "./activityChart";
 
 describe("formatUtcWeekday", () => {
   it("reads warehouse timestamps as UTC days", () => {

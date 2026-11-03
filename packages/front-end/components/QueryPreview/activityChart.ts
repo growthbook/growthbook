@@ -15,18 +15,6 @@ export function getDailyBuckets(exploration: ExplorationRange): string[] {
   }).map((day) => day.slice(0, 10));
 }
 
-// Warehouses return day buckets in several shapes ("2026-09-21",
-// "2026-09-21 00:00:00", ISO). Adds each missing day, keyed as YYYY-MM-DD,
-// so a day without rows still gets a slot on the axis.
-export function fillDailyBuckets(
-  xValues: string[],
-  exploration: ExplorationRange,
-): string[] {
-  const seen = new Set(xValues.map((x) => x.slice(0, 10)));
-  const missing = getDailyBuckets(exploration).filter((day) => !seen.has(day));
-  return [...xValues, ...missing].sort();
-}
-
 // Parses the day as UTC. `new Date("2026-09-21 00:00:00")` is local time in
 // most browsers and Invalid Date in Safari.
 export function formatUtcWeekday(

@@ -15,7 +15,7 @@ import {
   getMetricPreviewSummary,
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import { formatPreviewHeadline } from "@/components/QueryPreview/previewUtils";
-import { fillDailyBuckets } from "@/components/QueryPreview/activityChart";
+import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
 import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
 import PreviewHeadline from "@/components/QueryPreview/PreviewHeadline";
 import FunnelChart from "./FunnelChart";
@@ -65,12 +65,12 @@ export default function MetricPreviewChart({
     metric.metricType === "ratio" ||
     submittedExploreState.showAs === "per_unit";
   const cellsByDay = new Map(
-    rows.map((row) => [String(row.dimensions[0] ?? ""), row.values?.[0]]),
+    rows.map((row) => [
+      String(row.dimensions[0] ?? "").slice(0, 10),
+      row.values?.[0],
+    ]),
   );
-  const days = fillDailyBuckets(Array.from(cellsByDay.keys()).sort(), {
-    dateStart: exploration.dateStart,
-    dateEnd: exploration.dateEnd,
-  });
+  const days = getDailyBuckets(exploration);
   const dailyValue = (day: string) => {
     const cell = cellsByDay.get(day);
     return cell
