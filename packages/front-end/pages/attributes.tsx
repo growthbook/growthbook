@@ -646,24 +646,22 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   Used to assign users to experiment variations.
                 </Text>
               </Box>
-              <Flex align="center" gap="4">
-                {identifiers.length > 0 && (
+              {canCreateAttributes && identifiers.length > 0 && (
+                <Button onClick={() => setIdentifierModal({})}>
+                  Add Identifier
+                </Button>
+              )}
+            </Flex>
+            {identifiers.length > 0 ? (
+              <>
+                <Flex justify="end">
                   <AttributeSearchFilters
                     attributes={identifiers}
                     searchInputProps={identifierSearchInputProps}
                     setSearchValue={setIdentifierSearchValue}
                     syntaxFilters={identifierSyntaxFilters}
                   />
-                )}
-                {canCreateAttributes && identifiers.length > 0 && (
-                  <Button onClick={() => setIdentifierModal({})}>
-                    Add Identifier
-                  </Button>
-                )}
-              </Flex>
-            </Flex>
-            {identifiers.length > 0 ? (
-              <>
+                </Flex>
                 <Table variant="list" roundedCorners layout="fixed">
                   <colgroup>
                     {/* Same widths as the attributes table, with the spacer
