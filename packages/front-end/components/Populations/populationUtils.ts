@@ -67,8 +67,7 @@ export function describePopulationStep({
   );
 }
 
-// The preview query for a Population: one daily member count per step,
-// carrying each step's filters so the preview counts the same people.
+// The preview query for a Population
 export function getPopulationPreviewConfig(
   population: Pick<ApiPopulation, "datasource" | "steps">,
   unit: string,
@@ -98,9 +97,6 @@ export function getPopulationPreviewConfig(
   };
 }
 
-// Reads the result of getPopulationPreviewConfig: daily member counts for
-// every day in range, with missing days as 0.
-// shortcut: counts only the first step (values[0]); update when multi-step Populations ship.
 export function getPopulationMemberCounts(
   exploration: Pick<
     ProductAnalyticsExploration,
