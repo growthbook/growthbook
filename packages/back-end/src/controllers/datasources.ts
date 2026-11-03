@@ -2173,13 +2173,46 @@ export async function postMigrateEventForwarder(
         datasourceParams,
       );
     } catch (e) {
-      // Put the row back on its Confluent topic so the connector keeps serving
-      // it and the migration can be retried; lastProvisioningError keeps the cause.
-      await context.models.eventForwarderConfigs.update(migrated, {
+      // Restore the pre-migrate row so the Confluent connector keeps serving it
+      // and Migrate can be retried; lastProvisioningError keeps the cause.
+      const ids = {
         topic: existing.topic,
         status: existing.status,
-      });
+        schemaId: existing.schemaId,
+        connectorName: existing.connectorName,
+        connectorId: existing.connectorId,
+      };
+      try {
+        await context.models.eventForwarderConfigs.update(migrated, {
+          ...ids,
+          config: existing.config,
+        });
+      } catch (revertError) {
+        req.log.error(
+          { err: revertError, ...ids },
+          "Failed to revert event forwarder migration",
+        );
+      }
       throw e;
+    }
+    // Logged only once provisioning succeeded: manual Confluent teardown is
+    // driven from this entry, so a failed migrate must not appear here.
+    try {
+      await context.auditLog({
+        entity: { object: "eventForwarderConfig", id: existing.id, name: "" },
+        event: "eventForwarderConfig.migrate",
+        details: JSON.stringify({
+          datasourceId: existing.datasourceId,
+          topic: existing.topic,
+          connectorName: existing.connectorName,
+          connectorId: existing.connectorId,
+        }),
+      });
+    } catch (auditError) {
+      req.log.error(
+        { err: auditError, datasourceId: existing.datasourceId },
+        "Failed to audit log event forwarder migration",
+      );
     }
     res.status(200).json({ status: 200 });
   } catch (e) {

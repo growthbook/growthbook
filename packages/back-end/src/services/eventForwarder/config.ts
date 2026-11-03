@@ -32,7 +32,6 @@ import {
   resolveSnowflakeEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
-import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 
@@ -694,7 +693,8 @@ export function toEventForwarderConfigWithMetadata(
 
 // Moves a pre-consumer (Confluent connector) config onto the shared consumer
 // topic. Re-normalizes the stored config so it carries `tables`. Confluent
-// resources are left for manual teardown; the old ids go to the audit log.
+// resources are left for manual teardown. Only claims the row; the caller
+// provisions it and audit-logs on success.
 export async function migrateEventForwarderToInHouseConsumer(
   context: ReqContext,
   existing: EventForwarderConfigInterface,
@@ -703,60 +703,41 @@ export async function migrateEventForwarderToInHouseConsumer(
   if (isInHouseConsumerTopic(existing.topic, existing.sinkType)) {
     throw new Error("Event forwarder is already on the in-house consumer");
   }
-  // Provisioning marks the row ready, which would silently undo a pause.
-  if (existing.status === "paused") {
-    throw new Error("Resume the event forwarder before migrating it");
-  }
-  const draft = toEventForwarderConfigDraft(existing);
-  if (!draft) {
-    throw new Error("Cannot read event forwarder config");
-  }
-  const normalizedPayload = buildNormalizedSinkPayload(
-    draft,
-    datasourceParams,
-    existing,
-  );
-  validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
-
-  // Guarded on `topic` so two concurrent migrations can't both claim the row.
+  // All checks run on the freshly read row inside the CAS, guarded on the
+  // fields they decide on, so a pause, credential update or second migrate
+  // landing in between is seen rather than overwritten.
   const migrated = await context.models.eventForwarderConfigs.updateWithCas(
     existing.id,
-    ["topic"],
-    (fresh) =>
-      isInHouseConsumerTopic(fresh.topic, fresh.sinkType)
-        ? null
-        : {
-            topic: getInHouseConsumerTopicName(existing.sinkType),
-            config: encryptSinkConfig(normalizedPayload),
-            status: "pending",
-            lastProvisioningError: "",
-          },
+    ["topic", "status", "config"],
+    (fresh) => {
+      if (isInHouseConsumerTopic(fresh.topic, fresh.sinkType)) {
+        throw new Error("Event forwarder is already on the in-house consumer");
+      }
+      // Provisioning marks the row ready, which would silently undo a pause.
+      if (fresh.status === "paused") {
+        throw new Error("Resume the event forwarder before migrating it");
+      }
+      const draft = toEventForwarderConfigDraft(fresh);
+      if (!draft) {
+        throw new Error("Cannot read event forwarder config");
+      }
+      const normalizedPayload = buildNormalizedSinkPayload(
+        draft,
+        datasourceParams,
+        fresh,
+      );
+      validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
+      return {
+        topic: getInHouseConsumerTopicName(fresh.sinkType),
+        config: encryptSinkConfig(normalizedPayload),
+        status: "pending",
+        lastProvisioningError: "",
+      };
+    },
   );
   if (!migrated) {
-    throw new Error("Event forwarder is already on the in-house consumer");
+    throw new Error("Cannot find event forwarder config");
   }
-
-  // Row is already claimed; an audit failure must not strand it. Log the old
-  // ids so they're still recoverable for manual teardown.
-  const oldConnector = {
-    datasourceId: existing.datasourceId,
-    topic: existing.topic,
-    connectorName: existing.connectorName,
-    connectorId: existing.connectorId,
-  };
-  try {
-    await context.auditLog({
-      entity: { object: "eventForwarderConfig", id: existing.id, name: "" },
-      event: "eventForwarderConfig.migrate",
-      details: JSON.stringify(oldConnector),
-    });
-  } catch (e) {
-    logger.error(
-      { err: e, ...oldConnector },
-      "Failed to audit log event forwarder migration",
-    );
-  }
-
   return migrated;
 }
 
