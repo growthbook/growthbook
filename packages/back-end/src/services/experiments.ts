@@ -1890,7 +1890,6 @@ export async function planSnapshot({
   reweight,
   throwIfRequiresFullRefresh,
   cutoff,
-  derivedFrom,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1906,7 +1905,6 @@ export async function planSnapshot({
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
   cutoff?: Date | null;
-  derivedFrom?: { id: string; dateCreated: Date };
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -2091,12 +2089,6 @@ export async function planSnapshot({
     ),
     isLatestPhase: phaseIndex === experiment.phases.length - 1,
   });
-
-  if (derivedFrom) {
-    data.sourceSnapshotId = derivedFrom.id;
-    data.sourceSnapshotDateCreated = derivedFrom.dateCreated;
-    data.sourceSnapshotEndDate = derivedFrom.dateCreated;
-  }
 
   if (runnerPlan.runnerFamily === "incremental-exploratory") {
     // The snapshot whose run materialized the tables this breakdown reads is
@@ -2403,7 +2395,6 @@ export async function createSnapshot({
   factTableMap,
   reweight,
   cutoff,
-  derivedFrom,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -2418,7 +2409,6 @@ export async function createSnapshot({
   factTableMap: FactTableMap;
   reweight?: boolean;
   cutoff?: Date | null;
-  derivedFrom?: { id: string; dateCreated: Date };
 }): Promise<ExperimentSnapshotQueryRunner> {
   const plan = await planSnapshot({
     experiment,
@@ -2434,7 +2424,6 @@ export async function createSnapshot({
     factTableMap,
     reweight,
     cutoff,
-    derivedFrom,
   });
 
   return createSnapshotFromPlan({

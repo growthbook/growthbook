@@ -33,10 +33,7 @@ import {
   getLatestSnapshotStatus,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  queueExperimentUpdate,
-  type DerivedFromSnapshot,
-} from "back-end/src/jobs/queueExperimentUpdate";
+import { queueExperimentUpdate } from "back-end/src/jobs/queueExperimentUpdate";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
@@ -350,7 +347,6 @@ async function syncMeasurementArmIdentifier(
 export async function refreshMeasurementArmAfterBanditRun(
   context: Context,
   contextualBanditId: string,
-  derivedFrom?: DerivedFromSnapshot,
 ): Promise<void> {
   try {
     // Re-read rather than trusting the runner's cached copy: a run can be in
@@ -365,7 +361,7 @@ export async function refreshMeasurementArmAfterBanditRun(
     // identifier comes from the Bandit query, which can change without one, so
     // refresh only that before the analysis reads it.
     await syncMeasurementArmIdentifier(context, cb, arm);
-    await queueExperimentUpdate(cb.organization, arm.experimentId, derivedFrom);
+    await queueExperimentUpdate(cb.organization, arm.experimentId);
   } catch (e) {
     logger.warn(
       { err: e, cbId: contextualBanditId },

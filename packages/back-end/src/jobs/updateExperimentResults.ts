@@ -1,5 +1,4 @@
 import Agenda from "agenda";
-import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import {
   isAnalysisRefreshBlocked,
@@ -92,7 +91,6 @@ export default async function (agenda: Agenda) {
 export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
-  const derivedFromJob = job.attrs.data?.derivedFrom;
 
   if (!experimentId || !orgId) return;
 
@@ -237,12 +235,6 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       triggeredBy: "schedule",
       reweight,
       cutoff,
-      derivedFrom: derivedFromJob
-        ? {
-            id: derivedFromJob.id,
-            dateCreated: getValidDate(derivedFromJob.dateCreated),
-          }
-        : undefined,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
