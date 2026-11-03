@@ -11,18 +11,24 @@ import {
   ExperimentStatus,
   ExperimentTemplateInterface,
   MetricOverride,
+  ExperimentHealthState,
 } from "shared/types/experiment";
 import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { getValidDate } from "shared/dates";
+import { ago, getValidDate } from "shared/dates";
+import {
+  resolveAnalysisIdentifierType,
+  getTempRolloutStaleReason,
+  pValueFormatter,
+} from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
   FactTableDefinition,
-  FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
@@ -47,10 +53,16 @@ import {
   parseFunnelStepMetricId,
   parseSliceMetricId,
   parseSliceQueryString,
+  SampleSizeSource,
   SliceDataForMetric,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ReactElement } from "react";
+import { ReactElement, useMemo } from "react";
+import {
+  expandTempRolloutToken,
+  TEMP_ROLLOUT_HEALTH,
+  TempRolloutHealthState,
+} from "@/services/health";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -59,6 +71,15 @@ import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
+
+export const NO_DATA_ERROR_MESSAGE = "No data";
+
+export function getComputeErrorMessage(
+  stats?: Pick<SnapshotMetric, "computeFailed" | "errorMessage"> | null,
+): string | null {
+  const message = stats?.computeFailed ? stats.errorMessage : null;
+  return message && message !== NO_DATA_ERROR_MESSAGE ? message : null;
+}
 
 export const compareRows = (
   a: ExperimentTableRow,
@@ -199,7 +220,7 @@ export type ExperimentTableRow = {
   // Child row presentation (generic parent/child)
   numChildren?: number;
   isChildRow?: boolean;
-  childRowType?: "slice" | "funnelStep";
+  childRowType?: "slice" | "funnelStep" | "funnelSlice";
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;
@@ -213,6 +234,7 @@ export type ExperimentTableRow = {
   // Funnel step row properties
   funnelStepIndex?: number;
   funnelStepOptional?: boolean;
+  replacedByMetricName?: string;
   // Dimension-table rows: the raw dimension value this row belongs to. On a
   // parent row this equals its label; child rows (e.g. funnel steps) carry it
   // because their label is the step name, not the dimension value.
@@ -220,6 +242,19 @@ export type ExperimentTableRow = {
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
 };
+
+/**
+ * A funnel expands into its steps in a results table; its slices are per-step
+ * and shown in the metric drilldown's Slices tab instead. The rows are still
+ * generated for the drilldown, so every table drops them on the way in.
+ */
+export function excludeFunnelSliceRows(
+  rows: ExperimentTableRow[],
+): ExperimentTableRow[] {
+  return rows.filter(
+    (row) => !(row.isSliceRow && isFactFunnelMetric(row.metric)),
+  );
+}
 
 export function useDomain(
   variations: ExperimentReportVariation[], // must be ordered, baseline first
@@ -230,6 +265,7 @@ export function useDomain(
   // rather than inferring a finite extent from it, so the domain is "0 +
   // padding around the real bound" instead of "[ci, ci]".
   oneSided = false,
+  sampleSizeFrom?: SampleSizeSource,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -272,7 +308,15 @@ export function useDomain(
       // Skip if missing or bad data
       const stats = row.variations[v.index];
       if (!stats) return;
-      if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
+      if (
+        !hasEnoughData(
+          baseline,
+          stats,
+          row.metric,
+          metricDefaults,
+          sampleSizeFrom,
+        )
+      ) {
         return;
       }
       if (
@@ -378,14 +422,6 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
       newMetric.windowSettings.delayValue = metricOverride.delayHours;
       overrideFields.push("delayHours");
     }
-    if (!isNil(metricOverride?.winRisk)) {
-      newMetric.winRisk = metricOverride.winRisk;
-      overrideFields.push("winRisk");
-    }
-    if (!isNil(metricOverride?.loseRisk)) {
-      newMetric.loseRisk = metricOverride.loseRisk;
-      overrideFields.push("loseRisk");
-    }
     if (!isNil(metricOverride?.regressionAdjustmentOverride)) {
       // only apply RA fields if doing an override
       newMetric.regressionAdjustmentOverride =
@@ -417,14 +453,80 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   return { newMetric, overrideFields };
 }
 
-export function pValueFormatter(pValue: number, digits: number = 3): string {
-  if (typeof pValue !== "number") {
-    return "";
-  }
-  return pValue < Math.pow(10, -digits)
-    ? `<0.${"0".repeat(digits - 1)}1`
-    : pValue.toFixed(digits);
+export const EXPERIMENT_HEALTH_STATE_LABELS: Record<
+  ExperimentHealthState,
+  string
+> = {
+  "no-data": "No data",
+  unhealthy: "Unhealthy",
+  "temp-rollout": TEMP_ROLLOUT_HEALTH["temp-rollout"].label,
+  "old-temp-rollout": TEMP_ROLLOUT_HEALTH["old-temp-rollout"].label,
+};
+
+export function getTempRolloutTooltip(
+  exp: Pick<ExperimentInterfaceStringDates, "phases">,
+): string {
+  const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
+  const stopped = dateEnded ? `Stopped ${ago(dateEnded)}` : "Stopped";
+  return `${stopped} and its rollout is still being served. Stop it once the winner is in code.`;
 }
+
+const HEALTH_SORT_ORDER: Record<ExperimentHealthState, number> = {
+  "temp-rollout": 1,
+  "old-temp-rollout": 2,
+  "no-data": 3,
+  unhealthy: 4,
+};
+
+// Running-experiment data problems, as opposed to results.
+const DETAILED_STATUS_HEALTH_STATES: Record<string, ExperimentHealthState> = {
+  "No data": "no-data",
+  Unhealthy: "unhealthy",
+};
+
+export function getHealthStateFromDetailedStatus(
+  detailedStatus?: string,
+): ExperimentHealthState | null {
+  if (!detailedStatus) return null;
+  return DETAILED_STATUS_HEALTH_STATES[detailedStatus] ?? null;
+}
+
+// Whether the rollout is actually served is decided server-side with the same
+// published-rule check as the experiment page's banner.
+export function getTempRolloutHealthState(
+  exp: Pick<ExperimentInterfaceStringDates, "status" | "phases">,
+  hasLiveTempRollout: boolean,
+  now: Date = new Date(),
+): TempRolloutHealthState | null {
+  if (exp.status !== "stopped" || !hasLiveTempRollout) return null;
+  return getTempRolloutStaleReason(exp, now);
+}
+
+export function getExperimentHealthState(
+  exp: Pick<ExperimentInterfaceStringDates, "status" | "phases">,
+  detailedStatus: string | undefined,
+  hasLiveTempRollout: boolean,
+  now: Date = new Date(),
+): ExperimentHealthState | null {
+  return (
+    getHealthStateFromDetailedStatus(detailedStatus) ??
+    getTempRolloutHealthState(exp, hasLiveTempRollout, now)
+  );
+}
+
+export function getHealthSearchTokens(
+  state: ExperimentHealthState | null,
+): ExperimentHealthState[] {
+  return state ? expandTempRolloutToken(state) : [];
+}
+
+export function getHealthSortOrder(
+  state: ExperimentHealthState | null,
+): number {
+  return state ? HEALTH_SORT_ORDER[state] : 0;
+}
+
+export { pValueFormatter };
 
 export function useExperimentSearch({
   allExperiments,
@@ -433,6 +535,7 @@ export function useExperimentSearch({
   filterResults,
   localStorageKey,
   watchedExperimentIds,
+  tempRolloutExperimentIds,
   controlledSearchValue,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
@@ -443,6 +546,7 @@ export function useExperimentSearch({
   ) => ComputedExperimentInterface[];
   localStorageKey: string;
   watchedExperimentIds?: string[];
+  tempRolloutExperimentIds?: string[];
   // When provided, drives filtering from a stored search string (e.g. a
   // dashboard block's saved filter) instead of a user-typed input. Bypasses the
   // URL `q` param so it doesn't leak into or clobber the page's search state.
@@ -457,6 +561,10 @@ export function useExperimentSearch({
   } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
+  const tempRolloutIds = useMemo(
+    () => new Set(tempRolloutExperimentIds ?? []),
+    [tempRolloutExperimentIds],
+  );
 
   const experiments: ComputedExperimentInterface[] = useAddComputedFields(
     allExperiments,
@@ -470,6 +578,11 @@ export function useExperimentSearch({
       const rawSavedGroup = lastPhase?.savedGroups || [];
       const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
       const isWatched = watchedExperimentIds?.includes(exp.id) ?? false;
+      const healthState = getExperimentHealthState(
+        exp,
+        statusIndicator.detailedStatus,
+        tempRolloutIds.has(exp.id),
+      );
 
       return {
         ownerName: getOwnerDisplay(exp.owner),
@@ -492,9 +605,11 @@ export function useExperimentSearch({
         statusIndicator,
         statusSortOrder,
         isWatched,
+        healthState,
+        healthSortOrder: getHealthSortOrder(healthState),
       };
     },
-    [getExperimentMetricById, getOwnerDisplay, getProjectById],
+    [getExperimentMetricById, getOwnerDisplay, getProjectById, tempRolloutIds],
   );
 
   return useSearch({
@@ -504,6 +619,9 @@ export function useExperimentSearch({
     defaultSortDir,
     updateSearchQueryOnChange: controlledSearchValue === undefined,
     controlledSearchValue,
+    // 0 is falsy and would otherwise fall through to undefined in the sort
+    // comparator, leaving healthy rows unordered against the rest.
+    defaultMappings: { healthSortOrder: 0 },
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
@@ -542,15 +660,6 @@ export function useExperimentSearch({
         ) {
           has.push("screenshots");
         }
-        if (
-          item.status === "stopped" &&
-          !item.excludeFromPayload &&
-          (item.linkedFeatures?.length ||
-            item.hasURLRedirects ||
-            item.hasVisualChangesets)
-        ) {
-          has.push("rollout", "tempRollout");
-        }
         return has;
       },
       variations: (item) => getLatestPhaseVariations(item).length,
@@ -562,6 +671,7 @@ export function useExperimentSearch({
       trackingKey: (item) => item.trackingKey,
       id: (item) => [item.id, item.trackingKey],
       status: (item) => item.status,
+      health: (item) => getHealthSearchTokens(item.healthState),
       result: (item) =>
         item.status === "stopped" ? item.results || "unfinished" : "unfinished",
       owner: (item) => [item.owner, item.ownerName],
@@ -630,6 +740,7 @@ export function getRowResults({
   phaseStartDate,
   isLatestPhase,
   experimentStatus,
+  sampleSizeFrom,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -646,6 +757,7 @@ export function getRowResults({
   phaseStartDate: Date;
   isLatestPhase: boolean;
   experimentStatus?: ExperimentStatus;
+  sampleSizeFrom?: SampleSizeSource;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -662,18 +774,32 @@ export function getRowResults({
 
   const hasScaledImpact =
     !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
-  const hasData = !!stats?.value && !!baseline?.value;
-  const metricSampleSize = getMetricSampleSize(baseline, stats, metric);
+  const metricSampleSize = getMetricSampleSize(
+    baseline,
+    stats,
+    metric,
+    sampleSizeFrom,
+  );
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  // Rows sized by denominator also report presence by it: a win count of 0 is a
+  // real result, not missing data.
+  const baselinePresence = sampleSizeFrom ? baselineSampleSize : baseline.value;
+  const variationPresence = sampleSizeFrom ? variationSampleSize : stats.value;
+  const hasData = !!variationPresence && !!baselinePresence;
+  const enoughData = hasEnoughData(
+    baseline,
+    stats,
+    metric,
+    metricDefaults,
+    sampleSizeFrom,
+  );
 
-  const reason: EnoughDataMeta["reason"] =
-    baseline.value === 0
-      ? "baselineZero"
-      : stats.value === 0
-        ? "variationZero"
-        : "notEnoughData";
+  const reason: EnoughDataMeta["reason"] = !baselinePresence
+    ? "baselineZero"
+    : !variationPresence
+      ? "variationZero"
+      : "notEnoughData";
 
   const enoughDataMeta: EnoughDataMeta = (() => {
     switch (reason) {
@@ -769,6 +895,7 @@ export function getRowResults({
     pValueThreshold,
     statsEngine,
     differenceType,
+    sampleSizeFrom,
   });
 
   let significantReason = "";
@@ -918,6 +1045,7 @@ export function convertTemplateToExperimentRule({
 
 export function convertExperimentToTemplate(
   experiment: ExperimentInterfaceStringDates,
+  exposureQuery: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
 ): Partial<ExperimentTemplateInterface> {
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const template = {
@@ -931,6 +1059,11 @@ export function convertExperimentToTemplate(
     tags: experiment.tags,
     datasource: experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
+    /** Store what the experiment analyzes on, even a legacy default. */
+    exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    ),
     hashAttribute: experiment.hashAttribute,
     fallbackAttribute: experiment.fallbackAttribute,
     disableStickyBucketing: experiment.disableStickyBucketing,
@@ -1290,62 +1423,55 @@ export function getAvailableSliceTags({
 
   allMetricIds.forEach((metricId) => {
     const metric = getExperimentMetricById(metricId);
+    if (!metric || !isFactMetric(metric)) return;
+    // A funnel's slices are shown per step in the metric drilldown, not as
+    // rows in these tables, so they contribute no tags to filter on.
+    if (isFactFunnelMetric(metric)) return;
 
-    if (metric && isFactMetric(metric)) {
-      const factMetric = metric as FactMetricInterface;
-      const factTableId = factMetric.numerator?.factTableId;
+    const autoSliceData = createAutoSliceDataForMetric({
+      parentMetric: metric,
+      getFactTable: getFactTableById,
+      includeOther: true,
+    });
 
-      if (factTableId) {
-        const factTable = getFactTableById(factTableId);
-
-        if (factTable) {
-          const autoSliceData = createAutoSliceDataForMetric({
-            parentMetric: metric,
-            factTable,
-            includeOther: true,
-          });
-
-          // Extract tags from slice data
-          autoSliceData.forEach((slice: SliceDataForMetric) => {
-            // Generate single dimension tags
-            slice.sliceLevels.forEach((sliceLevel) => {
-              const value = sliceLevel.levels[0] || "";
-              const tag = generateSliceString({ [sliceLevel.column]: value });
-              const datatypes = sliceLevel.datatype
-                ? { [sliceLevel.column]: sliceLevel.datatype }
-                : {};
-              sliceTagsMap.set(tag, { datatypes });
-              // Track column for "select all" generation
-              columnSet.add(sliceLevel.column);
-              if (sliceLevel.datatype) {
-                columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
-              }
-            });
-
-            // Generate combined tag for multi-dimensional slices
-            if (slice.sliceLevels.length > 1) {
-              const slices: Record<string, string> = {};
-              slice.sliceLevels.forEach((sl) => {
-                slices[sl.column] = sl.levels[0] || "";
-              });
-              const comboTag = generateSliceString(slices);
-              // Parse the tag to get datatypes using parseSliceQueryString
-              const sliceLevels = parseSliceQueryString(comboTag, factTableMap);
-              const datatypes: Record<string, FactTableColumnType> = {};
-              sliceLevels.forEach((sl) => {
-                datatypes[sl.column] = sl.datatype;
-                // Track column for "select all" generation
-                columnSet.add(sl.column);
-                if (sl.datatype) {
-                  columnDatatypeMap.set(sl.column, sl.datatype);
-                }
-              });
-              sliceTagsMap.set(comboTag, { datatypes });
-            }
-          });
+    // Extract tags from slice data
+    autoSliceData.forEach((slice: SliceDataForMetric) => {
+      // Generate single dimension tags
+      slice.sliceLevels.forEach((sliceLevel) => {
+        const value = sliceLevel.levels[0] || "";
+        const tag = generateSliceString({ [sliceLevel.column]: value });
+        const datatypes = sliceLevel.datatype
+          ? { [sliceLevel.column]: sliceLevel.datatype }
+          : {};
+        sliceTagsMap.set(tag, { datatypes });
+        // Track column for "select all" generation
+        columnSet.add(sliceLevel.column);
+        if (sliceLevel.datatype) {
+          columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
         }
+      });
+
+      // Generate combined tag for multi-dimensional slices
+      if (slice.sliceLevels.length > 1) {
+        const slices: Record<string, string> = {};
+        slice.sliceLevels.forEach((sl) => {
+          slices[sl.column] = sl.levels[0] || "";
+        });
+        const comboTag = generateSliceString(slices);
+        // Parse the tag to get datatypes using parseSliceQueryString
+        const sliceLevels = parseSliceQueryString(comboTag, factTableMap);
+        const datatypes: Record<string, FactTableColumnType> = {};
+        sliceLevels.forEach((sl) => {
+          datatypes[sl.column] = sl.datatype;
+          // Track column for "select all" generation
+          columnSet.add(sl.column);
+          if (sl.datatype) {
+            columnDatatypeMap.set(sl.column, sl.datatype);
+          }
+        });
+        sliceTagsMap.set(comboTag, { datatypes });
       }
-    }
+    });
   });
 
   // Generate "select all" tags for each column (format: dim:column, no equals sign)

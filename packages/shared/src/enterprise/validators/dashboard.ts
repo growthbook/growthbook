@@ -4,6 +4,11 @@ import {
   baseExplorationConfigValidator,
 } from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+} from "../../validators/owner-field";
 
 import {
   apiCreateDashboardBlockInterface,
@@ -107,10 +112,80 @@ export const apiDashboardInterface = namedSchema(
       dateCreated: z.iso.datetime(),
       dateUpdated: z.iso.datetime(),
       blocks: z.array(apiDashboardBlockInterface),
+      owner: ownerField,
+      ownerEmail: ownerEmailField,
     }),
 );
 
-export const apiCreateDashboardBody = z
+/** A GET response is a superset of what a write accepts; drop the extra rather than reject it. */
+function withoutKeys(raw: unknown, keys: readonly string[]): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const copy = { ...(raw as Record<string, unknown>) };
+  for (const key of keys) {
+    delete copy[key];
+  }
+  return copy;
+}
+
+/** Every block on a create is new, so none of them may carry server-owned keys. */
+const apiCreateDashboardBlock = z.preprocess(
+  (raw) => withoutKeys(raw, ["id", "uid", "organization"]),
+  apiCreateDashboardBlockInterface,
+);
+
+/**
+ * `{ "id": "dshblk_…" }` carries a saved block through untouched. An update
+ * replaces the whole list, and re-sending tiles verbatim just to keep them is a
+ * transcription job — write out only the blocks you are actually changing.
+ */
+export const dashboardBlockRef = z.strictObject({ id: z.string().min(1) });
+export type DashboardBlockRef = z.infer<typeof dashboardBlockRef>;
+
+export function isDashboardBlockRef(
+  block: unknown,
+): block is DashboardBlockRef {
+  return dashboardBlockRef.safeParse(block).success;
+}
+
+/**
+ * A saved block sent in full: the create shape plus the `id` that says which
+ * tile it is. `uid` and `organization` are the server's — accepted so a block
+ * copied straight from the `GET` parses, ignored on the way in. Sharing the
+ * create shape is what lets an edit drop `explorerAnalysisId` to re-run a chart.
+ */
+const apiUpdateSavedBlockOptions = apiCreateDashboardBlockInterface.options.map(
+  (option) =>
+    option.extend({
+      id: z.string().min(1),
+      uid: z.string().optional(),
+      organization: z.string().optional(),
+    }),
+);
+const apiUpdateSavedBlock = z.discriminatedUnion(
+  "type",
+  apiUpdateSavedBlockOptions as [
+    (typeof apiUpdateSavedBlockOptions)[number],
+    ...(typeof apiUpdateSavedBlockOptions)[number][],
+  ],
+);
+
+const apiUpdateDashboardBlock = z.preprocess(
+  // A block whose id was removed to re-add it as a new tile still carries the
+  // server keys from the GET; drop those rather than reject it.
+  (raw) => {
+    const id = (raw as { id?: unknown } | null)?.id;
+    if (typeof id === "string" && id) return raw;
+    return withoutKeys(raw, ["uid", "organization"]);
+  },
+  // Ref first: it is strict, so a fuller block falls through to the shapes below.
+  z.union([
+    dashboardBlockRef,
+    apiUpdateSavedBlock,
+    apiCreateDashboardBlockInterface,
+  ]),
+);
+
+const apiCreateDashboardFields = z
   .object({
     title: z.string().describe("The display name of the Dashboard"),
     editLevel: z
@@ -150,18 +225,80 @@ export const apiCreateDashboardBody = z
       )
       .optional(),
     globalControls: dashboardGlobalControlsValidator.optional(),
-    blocks: z.array(apiCreateDashboardBlockInterface),
+    comparison: blockComparisonValidator
+      .optional()
+      .describe(
+        "Dashboard-wide compare-to-previous-period. Takes precedence over any " +
+          "per-block comparison.",
+      ),
+    blocks: z.array(apiCreateDashboardBlock),
   })
   .strict();
 
-export const apiUpdateDashboardBody = apiCreateDashboardBody
+/** Everything a GET returns that a write cannot set — derived, so a new field can't be missed. */
+const READ_ONLY_DASHBOARD_FIELDS = Object.keys(dashboardInterface.shape).filter(
+  (key) => !(key in apiCreateDashboardFields.shape),
+);
+
+/**
+ * Display-only, so every write drops it. On the response rather than the stored
+ * doc, so the read-only derivation above misses it.
+ */
+const DISPLAY_ONLY_FIELDS = ["ownerEmail"] as const;
+
+/** An empty string would otherwise read as "omitted" and silently keep the default owner. */
+const dashboardOwnerInput = ownerInputField.min(
+  1,
+  "Owner must be the user id or email of an organization member.",
+);
+
+/** `owner` too: a v1 create always belongs to the caller, so a GET's owner is ignored. */
+export const apiCreateDashboardBody = z.preprocess(
+  (raw) =>
+    withoutKeys(raw, [
+      ...READ_ONLY_DASHBOARD_FIELDS,
+      ...DISPLAY_ONLY_FIELDS,
+      "owner",
+    ]),
+  apiCreateDashboardFields,
+);
+export type ApiCreateDashboardBody = z.infer<typeof apiCreateDashboardBody>;
+
+export const apiCreateDashboardBodyV2 = z.preprocess(
+  (raw) =>
+    withoutKeys(raw, [...READ_ONLY_DASHBOARD_FIELDS, ...DISPLAY_ONLY_FIELDS]),
+  apiCreateDashboardFields.extend({
+    owner: dashboardOwnerInput
+      .optional()
+      .describe(
+        "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Optional when authenticating with a Personal Access Token (PAT): when omitted, the owner defaults to the PAT's user. Required when authenticating with an organization secret API key (which has no associated user): omitting it fails with a 400. A private dashboard created with an organization secret API key can only be retrieved or updated using its owner's Personal Access Token (PAT).",
+      ),
+  }),
+);
+
+const apiUpdateDashboardFields = apiCreateDashboardFields
   .omit({ experimentId: true, blocks: true })
   .extend({
-    blocks: z.array(
-      z.union([apiCreateDashboardBlockInterface, apiDashboardBlockInterface]),
-    ),
+    blocks: z.array(apiUpdateDashboardBlock),
+    owner: dashboardOwnerInput
+      .optional()
+      .describe(
+        "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Omit to leave the current owner unchanged.",
+      ),
   })
   .partial();
+
+/** `experimentId` too: an update cannot reparent a dashboard, but a GET still returns it. */
+export const apiUpdateDashboardBody = z.preprocess(
+  (raw) =>
+    withoutKeys(raw, [
+      ...READ_ONLY_DASHBOARD_FIELDS,
+      ...DISPLAY_ONLY_FIELDS,
+      "experimentId",
+    ]),
+  apiUpdateDashboardFields,
+);
+export type ApiUpdateDashboardBody = z.infer<typeof apiUpdateDashboardBody>;
 
 export const apiGetDashboardsForExperimentValidator = {
   bodySchema: z.never(),

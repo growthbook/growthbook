@@ -1,8 +1,13 @@
 import { useFormContext } from "react-hook-form";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getEligibleContextualAttributes } from "shared/validators";
 import { Box, Separator } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
 import ContextualBanditDecisionMetricSettings from "@/components/ContextualBandit/ContextualBanditDecisionMetricSettings";
@@ -50,6 +55,29 @@ export default function ContextualBanditAnalysisFields({
       form.setValue("exposureQueryId", cbQueries[0]?.id ?? "");
     }
   }, [cbQueries, exposureQueryId, form]);
+
+  const attributeSchema = useAttributeSchema(false);
+  const eligibleAttributes = useMemo(
+    () =>
+      getEligibleContextualAttributes(
+        selectedCbQuery?.targetingAttributeColumns,
+        attributeSchema,
+      ),
+    [selectedCbQuery, attributeSchema],
+  );
+  const watchedContextualAttributes = form.watch("contextualAttributes");
+  const selectedContextualAttributes = useMemo(
+    () => (watchedContextualAttributes ?? []) as string[],
+    [watchedContextualAttributes],
+  );
+
+  const seededQueryIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!selectedCbQuery) return;
+    if (seededQueryIdRef.current === exposureQueryId) return;
+    seededQueryIdRef.current = exposureQueryId;
+    form.setValue("contextualAttributes", eligibleAttributes);
+  }, [selectedCbQuery, exposureQueryId, eligibleAttributes, form]);
 
   const settings = useOrgSettings();
 
@@ -141,20 +169,30 @@ export default function ContextualBanditAnalysisFields({
               />
             )}
             {selectedCbQuery ? (
-              <Box mt="2">
-                <strong className="font-weight-semibold">
-                  Targeting Attributes:{" "}
-                </strong>
-                {(selectedCbQuery.targetingAttributeColumns ?? []).map(
-                  (d, i) => (
-                    <Fragment key={d}>
-                      {i ? ", " : ""}
-                      <code>{d}</code>
-                    </Fragment>
-                  ),
-                )}
-                {!(selectedCbQuery.targetingAttributeColumns ?? []).length && (
-                  <em className="text-muted">none</em>
+              <Box mt="3">
+                {eligibleAttributes.length > 0 ? (
+                  <MultiSelectField
+                    label="Contextual Attributes"
+                    value={selectedContextualAttributes}
+                    onChange={(v) => form.setValue("contextualAttributes", v)}
+                    options={eligibleAttributes.map((a) => ({
+                      label: a,
+                      value: a,
+                    }))}
+                    placeholder="Select contextual attributes…"
+                    legacyLabelFormatting={false}
+                    helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
+                  />
+                ) : (
+                  <>
+                    <Text weight="semibold" size="md">
+                      Contextual Attributes
+                    </Text>
+                    <HelperText status="warning">
+                      The selected query has no targeting attribute columns that
+                      are still valid organization attributes.
+                    </HelperText>
+                  </>
                 )}
               </Box>
             ) : null}

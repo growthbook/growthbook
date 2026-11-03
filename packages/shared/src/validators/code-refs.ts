@@ -103,6 +103,7 @@ export const postCodeRefsValidator = {
     })
     .strict(),
   summary: "Submit list of code references",
+  confirmation: ["other.write"] as const,
   operationId: "postCodeRefs",
   tags: ["code-references"],
   method: "post" as const,

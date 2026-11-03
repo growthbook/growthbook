@@ -1,14 +1,12 @@
 import { isEqual } from "lodash";
-import {
-  DEFAULT_STATS_ENGINE,
-  PRECOMPUTED_DIMENSION_PREFIX,
-} from "shared/constants";
-import { isDefined } from "shared/util";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { isDefined, toApiAssignmentQueryRef } from "shared/util";
 import {
   ExperimentMetricInterface,
   getFunnelStepMetric,
   isDimensionPrecomputed,
   isFactFunnelMetric,
+  parseDimensionId,
   parseFunnelStepMetricId,
   parseSliceMetricId,
 } from "shared/experiments";
@@ -19,6 +17,7 @@ import {
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/types/experiment";
+import { ExposureQuery } from "shared/types/datasource";
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { safeFloatOrNull } from "back-end/src/services/experiments";
@@ -39,7 +38,7 @@ export function buildExperimentBulkResultId(
 function parseApiResultDimension(
   dimensionId: string,
   precomputedUnitDimensionIds: string[],
-): { type: string; id?: string; precomputed: boolean } {
+): ApiExperimentBulkResult["dimension"] {
   if (!dimensionId) {
     return { type: "none", precomputed: false };
   }
@@ -49,26 +48,38 @@ function parseApiResultDimension(
     precomputedUnitDimensionIds,
   );
 
-  // Precomputed experiment dimensions carry the `precomputed:` prefix.
-  if (dimensionId.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) {
-    return {
-      type: "experiment",
-      id: dimensionId.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
-      precomputed: true,
-    };
+  const parsed = parseDimensionId(dimensionId);
+  switch (parsed.kind) {
+    case "experiment":
+      return { type: "experiment", id: parsed.column, precomputed };
+    case "date":
+      return { type: "date", precomputed };
+    case "activation":
+      return { type: "activation", precomputed };
+    case "datecutoff":
+      return {
+        type: "datecutoff",
+        id: parsed.cutoff.toISOString(),
+        precomputed,
+      };
+    case "combo":
+      return {
+        type: "combo",
+        precomputed,
+        dimensions: parsed.constituentIds.map((c) => {
+          const constituent = parseDimensionId(c);
+          return constituent.kind === "experiment"
+            ? { type: "experiment", id: constituent.column }
+            : { type: "user", id: c };
+        }),
+      };
+    case "invalid":
+      // Preserve legacy output for unrecognized "pre:*" ids stored on old snapshots
+      return { type: dimensionId.replace(/^pre:/, ""), precomputed };
+    case "user":
+      // Possibly a precomputed unit dimension.
+      return { type: "user", id: parsed.id, precomputed };
   }
-  if (dimensionId.startsWith("exp:")) {
-    return {
-      type: "experiment",
-      id: dimensionId.substring(4),
-      precomputed,
-    };
-  }
-  if (dimensionId.startsWith("pre:")) {
-    return { type: dimensionId.substring(4), precomputed };
-  }
-  // Otherwise a unit/user dimension id (possibly a precomputed unit dimension).
-  return { type: "user", id: dimensionId, precomputed };
 }
 
 // Builds a metric display-name resolver that formats slice metrics as
@@ -173,10 +184,12 @@ export function toApiResultAnalysis(
     mean: safeFloatOrNull(data?.stats?.mean),
     stddev: safeFloatOrNull(data?.stats?.stddev),
     effect: safeFloatOrNull(data?.expected),
+    effectStandardError: safeFloatOrNull(data?.uplift?.stddev),
     ciLow: safeFloatOrNull(data?.ci?.[0]),
     ciHigh: safeFloatOrNull(data?.ci?.[1]),
     pValue: safeFloatOrNull(data?.pValue),
     chanceToBeatControl: safeFloatOrNull(data?.chanceToWin),
+    ...(data?.errorMessage ? { errorMessage: data.errorMessage } : null),
   };
 }
 
@@ -248,6 +261,7 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
+  exposureQueries: ExposureQuery[],
 ): ApiExperimentBulkResult[] {
   const defaultAnalysis = snapshot.analyses[0];
   if (!defaultAnalysis || defaultAnalysis.status !== "success") return [];
@@ -307,13 +321,20 @@ export function toExperimentSnapshotBulkResultsApiInterface(
     snapshot.runStarted?.toISOString() ||
     "";
 
+  const assignmentQueryId =
+    snapshot.settings.exposureQueryId || experiment.exposureQueryId || "";
   // Data-generation settings are identical across dimensions of one snapshot;
   // per-analysis stats options (statsEngine, regressionAdjustment, etc.) are
   // added per item below.
   const baseSettings = {
     datasourceId: snapshot.settings.datasourceId || experiment.datasource || "",
-    assignmentQueryId:
-      snapshot.settings.exposureQueryId || experiment.exposureQueryId || "",
+    /** The snapshot's identifier; the experiment's may have changed since. */
+    assignmentQuery: toApiAssignmentQueryRef(
+      assignmentQueryId,
+      snapshot.settings.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
+    assignmentQueryId,
     experimentId: snapshot.settings.experimentId || experiment.trackingKey,
     segmentId: snapshot.settings.segment,
     queryFilter: snapshot.settings.queryFilter,

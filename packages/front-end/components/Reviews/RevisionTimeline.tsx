@@ -1,3 +1,8 @@
+import {
+  eventUserCredit,
+  eventUserPersonId,
+  eventUserIdentity,
+} from "shared/validators";
 import { RevisionLog } from "shared/types/feature-revision";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -14,6 +19,7 @@ import {
   PiPlusMinusBold,
   PiProhibitFill,
   PiRocketLaunch,
+  PiXCircleFill,
   PiSpinnerGap,
 } from "react-icons/pi";
 import { date, datetime } from "shared/dates";
@@ -221,7 +227,7 @@ function rowVisual(action: string): RowVisual {
       return {
         color: "gray",
         verb: "discarded this revision",
-        icon: <PiProhibitFill />,
+        icon: <PiXCircleFill />,
         showCommentBody: false,
         showAuditDetails: false,
       };
@@ -271,6 +277,45 @@ export type VerdictRetraction = {
   // "Discarded by Bryce").
   label: string;
 };
+
+// Verdict tags: why an approval doesn't count, and whether it was retracted.
+// One row so they never crowd the header line.
+function VerdictTags({
+  uncoveredReason,
+  retraction,
+  mb,
+}: {
+  uncoveredReason?: string;
+  retraction?: VerdictRetraction | null;
+  mb?: "2";
+}) {
+  if (!uncoveredReason && !retraction) return null;
+  return (
+    <Flex align="center" gap="2" mb={mb}>
+      {uncoveredReason && (
+        <Tooltip
+          usePortal
+          body={`This approval does not let the draft publish: ${uncoveredReason}.`}
+        >
+          <Badge
+            color="gray"
+            variant="soft"
+            label="Not a qualifying approval"
+            size="xs"
+          />
+        </Tooltip>
+      )}
+      {retraction && (
+        <Badge
+          color="gray"
+          variant="solid"
+          label={retraction.label}
+          size="xs"
+        />
+      )}
+    </Flex>
+  );
+}
 
 export function RevisionLogRow({
   log,
@@ -327,8 +372,7 @@ export function RevisionLogRow({
   // edited (retract via Undo Review to remove the verdict). Owners can still
   // revise the comment text on a retracted verdict, e.g. to clarify why they
   // pulled back.
-  const logUserId =
-    log.user && "id" in log.user ? (log.user as { id: string }).id : null;
+  const logUserId = eventUserPersonId(log.user ?? null);
   const logId = log.id ?? null;
   const isOwned = logId !== null && logUserId !== null && logUserId === userId;
   const canEdit =
@@ -395,27 +439,6 @@ export function RevisionLogRow({
           stripeColor={visual.color}
           leading={verdictLeading}
           avatarSize="md"
-          metadataExtra={
-            <>
-              {uncoveredReason && (
-                <Tooltip
-                  body={`This approval does not let the draft publish: ${uncoveredReason}.`}
-                >
-                  <Text size="sm" color="text-low">
-                    — not a qualifying approval
-                  </Text>
-                </Tooltip>
-              )}
-              {retraction && (
-                <Badge
-                  color="gray"
-                  variant="solid"
-                  label={retraction.label}
-                  size="xs"
-                />
-              )}
-            </>
-          }
           actions={
             canEdit || canDelete || canRetractVerdict ? (
               <DropdownMenu
@@ -465,9 +488,16 @@ export function RevisionLogRow({
             ) : undefined
           }
           body={
-            <MarkdownWithDiffRefs className="speech-bubble" highlightCode>
-              {comment ?? ""}
-            </MarkdownWithDiffRefs>
+            <>
+              <VerdictTags
+                uncoveredReason={uncoveredReason}
+                retraction={retraction}
+                mb="2"
+              />
+              <MarkdownWithDiffRefs className="speech-bubble" highlightCode>
+                {comment ?? ""}
+              </MarkdownWithDiffRefs>
+            </>
           }
         />
       </Box>
@@ -508,25 +538,12 @@ export function RevisionLogRow({
           <Text size="inherit" color="text-low">
             on {datetime(log.timestamp)}
           </Text>
-          {uncoveredReason && (
-            <Tooltip
-              body={`This approval does not let the draft publish: ${uncoveredReason}.`}
-            >
-              <Text size="inherit" color="text-low">
-                {" "}
-                — not a qualifying approval
-              </Text>
-            </Tooltip>
-          )}
         </Text>
-        {retraction && (
-          <Badge
-            color="gray"
-            variant="solid"
-            label={retraction.label}
-            size="xs"
-          />
-        )}
+
+        <VerdictTags
+          uncoveredReason={uncoveredReason}
+          retraction={retraction}
+        />
         {showDetails && (
           <Button
             variant="ghost"
@@ -640,8 +657,7 @@ export default function RevisionTimeline({
         const entry = sorted[i];
         if (entry.action !== "Approved" && entry.action !== "Requested Changes")
           continue;
-        const uid =
-          entry.user && "id" in entry.user ? entry.user.id : undefined;
+        const uid = eventUserIdentity(entry.user ?? null);
         if (!uid) continue;
         for (let j = i + 1; j < sorted.length; j++) {
           const next = sorted[j];
@@ -652,12 +668,9 @@ export default function RevisionTimeline({
             break;
           }
           if (next.action === "Recall Review") {
-            const recallerName =
-              (next.user && "name" in next.user && next.user.name) ||
-              (next.user && "email" in next.user && next.user.email) ||
-              null;
-            const isSelfRecall =
-              next.user && "id" in next.user && next.user.id === userId;
+            const recaller = eventUserCredit(next.user ?? null);
+            const recallerName = recaller.name || recaller.email || null;
+            const isSelfRecall = !!recaller.id && recaller.id === userId;
             const label = isSelfRecall
               ? "Discarded by you"
               : recallerName
@@ -666,8 +679,7 @@ export default function RevisionTimeline({
             retractions.set(entry, { kind: "recall", label });
             break;
           }
-          const nextUid =
-            next.user && "id" in next.user ? next.user.id : undefined;
+          const nextUid = eventUserIdentity(next.user ?? null);
           if (nextUid !== uid) continue;
           if (next.action === "Undo Review") {
             retractions.set(entry, { kind: "self", label: "Retracted" });
@@ -689,8 +701,7 @@ export default function RevisionTimeline({
         const entry = sorted[i];
         if (entry.action !== "Approved" && entry.action !== "Requested Changes")
           continue;
-        const uid =
-          entry.user && "id" in entry.user ? entry.user.id : undefined;
+        const uid = eventUserIdentity(entry.user ?? null);
         if (!uid || uid !== userId) continue;
         if (retractions.has(entry)) continue;
         activeVerdict = entry;

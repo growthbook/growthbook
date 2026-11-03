@@ -1,5 +1,5 @@
 import { FC, Fragment, useState } from "react";
-import { IconButton } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
   ExperimentReportResultDimension,
@@ -27,11 +27,14 @@ import {
   ExperimentSortBy,
   SetExperimentSortBy,
   formatDimensionValueForDisplay,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
+import { CustomMetricSlice } from "shared/validators";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getDimensionDisplayName } from "@/components/Dimensions/DimensionChooser";
 import { ExperimentTableRow } from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -39,6 +42,9 @@ import ResultsTable, {
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
+import FunnelStepSliceLink, {
+  funnelMetricHasSlices,
+} from "@/components/Experiment/FunnelStepSliceLink";
 import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
@@ -113,6 +119,7 @@ const BreakDownResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  customMetricSlices?: CustomMetricSlice[];
 }> = ({
   experimentId,
   significanceThresholds,
@@ -161,8 +168,14 @@ const BreakDownResults: FC<{
   setAnalysisSettings,
   mutate,
   setDifferenceType,
+  customMetricSlices,
 }) => {
-  const { getDimensionById, getExperimentMetricById } = useDefinitions();
+  const {
+    getDimensionById,
+    getExperimentMetricById,
+    getFactTableById: _getFactTableById,
+  } = useDefinitions();
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
@@ -170,19 +183,37 @@ const BreakDownResults: FC<{
   // Detect drilldown context for automatic row click handling
   const drilldownContext = useMetricDrilldownContext();
 
-  // Funnel step child rows nest under their dimension-value parent and stay
-  // collapsed until the parent's chevron is toggled. The key matches the
+  // Funnel step and metric slice child rows nest under their dimension-value
+  // parent and stay collapsed until the parent's chevron is toggled. The key matches the
   // `parentRowId` (`metricId:dimensionValue`) each child row carries.
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const toggleExpandedRow = (parentRowId: string) => {
     setExpandedRows((prev) => ({ ...prev, [parentRowId]: !prev[parentRowId] }));
   };
 
+  // Resolved per metric rather than per row: a step row only links to the
+  // drilldown when the funnel actually has slices to show there.
+  const funnelSlicesByMetricId = new Map<string, boolean>();
+  const hasFunnelSlices = (metric: ExperimentMetricDefinition): boolean => {
+    const cached = funnelSlicesByMetricId.get(metric.id);
+    if (cached !== undefined) return cached;
+    const hasSlices = funnelMetricHasSlices({
+      metric,
+      customMetricSlices,
+      getFactTableById,
+    });
+    funnelSlicesByMetricId.set(metric.id, hasSlices);
+    return hasSlices;
+  };
+
   const dimension =
-    ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
-    getDimensionById(dimensionId)?.name ||
-    dimensionId?.split(":")?.[1] ||
-    "Dimension";
+    getDimensionDisplayName(
+      dimensionId,
+      (id) =>
+        ssrPolyfills?.getDimensionById?.(id)?.name ||
+        getDimensionById(id)?.name ||
+        undefined,
+    ) || "Dimension";
 
   const { tables } = useExperimentDimensionRows({
     results,
@@ -203,6 +234,7 @@ const BreakDownResults: FC<{
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
     pValueThreshold: significanceThresholds.pValueThreshold,
+    customMetricSlices,
   });
 
   const activationMetricObj = activationMetric
@@ -261,7 +293,8 @@ const BreakDownResults: FC<{
       </div>
 
       {tables.map((table, i) => {
-        // Hide funnel step child rows whose dimension-value parent is collapsed.
+        // Hide child rows (funnel steps, metric slices) whose dimension-value
+        // parent is collapsed.
         const visibleRows = table.rows.filter(
           (row) =>
             !row.isChildRow ||
@@ -324,12 +357,44 @@ const BreakDownResults: FC<{
               setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label, row }) => {
                 if (row?.childRowType === "funnelStep") {
-                  return <FunnelStepLabel label={label} row={row} />;
+                  const rawValue =
+                    row.dimensionValue ??
+                    (typeof row.label === "string" ? row.label : "");
+                  return (
+                    <Flex justify="between" align="start" width="100%">
+                      <FunnelStepLabel label={label} row={row} />
+                      {hasFunnelSlices(row.metric) && (
+                        <FunnelStepSliceLink
+                          row={row}
+                          dimensionInfo={{
+                            id: dimensionId,
+                            name: dimension,
+                            value: formatDimensionValueForDisplay(rawValue),
+                            rawValue,
+                          }}
+                        />
+                      )}
+                    </Flex>
+                  );
+                }
+                if (row?.isSliceRow) {
+                  return getRenderLabelColumn({})({
+                    label,
+                    metric: row.metric,
+                    row,
+                  });
                 }
 
                 const hasSteps = !!row?.numChildren;
                 const parentRowId = `${row?.metric?.id}:${row?.label ?? ""}`;
                 const isExpanded = !!expandedRows[parentRowId];
+                const childLabel = isFactFunnelMetric(table.metric)
+                  ? "funnel steps"
+                  : "metric slices";
+                const rowName =
+                  typeof label === "string" && label
+                    ? formatDimensionValueForDisplay(label)
+                    : "unknown";
                 return (
                   <div
                     className="pl-3 font-weight-bold"
@@ -355,8 +420,8 @@ const BreakDownResults: FC<{
                         <RadixTooltip
                           content={
                             isExpanded
-                              ? "Collapse funnel steps"
-                              : "Expand funnel steps"
+                              ? `Collapse ${childLabel}`
+                              : `Expand ${childLabel}`
                           }
                           side="top"
                         >
@@ -366,8 +431,8 @@ const BreakDownResults: FC<{
                             radius="full"
                             aria-label={
                               isExpanded
-                                ? "Collapse funnel steps"
-                                : "Expand funnel steps"
+                                ? `Collapse ${childLabel} for ${rowName}`
+                                : `Expand ${childLabel} for ${rowName}`
                             }
                             onClick={() => toggleExpandedRow(parentRowId)}
                           >

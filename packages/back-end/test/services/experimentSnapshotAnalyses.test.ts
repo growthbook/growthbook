@@ -252,6 +252,16 @@ describe("toApiResultAnalysis", () => {
     expect(result.effect).toBeNull();
     expect(result.pValue).toBeNull();
     expect(result.mean).toBeNull();
+    expect(result.effectStandardError).toBeNull();
+  });
+
+  it("maps the uplift stddev to effectStandardError", () => {
+    expect(
+      toApiResultAnalysis("frequentist", "relative", {
+        ...data,
+        uplift: { dist: "normal", mean: 0.25, stddev: 0.04 },
+      }).effectStandardError,
+    ).toBe(0.04);
   });
 
   it("passes the stored denominator through unchanged", () => {
@@ -300,6 +310,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     // Legacy dimension descriptor has no `precomputed` flag.
@@ -312,6 +323,33 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
     expect(result.settings.experimentId).toBe("experiment-key");
     // Variation id is the current internal id.
     expect(result.results[0].metrics[0].variations[0].variationId).toBe("0");
+  });
+
+  it("describes the experiment's current assignment query, not the snapshot's", () => {
+    const snapshot = makeSnapshot();
+    snapshot.settings = {
+      ...snapshot.settings,
+      exposureQueryId: "eq_old",
+      exposureQueryIdentifierType: "user_id",
+    };
+    const experiment = {
+      ...makeExperiment(),
+      exposureQueryId: "eq_new",
+      exposureQueryIdentifierType: "anonymous_id",
+    };
+
+    const { settings } = toSnapshotApiInterface(
+      experiment,
+      snapshot,
+      new Map(),
+      [],
+    );
+
+    expect(settings.assignmentQuery).toEqual({
+      id: "eq_new",
+      identifierType: "anonymous_id",
+    });
+    expect(settings.assignmentQueryId).toBe("eq_new");
   });
 
   it("emits 0 (not null) for missing statistics to preserve its contract", () => {
@@ -329,11 +367,40 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
     const analysis = result.results[0].metrics[0].variations[0].analyses[0];
 
     expect(analysis.percentChange).toBe(0);
     expect(analysis.pValue).toBe(0);
+    expect(analysis.effectStandardError).toBe(0);
+  });
+
+  it("returns the effect standard error from the stored uplift distribution", () => {
+    const snapshot = makeSnapshot();
+    snapshot.analyses = [
+      makeSuccessAnalysis(
+        makeAnalysisSettings({ dimensions: [""] }),
+        makeOverallResult("met_1", [
+          makeSnapshotMetricData(),
+          makeSnapshotMetricData({
+            uplift: { dist: "normal", mean: 0.1, stddev: 0.02 },
+          }),
+        ]),
+      ),
+    ];
+
+    const result = toSnapshotApiInterface(
+      makeExperiment(),
+      snapshot,
+      new Map(),
+      [],
+    );
+
+    expect(
+      result.results[0].metrics[0].variations[1].analyses[0]
+        .effectStandardError,
+    ).toBe(0.02);
   });
 });
 
@@ -346,6 +413,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(result.id).toBe("snp_1:dimension:precomputed%3Acountry");
@@ -378,6 +446,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       experiment,
       snapshot,
       makeMetricMap({ met_1: "Revenue" }),
+      [],
     );
 
     expect(result.settings.experimentId).toBe("exp_1");
@@ -406,6 +475,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(result.settings.goals[0].effectiveSettings).toEqual({
@@ -434,6 +504,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(result.settings.goals[0]).toEqual({ metricId: "met_1" });
@@ -466,6 +537,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       experiment,
       snapshot,
       new Map(),
+      [],
     );
 
     const variations = result.results[0].metrics[0].variations;
@@ -506,6 +578,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     const [removed, kept] = result.results[0].metrics[0].variations;
@@ -545,6 +618,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     // One item per dimension, each with a unique id.
@@ -574,6 +648,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(result.dateStart).toBe(

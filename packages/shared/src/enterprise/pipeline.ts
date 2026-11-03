@@ -2,7 +2,6 @@ import { getValidDate } from "shared/dates";
 import {
   getExperimentOutdatedReasonLabel,
   isFactMetric,
-  isFactFunnelMetric,
   isExperimentOutdatedReasonField,
   quantileMetricType,
   ExperimentMetricDefinition,
@@ -33,9 +32,15 @@ export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
   "experimentId",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
 
+/**
+ * Callers resolve an unset `exposureQueryIdentifierType` to the query's legacy
+ * identifier. It isn't in INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS because it
+ * is hashed separately (getExperimentSettingsHashForIncrementalRefresh).
+ */
 export type IncrementalFullRefreshComparable = Pick<
   ExperimentSnapshotSettings,
-  (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
+  | (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
+  | "exposureQueryIdentifierType"
 >;
 
 // Keep this aligned with snapshotSettings so UI labels match backend hash checks.
@@ -68,6 +73,14 @@ export function getIncrementalFullRefreshReasons(
     if (changed) {
       reasons.push(getExperimentOutdatedReasonLabel(field));
     }
+  }
+  if (
+    (current.exposureQueryIdentifierType ?? null) !==
+    (baseline.exposureQueryIdentifierType ?? null)
+  ) {
+    reasons.push(
+      getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
+    );
   }
   return reasons;
 }
@@ -132,8 +145,8 @@ export function isExperimentIncrementalEnabled(
  * The highest-priority reason this experiment can't run in Incremental Pipeline
  * mode, or null when it can. Combines coverage (delegated to
  * `isExperimentIncrementalEnabled`) with the per-experiment support checks
- * (in-progress conversions, activation metric, metrics, quantile sketches),
- * returning the first reason that applies.
+ * (activation metric, metrics, quantile sketches), returning the first reason
+ * that applies.
  */
 export function getIncrementalPipelineUnsupportedReason(params: {
   datasourceProperties:
@@ -145,7 +158,6 @@ export function getIncrementalPipelineUnsupportedReason(params: {
   pipelineSettings: DataSourcePipelineSettings | undefined;
   experimentId: string;
   orgHasIncrementalPipelineFeature: boolean;
-  skipPartialData: boolean;
   activationMetric: string | null | undefined;
   metrics: ExperimentMetricDefinition[];
   experimentType: ExperimentInterface["type"];
@@ -168,10 +180,6 @@ export function getIncrementalPipelineUnsupportedReason(params: {
     return "Incremental Pipeline mode is not enabled for this experiment.";
   }
 
-  if (params.skipPartialData) {
-    return "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.";
-  }
-
   if (params.activationMetric) {
     return "Activation metrics are not supported with Incremental Pipeline mode while in beta. Please remove the Activation Metric in the Analysis Settings.";
   }
@@ -182,10 +190,6 @@ export function getIncrementalPipelineUnsupportedReason(params: {
 
   if (params.metrics.some((m) => !isFactMetric(m))) {
     return "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.";
-  }
-
-  if (params.metrics.some((m) => isFactFunnelMetric(m))) {
-    return "Funnel metrics are not supported with Incremental Pipeline mode while in beta. Please remove any funnel metrics from the experiment.";
   }
 
   // Unit quantiles store a float and re-aggregate via SUM, so they work on
@@ -343,7 +347,10 @@ export function prestoCreateTablePartitions(columns: string[]) {
 export type SourceSnapshotRef = Pick<
   ExperimentSnapshotInterface,
   "id" | "dateCreated"
->;
+> & {
+  // The latest data the source's results consider.
+  analysisEndDate: Date;
+};
 
 /**
  * The upstream source reference for a snapshot, or undefined when the snapshot
@@ -352,7 +359,7 @@ export type SourceSnapshotRef = Pick<
 export function getExperimentSourceSnapshotRef(
   snapshot?: Pick<
     ExperimentSnapshotInterface,
-    "sourceSnapshotId" | "sourceSnapshotDateCreated"
+    "sourceSnapshotId" | "sourceSnapshotDateCreated" | "sourceSnapshotEndDate"
   >,
 ): SourceSnapshotRef | undefined {
   if (!snapshot?.sourceSnapshotId || !snapshot.sourceSnapshotDateCreated) {
@@ -362,6 +369,10 @@ export function getExperimentSourceSnapshotRef(
   return {
     id: snapshot.sourceSnapshotId,
     dateCreated: getValidDate(snapshot.sourceSnapshotDateCreated),
+    // Docs written before the end date was persisted fall back to the run time.
+    analysisEndDate: getValidDate(
+      snapshot.sourceSnapshotEndDate ?? snapshot.sourceSnapshotDateCreated,
+    ),
   };
 }
 

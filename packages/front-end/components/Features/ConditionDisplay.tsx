@@ -1,19 +1,27 @@
 import stringify from "json-stringify-pretty-compact";
-import { ReactNode, useMemo } from "react";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { ReactNode, useContext, useMemo, useRef } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
-import { isDefined } from "shared/util";
+import { getMalformedPrereqConditionError, isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { Popover } from "@/ui/Popover";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
+import VirtualizedCode, {
+  isLongCode,
+  RenderInFullContext,
+} from "@/components/SyntaxHighlighting/VirtualizedCode";
+import { FeatureBadge } from "@/components/Features/FeatureBadge";
+import { PlainEntityBadge } from "@/components/Features/EntityBadge";
+import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
+import ValueGroup from "@/components/Features/ValueGroup";
+import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
@@ -111,6 +119,21 @@ function getValue(
 
 const MULTI_VALUE_LIMIT = 3;
 
+// A long condition shown as JSON scrolls inside a bounded box, highlighting
+// only the visible lines
+function ConditionJson({ code }: { code: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const renderInFull = useContext(RenderInFullContext);
+  if (renderInFull || !isLongCode(code)) {
+    return <InlineCode language="json" code={code} />;
+  }
+  return (
+    <Box ref={scrollRef} style={{ maxHeight: 400, overflowY: "auto" }}>
+      <VirtualizedCode scrollRef={scrollRef} language="json" code={code} />
+    </Box>
+  );
+}
+
 export function MultiValuesDisplay({
   values,
   displayMap,
@@ -133,75 +156,41 @@ export function MultiValuesDisplay({
             ? displayMap?.[v] || group.groupName
             : displayMap?.[v] || v;
         return isSavedGroup && group ? (
-          <Badge
+          <SavedGroupBadge
             key={i}
-            color="gray"
-            label={
-              <Link
-                href={`/saved-groups/${group.id}`}
-                target="_blank"
-                title={`Manage Saved Group: ${displayValue}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  overflow: "hidden",
-                  color: "var(--accent-11)",
-                }}
-              >
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: "400px",
-                  }}
-                >
-                  {displayValue}
-                </span>
-              </Link>
-            }
+            groupId={group.id}
+            groupName={displayValue}
           />
         ) : (
-          <Badge
-            key={i}
-            color="gray"
-            className="text-ellipsis d-inline-block"
-            style={{ maxWidth: 300 }}
-            title={displayValue}
-            label={
-              <Text size="inherit" whiteSpace="pre" color="text-high">
-                {displayValue}
-              </Text>
-            }
-          />
+          <PlainEntityBadge key={i} label={displayValue} maxWidth={300} />
         );
       })}
       {values.length > MULTI_VALUE_LIMIT && (
-        <Tooltip
-          body={
-            <div>
-              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => {
-                const isSavedGroup = savedGroupIds?.has(v);
-                const group = isSavedGroup ? getSavedGroupById(v) : null;
-                const isLast = i === values.slice(MULTI_VALUE_LIMIT).length - 1;
-                return (
-                  <span key={i}>
-                    {isSavedGroup && group
-                      ? group.groupName
-                      : displayMap?.[v] || v}
-                    {!isLast && ", "}
-                  </span>
-                );
-              })}
-            </div>
+        // A list can run to thousands of ids: one wrapped, scrollable block
+        <Popover
+          openOnHover
+          side="bottom"
+          align="start"
+          contentStyle={{ maxWidth: 480, maxHeight: 240, overflowY: "auto" }}
+          trigger={
+            <span className="mr-1">
+              <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
+            </span>
           }
-          usePortal
-        >
-          <span className="mr-1">
-            <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
-          </span>
-        </Tooltip>
+          content={
+            <Text size="sm" color="text-mid">
+              {values
+                .slice(MULTI_VALUE_LIMIT)
+                .map((v) => {
+                  const group = savedGroupIds?.has(v)
+                    ? getSavedGroupById(v)
+                    : null;
+                  return group ? group.groupName : displayMap?.[v] || v;
+                })
+                .join(", ")}
+            </Text>
+          }
+        />
       )}
     </>
   );
@@ -233,15 +222,13 @@ function MultiValueDisplay({
     );
   }
   return (
-    <Flex wrap="wrap" gap="2">
-      {!skipParens && <Text weight="medium">(</Text>}
+    <ValueGroup parens={!skipParens}>
       <MultiValuesDisplay
         values={parts}
         displayMap={displayMap}
         savedGroupIds={savedGroupIds}
       />
-      {!skipParens && <Text weight="medium">)</Text>}
-    </Flex>
+    </ValueGroup>
   );
 }
 
@@ -317,7 +304,7 @@ function getConditionOrParts({
           borderLeft: "2px solid var(--gray-6)",
         }}
       >
-        <Flex direction="column" gap="2">
+        <Flex direction="column" gap="1">
           {groupContent}
         </Flex>
       </Box>,
@@ -356,17 +343,7 @@ function getConditionParts({
     let fieldEl: ReactNode = attributeIds.has(field) ? (
       <AttributeBadge attributeId={field} />
     ) : (
-      <Badge
-        color="gray"
-        className="text-ellipsis d-inline-block"
-        style={{ maxWidth: 300 }}
-        title={field}
-        label={
-          <Text size="inherit" whiteSpace="pre" color="text-high">
-            {field}
-          </Text>
-        }
-      />
+      <PlainEntityBadge label={field} />
     );
     let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
@@ -374,19 +351,7 @@ function getConditionParts({
         fieldEl = null;
       } else if (field.substring(0, 6) === "value.") {
         const displayValue = field.substring(6);
-        fieldEl = (
-          <Badge
-            color="gray"
-            className="text-ellipsis d-inline-block"
-            style={{ maxWidth: 300 }}
-            title={displayValue}
-            label={
-              <Text size="inherit" whiteSpace="pre" color="text-high">
-                {displayValue}
-              </Text>
-            }
-          />
-        );
+        fieldEl = <PlainEntityBadge label={displayValue} maxWidth={300} />;
       } else {
         fieldEl = (
           <Tooltip
@@ -406,7 +371,7 @@ function getConditionParts({
         parentIdEl = (
           <>
             <Text>prerequisite</Text>
-            <ParentIdLink parentId={parentId} />
+            <FeatureBadge featureId={parentId} />
           </>
         );
       }
@@ -475,59 +440,12 @@ function getConditionParts({
           (operator === "$inGroup" || operator === "$notInGroup") &&
           savedGroups ? (
             group ? (
-              <Badge
-                color="gray"
-                label={
-                  <Link
-                    href={`/saved-groups/${group.id}`}
-                    target="_blank"
-                    title={`Manage Saved Group: ${group.groupName}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      overflow: "hidden",
-                      color: "var(--accent-11)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: "400px",
-                      }}
-                    >
-                      {group.groupName}
-                    </span>
-                  </Link>
-                }
-              />
+              <SavedGroupBadge groupId={group.id} groupName={group.groupName} />
             ) : (
-              <Badge
-                color="gray"
-                className="text-ellipsis d-inline-block"
-                style={{ maxWidth: 300 }}
-                title={displayValue}
-                label={
-                  <Text size="inherit" whiteSpace="pre" color="text-high">
-                    {displayValue}
-                  </Text>
-                }
-              />
+              <PlainEntityBadge label={displayValue} />
             )
           ) : (
-            <Badge
-              color="gray"
-              className="text-ellipsis d-inline-block"
-              style={{ maxWidth: 300 }}
-              title={displayValue}
-              label={
-                <Text size="inherit" whiteSpace="pre" color="text-high">
-                  {displayValue}
-                </Text>
-              }
-            />
+            <PlainEntityBadge label={displayValue} maxWidth={300} />
           )
         ) : (
           ""
@@ -537,51 +455,21 @@ function getConditionParts({
   });
 }
 
-function ParentIdLink({ parentId }: { parentId: string }) {
-  return (
-    <Badge
-      color="gray"
-      label={
-        <Link
-          href={`/features/${parentId}`}
-          title={`Manage Feature: ${parentId}`}
-          target="_blank"
-          color="violet"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            overflow: "hidden",
-          }}
-        >
-          <span
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: "400px",
-            }}
-          >
-            {parentId}
-          </span>
-          <PiArrowSquareOut style={{ flexShrink: 0 }} />
-        </Link>
-      }
-    />
-  );
-}
-
 export default function ConditionDisplay({
   condition,
   savedGroups: savedGroupTargeting,
   prerequisites,
   prefix,
+  variant = "default",
 }: {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
   prefix?: ReactNode;
+  // "rows" sits each part on a 28px row, in the field text color.
+  variant?: "default" | "rows";
 }) {
+  const rows = variant === "rows";
   const { savedGroups } = useDefinitions();
   const attributes = useAttributeMap();
   const attributeIds = useMemo(() => new Set(attributes.keys()), [attributes]);
@@ -605,7 +493,7 @@ export default function ConditionDisplay({
     parts.push(
       <SavedGroupTargetingDisplay
         savedGroups={savedGroupTargeting}
-        groupClassName="col-auto"
+        groupClassName={rows ? undefined : "col-auto"}
         initialAnd={false}
         key={`${partId++}-saved-group-targeting`}
         prefix={!prefixUsed ? prefix : undefined}
@@ -618,7 +506,11 @@ export default function ConditionDisplay({
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
         const cond = jsonToConds(p.condition);
-        if (!cond || cond.length > 1) {
+        if (
+          !cond ||
+          cond.length > 1 ||
+          getMalformedPrereqConditionError(p.condition)
+        ) {
           let jsonFormattedCondition = p.condition;
           try {
             const parsed = JSON.parse(p.condition);
@@ -631,8 +523,9 @@ export default function ConditionDisplay({
               {!prefixUsed && prefix}
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
-              <ParentIdLink parentId={p.id} />
-              <InlineCode language="json" code={jsonFormattedCondition} />
+              <FeatureBadge featureId={p.id} />
+              <ConditionJson code={jsonFormattedCondition} />
+              <InvalidPrereqConditionBadge condition={p.condition} />
             </Flex>,
           );
           prefixUsed = true;
@@ -675,7 +568,7 @@ export default function ConditionDisplay({
       parts.push(
         <div className="w-100" key={partId++}>
           {!prefixUsed && prefix}
-          <InlineCode language="json" code={jsonFormattedCondition} />
+          <ConditionJson code={jsonFormattedCondition} />
         </div>,
       );
       prefixUsed = true;
@@ -694,7 +587,11 @@ export default function ConditionDisplay({
   }
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex
+      direction="column"
+      gap={rows ? "0" : "1"}
+      className={rows ? styles.rows : undefined}
+    >
       {parts}
     </Flex>
   );

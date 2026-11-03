@@ -768,13 +768,33 @@ describe("computeRevisionUpdate review staleness", () => {
     } as unknown as FeatureRevisionInterface;
   }
 
-  it("demotes reviews to -stale when resetReview knocks an approved draft back to pending-review", () => {
+  // Approvals reset on change under this org's review rule; the derivation
+  // (not a caller flag) is what demotes an approved draft below.
+  function resetOnChangeContext(): ReqContext {
+    return {
+      org: {
+        settings: {
+          environments: ORG_ENVS,
+          requireReviews: [
+            {
+              requireReviewOn: true,
+              resetReviewOnChange: true,
+              environments: [],
+              projects: [],
+            },
+          ],
+        },
+      },
+      hasPremiumFeature: () => true,
+    } as unknown as ReqContext;
+  }
+
+  it("demotes reviews to -stale when a gated edit knocks an approved draft back to pending-review", () => {
     const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
-      mockContext(),
+      resetOnChangeContext(),
       { id: FEATURE_ID } as never,
       revisionWithStatus("approved"),
       { defaultValue: "false" },
-      true,
     );
     expect(status).toBe("pending-review");
     expect(clearReviews).toBe(true);
@@ -792,7 +812,6 @@ describe("computeRevisionUpdate review staleness", () => {
         reviews: [{ ...reviews[0], status: "changes-requested" as const }],
       },
       { defaultValue: "false" },
-      false,
     );
     expect(status).toBe("pending-review");
     expect(clearReviews).toBe(true);
@@ -803,7 +822,7 @@ describe("computeRevisionUpdate review staleness", () => {
 
   it("leaves already-stale verdicts unchanged when demoting", () => {
     const { proposedRevision } = computeRevisionUpdate(
-      mockContext(),
+      resetOnChangeContext(),
       { id: FEATURE_ID } as never,
       {
         ...revisionWithStatus("approved"),
@@ -818,7 +837,6 @@ describe("computeRevisionUpdate review staleness", () => {
         ],
       },
       { defaultValue: "false" },
-      true,
     );
     expect(proposedRevision.reviews).toEqual([
       { ...reviews[0], status: "approved-stale" },
@@ -835,7 +853,6 @@ describe("computeRevisionUpdate review staleness", () => {
       { id: FEATURE_ID } as never,
       revisionWithStatus("approved"),
       { defaultValue: "false" },
-      false,
     );
     expect(status).toBe("approved");
     expect(clearReviews).toBe(false);
@@ -848,7 +865,6 @@ describe("computeRevisionUpdate review staleness", () => {
       { id: FEATURE_ID } as never,
       revisionWithStatus("draft"),
       { defaultValue: "false" },
-      false,
     );
     expect(status).toBe("draft");
     expect(clearReviews).toBe(false);

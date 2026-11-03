@@ -1,15 +1,28 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  getEffectiveContextualAttributes,
+  getEligibleContextualAttributes,
+} from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import { Box } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
+import { Box, Separator } from "@radix-ui/themes";
+import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import SelectField from "@/components/Forms/SelectField";
+import TextField from "@/ui/TextField";
+import MultiSelectField from "@/ui/MultiSelectField";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
+import Switch from "@/ui/Switch";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import ContextualBanditDecisionMetricSettings, {
   conversionWindowFormValuesFromMetricWindow,
@@ -19,6 +32,7 @@ import ContextualBanditDecisionMetricSettings, {
 type FormValues = {
   datasource: string;
   exposureQueryId: string;
+  contextualAttributes: string[];
   decisionMetric: string;
   banditScheduleValue: number;
   banditScheduleUnit: "hours" | "days";
@@ -26,6 +40,8 @@ type FormValues = {
   banditBurnInUnit: "hours" | "days";
   banditConversionWindowValue?: number;
   banditConversionWindowUnit: "hours" | "days";
+  increaseBanditExploration: boolean;
+  priorSampleSize: number;
 };
 
 /**
@@ -35,6 +51,9 @@ type FormValues = {
  * window reuse the same `ContextualBanditDecisionMetricSettings` component as the
  * creation flow, so editing behaves identically to creating.
  */
+/** Prior variation sample size applied the first time a user enables exploration. */
+const DEFAULT_PRIOR_ARM_SAMPLE_SIZE = 50;
+
 export default function ContextualBanditAnalysisMetricsModal({
   cb,
   mutate,
@@ -44,7 +63,7 @@ export default function ContextualBanditAnalysisMetricsModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const { datasources, getDatasourceById, getExperimentMetricById } =
     useDefinitions();
   const { organization } = useUser();
@@ -84,6 +103,7 @@ export default function ContextualBanditAnalysisMetricsModal({
     defaultValues: {
       datasource: cb.datasource ?? "",
       exposureQueryId: cb.contextualBanditQueryId ?? "",
+      contextualAttributes: cb.contextualAttributes ?? [],
       decisionMetric: cb.decisionMetric ?? "",
       banditScheduleValue:
         cb.scheduleValue ?? scopedSettings.banditScheduleValue.value,
@@ -94,8 +114,13 @@ export default function ContextualBanditAnalysisMetricsModal({
       banditBurnInUnit: cb.burnInUnit ?? scopedSettings.banditBurnInUnit.value,
       banditConversionWindowValue: initialConversionWindow.value,
       banditConversionWindowUnit: initialConversionWindow.unit,
+      increaseBanditExploration: (cb.priorSampleSize ?? 0) > 0,
+      priorSampleSize: cb.priorSampleSize ?? 0,
     },
   });
+
+  const increaseBanditExploration = form.watch("increaseBanditExploration");
+  const priorSampleSizeId = useId();
 
   const watchedDatasource = form.watch("datasource");
   const watchedQueryId = form.watch("exposureQueryId");
@@ -113,8 +138,26 @@ export default function ContextualBanditAnalysisMetricsModal({
     [contextualBanditQueries, watchedQueryId],
   );
 
-  const derivedContextualAttributes =
-    selectedQuery?.targetingAttributeColumns ?? [];
+  const isDraft = cb.status === "draft";
+  const attributeSchema = useAttributeSchema(false);
+  const eligibleAttributes = useMemo(
+    () =>
+      getEligibleContextualAttributes(
+        selectedQuery?.targetingAttributeColumns,
+        attributeSchema,
+      ),
+    [selectedQuery, attributeSchema],
+  );
+  const watchedContextualAttributes = form.watch("contextualAttributes");
+  const selectedContextualAttributes = useMemo(
+    () => watchedContextualAttributes ?? [],
+    [watchedContextualAttributes],
+  );
+  const effectiveContextualAttributes = getEffectiveContextualAttributes(
+    selectedContextualAttributes,
+    selectedQuery?.targetingAttributeColumns,
+    attributeSchema,
+  );
 
   useEffect(() => {
     if (!contextualBanditQueries.length) return;
@@ -122,6 +165,16 @@ export default function ContextualBanditAnalysisMetricsModal({
       form.setValue("exposureQueryId", contextualBanditQueries[0]?.id ?? "");
     }
   }, [contextualBanditQueries, watchedQueryId, form]);
+
+  const seededQueryIdRef = useRef<string | undefined>(
+    cb.contextualBanditQueryId,
+  );
+  useEffect(() => {
+    if (!isDraft || !selectedQuery) return;
+    if (seededQueryIdRef.current === watchedQueryId) return;
+    seededQueryIdRef.current = watchedQueryId;
+    form.setValue("contextualAttributes", eligibleAttributes);
+  }, [isDraft, selectedQuery, watchedQueryId, eligibleAttributes, form]);
 
   return (
     <FormProvider {...form}>
@@ -132,21 +185,56 @@ export default function ContextualBanditAnalysisMetricsModal({
         close={close}
         cta="Save"
         size="lg"
-        submit={form.handleSubmit(async (data) => {
+        submit={validatedSubmit(form, async (data) => {
           const query = contextualBanditQueries.find(
             (q) => q.id === data.exposureQueryId,
           );
-          const contextualAttributes =
-            query?.targetingAttributeColumns ?? cb.contextualAttributes;
+          const eligible = getEligibleContextualAttributes(
+            query?.targetingAttributeColumns,
+            attributeSchema,
+          );
+          const contextualAttributes = isDraft
+            ? data.contextualAttributes.filter((a) => eligible.includes(a))
+            : cb.contextualAttributes;
+          if (isDraft && contextualAttributes.length === 0) {
+            throw new Error(
+              "Select at least one contextual attribute for this Contextual Bandit.",
+            );
+          }
+          const queryChanged =
+            data.exposureQueryId !== cb.contextualBanditQueryId;
+          if (
+            !isDraft &&
+            queryChanged &&
+            !contextualAttributes.some((a) => eligible.includes(a))
+          ) {
+            throw new Error(
+              `The selected query has no attributes in common with this Bandit's contextual attributes (${contextualAttributes.join(
+                ", ",
+              )}). Choose a query that includes at least one of them.`,
+            );
+          }
 
           const includeConversionWindow =
             !disableBanditConversionWindow &&
             !!data.banditConversionWindowValue &&
             !!data.banditConversionWindowUnit;
 
-          await apiCall(`/api/v1/contextual-bandits/${cb.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
+          const priorSampleSize = data.increaseBanditExploration
+            ? Number(data.priorSampleSize)
+            : 0;
+          if (
+            data.increaseBanditExploration &&
+            (!Number.isInteger(priorSampleSize) || priorSampleSize < 1)
+          ) {
+            throw new Error(
+              "Enter a prior variation sample size of at least 1, or turn off Increase Bandit exploration.",
+            );
+          }
+
+          await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+            params: { id: cb.id },
+            body: {
               datasource: data.datasource || undefined,
               contextualBanditQueryId: data.exposureQueryId || undefined,
               contextualAttributes,
@@ -161,7 +249,8 @@ export default function ContextualBanditAnalysisMetricsModal({
               conversionWindowUnit: includeConversionWindow
                 ? data.banditConversionWindowUnit
                 : null,
-            }),
+              priorSampleSize,
+            },
           });
           mutate();
         })}
@@ -198,26 +287,54 @@ export default function ContextualBanditAnalysisMetricsModal({
         ) : null}
 
         {selectedQuery ? (
-          <div className="form-group">
-            <label className="font-weight-bold">Contextual Attributes</label>
-            <div>
-              {derivedContextualAttributes.length > 0 ? (
-                derivedContextualAttributes.map((attr, i) => (
-                  <Fragment key={attr}>
-                    {i > 0 ? ", " : ""}
-                    <code>{attr}</code>
-                  </Fragment>
-                ))
-              ) : (
-                <em className="text-muted">
-                  None — add targeting attribute columns to the selected query.
-                </em>
-              )}
-            </div>
-            <small className="form-text text-muted">
-              Derived from the selected Contextual Bandit query.
-            </small>
-          </div>
+          isDraft ? (
+            eligibleAttributes.length > 0 ? (
+              <MultiSelectField
+                label="Contextual Attributes"
+                value={selectedContextualAttributes}
+                onChange={(v) => form.setValue("contextualAttributes", v)}
+                options={eligibleAttributes.map((a) => ({
+                  label: a,
+                  value: a,
+                }))}
+                placeholder="Select contextual attributes…"
+                legacyLabelFormatting={false}
+                helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
+              />
+            ) : (
+              <Box mb="3">
+                <Text weight="semibold" size="md">
+                  Contextual Attributes
+                </Text>
+                <HelperText status="warning">
+                  The selected query has no targeting attribute columns that are
+                  still valid organization attributes.
+                </HelperText>
+              </Box>
+            )
+          ) : (
+            <Box mb="3">
+              <Text weight="semibold" size="md">
+                Contextual Attributes
+              </Text>
+              <Box mt="1">
+                {effectiveContextualAttributes.length > 0 ? (
+                  effectiveContextualAttributes.map((attr, i) => (
+                    <Fragment key={attr}>
+                      {i > 0 ? ", " : ""}
+                      <code>{attr}</code>
+                    </Fragment>
+                  ))
+                ) : (
+                  <Text color="text-low">None</Text>
+                )}
+              </Box>
+              <HelperText status="info">
+                Contextual attributes can only be changed while the Bandit is a
+                draft.
+              </HelperText>
+            </Box>
+          )
         ) : null}
 
         <hr className="my-4" />
@@ -237,6 +354,53 @@ export default function ContextualBanditAnalysisMetricsModal({
           project={cb.project}
           autoApplyDefaults={false}
         />
+
+        <Separator size="4" my="4" />
+
+        <Box mb="2">
+          <Switch
+            label="Increase Bandit exploration"
+            description="Shrink variation mean estimates toward a shared mean to facilitate model exploration."
+            value={increaseBanditExploration}
+            onChange={(v) => {
+              form.setValue("increaseBanditExploration", v);
+              if (v) {
+                const current = Number(form.getValues("priorSampleSize")) || 0;
+                if (current < 1) {
+                  form.setValue(
+                    "priorSampleSize",
+                    DEFAULT_PRIOR_ARM_SAMPLE_SIZE,
+                  );
+                }
+              } else {
+                form.setValue("priorSampleSize", 0);
+              }
+            }}
+          />
+        </Box>
+
+        {increaseBanditExploration ? (
+          <TextField
+            mb="3"
+            id={priorSampleSizeId}
+            type="number"
+            min={1}
+            step={1}
+            style={{ width: 90 }}
+            label={
+              <Text
+                as="label"
+                htmlFor={priorSampleSizeId}
+                weight="semibold"
+                size="md"
+              >
+                Prior variation sample size{" "}
+                <Tooltip body="The number of prior (pseudo) observations used to shrink each variation mean toward a shared mean. The larger the prior sample size, the stronger the exploration." />
+              </Text>
+            }
+            {...form.register("priorSampleSize", { valueAsNumber: true })}
+          />
+        ) : null}
       </ModalStandard>
     </FormProvider>
   );

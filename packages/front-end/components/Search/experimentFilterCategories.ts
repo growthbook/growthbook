@@ -1,8 +1,13 @@
 import { useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentHealthState,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { useUser } from "@/services/UserContext";
 import { SearchFiltersItem } from "@/components/Search/SearchFilters";
+import { EXPERIMENT_HEALTH_STATE_LABELS } from "@/services/experiments";
+import { isTempRolloutHealthState } from "@/services/health";
 
 /**
  * Single source of truth for the experiment-filter taxonomy (tags, metrics,
@@ -17,14 +22,19 @@ export interface ExperimentFilterCategories {
   resultItems: SearchFiltersItem[];
   statusItems: SearchFiltersItem[];
   typeItems: SearchFiltersItem[];
+  healthItems: SearchFiltersItem[];
 }
 
 export function useExperimentFilterCategories({
   experiments,
   allowDrafts = true,
+  includeTempRollouts = false,
 }: {
   experiments: ExperimentInterfaceStringDates[];
   allowDrafts?: boolean;
+  // Only lists whose experiments were loaded with served temp rollout ids
+  // can filter on them.
+  includeTempRollouts?: boolean;
 }): ExperimentFilterCategories {
   const { getOwnerDisplay } = useUser();
   const allMetrics = useCombinedMetrics({});
@@ -132,6 +142,25 @@ export function useExperimentFilterCategories({
     ];
   }, [experiments]);
 
+  const healthItems = useMemo<SearchFiltersItem[]>(
+    () =>
+      (
+        Object.entries(EXPERIMENT_HEALTH_STATE_LABELS) as [
+          ExperimentHealthState,
+          string,
+        ][]
+      )
+        .filter(
+          ([state]) => includeTempRollouts || !isTempRolloutHealthState(state),
+        )
+        .map(([state, label]) => ({
+          searchValue: state,
+          id: `health-${state}`,
+          name: label,
+        })),
+    [includeTempRollouts],
+  );
+
   return {
     availableTags,
     metricItems,
@@ -139,5 +168,6 @@ export function useExperimentFilterCategories({
     resultItems,
     statusItems,
     typeItems,
+    healthItems,
   };
 }

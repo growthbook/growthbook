@@ -29,6 +29,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -135,7 +136,7 @@ const CompactResults: FC<{
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),

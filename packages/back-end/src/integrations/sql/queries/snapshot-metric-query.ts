@@ -12,6 +12,7 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentMetricQueryParams } from "shared/types/integrations";
 import type { MetricInterface } from "shared/types/metric";
 import type { SqlDialect } from "shared/types/sql";
+import { getSnapshotCutoffDate } from "shared/util";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
@@ -25,7 +26,7 @@ import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getFunnelUsersCTE } from "back-end/src/integrations/sql/ctes/funnel-users-cte";
+import { getLegacyFunnelUsersCTE } from "back-end/src/integrations/sql/ctes/funnel-users-cte";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import { getMetricCTE } from "back-end/src/integrations/sql/ctes/metric-cte";
@@ -69,7 +70,7 @@ export function getSnapshotMetricQuery(
     activationMetric,
   );
 
-  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  const userIdType = params.unitsSettings.exposureQuery.identifierType;
   if (!userIdType) {
     throw new Error("Unable to determine user id type from exposureQuery");
   }
@@ -183,6 +184,7 @@ export function getSnapshotMetricQuery(
     orderedMetrics,
     settings.endDate,
     overrideConversionWindows,
+    getSnapshotCutoffDate(settings),
   );
 
   const idTypeObjects = [
@@ -326,7 +328,7 @@ WITH
     .join("\n")}
   ${
     funnelMetric
-      ? `, __denominatorUsers as (${getFunnelUsersCTE(
+      ? `, __denominatorUsers as (${getLegacyFunnelUsersCTE(
           dialect,
           baseIdType,
           denominatorMetrics,
@@ -494,7 +496,8 @@ WITH
               id: metric.id,
               ratioMetric,
               regressionAdjusted,
-              isPercentileCapped,
+              isUpperPercentileCapped: isPercentileCapped,
+              isLowerPercentileCapped: false,
               capCoalesceMetric,
               capCoalesceCovariate,
               capCoalesceDenominator,
@@ -504,9 +507,8 @@ WITH
           ],
           dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
-          hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
-          denominatorIsPercentileCapped,
+          denominatorIsUpperPercentileCapped: denominatorIsPercentileCapped,
         })
       : `
   -- One row per variation/dimension with aggregations

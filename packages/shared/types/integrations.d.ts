@@ -1,5 +1,9 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import type {
+  InterleavingAnalysis,
+  InterleavingVariationRole,
+} from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
 import { AttributionModel } from "shared/types/experiment";
@@ -11,6 +15,10 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
+import type {
+  ExposureQuery,
+  ExposureQueryColumnMapping,
+} from "shared/types/datasource";
 import {
   FactTableMap,
   ColumnInterface,
@@ -18,6 +26,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
   MetricQuantileSettings,
+  RowFilter,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
@@ -47,8 +56,14 @@ export type DataType =
   | "boolean"
   | "date"
   | "timestamp"
+  // Fact-table event-timestamp type (what `castUserDateCol` produces): DATETIME
+  // on BigQuery, TIMESTAMP elsewhere. Distinct from `timestamp` (used for
+  // units/refresh columns, genuinely TIMESTAMP) — funnel step caches store
+  // event timestamps and must match the resolver's DATETIME arithmetic on BQ.
+  | "datetime"
   | "hll"
-  | "quantileSketch";
+  | "quantileSketch"
+  | "arrayTimestamp";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
@@ -132,10 +147,15 @@ export type FactMetricData = {
   regressionAdjusted: boolean;
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
-  isPercentileCapped: boolean;
+  /** Upper-tail percentile capping enabled. */
+  isUpperPercentileCapped: boolean;
+  /** Lower-tail percentile capping enabled. */
+  isLowerPercentileCapped: boolean;
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
+  // Empty for non-funnel metrics.
+  funnelStepSourceIndices: number[];
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
@@ -173,6 +193,9 @@ export type FactMetricSource = {
   metricEnd: Date;
   maxHoursToConvert: number;
   bindingLastMaxTimestamp: boolean;
+  // Exact watermark literal body when `bindingLastMaxTimestamp` and the
+  // caller had one; null otherwise.
+  lastMaxTimestampRaw: string | null;
 };
 
 export type FactMetricQuantileData = {
@@ -187,12 +210,13 @@ export type FactMetricQuantileData = {
   isKllMerge: boolean;
 };
 
+/** One quantile column for `SqlDialect.percentileCapSelectClause` (fact metric experiment SQL). */
 export type FactMetricPercentileData = {
   valueCol: string;
   outputCol: string;
+  sourceIndex: number;
   percentile: number;
   ignoreZeros: boolean;
-  sourceIndex: number;
 };
 
 export type BanditMetricData = Pick<
@@ -201,7 +225,8 @@ export type BanditMetricData = Pick<
   | "id"
   | "ratioMetric"
   | "regressionAdjusted"
-  | "isPercentileCapped"
+  | "isUpperPercentileCapped"
+  | "isLowerPercentileCapped"
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"
@@ -270,17 +295,31 @@ export type DateDimension = {
 export type ActivationDimension = {
   type: "activation";
 };
+export type DateCutoffDimension = {
+  type: "datecutoff";
+  cutoff: Date;
+};
+export type ComboConstituent = UserDimension | ExperimentDimension;
+export type ComboDimension = {
+  type: "combo";
+  // Length 2 enforced at parse/validation for now
+  dimensions: ComboConstituent[];
+};
 export type Dimension =
   | UserDimension
   | ExperimentDimension
   | DateDimension
-  | ActivationDimension;
+  | ActivationDimension
+  | DateCutoffDimension
+  | ComboDimension;
 
 export type ProcessedDimensions = {
   unitDimensions: UserDimension[];
   experimentDimensions: ExperimentDimension[];
   activationDimension: ActivationDimension | null;
   dateDimension: DateDimension | null;
+  dateCutoffDimension: DateCutoffDimension | null;
+  comboDimension: ComboDimension | null;
 };
 
 export interface DropTableQueryParams {
@@ -299,11 +338,15 @@ export type TestQueryParams = {
 };
 
 export type ColumnTopValuesParams = {
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">;
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn" | "columns"
+  >;
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays: number;
   maxValueLength?: number;
+  searchTerm?: string;
 };
 
 /** Rows are returned most-frequent-first per column. */
@@ -314,9 +357,10 @@ export type ColumnTopValuesResponseRow = {
 
 export interface ExperimentUnitsQuerySettings {
   experimentId: string;
-  exposureQuery: { query: string; userIdType: string };
+  exposureQuery: ResolvedExposureQuery;
   startDate: Date;
   endDate: Date;
+  endDateIsCutoff?: boolean;
   skipPartialData: boolean;
   attributionModel: AttributionModel;
   queryFilter: string;
@@ -349,6 +393,10 @@ export interface ExperimentUnitsQueryParams {
 
 export interface ContextualBanditSrmQueryParams {
   settings: ExperimentUnitsQuerySettings;
+  /**
+   * Exposure query's `variation` column value, and its index.
+   */
+  variationKeys: Record<string, string>;
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
@@ -365,6 +413,8 @@ export interface UpdateExperimentIncrementalUnitsQueryParams
   segment: SegmentInterface | null;
   incrementalRefreshStartTime: Date;
   lastMaxTimestamp: Date | null;
+  // Exact watermark (see rawWatermark), when the warehouse gave us one.
+  lastMaxTimestampRaw?: string | null;
   unitsTempTableFullName: string;
 }
 
@@ -415,6 +465,11 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  lastMaxTimestampRaw?: string | null;
+  // Latest timestamp the fact table scan may load: the refresh's start time
+  // for an ended phase, the analysis end date for a running one. A row past it
+  // can't become the cache watermark.
+  incrementalRefreshStartTime: Date;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -446,6 +501,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  lastCovariateSuccessfulMaxTimestampRaw?: string | null;
   // When true, snap the raw scan to daily grain so this fallback covers the same
   // days the pre-aggregated table would.
   alignLegacyScanToDailyGrain: boolean;
@@ -463,6 +519,7 @@ export interface InsertMetricSourceCovariateFromAggregatedFactTableQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  lastCovariateSuccessfulMaxTimestampRaw?: string | null;
   // Warehouse table the daily partials are read from (registry.tableFullName).
   aggregatedTableFullName: string;
   // Native id type the aggregated table is keyed on (= exposure userIdType).
@@ -492,11 +549,18 @@ export interface InsertAggregatedFactTableDataQueryParams {
   // Lower bound on event timestamp: incremental uses the watermark with
   // exclusiveStart=true; restate uses the chunk start with exclusiveStart=false.
   windowStartDate: Date;
+  // Exact watermark (see rawWatermark) for exclusiveStart, when the
+  // warehouse gave us one.
+  windowStartDateRaw?: string | null;
   exclusiveStart: boolean;
-  // Exclusive upper bound on event timestamp. Set for all but the last chunk
-  // of a chunked restate so chunks tile [windowStart, now) half-open; null for
-  // incremental, the final restate chunk, and unchunked restates (open to "now").
-  windowEndDate: Date | null;
+  // Exclusive upper bound on event timestamp: the next chunk's start, or the
+  // run's own start time for the last (or only) chunk. Never later than the
+  // run's clock: the scan's MAX(timestamp) becomes the watermark, and a row
+  // stamped in the future (e.g. a client event time from a device clock set
+  // ahead) would otherwise stall every later incremental run, which reads
+  // only rows after the watermark, until the wall clock caught up. Rows
+  // stamped later are appended, once, by the first run whose clock passes them.
+  windowEndDate: Date;
 }
 
 export interface AggregatedFactTableMaxTimestampQueryParams {
@@ -523,11 +587,23 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // skipPartialData cutoff is relative to this (defaults to now). Important for Incremental Exploratory
+  // which passes the last overall snapshot's dateCreated.
+  asOf?: Date;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 
-export type ResolvedExposureQuery = { query: string; userIdType: string };
+/**
+ * An assignment query's SQL with the identifier resolved for this analysis.
+ * Deliberately not shaped like `ExposureQuery`, so an unresolved query can't
+ * be passed where a resolved one is expected.
+ */
+export type ResolvedExposureQuery = {
+  query: string;
+  identifierType: string;
+  columnMapping?: ExposureQueryColumnMapping;
+};
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
@@ -582,6 +658,12 @@ export type PastExperimentParams = {
   forceRefresh?: boolean;
 };
 
+export type PastExperimentQueryParams = {
+  exposureQuery: ExposureQuery;
+  identifierTypes: string[];
+  from: Date;
+};
+
 export type MetricValueParams = {
   from: Date;
   to: Date;
@@ -627,9 +709,15 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
+  /** Unset on results stored before imports ran one query per assignment query. */
+  exposureQueryId?: string;
+  identifierTypes?: string[];
+  from?: Date;
   mergeResults: boolean;
   experiments: {
     exposureQueryId: string;
+    /** Unset on results stored before every identifier was counted. */
+    identifierType?: string;
     experiment_id: string;
     experiment_name?: string;
     variation_id: string;
@@ -691,6 +779,12 @@ export type MetricAnalysisQueryResponseRow = {
   denominator_sum?: number;
   denominator_sum_squares?: number;
   main_denominator_sum_product?: number;
+  /** Upper-tail percentile cap threshold applied to the numerator (when applicable). */
+  main_cap_value?: number;
+  /** Lower-tail percentile cap threshold applied to the numerator (when applicable). */
+  main_cap_value_lower?: number;
+  denominator_cap_value?: number;
+  denominator_cap_value_lower?: number;
 
   value_min?: number;
   value_max?: number;
@@ -726,6 +820,7 @@ export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];
 
 export type PastExperimentResponseRows = {
   exposure_query: string;
+  identifier_type: string;
   experiment_id: string;
   experiment_name?: string;
   variation_id: string;
@@ -741,9 +836,11 @@ export type ExperimentMetricQueryResponseRows = {
   users: number;
   count: number;
   main_cap_value?: number;
+  main_cap_value_lower?: number;
   main_sum: number;
   main_sum_squares: number;
   denominator_cap_value?: number;
+  denominator_cap_value_lower?: number;
   denominator_sum?: number;
   denominator_sum_squares?: number;
   main_denominator_sum_product?: number;
@@ -786,20 +883,25 @@ export type DimensionSlicesQueryResponseRows = {
 
 export type ContextualBanditSrmQueryResponseRows = {
   /**
-   * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
-   * usable cells (expected >= 5) of the kept (leaf_id, bandit_version)
-   * groups (those with at least 2 usable cells).
+   * "summary" carries the overall statistic + degrees_of_freedom (across all
+   * bandit periods). "cell" rows carry raw observed/expected per leaf &
+   * variation for the most recent bandit period only.
    */
+  row_type: "summary" | "cell";
   statistic: number;
-  /**
-   * Degrees of freedom computed in SQL as
-   * (sum of usable cells across kept groups) - (number of kept groups).
-   */
   degrees_of_freedom: number;
+  bandit_version: string;
+  leaf_id: string;
+  variation: string;
+  observed: number;
+  expected: number;
+  multiple_exposures: number;
 }[];
 
 export type MaxTimestampQueryResponseRow = {
   max_timestamp: string;
+  // Same instant via SqlDialect.formatTimestampExact; NULL when unsupported.
+  max_timestamp_raw?: string;
 };
 
 export type UserExperimentExposuresQueryResponseRows = {
@@ -863,6 +965,29 @@ export type FeatureEvalDiagnosticsQueryResponse =
     truncated?: boolean;
   };
 
+export type ExperimentExposuresQueryParams = {
+  experimentId: string;
+  experimentTrackingKey: string;
+  exposureQuery: ResolvedExposureQuery;
+  startDate: Date;
+  endDate: Date;
+  dimensions: string[];
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
+  /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
+  rowFilters?: RowFilter[];
+  limit: number;
+};
+
+// The query selects every column the exposure query returns, so the shape is
+// only known at runtime. shapeExposureRows() in
+// back-end/src/services/experiment-exposures.ts splits it into typed fields
+// and the `extra` bag behind the expandable row.
+export type ExperimentExposuresQueryResponseRows = Record<string, unknown>[];
+
+export type ExperimentExposuresQueryResponse =
+  QueryResponse<ExperimentExposuresQueryResponseRows>;
+
 export interface TestQueryRow {
   [key: string]: unknown;
 }
@@ -884,6 +1009,7 @@ export interface Column {
   columnName: string;
   path?: string;
   dataType: string;
+  isPartition?: boolean;
 }
 
 export interface Table {
@@ -988,3 +1114,41 @@ export interface FeatureUsageAggregateRow {
   evaluations: number;
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
+
+// One metric and every analysis requested on it. The metric's numerator
+// (column, aggregation, row filters) is resolved with the same helpers as
+// experiment fact metrics.
+export interface InterleavingMetricQueryMetric {
+  metric: FactMetricInterface;
+  // Position in the snapshot's frozen metric list, which names this metric's
+  // output columns. Not the position within this query: metrics are split
+  // across one query per fact table and the results merge into one row.
+  index: number;
+  // "paired" needs ranking_id on the metric's fact table; preference only
+  // needs item_id.
+  analyses: InterleavingAnalysis[];
+}
+
+export interface InterleavingMetricQueryParams {
+  // The interleaving exposure query SQL (one row per impression, nested
+  // items JSON column)
+  interleavingExposureQuerySql: string;
+  userIdType: string;
+  trackingKey: string;
+  // Matched against the exposure items' `variation` values
+  variationKeys: Record<InterleavingVariationRole, string>;
+  startDate: Date;
+  endDate: Date;
+  // One query analyzes all metrics whose numerator reads this fact table;
+  // output columns are prefixed m{index}_ using each metric's `index`, with
+  // every analysis's columns under the same prefix. Paired/preference CTEs
+  // are only included when at least one metric requests them.
+  factTable: FactTableInterface;
+  metrics: InterleavingMetricQueryMetric[];
+}
+
+// One row of numeric aggregates; the column set depends on the attribution type
+// (paired sufficient statistics vs preference counts)
+export type InterleavingMetricQueryResponseRows = Record<string, number>[];
+export type InterleavingMetricQueryResponse =
+  QueryResponse<InterleavingMetricQueryResponseRows>;

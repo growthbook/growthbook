@@ -273,7 +273,7 @@ describe("Auto experiments", () => {
     expect(document.body.innerHTML).toEqual("<h1>title</h1>");
     expect(document.head.innerHTML).toEqual("");
 
-    // Triggering a non-existant experiment does nothing
+    // Triggering a non-existent experiment does nothing
     gb.triggerExperiment("my-test");
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>title</h1>");

@@ -1,7 +1,14 @@
 import React from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import { transformPayloadForDiffDisplay } from "@/services/importing/statsig/util";
+
+const IMPORT_DIFF_STYLES = {
+  diffContainer: { fontSize: "11px", lineHeight: "1.1" },
+  line: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.1" },
+  contentText: { fontSize: "11px", lineHeight: "1.1" },
+  gutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.1" },
+};
 
 interface EntityAccordionProps {
   entity: unknown;
@@ -170,33 +177,13 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
                 }}
                 className="diff-viewer-wrapper"
               >
-                <ReactDiffViewer
+                <LazyDiffViewer
                   oldValue={existingJson}
                   newValue={transformedData}
-                  compareMethod={DiffMethod.LINES}
                   splitView={true}
                   leftTitle="Existing (GrowthBook)"
                   rightTitle="Update (preview - may differ upon importing)"
-                  styles={{
-                    diffContainer: {
-                      fontSize: "11px",
-                      lineHeight: "1.1",
-                    },
-                    line: {
-                      fontSize: "11px",
-                      padding: "1px 2px",
-                      lineHeight: "1.1",
-                    },
-                    contentText: {
-                      fontSize: "11px",
-                      lineHeight: "1.1",
-                    },
-                    gutter: {
-                      fontSize: "11px",
-                      padding: "1px 2px",
-                      lineHeight: "1.1",
-                    },
-                  }}
+                  styles={IMPORT_DIFF_STYLES}
                 />
               </div>
             </div>

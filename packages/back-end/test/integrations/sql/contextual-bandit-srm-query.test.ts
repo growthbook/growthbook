@@ -1,11 +1,11 @@
 import type { ExperimentUnitsQuerySettings } from "shared/types/integrations";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { postgresDialect } from "shared/dialects";
 import { getContextualBanditSrmQuery } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 
 const defaultExposureQuery = {
   query:
     "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, bandit_version, variation_weights FROM cb_assignments",
-  userIdType: "user_id",
+  identifierType: "user_id",
 };
 
 function makeSettings(
@@ -24,18 +24,32 @@ function makeSettings(
   } as unknown as ExperimentUnitsQuerySettings;
 }
 
+// Every test states its variation-id → warehouse-key map explicitly, so the
+// key↔id mapping is always visible and no test can lean on key === index.
+function makeParams(
+  variationKeys: Record<string, string>,
+  overrides: Partial<ExperimentUnitsQuerySettings> = {},
+) {
+  return {
+    settings: makeSettings(overrides),
+    variationKeys,
+  };
+}
+
 function compact(sql: string): string {
   return sql.replace(/\s+/g, "");
 }
 
 describe("getContextualBanditSrmQuery", () => {
   it("builds the SRM query with per-variation observed/expected cells", () => {
-    const sql = getContextualBanditSrmQuery(postgresDialect, {
-      settings: makeSettings(),
-    });
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams({ var_control: "0", var_treatment: "1" }),
+    );
     const c = compact(sql);
 
     expect(c).toContain("__rawExperiment");
+    expect(c).toContain("e.user_idASuid");
     expect(c).toContain("e.experiment_id='exp_1'");
     expect(c).toContain("e.timestamp>=");
 
@@ -46,6 +60,14 @@ describe("getContextualBanditSrmQuery", () => {
       "ROW_NUMBER()OVER(PARTITIONBYuid,leaf_id,bandit_versionORDERBYtimestampASC)",
     );
     expect(c).toContain("__rn=1");
+
+    expect(c).toContain(
+      "MIN(variation)OVER(PARTITIONBYuid,leaf_id,bandit_version)AS__min_variation",
+    );
+    expect(c).toContain(
+      "MAX(variation)OVER(PARTITIONBYuid,leaf_id,bandit_version)AS__max_variation",
+    );
+    expect(c).toContain("__min_variation=__max_variation");
 
     expect(c).toContain("variation='0'");
     expect(c).toContain("variation='1'");
@@ -71,57 +93,152 @@ describe("getContextualBanditSrmQuery", () => {
       "COALESCE(SUM(num_valid_cells),0)-COUNT(*)ASdegrees_of_freedom",
     );
     expect(c).toContain("ASdegrees_of_freedom");
+
+    // Latest-period breakdown: a summary row plus one cell row per leaf/variation
+    // for the most recent bandit_version, discriminated by row_type. The latest
+    // period is chosen by most-recent exposure timestamp, not by ordering the
+    // free-form bandit_version column (which could sort '9' after '10').
+    expect(c).toContain("MAX(timestamp)ASlatest_ts");
+    expect(c).toContain("ROW_NUMBER()OVER(ORDERBYMAX(latest_ts)DESC)AS__vrn");
+    expect(c).toContain("__cbLatestVersion");
+    expect(c).toContain("__cbLatestBreakdown");
+    expect(c).toContain("ASrow_type");
+    expect(c).toContain("'summary'");
+    expect(c).toContain("'cell'");
+    expect(c).toContain(
+      "JOIN__cbLatestVersionvON(a.bandit_version=v.bandit_version)",
+    );
+
+    // Multiple-exposure users: distinct users who saw >1 variation within a
+    // single (leaf_id, bandit_version) cell are counted (period-scoped so
+    // legitimate cross-period reassignment is not flagged) and attached to the
+    // summary row via a CROSS JOIN.
+    expect(c).toContain("__cbMultipleExposures");
+    expect(c).toContain("COUNT(DISTINCTuid)ASmultiple_exposures");
+    expect(c).toContain("__min_variation<>__max_variation");
+    expect(c).toContain("CROSSJOIN__cbMultipleExposures");
   });
 
   it("emits one observed/expected pair and array index per variation", () => {
-    const sql = getContextualBanditSrmQuery(postgresDialect, {
-      settings: makeSettings({
-        variations: [
-          { id: "var_a", weight: 0.34 },
-          { id: "var_b", weight: 0.33 },
-          { id: "var_c", weight: 0.33 },
-        ],
-      }),
-    });
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams(
+        { var_a: "0", var_b: "1", var_c: "2" },
+        {
+          variations: [
+            { id: "var_a", weight: 0.34 },
+            { id: "var_b", weight: 0.33 },
+            { id: "var_c", weight: 0.33 },
+          ],
+        },
+      ),
+    );
     const c = compact(sql);
 
     expect(c).toContain("e.variation_weights[3]ASw_2");
     expect(c).toContain("ASobserved_2");
     expect(c).toContain("ASexpected_2");
     expect(c).not.toContain("num_variations");
-    expect(sql.match(/UNION ALL/gi)?.length).toBe(2);
+    // __cbCells (3 SELECTs => 2) + __cbLatestBreakdown (3 SELECTs => 2) +
+    // the summary/breakdown union (1) = 5.
+    expect(sql.match(/UNION ALL/gi)?.length).toBe(5);
   });
 
   it("omits the upper time bound when endDate is not set", () => {
-    const sql = getContextualBanditSrmQuery(postgresDialect, {
-      settings: makeSettings({ endDate: undefined }),
-    });
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams(
+        { var_control: "0", var_treatment: "1" },
+        { endDate: undefined },
+      ),
+    );
     const c = compact(sql);
 
     expect(c).toContain("e.timestamp>=");
     expect(c).not.toContain("e.timestamp<=");
   });
 
+  it("applies the units queryFilter so it matches the traffic query's population", () => {
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams(
+        { var_control: "0", var_treatment: "1" },
+        { queryFilter: "e.country = 'US'" },
+      ),
+    );
+    expect(compact(sql)).toContain("AND(e.country='US')");
+
+    const withoutFilter = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams({ var_control: "0", var_treatment: "1" }),
+    );
+    expect(compact(withoutFilter)).not.toContain("e.country");
+  });
+
   it("throws when there are no variations", () => {
     expect(() =>
-      getContextualBanditSrmQuery(postgresDialect, {
-        settings: makeSettings({ variations: [] }),
-      }),
+      getContextualBanditSrmQuery(
+        postgresDialect,
+        makeParams({}, { variations: [] }),
+      ),
     ).toThrow(/at least one variation/);
   });
 
   it("uses the resolved exposure query for the assignment query SQL + identifier type", () => {
-    const sql = getContextualBanditSrmQuery(postgresDialect, {
-      settings: makeSettings({
-        exposureQuery: {
-          query: "SELECT * FROM my_cb_assignments",
-          userIdType: "anonymous_id",
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams(
+        { var_control: "0", var_treatment: "1" },
+        {
+          exposureQuery: {
+            query: "SELECT * FROM my_cb_assignments",
+            identifierType: "anonymous_id",
+          },
         },
-      }),
-    });
+      ),
+    );
     const c = compact(sql);
 
     expect(c).toContain("SELECT*FROMmy_cb_assignments");
     expect(c).toContain("e.anonymous_idASuid");
+  });
+
+  it("matches observed counts on the warehouse variation key, not the index", () => {
+    // Custom, non-numeric keys: the observed-count comparison must use the key
+    // ("A0"/"A1"), never the positional index ("0"/"1").
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams({ var_control: "A0", var_treatment: "A1" }),
+    );
+    const c = compact(sql);
+
+    expect(c).toContain("variation='A0'");
+    expect(c).toContain("variation='A1'");
+    expect(c).not.toContain("variation='0'");
+    expect(c).not.toContain("variation='1'");
+    // Weight array indexing stays positional regardless of the key.
+    expect(c).toContain("e.variation_weights[1]ASw_0");
+    expect(c).toContain("e.variation_weights[2]ASw_1");
+  });
+
+  it("throws when a variation is missing its warehouse key", () => {
+    // The map is missing `var_treatment`; we must fail loudly rather than fall
+    // back to the positional index (which would silently miscount SRM).
+    expect(() =>
+      getContextualBanditSrmQuery(
+        postgresDialect,
+        makeParams({ var_control: "A0" }),
+      ),
+    ).toThrow(/missing the warehouse key for variation "var_treatment"/);
+  });
+
+  it("escapes single quotes in variation keys", () => {
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams({ var_control: "a'b", var_treatment: "c" }),
+    );
+    const c = compact(sql);
+
+    expect(c).toContain("variation='a''b'");
   });
 });

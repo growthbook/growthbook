@@ -3,6 +3,11 @@ import { RampScheduleTemplateInterface } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 
 // GET /ramp-schedule-templates
 export const getRampScheduleTemplates = async (
@@ -43,7 +48,7 @@ export const postRampScheduleTemplate = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 
@@ -51,6 +56,10 @@ export const postRampScheduleTemplate = async (
 
   const { steps, name, official, endPatch, monitoringConfig, lockdownConfig } =
     body;
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntries(collectRampPlanPatches({ steps, endPatch }), null),
+  );
 
   const created = await context.models.rampScheduleTemplates.create({
     name,
@@ -73,7 +82,7 @@ export const reorderRampScheduleTemplates = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 
@@ -97,7 +106,7 @@ export const putRampScheduleTemplate = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 
@@ -118,6 +127,11 @@ export const putRampScheduleTemplate = async (
     updates.monitoringConfig = body.monitoringConfig;
   if (body.lockdownConfig !== undefined)
     updates.lockdownConfig = body.lockdownConfig;
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntries(collectRampPlanPatches(updates), null),
+    { stored: [template] },
+  );
 
   const updated = await context.models.rampScheduleTemplates.updateById(
     template.id,
@@ -135,7 +149,7 @@ export const deleteRampScheduleTemplate = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 

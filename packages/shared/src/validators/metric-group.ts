@@ -4,6 +4,12 @@ import { apiBaseSchema, baseSchema } from "./base-model";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  PLAIN_DESCRIPTION,
+  PROJECTS_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const metricGroupValidator = baseSchema.safeExtend({
   owner: ownerField,
@@ -32,10 +38,13 @@ export const apiMetricGroupValidator = namedSchema(
 );
 
 export const apiCreateMetricGroupBody = z.strictObject({
-  name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH),
-  tags: z.array(z.string()).optional(),
-  projects: z.array(z.string()),
+  name: z.string().describe(GENERIC_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(PLAIN_DESCRIPTION),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
+  projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION),
   metrics: z.array(z.string()),
   datasource: z.string(),
   owner: ownerInputField.optional(),

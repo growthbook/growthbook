@@ -1,23 +1,12 @@
 import express from "express";
 import { z } from "zod";
 import {
-  zodNotificationEventNamesEnum,
   eventWebHookMethods,
-  eventWebHookPayloadTypes,
-  isEventWebhookWildcard,
+  eventWebHookRequestBodySchema,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
-
-const eventNameOrWildcard = z
-  .string()
-  .refine(
-    (val) =>
-      zodNotificationEventNamesEnum.includes(val as never) ||
-      isEventWebhookWildcard(val),
-    { message: "Must be a valid event name or wildcard pattern" },
-  );
 
 const router = express.Router();
 
@@ -36,20 +25,7 @@ router.get("/event-webhooks", eventWebHooksController.getEventWebHooks);
 router.post(
   "/event-webhooks",
   validateRequestMiddleware({
-    body: z
-      .object({
-        url: z.string().url(),
-        name: z.string().trim().min(2),
-        events: z.array(eventNameOrWildcard).min(1),
-        enabled: z.boolean(),
-        projects: z.array(z.string()),
-        tags: z.array(z.string()),
-        environments: z.array(z.string()),
-        payloadType: z.enum(eventWebHookPayloadTypes),
-        method: z.enum(eventWebHookMethods),
-        headers: z.object({}).catchall(z.string()),
-      })
-      .strict(),
+    body: eventWebHookRequestBodySchema,
   }),
   eventWebHooksController.createEventWebHook,
 );
@@ -114,20 +90,7 @@ router.put(
         eventWebHookId: z.string(),
       })
       .strict(),
-    body: z
-      .object({
-        url: z.string().url(),
-        name: z.string().trim().min(2),
-        events: z.array(eventNameOrWildcard).min(1),
-        enabled: z.boolean(),
-        projects: z.array(z.string()),
-        tags: z.array(z.string()),
-        environments: z.array(z.string()),
-        payloadType: z.enum(eventWebHookPayloadTypes),
-        method: z.enum(eventWebHookMethods),
-        headers: z.object({}).catchall(z.string()),
-      })
-      .strict(),
+    body: eventWebHookRequestBodySchema,
   }),
   eventWebHooksController.putEventWebHook,
 );

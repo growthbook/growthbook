@@ -34,6 +34,33 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Fake Date only, so cache staleness follows explicit clock moves rather than how
+// long SDK init happens to take on a loaded machine.
+function useFrozenClock() {
+  jest.useFakeTimers({
+    doNotFake: [
+      "hrtime",
+      "nextTick",
+      "performance",
+      "queueMicrotask",
+      "requestAnimationFrame",
+      "cancelAnimationFrame",
+      "requestIdleCallback",
+      "cancelIdleCallback",
+      "setImmediate",
+      "clearImmediate",
+      "setInterval",
+      "clearInterval",
+      "setTimeout",
+      "clearTimeout",
+    ],
+  });
+}
+
+function advanceClock(ms: number) {
+  jest.setSystemTime(Date.now() + ms);
+}
+
 function mockApi(
   data: FeatureApiResponse | null,
   supportSSE: boolean = false,
@@ -164,6 +191,10 @@ const sdkPayloadUpdated = {
 };
 
 describe("remote-eval", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("debounces network requests for same clientKey and cacheKeyAttributes", async () => {
     await clearCache();
     const [f, cleanup] = mockApi(sdkPayload);
@@ -230,6 +261,62 @@ describe("remote-eval", () => {
     growthbook5.destroy();
     cleanup();
   });
+
+  it.each(["option", "attribute"])(
+    "includes remote group IDs from the %s in a custom cache key",
+    async (source) => {
+      useFrozenClock();
+      await clearCache();
+      const [fetch, cleanup] = mockApi({
+        features: {
+          vip: {
+            defaultValue: false,
+            rules: [
+              {
+                condition: { __gb_remoteGroupIds: { $in: ["grp_vip"] } },
+                force: true,
+              },
+            ],
+          },
+        },
+      });
+      const gb = new GrowthBook({
+        apiHost: "https://fakeapi.sample.io",
+        clientKey: "remote-groups-cache",
+        remoteEval: true,
+        cacheKeyAttributes: ["uid"],
+        attributes: { uid: "5", __gb_remoteGroupIds: [] },
+        ...(source === "option" ? { remoteGroupIds: [] } : {}),
+      });
+      try {
+        await gb.loadFeatures();
+        expect(gb.isOn("vip")).toBe(false);
+
+        if (source === "option") {
+          await gb.setRemoteGroupIds(["grp_vip"]);
+        } else {
+          await gb.setAttributes({
+            uid: "5",
+            __gb_remoteGroupIds: ["grp_vip"],
+          });
+        }
+        expect(gb.isOn("vip")).toBe(true);
+        expect(fetch).toHaveBeenCalledTimes(2);
+
+        if (source === "option") {
+          await gb.setRemoteGroupIds([]);
+        } else {
+          await gb.setAttributes({ uid: "5", __gb_remoteGroupIds: [] });
+        }
+        expect(gb.isOn("vip")).toBe(false);
+        expect(fetch).toHaveBeenCalledTimes(2);
+      } finally {
+        gb.destroy();
+        cleanup();
+        await clearCache();
+      }
+    },
+  );
 
   it("doesn't fire network requests before loadFeatures is called", async () => {
     await clearCache();
@@ -466,6 +553,7 @@ describe("remote-eval", () => {
   });
 
   it("uses localStorage cache", async () => {
+    useFrozenClock();
     await clearCache();
     await seedLocalStorage();
 
@@ -502,7 +590,7 @@ describe("remote-eval", () => {
     expect(f.mock.calls.length).toEqual(0);
 
     // Wait for localStorage entry to expire and refresh features
-    await sleep(120);
+    advanceClock(120);
     await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(1);
     expect(growthbook.evalFeature("foo").value).toEqual("api");
@@ -514,7 +602,7 @@ describe("remote-eval", () => {
 
     // Wait for localStorage entry to expire again
     // Since the payload didn't change, make sure it updates localStorage staleAt flag
-    await sleep(120);
+    advanceClock(120);
     await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(2);
     expect(growthbook.evalFeature("foo").value).toEqual("api");
@@ -528,7 +616,7 @@ describe("remote-eval", () => {
     // If api has a new version, refreshFeatures should pick it up
     data.features.foo.defaultValue = "new";
     data.dateUpdated = "2020-02-01T00:00:00Z";
-    await sleep(120);
+    advanceClock(120);
     await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(3);
     expect(growthbook.evalFeature("foo").value).toEqual("new");

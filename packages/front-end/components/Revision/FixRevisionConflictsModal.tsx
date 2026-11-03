@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiCheckBold, PiGitMergeBold } from "react-icons/pi";
@@ -13,6 +13,7 @@ import {
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -128,7 +129,7 @@ export function ExpandableConflict({
                   Use External Change
                 </Button>
               </Flex>
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={baseStr}
                 newValue={liveStr}
                 compareMethod={DiffMethod.LINES}
@@ -158,7 +159,7 @@ export function ExpandableConflict({
                   Use My Change
                 </Button>
               </Flex>
-              <ReactDiffViewer
+              <LazyDiffViewer
                 oldValue={baseStr}
                 newValue={proposedStr}
                 compareMethod={DiffMethod.LINES}
@@ -399,7 +400,7 @@ export default function FixRevisionConflictsModal({
                           {field}
                         </Text>
                         <Box className="diff-wrapper" mt="2">
-                          <ReactDiffViewer
+                          <LazyDiffViewer
                             oldValue={formatValue(liveSnapshot[field])}
                             newValue={formatValue(
                               mergeResult.newProposedChanges![field],

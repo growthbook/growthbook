@@ -1,4 +1,4 @@
-import { Context, Experiment, GrowthBook } from "../src";
+import { ConditionInterface, Context, Experiment, GrowthBook } from "../src";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
@@ -582,6 +582,75 @@ describe("features", () => {
     growthbook.destroy();
   });
 
+  it("treats malformed prerequisite conditions as not matching instead of throwing", () => {
+    const log = jest.fn();
+    const growthbook = new GrowthBook({
+      attributes: { id: "1" },
+      debug: true,
+      log,
+      features: {
+        parentFlag: { defaultValue: true },
+        arrayFlag: { defaultValue: [1, 2] },
+        gatedFlag: {
+          defaultValue: true,
+          rules: [
+            {
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { $not: null } as unknown as ConditionInterface,
+                  gate: true,
+                },
+              ],
+            },
+          ],
+        },
+        ruleFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              parentConditions: [
+                {
+                  id: "parentFlag",
+                  condition: { $or: [null] } as unknown as ConditionInterface,
+                },
+              ],
+              force: "prereq",
+            },
+          ],
+        },
+      },
+      experiments: [
+        {
+          key: "exp",
+          variations: [{}, {}],
+          parentConditions: [
+            {
+              id: "arrayFlag",
+              condition: {
+                value: { $elemMatch: null },
+              } as unknown as ConditionInterface,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(growthbook.isOn("gatedFlag")).toEqual(false);
+    expect(growthbook.getFeatureValue("ruleFlag", "fallback")).toEqual(
+      "default",
+    );
+    expect(growthbook.run(growthbook.getExperiments()[0]).inExperiment).toEqual(
+      false,
+    );
+    expect(log).toHaveBeenCalledWith(
+      "Condition evaluation failed",
+      expect.objectContaining({ condition: { $not: null } }),
+    );
+
+    growthbook.destroy();
+  });
+
   it("gates flag rule evaluation on prerequisite experiment flag", async () => {
     const growthbook = new GrowthBook({
       attributes: {
@@ -841,5 +910,56 @@ describe("features", () => {
     expect(result.source).toEqual("cyclicPrerequisite");
 
     growthbook.destroy();
+  });
+
+  it("fails a condition that throws, rather than throwing", () => {
+    const growthbook = new GrowthBook({
+      attributes: { id: "1" },
+      features: {
+        feature: {
+          defaultValue: "off",
+          rules: [
+            // Malformed: makes evalCondition throw
+            { condition: { $not: null } as never, force: "on" },
+            { force: "fallback" },
+          ],
+        },
+      },
+    });
+
+    expect(growthbook.getFeatureValue("feature", "")).toEqual("fallback");
+
+    growthbook.destroy();
+  });
+
+  it("logs condition type mismatches only in debug mode", () => {
+    const features = {
+      feature: {
+        defaultValue: false,
+        rules: [{ condition: { id: 5 }, force: true }],
+      },
+    };
+    const run = (debug: boolean) => {
+      const log = jest.fn();
+      const growthbook = new GrowthBook({
+        attributes: { id: "5" },
+        features,
+        debug,
+        log,
+      });
+      expect(growthbook.isOn("feature")).toEqual(false);
+      growthbook.destroy();
+      return log.mock.calls.filter(
+        ([msg]) => msg === "Type mismatch in condition",
+      );
+    };
+
+    expect(run(true)).toEqual([
+      [
+        "Type mismatch in condition",
+        { path: "id", operator: "$eq", expected: 5, actual: "5" },
+      ],
+    ]);
+    expect(run(false)).toEqual([]);
   });
 });

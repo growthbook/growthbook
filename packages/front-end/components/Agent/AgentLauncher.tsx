@@ -1,5 +1,6 @@
 import React from "react";
 import PylonChatVisibility from "@/components/Auth/PylonChatVisibility";
+import { useUser } from "@/services/UserContext";
 import AgentPanel from "./AgentPanel";
 import { useAgentPanel } from "./AgentPanelContext";
 
@@ -12,19 +13,22 @@ import { useAgentPanel } from "./AgentPanelContext";
 export default function AgentLauncher() {
   const { available, open, expanded, closePanel, toggleExpanded } =
     useAgentPanel();
+  const { userId, organization } = useUser();
 
   if (!available) return null;
 
   return (
     <>
       <AgentPanel
+        // Remount on org or user switch so the chat hook re-reads its scoped key.
+        key={`${organization.id}:${userId}`}
         open={open}
         expanded={expanded}
         onClose={closePanel}
         onToggleExpanded={toggleExpanded}
       />
       {/* Keep the live chat widget from overlapping the panel while it's open. */}
-      <PylonChatVisibility />
+      <PylonChatVisibility hidden={open} />
     </>
   );
 }

@@ -18,9 +18,10 @@ import {
   OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
+import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AgreementType,
+  dailyUsageByKeyValidator,
   environment,
   expandedMember,
   expandedMemberInfo,
@@ -30,8 +31,10 @@ import {
   memberRoleWithProjects,
   pendingMember,
   projectMemberRole,
+  SdkPayloadSizeAlert,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
@@ -62,7 +65,9 @@ export type UserPermission = {
   /**
    * Per role: its env-scoped permissions with its own env restriction, so one
    * role's permission can't borrow another's environments. Absent for roles
-   * granting nothing env-scoped, and for payloads predating the field.
+   * granting nothing env-scoped, and for payloads predating the field. An
+   * intersection (scoped PAT) instead carries one grant per environment set,
+   * covering every permission it grants.
    */
   envGrants?: {
     environments: string[];
@@ -213,6 +218,7 @@ export type SDKAttribute = {
   projects?: string[];
   disableEqualityConditions?: boolean;
   tags?: string[];
+  customFields?: Record<string, string>;
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -221,6 +227,10 @@ export type ExperimentUpdateSchedule = {
   type: "cron" | "never" | "stale";
   cron?: string;
   hours?: number;
+  analysisEndDateMode?: "runTime" | "lag" | "fixedTime";
+  analysisEndDateLagHours?: number;
+  // "HH:MM" in UTC; only used with a cron schedule
+  analysisEndDateTime?: string;
 };
 
 export type Environment = z.infer<typeof environment>;
@@ -255,10 +265,6 @@ export type ApprovalFlowPolicy = Omit<
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
-  customized?: boolean;
-  logoPath?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];
   metricDefaults?: MetricDefaults;
@@ -282,8 +288,17 @@ export interface OrganizationSettings {
   srmThreshold?: number;
   noDataAlertGracePeriodHours?: number;
   aiEnabled?: boolean;
+  aiAskDataEnabled?: boolean;
+  /** Inline suggestions in the AI Assistant composer. Unset means on. */
+  aiAutocompleteEnabled?: boolean;
+  // Unset resolves to the cheapest tier in getAISettingsForOrg.
+  aiAutocompleteModel?: AIModel;
+  // AI Assistant skill names turned off for this org, so new skills start enabled.
+  disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
+  // Voice dictation. Unset resolves in getAISettingsForOrg.
+  sttModel?: STTModel;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
   // Per-surface overrides for the Visual Editor. Image model is a free
@@ -344,6 +359,7 @@ export interface OrganizationSettings {
   testQueryDays?: number;
   disablePrecomputedDimensions?: boolean;
   useStickyBucketing?: boolean;
+  stickyBucketingOnByDefault?: boolean;
   useFallbackAttributes?: boolean;
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];
@@ -356,6 +372,8 @@ export interface OrganizationSettings {
   // Only affects new rules on eligible JSON features; off by default.
   sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
+  // New Feature Flag rules for all environments and all projects need an explicit override.
+  requireScopedFeatureRules?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in
@@ -386,14 +404,17 @@ export interface OrganizationSettings {
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
   requireUniqueExperimentTrackingKeys?: boolean;
+  experimentKeyExample?: string;
+  experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
-  defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
+  // Opt-in validation of Saved Group scope at consuming Feature Flags.
+  enforceSavedGroupProjectScope?: boolean;
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
@@ -403,6 +424,11 @@ export interface OrganizationSettings {
   // ones are rejected at authentication. Covers Personal Access Tokens and
   // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
   disablePersonalAccessTokens?: boolean;
+  // Maximum lifetime, in days, for newly issued tokens of each kind. Unset
+  // means expiry is optional. Kept separate because a PAT expiring inconveniences
+  // one member, while a secret key expiring takes down an integration.
+  maxPatLifetimeDays?: number | null;
+  maxApiKeyLifetimeDays?: number | null;
 }
 
 export type LearningStatusColor =
@@ -551,9 +577,20 @@ export type GetOrganizationResponse = {
     features: string[];
   };
   usage: OrganizationUsage;
+  // SDK Connections the viewer manages whose payload is large enough to warn about
+  sdkPayloadSizeAlerts: SdkPayloadSizeAlert[];
+  // The viewer's own PATs that lapse within a week, or lapsed but are still in use
+  expiringPersonalAccessTokens: Pick<
+    ApiKeyInterface,
+    "id" | "description" | "expiresAt" | "lastUsed"
+  >[];
+  // The organization's API keys in the same state, for members who manage API keys
+  expiringApiKeys: GetOrganizationResponse["expiringPersonalAccessTokens"];
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
+  // Resolved dictation model, null when unavailable. Hides the mic button.
+  sttModel: STTModel | null;
 };
 
 export type DailyUsage = {
@@ -561,7 +598,11 @@ export type DailyUsage = {
   requests: number;
   bandwidth: number;
   managedClickhouseEvents: number;
+  eventForwarderEvents: number;
 };
+
+// One row per day, SDK key and request type; empty key is image traffic.
+export type DailyUsageByKey = z.infer<typeof dailyUsageByKeyValidator>;
 
 type UsageLimit = number | "unlimited";
 
@@ -569,6 +610,7 @@ export type UsageLimits = {
   cdnRequests: UsageLimit;
   cdnBandwidth: UsageLimit;
   managedClickhouseEvents?: UsageLimit;
+  eventForwarderEvents?: UsageLimit;
 };
 
 export type OrganizationUsage = {
@@ -576,6 +618,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    eventForwarderEvents?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
@@ -584,5 +627,11 @@ export type OrganizationUsage = {
   managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
+  };
+  eventForwarder?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+    // Past the license server's hidden hard limit; forwarding has stopped
+    blocked?: boolean;
   };
 };

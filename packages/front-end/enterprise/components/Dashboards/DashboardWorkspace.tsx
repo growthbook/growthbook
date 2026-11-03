@@ -1,6 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BlockLayout,
   DashboardInterface,
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -293,6 +294,7 @@ export default function DashboardWorkspace({
     setStagedInsert(undefined);
     setEditingBlockIndex(undefined);
     setStagedEditBlock(undefined);
+    setStagedLayouts(null);
     setEditSidebarDirty(false);
     setFocusedBlockIndex(undefined);
   };
@@ -317,6 +319,11 @@ export default function DashboardWorkspace({
   const [stagedEditBlock, setStagedEditBlock] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
+  // Where the other blocks moved to make way for the one being edited; saved
+  // and discarded with it.
+  const [stagedLayouts, setStagedLayouts] = useState<
+    (BlockLayout | undefined)[] | null
+  >(null);
 
   useEffect(() => {
     const activeKeys = DASHBOARD_GLOBAL_FILTER_KEYS.filter((key) =>
@@ -367,6 +374,7 @@ export default function DashboardWorkspace({
       bType === "metric-exploration" ||
       bType === "fact-table-exploration" ||
       bType === "data-source-exploration" ||
+      bType === "sql-exploration" ||
       bType === "funnel-exploration";
     // TypeScript can't correlate block type with its config in a discriminated union
     const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
@@ -418,7 +426,11 @@ export default function DashboardWorkspace({
   };
 
   const blocksWithStagedEdit = blocks.map((block, i) =>
-    i === editingBlockIndex ? (stagedEditBlock ?? block) : block,
+    i === editingBlockIndex
+      ? (stagedEditBlock ?? block)
+      : stagedLayouts?.[i]
+        ? { ...block, layout: stagedLayouts[i] }
+        : block,
   );
   const effectiveBlocks = stagedInsert
     ? insertBlockAtIndex(
@@ -439,6 +451,7 @@ export default function DashboardWorkspace({
     setEditingBlockIndex(i);
     setEditSidebarDirty(true);
     setStagedEditBlock(effectiveBlocks[i]);
+    setStagedLayouts(null);
   };
 
   const deleteBlock = (i: number) => {
@@ -676,6 +689,7 @@ export default function DashboardWorkspace({
                         block ? { ...block, layout: editedLayout } : block,
                       );
                     }
+                    setStagedLayouts(next.map((b) => b.layout));
                     return;
                   }
                   setBlocksAndSubmit(next);
@@ -740,25 +754,27 @@ export default function DashboardWorkspace({
               dashboardGlobalControls={globalControls}
               open={editSidebarExpanded}
               cancel={clearEditingState}
-              submit={() => {
-                if (stagedInsert) {
+              submit={(blockOverride) => {
+                const blockToSubmit =
+                  blockOverride ?? stagedInsert?.block ?? stagedEditBlock;
+                if (stagedInsert && isDefined(blockToSubmit)) {
                   setBlocksAndSubmit(
                     insertBlockAtIndex(
                       blocks,
-                      stagedInsert.block,
+                      blockToSubmit,
                       stagedInsert.index,
                       stagedInsert.placement,
                     ),
                   );
                 } else if (
                   isDefined(editingBlockIndex) &&
-                  isDefined(stagedEditBlock)
+                  isDefined(blockToSubmit)
                 ) {
-                  setBlocksAndSubmit([
-                    ...blocks.slice(0, editingBlockIndex),
-                    stagedEditBlock,
-                    ...blocks.slice(editingBlockIndex + 1),
-                  ]);
+                  setBlocksAndSubmit(
+                    blocksWithStagedEdit.map((block, i) =>
+                      i === editingBlockIndex ? blockToSubmit : block,
+                    ),
+                  );
                 }
                 clearEditingState();
               }}

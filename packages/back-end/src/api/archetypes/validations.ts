@@ -19,7 +19,7 @@ export async function validatePayload(
     environments?: string[];
   },
 ) {
-  if (name === "") throw Error("Archetype name cannot empty!");
+  if (name === "") throw Error("Archetype name cannot be empty!");
 
   if (projects.length) {
     const allProjects = await context.models.projects.getAll();
@@ -56,7 +56,7 @@ export async function validatePayload(
     projects,
     environments,
     isPublic,
-    owner: context.userId,
+    owner: context.actingUserId,
     organization: context.org.id,
   };
 }

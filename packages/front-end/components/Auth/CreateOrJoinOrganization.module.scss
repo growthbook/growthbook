@@ -1,61 +1,13 @@
-.recommendedOrgBox {
-  padding: 1.2rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-
-  .recommendedOrgRow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .recommendedOrgLogo {
-    margin-right: 10px;
-    position: relative;
-    width: 50px;
-    height: 50px;
-    border-radius: 40px;
-    overflow: hidden;
-    background: #acefae;
-
-    .recommendedOrgLogoText {
-      color: #175947;
-      font-size: 30px;
-      font-weight: bold;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-  }
-
-  .recommendedOrgInfo {
-    flex: 1;
-    .recommendedOrgName {
-      font-size: 18px;
-      font-weight: bold;
-    }
-    .recommendedOrgMembers {
-      font-size: 14px;
-      color: #666;
-    }
-  }
+.panel {
+  width: min(100%, 28rem);
 }
 
-.switchModeButton {
-  width: 100%;
-  border: 1px solid #e0e0e0;
-  border-radius: 50px;
-  font-size: 16px;
-  padding: 6px 4px;
-  span {
-    vertical-align: middle;
-    font-size: 14px;
-  }
+.recommendedOrgBox {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-3);
+  margin-bottom: 1rem;
+  background: var(--color-panel-solid);
 }
 
 .container {

@@ -1,14 +1,18 @@
 import { z } from "zod";
+import omit from "lodash/omit";
 import { getScopedSettings } from "shared/settings";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { postFactMetricValidator } from "shared/validators";
+import {
+  postFactMetricBodyFields,
+  postFactMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
+} from "shared/validators";
 import {
   CreateFactMetricProps,
   FactTableInterface,
@@ -20,7 +24,9 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 export async function getCreateMetricPropsFromBody(
-  body: z.infer<typeof postFactMetricValidator.bodySchema>,
+  body: z.infer<typeof postFactMetricBodyFields> & {
+    archived?: boolean;
+  },
   organization: OrganizationInterface,
   getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<CreateFactMetricProps> {
@@ -41,23 +47,23 @@ export async function getCreateMetricPropsFromBody(
     throw new Error("Could not find fact table");
   }
 
+  // Risk thresholds are still accepted but no longer stored.
   const {
     quantileSettings,
     funnelSettings,
     cappingSettings,
+    lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
     priorSettings,
     numerator,
     denominator,
-    riskThresholdSuccess,
-    riskThresholdDanger,
     minPercentChange,
     maxPercentChange,
     minSampleSize,
     targetMDE,
     ...otherFields
-  } = body;
+  } = omit(body, ["riskThresholdSuccess", "riskThresholdDanger"]);
 
   // Set the correct column based on metric type
   let column: string;
@@ -95,14 +101,6 @@ export async function getCreateMetricPropsFromBody(
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
-    loseRisk:
-      riskThresholdDanger ||
-      scopedSettings.loseRisk.value ||
-      DEFAULT_LOSE_RISK_THRESHOLD,
-    winRisk:
-      riskThresholdSuccess ||
-      scopedSettings.winRisk.value ||
-      DEFAULT_WIN_RISK_THRESHOLD,
     maxPercentChange:
       maxPercentChange ??
       scopedSettings.metricDefaults.value.maxPercentageChange ??
@@ -168,11 +166,11 @@ export async function getCreateMetricPropsFromBody(
     }
   }
 
-  if (cappingSettings?.type && cappingSettings?.type !== "none") {
-    data.cappingSettings.type = cappingSettings.type;
-    data.cappingSettings.value = cappingSettings.value || 0;
-    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
-  }
+  Object.assign(
+    data,
+    resolveCappingSettingsPatch({ cappingSettings, lowerCappingSettings }),
+  );
+  validateFactMetricCapping(data);
 
   if (windowSettings?.type && windowSettings?.type !== "none") {
     data.windowSettings.type = windowSettings.type;

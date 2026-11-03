@@ -1,12 +1,31 @@
 import {
+  assertSafeReadOnlySQL,
   buildMinimalOrCondition,
+  createLikeMatchFns,
   decodeSQLResults,
   encodeSQLResults,
   ensureLimit,
+  hasStartDateFilter,
   isMultiStatementSQL,
   isReadOnlySQL,
+  stripTrailingSemicolon,
   usesBackslashStringEscapes,
 } from "../src/sql";
+
+describe("hasStartDateFilter", () => {
+  it.each([
+    ["SELECT * FROM t WHERE ts >= '{{ startDate }}'", true],
+    ["SELECT * FROM t WHERE ts >= '{{startDateISO}}'", true],
+    [
+      `SELECT * FROM events_* WHERE _TABLE_SUFFIX >= '{{date startDateISO "yyyyMMdd"}}'`,
+      true,
+    ],
+    ["SELECT * FROM t WHERE ts <= '{{endDate}}'", false],
+    ["SELECT * FROM t", false],
+  ])("%s", (sql, expected) => {
+    expect(hasStartDateFilter(sql)).toBe(expected);
+  });
+});
 
 describe("ensureLimit", () => {
   describe("already has LIMIT and OFFSET clauses", () => {
@@ -156,6 +175,76 @@ describe("ensureLimit", () => {
       const sql = "SELECT * FROM users LIMIT abs(-10) + 5";
       const result = ensureLimit(sql, 10);
       expect(result).toBe("SELECT * FROM users LIMIT 10");
+    });
+    it("should strip a trailing semicolon even when a comment follows it", () => {
+      const sql = "SELECT * FROM users;\n-- note";
+      const result = ensureLimit(sql, 10);
+      expect(result).toBe("SELECT * FROM users\nLIMIT 10");
+    });
+  });
+});
+
+describe("stripTrailingSemicolon", () => {
+  it.each([
+    ["SELECT 1", "SELECT 1"],
+    ["SELECT 1;", "SELECT 1"],
+    ["SELECT 1 ;  \n\t", "SELECT 1"],
+    ["  SELECT 1;  ", "SELECT 1"],
+    ["SELECT 1;\n-- note", "SELECT 1"],
+    ["SELECT 1; -- note\n", "SELECT 1"],
+    ["SELECT 1; -- a\n-- b\n", "SELECT 1"],
+    ["SELECT 1; /* note */", "SELECT 1"],
+    ["SELECT 1;/* a *//* b */", "SELECT 1"],
+    ["SELECT 1; /* multi\nline */ -- and more\n", "SELECT 1"],
+    ["SELECT 1;/**/", "SELECT 1"],
+    // Only the terminating semicolon is removed
+    ["SELECT 1;;", "SELECT 1;"],
+    ["SELECT 1; ;", "SELECT 1;"],
+    ["SELECT 1; SELECT 2;", "SELECT 1; SELECT 2"],
+    // Content after the semicolon means it is not terminating
+    ["SELECT 1; SELECT 2", "SELECT 1; SELECT 2"],
+    ["SELECT 1; /* c */ SELECT 2", "SELECT 1; /* c */ SELECT 2"],
+    ["SELECT 1; -- c\nSELECT 2", "SELECT 1; -- c\nSELECT 2"],
+    ["SELECT ';' AS a", "SELECT ';' AS a"],
+    ["SELECT 1 /* a; */", "SELECT 1 /* a; */"],
+    // A comment that never closes is not trailing trivia
+    ["SELECT 1; /* never closed", "SELECT 1; /* never closed"],
+    ["SELECT 1; /* a; ", "SELECT 1; /* a"],
+    // A line comment ends at the newline, so a later `*/` is not part of it
+    ["SELECT 1; -- a /*\n*/", "SELECT 1; -- a /*\n*/"],
+    ["", ""],
+    [";", ""],
+  ])("%j", (sql, expected) => {
+    expect(stripTrailingSemicolon(sql)).toBe(expected);
+  });
+
+  describe("pathological input", () => {
+    // These used to backtrack exponentially (each extra `/**/` doubled the
+    // time), which stalled the server on user-supplied SQL.
+    const pathological = [
+      ";" + "/**/".repeat(30) + "x",
+      ";" + "/**/".repeat(100000) + "x",
+      ";/*".repeat(100000) + "x",
+      ";--\n".repeat(100000) + "x",
+      ";" + " ".repeat(100000) + "x",
+    ];
+
+    it.each(pathological.map((sql) => ({ label: sql.slice(0, 20), sql })))(
+      "finishes quickly for $label...",
+      ({ sql }) => {
+        const start = Date.now();
+        // Nothing trailing to strip: x follows every semicolon. Compare as a
+        // boolean so a failure does not print a megabyte of SQL.
+        expect(stripTrailingSemicolon(sql) === sql).toBe(true);
+        expect(Date.now() - start).toBeLessThan(500);
+      },
+    );
+
+    it("ensureLimit stays fast on the same input", () => {
+      const sql = ";" + "/**/".repeat(30) + "x";
+      const start = Date.now();
+      expect(ensureLimit(sql, 10)).toBe(`${sql}\nLIMIT 10`);
+      expect(Date.now() - start).toBeLessThan(500);
     });
   });
 });
@@ -588,6 +677,224 @@ describe("buildMinimalOrCondition", () => {
   });
 });
 
+describe("assertSafeReadOnlySQL", () => {
+  // --- Valid queries ---
+  it("allows simple SELECT", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1")).not.toThrow();
+  });
+
+  it("allows SELECT with FROM", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM users WHERE id = 1"),
+    ).not.toThrow();
+  });
+
+  it("allows WITH (CTE)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("WITH cte AS (SELECT 1 AS n) SELECT * FROM cte"),
+    ).not.toThrow();
+  });
+
+  it("allows subqueries and aggregates", () => {
+    expect(() =>
+      assertSafeReadOnlySQL(
+        "SELECT source, COUNT(*) AS cnt FROM signups GROUP BY source ORDER BY cnt DESC LIMIT 10",
+      ),
+    ).not.toThrow();
+  });
+
+  // --- DML keywords inside string literals should NOT trigger ---
+  it("ignores DML keywords inside single-quoted strings", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t WHERE name = 'DROP TABLE'"),
+    ).not.toThrow();
+  });
+
+  it("ignores DML keywords inside double-quoted identifiers", () => {
+    expect(() => assertSafeReadOnlySQL('SELECT "DELETE" FROM t')).not.toThrow();
+  });
+
+  it("ignores DML keywords inside backtick-quoted identifiers", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT `INSERT` FROM t")).not.toThrow();
+  });
+
+  // --- First keyword ---
+  it("rejects EXPLAIN", () => {
+    expect(() => assertSafeReadOnlySQL("EXPLAIN SELECT 1")).toThrow(
+      "Only SELECT and WITH",
+    );
+  });
+
+  it("rejects SHOW", () => {
+    expect(() => assertSafeReadOnlySQL("SHOW TABLES")).toThrow(
+      "Only SELECT and WITH",
+    );
+  });
+
+  it("rejects INSERT as first keyword", () => {
+    expect(() => assertSafeReadOnlySQL("INSERT INTO t VALUES (1)")).toThrow();
+  });
+
+  // --- Multi-statement ---
+  it("rejects multi-statement with semicolon", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1; DROP TABLE users")).toThrow(
+      "Multi-statement",
+    );
+  });
+
+  it("allows trailing semicolon (stripped by parser)", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1;")).not.toThrow();
+  });
+
+  // --- DML/DDL deny-list ---
+  it("rejects DELETE anywhere in query", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t WHERE 1=1 DELETE FROM t"),
+    ).toThrow("DELETE");
+  });
+
+  it("rejects DROP in subquery", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT (DROP TABLE users) FROM dual"),
+    ).toThrow("DROP");
+  });
+
+  it("rejects CREATE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 CREATE TABLE foo (id INT)"),
+    ).toThrow("CREATE");
+  });
+
+  it("rejects TRUNCATE", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1 TRUNCATE TABLE foo")).toThrow(
+      "TRUNCATE",
+    );
+  });
+
+  it("rejects GRANT", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 GRANT ALL ON foo TO bar"),
+    ).toThrow("GRANT");
+  });
+
+  // --- SELECT INTO ---
+  it("rejects SELECT INTO", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * INTO new_table FROM old_table"),
+    ).toThrow("SELECT INTO");
+  });
+
+  // --- Comment-wrapped DML ---
+  it("rejects DML after line comment on next line", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 -- safe\nDROP TABLE x"),
+    ).toThrow("DROP");
+  });
+
+  it("rejects DML after block comment", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 /* comment */ DROP TABLE x"),
+    ).toThrow("DROP");
+  });
+
+  it("allows DML keyword inside block comment (stripped)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT /* DROP TABLE x */ 1 FROM t"),
+    ).not.toThrow();
+  });
+
+  // --- Dialect escape hatches ---
+  it("rejects INTO OUTFILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t INTO OUTFILE '/tmp/data.csv'"),
+    ).toThrow("INTO OUTFILE");
+  });
+
+  it("rejects INTO DUMPFILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t INTO DUMPFILE '/tmp/data.bin'"),
+    ).toThrow("INTO DUMPFILE");
+  });
+
+  it("rejects pg_read_file", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT pg_read_file('/etc/passwd')"),
+    ).toThrow("pg_read_file");
+  });
+
+  it("rejects LOAD_FILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT LOAD_FILE('/etc/passwd')"),
+    ).toThrow("LOAD_FILE");
+  });
+
+  it("rejects ClickHouse file() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM file('/path/to/data.csv')"),
+    ).toThrow("file(");
+  });
+
+  it("rejects ClickHouse url() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM url('http://evil.com/data')"),
+    ).toThrow("url(");
+  });
+
+  it("rejects ClickHouse s3() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM s3('s3://bucket/key')"),
+    ).toThrow("s3(");
+  });
+
+  // --- Unterminated strings/comments ---
+  it("rejects unterminated single-quoted string", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 'unterminated")).toThrow(
+      "unterminated",
+    );
+  });
+
+  it("rejects unterminated block comment", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT /* never closed")).toThrow(
+      "unterminated",
+    );
+  });
+
+  // --- Length cap ---
+  it("rejects queries exceeding length cap", () => {
+    const long = "SELECT " + "x".repeat(100_001);
+    expect(() => assertSafeReadOnlySQL(long)).toThrow("safety limit");
+  });
+
+  // --- Edge cases ---
+  it("allows quoted identifiers containing deny-list words", () => {
+    expect(() =>
+      assertSafeReadOnlySQL('SELECT 1 AS "EXECUTE" FROM t'),
+    ).not.toThrow();
+  });
+
+  it("does not false-positive on words containing deny-list substrings", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT updated_at, created_at FROM events"),
+    ).not.toThrow();
+  });
+
+  it("does not false-positive on 'file' as a column name (no parens)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT file FROM documents"),
+    ).not.toThrow();
+  });
+
+  it("handles case-insensitive DML", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1 dRoP TABLE foo")).toThrow(
+      "DROP",
+    );
+  });
+
+  it("handles leading whitespace and newlines", () => {
+    expect(() => assertSafeReadOnlySQL("  \n  SELECT 1 FROM t")).not.toThrow();
+  });
+});
+
 describe("encodeSQLResults", () => {
   it("should encode and decode SQL results correctly", () => {
     const results = [
@@ -667,4 +974,41 @@ describe("encodeSQLResults", () => {
       { id: 2, name: "Bob", grid: [1, 2, 3] },
     ]);
   });
+});
+
+it("uses the same escaping for wildcard row filters and journey grouping", () => {
+  for (const emitEscapeClause of [true, false]) {
+    const matchers = createLikeMatchFns({
+      escapeStringLiteral: (value) => value.replace(/'/g, "''"),
+      emitEscapeClause,
+    });
+    const pattern = "/items/50%_?'/*";
+    const expected = matchers.globMatch("url", pattern);
+    expect(matchers.stringMatch("url", "matches_pattern", pattern)).toBe(
+      expected,
+    );
+    expect(matchers.stringMatch("url", "not_matches_pattern", pattern)).toBe(
+      expected.replace(" LIKE ", " NOT LIKE "),
+    );
+  }
+});
+
+// journeyToFunnel emits every glob-shaped step filter as `matches_pattern`
+// rather than deriving starts_with/ends_with/contains, which is only safe
+// because the compiled LIKE clause is identical either way.
+it("compiles a glob to the same LIKE clause as the equivalent operator", () => {
+  const matchers = createLikeMatchFns({
+    escapeStringLiteral: (value) => value.replace(/'/g, "''"),
+    emitEscapeClause: true,
+  });
+  const cases: [string, string, string][] = [
+    ["/items/*", "starts_with", "/items/"],
+    ["*/checkout", "ends_with", "/checkout"],
+    ["*items*", "contains", "items"],
+  ];
+  for (const [glob, operator, value] of cases) {
+    expect(matchers.stringMatch("url", "matches_pattern", glob)).toBe(
+      matchers.stringMatch("url", operator as "starts_with", value),
+    );
+  }
 });

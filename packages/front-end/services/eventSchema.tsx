@@ -139,6 +139,8 @@ export const eventSchemas: eventSchema[] = [
         label: "Project ID",
         defaultValue: "",
         type: "text",
+        helpText:
+          "Required for automatic metric generation. Find it in your Amplitude organization settings under project settings.",
       },
     ],
   },
@@ -162,7 +164,6 @@ export const eventSchemas: eventSchema[] = [
       "databricks",
     ],
     logo: "/images/3rd-party-logos/fullstory.png",
-    beta: true,
     popular: true,
     helpLink:
       "https://help.fullstory.com/hc/en-us/articles/6295300682903-Data-Destinations",
@@ -324,6 +325,44 @@ export const eventSchemas: eventSchema[] = [
     popular: false,
     helpLink: "https://docs.clevertap.com/docs/export",
   },
+  {
+    value: "langfuse",
+    label: "Langfuse",
+    types: ["clickhouse"],
+    logo: "/images/3rd-party-logos/langfuse.png",
+    popular: false,
+    beta: true,
+    helpLink: "https://docs.growthbook.io/event-trackers/langfuse",
+    options: [
+      {
+        name: "projectId",
+        label: "Langfuse project ID",
+        defaultValue: "",
+        type: "text",
+        helpText:
+          "Found in Langfuse under project settings. Leave blank to include every project in the database.",
+      },
+    ],
+  },
+  {
+    value: "phoenix",
+    label: "Arize Phoenix",
+    types: ["postgres"],
+    logo: "/images/3rd-party-logos/phoenix.png",
+    popular: false,
+    beta: true,
+    helpLink: "https://docs.growthbook.io/event-trackers/phoenix",
+    options: [
+      {
+        name: "projectName",
+        label: "Phoenix project name",
+        defaultValue: "",
+        type: "text",
+        helpText:
+          "The Phoenix project your traces are sent to. Leave blank to include every project.",
+      },
+    ],
+  },
 ];
 
 export const dataSourceConnections: {
@@ -351,8 +390,11 @@ export const dataSourceConnections: {
     docs: "snowflake",
     default: {
       account: "",
-      username: "",
+      username: "GROWTHBOOK",
       password: "",
+      database: "ANALYTICS",
+      role: "GROWTHBOOK_ROLE",
+      warehouse: "COMPUTE_WH",
       authMethod: "key-pair",
     },
   },
@@ -366,6 +408,7 @@ export const dataSourceConnections: {
       host: "",
       port: 443,
       path: "",
+      catalog: "main",
     },
   },
   {
@@ -377,8 +420,9 @@ export const dataSourceConnections: {
       host: "",
       port: 5439,
       database: "",
-      user: "",
+      user: "growthbook_user",
       password: "",
+      defaultSchema: "public",
     },
   },
   {
@@ -416,10 +460,12 @@ export const dataSourceConnections: {
       engine: "presto",
       host: "",
       port: 8080,
+      user: "growthbook",
       username: "",
       password: "",
       catalog: "",
       schema: "",
+      source: "GrowthBook",
     },
   },
   {
@@ -444,8 +490,9 @@ export const dataSourceConnections: {
       host: "",
       port: 5432,
       database: "",
-      user: "",
+      user: "growthbook",
       password: "",
+      defaultSchema: "public",
     },
   },
   {
@@ -457,7 +504,7 @@ export const dataSourceConnections: {
       host: "",
       port: 3306,
       database: "",
-      user: "",
+      user: "growthbook",
       password: "",
     },
   },
@@ -483,8 +530,9 @@ export const dataSourceConnections: {
       server: "",
       port: 1433,
       database: "",
-      user: "",
+      user: "growthbook",
       password: "",
+      defaultSchema: "dbo",
       requestTimeout: 120,
       options: {
         trustServerCertificate: true,
@@ -494,7 +542,7 @@ export const dataSourceConnections: {
   },
   {
     type: "adobe_experience_platform_query_service",
-    display: "Adobe Experience Platform Query Service",
+    display: "Experience Platform",
     icon: <SiAdobe />,
     docs: "adobe_experience_platform_query_service",
     default: {

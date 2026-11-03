@@ -17,7 +17,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
 
     const environment = environments.find((env) => env.id === id);
     if (!environment) {
-      throw Error(`Environment ${id} does not exists!`);
+      throw Error(`Environment ${id} does not exist!`);
     }
 
     const updatedEnvironment = await validatePayload(req.context, {

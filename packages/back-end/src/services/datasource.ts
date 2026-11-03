@@ -1,9 +1,17 @@
 import { AES, enc } from "crypto-js";
+import uniqid from "uniqid";
 import { isReadOnlySQL } from "shared/sql";
-import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
 import {
+  SqlDialect,
+  SqlIdentifierQuote,
+  TemplateVariables,
+} from "shared/types/sql";
+import {
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
+  TestQueryResult,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
@@ -14,16 +22,23 @@ import {
   ExposureQuery,
   FeatureUsageQuery,
 } from "shared/types/datasource";
-import { FactTableColumnType } from "shared/types/fact-table";
+import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
-import { QueryStatistics, QueryType } from "shared/types/query";
+import { QueryStatistics, QueryType, TestQueryType } from "shared/types/query";
 import {
   formatQueryExecutionErrorForApi,
   DataSourceParamsForType,
   mergeDataSourceParams,
   redactSecretParams,
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryExperimentNameColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getExposureQueryVariationNameColumn,
 } from "shared/util";
-import { determineColumnTypes } from "back-end/src/util/sql";
+import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
+import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -45,6 +60,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { SQLExecutionError } from "back-end/src/util/errors";
+import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 
 // freeFormQuery runs user-authored SQL; we should only use it for this scenario
 const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
@@ -165,9 +181,17 @@ export function getSourceIntegrationObject(
 export function getIntegrationIdentifierQuote(
   integration: SourceIntegrationInterface,
 ): SqlIdentifierQuote {
+  return getIntegrationSqlDialect(integration)?.identifierQuote ?? '"';
+}
+
+// The SQL dialect backing an integration, or null for non-SQL sources
+// (e.g. Mixpanel), which have no dialect to generate SQL with.
+export function getIntegrationSqlDialect(
+  integration: SourceIntegrationInterface,
+): SqlDialect | null {
   return integration instanceof SqlIntegration
-    ? integration.getSqlDialect().identifierQuote
-    : '"';
+    ? integration.getSqlDialect()
+    : null;
 }
 
 export async function testDataSourceConnection(
@@ -176,6 +200,26 @@ export async function testDataSourceConnection(
 ) {
   const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
+}
+
+// MSSQL caches connection pools by Data Source id. An unsaved test uses a
+// throwaway id so it does not replace a saved Data Source's pool, then closes
+// that pool. Other engines open a connection for the test and drop it.
+export async function testUnsavedDataSourceConnection(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+) {
+  if (datasource.type !== "mssql") {
+    await testDataSourceConnection(context, datasource);
+    return;
+  }
+
+  const id = uniqid("ds_connection_test_");
+  try {
+    await testDataSourceConnection(context, { ...datasource, id });
+  } finally {
+    await closeMssqlPool(id);
+  }
 }
 
 export async function runFreeFormQuery(
@@ -212,6 +256,7 @@ export async function runFreeFormQuery(
       sql,
       ["timestamp"],
       FREE_FORM_QUERY_TYPE,
+      null,
     );
 
     // Build a type map from SQL engine metadata
@@ -340,18 +385,41 @@ export async function runFeatureEvalDiagnosticsQuery(
   }
 }
 
+export async function runExperimentExposuresQuery(
+  integration: SourceIntegrationInterface,
+  params: ExperimentExposuresQueryParams,
+): Promise<ExperimentExposuresQueryResponse & { sql: string }> {
+  if (
+    !integration.getExperimentExposuresQuery ||
+    !integration.runExperimentExposuresQuery
+  ) {
+    throw new Error(
+      "Exposure logs are not supported for this Data Source type.",
+    );
+  }
+
+  const sql = integration.getExperimentExposuresQuery(params);
+  const { rows, statistics } =
+    await integration.runExperimentExposuresQuery(sql);
+  return { rows, statistics, sql };
+}
+
 export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
+  queryType: TestQueryType,
   templateVariables?: TemplateVariables,
   limit?: number,
   timestampColumn?: string,
+  // Return detected output columns along with sampled rows.
+  detectColumns?: boolean,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
   error?: string;
   sql?: string;
+  columns?: DetectedColumn[];
 }> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     throw new Error("Permission denied");
@@ -364,6 +432,8 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
+  const timestampCols = timestampColumn ? [timestampColumn] : ["timestamp"];
+
   const sql = integration.getTestQuery({
     query,
     templateVariables,
@@ -372,15 +442,20 @@ export async function testQuery(
     timestampColumn,
   });
   try {
-    const { results, duration } = await integration.runTestQuery(
+    const result = await integration.runTestQuery(
       sql,
-      timestampColumn ? [timestampColumn] : ["timestamp"],
-      "testQuery",
+      timestampCols,
+      queryType,
+      null,
     );
+
     return {
-      results,
-      duration,
+      results: result.results,
+      duration: result.duration,
       sql,
+      ...(detectColumns
+        ? { columns: detectColumnsFromQueryResult(result) }
+        : {}),
     };
   } catch (e) {
     return {
@@ -388,6 +463,39 @@ export async function testQuery(
       sql,
     };
   }
+}
+
+function findMissingRequiredColumns(
+  results: TestQueryResult,
+  requiredColumns: Set<string>,
+  caseSensitive: boolean,
+): string | undefined {
+  let present: string[];
+
+  // For datasources where the result includes columns, use column metadata
+  if (results.columns) {
+    present = results.columns.map((c) => c.name);
+    if (present.length === 0) {
+      return "Unable to determine columns from query";
+    }
+  } else {
+    // For other datasources, extract from first row (requires LIMIT 1+)
+    if (results.results.length === 0) {
+      return "No rows returned";
+    }
+    present = Object.keys(results.results[0]);
+  }
+
+  const missingColumns = [...requiredColumns].filter(
+    (col) =>
+      !present.some((name) => columnNamesMatch(name, col, caseSensitive)),
+  );
+
+  if (missingColumns.length > 0) {
+    return `Missing required columns in response: ${missingColumns.join(", ")}`;
+  }
+
+  return undefined;
 }
 
 // Return any errors that result when running the query otherwise return undefined
@@ -401,55 +509,41 @@ export async function testQueryValidity(
     return undefined;
   }
 
+  // Dimensions and name columns aren't remappable, so they stay canonical
   const requiredColumns = new Set([
-    "experiment_id",
-    "variation_id",
-    "timestamp",
-    query.userIdType,
+    getExposureQueryExperimentIdColumn(query),
+    getExposureQueryVariationIdColumn(query),
+    getExposureQueryTimestampColumn(query),
+    ...query.userIdTypes.map((idType) =>
+      getExposureQueryIdentifierColumn(query, idType),
+    ),
     ...query.dimensions,
-    ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
+    ...(query.hasNameCol
+      ? [
+          getExposureQueryExperimentNameColumn(query),
+          getExposureQueryVariationNameColumn(query),
+        ]
+      : []),
   ]);
 
   const sql = integration.getTestValidityQuery(
     query.query,
     testDays,
     undefined,
-    "timestamp",
+    getExposureQueryTimestampColumn(query),
   );
   try {
-    const results = await integration.runTestQuery(sql, undefined, "testQuery");
-
-    let columns: Set<string>;
-
-    // For datasources where the result includes columns, use column metadata
-    if (results.columns) {
-      const columnNames = results.columns.map((c) => c.name);
-      if (columnNames.length === 0) {
-        return "Unable to determine columns from query";
-      }
-      columns = new Set(columnNames);
-    } else {
-      // For other datasources, extract from first row (requires LIMIT 1+)
-      if (results.results.length === 0) {
-        return "No rows returned";
-      }
-      columns = new Set(Object.keys(results.results[0]));
-    }
-
-    const missingColumns: string[] = [];
-    for (const col of requiredColumns) {
-      if (!columns.has(col)) {
-        missingColumns.push(col);
-      }
-    }
-
-    if (missingColumns.length > 0) {
-      return `Missing required columns in response: ${missingColumns.join(
-        ", ",
-      )}`;
-    }
-
-    return undefined;
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "exposureQueryValidation",
+      null,
+    );
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
   } catch (e) {
     return e.message;
   }
@@ -473,37 +567,17 @@ export async function testFeatureUsageQueryValidity(
     "timestamp",
   );
   try {
-    const results = await integration.runTestQuery(sql, undefined, "testQuery");
-
-    let columns: Set<string>;
-
-    if (results.columns) {
-      const columnNames = results.columns.map((c) => c.name);
-      if (columnNames.length === 0) {
-        return "Unable to determine columns from query";
-      }
-      columns = new Set(columnNames);
-    } else {
-      if (results.results.length === 0) {
-        return "No rows returned";
-      }
-      columns = new Set(Object.keys(results.results[0]));
-    }
-
-    const missingColumns: string[] = [];
-    for (const col of requiredColumns) {
-      if (!columns.has(col)) {
-        missingColumns.push(col);
-      }
-    }
-
-    if (missingColumns.length > 0) {
-      return `Missing required columns in response: ${missingColumns.join(
-        ", ",
-      )}`;
-    }
-
-    return undefined;
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "featureUsageQueryValidation",
+      null,
+    );
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
   } catch (e) {
     return e.message;
   }

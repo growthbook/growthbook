@@ -1,5 +1,5 @@
+import { bigQueryDialect } from "shared/dialects";
 import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { factTableFactory } from "../../../factories/FactTable.factory";
 import { factMetricFactory } from "../../../factories/FactMetric.factory";
 
@@ -32,7 +32,7 @@ describe("getInsertAggregatedFactTableDataQuery", () => {
     metrics: [sumMetric, countMetric],
     tableFullName: "`proj.dataset.gb_aggregated_ft_target_user_id`",
     windowStartDate: new Date("2024-01-01T00:00:00Z"),
-    windowEndDate: null,
+    windowEndDate: new Date("2024-01-15T00:00:00Z"),
     exclusiveStart: false,
   };
 
@@ -63,11 +63,5 @@ describe("getInsertAggregatedFactTableDataQuery", () => {
     expect(sql).toMatch(/m\.timestamp\s*>=/);
     expect(sql).toMatch(/m\.timestamp\s*</);
     expect(sql).toContain("2024-01-03");
-    // Open-ended chunk: no upper bound.
-    const open = getInsertAggregatedFactTableDataQuery(
-      bigQueryDialect,
-      baseParams,
-    );
-    expect(open).not.toMatch(/m\.timestamp\s*</);
   });
 });

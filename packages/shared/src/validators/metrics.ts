@@ -1,9 +1,22 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  booleanQueryField,
+  paginationQueryFields,
+} from "./shared";
 
-import { namedSchema } from "./openapi-helpers";
+import {
+  namedSchema,
+  retiredRiskDefault,
+  retiredRiskInput,
+} from "./openapi-helpers";
+import {
+  MARKDOWN_DESCRIPTION,
+  METRIC_NAME_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // Corresponds to schemas/Metric.yaml
 export const apiMetricValidator = namedSchema(
@@ -104,8 +117,8 @@ export const apiMetricValidator = namedSchema(
           .number()
           .optional()
           .meta({ deprecated: true }),
-        riskThresholdSuccess: z.coerce.number(),
-        riskThresholdDanger: z.coerce.number(),
+        riskThresholdSuccess: retiredRiskDefault(),
+        riskThresholdDanger: retiredRiskDefault(),
         minPercentChange: z.coerce.number(),
         maxPercentChange: z.coerce.number(),
         minSampleSize: z.coerce.number(),
@@ -216,18 +229,18 @@ const postMetricBody = z
       )
       .optional(),
     owner: ownerInputField.optional(),
-    name: z.string().describe("Name of the metric"),
+    name: z.string().describe(METRIC_NAME_DESCRIPTION),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the metric")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     type: z
       .enum(["binomial", "count", "duration", "revenue"])
       .describe(
         "Type of metric. See [Metrics documentation](/app/metrics/legacy)",
       ),
-    tags: z.array(z.string()).describe("List of tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     projects: z
       .array(z.string())
       .describe("List of project IDs for projects that can access this metric")
@@ -347,22 +360,8 @@ const postMetricBody = z
             "Controls the bayesian prior for the metric. If omitted, organization defaults will be used.",
           )
           .optional(),
-        riskThresholdSuccess: z
-          .number()
-          .gte(0)
-          .describe(
-            "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-          )
-          .optional()
-          .meta({ deprecated: true }),
-        riskThresholdDanger: z
-          .number()
-          .gte(0)
-          .describe(
-            "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-          )
-          .optional()
-          .meta({ deprecated: true }),
+        riskThresholdSuccess: retiredRiskInput(),
+        riskThresholdDanger: retiredRiskInput(),
         minPercentChange: z
           .number()
           .gte(0)
@@ -465,11 +464,11 @@ const putMetricBody = z
       )
       .optional(),
     owner: ownerInputField.optional(),
-    name: z.string().describe("Name of the metric").optional(),
+    name: z.string().describe(METRIC_NAME_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the metric")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
     type: z
       .enum(["binomial", "count", "duration", "revenue"])
@@ -477,7 +476,7 @@ const putMetricBody = z
         "Type of metric. See [Metrics documentation](/app/metrics/legacy)",
       )
       .optional(),
-    tags: z.array(z.string()).describe("List of tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     projects: z
       .array(z.string())
       .describe("List of project IDs for projects that can access this metric")
@@ -597,22 +596,8 @@ const putMetricBody = z
             "Controls the bayesian prior for the metric. If omitted, organization defaults will be used.",
           )
           .optional(),
-        riskThresholdSuccess: z
-          .number()
-          .gte(0)
-          .describe(
-            "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-          )
-          .optional()
-          .meta({ deprecated: true }),
-        riskThresholdDanger: z
-          .number()
-          .gte(0)
-          .describe(
-            "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-          )
-          .optional()
-          .meta({ deprecated: true }),
+        riskThresholdSuccess: retiredRiskInput(),
+        riskThresholdDanger: retiredRiskInput(),
         minPercentChange: z
           .number()
           .gte(0)
@@ -720,6 +705,9 @@ export const listMetricsValidator = {
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
+      includeArchived: booleanQueryField.describe(
+        "Whether to include archived metrics. Defaults to `true`. Pass `false` to return only non-archived metrics.",
+      ),
     })
     .strict(),
   paramsSchema: z.never(),
@@ -746,6 +734,7 @@ export const postMetricValidator = {
     })
     .strict(),
   summary: "Create a single metric",
+  confirmation: ["metric.create"] as const,
   operationId: "postMetric",
   tags: ["metrics"],
   method: "post" as const,
@@ -778,6 +767,10 @@ const apiMetricExperimentVariationResultValidator = z.object({
   lift: z
     .number()
     .describe("Relative uplift mean for this variation, if available")
+    .optional(),
+  effectStandardError: z
+    .number()
+    .describe("Standard error of `lift`, if available")
     .optional(),
   ci: z
     .tuple([z.number(), z.number()])
@@ -890,6 +883,7 @@ export const putMetricValidator = {
     })
     .strict(),
   summary: "Update a metric",
+  confirmation: ["metric.edit"] as const,
   operationId: "putMetric",
   tags: ["metrics"],
   method: "put" as const,
@@ -913,6 +907,7 @@ export const deleteMetricValidator = {
     })
     .strict(),
   summary: "Deletes a metric",
+  confirmation: ["metric.delete"] as const,
   operationId: "deleteMetric",
   tags: ["metrics"],
   method: "delete" as const,

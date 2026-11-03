@@ -1,11 +1,18 @@
 import React from "react";
-import { Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
-import Markdown from "@/components/Markdown/Markdown";
-import SortedTags from "@/components/Tags/SortedTags";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  OptionContext,
+  OptionLabel,
+  OptionMenuRow,
+  OptionPopover,
+  OptionProjectsLabel,
+  OptionTooltipDescription,
+  OptionTooltipProjectsRow,
+  OptionTooltipRow,
+  OptionTooltipShell,
+  OptionTooltipTags,
+  useProjectNames,
+} from "@/components/Features/OptionTooltipShell";
 
 export interface AttributeOptionForTooltip {
   label: string;
@@ -14,6 +21,26 @@ export interface AttributeOptionForTooltip {
   tags?: string[];
   datatype?: string;
   hashAttribute?: boolean;
+  projects?: string[];
+}
+
+export function toAttributeOption(s: {
+  property: string;
+  description?: string;
+  tags?: string[];
+  datatype?: string;
+  hashAttribute?: boolean;
+  projects?: string[];
+}): AttributeOptionForTooltip {
+  return {
+    label: s.property,
+    value: s.property,
+    description: s.description,
+    tags: s.tags,
+    datatype: s.datatype,
+    hashAttribute: s.hashAttribute,
+    projects: s.projects,
+  };
 }
 
 export function AttributeOptionTooltipContent({
@@ -21,52 +48,53 @@ export function AttributeOptionTooltipContent({
 }: {
   option: AttributeOptionForTooltip;
 }) {
+  const names = useProjectNames(option.projects);
   return (
-    <Flex direction="column" gap="2" style={{ minWidth: 0, maxWidth: 280 }}>
-      <Link
-        href={`/attributes/${option.value}`}
-        target="_blank"
-        weight="bold"
-        size="md"
-      >
-        <span style={{ overflowWrap: "anywhere" }} className="mr-1">
-          {option.label}
-        </span>
-        <PiArrowSquareOut />
-      </Link>
-      <Text size="sm" as="div">
-        <Text size="sm" as="span" weight="semibold">
-          Type:{" "}
-        </Text>
+    <OptionTooltipShell
+      href={`/attributes/${option.value}`}
+      title={option.label}
+    >
+      <OptionTooltipRow label="Type:">
         {option.datatype ?? "unknown"}
-      </Text>
+      </OptionTooltipRow>
+      <OptionTooltipProjectsRow names={names} />
       {option.hashAttribute === true && (
         <Text size="sm" as="div" weight="semibold">
           Identifier
         </Text>
       )}
-      {option.tags && option.tags.length > 0 && (
-        <div>
-          <Text size="sm" as="div" weight="semibold">
-            Tags:
-          </Text>
-          <SortedTags
-            tags={option.tags}
-            shouldShowEllipsis={true}
-            showEllipsisAtIndex={20}
-            ellipsisFormat={(n) => `+${n}`}
-          />
-        </div>
+      <OptionTooltipTags tags={option.tags} />
+      <OptionTooltipDescription description={option.description} />
+    </OptionTooltipShell>
+  );
+}
+
+export function AttributeOptionProjectsLabel({
+  projects,
+}: {
+  projects?: string[];
+}) {
+  const names = useProjectNames(projects);
+  return <OptionProjectsLabel names={names} />;
+}
+
+export function formatAttributeOptionLabel(
+  o: { label: string },
+  meta: { context: string },
+) {
+  const option = o as AttributeOptionForTooltip;
+  const context: OptionContext = meta.context === "value" ? "value" : "menu";
+  return (
+    <AttributeOptionWithTooltip option={option} context={context}>
+      {context === "menu" ? (
+        <OptionMenuRow
+          label={o.label}
+          right={<AttributeOptionProjectsLabel projects={option.projects} />}
+        />
+      ) : (
+        <OptionLabel label={o.label} />
       )}
-      {option.description && (
-        <div>
-          <Text size="sm" as="div" weight="semibold">
-            Description:
-          </Text>
-          <Markdown style={{ fontSize: 12 }}>{option.description}</Markdown>
-        </div>
-      )}
-    </Flex>
+    </AttributeOptionWithTooltip>
   );
 }
 
@@ -76,25 +104,15 @@ export function AttributeOptionWithTooltip({
   children,
 }: {
   option: AttributeOptionForTooltip;
-  context?: "menu" | "value";
+  context?: OptionContext;
   children: React.ReactNode;
 }) {
-  const isValue = context === "value";
   return (
-    <Tooltip
-      body={<AttributeOptionTooltipContent option={option} />}
-      popperClassName={isValue ? "my-3" : "mx-2"}
-      tipPosition={isValue ? "top" : "right"}
-      usePortal
-      flipTheme={false}
-      style={{
-        position: "relative",
-        display: context === "value" ? "inline-block" : "block",
-        minWidth: 80,
-        maxWidth: 400,
-      }}
+    <OptionPopover
+      context={context}
+      content={<AttributeOptionTooltipContent option={option} />}
     >
       {children}
-    </Tooltip>
+    </OptionPopover>
   );
 }

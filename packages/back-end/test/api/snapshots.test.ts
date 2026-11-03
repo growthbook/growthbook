@@ -307,7 +307,7 @@ describe("snapshots API", () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
       message:
-        'Pre-exposure dimension "pre:bogus" is not supported. Use "pre:date" or "pre:activation".',
+        'Unknown dimension "pre:bogus". Supported built-in dimensions are "pre:date" and "pre:activation"',
     });
     expect(createExperimentSnapshot).not.toHaveBeenCalled();
   });
@@ -400,6 +400,217 @@ describe("snapshots API", () => {
       expect.objectContaining({ dimension: "exp:country" }),
     );
     expect(createExperimentSnapshotFromPlan).toHaveBeenCalledTimes(1);
+  });
+
+  describe("cutoff: and combo: dimensions", () => {
+    const setupContext = () => {
+      setReqContext({
+        org,
+        permissions: {
+          canCreateExperimentSnapshot: () => true,
+          canReadSingleProjectResource: () => true,
+        },
+      });
+    };
+
+    const buildFixtures = () => {
+      const snapshot = snapshotFactory.build({ organization: org.id });
+      const experiment = {
+        id: snapshot.experiment,
+        datasource: "ds_123",
+        exposureQueryId: "eq_1",
+        phases: [
+          {
+            dateStarted: new Date("2024-01-01T00:00:00.000Z"),
+            dateEnded: new Date("2024-02-01T00:00:00.000Z"),
+          },
+        ],
+      };
+      const datasource = {
+        id: "ds_123",
+        settings: {
+          queries: {
+            exposure: [{ id: "eq_1", dimensions: ["country"] }],
+          },
+        },
+      };
+      return { snapshot, experiment, datasource };
+    };
+
+    const postDimension = (experimentId: string, dimension: string) =>
+      request(app)
+        .post(`/api/v1/experiments/${experimentId}/snapshot`)
+        .set("Authorization", "Bearer foo")
+        .send({ dimension });
+
+    const mockHappyPath = (
+      snapshot: ReturnType<typeof snapshotFactory.build>,
+    ) => {
+      planExperimentSnapshot.mockResolvedValueOnce({
+        runnerKind: "incremental-exploratory",
+      });
+      getLatestSuccessfulSnapshot.mockResolvedValueOnce(null);
+      createExperimentSnapshotFromPlan.mockResolvedValueOnce({
+        snapshot,
+        queryRunner: {},
+      });
+    };
+
+    it("rejects a malformed cutoff datetime", async () => {
+      setupContext();
+      const { snapshot, experiment, datasource } = buildFixtures();
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(datasource);
+
+      const response = await postDimension(
+        snapshot.experiment,
+        "cutoff:not-a-date",
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain("Invalid cutoff datetime");
+      expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+    });
+
+    it("rejects a cutoff outside the phase window", async () => {
+      setupContext();
+      const { snapshot, experiment, datasource } = buildFixtures();
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(datasource);
+
+      const response = await postDimension(
+        snapshot.experiment,
+        "cutoff:2024-03-01T00:00:00.000Z",
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain(
+        "must fall within the experiment phase",
+      );
+      expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+    });
+
+    it("accepts a cutoff within the phase window", async () => {
+      setupContext();
+      const { snapshot, experiment, datasource } = buildFixtures();
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(datasource);
+      mockHappyPath(snapshot);
+
+      const response = await postDimension(
+        snapshot.experiment,
+        "cutoff:2024-01-15T00:12:00.000Z",
+      );
+
+      expect(response.status).toBe(200);
+      expect(planExperimentSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dimension: "cutoff:2024-01-15T00:12:00.000Z",
+        }),
+      );
+    });
+
+    it("rejects a combo with an exp: constituent missing from the exposure query", async () => {
+      setupContext();
+      const { snapshot, experiment, datasource } = buildFixtures();
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(datasource);
+
+      const response = await postDimension(
+        snapshot.experiment,
+        "combo:exp:browser::exp:country",
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message:
+          'Experiment dimension "browser" is not available on the experiment\'s exposure query.',
+      });
+      expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+    });
+
+    it("rejects a combo with a missing unit dimension", async () => {
+      setupContext();
+      const { snapshot, experiment, datasource } = buildFixtures();
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(datasource);
+      findDimensionById.mockResolvedValueOnce(null);
+
+      const response = await postDimension(
+        snapshot.experiment,
+        "combo:exp:country::dim_missing",
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message: "Dimension dim_missing not found",
+      });
+      expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+    });
+
+    it("rejects a combo with a unit dimension from another datasource", async () => {
+      setupContext();
+      const { snapshot, experiment, datasource } = buildFixtures();
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(datasource);
+      findDimensionById.mockResolvedValueOnce({
+        id: "dim_other",
+        datasource: "ds_other",
+      });
+
+      const response = await postDimension(
+        snapshot.experiment,
+        "combo:exp:country::dim_other",
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message:
+          "Dimension dim_other belongs to a different data source than this experiment.",
+      });
+      expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+    });
+
+    it("rejects malformed combos", async () => {
+      setupContext();
+      const { snapshot, experiment, datasource } = buildFixtures();
+
+      for (const dimension of [
+        "combo:exp:country",
+        "combo:dim_a::dim_b::dim_c",
+        "combo:dim_a::dim_a",
+        "combo:pre:date::dim_a",
+      ]) {
+        getExperimentById.mockReturnValueOnce(experiment);
+        getDataSourceById.mockReturnValueOnce(datasource);
+        const response = await postDimension(snapshot.experiment, dimension);
+        expect(response.status).toBe(400);
+      }
+      expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+    });
+
+    it("accepts a valid combo of an experiment and a unit dimension", async () => {
+      setupContext();
+      const { snapshot, experiment, datasource } = buildFixtures();
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(datasource);
+      findDimensionById.mockResolvedValueOnce({
+        id: "dim_abc",
+        datasource: "ds_123",
+      });
+      mockHappyPath(snapshot);
+
+      const response = await postDimension(
+        snapshot.experiment,
+        "combo:exp:country::dim_abc",
+      );
+
+      expect(response.status).toBe(200);
+      expect(findDimensionById).toHaveBeenCalledWith("dim_abc", org.id);
+      expect(planExperimentSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({ dimension: "combo:exp:country::dim_abc" }),
+      );
+    });
   });
 
   it("rejects an out-of-range phase index", async () => {

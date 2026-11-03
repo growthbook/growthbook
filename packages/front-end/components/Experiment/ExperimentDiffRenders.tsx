@@ -8,9 +8,10 @@ import {
 } from "shared/types/feature";
 import { getMetricLink } from "shared/experiments";
 import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
+import { getValidDate } from "shared/dates";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { formatTrafficSplit } from "@/services/utils";
+import { coveragePercentFormatter, formatTrafficSplit } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricName from "@/components/Metrics/MetricName";
 import Badge from "@/ui/Badge";
@@ -42,6 +43,10 @@ type Post = Partial<ExperimentInterfaceStringDates>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Phase dates bound warehouse queries, so they read in UTC like the forms that set them.
+const phaseDatetime = (d: string | Date) =>
+  `${getValidDate(d).toISOString().replace("T", " ").slice(0, 19)} UTC`;
+
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -62,13 +67,6 @@ function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
   const group = isGroup ? getMetricGroupById(id) : null;
   const exists = isGroup ? !!group : !!getExperimentMetricById(id);
 
-  const groupMetrics = group
-    ? group.metrics.map((mid) => ({
-        metric: getExperimentMetricById(mid) ?? null,
-        joinable: true,
-      }))
-    : undefined;
-
   return (
     <span className="d-inline-flex align-items-center" style={{ gap: 3 }}>
       {sign}{" "}
@@ -82,7 +80,6 @@ function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
             isGroup={isGroup}
             showGroupIcon
             disableTooltip={false}
-            metrics={groupMetrics}
             officialBadgeLeftGap={false}
           />
         </Link>
@@ -267,7 +264,9 @@ export function renderUserTargetingPhases(
     if (coverageChanged || weightsChanged) {
       const fmtTraffic = (p: PhaseTargeting) => {
         const cov =
-          p.coverage !== undefined ? percentFormatter.format(p.coverage) : "—";
+          p.coverage !== undefined
+            ? coveragePercentFormatter.format(p.coverage)
+            : "—";
         const split = p.variationWeights?.length
           ? `, ${formatTrafficSplit(p.variationWeights, 0)} split`
           : "";
@@ -384,13 +383,9 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
           label={`Start date${ph}`}
           changed
           oldNode={
-            preP.dateStarted ? (
-              new Date(preP.dateStarted).toLocaleString()
-            ) : (
-              <em>None</em>
-            )
+            preP.dateStarted ? phaseDatetime(preP.dateStarted) : <em>None</em>
           }
-          newNode={new Date(postP.dateStarted).toLocaleString()}
+          newNode={phaseDatetime(postP.dateStarted)}
         />,
       );
     }
@@ -402,18 +397,10 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
           label={`End date${ph}`}
           changed
           oldNode={
-            preP.dateEnded ? (
-              new Date(preP.dateEnded).toLocaleString()
-            ) : (
-              <em>None</em>
-            )
+            preP.dateEnded ? phaseDatetime(preP.dateEnded) : <em>None</em>
           }
           newNode={
-            postP.dateEnded ? (
-              new Date(postP.dateEnded).toLocaleString()
-            ) : (
-              <em>None</em>
-            )
+            postP.dateEnded ? phaseDatetime(postP.dateEnded) : <em>None</em>
           }
         />,
       );
@@ -450,7 +437,7 @@ export function renderPhaseInfo(pre: Pre, post: Post): ReactNode | null {
       const d = postP.lookbackStartDate as unknown;
       const preD = preP.lookbackStartDate as unknown;
       const fmt = (v: unknown) =>
-        v ? new Date(v as string | Date).toLocaleString() : <em>None</em>;
+        v ? phaseDatetime(v as string | Date) : <em>None</em>;
       sections.push(
         <ChangeField
           key={`lookback-${i}`}

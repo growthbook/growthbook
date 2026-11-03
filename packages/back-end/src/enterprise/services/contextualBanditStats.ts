@@ -19,11 +19,14 @@ import {
   getMetricSettingsForStatsEngine,
 } from "back-end/src/services/stats";
 
+export type ContextualBanditVariationRef = { id: string; key: string };
+
 export type ContextualBanditStatsSettings = {
-  varIds: string[];
+  variations: ContextualBanditVariationRef[];
   contextualAttributes: string[];
   maxLeaves: number;
   minUsersPerLeaf: number;
+  priorSampleSize: number;
 };
 
 /** Mirrors gbstats `ContextualBanditResult` (per-context responses + optional tree leaf_map). */
@@ -91,11 +94,17 @@ function contextFromRow(
  */
 export function buildContextualBanditObservations(
   rows: ExperimentMetricQueryResponseRows,
-  { varIds, attributes }: { varIds: string[]; attributes: string[] },
+  {
+    variations,
+    attributes,
+  }: {
+    variations: ContextualBanditVariationRef[];
+    attributes: string[];
+  },
 ): ContextualBanditObservation[] {
   const observations: ContextualBanditObservation[] = [];
   for (const row of prepareRowsForContextualStats(rows)) {
-    const variationIndex = variationIndexFromRow(row, varIds);
+    const variationIndex = variationIndexFromRow(row, variations);
     if (variationIndex === null) {
       continue;
     }
@@ -105,6 +114,7 @@ export function buildContextualBanditObservations(
       arm: armFromRow(row),
     });
   }
+
   return observations;
 }
 
@@ -119,7 +129,7 @@ export async function runContextualStatsEngine(
     );
   }
   const observations = buildContextualBanditObservations(rows, {
-    varIds: settings.varIds,
+    variations: settings.variations,
     attributes: settings.contextualAttributes,
   });
   const input = buildContextualBanditWeightsInput(
@@ -170,10 +180,13 @@ function buildContextualBanditWeightsInput(
   );
 
   return {
-    varIds: settings.varIds,
+    // The engine treats varIds positionally (numVariations = varIds.length); it
+    // never matches on them, so the internal ids are the right choice here.
+    varIds: settings.variations.map((v) => v.id),
     attributes: settings.contextualAttributes,
     maxLeaves: settings.maxLeaves,
     minUsersPerLeaf: settings.minUsersPerLeaf,
+    priorSampleSize: settings.priorSampleSize,
     metricSettings,
     analysisWeights: analysisForEngine.weights,
     observations,
@@ -208,16 +221,9 @@ export function prepareRowsForContextualStats(
 
 function variationIndexFromRow(
   row: ExperimentMetricQueryResponseRows[number],
-  varIds: string[],
+  variations: ContextualBanditVariationRef[],
 ): number | null {
-  const key = String(row.variation ?? "");
-  const byId = varIds.indexOf(key);
-  if (byId >= 0) {
-    return byId;
-  }
-  const asNum = Number(key);
-  if (Number.isInteger(asNum) && asNum >= 0 && asNum < varIds.length) {
-    return asNum;
-  }
-  return null;
+  const value = String(row.variation ?? "");
+  const byKey = variations.findIndex((v) => v.key === value);
+  return byKey >= 0 ? byKey : null;
 }

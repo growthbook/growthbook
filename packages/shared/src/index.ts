@@ -12,3 +12,4 @@ export * as nps from "./nps";
 export * as sql from "./sql";
 export * as validators from "./validators";
 export * as apiSpec from "./api-spec";
+export * as slackIntegration from "./slack-integration";

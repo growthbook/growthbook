@@ -1,3 +1,4 @@
+import { contextualBanditQueryEndpoints } from "shared/api-endpoints";
 import React, { FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -20,7 +21,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Link from "@/ui/Link";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import { useUser } from "@/services/UserContext";
 import { useAttributeSchema } from "@/services/features";
 
@@ -53,7 +54,7 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
   onSave,
   onCancel,
 }) => {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const { settings } = useUser();
   const attributeSchema = settings?.attributeSchema ?? [];
   const accessibleAttributes = useAttributeSchema(false);
@@ -171,21 +172,14 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
 
     const res =
       mode === "edit" && contextualBanditQuery
-        ? await apiCall<{
-            contextualBanditQuery: ApiContextualBanditQueryInterface;
-          }>(`/api/v1/contextual-bandit-queries/${contextualBanditQuery.id}`, {
-            method: "PUT",
-            body: JSON.stringify(sharedFields),
-          })
-        : await apiCall<{
-            contextualBanditQuery: ApiContextualBanditQueryInterface;
-          }>("/api/v1/contextual-bandit-queries", {
-            method: "POST",
-            body: JSON.stringify({
-              datasourceId: dataSource.id,
-              ...sharedFields,
-            }),
-          });
+        ? await restApiCall(
+            contextualBanditQueryEndpoints.updateContextualBanditQuery,
+            { params: { id: contextualBanditQuery.id }, body: sharedFields },
+          )
+        : await restApiCall(
+            contextualBanditQueryEndpoints.createContextualBanditQuery,
+            { body: { datasourceId: dataSource.id, ...sharedFields } },
+          );
 
     onSave(res.contextualBanditQuery);
   });

@@ -4,12 +4,17 @@
 
 // The icon, action, and dismiss button are each sized to the text's first line and
 // centered within it. They align on that line and never grow the row, so
-// multi-line content stays top-aligned.
-.firstLineSlot {
-  height: var(--callout-line-height);
+// multi-line content stays top-aligned. Centered slots level with wrapped body
+// copy instead.
+.firstLineSlot,
+.centeredSlot {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+}
+
+.firstLineSlot {
+  height: var(--callout-line-height);
 }
 
 .body {

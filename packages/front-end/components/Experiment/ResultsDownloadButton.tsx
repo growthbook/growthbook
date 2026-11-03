@@ -6,6 +6,7 @@ import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getDimensionDisplayName } from "@/components/Dimensions/DimensionChooser";
 import { getResultMetricDisplayName } from "@/services/experiments";
 
 type CsvRow = {
@@ -46,9 +47,10 @@ export default function ResultsDownloadButton({
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
 
   const dimensionName = dimension
-    ? getDimensionById(dimension)?.name ||
-      dimension?.split(":")?.[1] ||
-      dimension
+    ? getDimensionDisplayName(
+        dimension,
+        (id) => getDimensionById(id)?.name || undefined,
+      ) || dimension
     : null;
 
   const getRows = useCallback(() => {

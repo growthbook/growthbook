@@ -1,4 +1,7 @@
-import { getFactTableTimestampColumn } from "shared/experiments";
+import {
+  getColumnExpression,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { format } from "shared/sql";
 import type { ColumnTopValuesParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -13,6 +16,7 @@ export function getColumnsTopValuesQuery(
     limit = 50,
     lookbackDays,
     maxValueLength,
+    searchTerm,
   }: ColumnTopValuesParams,
 ): string {
   if (columns.length === 0) {
@@ -49,9 +53,11 @@ __factTable AS (
 __topValues AS (
   ${getTopValuesCTEBody(dialect, {
     columns,
+    factTable,
     start,
     limit,
     maxValueLength,
+    searchTerm,
     timestampColumn,
   })}
 )
@@ -64,9 +70,11 @@ ORDER BY column_name, count DESC
 
 type TopValuesCTEBodyParams = {
   columns: ColumnInterface[];
+  factTable: ColumnTopValuesParams["factTable"];
   start: Date;
   limit: number;
   maxValueLength?: number;
+  searchTerm?: string;
   timestampColumn: string;
 };
 
@@ -74,16 +82,37 @@ function getTopValuesCTEBody(
   dialect: SqlDialect,
   {
     columns,
+    factTable,
     start,
     limit,
     maxValueLength,
+    searchTerm,
     timestampColumn,
   }: TopValuesCTEBodyParams,
 ): string {
-  const pairs = columns.map((c) => ({
-    keyLiteral: c.column.replace(/'/g, "''"),
-    valueSql: dialect.castToString(c.column),
-  }));
+  const pairs = columns.map((c) => {
+    // Resolves dotted JSON paths (e.g. `props.plan`) and virtual columns to
+    // their SQL expressions; plain columns pass through unchanged.
+    const valueSql = dialect.castToString(
+      getColumnExpression(
+        c.column,
+        factTable,
+        dialect.jsonExtract,
+        "",
+        dialect.identifierQuote,
+      ),
+    );
+    return {
+      keyLiteral: c.column.replace(/'/g, "''"),
+      valueSql: searchTerm
+        ? `CASE WHEN ${dialect.stringMatch(
+            `LOWER(${valueSql})`,
+            "contains",
+            searchTerm.toLowerCase(),
+          )} THEN ${valueSql} ELSE NULL END`
+        : valueSql,
+    };
+  });
 
   // When the dialect has a native approximate top-k aggregate use it
   // for better performance.

@@ -1,144 +1,136 @@
-import { useState } from "react";
+import { LinkedChangeEnvStates } from "shared/types/experiment";
+import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import {
-  ExperimentInterfaceStringDates,
-  LinkedChangeEnvStates,
-} from "shared/types/experiment";
-import { diffChars } from "diff";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiArrowSquareOutFill } from "react-icons/pi";
-import { useAuth } from "@/services/auth";
-import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
+  ColumnCell,
+  ColumnFooter,
+  ColumnHeader,
+  ColumnLayout,
+  HeaderText,
+  StagedNote,
+} from "@/components/Experiment/TabbedPage/ImplementationColumn";
+import { ShownRedirect } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
-import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import Tooltip from "@/ui/Tooltip";
+import {
+  redirectDestinationParts,
+  withoutProtocol,
+} from "./redirectDestination";
 
-interface RedirectProps {
-  urlRedirect: URLRedirectInterface;
-  experiment: ExperimentInterfaceStringDates;
-  canEdit: boolean;
-  mutate?: () => void;
-  environmentStates?: LinkedChangeEnvStates;
-}
-
-function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
-  const differences = diffChars(url1, url2);
-  const filtered = differences.filter((d) => !d.removed);
-
-  try {
-    const parsedUrl1 = new URL(url1);
-    const parsedUrl2 = new URL(url2);
-
-    return (
-      <Link
-        href={url2}
-        color="dark"
-        underline="none"
-        rel="noreferrer"
-        target="_blank"
-      >
-        <Flex align="center">
-          {parsedUrl1.hostname === parsedUrl2.hostname ? (
-            <>
-              {filtered.map((part, index) => {
-                if (part.added) {
-                  return <b key={index}>{part.value}</b>;
-                } else {
-                  return <span key={index}>{part.value}</span>;
-                }
-              })}
-            </>
-          ) : (
-            <>{url2}</>
-          )}
-          <Box ml="1">
-            <PiArrowSquareOutFill color="var(--violet-a11)" />
-          </Box>
-        </Flex>
+function RedirectDestination({ from, to }: { from: string; to: string }) {
+  const parts = redirectDestinationParts(from, to);
+  const shown = parts
+    ? `${parts.elided ? "…" : ""}${parts.path}`
+    : withoutProtocol(to);
+  return (
+    <Tooltip content={to} enabled={!!parts?.elided}>
+      <Link href={to} external style={{ overflowWrap: "anywhere" }}>
+        {shown}
       </Link>
-    );
-  } catch {
-    console.error("Failed to parse URL to for redirect diff");
-    return <span>{url2}</span>;
-  }
+    </Tooltip>
+  );
 }
 
-export const RedirectLinkedChanges = ({
-  urlRedirect,
-  experiment,
-  mutate,
+const STAGED_NOTES = {
+  added: "Added when you save.",
+  edited: "Changed when you save.",
+};
+
+export default function UrlRedirectColumn({
+  layout,
+  redirect,
+  project,
   canEdit,
+  lockedReason = null,
   environmentStates,
-}: RedirectProps) => {
-  const { apiCall } = useAuth();
-  const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
-  const originUrl = urlRedirect.urlPattern;
+  onEdit,
+  onRemove,
+  onUndo,
+}: {
+  layout: ColumnLayout;
+  redirect: ShownRedirect;
+  project: string;
+  canEdit: boolean;
+  lockedReason?: string | null;
+  environmentStates?: LinkedChangeEnvStates;
+  onEdit: () => void;
+  onRemove: () => void;
+  onUndo: () => void;
+}) {
+  const { variations } = layout;
+  const origin = redirect.urlPattern;
+  const menu = canEdit
+    ? [
+        <DropdownMenuItem
+          key="edit"
+          disabled={!!lockedReason}
+          tooltip={lockedReason ?? undefined}
+          onClick={onEdit}
+        >
+          Edit URL redirect
+        </DropdownMenuItem>,
+        <DropdownMenuSeparator key="separator" />,
+        <DropdownMenuItem
+          key="remove"
+          color="red"
+          disabled={!!lockedReason}
+          tooltip={lockedReason ?? undefined}
+          onClick={onRemove}
+        >
+          Remove from experiment
+        </DropdownMenuItem>,
+      ]
+    : [];
 
   return (
     <>
-      {editingRedirect && mutate ? (
-        <UrlRedirectModal
-          mode="edit"
-          experiment={experiment}
-          urlRedirect={urlRedirect}
-          mutate={mutate}
-          close={() => setEditingRedirect(false)}
-          source={"redirect-linked-changes"}
-        />
-      ) : null}
-      <LinkedChange
-        changeType="redirect"
-        heading={originUrl}
-        headingLink={originUrl}
-        onEdit={() => setEditingRedirect(true)}
-        onDelete={async () => {
-          await apiCall(`/url-redirects/${urlRedirect.id}`, {
-            method: "DELETE",
-          });
-          mutate?.();
-        }}
-        canEdit={canEdit}
+      <ColumnHeader
+        layout={layout}
+        title={
+          <>
+            <HeaderText>Redirects</HeaderText>
+            <Link href={origin} external weight="regular" truncate>
+              {withoutProtocol(origin)}
+            </Link>
+            <HeaderText>to…</HeaderText>
+          </>
+        }
+        menu={menu}
+        menuLabel={`${origin} actions`}
+      />
+      {variations.map((v, i) => {
+        const to = redirect.destinationURLs.find(
+          (d) => d.variation === v.id,
+        )?.url;
+        return (
+          <ColumnCell key={v.id} layout={layout} row={i} fieldLine>
+            {to ? (
+              <RedirectDestination from={origin} to={to} />
+            ) : (
+              <Text color="text-low">No redirect</Text>
+            )}
+          </ColumnCell>
+        );
+      })}
+      <ColumnFooter
+        layout={layout}
+        start={
+          environmentStates && Object.keys(environmentStates).length ? (
+            <SdkConnectionEnvironmentsPopover
+              environmentStates={environmentStates}
+              kind="URL Redirect"
+              project={project}
+            />
+          ) : null
+        }
       >
-        <Box className="appbox" style={{ backgroundColor: "transparent" }}>
-          <Flex width="100%" gap="4" py="4" px="5" direction="column">
-            <Box flexGrow="1">
-              <LinkedChangeVariationRows
-                experiment={experiment}
-                renderContent={(j) =>
-                  urlRedirect.destinationURLs[j]?.url ? (
-                    <UrlDifferenceRenderer
-                      url1={urlRedirect.urlPattern}
-                      url2={urlRedirect.destinationURLs[j].url}
-                    />
-                  ) : (
-                    <Text color="text-low">No redirect</Text>
-                  )
-                }
-              />
-            </Box>
-          </Flex>
-          {environmentStates && Object.keys(environmentStates).length > 0 && (
-            <>
-              <Separator size="4" />
-              <EnvironmentStatesGrid
-                environmentStates={Object.entries(environmentStates).map(
-                  ([env, state]) => ({
-                    env,
-                    state,
-                    isActive: state === "active",
-                    tooltip:
-                      state === "active"
-                        ? "An SDK connection in this environment has URL redirect experiments enabled"
-                        : "No SDK connection in this environment has URL redirect experiments enabled",
-                  }),
-                )}
-              />
-            </>
-          )}
-        </Box>
-      </LinkedChange>
+        {redirect.staged ? (
+          <StagedNote onUndo={onUndo}>
+            {STAGED_NOTES[redirect.staged]}
+          </StagedNote>
+        ) : null}
+      </ColumnFooter>
     </>
   );
-};
+}

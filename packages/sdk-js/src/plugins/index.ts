@@ -1,6 +1,16 @@
 export { autoAttributesPlugin } from "./auto-attributes";
+export {
+  interleavePlugin,
+  interleave,
+  EVENT_INTERLEAVE_EXPOSURE,
+} from "./interleave";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
+export {
+  tracingPlugin,
+  getTracingTags,
+  TRACING_TAG_EXPERIMENT_PREFIX,
+} from "./tracing";
 export {
   devtoolsPlugin,
   devtoolsNextjsPlugin,
@@ -10,7 +20,23 @@ export {
 } from "./devtools";
 
 // Types must be exported separately, otherwise rollup includes them in the javascript output which breaks things
-export type { TrackingTransport } from "./growthbook-tracking";
+export type { AutoAttributeSettings } from "./auto-attributes";
+export type {
+  InterleaveConfig,
+  InterleavedItem,
+  InterleaveExposure,
+  InterleaveOptions,
+  InterleavePluginOptions,
+  InterleaveResult,
+  InterleaveTrackingProps,
+} from "./interleave";
+export type {
+  GrowthBookTrackingOptions,
+  TrackingEventData,
+  TrackingTransport,
+} from "./growthbook-tracking";
+export type { Trackers } from "./third-party-tracking";
+export type { TracingAssignment, TracingPluginOptions } from "./tracing";
 export type {
   DevtoolsState,
   ExpressRequestCompat,

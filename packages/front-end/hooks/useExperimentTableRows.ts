@@ -5,26 +5,22 @@ import {
 } from "shared/types/report";
 import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
-import {
-  FactMetricInterface,
-  FactTableDefinition,
-} from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   ExperimentSortBy,
   funnelStepMetricId,
   isFactFunnelMetric,
-  createCustomSliceDataForMetric,
-  createAutoSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
-  dedupeSliceMetrics,
+  getSliceDataForMetric,
   SliceDataForMetric,
-  isFactMetric,
   generateSliceString,
   generateSelectAllSliceString,
   isMetricGroupId,
+  resolveMetricsForSnapshot,
+  resolveSnapshotMetricIds,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
@@ -40,6 +36,7 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -297,12 +294,12 @@ export function useExperimentTableRows({
     ]);
 
   const unsortedRows = useMemo<ExperimentTableRow[]>(() => {
-    function getRowsForMetric(
-      metricId: string,
+    function getRowsForMetricGroup(
+      metricIds: string[],
       resultGroup: "goal" | "secondary" | "guardrail",
     ): ExperimentTableRow[] {
-      return generateRowsForMetric({
-        metricId,
+      return generateRowsForMetricGroup({
+        metricIds,
         resultGroup,
         results,
         metricOverrides,
@@ -319,7 +316,15 @@ export function useExperimentTableRows({
     if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
-      setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
+      setAdjustedPValuesOnResults(
+        [results],
+        resolveSnapshotMetricIds({
+          metricIds: expandedGoals,
+          getExperimentMetricById,
+          results: [results],
+        }),
+        pValueCorrection,
+      );
       setAdjustedCIs([results], pValueThreshold);
     }
 
@@ -416,17 +421,11 @@ export function useExperimentTableRows({
             )
           : filteredGuardrails;
 
-    const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
-      getRowsForMetric(metricId, "goal"),
-    );
-    const retSecondary = sortedFilteredSecondary.flatMap((metricId) =>
-      getRowsForMetric(metricId, "secondary"),
-    );
-    const retGuardrails = sortedFilteredGuardrails.flatMap((metricId) =>
-      getRowsForMetric(metricId, "guardrail"),
-    );
-
-    return [...retMetrics, ...retSecondary, ...retGuardrails];
+    return [
+      ...getRowsForMetricGroup(sortedFilteredMetrics, "goal"),
+      ...getRowsForMetricGroup(sortedFilteredSecondary, "secondary"),
+      ...getRowsForMetricGroup(sortedFilteredGuardrails, "guardrail"),
+    ];
   }, [
     results,
     metricGroups,
@@ -470,6 +469,55 @@ export function useExperimentTableRows({
     rows,
     getChildRowCounts,
   };
+}
+
+/**
+ * Rows for one result group, substituting the metrics a newer metric replaces
+ * when the snapshot only has the older ones. Ids in a group are already
+ * deduped, but substitution can reintroduce collisions - two new metrics can
+ * each replace the same older one - so keep the first occurrence.
+ */
+export function generateRowsForMetricGroup({
+  metricIds,
+  ...params
+}: Omit<Parameters<typeof generateRowsForMetric>[0], "metricId"> & {
+  metricIds: string[];
+}): ExperimentTableRow[] {
+  const { results, getExperimentMetricById } = params;
+  const seen = new Set<string>();
+  return metricIds.flatMap((metricId) => {
+    const metric = getExperimentMetricById(metricId);
+    if (!metric) return [];
+    const { metrics, replacedByMetricName } = resolveMetricsForSnapshot({
+      metric,
+      getExperimentMetricById,
+      results: Array.isArray(results) ? results : [results],
+    });
+    return metrics.flatMap((m) => {
+      if (seen.has(m.id)) return [];
+      seen.add(m.id);
+      const rows = generateRowsForMetric({ ...params, metricId: m.id });
+      return replacedByMetricName
+        ? rows.map((row) => ({ ...row, replacedByMetricName }))
+        : rows;
+    });
+  });
+}
+
+export function getSliceRowLabel(slice: SliceDataForMetric): string {
+  return slice.sliceLevels
+    .map((dl) => {
+      if (dl.levels.length === 0) {
+        const emptyValue = dl.datatype === "string" ? "other" : "null";
+        return `${dl.column}: ${emptyValue}`;
+      }
+      const value = dl.levels[0];
+      if (dl.datatype === "boolean") {
+        return `${dl.column}: ${value}`;
+      }
+      return value;
+    })
+    .join(" + ");
 }
 
 export function generateRowsForMetric({
@@ -519,38 +567,26 @@ export function generateRowsForMetric({
   // Calculate slice count (will be computed from actual slice data below)
   let numSlices = 0;
 
-  let sliceData: SliceDataForMetric[] = [];
-
-  if (shouldShowMetricSlices && isFactMetric(metric)) {
-    const standardSliceData = createAutoSliceDataForMetric({
-      parentMetric: getExperimentMetricById(metricId),
-      factTable: getFactTableById(
-        (getExperimentMetricById(metricId) as FactMetricInterface)?.numerator
-          ?.factTableId || "",
-      ),
-      includeOther: true,
-    });
-
-    const customSliceData = createCustomSliceDataForMetric({
-      metricId,
-      metricName: newMetric?.name || "",
-      customMetricSlices: customMetricSlices || [],
-      factTable: getFactTableById(
-        (metric as FactMetricInterface)?.numerator?.factTableId || "",
-      ),
-    });
-
-    // Dedupe (auto and custom slices sometimes overlap)
-    sliceData = dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
-  }
+  const sliceData: SliceDataForMetric[] = shouldShowMetricSlices
+    ? getSliceDataForMetric({
+        metric,
+        metricName: newMetric?.name || "",
+        customMetricSlices,
+        getFactTable: getFactTableById,
+      })
+    : [];
 
   numSlices = sliceData.length;
+
+  // A funnel expands into its steps in a results table and slices each step in
+  // the drilldown, so it has no slices a slice filter could match here.
+  const hasDisplayableSlices = numSlices > 0 && !isFactFunnelMetric(metric);
 
   // If slice filter is active and metric has no slices, don't show parent row (unless "overall" filter is set)
   if (
     sliceTagsFilter &&
     sliceTagsFilter.length > 0 &&
-    numSlices === 0 &&
+    !hasDisplayableSlices &&
     !sliceTagsFilter.includes("overall")
   ) {
     return [];
@@ -560,7 +596,7 @@ export function generateRowsForMetric({
   const isLabelOnly =
     sliceTagsFilter &&
     sliceTagsFilter.length > 0 &&
-    numSlices > 0 &&
+    hasDisplayableSlices &&
     !sliceTagsFilter.includes("overall");
 
   const funnelSteps = isFactFunnelMetric(metric)
@@ -577,7 +613,7 @@ export function generateRowsForMetric({
           users: 0,
           value: 0,
           cr: 0,
-          errorMessage: "No data",
+          errorMessage: NO_DATA_ERROR_MESSAGE,
         }))
       : resultsArray[0].variations.map((v) => {
           return (
@@ -585,7 +621,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
@@ -654,19 +690,7 @@ export function generateRowsForMetric({
         ? isExpanded && sliceMatches
         : isExpanded;
 
-      const label = slice.sliceLevels
-        .map((dl, _index) => {
-          if (dl.levels.length === 0) {
-            const emptyValue = dl.datatype === "string" ? "other" : "null";
-            return `${dl.column}: ${emptyValue}`;
-          }
-          const value = dl.levels[0];
-          if (dl.datatype === "boolean") {
-            return `${dl.column}: ${value}`;
-          }
-          return value;
-        })
-        .join(" + ");
+      const label = getSliceRowLabel(slice);
 
       const sliceRow: ExperimentTableRow = {
         label,
@@ -684,7 +708,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
@@ -729,6 +753,7 @@ export function generateRowsForMetric({
   }
 
   if (funnelSteps.length) {
+    // Two-level hierarchy: parent → steps (no slices)
     parentRow.numChildren = funnelSteps.length;
     funnelSteps.forEach((step, stepIndex) => {
       const stepMetricId = funnelStepMetricId(metricId, stepIndex);
@@ -743,7 +768,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             },
         ),
         metricSnapshotSettings,

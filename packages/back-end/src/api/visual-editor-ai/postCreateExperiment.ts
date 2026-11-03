@@ -5,6 +5,8 @@ import type {
   ExperimentInterface,
   ExperimentInterfaceExcludingHoldouts,
 } from "shared/validators";
+import { ignoreWarningsBodyField } from "shared/validators";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { createExperiment } from "back-end/src/models/ExperimentModel";
 import { SoftWarningError } from "back-end/src/util/errors";
 import {
@@ -44,6 +46,8 @@ const bodySchema = z
     // Standard A/B experiment (default) or a multi-armed bandit. Bandits
     // require the "multi-armed-bandits" premium feature (enforced below).
     type: z.enum(["standard", "multi-armed-bandit"]).default("standard"),
+    // Declared so the 422 retry hint's body form isn't rejected by .strict().
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -54,6 +58,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/create-experiment",
+  confirmation: ["experiment.create"] as const,
   operationId: "postVisualEditorCreateExperiment",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
@@ -188,7 +193,7 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
   // Omitting `visualChanges` makes createVisualChangeset auto-generate
   // one empty entry per variation via getLatestPhaseVariations.
   const changeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     context,
     urlPatterns,
     editorUrl: pageUrl,

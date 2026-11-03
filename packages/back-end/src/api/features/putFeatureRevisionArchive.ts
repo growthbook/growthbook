@@ -1,8 +1,10 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import { putFeatureRevisionArchiveValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
 import {
-  canWriteArchiveIntoDraft,
+  eventUserIdentity,
+  putFeatureRevisionArchiveValidator,
+} from "shared/validators";
+import {
+  canRequestArchiveIntoDraft,
   canStageArchiveDraft,
 } from "back-end/src/revisions/landAuthority";
 import type { ApiReqContext } from "back-end/types/api";
@@ -51,23 +53,16 @@ export async function archiveRevision(
 
   // Writing `archived` into a PINNED revision is a write into someone else's
   // draft: it makes that draft delete-class, so its author — a publisher without
-  // delete — can no longer publish their own work, and because
-  // `createOrUpdateDraftWithChanges` does not reset review, an APPROVED draft keeps
-  // its approvals while now carrying an archive nobody reviewed.
+  // delete — can no longer publish their own work.
   if (
     !created &&
-    !canWriteArchiveIntoDraft({
-      permissions: context.permissions,
+    !canRequestArchiveIntoDraft(context, {
       model: "feature",
       entity: feature,
       revision: {
-        authorId:
-          revision.createdBy && "id" in revision.createdBy
-            ? revision.createdBy.id
-            : undefined,
+        authorId: eventUserIdentity(revision.createdBy) ?? undefined,
         contributors: revision.contributors,
       },
-      userId: context.userId,
     })
   ) {
     context.permissions.throwPermissionError();
@@ -97,12 +92,6 @@ export async function archiveRevision(
         subject: "",
         value: JSON.stringify({ archived: body.archived }),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [],
-        defaultValueChanged: false,
-        settings: organization.settings,
-      }),
     );
 
     const updated = await getRevision({

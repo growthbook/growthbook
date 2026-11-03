@@ -45,6 +45,22 @@ router.get("/chat", agentController.listChats);
 
 router.get("/skills", agentController.listSkills);
 
+router.post(
+  "/autocomplete",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        // Empty asks for a reply to the assistant's last message.
+        text: z.string().max(2000),
+        conversationId: z.string().min(1).optional(),
+        currentPage: z.string().max(2048).optional(),
+        datasourceId: z.string().min(1).optional(),
+      })
+      .strict(),
+  }),
+  agentController.postAutocomplete,
+);
+
 router.get(
   "/chat/:conversationId",
   validateRequestMiddleware({

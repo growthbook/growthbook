@@ -17,13 +17,18 @@ import {
   PiPlus,
   PiPencilSimpleFill,
   PiCaretRightBold,
+  PiCaretDownBold,
   PiPencil,
   PiLockSimple,
   PiProhibit,
   PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getMalformedPrereqConditionError,
+  getReviewSetting,
+} from "shared/util";
 import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
@@ -43,6 +48,7 @@ import {
 import EventUser from "@/components/Avatar/EventUser";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
+import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
@@ -223,6 +229,7 @@ export default function FeaturesOverview({
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
+  const [showInvalidPrereqs, setShowInvalidPrereqs] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   // Always reflects the current live version — used in async callbacks to avoid
   // stale closure captures when ramp actions auto-publish new revisions.
@@ -299,7 +306,8 @@ export default function FeaturesOverview({
     environments: envs,
     enabled: !!feature,
     skipRootConditions: true,
-    version,
+    // Live until the page settles on a version, so landing on live asks once
+    version: version ?? feature?.version,
   });
 
   const prerequisitesSignature = useMemo(
@@ -469,7 +477,7 @@ export default function FeaturesOverview({
   // Soft per-feature draft cap (org setting). Purely advisory in the UI:
   // a warning dot + tooltip on "New Draft" and a callout in the confirm
   // modal — creating the draft is never blocked.
-  const activeDraftCount = revisions.filter((r) =>
+  const activeDraftCount = revisionList.filter((r) =>
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
   ).length;
   const maxDrafts = settings.maxConcurrentDrafts || 0;
@@ -539,10 +547,62 @@ export default function FeaturesOverview({
   const hasCustomFields = (featureCustomFields?.length ?? 0) > 0;
 
   let hasRules = false;
+  const invalidPrereqs: {
+    key: string;
+    ruleId: string | null;
+    where: string;
+    id: string;
+    error: string;
+  }[] = [];
+  prerequisites.forEach((p, i) => {
+    const error = getMalformedPrereqConditionError(p.condition);
+    if (error) {
+      invalidPrereqs.push({
+        key: `flag-${i}`,
+        ruleId: null,
+        where: "this Feature Flag",
+        id: p.id,
+        error,
+      });
+    }
+  });
+  const seenRuleIds = new Set<string>();
+  const ruleNumberOffset = holdout ? 2 : 1;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
+    r.forEach((rule) => {
+      if (rule.enabled === false || seenRuleIds.has(rule.id)) return;
+      seenRuleIds.add(rule.id);
+      (rule.prerequisites ?? []).forEach((p, j) => {
+        const error = getMalformedPrereqConditionError(p.condition);
+        if (error) {
+          invalidPrereqs.push({
+            key: `${rule.id}-${j}`,
+            ruleId: rule.id,
+            where: rule.description
+              ? `rule "${rule.description}"`
+              : `Rule #${(feature.rules ?? []).findIndex((fr) => fr.id === rule.id) + ruleNumberOffset}`,
+            id: p.id,
+            error,
+          });
+        }
+      });
+    });
   });
+  const invalidRuleCount = new Set(
+    invalidPrereqs.map((p) => p.ruleId).filter((id) => id !== null),
+  ).size;
+  const invalidPrereqBlocking = `An invalid prerequisite condition is blocking ${[
+    invalidPrereqs.some((p) => p.ruleId === null) ? "this Feature Flag" : null,
+    invalidRuleCount === 1
+      ? "a rule"
+      : invalidRuleCount > 1
+        ? `${invalidRuleCount} rules`
+        : null,
+  ]
+    .filter((part) => part !== null)
+    .join(" and ")}`;
 
   const variables = {
     featureKey: feature.id,
@@ -838,6 +898,35 @@ export default function FeaturesOverview({
             </>
           );
         })()}
+        {invalidPrereqs.length > 0 && (
+          <Callout status="error" mt="2" mb="3">
+            <Button
+              variant="ghost"
+              color="inherit"
+              size="sm"
+              aria-expanded={showInvalidPrereqs}
+              onClick={() => setShowInvalidPrereqs((v) => !v)}
+              icon={
+                showInvalidPrereqs ? <PiCaretDownBold /> : <PiCaretRightBold />
+              }
+              iconPosition="right"
+            >
+              {invalidPrereqBlocking}
+            </Button>
+            {showInvalidPrereqs && (
+              <Flex direction="column" gap="1" mt="2">
+                {invalidPrereqs.map((p) => (
+                  <Flex key={p.key} align="center" gap="1" wrap="wrap">
+                    <Text>Blocking {p.where}: prerequisite</Text>
+                    <FeatureBadge featureId={p.id} />
+                    <Text>— {p.error}</Text>
+                  </Flex>
+                ))}
+                <Text>Edit the prerequisite to fix it.</Text>
+              </Flex>
+            )}
+          </Callout>
+        )}
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
@@ -1662,10 +1751,14 @@ export default function FeaturesOverview({
             permissionRequired={(project) =>
               permissionsUtil.canEditFeatureDrafts({ project })
             }
-            apiEndpoint={`/feature/${feature.id}`}
+            save={(project) =>
+              apiCall(`/feature/${feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ project }),
+              })
+            }
             cancel={() => setEditProjectModal(false)}
             mutate={mutate}
-            method="PUT"
             current={feature.project}
             additionalMessage={
               <Callout status="error" mb="3">

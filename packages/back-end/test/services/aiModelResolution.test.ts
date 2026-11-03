@@ -1,3 +1,9 @@
+import {
+  AUTOCOMPLETE_AI_MODEL,
+  CLOUD_MANAGED_AI_MODEL,
+  CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  SELF_HOSTED_DEFAULT_AI_MODELS,
+} from "shared/ai";
 import type { AIProvider } from "shared/ai";
 import type { AIKeySource } from "back-end/src/services/aiCredentials";
 
@@ -56,24 +62,28 @@ describe("getAISettingsForOrg model resolution", () => {
     );
 
     expect(settings.defaultAIModel).toBe("claude-sonnet-4-6");
-    expect(settings.visualEditorAIModel).toBe("claude-sonnet-4-5-20250929");
+    expect(settings.visualEditorAIModel).toBe(
+      CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+    );
   });
 
   it("still honors an explicit Visual Editor model", async () => {
     const mod = loadModule(true, ["anthropic"]);
     const settings = await mod.getAISettingsForOrg(
-      makeContext({ visualEditorAIModel: "claude-opus-4-1-20250805" }),
+      makeContext({ visualEditorAIModel: "claude-opus-4-8" }),
     );
 
-    expect(settings.visualEditorAIModel).toBe("claude-opus-4-1-20250805");
+    expect(settings.visualEditorAIModel).toBe("claude-opus-4-8");
   });
 
   it("falls back to the managed model when a Cloud org sets no default", async () => {
     const mod = loadModule(true, []);
     const settings = await mod.getAISettingsForOrg(makeContext({}));
 
-    expect(settings.defaultAIModel).toBe("claude-haiku-4-5-20251001");
-    expect(settings.visualEditorAIModel).toBe("claude-sonnet-4-5-20250929");
+    expect(settings.defaultAIModel).toBe(CLOUD_MANAGED_AI_MODEL);
+    expect(settings.visualEditorAIModel).toBe(
+      CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+    );
   });
 
   it("ignores a Cloud model the org holds no key for", async () => {
@@ -82,7 +92,41 @@ describe("getAISettingsForOrg model resolution", () => {
       makeContext({ defaultAIModel: "gpt-5.2" }),
     );
 
-    expect(settings.defaultAIModel).toBe("claude-haiku-4-5-20251001");
+    expect(settings.defaultAIModel).toBe(CLOUD_MANAGED_AI_MODEL);
+  });
+
+  it("defaults self-hosted to a provider the org has a key for", async () => {
+    const mod = loadModule(false, ["anthropic"]);
+    const settings = await mod.getAISettingsForOrg(makeContext({}));
+
+    const expected = SELF_HOSTED_DEFAULT_AI_MODELS.find(
+      ([provider]) => provider === "anthropic",
+    )?.[1];
+    expect(settings.defaultAIModel).toBe(expected);
+  });
+
+  it("runs autocomplete on the cheap tier when an Anthropic key exists", async () => {
+    expect(
+      (
+        await loadModule(true, ["anthropic"]).getAISettingsForOrg(
+          makeContext({}),
+        )
+      ).autocompleteAIModel,
+    ).toBe(AUTOCOMPLETE_AI_MODEL);
+    expect(
+      (
+        await loadModule(false, ["openai"]).getAISettingsForOrg(
+          makeContext({ defaultAIModel: "gpt-5.2" }),
+        )
+      ).autocompleteAIModel,
+    ).toBe("gpt-5.2");
+    expect(
+      (
+        await loadModule(false, ["anthropic"]).getAISettingsForOrg(
+          makeContext({ aiAutocompleteModel: "claude-sonnet-4-6" }),
+        )
+      ).autocompleteAIModel,
+    ).toBe("claude-sonnet-4-6");
   });
 
   it("follows the org default on self-hosted", async () => {

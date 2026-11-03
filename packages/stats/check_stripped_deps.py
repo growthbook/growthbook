@@ -39,6 +39,7 @@ STRIPPED = [
     "setuptools",
     "wheel",
     "dulwich",
+    "virtualenv",
 ]
 
 

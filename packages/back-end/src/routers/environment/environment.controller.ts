@@ -17,7 +17,6 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
-import { removeEnvironmentFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
@@ -28,6 +27,10 @@ import {
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import {
+  assertEnvironmentDeletable,
+  cleanupDeletedEnvironment,
+} from "back-end/src/services/environments";
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
@@ -343,6 +346,8 @@ export const deleteEnvironment = async (
     context.permissions.throwPermissionError();
   }
 
+  await assertEnvironmentDeletable(context, id);
+
   try {
     await updateOrganization(org.id, {
       settings: {
@@ -350,6 +355,7 @@ export const deleteEnvironment = async (
         environments: existingEnvs.filter((env) => env.id !== id),
       },
     });
+    await cleanupDeletedEnvironment(org.id, id);
 
     await req.audit({
       event: "environment.delete",
@@ -358,11 +364,6 @@ export const deleteEnvironment = async (
         id,
       },
       details: auditDetailsDelete(id),
-    });
-
-    removeEnvironmentFromSlackIntegration({
-      organizationId: org.id,
-      envId: id,
     });
 
     res.status(200).json({

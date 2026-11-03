@@ -1,6 +1,7 @@
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
 import {
   applyIncrementalSuppression,
+  customHookErrorMessage,
   formatCustomHookTestResult,
   runCustomHookTest,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
@@ -72,6 +73,51 @@ describe("formatCustomHookTestResult", () => {
     expect(result.success).toBe(true);
     expect(result.warnings).toEqual([]);
     expect(result.suppressed).toBeUndefined();
+  });
+
+  it("shows the stack for a failed run and only the message for a rejection", () => {
+    const stack = "TypeError: boom\n    at hook (hook.js:2:5)";
+    expect(
+      formatCustomHookTestResult(fail("boom", [], { stack }), null).error,
+    ).toBe(stack);
+    expect(
+      formatCustomHookTestResult(
+        fail("Hypothesis is required", [], { rejected: true, stack }),
+        null,
+      ).error,
+    ).toBe("Hypothesis is required");
+  });
+});
+
+describe("customHookErrorMessage", () => {
+  const hook = (rejected: boolean, message: string) => ({
+    hookName: "h",
+    rejected,
+    message,
+  });
+
+  it("shows rejection messages as written", () => {
+    expect(
+      customHookErrorMessage(
+        [hook(true, "Hypothesis is required"), hook(true, "Add a tag")],
+        "experiment",
+      ),
+    ).toBe("Hypothesis is required\nAdd a tag");
+  });
+
+  it("replaces failures with one retry hint naming the entity", () => {
+    expect(
+      customHookErrorMessage(
+        [
+          hook(true, "Hypothesis is required"),
+          hook(false, "Script execution timed out."),
+          hook(false, "boom"),
+        ],
+        "feature",
+      ),
+    ).toBe(
+      "Hypothesis is required\nValidation for this Feature Flag failed unexpectedly. Try again, or check with your GrowthBook admins if it keeps happening.",
+    );
   });
 });
 

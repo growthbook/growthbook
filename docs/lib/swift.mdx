@@ -2,11 +2,11 @@
 title: Swift (iOS)
 description: Install the GrowthBook Swift SDK to evaluate feature flags and run A/B tests on iOS, macOS, tvOS, and other Apple platforms.
 sidebarTitle: Swift (iOS)
-slug: swift
 ---
 
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
+import SwiftEventTracking from "/snippets/partials/sdk-event-tracking/_swift.mdx";
 
 This SDK supports the following platforms and versions:
 
@@ -81,33 +81,33 @@ The GrowthBook Swift SDK provides comprehensive support for all Apple platforms:
 
 ## Installation
 
-### CocoaPods
+Install the SDK with the [Swift Package Manager](https://www.swift.org/documentation/package-manager/).
 
-Add the following to your podfile:
+In Xcode, choose **File → Add Package Dependencies…**, enter `https://github.com/growthbook/growthbook-swift`, choose "Up to Next Major Version" from `2.0.0`, and add the `GrowthBook-IOS` library to your target.
 
-```ruby
-source 'https://github.com/CocoaPods/Specs.git'
-
-target 'MyApp' do
-  pod 'GrowthBook-IOS'
-end
-```
-
-Then, install:
-
-```bash
-pod install
-```
-
-### Swift Package Manager (SPM)
-
-Add GrowthBook to your `Package.swift` file:
+In a `Package.swift`, add the package and the product:
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/growthbook/growthbook-swift.git")
+  .package(url: "https://github.com/growthbook/growthbook-swift.git", from: "2.0.0")
+],
+targets: [
+  .target(
+    name: "MyApp",
+    dependencies: [.product(name: "GrowthBook-IOS", package: "growthbook-swift")]
+  )
 ]
 ```
+
+Then `import GrowthBook`.
+
+### Migrating from CocoaPods
+
+CocoaPods Trunk becomes read-only on December 2, 2026, and `GrowthBook-IOS` 1.3.4 is the last version published there. To move to the Swift Package Manager:
+
+1. Remove `pod 'GrowthBook-IOS'` from your `Podfile` and run `pod install` (or `pod deintegrate` if it was your only pod).
+2. Add the package as described above.
+3. Build. The module is still named `GrowthBook`, so your `import GrowthBook` statements don't change.
 
 ## Quick Start
 
@@ -207,6 +207,8 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 _ = gb.refreshCache()
 ```
 
+How often those refreshes reach the network is capped by `ttlSeconds`. See [Cache freshness (TTL)](#cache-freshness-ttl).
+
 ### Secure requests: custom HTTP headers
 
 Add custom headers for API requests (e.g., auth tokens, custom user-agent). Provide default headers for the standard feature fetches and separate headers for SSE streaming if needed.
@@ -273,6 +275,35 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 ```
 
 ## Caching
+
+### Cache freshness (TTL)
+
+Cached feature payloads are considered fresh for `ttlSeconds` (default: `60`). While the cache is fresh, feature fetches are served from disk and skip the network. Raise it to cut request volume:
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { _, _ in },
+  backgroundSync: false,
+  // Consider the cache stale after 10 minutes
+  ttlSeconds: 600
+).initializer()
+```
+
+This is a staleness gate, not a scheduler — the SDK does not poll in the background. Call `gb.refreshCache()` at natural points such as app foreground or navigation, and the TTL caps how often those calls actually reach the network.
+
+<Note>
+**`refreshCache()` respects the TTL**
+
+`gb.refreshCache()` goes through the same freshness check, so it will not force a network request while the cache is still fresh. Lower `ttlSeconds` if you need refreshes to land sooner — there is no per-call override.
+
+</Note>
+
+With `backgroundSync: true`, SSE updates are applied as they arrive and are unaffected by `ttlSeconds`.
+
+### Cache location and management
 
 The SDK persists downloaded feature payloads and related metadata to disk. By default, it will:
 
@@ -593,6 +624,12 @@ gb.subscribe { experiment, result in
 // Clear all subscriptions when done
 gb.clearSubscriptions()
 ```
+
+### GrowthBook tracking plugin
+
+Sends experiment view and feature usage events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<SwiftEventTracking />
 
 ## Security Features
 

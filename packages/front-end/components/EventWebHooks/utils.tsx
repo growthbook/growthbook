@@ -1,8 +1,6 @@
-import {
-  NotificationEventNameOrWildcard,
-  notificationEventNames as allNotificationEventNames,
-  notificationEvents,
-} from "shared/validators";
+import { publicNotificationEventNames } from "shared/notifications";
+import { NotificationEventNameOrWildcard } from "shared/validators";
+import { DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS } from "shared/constants";
 import React, { ReactNode, useMemo } from "react";
 import clsx from "clsx";
 import {
@@ -17,6 +15,7 @@ import {
 import { VscJson } from "react-icons/vsc";
 import { FormatOptionLabelMeta } from "react-select";
 import { SingleValue } from "@/components/Forms/SelectField";
+import { isCloud } from "@/services/env";
 
 export type {
   EventWebHookPayloadType,
@@ -43,17 +42,27 @@ export type EventWebHookEditParams = {
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: string;
+  timeoutSeconds?: number | null;
 };
 
-// Exclude internal/noDoc events (e.g. webhook.test) from user-facing lists
-export const notificationEventNames = allNotificationEventNames.filter(
-  (name) => {
-    const [resource, event] = name.split(".");
-    return !(
-      notificationEvents as Record<string, Record<string, { noDoc?: boolean }>>
-    )[resource]?.[event]?.noDoc;
-  },
-);
+// Blank is null rather than undefined so an edit clears the stored value.
+// react-hook-form also runs this on a null default value, so null must stay null.
+export const timeoutSecondsFromInput = (v: string | null | undefined) =>
+  v ? Number(v) : null;
+
+// Self-hosted caps are only known to the server, which rejects the save
+export const timeoutError = (n?: number | null) => {
+  if (n === null || n === undefined) return undefined;
+  if (!Number.isInteger(n) || n < 1) {
+    return "Enter a whole number of seconds, at least 1.";
+  }
+  if (isCloud() && n > DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS) {
+    return `Enter at most ${DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS} seconds.`;
+  }
+  return undefined;
+};
+
+export const notificationEventNames = publicNotificationEventNames;
 
 // Build grouped options with wildcards for "select all in group"
 // Only supports two levels: "{1}.*" and "{1}.{2}.*"
@@ -300,18 +309,18 @@ export const WebhookIcon = ({
 export const displayedEvents = (
   events: string[],
   { maxEventsDisplay }: { maxEventsDisplay?: number } = {},
-) =>
-  [
-    ...events
-      .slice(0, maxEventsDisplay)
-      .map((event) => <code key={event}>{event}</code>),
-    ...(maxEventsDisplay && events.length > maxEventsDisplay ? ["..."] : []),
-  ].reduce(
-    (element, text) => (
-      <>
-        {element ? <>{element}, </> : null}
-        {text}
-      </>
-    ),
-    null,
+) => {
+  const shown = events.slice(0, maxEventsDisplay);
+  const more = events.length - shown.length;
+  return (
+    <>
+      {shown.map((event, i) => (
+        <React.Fragment key={event}>
+          {i > 0 && ", "}
+          <code style={{ color: "var(--violet-11)" }}>{event}</code>
+        </React.Fragment>
+      ))}
+      {more > 0 && ` and ${more} more`}
+    </>
   );
+};

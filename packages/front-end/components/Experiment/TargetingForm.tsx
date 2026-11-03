@@ -1,4 +1,5 @@
 import { UseFormReturn } from "react-hook-form";
+import { Box } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -9,10 +10,13 @@ import FeatureVariationsInput from "@/components//Features/FeatureVariationsInpu
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import { useAttributeScopePicker } from "./useAttributeScopePicker";
 import type { ChangeType } from "./MakeChangesFlow";
 
 export interface TargetingFormProps {
   experiment: ExperimentInterfaceStringDates;
+  attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
   changeType?: ChangeType;
   conditionKey: number;
@@ -21,11 +25,25 @@ export interface TargetingFormProps {
 
 export default function TargetingForm({
   experiment,
+  attributeProjects,
   form,
   changeType = "advanced",
   conditionKey,
   setPrerequisiteTargetingSdkIssues,
 }: TargetingFormProps) {
+  const restrictedAttributeProjects =
+    attributeProjects !== undefined
+      ? attributeProjects
+      : experiment.project
+        ? [experiment.project]
+        : null;
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: restrictedAttributeProjects,
+      allProjects: form.watch("attributeScopeAllProjects"),
+      setAllProjects: (v) => form.setValue("attributeScopeAllProjects", v),
+    });
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
@@ -34,6 +52,10 @@ export default function TargetingForm({
 
   const type = experiment.type;
   const isAdvancedChange = changeType === "advanced";
+  // A Bandit sets its own weights, so it has nothing here to hold back.
+  const holdsBack =
+    type !== "multi-armed-bandit" &&
+    (changeType === "traffic" || changeType === "weights");
 
   return (
     <div className="pt-2">
@@ -52,6 +74,8 @@ export default function TargetingForm({
         <>
           <TargetingFieldsGroup
             project={experiment.project || ""}
+            attributeProjects={effectiveAttributeProjects}
+            attributeSelectIndicator={attributeScopeToggle}
             environments={envs}
             savedGroups={form.watch("savedGroups") || []}
             setSavedGroups={(v) => form.setValue("savedGroups", v)}
@@ -83,9 +107,22 @@ export default function TargetingForm({
         </>
       )}
 
+      {holdsBack ? (
+        <Box mb="2">
+          <Text as="div" weight="semibold">
+            {changeType === "traffic" ? "Traffic percent" : "Variation weights"}
+          </Text>
+          <Text as="div" size="sm" color="text-mid">
+            {changeType === "traffic"
+              ? "Only the traffic percent changes here. To change variation weights too, go back and choose Advanced."
+              : "Only variation weights change here. To change the traffic percent too, go back and choose Advanced."}
+          </Text>
+        </Box>
+      ) : null}
       {["traffic", "weights", "advanced"].includes(changeType) && (
         <FeatureVariationsInput
           valueType={"string"}
+          valueAsId
           coverage={form.watch("coverage")}
           setCoverage={(coverage) => form.setValue("coverage", coverage)}
           setWeight={(i, weight) =>
@@ -101,16 +138,22 @@ export default function TargetingForm({
               };
             }) || []
           }
-          showPreview={false}
+          showPreview
           disableCoverage={changeType === "weights"}
           disableVariations={changeType === "traffic"}
-          hideVariations={type === "multi-armed-bandit"}
+          hideSplits={type === "multi-armed-bandit"}
+          coverageLabel={
+            type === "multi-armed-bandit"
+              ? "Traffic included in this Bandit"
+              : undefined
+          }
+          // Alone on its step, it is named above or by its slider.
           label={
-            changeType === "traffic" || type === "multi-armed-bandit"
-              ? "Traffic Percentage"
-              : changeType === "weights"
-                ? "Variation Weights"
-                : "Traffic Percentage & Variation Weights"
+            !isAdvancedChange
+              ? null
+              : type === "multi-armed-bandit"
+                ? "Traffic percent"
+                : "Traffic percent and variation weights"
           }
           startEditingSplits={true}
         />

@@ -114,7 +114,6 @@ const HoldoutValueModal = ({
 
   return (
     <Modal
-      useRadixButton={false}
       header="Change Holdout Value"
       open={true}
       close={close}
@@ -172,7 +171,6 @@ const HoldoutValueModal = ({
           setValue={setHoldoutValue}
           valueType={feature.valueType}
           feature={feature}
-          useCodeInput={true}
           showFullscreenButton={true}
         />
       </Box>

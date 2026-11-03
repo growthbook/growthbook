@@ -1,6 +1,6 @@
 import { Select as RadixSelect, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, ReactNode } from "react";
+import { forwardRef, ReactNode, useId } from "react";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 import HelperText from "./HelperText";
@@ -22,11 +22,14 @@ type SelectProps = {
   size?: SelectSize;
   placeholder?: string;
   variant?: "classic" | "surface" | "soft" | "ghost";
+  autoFocus?: boolean;
   style?: React.CSSProperties;
   triggerClassName?: string;
   align?: "start" | "center" | "end";
   /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
   container?: HTMLElement | null;
+  /** Names the trigger when the control has no visible `label` of its own. */
+  "aria-label"?: string;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -44,13 +47,16 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     size = "md",
     placeholder,
     variant = "surface",
+    autoFocus,
     triggerClassName,
     align = "start",
     container,
+    "aria-label": ariaLabel,
     ...containerProps
   }: SelectProps,
   ref,
 ) {
+  const triggerId = useId();
   return (
     <Flex
       direction="column"
@@ -59,7 +65,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       className={`gb-select--${size}`}
     >
       {typeof label === "string" ? (
-        <Text as="label" size={labelSize ?? "md"} weight={labelWeight}>
+        <Text
+          as="label"
+          htmlFor={triggerId}
+          size={labelSize ?? "md"}
+          weight={labelWeight}
+        >
           {label}
         </Text>
       ) : label !== undefined ? (
@@ -70,9 +81,15 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         size={radixSize(size)}
         disabled={disabled}
         value={value}
-        onValueChange={setValue}
+        // Radix's hidden form <select> reports "" when a value beats its option
+        onValueChange={(v) => {
+          if (v) setValue(v);
+        }}
       >
         <RadixSelect.Trigger
+          id={triggerId}
+          autoFocus={autoFocus}
+          aria-label={ariaLabel}
           placeholder={placeholder}
           className={clsx(triggerClassName, { error: error })}
           disabled={disabled}
@@ -102,15 +119,20 @@ export const SelectItem = forwardRef<
     value: string;
     children: string | string[] | ReactNode;
     disabled?: boolean;
+    className?: string;
+    textValue?: string;
   }
->(function SelectItem({ value, children, disabled = false, ...props }, ref) {
+>(function SelectItem(
+  { value, children, disabled = false, className, ...props },
+  ref,
+) {
   return (
     <RadixSelect.Item
       value={value}
       disabled={disabled}
       {...props}
       ref={ref}
-      className="w-full"
+      className={clsx("w-full", className)}
     >
       {children}
     </RadixSelect.Item>

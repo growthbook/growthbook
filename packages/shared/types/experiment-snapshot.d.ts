@@ -57,6 +57,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
+  computeFailed?: boolean;
   power?: MetricPowerResponseFromStatsEngine;
   realizedSettings?: RealizedSettings;
   supplementalResults?: SupplementalResults;
@@ -205,6 +206,7 @@ export interface ExperimentSnapshotSettings {
   skipPartialData: boolean;
   datasourceId: string;
   exposureQueryId: string;
+  exposureQueryIdentifierType?: string;
   startDate: Date;
   endDate: Date;
   phase?: PhaseSQLVar;
@@ -212,6 +214,10 @@ export interface ExperimentSnapshotSettings {
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;
+  // A running phase analyzed through a scheduled update's cutoff: nothing after
+  // endDate is read, conversions included. Otherwise conversion windows extend
+  // past endDate.
+  endDateIsCutoff?: boolean;
   /** @deprecated */
   manual?: boolean;
 }
@@ -231,6 +237,8 @@ export interface ExperimentSnapshotInterface {
   // is built on top of the overall results snapshot
   sourceSnapshotId?: string;
   sourceSnapshotDateCreated?: Date;
+  // Where the source's incremental metric scan stopped
+  sourceSnapshotEndDate?: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
@@ -294,6 +302,8 @@ export interface ExperimentSnapshotTraffic {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
   error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string;
+  // Absent when the traffic query errored
+  multipleExposures?: number;
 }
 export interface ExperimentSnapshotTrafficDimension {
   name: string;

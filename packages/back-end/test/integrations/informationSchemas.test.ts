@@ -378,7 +378,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
     ]);
   });
 
-  it("Correclty updates the original informationSchema when a table is removed", async () => {
+  it("Correctly updates the original informationSchema when a table is removed", async () => {
     const staleInformationSchema: InformationSchema[] = [
       {
         databaseName: "sample_database_name",

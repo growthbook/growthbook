@@ -4,7 +4,12 @@ export const REVIEW_CYCLE_STATUSES = [
   "approved",
 ] as const;
 
-/** Revisions predating the field read as cycle 0, so legacy rows still match. */
+// Whether a revision's status still accepts reviewer verdicts.
+export function isInReviewCycle(status: string | undefined): boolean {
+  return (REVIEW_CYCLE_STATUSES as readonly string[]).includes(status ?? "");
+}
+
+// Revisions predating the field read as cycle 0, so legacy rows still match.
 export function reviewCycleOf(revision: { reviewCycle?: number }): number {
   return revision.reviewCycle ?? 0;
 }
@@ -22,7 +27,19 @@ export function reviewCycleSupersededMessage(
   return `This review request was superseded — the draft was recalled and resubmitted while your ${what} was in flight. Reload and review the current request.`;
 }
 
-/** Changes requested outrank approvals; callers choose the no-verdict fallback. */
+// Each reviewer's latest verdict still in force. Comments carry none, and
+// stale verdicts were given on older content or an earlier review cycle.
+export function standingReviews<
+  T extends { userId: string; decision: string; stale?: boolean },
+>(reviews: readonly T[]): T[] {
+  const latest = new Map<string, T>();
+  for (const r of reviews) {
+    if (r.decision !== "comment" && !r.stale) latest.set(r.userId, r);
+  }
+  return [...latest.values()];
+}
+
+// Changes requested outrank approvals; callers choose the no-verdict fallback.
 export function statusFromStandingVerdicts<TFallback extends string>(
   verdicts: readonly ("approved" | "changes-requested")[],
   fallback: TFallback,

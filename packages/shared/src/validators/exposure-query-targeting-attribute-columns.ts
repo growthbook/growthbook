@@ -1,4 +1,9 @@
+import {
+  DEFAULT_IDENTIFIER_QUOTE,
+  sqlReferencesColumnAllowingQualified,
+} from "shared/experiments";
 import type { SDKAttributeSchema } from "shared/types/organization";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 
 export type TargetingColumnQuery = {
   id?: string;
@@ -28,14 +33,19 @@ export const CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS = [
   CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN,
 ] as const;
 
+/**
+ * Detects whether a column identifier (bare or table-qualified, e.g.
+ * `e.bandit_version`) appears in the assignment query.
+ */
 export function queryHasContextualBanditSrmColumns(
   query: string | undefined,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 ): boolean {
   if (!query) {
     return false;
   }
   return CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS.every((col) =>
-    new RegExp(`\\b${col}\\b`).test(query),
+    sqlReferencesColumnAllowingQualified(query, col, identifierQuote),
   );
 }
 
@@ -149,4 +159,48 @@ export function assertExposureQueriesTargetingAttributeColumnsValid(
       problems.map((p) => p.column),
     ),
   );
+}
+
+export function getEligibleContextualAttributes(
+  queryAttributeColumns: string[] | undefined,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const allowed = getAllowedTargetingAttributePropertyNames(attributeSchema);
+  return (queryAttributeColumns ?? []).filter((a) => allowed.has(a));
+}
+
+export function getEffectiveContextualAttributes(
+  selectedAttributes: string[] | undefined,
+  queryAttributeColumns: string[] | undefined,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const selected = new Set(selectedAttributes ?? []);
+  return getEligibleContextualAttributes(
+    queryAttributeColumns,
+    attributeSchema,
+  ).filter((a) => selected.has(a));
+}
+
+export function getDroppedContextualAttributes(
+  selectedAttributes: string[] | undefined,
+  queryAttributeColumns: string[] | undefined,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const eligible = new Set(
+    getEligibleContextualAttributes(queryAttributeColumns, attributeSchema),
+  );
+  return (selectedAttributes ?? []).filter((a) => !eligible.has(a));
+}
+
+export function assertContextualAttributesValid(
+  attributeSchema: SDKAttributeSchema | undefined,
+  cb: { id: string; name: string; contextualAttributes: string[] },
+): void {
+  assertExposureQueriesTargetingAttributeColumnsValid(attributeSchema, [
+    {
+      id: cb.id,
+      name: cb.name,
+      targetingAttributeColumns: cb.contextualAttributes,
+    },
+  ]);
 }

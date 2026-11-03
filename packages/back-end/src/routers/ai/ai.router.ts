@@ -1,3 +1,4 @@
+import bodyParser from "body-parser";
 import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -76,6 +77,13 @@ router.post(
     }),
   }),
   AIController.postReformat,
+);
+
+// 25mb is OpenAI's file limit, the tightest of the three providers.
+router.post(
+  "/transcribe",
+  bodyParser.raw({ type: "audio/*", limit: "25mb" }),
+  AIController.postTranscribe,
 );
 
 export { router as aiRouter };

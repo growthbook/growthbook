@@ -1,3 +1,5 @@
+import { validateCappingSettingsValueEntered } from "shared/validators";
+import isEqual from "lodash/isEqual";
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -8,13 +10,11 @@ import {
   Operator,
 } from "shared/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
-import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   getDefaultProjectsForNewResource,
@@ -22,7 +22,6 @@ import {
 } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { isBinomialMetric } from "shared/experiments";
-import Link from "@/ui/Link";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -77,7 +76,7 @@ export type MetricFormProps = {
   cta?: string;
   onSuccess?: () => void;
   secondaryCTA?: ReactElement;
-  switchToFact?: () => void;
+  header?: string;
 };
 
 export function usesValueColumn(sql: string) {
@@ -215,7 +214,7 @@ const MetricForm: FC<MetricFormProps> = ({
   cta = "Save",
   onSuccess,
   secondaryCTA,
-  switchToFact,
+  header,
 }) => {
   const {
     datasources,
@@ -223,7 +222,6 @@ const MetricForm: FC<MetricFormProps> = ({
     metrics,
     projects,
     project,
-    factTables,
     mutateDefinitions,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -343,8 +341,6 @@ const MetricForm: FC<MetricFormProps> = ({
               project,
               organizationId: orgId || undefined,
             }),
-      winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
-      loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
       targetMDE: getTargetMDEForMetric(current) * 100,
@@ -384,8 +380,6 @@ const MetricForm: FC<MetricFormProps> = ({
     column: form.watch("column"),
     table: form.watch("table"),
     type,
-    winRisk: form.watch("winRisk"),
-    loseRisk: form.watch("loseRisk"),
     tags: form.watch("tags"),
     projects: form.watch("projects"),
     sql: form.watch("sql"),
@@ -450,10 +444,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const ignoreNullsSupported = capSupported;
   const conversionWindowSupported = capSupported;
 
-  const hasSQLDataSources = datasources.some(
-    (d) => d.properties?.queryLanguage === "sql",
-  );
-
   const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
   const supportsJS =
     selectedDataSource?.properties?.queryLanguage === "javascript";
@@ -516,9 +506,10 @@ const MetricForm: FC<MetricFormProps> = ({
   };
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (!edit || !isEqual(value.cappingSettings, current.cappingSettings)) {
+      validateCappingSettingsValueEntered(value.cappingSettings, false);
+    }
     const {
-      winRisk,
-      loseRisk,
       maxPercentChange,
       minPercentChange,
       targetMDE,
@@ -530,8 +521,6 @@ const MetricForm: FC<MetricFormProps> = ({
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
       templateVariables: { eventName, valueColumn },
-      winRisk: winRisk / 100,
-      loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
       targetMDE: targetMDE / 100,
@@ -628,7 +617,7 @@ const MetricForm: FC<MetricFormProps> = ({
             form.setValue("sql", sql);
             // If they manually edit the sql back to the default, we'll allow it to be
             // automatically updated again upon datasource/type/name change.  If they
-            // have editted it to something else, we'll make sure not to overwrite any
+            // have edited it to something else, we'll make sure not to overwrite any
             // of their changes automatically.
             setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
           }}
@@ -639,10 +628,9 @@ const MetricForm: FC<MetricFormProps> = ({
         />
       )}
       <PagedModal
-        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         inline={inline}
-        header={edit ? "Edit Metric" : "New Metric"}
+        header={header ?? (edit ? "Edit Metric" : "New Metric")}
         close={onClose}
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
         disabledMessage={disabledMessage}
@@ -670,26 +658,6 @@ const MetricForm: FC<MetricFormProps> = ({
           {isExclusivelyForDemoDatasourceProject ? (
             <Callout status="warning">
               You are creating a metric under the demo datasource project.
-            </Callout>
-          ) : switchToFact && factTables.length > 0 ? (
-            <Callout status="info" mb="3">
-              You are creating a legacy SQL metric.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  switchToFact();
-                }}
-              >
-                Switch to use Fact Tables <FaArrowRight />
-              </a>
-            </Callout>
-          ) : switchToFact && hasSQLDataSources ? (
-            <Callout status="info" mb="3">
-              Use Fact Tables for an easier and faster way to create metrics.{" "}
-              <Link href="/fact-tables">
-                Learn More <FaArrowRight />
-              </Link>
             </Callout>
           ) : null}
           <div className="form-group">

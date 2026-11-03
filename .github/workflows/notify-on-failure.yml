@@ -16,13 +16,18 @@ on:
     types: [completed]
     branches: [main]
 
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   notify-not-success:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out' }}
+    # SLACK_WEBHOOK_URL only exists in this repo, so forks would fail here.
+    if: ${{ github.repository == 'growthbook/growthbook' && (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out') }}
     steps:
       - name: Send GitHub Action data to a Slack workflow
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           payload-delimiter: "_"
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}

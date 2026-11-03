@@ -1,11 +1,8 @@
 import { useFormContext } from "react-hook-form";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
-import { useAttributeSchema } from "@/services/features";
-import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
-} from "@/components/Features/AttributeOptionTooltip";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
+import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 
 /**
  * Assignment-attribute (`hashAttribute`) picker shared by the CB creation form
@@ -20,9 +17,10 @@ export default function ContextualBanditAssignmentAttributeSelect({
   label?: string;
 }) {
   const form = useFormContext();
-  const attributeSchema = useAttributeSchema(false, project);
-  const hasHashAttributes =
-    (attributeSchema?.filter((a) => a.hashAttribute)?.length ?? 0) > 0;
+  const hashAttributeOptions = useHashAttributeOptions(
+    project,
+    form.watch("hashAttribute"),
+  );
 
   return (
     <div className="mb-4">
@@ -32,28 +30,12 @@ export default function ContextualBanditAssignmentAttributeSelect({
       <SelectField
         withRadixThemedPortal
         containerClassName="flex-1"
-        options={attributeSchema
-          .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .map((s) => ({
-            label: s.property,
-            value: s.property,
-            description: s.description,
-            tags: s.tags,
-            datatype: s.datatype,
-            hashAttribute: s.hashAttribute,
-          }))}
+        options={hashAttributeOptions}
         value={form.watch("hashAttribute") ?? ""}
         onChange={(v) => {
           form.setValue("hashAttribute", v);
         }}
-        formatOptionLabel={(o, meta) => (
-          <AttributeOptionWithTooltip
-            option={o as AttributeOptionForTooltip}
-            context={meta.context}
-          >
-            {o.label}
-          </AttributeOptionWithTooltip>
-        )}
+        formatOptionLabel={formatAttributeOptionLabel}
       />
     </div>
   );

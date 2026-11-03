@@ -8,9 +8,9 @@ import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
-  getWildcardPatternsForEvent,
   isEventWebhookWildcard,
   NotificationEventNameOrWildcard,
+  getWildcardPatternsForEvent,
 } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";

@@ -1,0 +1,167 @@
+import { Box, Flex } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
+import type {
+  ExplorationConfig,
+  ProductAnalyticsExploration,
+} from "shared/validators";
+import { ago, datetime } from "shared/dates";
+import { getEffectiveMetricValue } from "shared/enterprise";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
+import Button from "@/ui/Button";
+import {
+  getMetricPreviewPartLabels,
+  getMetricPreviewSummary,
+} from "@/components/FactTables/MetricEditor/metricPreview";
+import { formatPreviewHeadline } from "@/components/QueryPreview/previewUtils";
+import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
+import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
+import PreviewHeadline from "@/components/QueryPreview/PreviewHeadline";
+import FunnelChart from "./FunnelChart";
+
+// The metric editor's preview: a headline value over daily bars for one
+// metric.
+export default function MetricPreviewChart({
+  exploration,
+  submittedExploreState,
+}: {
+  exploration: ProductAnalyticsExploration;
+  submittedExploreState: ExplorationConfig;
+}) {
+  const { getFactMetricById } = useDefinitions();
+
+  const dataset = submittedExploreState.dataset;
+  if (dataset.type === "funnel") {
+    return (
+      <FunnelChart
+        exploration={exploration}
+        submittedExploreState={submittedExploreState}
+        compact
+      />
+    );
+  }
+
+  const rows = exploration.result?.rows ?? [];
+  if (!rows.some((row) => row.values?.length)) {
+    return (
+      <Flex p="4" align="center" justify="center">
+        <Text color="text-mid" weight="medium">
+          The query ran successfully, but no data was returned.
+        </Text>
+      </Flex>
+    );
+  }
+
+  // Read the submitted definition so stale results keep their own labels.
+  const value = dataset.type === "metric" ? dataset.values[0] : null;
+  const metric =
+    value?.draftMetric ?? getFactMetricById(value?.metricId ?? "") ?? null;
+  if (!metric) return null;
+
+  const parts = getMetricPreviewPartLabels(metric.metricType);
+  const summary = getMetricPreviewSummary(rows, metric);
+  const perUnit =
+    metric.metricType === "ratio" ||
+    submittedExploreState.showAs === "per_unit";
+  const cellsByDay = new Map(
+    rows.map((row) => [
+      String(row.dimensions[0] ?? "").slice(0, 10),
+      row.values?.[0],
+    ]),
+  );
+  const days = getDailyBuckets(exploration);
+  const dailyValue = (day: string) => {
+    const cell = cellsByDay.get(day);
+    return cell
+      ? getEffectiveMetricValue(cell, {
+          showAs: perUnit ? "per_unit" : "total",
+          isRatio: perUnit,
+        })
+      : 0;
+  };
+
+  return (
+    <Flex direction="column" minWidth="0" width="100%">
+      <Box pb="2" minWidth="0">
+        <Text as="div" color="text-mid">
+          {summary?.label}
+          {summary?.date && (
+            <>
+              {" · "}
+              <Tooltip content={datetime(summary.date)}>
+                <span>{ago(summary.date)}</span>
+              </Tooltip>
+            </>
+          )}
+        </Text>
+        <PreviewHeadline
+          value={
+            (summary?.value ?? null) === null
+              ? "—"
+              : formatPreviewHeadline(summary?.value ?? 0)
+          }
+          title={summary?.value?.toLocaleString()}
+        >
+          <Tooltip
+            content={
+              <Box>
+                <Text as="div" size="sm">
+                  {summary?.label}
+                </Text>
+                {parts && (
+                  <Text as="div" size="sm">
+                    {parts.numerator} / {parts.denominatorTotal}
+                  </Text>
+                )}
+                {metric.metricType === "proportion" && (
+                  <Text as="div" size="sm">
+                    Units matching the metric’s conditions each day, not an
+                    experiment conversion rate. A unit may appear on multiple
+                    days.
+                  </Text>
+                )}
+              </Box>
+            }
+          >
+            <Button
+              variant="ghost"
+              color="gray"
+              size="sm"
+              aria-label="What this number means"
+            >
+              <PiInfo />
+            </Button>
+          </Tooltip>
+        </PreviewHeadline>
+        {parts && summary && summary.denominator !== null && (
+          <Text as="div" color="text-mid">
+            ={" "}
+            {summary.numerator.toLocaleString(undefined, {
+              maximumFractionDigits: 2,
+            })}{" "}
+            /{" "}
+            {summary.denominator.toLocaleString(undefined, {
+              maximumFractionDigits: 2,
+            })}
+          </Text>
+        )}
+      </Box>
+      <DailyBarChart
+        dailyValues={days.map((day) => ({ day, value: dailyValue(day) }))}
+        seriesName={metric.name}
+        tooltipLines={(day, value) => {
+          const cell = cellsByDay.get(day);
+          const lines = [`Value: ${formatPreviewHeadline(value)}`];
+          if (parts) {
+            lines.push(
+              `${parts.numerator}: ${formatPreviewHeadline(cell?.numerator ?? 0)}`,
+              `${parts.denominator}: ${formatPreviewHeadline(cell?.denominator ?? 0)}`,
+            );
+          }
+          return lines;
+        }}
+      />
+    </Flex>
+  );
+}

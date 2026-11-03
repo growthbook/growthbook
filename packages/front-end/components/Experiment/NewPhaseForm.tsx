@@ -1,8 +1,9 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import {
@@ -11,9 +12,13 @@ import {
   NamespaceValue,
   validateAndFixCondition,
 } from "shared/util";
-import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { datetime } from "shared/dates";
+import {
+  areVariationWeightsValid,
+  getEqualWeights,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { useAuth } from "@/services/auth";
+import { variationWeightsTotalPercent } from "@/services/utils";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
@@ -26,13 +31,32 @@ import SavedGroupTargetingField, {
 } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
+import {
+  getLinkedExperimentAttributeScopes,
+  useAttributeScopePicker,
+} from "./useAttributeScopePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   close: () => void;
   source?: string;
-}> = ({ experiment, close, mutate, source }) => {
+}> = ({ experiment, linkedFeatures, close, mutate, source }) => {
+  const { dropdown: dropdownScope } = getLinkedExperimentAttributeScopes(
+    experiment.project,
+    linkedFeatures,
+  );
+  const [scopeAllProjects, setScopeAllProjects] = useState(
+    !!experiment.attributeScopeAllProjects,
+  );
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: dropdownScope,
+      allProjects: scopeAllProjects,
+      setAllProjects: setScopeAllProjects,
+    });
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -55,7 +79,7 @@ const NewPhaseForm: FC<{
           status: "active" as const,
         })),
       reason: "",
-      dateStarted: new Date().toISOString().substr(0, 16),
+      dateStarted: new Date().toISOString(),
       condition: prevPhase.condition || "",
       savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
@@ -85,18 +109,12 @@ const NewPhaseForm: FC<{
   const { apiCall } = useAuth();
 
   const variationWeights = form.watch("variationWeights");
-
-  // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
-  const totalWeights = variationWeights.reduce(
-    (total: number, weight: number) => total + weight,
-    0,
-  );
-  const isValid = totalWeights > 0.99 && totalWeights < 1.01;
+  const isValid = areVariationWeightsValid(variationWeights);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const submit = form.handleSubmit(async (value) => {
-    if (!isValid) throw new Error("Variation weights must sum to 1");
+    if (!isValid) throw new Error("Variation weights must add up to 100%.");
 
     validateSavedGroupTargeting(value.savedGroups);
 
@@ -121,7 +139,6 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="new-phase-form"
       trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
@@ -158,10 +175,11 @@ const NewPhaseForm: FC<{
       )}
       {!hasLinkedChanges && (
         <DatePicker
-          label="Start Time (UTC)"
+          label="Start time"
+          timeZone="utc"
           date={form.watch("dateStarted")}
           setDate={(v) => {
-            form.setValue("dateStarted", v ? datetime(v) : "");
+            form.setValue("dateStarted", v ? v.toISOString() : "");
           }}
         />
       )}
@@ -182,6 +200,8 @@ const NewPhaseForm: FC<{
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
           project={experiment.project || ""}
+          attributeProjects={effectiveAttributeProjects}
+          attributeSelectIndicator={attributeScopeToggle}
         />
       )}
 
@@ -205,6 +225,13 @@ const NewPhaseForm: FC<{
         showPreview={false}
         hideCoverage={!hasLinkedChanges}
       />
+      {!isValid && (
+        <Callout status="warning" mb="3">
+          Variation weights add up to{" "}
+          {variationWeightsTotalPercent(variationWeights)}%. Adjust them to add
+          up to 100% to start the new phase.
+        </Callout>
+      )}
       {hasLinkedChanges && (
         <NamespaceSelector
           form={form}

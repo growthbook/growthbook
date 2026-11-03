@@ -1,11 +1,17 @@
-import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
-import { getReviewSetting } from "shared/util";
+import {
+  EventUser,
+  eventUserIdentity,
+  FeatureRevisionInterface,
+  postFeatureRevisionSubmitReviewValidator,
+} from "shared/validators";
+import { featureReviewCandidateProjects, getReviewSetting } from "shared/util";
 import { canCommentOnRevisionEntity } from "shared/permissions";
 import {
+  getFeatureReviewApproverProjects,
   getFeatureReviewFootprint,
   toApiRevision,
 } from "back-end/src/services/features";
-import type { ApiRequestLocals } from "back-end/types/api";
+import type { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -23,6 +29,44 @@ export const actionToReviewType: Record<string, ReviewSubmittedType> = {
   "request-changes": "Requested Changes",
   comment: "Comment",
 };
+
+// Log entries that don't change a draft's content. Anything else, including
+// actions added later, counts as working on it.
+const NON_EDIT_LOG_ACTIONS = new Set([
+  "Comment",
+  "edit comment",
+  "edit title",
+  "Approved",
+  "Requested Changes",
+  "Undo Review",
+  "Review Requested",
+  "Recall Review",
+  "schedule publish",
+  "cancel scheduled publish",
+  "discard",
+  "reopen",
+]);
+
+// Who may not rule on a feature draft: its creator, and an org key acting as
+// itself on a draft the key created or edited in either mode.
+async function isOwnFeatureDraft(
+  context: ApiReqContext,
+  draft: Pick<FeatureRevisionInterface, "createdBy" | "featureId" | "version">,
+): Promise<boolean> {
+  const creatorId = eventUserIdentity(draft.createdBy) ?? "";
+  if (mayBeRevisionAuthor(creatorId, context.actorId)) return true;
+  const key = context.keyActingAsItself;
+  if (!key) return false;
+  const byKey = (user: EventUser | undefined) =>
+    user?.type === "api_key" && user.apiKey === key;
+  if (byKey(draft.createdBy)) return true;
+  const log =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
+      featureId: draft.featureId,
+      version: draft.version,
+    });
+  return log.some((e) => !NON_EDIT_LOG_ACTIONS.has(e.action) && byKey(e.user));
+}
 
 export async function submitRevisionReview(
   req: Pick<ApiRequestLocals, "context" | "organization"> & {
@@ -47,9 +91,11 @@ export async function submitRevisionReview(
       ? !canCommentOnRevisionEntity(req.context.permissions, "feature", null, {
           project: feature.project,
         })
-      : !req.context.permissions.canReviewFeatureDrafts(feature, {
-          scope: "any",
-        })
+      : !req.context.permissions.canReviewFeatureDrafts(
+          feature,
+          { scope: "any" },
+          featureReviewCandidateProjects(feature, req.context.org.settings),
+        )
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -71,24 +117,24 @@ export async function submitRevisionReview(
       feature,
       revision,
     });
-    if (!req.context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+    if (
+      !req.context.permissions.canReviewFeatureDrafts(
+        feature,
+        footprint,
+        await getFeatureReviewApproverProjects({
+          context: req.context,
+          feature,
+          revision,
+        }),
+      )
+    ) {
       req.context.permissions.throwPermissionError();
     }
   }
 
-  // Identityless principals may be the author and cannot submit a verdict.
-  const creatorId =
-    revision.createdBy != null && "id" in revision.createdBy
-      ? revision.createdBy.id
-      : "";
-  if (action !== "comment" && !req.context.userId) {
-    throw new BadRequestError(
-      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
-    );
-  }
   if (
     action !== "comment" &&
-    mayBeRevisionAuthor(creatorId, req.context.userId)
+    (await isOwnFeatureDraft(req.context, revision))
   ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
@@ -102,7 +148,7 @@ export async function submitRevisionReview(
   // Rechecked inside the verdict CAS against the row it writes.
   if (action === "approve" && blockSelfApproval) {
     const isSelfApproval = (revision.contributors ?? []).some(
-      (id) => id === req.context.userId,
+      (id) => id === req.context.actorId,
     );
     if (isSelfApproval) {
       throw new BadRequestError(
@@ -150,12 +196,6 @@ export async function submitRevisionReview(
   });
   const finalRevision = updated ?? revision;
 
-  const auditUser = req.context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     req.context,
     feature,
@@ -163,7 +203,6 @@ export async function submitRevisionReview(
     finalRevision,
     review,
     comment,
-    reviewer,
   );
 
   if (action === "approve" && !req.body.skipAutoPublish) {

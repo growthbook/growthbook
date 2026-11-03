@@ -65,7 +65,6 @@ export default function PowerCalculationStatsEngineSettingsModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open
       size="lg"

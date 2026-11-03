@@ -47,7 +47,7 @@ export function getExperimentAggregateUnitsQuery(
     datasource.settings,
     {
       objects: [
-        [exposureQuery.userIdType],
+        [exposureQuery.identifierType],
         !useUnitsTable && activationMetric
           ? getUserIdTypes(activationMetric, factTableMap)
           : [],
@@ -55,7 +55,7 @@ export function getExperimentAggregateUnitsQuery(
       ],
       from: settings.startDate,
       to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
+      forcedBaseIdType: exposureQuery.identifierType,
       experimentId: settings.experimentId,
     },
   );

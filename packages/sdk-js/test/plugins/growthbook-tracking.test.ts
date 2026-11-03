@@ -161,7 +161,46 @@ describe("growthbookTrackingPlugin", () => {
     gb.destroy();
   });
 
-  it("Skips logging duplicate Feature Evaluted events", async () => {
+  it("can disable feature usage events independently", async () => {
+    const eventFilter = jest.fn(() => true);
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [
+        growthbookTrackingPlugin({
+          enableFeatureUsageEvents: false,
+          eventFilter,
+        }),
+      ],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          feature: { defaultValue: true },
+        },
+      },
+    });
+
+    const user = gb.createScopedInstance({ attributes: { user_id: "1" } });
+    user.evalFeature("feature");
+    user.runInlineExperiment({
+      key: "my-experiment",
+      variations: [false, true],
+      hashAttribute: "user_id",
+      hashVersion: 2,
+    });
+    user.logEvent("Custom Event");
+
+    await sleep(150);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      body.map((event: { event_name: string }) => event.event_name),
+    ).toEqual([EVENT_EXPERIMENT_VIEWED, "Custom Event"]);
+    expect(eventFilter).toHaveBeenCalledTimes(2);
+
+    gb.destroy();
+  });
+
+  it("Skips logging duplicate Feature Evaluated events", async () => {
     const plugin = growthbookTrackingPlugin();
 
     const gb = new GrowthBook({
@@ -173,7 +212,7 @@ describe("growthbookTrackingPlugin", () => {
       },
     });
 
-    // Skips feature evalutead events with the same properties
+    // Skips feature evaluated events with the same properties
     gb.logEvent(EVENT_FEATURE_EVALUATED, { foo: "bar" });
     gb.logEvent(EVENT_FEATURE_EVALUATED, { foo: "bar" });
     gb.logEvent(EVENT_FEATURE_EVALUATED, { foo: "baz" });

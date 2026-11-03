@@ -1,17 +1,26 @@
 import { FilterQuery } from "mongoose";
 import { omit } from "lodash";
 import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   getAggregateFilters,
+  getCompatibleFunnelAutoSliceColumns,
   getSelectedColumnDatatype,
   isFactFunnelMetric,
 } from "shared/experiments";
 import { getFunnelRuleViolations } from "shared/funnels";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator, ApiFactMetric } from "shared/validators";
+import {
+  factMetricValidator,
+  ApiFactMetric,
+  validateFactMetricCapping,
+  isExternallyManaged,
+  externallyManagedError,
+} from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -20,6 +29,7 @@ import {
   FunnelFactMetricInterface,
   LegacyColumnRef,
   LegacyFactMetricInterface,
+  RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
@@ -29,10 +39,13 @@ import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
-import { projectFilterQuery } from "back-end/src/util/mongo.util";
+import {
+  projectFilterQuery,
+  readableProjectsClause,
+} from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
-import { MakeModelClass } from "./BaseModel";
+import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -115,6 +128,16 @@ function validateUserFilter({
   }
 }
 
+// Existence is not checked: the replaced metric is often deleted later, and
+// failing validation then would make the surviving metric un-editable.
+function validateReplaces({ id, replaces }: FactMetricInterface): void {
+  if (!replaces?.length) return;
+
+  if (replaces.includes(id)) {
+    throw new Error("A metric cannot replace itself");
+  }
+}
+
 function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
   switch (metricType) {
     case "mean":
@@ -152,7 +175,13 @@ function validateSavedFilterIds({
   }
 }
 
-export class FactMetricModel extends BaseClass {
+type WriteOptions = {
+  // Set by removeAutoSlices: a metricAutoSlices-only write that maintains
+  // derived state and is exempt from the API-managed channel guard.
+  autoSliceCascade?: boolean;
+};
+
+export class FactMetricModel extends BaseClass<WriteOptions> {
   protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);
   }
@@ -179,6 +208,40 @@ export class FactMetricModel extends BaseClass {
     FactMetricInterface[]
   > {
     return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
+  // Cascade from a fact-table column change. Authority is the fact-table write,
+  // so this bypasses canUpdate; the guarded write plus re-read means a
+  // concurrent edit to the metric is retried against, never clobbered.
+  public async removeAutoSlices(
+    metricId: string,
+    removedColumns: string[],
+  ): Promise<void> {
+    const maxAttempts = 3;
+    for (let attempt = 1; ; attempt++) {
+      const [metric] = await this._find(
+        { id: metricId },
+        { bypassReadPermissionChecks: true },
+      );
+      if (!metric?.metricAutoSlices?.length) return;
+      const metricAutoSlices = metric.metricAutoSlices.filter(
+        (c) => !removedColumns.includes(c),
+      );
+      if (metricAutoSlices.length === metric.metricAutoSlices.length) return;
+      try {
+        await this.updateIfUnchanged(
+          metric,
+          { metricAutoSlices },
+          { autoSliceCascade: true },
+          { dangerouslyBypassCanUpdate: true },
+        );
+        return;
+      } catch (e) {
+        if (!(e instanceof CasConflictError) || attempt >= maxAttempts) {
+          throw e;
+        }
+      }
+    }
   }
 
   /**
@@ -212,10 +275,44 @@ export class FactMetricModel extends BaseClass {
     return this._find(filter, { sort: { id: 1 } });
   }
 
+  /** Names for prompts: official first, then most recently updated; archived excluded. */
+  public async getRecentNamesForPrompt({
+    limit,
+    datasourceId,
+    readableProjects,
+  }: {
+    limit: number;
+    datasourceId?: string;
+    /** From `getProjectsWithPermission`; null means every project. */
+    readableProjects: string[] | null;
+  }): Promise<string[]> {
+    const docs = await this._find(
+      {
+        archived: { $ne: true },
+        ...(datasourceId ? { datasource: datasourceId } : {}),
+        // Pre-filter in Mongo so the limit runs on the cursor.
+        ...readableProjectsClause(readableProjects),
+      },
+      {
+        // managedBy is "" when not official, so descending puts "admin"/"api" first.
+        sort: { managedBy: -1, dateUpdated: -1 },
+        limit,
+        // Without this, _find loads every match and slices after its own
+        // permission filter. canRead below stays the authority.
+        bypassReadPermissionChecks: true,
+      },
+    );
+    return docs.filter((m) => this.canRead(m)).map((m) => m.name);
+  }
+
   public static upgradeFactMetricDoc(
     doc: LegacyFactMetricInterface,
   ): FactMetricInterface {
     const newDoc = { ...doc };
+
+    // Retired risk thresholds: keep them out of responses and echoed updates.
+    delete newDoc.winRisk;
+    delete newDoc.loseRisk;
 
     if (doc.windowSettings === undefined) {
       newDoc.windowSettings = {
@@ -342,9 +439,9 @@ export class FactMetricModel extends BaseClass {
       );
     }
 
-    if (doc.managedBy === "api" && !this.context.isApiRequest) {
+    if (isExternallyManaged(doc.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot create fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("create", "fact metric", doc.managedBy),
       );
     }
 
@@ -358,20 +455,34 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
-  protected async beforeUpdate(existing: FactMetricInterface) {
-    // Check the admin permission here?
-    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+  protected async beforeUpdate(
+    existing: FactMetricInterface,
+    updates: UpdateProps<FactMetricInterface>,
+    newDoc: FactMetricInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    // A fact-table column cascade only maintains derived state, so that write
+    // is exempt from the channel guard below. See removeAutoSlices.
+    if (
+      writeOptions?.autoSliceCascade &&
+      Object.keys(updates).every((k) => k === "metricAutoSlices")
+    ) {
+      return;
+    }
+    // API-managed metrics are only editable through the API so their
+    // definition can't drift from the caller's source of truth.
+    if (isExternallyManaged(existing.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot update fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("update", "fact metric", existing.managedBy),
       );
     }
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
     // Check the admin permission here?
-    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+    if (isExternallyManaged(existing.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot delete fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("delete", "fact metric", existing.managedBy),
       );
     }
   }
@@ -389,13 +500,13 @@ export class FactMetricModel extends BaseClass {
     return this._factTableMap;
   }
 
-  protected async customValidation(
+  static async validateFactMetric(
     data: FactMetricInterface,
-    previousData?: FactMetricInterface,
+    previousData: FactMetricInterface | null,
+    factTableMap: Map<string, FactTableInterface>,
+    context: Context,
   ): Promise<void> {
-    const existingMetric = previousData || null;
-
-    const factTableMap = await this.getFactTableMap();
+    validateFactMetricCapping(data, previousData);
 
     if (data.metricType === "funnel" && !data.funnelSettings) {
       throw new Error("Funnel settings required for funnel metrics");
@@ -405,16 +516,26 @@ export class FactMetricModel extends BaseClass {
     }
 
     if (isFactFunnelMetric(data)) {
-      if (!this.context.hasPremiumFeature("funnel-metrics")) {
+      if (!context.hasPremiumFeature("funnel-metrics")) {
         throw new Error("Funnel metrics are a premium feature");
       }
-      await this.validateFunnelSettings(data, existingMetric, factTableMap);
+      await FactMetricModel.validateFunnelSettings(
+        data,
+        previousData,
+        factTableMap,
+        context,
+      );
     } else {
-      await this.validateColumnRefs(data, existingMetric, factTableMap);
+      await FactMetricModel.validateColumnRefs(
+        data,
+        previousData,
+        factTableMap,
+        context,
+      );
     }
 
     if (data.metricType === "quantile") {
-      if (!this.context.hasPremiumFeature("quantile-metrics")) {
+      if (!context.hasPremiumFeature("quantile-metrics")) {
         throw new Error("Quantile metrics are a premium feature");
       }
 
@@ -424,32 +545,41 @@ export class FactMetricModel extends BaseClass {
     }
     if (
       data.metricType === "retention" &&
-      !this.context.hasPremiumFeature("retention-metrics") &&
+      !context.hasPremiumFeature("retention-metrics") &&
       data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
-    if (data.loseRisk < data.winRisk) {
-      throw new Error(
-        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
-      );
-    }
-
     if (data.minPercentChange >= data.maxPercentChange) {
       throw new Error(
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
       );
     }
+
+    validateReplaces(data);
+  }
+
+  protected async customValidation(
+    data: FactMetricInterface,
+    previousData?: FactMetricInterface,
+  ): Promise<void> {
+    await FactMetricModel.validateFactMetric(
+      data,
+      previousData ?? null,
+      await this.getFactTableMap(),
+      this.context,
+    );
   }
 
   /**
    * Funnel metrics describe their events through ordered steps rather than a
    * numerator ColumnRef, so none of the column/aggregation rules apply.
    */
-  private async validateFunnelSettings(
+  private static async validateFunnelSettings(
     data: FunnelFactMetricInterface,
     existingMetric: FactMetricInterface | null,
     factTableMap: Map<string, FactTableInterface>,
+    context: Context,
   ): Promise<void> {
     const { steps, ordering, sessionBased } = data.funnelSettings;
 
@@ -467,16 +597,61 @@ export class FactMetricModel extends BaseClass {
       throw new Error(violation.message);
     }
 
-    const factTableId = steps[0].factTableId;
-    const factTable = factTableMap.get(factTableId);
-    if (!factTable) {
-      throw new Error("Could not find funnel fact table");
+    // Steps can each read from a different fact table, so everything below is
+    // validated against the step's own table.
+    const stepFactTables = steps.map((step) => {
+      const factTable = factTableMap.get(step.factTableId);
+      if (!factTable) {
+        throw new Error("Could not find funnel fact table");
+      }
+      return factTable;
+    });
+
+    // Only reject columns this write adds, the same way row filters are
+    // validated against the previous version below. A fact table change can
+    // invalidate a column that was fine when it was saved, and rejecting that
+    // here would block every later write to the metric, a rename included.
+    // Readers intersect against the fact tables anyway, so a stale column
+    // simply produces no slices until the cascade or the next edit drops it.
+    const previousStepFactTableIds =
+      existingMetric && isFactFunnelMetric(existingMetric)
+        ? existingMetric.funnelSettings.steps.map((step) => step.factTableId)
+        : null;
+    // Changing which tables the funnel reads from re-opens every column.
+    const validateAllAutoSliceColumns =
+      !previousStepFactTableIds ||
+      previousStepFactTableIds.length !== steps.length ||
+      steps.some((step, i) => step.factTableId !== previousStepFactTableIds[i]);
+    const previousAutoSliceColumns = new Set(existingMetric?.metricAutoSlices);
+    const newAutoSliceColumns = (data.metricAutoSlices ?? []).filter(
+      (column) =>
+        validateAllAutoSliceColumns || !previousAutoSliceColumns.has(column),
+    );
+    if (newAutoSliceColumns.length) {
+      const compatibleAutoSliceColumns = new Set(
+        getCompatibleFunnelAutoSliceColumns({
+          steps,
+          getFactTable: (id) => factTableMap.get(id),
+        }).map(({ column }) => column.column),
+      );
+      const invalidAutoSliceColumns = newAutoSliceColumns.filter(
+        (column) => !compatibleAutoSliceColumns.has(column),
+      );
+      if (invalidAutoSliceColumns.length) {
+        throw new Error(
+          `Invalid funnel Auto Slice columns: ${invalidAutoSliceColumns.join(", ")}. Configure matching Auto Slice columns on every step's Fact Table.`,
+        );
+      }
     }
 
-    steps.forEach((step) => {
+    steps.forEach((step, i) => {
       validateSavedFilterIds({
-        columnRef: { factTableId, column: "", rowFilters: step.rowFilters },
-        factTable,
+        columnRef: {
+          factTableId: step.factTableId,
+          column: "",
+          rowFilters: step.rowFilters,
+        },
+        factTable: stepFactTables[i],
         filterType: "numerator",
       });
     });
@@ -487,50 +662,60 @@ export class FactMetricModel extends BaseClass {
     if (data.denominator) {
       throw new Error("Denominator not allowed for funnel metrics");
     }
-    if (data.cappingSettings.type) {
-      throw new Error("Capping is not supported for funnel metrics");
-    }
     if (data.quantileSettings) {
       throw new Error("Quantile settings are not supported for funnel metrics");
-    }
-    if (data.metricAutoSlices?.length) {
-      throw new Error("Slices are not supported for funnel metrics");
     }
 
     const previousSteps =
       existingMetric && isFactFunnelMetric(existingMetric)
         ? existingMetric.funnelSettings.steps
         : [];
-    const rowFiltersToValidate = steps.flatMap((step, index) =>
-      getNetNewSqlExprRowFilters({
+    // One validation query per fact table rather than per step, since each
+    // query round-trips to the warehouse.
+    const rowFiltersByFactTable = new Map<
+      string,
+      { factTable: FactTableInterface; rowFilters: RowFilter[] }
+    >();
+    steps.forEach((step, index) => {
+      const rowFilters = getNetNewSqlExprRowFilters({
         rowFilters: step.rowFilters,
         previousRowFilters: previousSteps[index]?.rowFilters,
         validateAll: previousSteps[index]?.factTableId !== step.factTableId,
-      }),
-    );
-    if (!rowFiltersToValidate.length) return;
+      });
+      if (!rowFilters.length) return;
+      const existing = rowFiltersByFactTable.get(step.factTableId);
+      if (existing) {
+        existing.rowFilters.push(...rowFilters);
+      } else {
+        rowFiltersByFactTable.set(step.factTableId, {
+          factTable: stepFactTables[index],
+          rowFilters: [...rowFilters],
+        });
+      }
+    });
+    if (!rowFiltersByFactTable.size) return;
 
-    const datasource = await getDataSourceById(this.context, data.datasource);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       throw new Error("Could not find datasource");
     }
-    const integration = getSourceIntegrationObject(
-      this.context,
-      datasource,
-      true,
-    );
-    await validateFactMetricRowFilterSql({
-      integration,
-      factTable,
-      rowFilters: rowFiltersToValidate,
-      errorPrefix: "Invalid funnel step row filter SQL: ",
-    });
+    const integration = getSourceIntegrationObject(context, datasource, true);
+
+    for (const { factTable, rowFilters } of rowFiltersByFactTable.values()) {
+      await validateFactMetricRowFilterSql({
+        integration,
+        factTable,
+        rowFilters,
+        errorPrefix: "Invalid funnel step row filter SQL: ",
+      });
+    }
   }
 
-  private async validateColumnRefs(
+  private static async validateColumnRefs(
     data: StandardFactMetricInterface,
     existingMetric: FactMetricInterface | null,
     factTableMap: Map<string, FactTableInterface>,
+    context: Context,
   ): Promise<void> {
     if (data.funnelSettings) {
       throw new Error("funnelSettings is only allowed for funnel metrics");
@@ -655,15 +840,11 @@ export class FactMetricModel extends BaseClass {
       numeratorSqlExprFiltersToValidate.length ||
       denominatorSqlExprFiltersToValidate.length
     ) {
-      const datasource = await getDataSourceById(this.context, data.datasource);
+      const datasource = await getDataSourceById(context, data.datasource);
       if (!datasource) {
         throw new Error("Could not find datasource");
       }
-      const integration = getSourceIntegrationObject(
-        this.context,
-        datasource,
-        true,
-      );
+      const integration = getSourceIntegrationObject(context, datasource, true);
 
       await validateFactMetricRowFilterSql({
         integration,
@@ -733,6 +914,7 @@ export class FactMetricModel extends BaseClass {
       quantileSettings,
       funnelSettings,
       cappingSettings,
+      lowerCappingSettings,
       windowSettings,
       regressionAdjustmentDays,
       regressionAdjustmentEnabled,
@@ -742,16 +924,14 @@ export class FactMetricModel extends BaseClass {
       numerator,
       denominator,
       metricType,
-      loseRisk,
-      winRisk,
       targetMDE,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
     return {
       ...otherFields,
-      riskThresholdDanger: loseRisk,
-      riskThresholdSuccess: winRisk,
+      riskThresholdDanger: DEFAULT_LOSE_RISK_THRESHOLD,
+      riskThresholdSuccess: DEFAULT_WIN_RISK_THRESHOLD,
       targetMDE: targetMDE || DEFAULT_TARGET_MDE,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
@@ -761,6 +941,13 @@ export class FactMetricModel extends BaseClass {
         type: cappingSettings.type || "none",
         ignoreZeros: cappingSettings.ignoreZeros ?? undefined,
       },
+      lowerCappingSettings: lowerCappingSettings
+        ? {
+            type: lowerCappingSettings.type || "none",
+            value: lowerCappingSettings.value,
+            ignoreZeros: lowerCappingSettings.ignoreZeros ?? undefined,
+          }
+        : null,
       windowSettings: {
         ...windowSettings,
         type: windowSettings.type || "none",

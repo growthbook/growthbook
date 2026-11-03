@@ -21,7 +21,11 @@ export interface Props {
     | "dashboard"
     | "custom field"
     | "experiment"
-    | "constant";
+    | "experiment assignment query"
+    | "contextual bandit"
+    | "interleaving"
+    | "constant"
+    | "population";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;
@@ -30,7 +34,13 @@ export interface Props {
 }
 // these types can only have one project associated with them, and we don't
 // want to show the project badge for them (rather than 'all')
-const singularProjectTypes = ["feature", "experiment", "constant"];
+const singularProjectTypes = [
+  "feature",
+  "experiment",
+  "contextual bandit",
+  "interleaving",
+  "constant",
+];
 
 export default function ProjectBadges({
   resourceType,

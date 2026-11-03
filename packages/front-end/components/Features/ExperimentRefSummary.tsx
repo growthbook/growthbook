@@ -2,11 +2,13 @@ import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getTempRolloutStaleReason,
   includeExperimentInPayload,
   calculateNamespaceCoverage,
   getConfigBackingKey,
   getFeatureBaseConfigKey,
 } from "shared/util";
+import { ago } from "shared/dates";
 import {
   getLatestPhaseVariations,
   hasTargetingConfigured,
@@ -18,15 +20,17 @@ import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import { coveragePercentFormatter } from "@/services/utils";
 import ValueDisplay from "./ValueDisplay";
 import ConfigBackedSummary from "./ConfigBackedSummary";
+import { ValueDiffProvider } from "./ValueDiffContext";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import { AttributeBadge } from "./AttributeBadge";
+import { EntityBadge, PlainEntityBadge } from "./EntityBadge";
 import ForceSummary from "./ForceSummary";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -44,6 +48,32 @@ export function isExperimentRefRuleSkipped(
     return !isDraft;
   }
   return !includeExperimentInPayload(experiment);
+}
+
+export function TempRolloutCallout({
+  rule,
+  experiment,
+}: {
+  rule: ExperimentRefRule;
+  experiment?: ExperimentInterfaceStringDates;
+}) {
+  if (!experiment || experiment.status !== "stopped") return null;
+  if (rule.enabled === false || !includeExperimentInPayload(experiment)) {
+    return null;
+  }
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const lastPhaseEnded =
+    experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
+  const isOld = getTempRolloutStaleReason(experiment) === "old-temp-rollout";
+  return (
+    <Callout status={isOld ? "warning" : "info"} size="sm" mt="3">
+      Temporary rollout from {isBandit ? "a Bandit" : "an experiment"} that
+      stopped {lastPhaseEnded ? ago(lastPhaseEnded) : "earlier"}.{" "}
+      {isOld
+        ? "Once the winner is in code, stop the rollout on the experiment."
+        : "Stop it on the experiment when it is no longer needed."}
+    </Callout>
+  );
 }
 
 export default function ExperimentRefSummary({
@@ -75,10 +105,10 @@ export default function ExperimentRefSummary({
   if (experiment.archived) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is archived and will be
+        This {isBandit ? "Bandit" : "experiment"} is archived and will be
         skipped.{" "}
         <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "Experiment"}
+          View {isBandit ? "Bandit" : "experiment"}
         </Link>
       </Callout>
     );
@@ -88,10 +118,10 @@ export default function ExperimentRefSummary({
   if (!phase) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is not running and rule will
-        be skipped.{" "}
+        This {isBandit ? "Bandit" : "experiment"} is not running and this rule
+        will be skipped.{" "}
         <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "Experiment"}
+          View {isBandit ? "Bandit" : "experiment"}
         </Link>
       </Callout>
     );
@@ -107,9 +137,9 @@ export default function ExperimentRefSummary({
   if (experiment.status === "stopped" && !releasedValue) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is stopped and does not have a{" "}
-        <strong>Temporary Rollout</strong> enabled. This rule will be skipped.{" "}
-        <Link href={`/experiment/${experiment.id}#results`}>View Results</Link>
+        This {isBandit ? "Bandit" : "experiment"} is stopped and does not have a{" "}
+        temporary rollout enabled. This rule will be skipped.{" "}
+        <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
       </Callout>
     );
   }
@@ -128,18 +158,9 @@ export default function ExperimentRefSummary({
     <Box>
       {experiment.status === "draft" && !isDraft && (
         <Callout status="warning" mb="3">
-          This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
+          This {isBandit ? "Bandit" : "experiment"} is in a{" "}
           <strong>draft</strong> state and has not been started yet. This rule
           will be skipped.
-        </Callout>
-      )}
-      {experiment.status === "stopped" && (
-        <Callout status="info" mb="3">
-          This {isBandit ? "Bandit" : "Experiment"} is stopped and a{" "}
-          <strong>Temporary Rollout</strong> is enabled. All users in the{" "}
-          {isBandit ? "Bandit" : "Experiment"} will receive the winning
-          variation. If no longer needed, you can stop it from the{" "}
-          {isBandit ? "Bandit" : "Experiment"} page.
         </Callout>
       )}
       {hasCondition && (
@@ -163,8 +184,7 @@ export default function ExperimentRefSummary({
           <>
             in the namespace
             <NextLink href={`/namespaces`}>
-              <Badge
-                color="gray"
+              <EntityBadge
                 label={
                   <Text color="text-high">
                     {namespaces?.find((n) => n.name === phase.namespace!.name)
@@ -185,34 +205,17 @@ export default function ExperimentRefSummary({
       </Flex>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">INCLUDE</Text>
-        <Badge
-          color="gray"
-          label={
-            <Text color="text-high">
-              {percentFormatter.format(effectiveCoverage)}
-            </Text>
-          }
+        <PlainEntityBadge
+          label={coveragePercentFormatter.format(effectiveCoverage)}
         />
-        of units in the {isBandit ? "Bandit" : "Experiment"}
+        of units in the {isBandit ? "Bandit" : "experiment"}
         {hasNamespace && (
           <>
             (
-            <Badge
-              color="gray"
-              label={
-                <Text color="text-high">
-                  {percentFormatter.format(namespaceRange)}
-                </Text>
-              }
-            />
+            <PlainEntityBadge label={percentFormatter.format(namespaceRange)} />
             of the namespace and
-            <Badge
-              color="gray"
-              label={
-                <Text color="text-high">
-                  {percentFormatter.format(phase?.coverage ?? 1)}
-                </Text>
-              }
+            <PlainEntityBadge
+              label={coveragePercentFormatter.format(phase?.coverage ?? 1)}
             />
             exposure)
           </>
@@ -245,110 +248,113 @@ export default function ExperimentRefSummary({
               borderRadius: "var(--radius-2)",
             }}
           >
-            <Table>
-              <TableBody>
-                {getLatestPhaseVariations(experiment).map((variation, j) => {
-                  const variationEntry = variations.find(
-                    (v) => v.variationId === variation.id,
-                  );
-                  const isMissing = variationEntry === undefined;
-                  const value = variationEntry?.value ?? "";
+            <ValueDiffProvider>
+              <Table>
+                <TableBody>
+                  {getLatestPhaseVariations(experiment).map((variation, j) => {
+                    const variationEntry = variations.find(
+                      (v) => v.variationId === variation.id,
+                    );
+                    const isMissing = variationEntry === undefined;
+                    const value = variationEntry?.value ?? "";
 
-                  const weight = phase.variationWeights?.[j] || 0;
+                    const weight = phase.variationWeights?.[j] || 0;
 
-                  return (
-                    <TableRow
-                      key={j}
-                      style={{ color: "var(--color-text-high)" }}
-                    >
-                      <TableCell style={{ whiteSpace: "nowrap" }}>
-                        <Flex align="center" gap="2">
-                          <span
+                    return (
+                      <TableRow
+                        key={j}
+                        style={{ color: "var(--color-text-high)" }}
+                      >
+                        <TableCell style={{ whiteSpace: "nowrap" }}>
+                          <Flex align="center" gap="2">
+                            <span
+                              style={{
+                                color: getVariationColor(j, true),
+                                borderColor: getVariationColor(j, true),
+                                fontSize: "14px",
+                                width: 20,
+                                height: 20,
+                                borderRadius: 20,
+                                borderWidth: 1,
+                                borderStyle: "solid",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {j}
+                            </span>
+                            <Text weight="medium" whiteSpace="nowrap">
+                              {variation.name}
+                            </Text>
+                          </Flex>
+                        </TableCell>
+                        {!isBandit && (
+                          <TableCell
                             style={{
-                              color: getVariationColor(j, true),
-                              borderColor: getVariationColor(j, true),
-                              fontSize: "14px",
-                              width: 20,
-                              height: 20,
-                              borderRadius: 20,
-                              borderWidth: 1,
-                              borderStyle: "solid",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
+                              color: "var(--color-text-mid)",
+                              textAlign: "right",
                             }}
                           >
-                            {j}
-                          </span>
-                          <Text weight="medium" whiteSpace="nowrap">
-                            {variation.name}
-                          </Text>
-                        </Flex>
-                      </TableCell>
-                      <TableCell width="100%">
-                        {isMissing ? (
-                          <HelperText status="warning">
-                            Define missing values
-                          </HelperText>
-                        ) : (
-                          (() => {
-                            // Config-backed arms render "SERVE ConfigName with
-                            // overrides" like force rules — never the raw
-                            // `@config:` directive. Only a config-backed
-                            // feature resolves configs.
-                            const baseConfigKey =
-                              getFeatureBaseConfigKey(feature);
-                            const configKey =
-                              baseConfigKey !== null
-                                ? (getConfigBackingKey(value) ?? baseConfigKey)
-                                : null;
-                            if (configKey !== null) {
-                              return (
-                                <ConfigBackedSummary
-                                  value={value}
-                                  configKey={configKey}
-                                  feature={feature}
-                                  sparse={rule.sparse}
-                                  environment={environment}
-                                />
-                              );
-                            }
-                            return (
-                              <>
-                                <ValueDisplay
-                                  value={value}
-                                  type={type}
-                                  showFullscreenButton={true}
-                                  sparse={rule.sparse}
-                                  defaultValue={feature.defaultValue}
-                                />
-                                <ValidateValue
-                                  value={value}
-                                  feature={feature}
-                                />
-                              </>
-                            );
-                          })()
+                            {percentFormatter.format(weight)}
+                          </TableCell>
                         )}
-                      </TableCell>
-                      {!isBandit && (
-                        <TableCell
-                          style={{
-                            color: "var(--color-text-mid)",
-                            textAlign: "right",
-                          }}
-                        >
-                          {percentFormatter.format(weight)}
+                        <TableCell width="100%">
+                          {isMissing ? (
+                            <HelperText status="warning">
+                              Define missing values
+                            </HelperText>
+                          ) : (
+                            (() => {
+                              // Config-backed arms render the config's name —
+                              // never the raw `@config:` directive. Only a
+                              // config-backed feature resolves configs.
+                              const baseConfigKey =
+                                getFeatureBaseConfigKey(feature);
+                              const configKey =
+                                baseConfigKey !== null
+                                  ? (getConfigBackingKey(value) ??
+                                    baseConfigKey)
+                                  : null;
+                              if (configKey !== null) {
+                                return (
+                                  <ConfigBackedSummary
+                                    label={null}
+                                    value={value}
+                                    configKey={configKey}
+                                    feature={feature}
+                                    sparse={rule.sparse}
+                                    environment={environment}
+                                  />
+                                );
+                              }
+                              return (
+                                <>
+                                  <ValueDisplay
+                                    value={value}
+                                    type={type}
+                                    showFullscreenButton={true}
+                                    sparse={rule.sparse}
+                                    defaultValue={feature.defaultValue}
+                                  />
+                                  <ValidateValue
+                                    value={value}
+                                    feature={feature}
+                                  />
+                                </>
+                              );
+                            })()
+                          )}
                         </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </ValueDiffProvider>
           </Box>
-          <Box mt="3">
+          <Box mt="3" mb="3">
             {!isBandit && (
               <ExperimentSplitVisual
                 values={getLatestPhaseVariations(experiment).map(
@@ -376,10 +382,7 @@ export default function ExperimentRefSummary({
           <Flex direction="row" gap="2" mb="3">
             <Text weight="medium">TRACK</Text>
             the result using the key
-            <Badge
-              color="gray"
-              label={<Text color="text-high">{experiment.trackingKey}</Text>}
-            />
+            <PlainEntityBadge label={experiment.trackingKey} />
           </Flex>
         </>
       )}

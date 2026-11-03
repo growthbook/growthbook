@@ -25,6 +25,7 @@ type Conflict<T> = DraftConflict<T> & {
 export function useDraftConflict<T extends object>({
   initial,
   labels,
+  formatters,
   form,
   applyField,
   isNewDraft,
@@ -33,6 +34,8 @@ export function useDraftConflict<T extends object>({
 }: {
   initial: T;
   labels?: Record<string, string>;
+  // Per-field display, for values the control shows differently (names, %).
+  formatters?: Record<string, (value: unknown) => string>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form?: UseFormReturn<any>;
   // For editors that aren't react-hook-form backed (e.g. a set of toggles).
@@ -108,8 +111,9 @@ export function useDraftConflict<T extends object>({
           unknown
         > | null,
         chunk.fields,
+        formatters,
       ),
-    [conflict],
+    [conflict, formatters],
   );
 
   const labelFor = useCallback(

@@ -1,13 +1,21 @@
 import type Agenda from "agenda";
 import type {
+  ExperimentSnapshotInterface,
   SnapshotTriggeredBy,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import expireOldQueries from "back-end/src/jobs/expireOldQueries";
+import type { QueryStatus } from "shared/types/query";
+import expireOldQueries, {
+  classifyStalledSnapshot,
+  StalledQueryStatus,
+  StalledSnapshotVerdict,
+} from "back-end/src/jobs/expireOldQueries";
 import {
   dangerousFindStalledRunningSnapshotsFromAllOrgs,
   errorSnapshotIfStillRunning,
+  findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
 import {
   getQueryStatusesByIds,
   getStaleQueries,
@@ -18,12 +26,19 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   dangerousFindStalledRunningSnapshotsFromAllOrgs: jest.fn(),
   errorSnapshotIfStillRunning: jest.fn(),
   findRunningSnapshotsByQueryId: jest.fn().mockResolvedValue([]),
+  findSnapshotById: jest.fn(),
   updateSnapshot: jest.fn(),
+}));
+
+jest.mock("back-end/src/queryRunners/rehydrate", () => ({
+  recoverStalledSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/QueryModel", () => ({
@@ -84,22 +99,247 @@ jest.mock("back-end/src/util/logger", () => ({
   },
 }));
 
+describe("classifyStalledSnapshot", () => {
+  const NOW = Date.UTC(2026, 0, 15, 12, 0, 0);
+  const MIN = 60 * 1000;
+  const HOUR = 60 * MIN;
+
+  function row(
+    id: string,
+    status: QueryStatus,
+    {
+      createdAgoMs,
+      heartbeatAgoMs,
+      finishedAgoMs,
+    }: {
+      createdAgoMs: number;
+      heartbeatAgoMs?: number;
+      finishedAgoMs?: number;
+    },
+  ): StalledQueryStatus {
+    const createdAt = new Date(NOW - createdAgoMs);
+    return {
+      id,
+      status,
+      createdAt,
+      heartbeat:
+        heartbeatAgoMs === undefined
+          ? createdAt
+          : new Date(NOW - heartbeatAgoMs),
+      ...(finishedAgoMs === undefined
+        ? {}
+        : { finishedAt: new Date(NOW - finishedAgoMs) }),
+    };
+  }
+
+  const cases: {
+    name: string;
+    ageMs: number;
+    queryStatuses: StalledQueryStatus[];
+    expected: StalledSnapshotVerdict;
+  }[] = [
+    {
+      name: "something is still running",
+      ageMs: 3 * HOUR,
+      queryStatuses: [
+        row("qry_1", "running", { createdAgoMs: 3 * HOUR }),
+        row("qry_2", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 6 * MIN,
+        }),
+        row("qry_3", "queued", { createdAgoMs: 3 * HOUR }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "never-heartbeated queued queries on a young snapshot",
+      ageMs: 10 * MIN,
+      queryStatuses: [
+        row("qry_1", "queued", { createdAgoMs: 10 * MIN }),
+        row("qry_2", "queued", { createdAgoMs: 10 * MIN }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "never-heartbeated queued queries past the legacy threshold",
+      ageMs: 71 * MIN,
+      queryStatuses: [
+        row("qry_1", "queued", { createdAgoMs: 71 * MIN }),
+        row("qry_2", "queued", { createdAgoMs: 71 * MIN }),
+      ],
+      expected: "orphaned-unknown",
+    },
+    {
+      name: "fresh beats on an hours-old snapshot",
+      ageMs: 3 * HOUR,
+      queryStatuses: [
+        row("qry_1", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 2 * MIN,
+        }),
+        row("qry_2", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 3 * MIN,
+        }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "stale beats minutes after the runner died",
+      ageMs: 12 * MIN,
+      queryStatuses: [
+        row("qry_1", "queued", {
+          createdAgoMs: 12 * MIN,
+          heartbeatAgoMs: 6 * MIN,
+        }),
+        row("qry_2", "queued", {
+          createdAgoMs: 12 * MIN,
+          heartbeatAgoMs: 7 * MIN,
+        }),
+      ],
+      expected: "orphaned-dead",
+    },
+    {
+      name: "one fresh beat alongside a never-heartbeated query",
+      ageMs: 3 * HOUR,
+      queryStatuses: [
+        row("qry_1", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 1 * MIN,
+        }),
+        row("qry_2", "queued", { createdAgoMs: 3 * HOUR }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "stale beat with one query already succeeded",
+      ageMs: 12 * MIN,
+      queryStatuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 30 * MIN,
+          finishedAgoMs: 20 * MIN,
+        }),
+        row("qry_2", "queued", {
+          createdAgoMs: 12 * MIN,
+          heartbeatAgoMs: 6 * MIN,
+        }),
+      ],
+      expected: "orphaned-dead",
+    },
+    {
+      name: "heartbeat only a millisecond past createdAt is not a real beat",
+      ageMs: 3 * HOUR,
+      queryStatuses: [
+        row("qry_1", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 3 * HOUR - 1,
+        }),
+        row("qry_2", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 3 * HOUR - 1,
+        }),
+      ],
+      expected: "orphaned-unknown",
+    },
+    {
+      name: "all succeeded on a young snapshot",
+      ageMs: 30 * MIN,
+      queryStatuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 30 * MIN,
+          finishedAgoMs: 25 * MIN,
+        }),
+        row("qry_2", "succeeded", {
+          createdAgoMs: 30 * MIN,
+          finishedAgoMs: 20 * MIN,
+        }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "all succeeded but still inside the finalize grace window",
+      ageMs: 2 * HOUR,
+      queryStatuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 30 * MIN,
+        }),
+        row("qry_2", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 3 * MIN,
+        }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "all succeeded and past the finalize grace window",
+      ageMs: 2 * HOUR,
+      queryStatuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 30 * MIN,
+        }),
+        row("qry_2", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 20 * MIN,
+        }),
+      ],
+      expected: "stalled-terminal",
+    },
+    {
+      name: "succeeded plus failed, past the finalize grace window",
+      ageMs: 2 * HOUR,
+      queryStatuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 20 * MIN,
+        }),
+        row("qry_2", "failed", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 20 * MIN,
+        }),
+      ],
+      expected: "stalled-terminal",
+    },
+  ];
+
+  it.each(cases)("$name -> $expected", ({ ageMs, queryStatuses, expected }) => {
+    expect(
+      classifyStalledSnapshot({
+        queryStatuses,
+        snapshotDateCreated: new Date(NOW - ageMs),
+        now: NOW,
+      }),
+    ).toBe(expected);
+  });
+});
+
 describe("expireOldQueries stalled snapshot reaper", () => {
   const releaseLock = jest.fn().mockResolvedValue(undefined);
+  const hasFreshLockHeartbeat = jest.fn();
   const context = {
     org: { id: "org_1" },
     models: {
-      incrementalRefresh: { releaseLock },
+      incrementalRefresh: { releaseLock, hasFreshLockHeartbeat },
       metricAnalysis: { update: jest.fn() },
     },
   };
 
+  // Serve pages from a fixed candidate list the way the real query does:
+  // oldest-first, honoring the caller's limit and exclusion list.
+  function mockCandidates(candidates: ExperimentSnapshotInterface[]) {
+    (
+      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
+    ).mockImplementation(
+      async (_stalledBefore: Date, limit: number, excludeIds: string[] = []) =>
+        candidates.filter((c) => !excludeIds.includes(c.id)).slice(0, limit),
+    );
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     (getStaleQueries as jest.Mock).mockResolvedValue([]);
-    (
-      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
-    ).mockResolvedValue([]);
+    mockCandidates([]);
     (getQueryStatusesByIds as jest.Mock).mockResolvedValue([]);
     (errorSnapshotIfStillRunning as jest.Mock).mockResolvedValue(true);
     (markPendingQueriesAsFailed as jest.Mock).mockResolvedValue(1);
@@ -109,6 +349,12 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     });
     (updateExperiment as jest.Mock).mockResolvedValue({});
     (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(context);
+    (findSnapshotById as jest.Mock).mockResolvedValue(null);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({
+      kind: "declined",
+      reason: "superseded",
+    });
+    hasFreshLockHeartbeat.mockResolvedValue(false);
   });
 
   async function runJob() {
@@ -128,37 +374,51 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     await definitions.expireOldQueries();
   }
 
+  function runningSnapshot(
+    id: string,
+    snapshot: {
+      type?: SnapshotType;
+      triggeredBy?: SnapshotTriggeredBy;
+      report?: string;
+      ageMs?: number;
+    },
+  ): ExperimentSnapshotInterface {
+    const dateCreated = new Date(
+      Date.now() - (snapshot.ageMs ?? 2 * 60 * 60 * 1000),
+    );
+    return {
+      id,
+      organization: "org_1",
+      experiment: "exp_1",
+      phase: 0,
+      dimension: null,
+      type: snapshot.type,
+      triggeredBy: snapshot.triggeredBy,
+      report: snapshot.report,
+      dateCreated,
+      runStarted: dateCreated,
+      status: "running",
+      settings: {},
+      queries: [{ name: "main", query: `qry_${id}`, status: "queued" }],
+      unknownVariations: [],
+      multipleExposures: 0,
+      analyses: [],
+    } as unknown as ExperimentSnapshotInterface;
+  }
+
   function mockOrphanedSnapshot(snapshot: {
     type?: SnapshotType;
     triggeredBy?: SnapshotTriggeredBy;
     report?: string;
+    ageMs?: number;
+    statuses?: StalledQueryStatus[];
   }) {
-    const dateCreated = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    (
-      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
-    ).mockResolvedValue([
-      {
-        id: "snp_1",
-        organization: "org_1",
-        experiment: "exp_1",
-        phase: 0,
-        dimension: null,
-        type: snapshot.type,
-        triggeredBy: snapshot.triggeredBy,
-        report: snapshot.report,
-        dateCreated,
-        runStarted: dateCreated,
-        status: "running",
-        settings: {},
-        queries: [{ name: "main", query: "qry_1", status: "queued" }],
-        unknownVariations: [],
-        multipleExposures: 0,
-        analyses: [],
-      },
-    ]);
-    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
-      { id: "qry_1", status: "queued" },
-    ]);
+    const candidate = runningSnapshot("snp_1", snapshot);
+    candidate.queries = [{ name: "main", query: "qry_1", status: "queued" }];
+    mockCandidates([candidate]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
+      snapshot.statuses ?? [{ id: "qry_1", status: "queued" }],
+    );
   }
 
   it("schedules a retry for orphaned scheduled standard snapshots", async () => {
@@ -181,6 +441,8 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("A retry has been scheduled."),
       }),
+      "cancelled",
+      { concludedBy: "reaper", reason: "orphaned" },
     );
   });
 
@@ -196,6 +458,8 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("Please try updating results again."),
       }),
+      "query",
+      { concludedBy: "reaper", reason: "orphaned" },
     );
   });
 
@@ -205,5 +469,694 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     await runJob();
 
     expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  const oldFinishedAt = new Date(Date.now() - 30 * 60 * 1000);
+
+  function mockStalledSnapshot(
+    statuses: { id: string; status: string; finishedAt?: Date }[],
+  ) {
+    const candidate = runningSnapshot("snp_1", {});
+    candidate.settings.datasourceId = "ds_1";
+    candidate.queries = statuses.map((s) => ({
+      name: s.id,
+      query: s.id,
+      status: "running",
+    }));
+    mockCandidates([candidate]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
+      statuses.map((s) => ({ finishedAt: oldFinishedAt, ...s })),
+    );
+    (findSnapshotById as jest.Mock).mockResolvedValue(candidate);
+    return candidate;
+  }
+
+  it("finalizes an all-succeeded stalled snapshot from persisted results", async () => {
+    mockStalledSnapshot([
+      { id: "qry_1", status: "succeeded" },
+      { id: "qry_2", status: "succeeded" },
+    ]);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({
+      kind: "recovered",
+    });
+
+    await runJob();
+
+    expect(recoverStalledSnapshot).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({ id: "snp_1" }),
+    );
+    expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+    expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+  });
+
+  it("leaves an all-succeeded snapshot alone while its runner still heartbeats the lock", async () => {
+    mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+    hasFreshLockHeartbeat.mockResolvedValue(true);
+
+    await runJob();
+
+    expect(hasFreshLockHeartbeat).toHaveBeenCalledWith("exp_1", "snp_1");
+    expect(recoverStalledSnapshot).not.toHaveBeenCalled();
+    expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+    expect(releaseLock).not.toHaveBeenCalled();
+  });
+
+  it("stops trusting the heartbeat an hour after the last query finished", async () => {
+    mockStalledSnapshot([
+      {
+        id: "qry_1",
+        status: "succeeded",
+        finishedAt: new Date(Date.now() - 61 * 60 * 1000),
+      },
+    ]);
+    hasFreshLockHeartbeat.mockResolvedValue(true);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({
+      kind: "recovered",
+    });
+
+    await runJob();
+
+    // A hung runner keeps beating, so past the cap it is treated as dead.
+    expect(recoverStalledSnapshot).toHaveBeenCalled();
+    expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+  });
+
+  it.each([
+    {
+      guard: "the fresh read",
+      failGuard: () =>
+        (findSnapshotById as jest.Mock).mockRejectedValue(new Error("timeout")),
+    },
+    {
+      guard: "the heartbeat check",
+      failGuard: () =>
+        hasFreshLockHeartbeat.mockRejectedValue(new Error("timeout")),
+    },
+  ])(
+    "leaves an all-succeeded snapshot for the next tick when $guard throws",
+    async ({ failGuard }) => {
+      mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+      failGuard();
+
+      await runJob();
+
+      // The runner may still be alive, so neither error it nor free its lock.
+      expect(recoverStalledSnapshot).not.toHaveBeenCalled();
+      expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+      expect(releaseLock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("still errors a stalled snapshot with a mixed succeeded/failed roster", async () => {
+    mockStalledSnapshot([
+      { id: "qry_1", status: "succeeded" },
+      { id: "qry_2", status: "failed" },
+    ]);
+
+    await runJob();
+
+    expect(recoverStalledSnapshot).not.toHaveBeenCalled();
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "snp_1",
+      expect.objectContaining({
+        error: expect.stringContaining(
+          "queries finished but results were never finalized",
+        ),
+      }),
+      "analysis",
+      { concludedBy: "reaper", reason: "not-finalized" },
+    );
+  });
+
+  it("errors the snapshot with the failure folded in when recovery throws", async () => {
+    mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+    (recoverStalledSnapshot as jest.Mock).mockRejectedValue(
+      new Error("analysis blew up"),
+    );
+
+    await runJob();
+
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "snp_1",
+      expect.objectContaining({
+        error: expect.stringContaining(
+          "Automatic recovery failed: analysis blew up",
+        ),
+      }),
+      "analysis",
+      { concludedBy: "reaper", reason: "recovery-failed" },
+    );
+  });
+
+  it("names a finalize that failed as a failed recovery", async () => {
+    mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({ kind: "failed" });
+
+    await runJob();
+
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "snp_1",
+      expect.anything(),
+      "analysis",
+      { concludedBy: "reaper", reason: "recovery-failed" },
+    );
+  });
+
+  it("falls through to the generic error write when recovery declines", async () => {
+    mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+    (recoverStalledSnapshot as jest.Mock).mockResolvedValue({
+      kind: "declined",
+      reason: "superseded",
+    });
+
+    await runJob();
+
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "snp_1",
+      expect.objectContaining({
+        error: expect.stringContaining(
+          "queries finished but results were never finalized",
+        ),
+      }),
+      "analysis",
+      { concludedBy: "reaper", reason: "recovery-declined:superseded" },
+    );
+    // Nothing threw, so the recovery suffix must not be appended.
+    const { error } = (errorSnapshotIfStillRunning as jest.Mock).mock
+      .calls[0][2];
+    expect(error).not.toContain("Automatic recovery");
+  });
+
+  it("skips a still-running snapshot whose fresh DAG no longer matches", async () => {
+    mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+    (findSnapshotById as jest.Mock).mockResolvedValue({
+      id: "snp_1",
+      status: "running",
+      queries: [{ name: "other", query: "qry_9", status: "running" }],
+    });
+
+    await runJob();
+
+    // The succeeded statuses describe a stale query set, so we neither finalize
+    // nor error the live run; a later tick re-reads and re-evaluates it.
+    expect(recoverStalledSnapshot).not.toHaveBeenCalled();
+    expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+  });
+
+  it("errors a stalled snapshot the fresh read shows is no longer running", async () => {
+    mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+    (findSnapshotById as jest.Mock).mockResolvedValue({
+      id: "snp_1",
+      status: "error",
+      queries: [{ name: "qry_1", query: "qry_1", status: "running" }],
+    });
+
+    await runJob();
+
+    // Not running on the fresh read, so recovery is skipped; the error write is
+    // a no-op guarded by errorSnapshotIfStillRunning but still attempted.
+    expect(recoverStalledSnapshot).not.toHaveBeenCalled();
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalled();
+  });
+
+  it("defers an all-succeeded snapshot still inside the finalize grace window", async () => {
+    mockStalledSnapshot([
+      { id: "qry_1", status: "succeeded", finishedAt: new Date() },
+    ]);
+
+    await runJob();
+
+    expect(recoverStalledSnapshot).not.toHaveBeenCalled();
+    expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+  });
+
+  it("concludes an orphaned DAG whose queued heartbeats went stale, minutes after death", async () => {
+    const now = Date.now();
+    mockOrphanedSnapshot({
+      type: "standard",
+      triggeredBy: "manual",
+      ageMs: 12 * 60 * 1000,
+      statuses: [
+        {
+          id: "qry_1",
+          status: "queued",
+          createdAt: new Date(now - 12 * 60 * 1000),
+          heartbeat: new Date(now - 6 * 60 * 1000),
+        },
+      ],
+    });
+
+    await runJob();
+
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "snp_1",
+      expect.objectContaining({
+        error: expect.stringContaining("queries were never started"),
+      }),
+      "query",
+      { concludedBy: "reaper", reason: "orphaned" },
+    );
+    expect(markPendingQueriesAsFailed).toHaveBeenCalledWith(
+      context,
+      ["qry_1"],
+      expect.any(String),
+    );
+    expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("pages past a full page of live snapshots to reach a newer dead one", async () => {
+    const now = Date.now();
+    // 50 healthy long-running snapshots fill the first page; the orphaned
+    // one is newer and only reachable on the second page.
+    const live = Array.from({ length: 50 }, (_, i) =>
+      runningSnapshot(`live_${i}`, { ageMs: (60 + i) * 60 * 1000 }),
+    );
+    const dead = runningSnapshot("dead", {
+      type: "standard",
+      triggeredBy: "manual",
+      ageMs: 12 * 60 * 1000,
+    });
+    mockCandidates([...live, dead]);
+    (getQueryStatusesByIds as jest.Mock).mockImplementation(
+      async (...[, ids]: [string, string[]]) =>
+        ids.map((id) => ({
+          id,
+          status: "queued",
+          createdAt: new Date(now - 60 * 60 * 1000),
+          heartbeat: new Date(
+            now - (id === "qry_dead" ? 6 * 60 * 1000 : 30 * 1000),
+          ),
+        })),
+    );
+
+    await runJob();
+
+    expect(
+      dangerousFindStalledRunningSnapshotsFromAllOrgs,
+    ).toHaveBeenCalledTimes(3);
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledTimes(1);
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "dead",
+      expect.objectContaining({
+        error: expect.stringContaining("queries were never started"),
+      }),
+      "query",
+      { concludedBy: "reaper", reason: "orphaned" },
+    );
+  });
+
+  it("leaves an orphaned DAG alone while its queued heartbeats are fresh, however old the snapshot is", async () => {
+    const now = Date.now();
+    mockOrphanedSnapshot({
+      type: "standard",
+      triggeredBy: "manual",
+      ageMs: 3 * 60 * 60 * 1000,
+      statuses: [
+        {
+          id: "qry_1",
+          status: "queued",
+          createdAt: new Date(now - 3 * 60 * 60 * 1000),
+          heartbeat: new Date(now - 60 * 1000),
+        },
+      ],
+    });
+
+    await runJob();
+
+    expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+    expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+  });
+});
+
+describe("expireOldQueries interleaving snapshots", () => {
+  const HOUR = 60 * 60 * 1000;
+  const updateOne = jest.fn();
+  let interleavingDocs: Record<string, unknown>[] = [];
+
+  // Enough of a Mongo filter to make the job's own date windows load-bearing
+  // in these tests rather than assumed.
+  type TestFilter = {
+    status?: string;
+    dateCreated?: { $gt?: Date; $lt?: Date };
+    id?: { $nin: string[] };
+    queries?: { $elemMatch: { query: { $in: string[] }; status: string } };
+  };
+
+  function matches(doc: Record<string, unknown>, filter: TestFilter) {
+    const created = (doc.dateCreated as Date).getTime();
+    const range = filter.dateCreated ?? {};
+    const elem = filter.queries?.$elemMatch;
+    const queries = (doc.queries ?? []) as { query: string; status: string }[];
+    return (
+      (filter.status === undefined || doc.status === filter.status) &&
+      (range.$gt === undefined || created > range.$gt.getTime()) &&
+      (range.$lt === undefined || created < range.$lt.getTime()) &&
+      (filter.id === undefined || !filter.id.$nin.includes(doc.id as string)) &&
+      (elem === undefined ||
+        queries.some(
+          (q) => elem.query.$in.includes(q.query) && q.status === elem.status,
+        ))
+    );
+  }
+
+  // The shared getCollection mock returns empty cursors for everything; serve
+  // the interleaving collection from the fixtures this suite sets up. Sort,
+  // $nin and limit all have to behave, or the reaper's paging is untested.
+  function mockCollections() {
+    (getCollection as jest.Mock).mockImplementation((name: string) => {
+      const all = name === "interleavingsnapshots" ? interleavingDocs : [];
+      const cursor = (filter: TestFilter) => {
+        let rows = all.filter((doc) => matches(doc, filter));
+        const self = {
+          sort: jest.fn(() => {
+            rows = [...rows].sort(
+              (a, b) =>
+                (a.dateCreated as Date).getTime() -
+                (b.dateCreated as Date).getTime(),
+            );
+            return self;
+          }),
+          limit: jest.fn((n: number) => {
+            rows = rows.slice(0, n);
+            return self;
+          }),
+          toArray: jest.fn(async () => rows),
+        };
+        return self;
+      };
+      return {
+        find: jest.fn((filter = {}) => cursor(filter)),
+        updateOne:
+          name === "interleavingsnapshots"
+            ? updateOne
+            : jest.fn().mockResolvedValue({ modifiedCount: 0 }),
+      };
+    });
+  }
+
+  function snapshot(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "ilsnp_1",
+      organization: "org_1",
+      interleavingId: "il_1",
+      status: "running",
+      dateCreated: new Date(Date.now() - 2 * HOUR),
+      queries: [],
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    interleavingDocs = [];
+    updateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockCollections();
+    (getStaleQueries as jest.Mock).mockResolvedValue([]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([]);
+    (markPendingQueriesAsFailed as jest.Mock).mockResolvedValue(1);
+    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue({
+      org: { id: "org_1" },
+    });
+    (
+      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
+    ).mockResolvedValue([]);
+  });
+
+  async function runJob() {
+    const definitions: Record<string, () => Promise<void>> = {};
+    const agenda = {
+      define: jest.fn((name: string, fn: () => Promise<void>) => {
+        definitions[name] = fn;
+      }),
+      create: jest.fn(() => ({
+        unique: jest.fn(),
+        repeatEvery: jest.fn(),
+        save: jest.fn().mockResolvedValue(undefined),
+      })),
+    };
+    await expireOldQueries(agenda as unknown as Agenda);
+    await definitions.expireOldQueries();
+  }
+
+  it("errors a stalled snapshot whose queries were never recorded", async () => {
+    interleavingDocs = [snapshot()];
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_1", status: "running" },
+      {
+        $set: {
+          status: "error",
+          error: expect.stringContaining("never recorded"),
+          // Advanced so the runner's CAS write can't undo this
+          dateUpdated: expect.any(Date),
+        },
+      },
+    );
+  });
+
+  it("leaves a no-query snapshot alone until the full stall threshold", async () => {
+    // A candidate by the 5-minute window, but the no-pointers branch keeps the
+    // full hour because there is nothing to classify.
+    interleavingDocs = [
+      snapshot({ dateCreated: new Date(Date.now() - 30 * 60 * 1000) }),
+    ];
+
+    await runJob();
+
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+
+  it("leaves queued queries alone while their runner is still heartbeating", async () => {
+    const createdAt = new Date(Date.now() - 2 * HOUR);
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_cart", query: "qry_1", status: "queued" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "queued",
+        createdAt,
+        // A fresh beat: the runner is alive, just waiting on warehouse
+        // concurrency. The old hand-rolled check called this orphaned.
+        heartbeat: new Date(Date.now() - 10 * 1000),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+
+  it("reaps queued queries once their heartbeats go stale", async () => {
+    const createdAt = new Date(Date.now() - 2 * HOUR);
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_cart", query: "qry_1", status: "queued" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "queued",
+        createdAt,
+        heartbeat: new Date(createdAt.getTime() + 60 * 1000),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_1", status: "running" },
+      {
+        $set: {
+          status: "error",
+          error: expect.stringContaining("never started"),
+          queries: [{ name: "ft_cart", query: "qry_1", status: "queued" }],
+          // Advanced so the runner's CAS write can't undo this
+          dateUpdated: expect.any(Date),
+        },
+      },
+    );
+  });
+
+  it("pages past a full page of healthy candidates to reach a stalled one", async () => {
+    const healthy = Array.from({ length: 50 }, (_, i) =>
+      snapshot({
+        id: `ilsnp_healthy_${i}`,
+        dateCreated: new Date(Date.now() - 3 * HOUR),
+        queries: [{ name: "ft", query: `qry_h${i}`, status: "running" }],
+      }),
+    );
+    interleavingDocs = [
+      ...healthy,
+      snapshot({
+        id: "ilsnp_dead",
+        dateCreated: new Date(Date.now() - 2 * HOUR),
+      }),
+    ];
+    // Every healthy snapshot still has a running query, so each is skipped.
+    (getQueryStatusesByIds as jest.Mock).mockImplementation(
+      async (...[, ids]: [string, string[]]) =>
+        ids.map((id) => ({ id, status: "running" })),
+    );
+
+    await runJob();
+
+    // Without $nin paging the 50 healthy, older candidates would fill the only
+    // page every tick and the dead one would never be examined.
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_dead", status: "running" },
+      expect.objectContaining({
+        $set: expect.objectContaining({ status: "error" }),
+      }),
+    );
+  });
+
+  it("finalizes a stalled snapshot whose queries all finished", async () => {
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_cart", query: "qry_1", status: "running" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "succeeded",
+        finishedAt: new Date(Date.now() - HOUR),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_1", status: "running" },
+      {
+        $set: {
+          status: "error",
+          error: expect.stringContaining("never finalized"),
+          queries: [{ name: "ft_cart", query: "qry_1", status: "succeeded" }],
+          // Advanced so the runner's CAS write can't undo this
+          dateUpdated: expect.any(Date),
+        },
+      },
+    );
+  });
+
+  it("errors a snapshot whose queries the stale-query sweep just failed", async () => {
+    interleavingDocs = [
+      snapshot({
+        dateCreated: new Date(Date.now() - 5 * 60 * 1000),
+        queries: [{ name: "ft_cart", query: "qry_1", status: "running" }],
+      }),
+    ];
+    (getStaleQueries as jest.Mock).mockResolvedValue([{ id: "qry_1" }]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      // Guarded, so a snapshot the runner just finalized isn't clobbered
+      { id: "ilsnp_1", status: "running" },
+      {
+        $set: {
+          error: "Queries were interrupted. Please try updating results again.",
+          status: "error",
+          queries: [{ name: "ft_cart", query: "qry_1", status: "failed" }],
+          // Advanced so the runner's CAS write can't undo this
+          dateUpdated: expect.any(Date),
+        },
+      },
+    );
+  });
+
+  it("fails the orphaned queued queries once the reap wins", async () => {
+    const createdAt = new Date(Date.now() - 2 * HOUR);
+    interleavingDocs = [
+      snapshot({
+        queries: [
+          { name: "ft_a", query: "qry_1", status: "queued" },
+          { name: "ft_b", query: "qry_2", status: "queued" },
+        ],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
+      ["qry_1", "qry_2"].map((id) => ({
+        id,
+        status: "queued",
+        createdAt,
+        heartbeat: new Date(createdAt.getTime() + 60 * 1000),
+      })),
+    );
+
+    await runJob();
+
+    // Nothing else ever cleans a queued doc up, so the reaper has to
+    expect(markPendingQueriesAsFailed).toHaveBeenCalledWith(
+      expect.anything(),
+      ["qry_1", "qry_2"],
+      expect.stringContaining("reaped as stalled"),
+    );
+  });
+
+  it("does not touch the queries when the reap loses the race", async () => {
+    const createdAt = new Date(Date.now() - 2 * HOUR);
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_a", query: "qry_1", status: "queued" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "queued",
+        createdAt,
+        heartbeat: new Date(createdAt.getTime() + 60 * 1000),
+      },
+    ]);
+    updateOne.mockResolvedValue({ modifiedCount: 0 });
+
+    await runJob();
+
+    expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+  });
+
+  it("has no queries to fail when every one already finished", async () => {
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_cart", query: "qry_1", status: "running" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "succeeded",
+        finishedAt: new Date(Date.now() - HOUR),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalled();
+    expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+  });
+
+  it("does not log a reap it lost the race for", async () => {
+    interleavingDocs = [snapshot()];
+    updateOne.mockResolvedValue({ modifiedCount: 0 });
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 });

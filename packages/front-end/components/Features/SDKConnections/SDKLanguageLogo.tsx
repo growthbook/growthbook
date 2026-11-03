@@ -25,6 +25,7 @@ import { BsFiletypeHtml } from "react-icons/bs";
 import { TbCloudCode } from "react-icons/tb";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 
 export type LanguageFilter =
   | "popular"
@@ -360,11 +361,19 @@ export default function SDKLanguageLogo({
 
   return (
     <span className="d-inline-flex align-items-center position-relative">
-      <Icon
-        style={{ color, height: size, fontSize: size, lineHeight: size }}
-        className="m-0"
-        title={titlePrefix + label}
-      />
+      {/* react-icons don't forward refs, so the tooltip anchors on a span */}
+      <UITooltip content={titlePrefix + label}>
+        <span
+          role="img"
+          aria-label={titlePrefix + label}
+          style={{ display: "inline-flex" }}
+        >
+          <Icon
+            style={{ color, height: size, fontSize: size, lineHeight: size }}
+            className="m-0"
+          />
+        </span>
+      </UITooltip>
       <span className="ml-1">
         {showLabel && label}
         {versionText}

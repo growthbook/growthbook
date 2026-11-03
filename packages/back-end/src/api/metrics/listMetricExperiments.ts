@@ -91,6 +91,7 @@ export const listMetricExperiments = createApiRequestHandler(
         value: metricResult?.value,
         mean: metricResult?.cr,
         lift: metricResult?.uplift?.mean,
+        effectStandardError: metricResult?.uplift?.stddev,
         ci: metricResult?.ci,
         pValue: metricResult?.pValue,
         chanceToWin: metricResult?.chanceToWin,

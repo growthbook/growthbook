@@ -7,6 +7,7 @@ import {
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
+  datasetHasValues,
   dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
@@ -18,12 +19,22 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   clearInapplicableShowAs,
   getEffectiveShowAs,
   getIsRatioByIndex,
   buildExplorationColumns,
   getExplorationCellValue,
+  getRelevantFactTableIds,
+  getRelevantFactTableIdsForMetrics,
+  getAvailableDimensionColumnsForMetrics,
+  getFactTableColumnSummaries,
+  getFactTableDimensionColumns,
+  factTableHasResolvableColumn,
+  sanitizeDimensions,
+  getValidDateGranularities,
+  calculateProductAnalyticsDateRange,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -74,6 +85,7 @@ If the user asks for data that spans both a fact table and a metric (different e
 
 <dimension_rules>
 Only use dimensionType 'dynamic' or 'static'. Never use 'slice'.
+A dimension's column must be one getAvailableColumns returned with groupable=true.
 'dynamic' shows the top N values for a column — set maxValues (1–20, default 5). Use this for an open-ended "break down by X" request.
 'static' pins a fixed list of column values (1–20, set via values) — rows whose column value isn't in the list are dropped (no top-N/'other' bucket). Use this when the user names specific values to compare (e.g. "compare US vs UK vs Canada"). Always call getColumnValues first to confirm the real values before setting them — never guess.
 Use dateGranularity 'auto' by default for date dimensions; only use a specific granularity (hour/day/week/month/year) when the user requests it.
@@ -120,7 +132,8 @@ For fact_table values:
 
 <row_filter_rules>
 rowFilters shape: { operator, column, values }
-Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "is_null", "not_null".
+Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "matches_pattern", "not_matches_pattern", "is_null", "not_null".
+"matches_pattern" / "not_matches_pattern" take a glob where * matches any run of characters and ? matches one character (e.g. "/checkout/*").
 For date columns only, "between" and "not_between" take exactly two values (a lower and an upper bound); "!=" and "is_null" are not offered for date columns.
 CRITICAL — never guess column values for filters. Always call getColumnValues first. Pass a searchTerm for partial matches (e.g. 'US' to find 'United States').
 getColumnValues only works on string-typed columns.
@@ -241,7 +254,7 @@ function buildConfigSchemaSummary(): string {
     "  static: { dimensionType: 'static', column: string, values: string[] (1-20) }",
     'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
-    'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"is_null"|"not_null", column: string, values: string[] }]',
+    'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"matches_pattern"|"not_matches_pattern"|"is_null"|"not_null", column: string, values: string[] }]',
     'showAs (optional): "total" | "per_unit" — chart-level toggle between raw totals and per-unit averages for mean metrics. Omit to use the smart default (see show_as_rules).',
     "Always pass a complete config object to runExploration.",
     "</config_schema>",
@@ -263,11 +276,9 @@ function buildSnapshotSummary(
       if (stepNames?.length) {
         parts.push(`steps: ${stepNames.join(", ")}`);
       }
-    } else {
-      const valueNames = curr.dataset?.values
-        ?.map((v) => v.name)
-        .filter(Boolean);
-      if (valueNames?.length) {
+    } else if (datasetHasValues(curr.dataset)) {
+      const valueNames = curr.dataset.values.map((v) => v.name).filter(Boolean);
+      if (valueNames.length) {
         parts.push(`values: ${valueNames.join(", ")}`);
       }
     }
@@ -286,8 +297,7 @@ function buildSnapshotSummary(
     );
   }
 
-  // Funnels carry "steps"; everything else carries "values". Diff whichever
-  // shape applies; treat shape change as a coarse "dataset changed".
+  // Funnels carry "steps"; journeys have neither; everything else carries "values".
   if (prev.dataset?.type === "funnel" && curr.dataset?.type === "funnel") {
     const prevSteps = prev.dataset.steps.map((s) => s.name);
     const currSteps = curr.dataset.steps.map((s) => s.name);
@@ -295,12 +305,9 @@ function buildSnapshotSummary(
     const removed = prevSteps.filter((n) => !currSteps.includes(n));
     if (added.length) parts.push(`added steps: ${added.join(", ")}`);
     if (removed.length) parts.push(`removed steps: ${removed.join(", ")}`);
-  } else if (
-    prev.dataset?.type !== "funnel" &&
-    curr.dataset?.type !== "funnel"
-  ) {
-    const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
-    const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
+  } else if (datasetHasValues(prev.dataset) && datasetHasValues(curr.dataset)) {
+    const prevNames = prev.dataset.values.map((v) => v.name);
+    const currNames = curr.dataset.values.map((v) => v.name);
     const added = currNames.filter((n) => !prevNames.includes(n));
     const removed = prevNames.filter((n) => !currNames.includes(n));
     if (added.length) parts.push(`added: ${added.join(", ")}`);
@@ -724,11 +731,8 @@ async function normalizeConfigForExplorer(
     );
   }
 
-  // Funnel datasets have a different structure (steps instead of values)
-  // and the AI agent isn't equipped to produce them. The bigNumber / value
-  // count constraints below assume a `values` array, so we skip them for
-  // funnels — the front-end already enforces funnel-specific limits.
-  if (dataset.type !== "funnel") {
+  // The bigNumber / value count constraints below assume a `values` array.
+  if (datasetHasValues(dataset)) {
     // bigNumber: no dimensions, single value
     if (config.chartType === "bigNumber") {
       if (dims.length > 0) {
@@ -746,16 +750,6 @@ async function normalizeConfigForExplorer(
           "Trimmed to 1 value — bigNumber charts only support a single value.",
         );
       }
-    }
-
-    // Enforce max dimensions (2, or 1 if multiple values)
-    const maxDims = dataset.values.length > 1 ? 1 : 2;
-    if (dims.length > maxDims) {
-      const removed = dims.length - maxDims;
-      dims = dims.slice(0, maxDims);
-      warnings.push(
-        `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
-      );
     }
   }
 
@@ -777,6 +771,37 @@ async function normalizeConfigForExplorer(
   const metricById = new Map(referencedMetrics.map((m) => [m.id, m]));
   const getFactMetricByIdResolver = (id: string) => metricById.get(id) ?? null;
 
+  const dimensionFactTableIdList = getRelevantFactTableIds(
+    dataset,
+    getFactMetricByIdResolver,
+  );
+  const dimensionFactTables = dimensionFactTableIdList.length
+    ? await Promise.all(
+        dimensionFactTableIdList.map((id) => getFactTable(ctx, id)),
+      )
+    : [];
+  const dimensionFtById = new Map(
+    dimensionFactTableIdList.map((id, i) => [id, dimensionFactTables[i]]),
+  );
+  const getDimensionFactTableById = (id: string) =>
+    dimensionFtById.get(id) ?? null;
+
+  // Single source of truth for the dimension-list policy, shared with the
+  // Explorer: drop dimensions whose column no longer resolves, cap the count
+  // at the dataset's limit, and reset an invalid date granularity to "auto".
+  const resolvedDateRange = calculateProductAnalyticsDateRange(
+    config.dateRange,
+  );
+  const validGranularities = getValidDateGranularities(resolvedDateRange);
+  const sanitized = sanitizeDimensions(
+    { ...config, dimensions: dims, dataset } as ExplorationConfig,
+    getDimensionFactTableById,
+    getFactMetricByIdResolver,
+    validGranularities,
+  );
+  dims = sanitized.config.dimensions;
+  warnings.push(...sanitized.warnings);
+
   // Backfill missing units for metric values so the SQL layer emits a
   // denominator and per_unit rendering works. The agent often omits `unit`
   // even when it should be set; default to the numerator fact table's primary
@@ -788,29 +813,12 @@ async function normalizeConfigForExplorer(
     );
 
     if (needsUnit) {
-      const factTableIds = Array.from(
-        new Set(
-          dataset.values
-            .filter((v) => !v.unit && v.metricId)
-            .map((v) => metricById.get(v.metricId!)?.numerator?.factTableId)
-            .filter((id): id is string => !!id),
-        ),
-      );
-      const factTables = await Promise.all(
-        factTableIds.map((id) => getFactTable(ctx, id)),
-      );
-      const factTableById = new Map(
-        factTables
-          .filter((ft): ft is FactTableInterface => !!ft)
-          .map((ft) => [ft.id, ft]),
-      );
-
       let filledCount = 0;
       const newValues = dataset.values.map((v) => {
         if (v.unit || !v.metricId) return v;
         const metric = metricById.get(v.metricId);
         if (!metric) return v;
-        const factTable = factTableById.get(
+        const factTable = getDimensionFactTableById(
           metric.numerator?.factTableId ?? "",
         );
         const defaultUnit = factTable?.userIdTypes?.[0];
@@ -1016,13 +1024,12 @@ async function executeGetAvailableColumns(
       if (!factTableId) return "factTableId is required for fact_table source.";
       const ft = await getFactTable(ctx, factTableId);
       if (!ft) return `Fact table "${factTableId}" not found.`;
-      const columns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
       return JSON.stringify(
         {
-          columns,
+          columns: getFactTableColumnSummaries(
+            [ft],
+            getFactTableDimensionColumns(ft),
+          ),
           userIdTypes: ft.userIdTypes ?? [],
           unitNote: ft.userIdTypes?.length
             ? `For valueType "unit_count", set unit to one of userIdTypes (default: "${ft.userIdTypes[0]}"). For "count" or "sum", set unit to null.`
@@ -1037,7 +1044,6 @@ async function executeGetAvailableColumns(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      let columns: FactTableInterface["columns"] | null = null;
       let userIdTypes: string[] = [];
       const metricUnitInfo: {
         metricId: string;
@@ -1045,13 +1051,14 @@ async function executeGetAvailableColumns(
         needsUnit: boolean;
       }[] = [];
 
-      const ftIds = [
-        ...new Set(
-          metrics
-            .map((m) => m.numerator?.factTableId)
-            .filter((id): id is string => !!id),
-        ),
-      ];
+      // Fetch both sides of every metric — a ratio metric's denominator can
+      // live on a different fact table than its numerator, and columns must
+      // resolve on both to be valid group-by candidates.
+      const metricMap = new Map(metrics.map((m) => [m.id, m]));
+      const ftIds = getRelevantFactTableIdsForMetrics(
+        metricIds,
+        (id) => metricMap.get(id) ?? null,
+      );
       const factTables = await Promise.all(
         ftIds.map((id) => getFactTable(ctx, id)),
       );
@@ -1076,18 +1083,19 @@ async function executeGetAvailableColumns(
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
         }
-        const ftCols = (ft?.columns ?? []).filter((c) => !c.deleted);
-        if (columns === null) {
-          columns = ftCols;
-        } else {
-          const nameSet = new Set(ftCols.map((c) => c.column));
-          columns = columns.filter((c) => nameSet.has(c.column));
-        }
       }
 
-      const result = (columns ?? [])
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+      // Every column resolvable on all referenced fact tables (for filters),
+      // with `groupable` from the same helper the Explorer's dimension picker
+      // uses — denominator included.
+      const result = getFactTableColumnSummaries(
+        factTables.filter((ft): ft is FactTableInterface => !!ft),
+        getAvailableDimensionColumnsForMetrics(
+          metricIds,
+          (id) => ftMap.get(id) ?? null,
+          (id) => metricMap.get(id) ?? null,
+        ),
+      );
 
       const unitNote = userIdTypes.length
         ? `For metrics where needsUnit=true, set unit to one of userIdTypes (default: "${userIdTypes[0]}"). For others, set unit to null.`
@@ -1108,12 +1116,10 @@ async function executeGetColumnValues(
 ): Promise<string> {
   const { columns: requestedColumns, searchTerm, limit } = input;
 
-  type RawCol = { column: string; datatype: string };
-  let factTableSql: string;
-  let factTableEventName: string;
-  let factTableTimestampColumn: string | undefined;
-  let datasourceId: string;
-  let availableColumns: RawCol[];
+  // Every fact table a requested column might need to be queried against —
+  // for a metric source this can be more than one (a ratio metric's
+  // denominator can live on a different fact table than its numerator).
+  let factTables: FactTableInterface[];
 
   switch (input.source) {
     case "fact_table": {
@@ -1121,13 +1127,7 @@ async function executeGetColumnValues(
       if (!factTableId) return "factTableId is required for fact_table source.";
       const ft = await getFactTable(ctx, factTableId);
       if (!ft) return `Fact table "${factTableId}" not found.`;
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      factTableTimestampColumn = ft.timestampColumn;
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
+      factTables = [ft];
       break;
     }
 
@@ -1135,58 +1135,101 @@ async function executeGetColumnValues(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
-      if (!firstWithFt?.numerator?.factTableId) {
+      const metricMap = new Map(metrics.map((m) => [m.id, m]));
+      const ftIds = getRelevantFactTableIdsForMetrics(
+        metricIds,
+        (id) => metricMap.get(id) ?? null,
+      );
+      if (!ftIds.length) {
         return "Could not resolve a fact table from the provided metric IDs.";
       }
-      const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
-      if (!ft) return `Fact table not found.`;
-      factTableSql = ft.sql;
-      factTableEventName = ft.eventName ?? "";
-      factTableTimestampColumn = ft.timestampColumn;
-      datasourceId = ft.datasource;
-      availableColumns = (ft.columns ?? [])
-        .filter((c) => !c.deleted)
-        .map((c) => ({ column: c.column, datatype: c.datatype }));
+      const resolvedFactTables = await Promise.all(
+        ftIds.map((id) => getFactTable(ctx, id)),
+      );
+      factTables = resolvedFactTables.filter(
+        (ft): ft is FactTableInterface => !!ft,
+      );
+      if (!factTables.length) {
+        return "Could not resolve a fact table from the provided metric IDs.";
+      }
       break;
     }
   }
 
-  const datasource = await getDataSourceById(ctx, datasourceId);
-  if (!datasource) return `Datasource not found.`;
+  // Any datatype, so a numeric column is reported as "non-string" below
+  // rather than "not found".
+  const availableColumns = getFactTableColumnSummaries(factTables, []);
 
-  // Separate requested columns into queryable (string-typed), skipped (wrong type), not-found
-  const colsToQuery: ColumnInterface[] = [];
+  const datasourceIds = Array.from(
+    new Set(factTables.map((ft) => ft.datasource)),
+  );
+  const resolvedDatasources = await Promise.all(
+    datasourceIds.map((id) => getDataSourceById(ctx, id)),
+  );
+  const datasourceById = new Map(
+    datasourceIds
+      .map((id, i) => [id, resolvedDatasources[i]] as const)
+      .filter((entry): entry is [string, DataSourceInterface] => !!entry[1]),
+  );
+
+  // Separate requested columns into queryable (string-typed, including
+  // string JSON sub-paths), skipped (wrong type), and not-found.
   const nonStringCols: string[] = [];
   const notFoundCols: string[] = [];
+  const targetsByFactTable = new Map<
+    string,
+    { factTable: FactTableInterface; columns: ColumnInterface[] }
+  >();
 
   for (const name of requestedColumns) {
     const found = availableColumns.find((c) => c.column === name);
     if (!found) {
       notFoundCols.push(name);
-    } else if (found.datatype !== "string") {
-      nonStringCols.push(name);
-    } else {
-      colsToQuery.push({
-        column: name,
-        name,
-        datatype: "string",
-        numberFormat: "",
-        description: "",
-        deleted: false,
-        dateCreated: new Date(0),
-        dateUpdated: new Date(0),
-      });
+      continue;
     }
+    if (found.datatype !== "string") {
+      nonStringCols.push(name);
+      continue;
+    }
+    const column: ColumnInterface = {
+      column: name,
+      name,
+      datatype: "string",
+      numberFormat: "",
+      description: "",
+      deleted: false,
+      dateCreated: new Date(0),
+      dateUpdated: new Date(0),
+    };
+    // Query every fact table that actually has this column so a ratio
+    // metric's denominator-side columns get values too, not just the
+    // numerator's.
+    factTables
+      .filter((ft) => factTableHasResolvableColumn(ft, name))
+      .forEach((factTable) => {
+        const existing = targetsByFactTable.get(factTable.id);
+        if (existing) {
+          existing.columns.push(column);
+        } else {
+          targetsByFactTable.set(factTable.id, {
+            factTable,
+            columns: [column],
+          });
+        }
+      });
   }
 
   const warnings: string[] = [];
+  if (datasourceById.size < datasourceIds.length)
+    warnings.push(
+      `Datasource not found: ${datasourceIds.filter((id) => !datasourceById.has(id)).join(", ")}`,
+    );
   if (nonStringCols.length)
     warnings.push(`Skipped (non-string type): ${nonStringCols.join(", ")}`);
   if (notFoundCols.length)
     warnings.push(`Columns not found: ${notFoundCols.join(", ")}`);
 
-  if (colsToQuery.length === 0) {
+  if (targetsByFactTable.size === 0) {
     return JSON.stringify(
       { values: {}, warnings: warnings.length ? warnings : undefined },
       null,
@@ -1194,22 +1237,30 @@ async function executeGetColumnValues(
     );
   }
 
-  let rawValues: Record<string, string[]>;
-  try {
-    rawValues = await runColumnsTopValuesQuery(
-      ctx,
-      datasource,
-      {
-        sql: factTableSql,
-        eventName: factTableEventName,
-        timestampColumn: factTableTimestampColumn,
-      },
-      colsToQuery,
-    );
-  } catch (err) {
-    return `Failed to query column values on ${datasource.type}: ${
-      err instanceof Error ? err.message : "Unknown error"
-    }`;
+  const rawValues: Record<string, string[]> = {};
+  for (const { factTable, columns } of targetsByFactTable.values()) {
+    const datasource = datasourceById.get(factTable.datasource);
+    if (!datasource) continue;
+    try {
+      const result = await runColumnsTopValuesQuery(
+        ctx,
+        datasource,
+        factTable,
+        columns,
+      );
+      for (const col of Object.keys(result)) {
+        rawValues[col] = Array.from(
+          new Set([...(rawValues[col] ?? []), ...result[col]]),
+        );
+      }
+    } catch (err) {
+      // Keep whatever other fact tables returned.
+      warnings.push(
+        `Failed to query ${columns.map((c) => c.column).join(", ")} on fact table "${factTable.id}" (${datasource.type}): ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`,
+      );
+    }
   }
 
   // Apply searchTerm filter and respect limit
@@ -1336,6 +1387,7 @@ const SEARCH_DESCRIPTION =
 
 const GET_AVAILABLE_COLUMNS_DESCRIPTION =
   "Get the columns available for dimensions and filters based on the current selection. " +
+  "Every column can be used in row filters (including dotted JSON paths like 'props.plan'); only columns with groupable=true can be used as a dimension column. " +
   "Also returns userIdTypes and a unitNote that tells you exactly how to set the unit field for each value. " +
   "Set source to 'fact_table' and pass factTableId for fact table explorations. " +
   "Set source to 'metric' and pass metricIds for metric explorations — returns the intersection of columns across selected metrics, plus per-metric needsUnit flags.";

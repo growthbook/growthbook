@@ -32,10 +32,18 @@ export type Props = {
   children: string | string[] | ReactNode;
   style?: CSSProperties;
   tabIndex?: number;
+  /** Lets a long label break onto more lines instead of overflowing. */
+  wrap?: boolean;
 } & MarginProps &
   Pick<
     ButtonProps,
-    "title" | "type" | "aria-label" | "aria-pressed" | "className"
+    | "title"
+    | "type"
+    | "aria-label"
+    | "aria-disabled"
+    | "aria-pressed"
+    | "aria-expanded"
+    | "className"
   >;
 
 const Button = forwardRef<HTMLButtonElement, Props>(
@@ -54,6 +62,8 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       preventDefault = true,
       type = "button",
       children,
+      wrap = false,
+      style,
       ...otherProps
     },
     ref: ForwardedRef<HTMLButtonElement>,
@@ -65,6 +75,18 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       <RadixButton
         ref={ref}
         {...otherProps}
+        style={
+          wrap
+            ? {
+                height: "auto",
+                minHeight: "var(--base-button-height)",
+                maxWidth: "100%",
+                paddingTop: "var(--space-1)",
+                paddingBottom: "var(--space-1)",
+                ...style,
+              }
+            : style
+        }
         onClick={
           onClick
             ? async (e) => {

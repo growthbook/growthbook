@@ -2,19 +2,13 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   autoMerge,
-  featureMetadataEnvelope,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
   MergeStrategy,
-  pruneOrphanedRampActions,
-  resetReviewOnChange,
+  rebasedRevisionChanges,
 } from "shared/util";
-import type { FeatureRule } from "shared/types/feature";
-import {
-  RevisionMetadata,
-  postFeatureRevisionRebaseValidator,
-} from "shared/validators";
+import { postFeatureRevisionRebaseValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -158,80 +152,26 @@ export async function rebaseFeatureRevision(
     );
   }
 
-  const newRules: FeatureRule[] =
-    mergeResult.result.rules ?? feature.rules ?? [];
-  const newEnvironmentsEnabled: Record<string, boolean> = {};
-  environmentIds.forEach((env) => {
-    newEnvironmentsEnabled[env] =
-      mergeResult.result.environmentsEnabled?.[env] ??
-      feature.environmentSettings?.[env]?.enabled ??
-      false;
-  });
-
-  const featureMetadataSnapshot: RevisionMetadata =
-    featureMetadataEnvelope(feature);
-  const newMetadata: RevisionMetadata = mergeResult.result.metadata
-    ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
-    : featureMetadataSnapshot;
-
-  // The merge can drop a rule that a pending ramp action targets (e.g. live
-  // deleted it). Prune those orphaned actions rather than carrying dead
-  // intent forward; the prune is recorded in the rebase log entry below.
-  const { kept: keptRampActions, pruned: prunedRampActions } =
-    pruneOrphanedRampActions(revision.rampActions, newRules);
-
-  // A rebase that actually pulls in upstream changes must re-trigger review
-  // per org policy — the prior approval was for pre-rebase content.
-  // The merged result carries rules as a whole array, so when the rebase
-  // produced a new one we treat every env the feature is in as potentially
-  // changed for review-reset purposes. (Per-env keys only reflected which
-  // envs had explicit overrides, not which rules actually changed.)
-  const rulesChanged = mergeResult.result.rules !== undefined;
-  const changedEnvsFromRebase = Array.from(
-    new Set([
-      ...(rulesChanged ? environmentIds : []),
-      ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
-    ]),
-  );
-  const resetReview = resetReviewOnChange({
+  const { changes: rebased, logValue } = rebasedRevisionChanges({
     feature,
-    changedEnvironments: changedEnvsFromRebase,
-    defaultValueChanged: mergeResult.result.defaultValue !== undefined,
-    settings: organization.settings,
+    revision,
+    liveVersion: live.version,
+    result: mergeResult.result,
+    environmentIds,
   });
-
   await updateRevision(
     context,
     feature,
     revision,
-    {
-      baseVersion: live.version,
-      defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
-      rules: newRules,
-      environmentsEnabled: newEnvironmentsEnabled,
-      prerequisites:
-        mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
-      archived: mergeResult.result.archived ?? feature.archived ?? false,
-      metadata: newMetadata,
-      holdout:
-        "holdout" in mergeResult.result
-          ? mergeResult.result.holdout
-          : (feature.holdout ?? null),
-      ...(prunedRampActions.length > 0 ? { rampActions: keptRampActions } : {}),
-    },
+    rebased,
     {
       user: context.auditUser,
       action: "rebase",
       subject: `on top of revision #${live.version}`,
-      value: JSON.stringify(
-        prunedRampActions.length > 0
-          ? { ...mergeResult.result, prunedRampActions }
-          : mergeResult.result,
-      ),
+      value: logValue,
     },
-    resetReview,
     // Rebase is permitted while a "lock edits" schedule is active.
-    { bypassScheduleLock: true },
+    { bypassScheduleLock: true, rebase: { live, merged: mergeResult.result } },
   );
 
   const updated = await getRevision({
@@ -258,7 +198,7 @@ export async function rebaseFeatureRevision(
     feature,
     finalRevision,
     "revision.rebased",
-    { baseVersion: live.version },
+    {},
   );
 
   // A clean rebase (no review reset) keeps an approved+armed draft approved;

@@ -6,7 +6,7 @@ has_changes() {
 }
 
 # OpenAPI spec generation: check if any spec inputs are in the staged changes
-apichanged=$(has_changes "back-end/src/api/specs|back-end/src/api/api.router.ts|back-end/src/api/ApiModel.ts|shared/src/validators")
+apichanged=$(has_changes "back-end/src/api/specs|back-end/src/api/api.router.ts|back-end/src/api/apiModelHandlers.ts|shared/src/api-model.ts|shared/src/api-endpoints|shared/src/validators")
 if [ -n "$apichanged" ]; then
   echo "#### API spec inputs changed, running generate-openapi"
   if ! pnpm generate-openapi; then

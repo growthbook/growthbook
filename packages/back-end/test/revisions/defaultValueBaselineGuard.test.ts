@@ -142,22 +142,21 @@ describe("postFeatureDefaultValue baseline guard", () => {
     await seed("live");
     const { res, captured } = resSpy();
     const collection = mongoose.connection.collection("featurerevisions");
-    const realFindOne = collection.findOne.bind(collection);
-    let raced = false;
+    const realFindOneAndUpdate = collection.findOneAndUpdate.bind(collection);
+    let intercepted = false;
+    // Interposed on the guarded write, not the read before it: a one-shot spy
+    // on findOne is consumable by any in-flight read.
     jest
-      .spyOn(collection, "findOne")
+      .spyOn(collection, "findOneAndUpdate")
       .mockImplementation(async (...args: unknown[]) => {
-        const doc = await (
-          realFindOne as (...a: unknown[]) => Promise<unknown>
-        )(...args);
-        if (!raced) {
-          raced = true;
-          await collection.updateOne(
-            { organization: ORG_ID, featureId: FEATURE_ID, version: 2 },
-            { $set: { defaultValue: "landed-first", dateUpdated: new Date() } },
-          );
-        }
-        return doc;
+        intercepted = true;
+        await collection.updateOne(
+          { organization: ORG_ID, featureId: FEATURE_ID, version: 2 },
+          { $set: { defaultValue: "landed-first", dateUpdated: new Date() } },
+        );
+        return (realFindOneAndUpdate as (...a: unknown[]) => Promise<unknown>)(
+          ...args,
+        );
       });
 
     try {
@@ -169,6 +168,8 @@ describe("postFeatureDefaultValue baseline guard", () => {
       jest.restoreAllMocks();
     }
 
+    // Fails loudly if the guarded write moves off findOneAndUpdate.
+    expect(intercepted).toBe(true);
     expect(captured.status).toBe(409);
     expect(await storedDefault(2)).toBe("landed-first");
   });

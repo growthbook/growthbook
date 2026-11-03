@@ -6,7 +6,10 @@ import React, {
   type ReactNode,
 } from "react";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
-import { getDefaultPrerequisiteCondition } from "shared/util";
+import {
+  entityTargetsProject,
+  getDefaultPrerequisiteCondition,
+} from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import {
   PiXBold,
@@ -340,6 +343,9 @@ export default function PrerequisiteInput({
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
       const projectId = f.project || "";
       const projectName = projectId ? projectMap.get(projectId) : null;
+      const targetingProjectNames = (f.targetingProjects ?? [])
+        .filter((id) => id && id !== projectId)
+        .map((id) => projectMap.get(id) || id);
       return {
         label: f.id,
         value: f.id,
@@ -354,6 +360,13 @@ export default function PrerequisiteInput({
         } as FeatureOptionMeta,
         project: projectId,
         projectName,
+        targetingProjectNames,
+        targetingAllProjects: !!f.targetingAllProjects,
+        valueType: f.valueType,
+        configBackingKey: f.configBackingKey,
+        tags: f.tags,
+        description: f.description,
+        states: featuresStates[f.id],
       };
     });
 
@@ -927,7 +940,8 @@ export default function PrerequisiteInput({
                   )}
 
                   {parentFeature &&
-                    (parentFeature?.project || "") !== featureProject && (
+                    !!parentFeature.project &&
+                    !entityTargetsProject(parentFeature, featureProject) && (
                       <Callout
                         status="warning"
                         mb="2"

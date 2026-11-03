@@ -40,6 +40,7 @@ export default function TrafficCard({
   isBandit,
   disableDimensions,
   cardTitle = "Traffic",
+  overTimeTitle = "Experiment Traffic Over Time",
   containerClassName = "box p-3 my-4",
 }: {
   traffic: ExperimentSnapshotTraffic;
@@ -47,6 +48,8 @@ export default function TrafficCard({
   isBandit: boolean;
   disableDimensions?: boolean;
   cardTitle?: string;
+  /** Heading for the time-series chart. Defaults to the experiment wording. */
+  overTimeTitle?: string;
   containerClassName?: string;
 }) {
   const [cumulative, setCumulative] = useState(true);
@@ -121,40 +124,48 @@ export default function TrafficCard({
   return (
     <div className={containerClassName}>
       <div className="mx-2">
-        {!disableDimensions && (
+        {(cardTitle || !disableDimensions) && (
           <div className="d-flex flex-row mt-1">
-            <h2 className="d-inline">{cardTitle}</h2>
-            <div className="flex-1" />
-            <div className="col-auto">
-              <div className="uppercase-title text-muted">Dimension</div>
-              <SelectField
-                size="legacy"
-                containerClassName={"select-dropdown-underline"}
-                initialOption="Over Time"
-                options={availableDimensions}
-                value={selectedDimension}
-                onChange={(v) => {
-                  if (v === selectedDimension) return;
-                  track("Select health tab traffic card dimension");
-                  setSelectedDimension(v);
-                }}
-                disabled={!availableDimensions.length}
-              />
-            </div>
+            {cardTitle && <h2 className="d-inline">{cardTitle}</h2>}
+            {!disableDimensions && (
+              <>
+                <div className="flex-1" />
+                <div className="col-auto">
+                  <div className="uppercase-title text-muted">Dimension</div>
+                  <SelectField
+                    size="legacy"
+                    containerClassName={"select-dropdown-underline"}
+                    initialOption="Over Time"
+                    options={availableDimensions}
+                    value={selectedDimension}
+                    onChange={(v) => {
+                      if (v === selectedDimension) return;
+                      track("Select health tab traffic card dimension");
+                      setSelectedDimension(v);
+                    }}
+                    disabled={!availableDimensions.length}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        <div className="mt-3 mb-3 d-flex align-items-center">
-          <h3>
+        <div className="mt-3 mb-4 d-flex align-items-center">
+          <h3 className="mb-0">
             {selectedDimension
               ? `Experiment Traffic by ${
                   dimensionWithIssues?.label ?? "Dimension"
                 }`
-              : "Experiment Traffic Over Time"}
+              : overTimeTitle}
           </h3>
           {!selectedDimension && (
-            <div className="ml-auto">
-              Cumulative <Switch value={cumulative} onChange={setCumulative} />
+            <div className="ml-auto flex-shrink-0">
+              <Switch
+                label="Cumulative"
+                value={cumulative}
+                onChange={setCumulative}
+              />
             </div>
           )}
         </div>

@@ -69,6 +69,7 @@ export const safeRolloutSnapshotMetricObject = z.object({
     .optional(),
   chanceToWin: z.number().optional(),
   errorMessage: z.string().optional(),
+  computeFailed: z.boolean().optional(),
   power: metricPowerResponseFromStatsEngineObject.optional(),
 });
 export type SafeRolloutSnapshotMetricInterface = z.infer<
@@ -95,6 +96,7 @@ const safeRolloutSnapshotTrafficObject = z.object({
     .enum(["NO_ROWS_IN_UNIT_QUERY", "TOO_MANY_ROWS"])
     .or(z.string())
     .optional(),
+  multipleExposures: z.number().optional(),
 });
 
 const safeRolloutSnapshotHealthObject = z.object({
@@ -164,6 +166,7 @@ const safeRolloutSnapshotSettings = z.object({
   queryFilter: z.string(),
   datasourceId: z.string(),
   exposureQueryId: z.string(),
+  exposureQueryIdentifierType: z.string().optional(),
   startDate: z.date(),
   endDate: z.date(),
   variations: z.array(snapshotSettingsVariationValidator),

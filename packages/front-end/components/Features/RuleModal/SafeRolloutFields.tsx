@@ -8,11 +8,15 @@ import {
   PiLockBold,
   PiLockOpenBold,
 } from "react-icons/pi";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
-import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
+import {
+  NewExperimentRefRule,
+  useAttributeSchema,
+  resolveAttributeFilter,
+} from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,10 +25,13 @@ import Checkbox from "@/ui/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
@@ -36,6 +43,9 @@ import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
   feature,
+  attributeProjects,
+  savedGroupProjects,
+  attributeSelectIndicator,
   environment,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
@@ -51,6 +61,9 @@ export default function SafeRolloutFields({
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
+  attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -68,7 +81,10 @@ export default function SafeRolloutFields({
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, feature.project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
@@ -84,7 +100,27 @@ export default function SafeRolloutFields({
     (ds) => ds.id === form.watch("safeRolloutFields.datasourceId"),
   );
   const settings = useOrgSettings();
-  const exposureQueries = dataSource?.settings?.queries?.exposure || [];
+  const { setValue } = form;
+  const setExposureQueryId = useCallback(
+    (value: string) => setValue("safeRolloutFields.exposureQueryId", value),
+    [setValue],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      setValue("safeRolloutFields.exposureQueryIdentifierType", value),
+    [setValue],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource: dataSource,
+    project: feature.project,
+    hashAttribute: form.watch("hashAttribute"),
+    exposureQueryId: form.watch("safeRolloutFields.exposureQueryId"),
+    identifierType: form.watch("safeRolloutFields.exposureQueryIdentifierType"),
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: mode !== "edit" && !!dataSource?.properties?.exposureQueries,
+    keepCurrentSelection: mode === "edit",
+  });
 
   const durationValue = form.watch("safeRolloutFields.maxDuration.amount");
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
@@ -105,6 +141,8 @@ export default function SafeRolloutFields({
       <>
         <TargetingFieldsGroup
           project={feature.project || ""}
+          attributeProjects={attributeProjects}
+          savedGroupProjects={savedGroupProjects}
           environments={[environment]}
           feature={feature}
           savedGroups={form.watch("savedGroups") || []}
@@ -167,30 +205,15 @@ export default function SafeRolloutFields({
           withRadixThemedPortal
           disabled={disableFields}
           label="Sample based on attribute"
+          extraIndicator={attributeSelectIndicator}
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({
-              label: s.property,
-              value: s.property,
-              description: s.description,
-              tags: s.tags,
-              datatype: s.datatype,
-              hashAttribute: s.hashAttribute,
-            }))}
+            .map(toAttributeOption)}
           value={form.watch("hashAttribute")}
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          formatOptionLabel={(o, meta) => {
-            return (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            );
-          }}
+          formatOptionLabel={formatAttributeOptionLabel}
           className="mb-2"
           required
         />
@@ -256,40 +279,12 @@ export default function SafeRolloutFields({
             )}
           </div>
           <div className="pb-1">
-            <SelectField
+            <AssignmentQueryFields
+              selection={assignmentQuerySelection}
               size="legacy"
-              label="Experiment assignment table"
-              className="portal-overflow-ellipsis"
-              options={exposureQueries.map((q) => ({
-                label: q.name,
-                value: q.id,
-              }))}
-              required
               disabled={
                 disableFields || !form.watch("safeRolloutFields.datasourceId")
               }
-              value={form.watch("safeRolloutFields.exposureQueryId")}
-              onChange={(v) =>
-                form.setValue("safeRolloutFields.exposureQueryId", v)
-              }
-              formatOptionLabel={({ label, value }) => {
-                const userIdType = exposureQueries?.find(
-                  (e) => e.id === value,
-                )?.userIdType;
-                return (
-                  <>
-                    {label}
-                    {userIdType ? (
-                      <span
-                        className="text-muted small float-right position-relative"
-                        style={{ top: 3 }}
-                      >
-                        Identifier Type: <code>{userIdType}</code>
-                      </span>
-                    ) : null}
-                  </>
-                );
-              }}
             />
           </div>
           <div className="pb-1 ">
@@ -304,6 +299,9 @@ export default function SafeRolloutFields({
             <MetricsSelector
               datasource={form.watch("safeRolloutFields.datasourceId")}
               exposureQueryId={form.watch("safeRolloutFields.exposureQueryId")}
+              exposureQueryIdentifierType={form.watch(
+                "safeRolloutFields.exposureQueryIdentifierType",
+              )}
               project={feature.project}
               includeFacts={true}
               forceSingleMetric={false}
@@ -413,7 +411,6 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields || controlValueDisabled}
               useDropdown={true}
-              useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />
@@ -438,7 +435,6 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields}
               useDropdown={true}
-              useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />

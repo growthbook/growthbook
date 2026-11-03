@@ -62,6 +62,11 @@ function getDefaultStatusAndText(
         defaultStatus: "rolled-back",
         text: "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
       };
+    case "data-incomplete":
+      return {
+        defaultStatus: "",
+        text: "Some guardrail metrics could not be computed, so no ship recommendation is available.",
+      };
     case "before-min-duration":
     case "days-left":
     case "no-data":
@@ -140,7 +145,6 @@ export default function SafeRolloutStatusModal({
 
   return (
     <Modal
-      useRadixButton={false}
       open={open}
       close={() => setStatusModalOpen(false)}
       header={`End Safe Rollout`}

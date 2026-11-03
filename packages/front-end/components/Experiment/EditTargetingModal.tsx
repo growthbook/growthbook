@@ -1,40 +1,69 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
+import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
-import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
-} from "@/components/Features/AttributeOptionTooltip";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/ui/Switch";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
+import {
+  followAssignmentAttribute,
+  getExposureQueriesInScope,
+  getExposureQuery,
+  getHashAttributeIdentifierTypeMap,
+} from "@/services/datasources";
 import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
+import NamespaceSelector from "@/components/Features/NamespaceSelector";
+import type { StageTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
 import MakeChangesFlow from "./MakeChangesFlow";
+import {
+  getLinkedExperimentAttributeScopes,
+  useAttributeScopePicker,
+} from "./useAttributeScopePicker";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
+import useHashAttributeOptions from "./useHashAttributeOptions";
 
 export interface Props {
+  section?: "targeting" | "namespace";
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
+  /** Stages the confirmed change instead of writing it. */
+  stageChanges?: StageTargeting;
+  /** Targeting already staged, which the form opens on. */
+  draft?: ExperimentTargetingData | null;
 }
 
 export default function EditTargetingModal({
+  section = "targeting",
   close,
   experiment,
+  linkedFeatures,
   mutate,
   safeToEdit,
+  stageChanges,
+  draft,
 }: Props) {
+  const { enforcement: enforcementScope, dropdown: dropdownScope } =
+    getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures);
+
   const {
     form,
     defaultValues,
@@ -42,7 +71,15 @@ export default function EditTargetingModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment);
+  } = useExperimentTargetingForm(experiment, enforcementScope, draft);
+
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: dropdownScope,
+      allProjects: form.watch("attributeScopeAllProjects"),
+      setAllProjects: (v) => form.setValue("attributeScopeAllProjects", v),
+    });
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -78,39 +115,62 @@ export default function EditTargetingModal({
     experiment.project,
   );
 
-  const attributeSchema = useAttributeSchema(false, experiment.project);
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
-
-  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
-    .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map((s) => ({
-      label: s.property,
-      value: s.property,
-      description: s.description,
-      tags: s.tags,
-      datatype: s.datatype,
-      hashAttribute: s.hashAttribute,
-    }));
-
-  // If the current hashAttribute isn't in the list, add it for backwards
-  // compatibility (e.g. the attribute was archived or removed from the
-  // experiment's project after creation).
-  if (
-    form.watch("hashAttribute") &&
-    !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
-  ) {
-    hashAttributeOptions.push({
-      label: form.watch("hashAttribute"),
-      value: form.watch("hashAttribute"),
-    });
-  }
+  const attributeSchema = useAttributeSchema(false, effectiveAttributeProjects);
+  const hashAttributeOptions = useHashAttributeOptions(
+    effectiveAttributeProjects,
+    form.watch("hashAttribute"),
+  );
 
   const disableStickyBucketing = !!form.watch("disableStickyBucketing");
+  const { getDatasourceById } = useDefinitions();
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+
+  // Staged, a new assignment attribute brings the analysis the assignment
+  // table and identifier type it's linked to, as the Data Source modal says.
+  const hashAttribute = form.watch("hashAttribute");
+  const followed =
+    stageChanges && datasource && hashAttribute !== experiment.hashAttribute
+      ? followAssignmentAttribute({
+          queries: getExposureQueriesInScope(datasource, experiment.project),
+          hashAttribute,
+          hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+            datasource.settings?.userIdTypes,
+          ),
+          exposureQueryId: experiment.exposureQueryId ?? "",
+          identifierType: experiment.exposureQueryIdentifierType ?? "",
+        })
+      : null;
 
   const settings = useOrgSettings();
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
+
+  if (safeToEdit && section === "namespace") {
+    return (
+      <ModalStandard
+        trackingEventModalType="edit-namespace-modal"
+        open={true}
+        close={close}
+        header="Edit Namespace"
+        subheader="Run mutually exclusive experiments within a shared namespace."
+        ctaEnabled={canSubmit}
+        cta={stageChanges ? "Confirm" : "Save"}
+        submit={onSubmit(mutate, "namespace", stageChanges)}
+        size="lg"
+      >
+        <NamespaceSelector
+          form={form}
+          featureId={experiment.trackingKey}
+          trackingKey={experiment.trackingKey}
+          experimentHashAttribute={form.watch("hashAttribute")}
+          fallbackAttribute={form.watch("fallbackAttribute")}
+          hideEnableToggle
+        />
+      </ModalStandard>
+    );
+  }
 
   if (safeToEdit) {
     return (
@@ -120,8 +180,9 @@ export default function EditTargetingModal({
         close={close}
         header="Edit Targeting"
         ctaEnabled={canSubmit}
+        cta={stageChanges ? "Confirm" : "Save"}
         submit={async () => {
-          await onSubmit(mutate, "targeting")();
+          await onSubmit(mutate, "targeting", stageChanges)();
           trackAddedTargeting();
         }}
         size="lg"
@@ -143,48 +204,61 @@ export default function EditTargetingModal({
             containerClassName="flex-1"
             label="Assignment Attribute"
             labelClassName="font-weight-bold"
+            extraIndicator={attributeScopeToggle}
             options={hashAttributeOptions}
             sort={false}
             value={form.watch("hashAttribute")}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
+              // The fallback selector clears a match itself, but it isn't
+              // always shown.
+              if (v === form.getValues("fallbackAttribute")) {
+                form.setValue("fallbackAttribute", "");
+              }
             }}
-            formatOptionLabel={(o, meta) => {
-              return (
-                <AttributeOptionWithTooltip
-                  option={o as AttributeOptionForTooltip}
-                  context={meta.context}
-                >
-                  {o.label}
-                </AttributeOptionWithTooltip>
-              );
-            }}
+            formatOptionLabel={formatAttributeOptionLabel}
             helpText={
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
           />
-          {orgStickyBucketing ? (
-            <Switch
-              my="6"
-              label={
+          {followed ? (
+            <HelperText status="warning" size="sm" mt="2">
+              {followed.exposureQueryId !== experiment.exposureQueryId ? (
                 <>
-                  <Text weight="medium" color="text-high">
-                    Sticky Bucketing
-                  </Text>{" "}
-                  <Text color="text-high">(Organization default: Enabled)</Text>
+                  The experiment assignment table changes to{" "}
+                  {getExposureQuery(
+                    datasource?.settings,
+                    followed.exposureQueryId,
+                  )?.name ?? followed.exposureQueryId}{" "}
+                  and the identifier type to{" "}
                 </>
+              ) : (
+                "The identifier type changes to "
+              )}
+              <code>{followed.identifierType}</code> to match.
+            </HelperText>
+          ) : null}
+          <LinkHashAttributeCallout
+            experimentId={experiment.id}
+            datasource={datasource}
+            hashAttribute={form.watch("hashAttribute")}
+            source="Edit Targeting"
+          />
+          {orgStickyBucketing ? (
+            <StickyBucketingToggle
+              my="6"
+              disableStickyBucketing={disableStickyBucketing}
+              setDisableStickyBucketing={(v) =>
+                form.setValue("disableStickyBucketing", v)
               }
               description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
-              value={!form.watch("disableStickyBucketing")}
-              onChange={(v) => {
-                form.setValue("disableStickyBucketing", !v);
-              }}
             />
           ) : null}
           {!disableStickyBucketing && (
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
+              extraIndicator={attributeScopeToggle}
             />
           )}
           {!sdkConnectionsLoading &&
@@ -200,6 +274,8 @@ export default function EditTargetingModal({
           <Box mt="6">
             <TargetingFieldsGroup
               project={experiment.project || ""}
+              attributeProjects={effectiveAttributeProjects}
+              attributeSelectIndicator={attributeScopeToggle}
               environments={envs}
               savedGroups={form.watch("savedGroups") || []}
               setSavedGroups={(v) => form.setValue("savedGroups", v)}
@@ -225,6 +301,7 @@ export default function EditTargetingModal({
   return (
     <MakeChangesFlow
       experiment={experiment}
+      attributeProjects={dropdownScope}
       form={form}
       defaultValues={defaultValues}
       onSubmit={(scope) => onSubmit(mutate, scope)()}

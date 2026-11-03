@@ -211,13 +211,28 @@ describe("getExperimentSourceSnapshotRef", () => {
     ).toBeUndefined();
   });
 
-  it("returns the persisted ref when both id and date are present", () => {
+  it("uses the persisted end date as the analysis end date", () => {
+    const mainEndDate = new Date("2024-06-01T06:00:00Z");
+    expect(
+      getExperimentSourceSnapshotRef({
+        sourceSnapshotId: "main",
+        sourceSnapshotDateCreated: mainDate,
+        sourceSnapshotEndDate: mainEndDate,
+      }),
+    ).toEqual({
+      id: "main",
+      dateCreated: mainDate,
+      analysisEndDate: mainEndDate,
+    });
+  });
+
+  it("falls back to the source's run time when no end date was persisted", () => {
     expect(
       getExperimentSourceSnapshotRef({
         sourceSnapshotId: "main",
         sourceSnapshotDateCreated: mainDate,
       }),
-    ).toEqual({ id: "main", dateCreated: mainDate });
+    ).toEqual({ id: "main", dateCreated: mainDate, analysisEndDate: mainDate });
   });
 });
 
@@ -225,6 +240,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
   const source = {
     id: "main_old",
     dateCreated: new Date("2024-06-01T12:00:00Z"),
+    analysisEndDate: new Date("2024-06-01T12:00:00Z"),
   };
 
   it("returns false when there is no source snapshot", () => {
@@ -325,8 +341,6 @@ const makeFactMetric = (
     minSampleSize: 100,
     targetMDE: 0.1,
     displayAsPercentage: false,
-    winRisk: 0.1,
-    loseRisk: 0.05,
     regressionAdjustmentOverride: true,
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 10,
@@ -369,7 +383,6 @@ const unsupportedReasonBaseParams = {
   pipelineSettings: makePipelineSettings(),
   experimentId,
   orgHasIncrementalPipelineFeature: true,
-  skipPartialData: false,
   activationMetric: null,
   metrics: [makeFactMetric()],
   experimentType: "standard",
@@ -411,17 +424,6 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
     ).toBe("Organization does not have access to Incremental Pipeline mode.");
   });
 
-  it("flags exclude in-progress conversions", () => {
-    expect(
-      getIncrementalPipelineUnsupportedReason({
-        ...unsupportedReasonBaseParams,
-        skipPartialData: true,
-      }),
-    ).toBe(
-      "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
-    );
-  });
-
   it("flags a configured activation metric", () => {
     expect(
       getIncrementalPipelineUnsupportedReason({
@@ -453,15 +455,13 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
     );
   });
 
-  it("flags funnel metrics", () => {
+  it("allows funnel metrics on an incremental-capable data source", () => {
     expect(
       getIncrementalPipelineUnsupportedReason({
         ...unsupportedReasonBaseParams,
         metrics: [makeFunnelMetric()],
       }),
-    ).toBe(
-      "Funnel metrics are not supported with Incremental Pipeline mode while in beta. Please remove any funnel metrics from the experiment.",
-    );
+    ).toBeNull();
   });
 
   it("flags event quantile metrics on a data source without quantile sketches", () => {
@@ -497,7 +497,6 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
         }),
         experimentId,
         orgHasIncrementalPipelineFeature: false,
-        skipPartialData: true,
         activationMetric: "fact_m1",
         metrics: [],
         experimentType: undefined,
@@ -553,6 +552,7 @@ const makeComparable = (
   skipPartialData: false,
   datasourceId: "ds_123",
   exposureQueryId: "eq_1",
+  exposureQueryIdentifierType: "user_id",
   startDate: new Date("2024-01-01T00:00:00.000Z"),
   regressionAdjustmentEnabled: false,
   experimentId: "exp_1",
@@ -617,6 +617,15 @@ describe("getIncrementalFullRefreshReasons", () => {
         makeComparable({ exposureQueryId: "eq_1" }),
       ),
     ).toEqual(["Experiment assignment query changed"]);
+  });
+
+  it("returns a reason when exposureQueryIdentifierType changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ exposureQueryIdentifierType: "anonymous_id" }),
+        makeComparable({ exposureQueryIdentifierType: "user_id" }),
+      ),
+    ).toEqual(["Experiment assignment identifier type changed"]);
   });
 
   it("returns a reason when startDate changed", () => {

@@ -17,3 +17,25 @@ export class PermissionError extends Error {
     this.name = "PermissionError";
   }
 }
+
+// By name as well as class: src and dist copies of this module can both be loaded.
+export function isPermissionError(error: unknown): error is PermissionError {
+  return (
+    error instanceof PermissionError ||
+    (error as { name?: unknown } | null)?.name === "PermissionError"
+  );
+}
+
+// Thrown when the API answers with something other than JSON, e.g. an auth proxy (Google IAP) responding in plain text after its session expired
+export class NonJsonResponseError extends Error {
+  status: number;
+  constructor(status: number) {
+    super(
+      status === 401 || status === 403
+        ? "Your network sign-in session has expired. Reload the page to continue."
+        : `The API returned an invalid response (HTTP ${status})`,
+    );
+    this.name = "NonJsonResponseError";
+    this.status = status;
+  }
+}

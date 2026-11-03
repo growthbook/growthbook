@@ -1,16 +1,20 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { ExperimentUnitsQuerySettings } from "shared/types/integrations";
+import {
+  ExperimentUnitsQuerySettings,
+  ResolvedExposureQuery,
+} from "shared/types/integrations";
 import { ContextualBanditSnapshotSettings } from "../validators/contextual-bandit-snapshot";
 
 export function buildUnitsQuerySettingsFromSnapshot(
   settings: ExperimentSnapshotSettings,
-  exposureQuery: { query: string; userIdType: string },
+  exposureQuery: ResolvedExposureQuery,
 ): ExperimentUnitsQuerySettings {
   return {
     experimentId: settings.experimentId,
     exposureQuery,
     startDate: settings.startDate,
     endDate: settings.endDate,
+    endDateIsCutoff: settings.endDateIsCutoff,
     skipPartialData: settings.skipPartialData,
     attributionModel: settings.attributionModel,
     queryFilter: settings.queryFilter,
@@ -30,7 +34,7 @@ export function buildUnitsQuerySettingsFromCb(
     experimentId: cbSettings.trackingKey,
     exposureQuery: {
       query: cbSettings.query,
-      userIdType: cbSettings.userIdType,
+      identifierType: cbSettings.userIdType,
     },
     startDate: cbSettings.startDate,
     endDate: cbSettings.endDate ?? new Date(),

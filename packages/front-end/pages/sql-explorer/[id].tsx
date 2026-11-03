@@ -158,7 +158,6 @@ export default function SqlQueryDetail() {
             error={debugResults.error || ""}
             allowDownload={false}
             showSampleHeader={false}
-            renderedSQLLabel="Refresh Error"
             close={() => setDebugResults(null)}
           />
         )}
@@ -191,7 +190,6 @@ export default function SqlQueryDetail() {
               error={savedQuery.results?.error || ""}
               allowDownload={true}
               showSampleHeader={false}
-              renderedSQLLabel="SQL"
             />
           </Box>
         ) : null}

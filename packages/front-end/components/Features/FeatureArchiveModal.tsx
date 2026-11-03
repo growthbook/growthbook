@@ -3,6 +3,7 @@ import {
   canWriteArchiveIntoDraft,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
+import { eventUserPersonId } from "shared/validators";
 import { useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
@@ -108,8 +109,7 @@ export default function FeatureArchiveModal({
         model: "feature",
         entity: feature,
         revision: {
-          authorId:
-            r.createdBy && "id" in r.createdBy ? r.createdBy.id : undefined,
+          authorId: eventUserPersonId(r.createdBy) ?? undefined,
         },
         userId,
       }),

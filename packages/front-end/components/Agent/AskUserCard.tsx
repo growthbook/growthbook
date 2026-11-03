@@ -7,6 +7,8 @@ export interface AskUserOption {
   id: string;
   label: string;
   description?: string;
+  /** The agent's pick; the composer offers it as a ready reply. */
+  recommended?: boolean;
 }
 
 export interface AskUserPrompt {

@@ -195,7 +195,7 @@ async function generateViaMultimodalText(
         google: {
           // Without this Gemini returns a text description instead of bytes.
           responseModalities: ["IMAGE"],
-          // Only sent to models that honor it (gemini-3-pro-image-preview).
+          // Only sent to models that honor it (gemini-3-pro-image).
           // gemini-2.5-flash-image ignores it, so we steer shape via the
           // prompt's framing instruction instead.
           ...(meta.honorsAspectRatio

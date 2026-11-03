@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { namedSchema } from "./openapi-helpers";
+import { namedSchema, retiredRiskDefault } from "./openapi-helpers";
 
 // Approval rules are project-scoped: a rule with no `projects` is the
 // all-projects rule, and a project override inherits any field it omits.
@@ -31,6 +31,24 @@ export const apiRequireReviewRuleInput = namedSchema(
   "RequireReviewRuleInput",
   z
     .object({ requireReviewOn: z.boolean(), ...requireReviewRuleFields })
+    .strict(),
+);
+
+export const apiTargetingReviewRule = namedSchema(
+  "TargetingReviewRule",
+  z
+    .object({
+      projects: z
+        .array(z.string())
+        .describe(
+          "Targeting Project IDs this rule applies to. An empty list is the organization-wide default.",
+        ),
+      mode: z
+        .enum(["strict", "loose"])
+        .describe(
+          "`strict`: a Feature Flag delivered into these Targeting Projects must also satisfy their approval requirements, and a Targeting Project with a rule of its own must be approved by one of its reviewers. `loose`: only the flag's primary project governs approvals.",
+        ),
+    })
     .strict(),
 );
 
@@ -86,6 +104,15 @@ export const apiSettingsValidator = namedSchema(
           type: z.enum(["cron", "never", "stale"]).optional(),
           cron: z.string().nullable().optional(),
           hours: z.coerce.number().nullable().optional(),
+          analysisEndDateMode: z
+            .enum(["runTime", "lag", "fixedTime"])
+            .optional(),
+          analysisEndDateLagHours: z.coerce.number().nullable().optional(),
+          analysisEndDateTime: z
+            .string()
+            .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+            .nullable()
+            .optional(),
         })
         .nullable(),
       multipleExposureMinPercent: z.coerce.number(),
@@ -110,21 +137,14 @@ export const apiSettingsValidator = namedSchema(
       delayHours: z.coerce.number(),
       windowType: z.string(),
       windowHours: z.coerce.number(),
-      winRisk: z.coerce.number(),
-      loseRisk: z.coerce.number(),
+      winRisk: retiredRiskDefault(),
+      loseRisk: retiredRiskDefault(),
       secureAttributeSalt: z.string(),
       killswitchConfirmation: z.boolean(),
       featureKillSwitchBehavior: z.enum(["off", "warn"]).optional(),
       requireReviews: z.array(apiRequireReviewRule),
       approvalFlows: apiApprovalFlows,
-      targetingReviewMode: z
-        .array(
-          z.object({
-            projects: z.array(z.string()),
-            mode: z.enum(["strict", "loose"]),
-          }),
-        )
-        .optional(),
+      targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
       restApiBypassesReviews: z.boolean().optional(),
       requireRebaseBeforePublish: z.boolean().optional(),
       revertsBypassApproval: z.boolean().optional(),
@@ -167,6 +187,7 @@ export const putApprovalSettingsValidator = {
     .object({
       requireReviews: z.array(apiRequireReviewRuleInput).optional(),
       approvalFlows: apiApprovalFlows.optional(),
+      targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
     })
     .strict(),
   querySchema: z.never(),
@@ -175,10 +196,13 @@ export const putApprovalSettingsValidator = {
     .object({
       requireReviews: z.array(apiRequireReviewRule),
       approvalFlows: apiApprovalFlows,
+      targetingReviewMode: z.array(apiTargetingReviewRule),
     })
     .strict(),
-  summary:
-    "Replace the approval requirements for feature flags, configs and constants, and for saved groups. Each family is replaced wholesale when supplied; omit one to leave it unchanged.",
+  summary: "Update approval settings",
+  description:
+    "Replace the approval requirements for feature flags, configs and constants, for saved groups, and the Targeting Projects review mode. Each family is replaced wholesale when supplied; omit one to leave it unchanged.",
+  confirmation: ["settings.approvals"] as const,
   operationId: "putApprovalSettings",
   tags: ["settings"],
   method: "put" as const,

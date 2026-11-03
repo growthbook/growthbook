@@ -16,6 +16,7 @@ import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButto
 import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
+import EnvironmentProjectsBadge from "@/components/Features/SDKConnections/EnvironmentProjectsBadge";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -77,11 +78,9 @@ export default function ConnectionDiagram({
 
             <div>
               {showAllEnvironmentProjects && (
-                <Badge
-                  key="All env projects"
-                  color="teal"
-                  variant="solid"
-                  label={`All env projects (${envProjects.length})`}
+                <EnvironmentProjectsBadge
+                  environment={connection.environment}
+                  projectIds={envProjects}
                 />
               )}
               <div
@@ -231,7 +230,7 @@ export default function ConnectionDiagram({
                   host={connection.proxy.host}
                   id={connection.id}
                   mutate={mutate}
-                  showButton={true}
+                  showButton={canUpdate}
                 />
               }
             />

@@ -1,12 +1,18 @@
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
-import React, { RefObject, useState } from "react";
+import {
+  getExposureQueryIdentifierTypes,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
+import React, { RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getValidDate } from "shared/dates";
+import { date, getValidDate } from "shared/dates";
 import { DifferenceType } from "shared/types/stats";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
@@ -20,7 +26,9 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";
@@ -62,17 +70,11 @@ export default function ConfigureReport({
       ...report,
       experimentAnalysisSettings: {
         ...report.experimentAnalysisSettings,
-        dateStarted: new Date(
-          getValidDate(report.experimentAnalysisSettings?.dateStarted ?? "")
-            .toISOString()
-            .substr(0, 16),
+        dateStarted: getValidDate(
+          report.experimentAnalysisSettings?.dateStarted ?? "",
         ),
         dateEnded: report.experimentAnalysisSettings?.dateEnded
-          ? new Date(
-              getValidDate(report.experimentAnalysisSettings.dateEnded)
-                .toISOString()
-                .substr(0, 16),
-            )
+          ? getValidDate(report.experimentAnalysisSettings.dateEnded)
           : null,
         lookbackOverride: report.experimentAnalysisSettings?.lookbackOverride
           ? report.experimentAnalysisSettings.lookbackOverride.type === "date"
@@ -98,24 +100,6 @@ export default function ConfigureReport({
     if (useToday && value.experimentAnalysisSettings) {
       value.experimentAnalysisSettings.dateEnded = null;
     }
-    const d = new Date();
-    // @ts-expect-error types are good enough for CRUD
-    value.experimentAnalysisSettings = {
-      ...value.experimentAnalysisSettings,
-      dateStarted: new Date(
-        getValidDate(
-          value.experimentAnalysisSettings?.dateStarted ?? "",
-        ).getTime() -
-          d.getTimezoneOffset() * 60 * 1000,
-      ),
-      dateEnded: value.experimentAnalysisSettings?.dateEnded
-        ? new Date(
-            getValidDate(value.experimentAnalysisSettings.dateEnded).getTime() -
-              d.getTimezoneOffset() * 60 * 1000,
-          )
-        : null,
-    };
-
     await apiCall<{
       updatedReport: ExperimentSnapshotReportInterface;
     }>(`/report/${report.id}`, {
@@ -139,6 +123,12 @@ export default function ConfigureReport({
     experiment: ExperimentInterfaceStringDates;
   }>(`/experiment/${report.experimentId}`);
   const experiment = experimentData?.experiment;
+  const isHoldout = experiment?.type === "holdout";
+  const { data: holdoutData } = useApi<{
+    holdout: HoldoutInterfaceStringDates;
+  }>(`/holdout/${experiment?.holdoutId}`, {
+    shouldRun: () => isHoldout && !!experiment?.holdoutId,
+  });
 
   const latestPhaseIndex = (experiment?.phases?.length ?? 1) - 1;
 
@@ -154,6 +144,37 @@ export default function ConfigureReport({
     "experimentAnalysisSettings.exposureQueryId",
   );
   const exposureQuery = exposureQueries?.find((e) => e.id === exposureQueryId);
+  const storedIdentifierType = form.watch(
+    "experimentAnalysisSettings.exposureQueryIdentifierType",
+  );
+  const setExposureQueryId = useCallback(
+    (value: string) =>
+      form.setValue("experimentAnalysisSettings.exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue(
+        "experimentAnalysisSettings.exposureQueryIdentifierType",
+        value,
+      ),
+    [form],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project: experiment?.project,
+    holdoutProjects: isHoldout ? holdoutData?.holdout.projects : undefined,
+    hashAttribute: experiment?.hashAttribute,
+    exposureQueryId,
+    identifierType: resolveAnalysisIdentifierType(
+      exposureQuery,
+      storedIdentifierType,
+    ),
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: false,
+    keepCurrentSelection: true,
+  });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
@@ -224,6 +245,16 @@ export default function ConfigureReport({
               )}
               userIdType={form.watch("experimentAnalysisSettings.userIdType")}
               newUi={false}
+              cutoffBounds={{
+                min: getValidDate(
+                  form.watch("experimentAnalysisSettings.dateStarted"),
+                ),
+                max: form.watch("experimentAnalysisSettings.dateEnded")
+                  ? getValidDate(
+                      form.watch("experimentAnalysisSettings.dateEnded") ?? "",
+                    )
+                  : new Date(),
+              }}
             />
             <SelectField
               size="legacy"
@@ -259,7 +290,8 @@ export default function ConfigureReport({
               <div style={{ width: "50%" }}>
                 <DatePicker
                   key={`${datePickerKey}_date1`}
-                  label="Analysis Start (UTC)"
+                  label="Analysis start"
+                  timeZone="utc"
                   containerClassName="mb-2"
                   date={form.watch("experimentAnalysisSettings.dateStarted")}
                   setDate={(d) =>
@@ -277,11 +309,7 @@ export default function ConfigureReport({
                   onClick={() => {
                     form.setValue(
                       "experimentAnalysisSettings.dateStarted",
-                      new Date(
-                        getValidDate(experiment?.phases?.[0]?.dateStarted)
-                          .toISOString()
-                          .substr(0, 16),
-                      ),
+                      getValidDate(experiment?.phases?.[0]?.dateStarted),
                     );
                     incrementDatePickerKey();
                   }}
@@ -290,11 +318,8 @@ export default function ConfigureReport({
                     Use {isBandit ? "Bandit" : "Experiment"} start date
                     <br />
                     <small>
-                      {new Date(
-                        getValidDate(experiment?.phases?.[0]?.dateStarted)
-                          .toISOString()
-                          .substr(0, 16),
-                      ).toLocaleDateString()}
+                      {date(experiment?.phases?.[0]?.dateStarted ?? "", "UTC")}{" "}
+                      UTC
                     </small>
                   </div>
                 </Button>
@@ -308,13 +333,9 @@ export default function ConfigureReport({
                       onClick={() => {
                         form.setValue(
                           "experimentAnalysisSettings.dateStarted",
-                          new Date(
-                            getValidDate(
-                              experiment?.phases?.[latestPhaseIndex]
-                                ?.dateStarted ?? "",
-                            )
-                              .toISOString()
-                              .substr(0, 16),
+                          getValidDate(
+                            experiment?.phases?.[latestPhaseIndex]
+                              ?.dateStarted ?? "",
                           ),
                         );
                         incrementDatePickerKey();
@@ -324,14 +345,12 @@ export default function ConfigureReport({
                         Use latest phase ({latestPhaseIndex + 1}) start date
                         <br />
                         <small>
-                          {new Date(
-                            getValidDate(
-                              experiment?.phases?.[latestPhaseIndex]
-                                ?.dateStarted,
-                            )
-                              .toISOString()
-                              .substr(0, 16),
-                          ).toLocaleDateString()}
+                          {date(
+                            experiment?.phases?.[latestPhaseIndex]
+                              ?.dateStarted ?? "",
+                            "UTC",
+                          )}{" "}
+                          UTC
                         </small>
                       </div>
                     </Button>
@@ -351,7 +370,8 @@ export default function ConfigureReport({
                 ) : (
                   <DatePicker
                     key={`${datePickerKey}_date2`}
-                    label="End (UTC)"
+                    label="End"
+                    timeZone="utc"
                     containerClassName="mb-2"
                     date={
                       form.watch("experimentAnalysisSettings.dateEnded") ??
@@ -377,13 +397,8 @@ export default function ConfigureReport({
                         onClick={() => {
                           form.setValue(
                             "experimentAnalysisSettings.dateEnded",
-                            new Date(
-                              getValidDate(
-                                experiment?.phases?.[latestPhaseIndex]
-                                  ?.dateEnded,
-                              )
-                                .toISOString()
-                                .substr(0, 16),
+                            getValidDate(
+                              experiment?.phases?.[latestPhaseIndex]?.dateEnded,
                             ),
                           );
                           incrementDatePickerKey();
@@ -394,14 +409,12 @@ export default function ConfigureReport({
                           Use {isBandit ? "Bandit" : "Experiment"} end date
                           <br />
                           <small>
-                            {new Date(
-                              getValidDate(
-                                experiment?.phases?.[latestPhaseIndex]
-                                  ?.dateEnded,
-                              )
-                                .toISOString()
-                                .substr(0, 16),
-                            ).toLocaleDateString()}
+                            {date(
+                              experiment?.phases?.[latestPhaseIndex]
+                                ?.dateEnded ?? "",
+                              "UTC",
+                            )}{" "}
+                            UTC
                           </small>
                         </div>
                       </Button>
@@ -426,6 +439,9 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
+              exposureQueryIdentifierType={
+                assignmentQuerySelection.identifierType
+              }
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
               noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}
@@ -525,12 +541,17 @@ export default function ConfigureReport({
                     </label>
                   </PremiumTooltip>
                   <small className="form-text text-muted mb-2">
-                    Override metric behaviors within this experiment. Leave any
-                    fields empty that you do not want to override.
+                    Override metric behaviors within this experiment. Anything
+                    you don&apos;t override follows the metric&apos;s own
+                    settings.
                   </small>
                   <MetricsOverridesSelector
                     experiment={experiment}
                     form={form}
+                    statsEngine={
+                      form.watch("experimentAnalysisSettings.statsEngine") ||
+                      DEFAULT_STATS_ENGINE
+                    }
                     fieldMap={{
                       goalMetrics: "experimentAnalysisSettings.goalMetrics",
                       guardrailMetrics:
@@ -558,45 +579,9 @@ export default function ConfigureReport({
 
           <TabsContent value="analysis">
             {exposureQueries ? (
-              <SelectField
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
                 size="legacy"
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
-                value={
-                  form.watch("experimentAnalysisSettings.exposureQueryId") ?? ""
-                }
-                onChange={(v) =>
-                  form.setValue("experimentAnalysisSettings.exposureQueryId", v)
-                }
-                required
-                options={exposureQueries?.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries?.find(
-                    (e) => e.id === value,
-                  )?.userIdType;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
               />
             ) : null}
             <Field
@@ -610,6 +595,9 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
+              exposureQueryIdentifierType={
+                assignmentQuerySelection.identifierType
+              }
               project={experiment?.project}
               includeFacts={true}
               label={
@@ -823,7 +811,11 @@ export default function ConfigureReport({
                   Available columns:
                   <div className="mb-2 d-flex flex-wrap">
                     {["timestamp", "variation_id"]
-                      .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                      .concat(
+                        exposureQuery
+                          ? getExposureQueryIdentifierTypes(exposureQuery)
+                          : [],
+                      )
                       .concat(exposureQuery?.dimensions || [])
                       .map((d) => {
                         return (

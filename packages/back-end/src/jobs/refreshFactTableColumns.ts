@@ -59,6 +59,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     columnDetectionChanges.userIdTypes = deriveUserIdTypesFromColumns(
       datasource,
       detectedColumns,
+      factTable.userIdColumns,
     );
   } catch (e) {
     columnDetectionChanges.columnsError = e.message;
@@ -86,6 +87,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     const updatedColumns = mergeRefreshedTopValues({
       currentColumns: currentFactTable.columns,
       currentUserIdTypes: currentFactTable.userIdTypes,
+      currentUserIdColumns: currentFactTable.userIdColumns,
       refreshedColumns,
     });
     await updateFactTableColumns(

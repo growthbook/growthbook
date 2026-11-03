@@ -1,5 +1,82 @@
 import { QueryMetadata } from "shared/types/query";
-import { sanitizeQueryMetadataForBigQueryLabels } from "back-end/src/services/bigquery";
+import {
+  normalizeBigQueryApiEndpoint,
+  sanitizeQueryMetadataForBigQueryLabels,
+} from "back-end/src/services/bigquery";
+
+describe("normalizeBigQueryApiEndpoint", () => {
+  it.each([undefined, "", "   "])(
+    "uses the SDK default for an empty endpoint: %p",
+    (value) => {
+      expect(normalizeBigQueryApiEndpoint(value)).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ["https://proxy.example.com", "https://proxy.example.com"],
+    ["proxy.example.com:8443/tenant", "https://proxy.example.com:8443/tenant"],
+    [
+      " HTTPS://PROXY.EXAMPLE.COM:443/tenant/bigquery/v2/ ",
+      "https://proxy.example.com/tenant",
+    ],
+    ["http://[::1]:8080", "http://[::1]:8080"],
+    ["https://proxy.example.com/bigquery/v2", "https://proxy.example.com"],
+    [
+      "mycompany.internal.proxy/bigquery/v2",
+      "https://mycompany.internal.proxy",
+    ],
+    [
+      "https://proxy.example.com/bigquery/v2/custom",
+      "https://proxy.example.com/bigquery/v2/custom",
+    ],
+  ])("normalizes %s for the SDK", (value, expected) => {
+    expect(normalizeBigQueryApiEndpoint(value)).toBe(expected);
+  });
+
+  describe.each([
+    {
+      message: "BigQuery API endpoint must be a string.",
+      values: [null, 123],
+    },
+    {
+      message: "BigQuery API endpoint must be a valid HTTP or HTTPS URL.",
+      values: [
+        "https://",
+        "//proxy.example.com",
+        "https:/proxy.example.com",
+        "https://proxy.example.com\\other",
+        "https://proxy.exa\nmple.com",
+      ],
+    },
+    {
+      message: "BigQuery API endpoint must use HTTP or HTTPS.",
+      values: ["ftp://proxy.example.com"],
+    },
+    {
+      message:
+        "BigQuery API endpoint cannot contain a query string or fragment.",
+      values: [
+        "https://proxy.example.com/path?",
+        "https://proxy.example.com/path#",
+      ],
+    },
+  ])("$message", ({ message, values }) => {
+    it.each(values)("rejects %p with the specific error", (value) => {
+      expect(() => normalizeBigQueryApiEndpoint(value)).toThrow(
+        new Error(message),
+      );
+    });
+  });
+
+  it.each([
+    "https://:private-password@proxy.example.com",
+    "https://private-password@proxy.example.com",
+  ])("does not echo embedded credentials in errors", (value) => {
+    expect(() => normalizeBigQueryApiEndpoint(value)).toThrow(
+      new Error("BigQuery API endpoint cannot contain embedded credentials."),
+    );
+  });
+});
 
 // BigQuery label rules (see https://cloud.google.com/bigquery/docs/labels-intro):
 // - Each resource can have up to 64 labels.

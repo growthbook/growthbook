@@ -1,4 +1,6 @@
-import { FeatureRule } from "shared/types/feature";
+import omit from "lodash/omit";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ruleAppliesToEnv } from "shared/util";
 
 /**
@@ -145,6 +147,18 @@ export function removeRuleAtEnvIndex(
   return { rules: next, removed };
 }
 
+// Insert directly above the anchor rule; appends when the anchor is gone
+// (deleted in the draft) rather than failing the save.
+export function insertRuleBefore(
+  rules: FeatureRule[],
+  rule: FeatureRule,
+  anchorRuleId: string | undefined,
+): FeatureRule[] {
+  const idx = anchorRuleId ? rules.findIndex((r) => r.id === anchorRuleId) : -1;
+  if (idx === -1) return [...rules, rule];
+  return [...rules.slice(0, idx), rule, ...rules.slice(idx)];
+}
+
 // Remove a rule by its stable id. Removes globally regardless of scope,
 // including pending rules (`environments: []`).
 export function removeRuleById(
@@ -215,4 +229,64 @@ export function stampRuleForEnvs<T extends FeatureRule>(
     allEnvironments: false,
     environments,
   };
+}
+
+// A ref rule linked from an experiment or bandit: `allEnvironments: true` strips
+// any stale environments[], an explicit list passes through, and a rule naming
+// neither gets every applicable env.
+export function scopeLinkedRefRule(
+  rule: FeatureRule,
+  environments: string[],
+): FeatureRule {
+  if (rule.allEnvironments === true) {
+    return {
+      ...omit(rule, ["environments"]),
+      allEnvironments: true,
+    } as FeatureRule;
+  }
+  if (rule.allEnvironments === false && Array.isArray(rule.environments)) {
+    return rule;
+  }
+  return stampRuleForEnvs(rule, environments);
+}
+
+// The revision a link lands on: the targeted open draft, otherwise a new draft
+// branched off live. autoPublish always starts from live so the merge stays clean.
+export function resolveLinkTargetVersion(
+  feature: Pick<FeatureInterface, "version">,
+  {
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
+  }: { autoPublish?: boolean; draftVersion?: number; forceNewDraft?: boolean },
+): number {
+  return autoPublish || forceNewDraft
+    ? feature.version
+    : (draftVersion ?? feature.version);
+}
+
+// One-way: a footprint environment that is off switches on; none switches off.
+export function enableFootprintEnvironments(
+  feature: Pick<FeatureInterface, "environmentSettings">,
+  revision: Pick<FeatureRevisionInterface, "environmentsEnabled">,
+  orgEnvironments: string[],
+  footprint: string[],
+): Record<string, boolean> | null {
+  const enabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      orgEnvironments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const toggles = Object.fromEntries(
+    footprint
+      .filter((e) => orgEnvironments.includes(e) && !enabled[e])
+      .map((e) => [e, true]),
+  );
+  return Object.keys(toggles).length
+    ? { ...(revision.environmentsEnabled ?? {}), ...toggles }
+    : null;
 }

@@ -2,7 +2,12 @@ import { z } from "zod";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
-import { rowFilterValidator, funnelStepValidator } from "./fact-table";
+import {
+  rowFilterValidator,
+  funnelStepValidator,
+  factMetricValidator,
+} from "./fact-table";
+import { populationStepValidator } from "./population";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -12,15 +17,36 @@ const baseValueValidator = z.object({
 });
 
 // Metrics
+export const draftExplorationMetricValidator = factMetricValidator.omit({
+  id: true,
+  organization: true,
+  dateCreated: true,
+  dateUpdated: true,
+});
+
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
   metricId: z.string(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
 });
-export type MetricValue = z.infer<typeof metricValueValidator>;
+// Internal only (metric editor live preview): an unsaved metric definition to
+// run in place of a saved one. Kept out of the public validators so the REST
+// API, OpenAPI spec, and AI agent never accept or document user-authored drafts.
+const internalMetricValueValidator = metricValueValidator.extend({
+  // Stripped, not strict: a stale page may still send a retired field.
+  draftMetric: draftExplorationMetricValidator.strip().optional(),
+});
+export type MetricValue = z.infer<typeof internalMetricValueValidator>;
 
-export type DatasetType = "metric" | "fact_table" | "data_source" | "funnel";
+export type DatasetType =
+  | "metric"
+  | "fact_table"
+  | "data_source"
+  | "funnel"
+  | "journey"
+  | "population"
+  | "sql";
 
 const metricDatasetValidator = z
   .object({
@@ -28,6 +54,9 @@ const metricDatasetValidator = z
     values: z.array(metricValueValidator),
   })
   .strict();
+const internalMetricDatasetValidator = metricDatasetValidator.extend({
+  values: z.array(internalMetricValueValidator),
+});
 
 // Fact Tables
 const valueType = ["unit_count", "count", "sum"] as const;
@@ -71,6 +100,32 @@ const dataSourceDatasetValidator = z
   })
   .strict();
 
+// SQL
+const sqlValueValidator = baseValueValidator.extend({
+  type: z.literal("sql"),
+  valueType: z.enum(valueType),
+  valueColumn: z.string().nullable(),
+  unit: z.string().nullable(),
+});
+export type SqlValue = z.infer<typeof sqlValueValidator>;
+
+const columnType = ["string", "number", "date", "boolean", "other"] as const;
+
+const sqlDatasetColumnTypeValidator = z.record(z.string(), z.enum(columnType));
+
+const sqlDatasetValidator = z
+  .object({
+    type: z.literal("sql"),
+    sql: z.string(),
+    timestampColumn: z.preprocess(
+      (value) => (value === "" ? null : value),
+      z.string().nullable(),
+    ),
+    columnTypes: sqlDatasetColumnTypeValidator,
+    values: z.array(sqlValueValidator),
+    hiddenColumns: z.array(z.string()).optional(),
+  })
+  .strict();
 // Funnels
 /** Y-axis scaling for the funnel bar chart.
  *  - `count`: raw user counts per step.
@@ -96,17 +151,131 @@ const funnelDatasetValidator = z
   .strict();
 export type FunnelDataset = z.infer<typeof funnelDatasetValidator>;
 
+export const journeyDirectionValidator = z.enum(["forward", "backward"]);
+export type JourneyDirection = z.infer<typeof journeyDirectionValidator>;
+
+/** One committed step of the drilled path. */
+export const journeyPathStepValidator = z
+  .object({ value: z.string() })
+  .strict();
+export type JourneyPathStep = z.infer<typeof journeyPathStepValidator>;
+
+/** Column height scaling for the journey Sankey.
+ *  - `relative`: each step fills the chart height; bars are shares of that step.
+ *  - `absolute`: one scale for the whole journey, so later steps shrink as users exit. */
+export const journeyHeightScaleValidator = z.enum(["relative", "absolute"]);
+export type JourneyHeightScale = z.infer<typeof journeyHeightScaleValidator>;
+
+export const MAX_JOURNEY_STEP_COLUMNS = 3;
+export const MAX_JOURNEY_STEP_GROUPS = 25;
+export const MAX_JOURNEY_PATH_LENGTH = 15;
+/** Frontier levels fetched per query. One is drawn; the rest are lookahead
+ *  that lets a drill-down redraw from the cached result with no round trip. */
+export const MAX_JOURNEY_LOOKAHEAD_DEPTH = 4;
+export const MIN_JOURNEY_OPTIONS_PER_STEP = 2;
+export const MAX_JOURNEY_OPTIONS_PER_STEP = 50;
+export const DEFAULT_JOURNEY_OPTIONS_PER_STEP = 5;
+
+/** First match wins. The pattern is also the emitted label (`/article/*`), so
+ *  anchor / path / exclusions compare by exact string equality with no second field. */
+export const journeyStepGroupValidator = z
+  .object({
+    column: z.string(),
+    pattern: z.string(),
+  })
+  .strict();
+export type JourneyStepGroup = z.infer<typeof journeyStepGroupValidator>;
+
+const journeyDatasetValidator = z
+  .object({
+    type: z.literal("journey"),
+    factTableId: z.string().nullable(),
+    unit: z.string().nullable(),
+    stepColumns: z.array(z.string()).max(MAX_JOURNEY_STEP_COLUMNS),
+    stepGroups: z
+      .array(journeyStepGroupValidator)
+      .max(MAX_JOURNEY_STEP_GROUPS)
+      .optional(),
+    anchorStepValues: z.array(z.string()).nullable(),
+    direction: journeyDirectionValidator,
+    rowFilters: z.array(rowFilterValidator),
+    path: z.array(journeyPathStepValidator).max(MAX_JOURNEY_PATH_LENGTH),
+    // Frontier levels to fetch. The chart draws one; the rest are lookahead.
+    lookaheadDepth: z.number().int().min(1).max(MAX_JOURNEY_LOOKAHEAD_DEPTH),
+    // Per frontier level from the anchor; missing entries default to
+    // DEFAULT_JOURNEY_OPTIONS_PER_STEP. A bare number is accepted so older
+    // URL-encoded configs still parse.
+    optionsPerStep: z.preprocess(
+      (v) => (typeof v === "number" ? [v] : v),
+      z.array(
+        z
+          .number()
+          .int()
+          .min(MIN_JOURNEY_OPTIONS_PER_STEP)
+          .max(MAX_JOURNEY_OPTIONS_PER_STEP),
+      ),
+    ),
+    // Optional for backward compatibility; read sites default to "relative".
+    heightScale: journeyHeightScaleValidator.optional(),
+  })
+  .strict();
+export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
+
+// Populations: one single-step population definition per value.
+const populationValueValidator = baseValueValidator.extend({
+  type: z.literal("population"),
+  unit: z.string().nullable(),
+  ...populationStepValidator.pick({
+    source: true,
+    aggregateFilter: true,
+    aggregateFilterColumn: true,
+  }).shape,
+});
+export type PopulationValue = z.infer<typeof populationValueValidator>;
+
+// Internal only until the Explorer supports populations.
+const populationDatasetValidator = z
+  .object({
+    type: z.literal("population"),
+    values: z.array(populationValueValidator),
+  })
+  .strict();
+export type PopulationDataset = z.infer<typeof populationDatasetValidator>;
+
+/**
+ * The literal values a discriminated union accepts, as an error message.
+ * Zod reports an unrecognized discriminator as "Invalid input" and names no
+ * alternative, which leaves an API caller — or an agent — guessing at a closed
+ * set. Derived from the options so it cannot drift when a branch is added.
+ */
+function mustBeOneOf(
+  options: readonly { shape: Record<string, unknown> }[],
+  key: string,
+): string {
+  const values = options.map((option) => {
+    const field = option.shape[key];
+    return field && typeof field === "object" && "value" in field
+      ? `"${String((field as { value: unknown }).value)}"`
+      : "";
+  });
+  return `must be one of ${values.filter(Boolean).join(", ")}`;
+}
+
 export const explorationDatasetValidator = z.discriminatedUnion("type", [
   metricDatasetValidator,
   factTableDatasetValidator,
   dataSourceDatasetValidator,
+  sqlDatasetValidator,
   funnelDatasetValidator,
+  journeyDatasetValidator,
 ]);
 
 const _valueValidator = z.discriminatedUnion("type", [
-  metricValueValidator,
+  internalMetricValueValidator,
   factTableValueValidator,
   dataSourceValueValidator,
+  sqlValueValidator,
+  populationValueValidator,
 ]);
 export type ProductAnalyticsValue = z.infer<typeof _valueValidator>;
 
@@ -149,12 +318,17 @@ export const sliceDimensionValidator = z.object({
   ),
 });
 
-export const dimensionValidator = z.discriminatedUnion("dimensionType", [
+const dimensionOptions = [
   dateDimensionValidator,
   dynamicDimensionValidator,
   staticDimensionValidator,
   sliceDimensionValidator,
-]);
+] as const;
+export const dimensionValidator = z.discriminatedUnion(
+  "dimensionType",
+  dimensionOptions,
+  { error: mustBeOneOf(dimensionOptions, "dimensionType") },
+);
 
 export const chartTypes = [
   "line",
@@ -166,6 +340,7 @@ export const chartTypes = [
   "horizontalBar",
   "stackedHorizontalBar",
   "bigNumber",
+  "rawTable",
 ] as const;
 
 export const dateRangePredefined = [
@@ -208,7 +383,16 @@ export type ExplorationDateRange = z.infer<
   typeof explorationDateRangeValidator
 >;
 
-export const baseExplorationConfigValidator = z.object({
+const chartSettingsValidator = z.object({
+  categoryAxisLabel: z.string().optional(),
+  valueAxisLabel: z.string().optional(),
+});
+export type ProductAnalyticsChartSettings = z.infer<
+  typeof chartSettingsValidator
+>;
+
+// Strict: a key on the wrong level (e.g. block-level `globalControlSettings`) must not vanish.
+export const baseExplorationConfigValidator = z.strictObject({
   datasource: z.string().describe("ID of the datasource to query"),
   dimensions: z.array(dimensionValidator),
   chartType: z.enum(chartTypes),
@@ -220,12 +404,20 @@ export const baseExplorationConfigValidator = z.object({
   // regardless of this setting.
   // Optional for backward compatibility; read sites default to "total".
   showAs: showAsValidator.optional(),
+  // Render-only chart display options. Optional so existing saved explorations,
+  // dashboard blocks, URLs, and API clients continue to parse unchanged.
+  chartSettings: chartSettingsValidator.optional(),
 });
 
 export const metricExplorationConfigValidator =
   baseExplorationConfigValidator.extend({
     type: z.literal("metric"),
     dataset: metricDatasetValidator,
+  });
+
+const internalMetricExplorationConfigValidator =
+  metricExplorationConfigValidator.extend({
+    dataset: internalMetricDatasetValidator,
   });
 
 export const factTableExplorationConfigValidator =
@@ -240,15 +432,47 @@ export const dataSourceExplorationConfigValidator =
     dataset: dataSourceDatasetValidator,
   });
 
+export const sqlExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("sql"),
+    dataset: sqlDatasetValidator,
+  });
 export const funnelExplorationConfigValidator =
   baseExplorationConfigValidator.extend({
     type: z.literal("funnel"),
     dataset: funnelDatasetValidator,
   });
 
+export const journeyExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("journey"),
+    dataset: journeyDatasetValidator,
+  });
+
+export const populationExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("population"),
+    dataset: populationDatasetValidator,
+  });
+
+const configOptions = [
+  metricExplorationConfigValidator,
+  factTableExplorationConfigValidator,
+  dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
+  funnelExplorationConfigValidator,
+  journeyExplorationConfigValidator,
+] as const;
+
+// Population previews are stored like any other run but never exposed by the
+// REST API, so they're accepted here and not in `configOptions`.
+const storedConfigOptions = [
+  ...configOptions,
+  populationExplorationConfigValidator,
+] as const;
+
 // For SQL datasets, we need to know the column types
 // This is the shape of the response from the warehouse / API
-const columnType = ["string", "number", "date", "boolean", "other"] as const;
 export const sqlDatasetColumnResponseRowValidator = z.object({
   column: z.string(),
   type: z.enum(columnType),
@@ -269,6 +493,31 @@ export const productAnalyticsFunnelStepResultValidator = z.object({
   timeFromPrevSumSquaresHrs: z.number().nullable(),
 });
 
+export const productAnalyticsJourneyRowValidator = z.discriminatedUnion(
+  "kind",
+  [
+    z.object({
+      kind: z.literal("path"),
+      direction: journeyDirectionValidator,
+      levels: z.array(z.string()),
+      count: z.number(),
+    }),
+    // Next-step options at a committed prefix. stepIndex 0 is the first
+    // step after the anchor; stepIndex === path.length is not emitted
+    // (that frontier comes from path rows).
+    z.object({
+      kind: z.literal("committed"),
+      direction: journeyDirectionValidator,
+      stepIndex: z.number(),
+      value: z.string(),
+      count: z.number(),
+    }),
+  ],
+);
+export type ProductAnalyticsJourneyRow = z.infer<
+  typeof productAnalyticsJourneyRowValidator
+>;
+
 // The shape of the final result data from the warehouse / API
 export const productAnalyticsResultRowValidator = z.object({
   dimensions: z.array(z.string().nullable()),
@@ -282,9 +531,12 @@ export const productAnalyticsResultRowValidator = z.object({
     )
     .optional(),
   steps: z.array(productAnalyticsFunnelStepResultValidator).optional(),
+  journey: productAnalyticsJourneyRowValidator.optional(),
 });
 export const productAnalyticsResultValidator = z.object({
   rows: z.array(productAnalyticsResultRowValidator),
+  rawRows: z.array(z.record(z.string(), z.unknown())).optional(),
+  truncated: z.boolean().optional(),
 });
 
 export const productAnalyticsExplorationValidator = z.object({
@@ -295,12 +547,9 @@ export const productAnalyticsExplorationValidator = z.object({
   datasource: z.string(),
   configHash: z.string(),
   valueHashes: z.array(z.string()),
-  config: z.discriminatedUnion("type", [
-    metricExplorationConfigValidator,
-    factTableExplorationConfigValidator,
-    dataSourceExplorationConfigValidator,
-    funnelExplorationConfigValidator,
-  ]),
+  config: z.discriminatedUnion("type", storedConfigOptions, {
+    error: mustBeOneOf(storedConfigOptions, "type"),
+  }),
   result: productAnalyticsResultValidator,
   dateStart: z.string(),
   dateEnd: z.string(),
@@ -328,16 +577,34 @@ export type BaseExplorationConfig = z.infer<
   typeof baseExplorationConfigValidator
 >;
 
-export const explorationConfigValidator = z.discriminatedUnion("type", [
-  metricExplorationConfigValidator,
+export const explorationConfigValidator = z.discriminatedUnion(
+  "type",
+  configOptions,
+  { error: mustBeOneOf(configOptions, "type") },
+);
+
+// Internal app endpoints only: also accepts `draftMetric` on metric values.
+const internalConfigOptions = [
+  internalMetricExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
-]);
-export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
+  journeyExplorationConfigValidator,
+  populationExplorationConfigValidator,
+] as const;
+export const internalExplorationConfigValidator = z.discriminatedUnion(
+  "type",
+  internalConfigOptions,
+  { error: mustBeOneOf(internalConfigOptions, "type") },
+);
+// Superset of the public shape, so publicly parsed configs are assignable.
+export type ExplorationConfig = z.infer<
+  typeof internalExplorationConfigValidator
+>;
 
 export type MetricExplorationConfig = z.infer<
-  typeof metricExplorationConfigValidator
+  typeof internalMetricExplorationConfigValidator
 >;
 export type FactTableExplorationConfig = z.infer<
   typeof factTableExplorationConfigValidator
@@ -345,14 +612,69 @@ export type FactTableExplorationConfig = z.infer<
 export type DataSourceExplorationConfig = z.infer<
   typeof dataSourceExplorationConfigValidator
 >;
+export type SqlExplorationConfig = z.infer<
+  typeof sqlExplorationConfigValidator
+>;
 export type FunnelExplorationConfig = z.infer<
   typeof funnelExplorationConfigValidator
 >;
+export type JourneyExplorationConfig = z.infer<
+  typeof journeyExplorationConfigValidator
+>;
+export type PopulationExplorationConfig = z.infer<
+  typeof populationExplorationConfigValidator
+>;
 
-export type MetricDataset = z.infer<typeof metricDatasetValidator>;
+export type MetricDataset = z.infer<typeof internalMetricDatasetValidator>;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
 export type DataSourceDataset = z.infer<typeof dataSourceDatasetValidator>;
-export type ExplorationDataset = z.infer<typeof explorationDatasetValidator>;
+export type SqlDataset = z.infer<typeof sqlDatasetValidator>;
+// From the internal config so it matches MetricDataset (with `draftMetric`).
+export type ExplorationDataset = ExplorationConfig["dataset"];
+
+/** Datasets built from a list of values, as opposed to the ones that describe
+ *  their own shape (funnels carry `steps`, journeys carry step columns). Prefer
+ *  this over listing dataset types, so a new type is a compile error here
+ *  rather than a silent miss at every call site. */
+export type ValuesDataset =
+  | MetricDataset
+  | FactTableDataset
+  | DataSourceDataset
+  | SqlDataset
+  | PopulationDataset;
+
+export function datasetHasValues(
+  dataset: ExplorationDataset,
+): dataset is ValuesDataset;
+export function datasetHasValues(
+  dataset: ExplorationDataset | null | undefined,
+): dataset is ValuesDataset;
+export function datasetHasValues(
+  dataset: ExplorationDataset | null | undefined,
+): boolean {
+  if (!dataset) return false;
+  switch (dataset.type) {
+    case "funnel":
+    case "journey":
+      return false;
+    case "metric":
+    case "fact_table":
+    case "data_source":
+    case "sql":
+    case "population":
+      return true;
+    default: {
+      const exhaustive: never = dataset;
+      return exhaustive;
+    }
+  }
+}
+
+export function datasetTypeHasValues(
+  type: DatasetType,
+): type is ValuesDataset["type"] {
+  return type !== "funnel" && type !== "journey";
+}
 export type ProductAnalyticsFunnelStepResult = z.infer<
   typeof productAnalyticsFunnelStepResultValidator
 >;
@@ -376,7 +698,7 @@ export type ProductAnalyticsExploration = z.infer<
 
 export const productAnalyticsRunRequestBodyValidator = z
   .object({
-    config: explorationConfigValidator,
+    config: internalExplorationConfigValidator,
     previousTimeFrame: explorationDateRangeValidator.optional(),
     // The client sends the already-resolved window, so this is only used to pick
     // how the two periods' rows are paired.
@@ -437,9 +759,19 @@ export const apiDataSourceExplorationValidator =
     config: dataSourceExplorationConfigValidator,
   });
 
+export const apiSqlExplorationValidator =
+  apiExplorationBaseValidator.safeExtend({
+    config: sqlExplorationConfigValidator,
+  });
+
 export const apiFunnelExplorationValidator =
   apiExplorationBaseValidator.safeExtend({
     config: funnelExplorationConfigValidator,
+  });
+
+export const apiJourneyExplorationValidator =
+  apiExplorationBaseValidator.safeExtend({
+    config: journeyExplorationConfigValidator,
   });
 
 export const apiAnalyticsExplorationValidator = namedSchema(

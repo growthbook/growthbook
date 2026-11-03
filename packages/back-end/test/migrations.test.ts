@@ -11,6 +11,7 @@ import { LegacyMetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
@@ -47,6 +48,7 @@ import {
   normalizeJsonSchemaDef,
   pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
+  upgradeExposureQuery,
   upgradeExperimentDoc,
   upgradeFeatureRule,
   upgradeMetricDoc,
@@ -54,61 +56,70 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
+import { deepFreeze } from "back-end/test/test-helpers";
 
 describe("Fact Metric Migration", () => {
+  const baseFactMetric: LegacyFactMetricInterface = {
+    id: "",
+    organization: "",
+    owner: "",
+    datasource: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    name: "",
+    description: "",
+    tags: [],
+    projects: [],
+    inverse: false,
+
+    metricType: "proportion",
+    numerator: {
+      factTableId: "",
+      column: "",
+      rowFilters: [],
+    },
+    denominator: null,
+
+    windowSettings: {
+      type: "",
+      delayUnit: "hours",
+      delayValue: 0,
+      windowUnit: "hours",
+      windowValue: 0,
+    },
+    cappingSettings: {
+      type: "",
+      value: 0,
+    },
+    priorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+    },
+
+    maxPercentChange: 0.05,
+    minPercentChange: 500,
+    minSampleSize: 150,
+
+    regressionAdjustmentOverride: false,
+    regressionAdjustmentEnabled: true,
+    regressionAdjustmentDays: 14,
+
+    quantileSettings: null,
+  };
+
+  it("drops retired risk thresholds", () => {
+    expect(
+      FactMetricModel.upgradeFactMetricDoc({
+        ...baseFactMetric,
+        winRisk: 0.1,
+        loseRisk: 3,
+      }),
+    ).toEqual(baseFactMetric);
+  });
+
   it("upgrades delay hours", () => {
-    const baseFactMetric: LegacyFactMetricInterface = {
-      id: "",
-      organization: "",
-      owner: "",
-      datasource: "",
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      name: "",
-      description: "",
-      tags: [],
-      projects: [],
-      inverse: false,
-
-      metricType: "proportion",
-      numerator: {
-        factTableId: "",
-        column: "",
-        rowFilters: [],
-      },
-      denominator: null,
-
-      windowSettings: {
-        type: "",
-        delayUnit: "hours",
-        delayValue: 0,
-        windowUnit: "hours",
-        windowValue: 0,
-      },
-      cappingSettings: {
-        type: "",
-        value: 0,
-      },
-      priorSettings: {
-        override: false,
-        proper: false,
-        mean: 0,
-        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-      },
-
-      maxPercentChange: 0.05,
-      minPercentChange: 500,
-      minSampleSize: 150,
-      winRisk: 0.1,
-      loseRisk: 3,
-
-      regressionAdjustmentOverride: false,
-      regressionAdjustmentEnabled: true,
-      regressionAdjustmentDays: 14,
-
-      quantileSettings: null,
-    };
-
     const delayHours: LegacyFactMetricInterface = {
       ...baseFactMetric,
       windowSettings: {
@@ -1140,6 +1151,7 @@ describe("Datasource Migration", () => {
             name: "Logged-in User Experiments",
             query: "testing",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1148,6 +1160,7 @@ describe("Datasource Migration", () => {
             name: "Anonymous Visitor Experiments",
             query: "testing",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
@@ -1198,6 +1211,7 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  user_id as user_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1207,10 +1221,104 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  anonymous_id as anonymous_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
     });
+  });
+
+  it("normalizes exposure query identifier types", () => {
+    const datasource = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      name: "",
+      description: "",
+      organization: "",
+      params: "",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "legacy",
+              name: "Legacy",
+              userIdType: "user_id",
+              dimensions: [],
+              query: "SELECT user_id",
+            },
+            {
+              id: "multi",
+              name: "Multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              query: "SELECT user_id, anonymous_id",
+            },
+          ],
+        },
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const exposureQueries = upgradeDatasourceObject(cloneDeep(datasource))
+      .settings.queries?.exposure;
+
+    expect(exposureQueries?.[0]).toMatchObject({
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    // The legacy identifier is frozen, so it doesn't follow userIdTypes[0].
+    expect(exposureQueries?.[1]).toMatchObject({
+      userIdType: "anonymous_id",
+      userIdTypes: ["user_id", "anonymous_id"],
+    });
+  });
+
+  it("fills a missing legacy identifier from userIdTypes and drops empty scalars", () => {
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      }),
+    ).toMatchObject({ userIdType: "user_id" });
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: [],
+        dimensions: [],
+        query: "",
+      }).userIdTypes,
+    ).toEqual([]);
+  });
+
+  it("upgrades exposure queries idempotently", () => {
+    const queries: ExposureQuery[] = [
+      {
+        id: "legacy",
+        name: "Legacy",
+        userIdType: "user_id",
+        dimensions: [],
+        query: "",
+      } as unknown as ExposureQuery,
+      {
+        id: "multi",
+        name: "Multi",
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      },
+    ];
+    const once = queries.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    const twice = once.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    expect(twice).toEqual(once);
   });
 
   it("migrates pipelineSettings: add mode if not existing", () => {
@@ -1442,6 +1550,31 @@ describe("v0 Feature Migration", () => {
       ...origFeature,
       draft: undefined,
     });
+  });
+
+  it("stores a rule value written as a raw JSON type as its string form", () => {
+    const force = (value: unknown) =>
+      ({ id: "r", type: "force", value }) as unknown as FeatureRule;
+    expect(upgradeFeatureRule(force(false)).value).toBe("false");
+    expect(upgradeFeatureRule(force({ limit: 5 })).value).toBe('{"limit":5}');
+    expect(upgradeFeatureRule(force("true")).value).toBe("true");
+    expect(upgradeFeatureRule(force(undefined))).toEqual(force(undefined));
+  });
+
+  it("reads a stored null environments list as no environments", () => {
+    const rule = (fields: Record<string, unknown>) =>
+      ({
+        id: "r",
+        type: "force",
+        value: "x",
+        ...fields,
+      }) as unknown as FeatureRule;
+    expect(
+      upgradeFeatureRule(rule({ allEnvironments: false, environments: null })),
+    ).toEqual(rule({ allEnvironments: false, environments: [] }));
+    expect(
+      upgradeFeatureRule(rule({ allEnvironments: true, environments: null })),
+    ).toEqual(rule({ allEnvironments: true }));
   });
 
   it("migrates old feature rules", () => {
@@ -2078,9 +2211,34 @@ describe("Experiment Migration", () => {
       ],
     });
   });
+
+  it("drops target MDE overrides saved without a value", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        decisionFrameworkSettings: {
+          decisionCriteriaId: "dcr_1",
+          decisionFrameworkMetricOverrides: [
+            { id: "met_a", targetMDE: null },
+            { id: "met_b" },
+            { id: "met_c", targetMDE: 0.02 },
+          ],
+        },
+      }).decisionFrameworkSettings,
+    ).toEqual({
+      decisionCriteriaId: "dcr_1",
+      decisionFrameworkMetricOverrides: [{ id: "met_c", targetMDE: 0.02 }],
+    });
+  });
 });
 
 describe("Organization Migration", () => {
+  // The upgrade shares nested values with its input, so a write to the input must throw
+  const upgradeFrozen = (doc: OrganizationInterface) => {
+    deepFreeze(doc as unknown as Record<string, unknown>);
+    return upgradeOrganizationDoc(doc);
+  };
+
   it("Upgrades old Organization objects", () => {
     const org: OrganizationInterface = {
       dateCreated: new Date(),
@@ -2093,7 +2251,7 @@ describe("Organization Migration", () => {
     };
 
     expect(
-      upgradeOrganizationDoc({
+      upgradeFrozen({
         ...org,
       }),
     ).toEqual({
@@ -2116,6 +2274,7 @@ describe("Organization Migration", () => {
         },
         statsEngine: DEFAULT_STATS_ENGINE,
         restApiBypassesReviews: true,
+        stickyBucketingOnByDefault: true,
         environments: [
           {
             id: "dev",
@@ -2132,6 +2291,67 @@ describe("Organization Migration", () => {
     });
   });
 
+  it("copies only the parts it upgrades and leaves the given document unchanged", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(0),
+      invites: [],
+      members: [
+        {
+          id: "u_1",
+          role: "designer",
+          dateCreated: new Date(0),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        {
+          id: "u_2",
+          role: "admin",
+          dateCreated: new Date(0),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      ] as OrganizationInterface["members"],
+      settings: {
+        implementationTypes: ["visual"],
+        requireReviews: true,
+        postStratificationDisabled: true,
+        namespaces: [{ name: "ns1", description: "", status: "active" }],
+        metricDefaults: {
+          priorSettings: {
+            override: false,
+            proper: true,
+            mean: 0,
+            stddev: -1,
+          },
+        },
+      } as OrganizationInterface["settings"],
+    };
+    const snapshot = cloneDeep(testOrg);
+
+    const result = upgradeFrozen(testOrg);
+
+    expect(testOrg).toStrictEqual(snapshot);
+    expect(result.members[0].role).toBe("collaborator");
+    expect(result.members[1]).toBe(testOrg.members[1]);
+    expect(result.settings.visualEditorEnabled).toBe(true);
+    expect(result.settings.implementationTypes).toBeUndefined();
+    expect(result.settings.postStratificationEnabled).toBe(false);
+    expect(result.settings.postStratificationDisabled).toBeUndefined();
+    expect(Array.isArray(result.settings.requireReviews)).toBe(true);
+    expect(result.settings.namespaces?.[0]).toMatchObject({
+      label: "ns1",
+      seed: "ns1",
+      format: "legacy",
+    });
+    expect(result.settings.metricDefaults?.priorSettings?.stddev).toBe(
+      DEFAULT_PROPER_PRIOR_STDDEV,
+    );
+  });
+
   it("backfills restApiBypassesReviews=true for orgs missing the setting", () => {
     const testOrg: OrganizationInterface = {
       id: "org_test",
@@ -2143,7 +2363,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: {},
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(true);
   });
 
@@ -2158,7 +2378,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: { restApiBypassesReviews: false },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
@@ -2175,8 +2395,59 @@ describe("Organization Migration", () => {
       members: [],
       settings: { restApiBypassesReviews: false },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
+  });
+
+  it("defaults stickyBucketingOnByDefault to true for orgs that predate the setting", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {},
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
+  });
+
+  it("preserves an explicit stickyBucketingOnByDefault=false (per-experiment opt-in)", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        useStickyBucketing: true,
+        stickyBucketingOnByDefault: false,
+      },
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(false);
+  });
+
+  it("preserves an explicit stickyBucketingOnByDefault=true", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        useStickyBucketing: true,
+        stickyBucketingOnByDefault: true,
+      },
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
   it("migrate approval flow settings", () => {
@@ -2192,7 +2463,7 @@ describe("Organization Migration", () => {
         requireReviews: true,
       },
     };
-    const org = upgradeOrganizationDoc(testOrg);
+    const org = upgradeFrozen(testOrg);
     expect(org).toEqual({
       ...org,
       settings: {

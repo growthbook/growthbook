@@ -22,6 +22,10 @@ interface AgentPanelContextValue {
 
 const AgentPanelContext = createContext<AgentPanelContextValue | null>(null);
 
+/** Above the panel. Portaling the panel to body also puts it over its own body portals. */
+export const AGENT_PANEL_Z_INDEX = 10001;
+export const AGENT_PANEL_PORTAL_Z_INDEX = AGENT_PANEL_Z_INDEX + 1;
+
 /**
  * Holds the open / expanded state for the site-wide agent panel so that
  * the trigger (rendered inside the TopNav) and the panel itself (mounted

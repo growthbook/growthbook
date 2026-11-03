@@ -15,7 +15,10 @@ import {
   offset,
   flip,
   shift,
+  arrow as arrowMiddleware,
   autoUpdate,
+  FloatingArrow,
+  type Placement,
   type VirtualElement,
 } from "@floating-ui/react";
 import { RadixTheme } from "@/services/RadixTheme";
@@ -74,10 +77,24 @@ const VERTICAL_OFFSET_PX = 8;
 type PositioningMode = "cursor" | "element";
 type TooltipState = "idle" | "waiting" | "visible";
 
+/**
+ * A point on the trigger for the tooltip to stand over, instead of the
+ * trigger's middle. `start`/`end` line the tooltip's edge up with it, for a
+ * point the tooltip shouldn't cover past.
+ */
+export interface HoverAnchor {
+  x: number;
+  align: "center" | "start" | "end";
+}
+
 export interface UseHoverTooltipOptions {
   enabled?: boolean;
   delayMs?: number;
   positioning?: PositioningMode;
+  /** A tail pointing back at the trigger, or its anchor. */
+  arrow?: boolean;
+  /** Element positioning only; null stands over the trigger's middle. */
+  anchor?: (trigger: HTMLElement) => HoverAnchor | null;
 }
 
 export interface UseHoverTooltipReturn {
@@ -104,6 +121,8 @@ interface TooltipPortalProps {
   triggerElement: HTMLElement | null;
   cursorPosition: Position | null;
   positioning: PositioningMode;
+  arrow: boolean;
+  anchor?: (trigger: HTMLElement) => HoverAnchor | null;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 }
@@ -113,6 +132,8 @@ function TooltipPortal({
   triggerElement,
   cursorPosition,
   positioning,
+  arrow,
+  anchor,
   onMouseEnter,
   onMouseLeave,
 }: TooltipPortalProps) {
@@ -133,12 +154,46 @@ function TooltipPortal({
     };
   }, [positioning, cursorPosition]);
 
-  const { refs, floatingStyles, update, placement } = useFloating({
-    placement: "top",
+  // Read once on open, for the side to line up with.
+  const align = useMemo((): HoverAnchor["align"] => {
+    if (positioning !== "element" || !triggerElement || !anchor) {
+      return "center";
+    }
+    return anchor(triggerElement)?.align ?? "center";
+  }, [positioning, triggerElement, anchor]);
+  // The trigger's own box, narrowed to its anchor's point when it has one.
+  const anchoredElement = useMemo((): VirtualElement | null => {
+    if (positioning !== "element" || !triggerElement || !anchor) return null;
+    return {
+      contextElement: triggerElement,
+      getBoundingClientRect: () => {
+        const rect = triggerElement.getBoundingClientRect();
+        const point = anchor(triggerElement);
+        if (!point) return rect;
+        return {
+          x: point.x,
+          y: rect.y,
+          width: 0,
+          height: rect.height,
+          top: rect.top,
+          bottom: rect.bottom,
+          left: point.x,
+          right: point.x,
+        };
+      },
+    };
+  }, [positioning, triggerElement, anchor]);
+
+  const arrowRef = useRef<SVGSVGElement>(null);
+  const side = (s: "top" | "bottom"): Placement =>
+    align === "center" ? s : `${s}-${align}`;
+  const { refs, floatingStyles, update, placement, context } = useFloating({
+    placement: side("top"),
     middleware: [
       offset(VERTICAL_OFFSET_PX),
-      flip({ fallbackPlacements: ["bottom", "top"] }),
+      flip({ fallbackPlacements: [side("bottom"), side("top")] }),
       shift({ padding: VERTICAL_OFFSET_PX }),
+      ...(arrow ? [arrowMiddleware({ element: arrowRef, padding: 12 })] : []),
     ],
   });
 
@@ -146,10 +201,11 @@ function TooltipPortal({
   useLayoutEffect(() => {
     if (positioning === "element" && triggerElement) {
       refs.setReference(triggerElement);
+      if (anchoredElement) refs.setPositionReference(anchoredElement);
     } else if (positioning === "cursor" && virtualElement) {
       refs.setPositionReference(virtualElement);
     }
-  }, [positioning, triggerElement, virtualElement, refs]);
+  }, [positioning, triggerElement, anchoredElement, virtualElement, refs]);
 
   // Auto-update position for element mode
   useEffect(() => {
@@ -212,6 +268,13 @@ function TooltipPortal({
         onClick={handleClick}
       >
         {content}
+        {arrow ? (
+          <FloatingArrow
+            ref={arrowRef}
+            context={context}
+            fill="var(--color-panel)"
+          />
+        ) : null}
         <div style={bridgeStyle} />
       </div>
     </RadixTheme>,
@@ -223,6 +286,8 @@ export function useHoverTooltip({
   enabled = true,
   delayMs = 100,
   positioning = "element",
+  arrow = false,
+  anchor,
 }: UseHoverTooltipOptions = {}): UseHoverTooltipReturn {
   const id = useId();
   const { openTooltip, closeTooltip } = useHoverTooltipContext();
@@ -237,6 +302,8 @@ export function useHoverTooltip({
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isContentHoveredRef = useRef(false);
   const isTriggerHoveredRef = useRef(false);
+  const triggerElRef = useRef<HTMLElement | null>(null);
+  const lastMousePosRef = useRef<Position | null>(null);
 
   const clearTimers = useCallback(() => {
     if (showTimerRef.current) {
@@ -273,6 +340,32 @@ export function useHoverTooltip({
     isContentHoveredRef.current = false;
   }, [clearTimers, closeTooltip, id]);
 
+  // A pending show-timer can outlive the pointer. Make sure its still connected
+  const isPointerOverTrigger = useCallback(() => {
+    const trigger = triggerElRef.current;
+    const pos = lastMousePosRef.current;
+    if (!trigger || !trigger.isConnected || !pos) return false;
+    // jsdom (used in tests) does not implement elementFromPoint
+    if (typeof document.elementFromPoint !== "function") return true;
+    const el = document.elementFromPoint(pos.x, pos.y);
+    return el !== null && trigger.contains(el);
+  }, []);
+
+  const armShowTimer = useCallback(() => {
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+    }
+    showTimerRef.current = setTimeout(() => {
+      showTimerRef.current = null;
+      if (!isPointerOverTrigger()) {
+        setState("idle");
+        return;
+      }
+      const success = openTooltip(id);
+      setState(success ? "visible" : "idle");
+    }, delayMs);
+  }, [delayMs, id, openTooltip, isPointerOverTrigger]);
+
   const isVisible = state === "visible";
 
   // Close on scroll
@@ -290,6 +383,29 @@ export function useHoverTooltip({
     };
   }, [isVisible, close]);
 
+  // Cursor mode closes on any pointer movement, but the trigger's own
+  // handlers can't fire once it is covered or unmounted, which would strand
+  // the tooltip on screen. Listen at the document level while visible.
+  useEffect(() => {
+    if (!isVisible || positioning !== "cursor") return;
+
+    const handlePointer = () => {
+      close();
+    };
+
+    document.addEventListener("mousemove", handlePointer, { capture: true });
+    document.addEventListener("mousedown", handlePointer, { capture: true });
+
+    return () => {
+      document.removeEventListener("mousemove", handlePointer, {
+        capture: true,
+      });
+      document.removeEventListener("mousedown", handlePointer, {
+        capture: true,
+      });
+    };
+  }, [isVisible, positioning, close]);
+
   const onMouseEnter = useCallback(
     (e: React.MouseEvent) => {
       if (!enabled) return;
@@ -297,6 +413,8 @@ export function useHoverTooltip({
       e.stopPropagation?.();
 
       isTriggerHoveredRef.current = true;
+      triggerElRef.current = e.currentTarget as HTMLElement;
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
       clearTimers();
 
       // If already visible, just stay visible (cancel any pending hide)
@@ -316,22 +434,16 @@ export function useHoverTooltip({
       }
 
       setState("waiting");
-
-      showTimerRef.current = setTimeout(() => {
-        const success = openTooltip(id);
-        if (success) {
-          setState("visible");
-        } else {
-          setState("idle");
-        }
-      }, delayMs);
+      armShowTimer();
     },
-    [enabled, positioning, state, delayMs, openTooltip, id, clearTimers],
+    [enabled, positioning, state, clearTimers, armShowTimer],
   );
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!enabled) return;
+
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
 
       if (positioning === "cursor") {
         // Update position to cursor coordinates
@@ -348,21 +460,11 @@ export function useHoverTooltip({
 
         // Reset the show timer - tooltip only appears after mouse is still
         if (state === "waiting") {
-          if (showTimerRef.current) {
-            clearTimeout(showTimerRef.current);
-          }
-          showTimerRef.current = setTimeout(() => {
-            const success = openTooltip(id);
-            if (success) {
-              setState("visible");
-            } else {
-              setState("idle");
-            }
-          }, delayMs);
+          armShowTimer();
         }
       }
     },
-    [enabled, positioning, state, delayMs, openTooltip, id, close],
+    [enabled, positioning, state, close, armShowTimer],
   );
 
   const onMouseLeave = useCallback(
@@ -441,6 +543,8 @@ export function useHoverTooltip({
           triggerElement={triggerElement}
           cursorPosition={cursorPosition}
           positioning={positioning}
+          arrow={arrow}
+          anchor={anchor}
           onMouseEnter={handleContentMouseEnter}
           onMouseLeave={handleContentMouseLeave}
         />
@@ -452,6 +556,8 @@ export function useHoverTooltip({
       triggerElement,
       cursorPosition,
       positioning,
+      arrow,
+      anchor,
       handleContentMouseEnter,
       handleContentMouseLeave,
     ],

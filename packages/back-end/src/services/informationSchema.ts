@@ -1,15 +1,24 @@
 import {
+  Column,
   InformationSchema,
   InformationSchemaInterface,
   InformationSchemaInterfaceWithPaths,
+  InformationSchemaTablesInterface,
 } from "shared/types/integrations";
 import { DataSourceInterface, DataSourceType } from "shared/types/datasource";
 import {
   createInformationSchema,
+  getInformationSchemaById,
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
-import { updateDataSource } from "back-end/src/models/DataSourceModel";
-import { removeDeletedInformationSchemaTables } from "back-end/src/models/InformationSchemaTablesModel";
+import {
+  getDataSourceById,
+  updateDataSource,
+} from "back-end/src/models/DataSourceModel";
+import {
+  removeDeletedInformationSchemaTables,
+  updateInformationSchemaTableById,
+} from "back-end/src/models/InformationSchemaTablesModel";
 import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ApiReqContext } from "back-end/types/api";
@@ -146,7 +155,18 @@ export async function mergeStaleInformationSchemaWithUpdate(
 export type InformationSchemaTableRow = {
   column_name: string;
   data_type: string;
+  is_partition?: number | string;
 };
+
+export function getInformationSchemaColumns(
+  rows: InformationSchemaTableRow[],
+): Column[] {
+  return rows.map((row) => ({
+    columnName: row.column_name,
+    dataType: row.data_type,
+    ...(Number(row.is_partition) === 1 ? { isPartition: true } : {}),
+  }));
+}
 
 export async function fetchTableData(
   context: ReqContext,
@@ -201,6 +221,36 @@ export async function fetchTableData(
     tableSchema,
     tableName,
   };
+}
+
+// Re-reads a cached table's columns from the warehouse
+export async function refreshInformationSchemaTable(
+  context: ReqContext,
+  table: InformationSchemaTablesInterface,
+): Promise<InformationSchemaTablesInterface> {
+  const datasource = await getDataSourceById(context, table.datasourceId);
+  const informationSchema = await getInformationSchemaById(
+    context.org.id,
+    table.informationSchemaId,
+  );
+  if (!datasource || !informationSchema) {
+    throw new Error("Unable to find the Data Source for this table.");
+  }
+
+  const { tableData } = await fetchTableData(
+    context,
+    datasource,
+    informationSchema,
+    table.id,
+  );
+  if (!tableData) throw new Error("Unable to retrieve table data.");
+
+  const updates = {
+    columns: getInformationSchemaColumns(tableData),
+    dateUpdated: new Date(),
+  };
+  await updateInformationSchemaTableById(context.org.id, table.id, updates);
+  return { ...table, ...updates };
 }
 
 export async function generateInformationSchema(

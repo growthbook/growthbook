@@ -5,8 +5,8 @@ GBFeaturesRepository featuresRepository = GBFeaturesRepository
     .builder()
     .apiHost("https://cdn.growthbook.io")
     .clientKey("<environment_key>") // replace with your client key
-    .encryptionKey("<client-key-for-decrypting>") // optional, nullable
-    .refreshStrategy(FeatureRefreshStrategy.SERVER_SENT_EVENTS) // optional; options: STALE_WHILE_REVALIDATE, SERVER_SENT_EVENTS (default: STALE_WHILE_REVALIDATE)
+    .decryptionKey("<client-key-for-decrypting>") // optional, nullable
+    .refreshStrategy(FeatureRefreshStrategy.SERVER_SENT_EVENTS) // optional; options: STALE_WHILE_REVALIDATE, SERVER_SENT_EVENTS, REMOTE_EVAL_STRATEGY (default: STALE_WHILE_REVALIDATE)
     .build();
 
 // Optional callback for getting updates when features are refreshed
@@ -15,6 +15,11 @@ featuresRepository.onFeaturesRefresh(new FeatureRefreshCallback() {
     public void onRefresh(String featuresJson) {
         System.out.println("Features have been refreshed");
         System.out.println(featuresJson);
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+        System.out.println("Features refresh failed: " + throwable.getMessage());
     }
 });
 
@@ -36,17 +41,25 @@ GrowthBook growthBook = new GrowthBook(context);
 ```
 
 ```kotlin Kotlin
-val featuresRepository = GBFeaturesRepository(
-    "https://cdn.growthbook.io",
-    "<environment_key>",
-    "<client-key-for-decrypting>", // optional, nullable
-    30,
-).apply {
-    // Optional callback for getting updates when features are refreshed
-    onFeaturesRefresh {
-        println("Features have been refreshed \n $it")
+val featuresRepository = GBFeaturesRepository
+    .builder()
+    .apiHost("https://cdn.growthbook.io")
+    .clientKey("<environment_key>") // replace with your client key
+    .decryptionKey("<client-key-for-decrypting>") // optional, nullable
+    .swrTtlSeconds(30)
+    .build()
+    .apply {
+        // Optional callback for getting updates when features are refreshed
+        onFeaturesRefresh(object : FeatureRefreshCallback {
+            override fun onRefresh(featuresJson: String) {
+                println("Features have been refreshed \n $featuresJson")
+            }
+
+            override fun onError(throwable: Throwable) {
+                println("Features refresh failed: ${throwable.message}")
+            }
+        })
     }
-}
 
 // Fetch the features
 try {

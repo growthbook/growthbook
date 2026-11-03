@@ -58,9 +58,6 @@ interface MetricSettings {
   windowType: MetricWindowSettings["type"];
   windowHours: number;
   delayHours: number;
-
-  winRisk: number;
-  loseRisk: number;
   targetMDE: number;
 }
 
@@ -101,6 +98,7 @@ interface BaseSettings {
   topValuesLookbackValue: number;
   topValuesLookbackUnit: "days";
   useStickyBucketing: boolean;
+  stickyBucketingOnByDefault: boolean;
 }
 
 // todo: encapsulate all settings, including experiment

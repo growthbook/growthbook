@@ -1,3 +1,4 @@
+import type { Queries, QueryRunnerFailureCause } from "shared/types/query";
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
@@ -6,7 +7,11 @@ import {
   blockHasFieldOfType,
   DashboardInterface,
 } from "shared/enterprise";
-import { isString } from "shared/util";
+import {
+  findAnalysisComputeFailure,
+  getSnapshotAnalysis,
+  isString,
+} from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -20,13 +25,19 @@ import {
   AnalysisMetaEntry,
   buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
+import type { ExperimentSnapshotReportInterface } from "shared/types/report";
+import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
-import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
+import {
+  ExperimentUpdateExecutionLogger,
+  logExperimentUpdated,
+  SnapshotConclusion,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -77,6 +88,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   dateCreated: Date,
   sourceSnapshotId: String,
   sourceSnapshotDateCreated: Date,
+  sourceSnapshotEndDate: Date,
   runStarted: Date,
   manual: Boolean,
   query: String,
@@ -163,6 +175,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
         of: [experimentSnapshotTrafficObject],
       },
       error: String,
+      multipleExposures: Number,
     },
     power: {
       _id: false,
@@ -240,6 +253,11 @@ experimentSnapshotSchema.index({
 experimentSnapshotSchema.index({
   organization: 1,
   experiment: 1,
+  status: 1,
+  dateCreated: -1,
+});
+// Backs the cross-org stalled-snapshot reaper scan, which runs every minute.
+experimentSnapshotSchema.index({
   status: 1,
   dateCreated: -1,
 });
@@ -418,11 +436,17 @@ export async function updateSnapshot({
   context,
   id,
   updates,
+  failureCause,
+  conclusion,
   experimentUpdateExecutionLogger,
 }: {
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
+  failureCause?: QueryRunnerFailureCause;
+  // Who ends the snapshot if this update moves it out of "running"; null for
+  // updates that never change its status.
+  conclusion: SnapshotConclusion | null;
   experimentUpdateExecutionLogger?: ExperimentUpdateExecutionLogger | null;
 }) {
   const organization = context.org.id;
@@ -528,9 +552,23 @@ export async function updateSnapshot({
       await populateSnapshotAnalyses(context, experimentSnapshot);
     }
 
+    if (
+      (experimentSnapshot.status === "error" &&
+        existingInterface.status !== "error") ||
+      (hasAnalysisUpdates && experimentSnapshot.status === "success")
+    ) {
+      await notifySnapshotUpdateFailure({
+        context,
+        snapshot: experimentSnapshot,
+        failureCause,
+      });
+    }
+
     const shouldUpdateExperimentAnalysisSummary =
       experimentSnapshot.type === "standard" &&
-      experimentSnapshot.status === "success";
+      experimentSnapshot.status === "success" &&
+      findAnalysisComputeFailure(getSnapshotAnalysis(experimentSnapshot)) ===
+        null;
 
     shouldRunEagerDimensionAnalyses =
       shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
@@ -608,13 +646,21 @@ export async function updateSnapshot({
   }
 
   if (
-    experimentUpdateExecutionLogger &&
-    experimentSnapshot.status !== "running"
+    experimentSnapshot.status !== "running" &&
+    experimentSnapshot.status !== existingInterface.status
   ) {
-    experimentUpdateExecutionLogger.logUpdateCompleted(context, {
-      snapshotStatus: experimentSnapshot.status,
-      error: experimentSnapshot.error,
-    });
+    if (conclusion) {
+      logExperimentUpdated(context, {
+        snapshot: experimentSnapshot,
+        snapshotStatus: experimentSnapshot.status,
+        conclusion,
+        executionLogger: experimentUpdateExecutionLogger ?? null,
+      });
+    } else {
+      logger.warn(
+        `Snapshot ${id} moved to "${experimentSnapshot.status}" by an update that passed no conclusion`,
+      );
+    }
   }
 
   const updateDashboardWithSnapshot = async (dashboard: DashboardInterface) => {
@@ -874,6 +920,27 @@ export async function deleteSnapshotById(context: Context, id: string) {
   });
 }
 
+export async function deleteSnapshotIfRunning(
+  context: Context,
+  id: string,
+  conclusion: SnapshotConclusion,
+): Promise<boolean> {
+  const deleted = await ExperimentSnapshotModel.findOneAndDelete({
+    organization: context.org.id,
+    id,
+    status: "running",
+  });
+  if (!deleted) return false;
+  await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(id);
+  logExperimentUpdated(context, {
+    snapshot: toInterface(deleted),
+    snapshotStatus: "deleted",
+    conclusion,
+    executionLogger: null,
+  });
+  return true;
+}
+
 export async function deleteAllSnapshotsForExperiment(
   context: Context,
   experimentId: string,
@@ -897,6 +964,7 @@ export async function findSnapshotById(
   context: Context,
   id: string,
 ): Promise<ExperimentSnapshotInterface | null> {
+  if (id && typeof id !== "string") return null;
   const doc = await ExperimentSnapshotModel.findOne({
     organization: context.org.id,
     id,
@@ -1006,21 +1074,96 @@ export async function errorSnapshotIfStillRunning(
   context: Context,
   id: string,
   updates: Partial<ExperimentSnapshotInterface>,
+  failureCause: QueryRunnerFailureCause,
+  conclusion: SnapshotConclusion,
+  // A runner ending its own snapshot passes its logger so the line keeps the
+  // plan and timings.
+  executionLogger: ExperimentUpdateExecutionLogger | null = null,
 ): Promise<boolean> {
-  const res = await ExperimentSnapshotModel.updateOne(
+  const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     {
       organization: context.org.id,
       id,
       status: "running",
     },
     { $set: { ...updates, status: "error" } },
+    { new: true },
   );
-  return res.modifiedCount > 0;
+  if (!updated) return false;
+  const snapshot = toInterface(updated);
+  logExperimentUpdated(context, {
+    snapshot,
+    snapshotStatus: "error",
+    conclusion,
+    executionLogger,
+  });
+  await notifySnapshotUpdateFailure({ context, snapshot, failureCause });
+  return true;
+}
+
+/** Rewrites only the pointers of a concluded snapshot; status, error and results are left alone. */
+export async function reconcileSnapshotQueryPointers(
+  context: Context,
+  id: string,
+  queries: Queries,
+): Promise<boolean> {
+  const { modifiedCount } = await ExperimentSnapshotModel.updateOne(
+    {
+      organization: context.org.id,
+      id,
+      status: { $in: ["success", "error"] },
+    },
+    { $set: { queries } },
+  );
+  return modifiedCount > 0;
+}
+
+/** Newest successful snapshot a report owns. `experiment` is in the filter so the experiment indexes serve it. */
+export async function findLatestSuccessfulReportSnapshotId(
+  context: Context,
+  report: Pick<ExperimentSnapshotReportInterface, "id" | "experimentId">,
+): Promise<string | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization: context.org.id,
+      report: report.id,
+      ...(report.experimentId ? { experiment: report.experimentId } : {}),
+      status: "success",
+    },
+    { id: 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ id: string }>()
+    .exec();
+  return doc?.id ?? null;
+}
+
+/** Analysis end date of a phase's newest successful Overall snapshot, read without its analyses. */
+export async function findLatestSuccessfulSnapshotEndDate(
+  context: Context,
+  { experiment, phase }: { experiment: string; phase: number },
+): Promise<Date | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization: context.org.id,
+      experiment,
+      phase,
+      dimension: null,
+      type: "standard",
+      status: "success",
+    },
+    { "settings.endDate": 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ settings?: { endDate?: Date | string } }>()
+    .exec();
+  return doc?.settings?.endDate ? new Date(doc.settings.endDate) : null;
 }
 
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
+  excludeIds: string[] = [],
 ) {
   // Only look back 24 hours to keep the scan bounded
   const earliestDate = new Date();
@@ -1029,29 +1172,21 @@ export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   const docs = await ExperimentSnapshotModel.find({
     status: "running",
     dateCreated: { $gt: earliestDate, $lt: stalledBefore },
-  }).limit(limit);
+    ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
+  })
+    .sort({ dateCreated: 1 })
+    .limit(limit);
 
   return docs.map((doc) => toInterface(doc));
 }
 
-export async function findLatestRunningSnapshotByReportId(
-  context: Context,
-  report: string,
-) {
-  // Only look for match in the past 24 hours to make the query more efficient
-  // Older snapshots should not still be running anyway
-  const earliestDate = new Date();
-  earliestDate.setDate(earliestDate.getDate() - 1);
-
-  const doc = await ExperimentSnapshotModel.findOne({
-    organization: context.org.id,
-    report,
-    status: "running",
-    dateCreated: { $gt: earliestDate },
-    queries: { $elemMatch: { status: "running" } },
-  });
-
-  return doc ? toInterface(doc) : null;
+// Defense in depth for values that reach a Mongo filter: anything that is not
+// a plain string (e.g. a `{ $ne: "x" }` object parsed from a query string) is
+// treated as not provided rather than being interpreted as a query operator.
+function stringOrUndefined<T extends string>(
+  value: T | undefined,
+): T | undefined {
+  return typeof value === "string" ? value : undefined;
 }
 
 export async function getLatestSuccessfulSnapshot({
@@ -1061,6 +1196,7 @@ export async function getLatestSuccessfulSnapshot({
   dimension,
   beforeSnapshot,
   type,
+  metricIds,
 }: {
   context: Context;
   experiment: string;
@@ -1068,7 +1204,11 @@ export async function getLatestSuccessfulSnapshot({
   dimension?: string;
   beforeSnapshot?: Pick<ExperimentSnapshotInterface, "dateCreated">;
   type?: SnapshotType;
+  // Load only these metrics' analysis chunks; omit for the full snapshot.
+  metricIds?: string[];
 }): Promise<ExperimentSnapshotInterface | null> {
+  dimension = stringOrUndefined(dimension);
+  type = stringOrUndefined(type);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
     experiment,
@@ -1101,7 +1241,11 @@ export async function getLatestSuccessfulSnapshot({
   if (all[0]) {
     const mostRecentSnapshot = all[0];
 
-    return populateSnapshotAnalyses(context, toInterface(mostRecentSnapshot));
+    return populateSnapshotAnalyses(
+      context,
+      toInterface(mostRecentSnapshot),
+      metricIds,
+    );
   }
 
   // Otherwise, try getting old snapshot records
@@ -1112,7 +1256,9 @@ export async function getLatestSuccessfulSnapshot({
     limit: 1,
   }).exec();
 
-  return all[0] ? populateSnapshotAnalyses(context, toInterface(all[0])) : null;
+  return all[0]
+    ? populateSnapshotAnalyses(context, toInterface(all[0]), metricIds)
+    : null;
 }
 
 // Mongo projection limited to fields needed for SnapshotStatusSummary.
@@ -1169,6 +1315,8 @@ export async function getLatestSnapshotStatus({
   dimension?: string;
   type?: SnapshotType;
 }): Promise<SnapshotStatusSummary | null> {
+  dimension = stringOrUndefined(dimension);
+  type = stringOrUndefined(type);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
     experiment,
@@ -1237,6 +1385,7 @@ export async function getLatestSnapshotMultipleExperiments(
   withResults: boolean = true,
   hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
+  dimension = stringOrUndefined(dimension);
   const experimentPhasesToGet = new Map(experimentPhaseMap);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,

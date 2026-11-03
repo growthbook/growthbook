@@ -1,0 +1,527 @@
+import {
+  forwardRef,
+  MutableRefObject,
+  ReactNode,
+  Ref,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import clsx from "clsx";
+import { $isCodeNode, CodeHighlightNode, CodeNode } from "@lexical/code";
+import { ListItemNode, ListNode } from "@lexical/list";
+import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString,
+  TRANSFORMERS,
+} from "@lexical/markdown";
+import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { ContentEditable } from "@lexical/react/LexicalContentEditable";
+import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
+import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
+import { AutoLinkPlugin } from "@lexical/react/LexicalAutoLinkPlugin";
+import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
+import { ListPlugin } from "@lexical/react/LexicalListPlugin";
+import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
+import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
+import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import {
+  $isLinkNode,
+  $toggleLink,
+  AutoLinkNode,
+  LinkNode,
+} from "@lexical/link";
+import { $findMatchingParent } from "@lexical/utils";
+import {
+  $createParagraphNode,
+  $getRoot,
+  $getSelection,
+  $insertNodes,
+  $isRangeSelection,
+  COMMAND_PRIORITY_LOW,
+  HISTORY_MERGE_TAG,
+  PASTE_COMMAND,
+  RootNode,
+  type EditorState,
+} from "lexical";
+import { useDropzone } from "react-dropzone";
+import { Box, IconButton } from "@radix-ui/themes";
+import { PiCaretDownBold, PiCaretUpBold } from "react-icons/pi";
+import { useAuth } from "@/services/auth";
+import { UPLOAD_IMAGE_TYPES, uploadFile } from "@/services/files";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
+import Collapse from "@/ui/Collapse";
+import HelperText from "@/ui/HelperText";
+import { Size } from "@/ui/sizes";
+import Tooltip from "@/ui/Tooltip";
+import {
+  $createImageNode,
+  ImageNode,
+  IMAGE_TRANSFORMER,
+} from "./RichTextEditorImageNode";
+import RichTextEditorToolbar from "./RichTextEditorToolbar";
+import { $insertTextSelected } from "./RichTextEditorLinkEditor";
+import { AUTO_LINK_TRANSFORMER, URL_MATCHERS } from "./RichTextEditorAutoLink";
+import { hasMarkdownFormatting } from "./richTextFormatting";
+import styles from "./RichTextEditor.module.scss";
+
+export interface RichTextEditorHandle {
+  focus: () => void;
+}
+
+export interface Props {
+  /** Markdown in, markdown out: the stored format never changes. */
+  value: string;
+  onChange?: (markdown: string) => void;
+  placeholder?: string;
+  size?: Size<"sm" | "md">;
+  /** Resting height of the whole control, and its minimum when `autoGrow` is set. */
+  height?: RichTextHeight;
+  /** Grow past `height` with the content, up to `maxHeight`, instead of scrolling. */
+  autoGrow?: boolean;
+  /** Where growing stops and the content scrolls. Only applies with `autoGrow`. */
+  maxHeight?: RichTextHeight;
+  autoFocus?: boolean;
+  /** Rendered under the editable area, for a caller's own controls. */
+  footer?: ReactNode;
+  /** The short ribbon: no headings, no strikethrough. */
+  simpleToolbar?: boolean;
+  /** Hide the ribbon behind a corner button, for fields that rarely format. */
+  collapsibleToolbar?: boolean;
+  /** Put the caret after the value rather than before it. */
+  autoFocusAtEnd?: boolean;
+  /** While true, a dropped or pasted image isn't in `value` yet. */
+  onUploadingChange?: (uploading: boolean) => void;
+  /** The id of the label that names the field. */
+  ariaLabelledBy?: string;
+}
+
+// Heights of the whole control, toolbar included. One ladder serves both the
+// resting height and the cap, so a field can't get a mismatched pair.
+const RICH_TEXT_HEIGHTS = {
+  xs: 64,
+  sm: 110,
+  md: 150,
+  lg: 220,
+  xl: 360,
+} as const;
+
+export type RichTextHeight = keyof typeof RICH_TEXT_HEIGHTS;
+
+// Node types the editor keeps; anything else is dropped on paste.
+const NODES = [
+  HeadingNode,
+  QuoteNode,
+  ListNode,
+  ListItemNode,
+  LinkNode,
+  AutoLinkNode,
+  CodeNode,
+  CodeHighlightNode,
+  ImageNode,
+];
+
+// Images first: their `![...]` would otherwise match as a link.
+const MARKDOWN_TRANSFORMERS = [
+  IMAGE_TRANSFORMER,
+  AUTO_LINK_TRANSFORMER,
+  ...TRANSFORMERS,
+];
+
+const THEME = {
+  paragraph: styles.paragraph,
+  quote: styles.quote,
+  link: styles.link,
+  heading: {
+    h1: styles.h1,
+    h2: styles.h2,
+    h3: styles.h3,
+    h4: styles.h4,
+    h5: styles.h5,
+    h6: styles.h6,
+  },
+  list: {
+    ul: styles.ul,
+    ol: styles.ol,
+    listitem: styles.li,
+    nested: { listitem: styles.nestedLi },
+  },
+  text: {
+    bold: styles.bold,
+    italic: styles.italic,
+    strikethrough: styles.strikethrough,
+    code: styles.inlineCode,
+  },
+  code: styles.codeBlock,
+};
+
+function EditorBridge({
+  handleRef,
+  autoFocus,
+  autoFocusAtEnd,
+}: {
+  handleRef: Ref<RichTextEditorHandle>;
+  autoFocus: boolean;
+  autoFocusAtEnd: boolean;
+}) {
+  const [editor] = useLexicalComposerContext();
+
+  useImperativeHandle(handleRef, () => ({ focus: () => editor.focus() }), [
+    editor,
+  ]);
+
+  useEffect(() => {
+    if (autoFocus) {
+      editor.focus();
+      // Seeded text the writer is meant to continue, rather than type in front of.
+      if (autoFocusAtEnd) {
+        editor.update(() => {
+          $getRoot().selectEnd();
+        });
+      }
+    }
+    // Only on mount: refocusing whenever the flag is recomputed would steal
+    // the caret back from whatever the user moved to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
+
+// Dropped or pasted images upload and insert at the caret; a pasted bare URL
+// becomes a link.
+function PasteAndDrop({
+  allowImages,
+  setUploading,
+  setUploadError,
+  registerDrop,
+}: {
+  allowImages: boolean;
+  setUploading: (uploading: boolean) => void;
+  setUploadError: (message: string | null) => void;
+  registerDrop: (handler: (files: File[]) => void) => void;
+}) {
+  const [editor] = useLexicalComposerContext();
+  const { apiCall } = useAuth();
+
+  const upload = useCallback(
+    async (files: File[]) => {
+      if (!allowImages || !files.length) return;
+      setUploading(true);
+      setUploadError(null);
+      try {
+        const uploaded = await Promise.all(
+          files.map(async (file) => {
+            const alt = file.name.replace(/[^a-zA-Z0-9_\-.\s]*/g, "");
+            const { fileURL } = await uploadFile(apiCall, file);
+            return { src: fileURL, alt };
+          }),
+        );
+        editor.update(() => {
+          // No caret (e.g. the toolbar was used without clicking into the
+          // text): append.
+          if (!$getSelection()) $getRoot().selectEnd();
+          $insertNodes(
+            uploaded.map(({ src, alt }) => $createImageNode(src, alt)),
+          );
+        });
+      } catch (e) {
+        setUploadError(
+          e instanceof Error ? e.message : "Failed to upload image",
+        );
+      } finally {
+        setUploading(false);
+      }
+    },
+    [allowImages, apiCall, editor, setUploading, setUploadError],
+  );
+
+  useEffect(() => registerDrop(upload), [registerDrop, upload]);
+
+  useEffect(
+    () =>
+      editor.registerCommand(
+        PASTE_COMMAND,
+        (event: ClipboardEvent) => {
+          const data = event.clipboardData;
+          if (!data) return false;
+
+          const files = Array.from(data.files).filter((f) =>
+            f.type.startsWith("image/"),
+          );
+          if (allowImages && files.length) {
+            event.preventDefault();
+            upload(files);
+            return true;
+          }
+
+          const text = data.getData("text/plain").trim();
+          if (!/^https?:\/\/\S+$/i.test(text)) return false;
+
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return false;
+          event.preventDefault();
+
+          // With nothing selected, a label from the URL becomes the link text.
+          const collapsed = selection.isCollapsed();
+          if (collapsed) {
+            $insertTextSelected(selection, getLinkLabelFromUrl(text));
+            // Links don't nest, so inside one the URL stays text.
+            if ($findMatchingParent(selection.anchor.getNode(), $isLinkNode)) {
+              selection.insertText(text);
+              return true;
+            }
+          }
+          $toggleLink(text);
+          if (collapsed) {
+            // Typing carries on after the new link, not over its label.
+            const linked = $getSelection();
+            if ($isRangeSelection(linked)) {
+              $findMatchingParent(
+                linked.focus.getNode(),
+                $isLinkNode,
+              )?.selectNext(0, 0);
+            }
+          }
+          return true;
+        },
+        COMMAND_PRIORITY_LOW,
+      ),
+    [editor, upload, allowImages],
+  );
+
+  return null;
+}
+
+// Lexical gives the caret no way out of a code block at the end of the
+// document, so one is always followed by an empty paragraph.
+function TrailingParagraphAfterCode() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    const ensure = (root: RootNode) => {
+      const last = root.getLastChild();
+      if ($isCodeNode(last)) last.insertAfter($createParagraphNode());
+    };
+    // The value loaded at mount predates the transform. Merged into history,
+    // so this is neither an undo step nor a reported change.
+    editor.update(() => ensure($getRoot()), { tag: HISTORY_MERGE_TAG });
+    return editor.registerNodeTransform(RootNode, ensure);
+  }, [editor]);
+  return null;
+}
+
+// Applies `value` when it changes underneath us, e.g. an AI suggestion.
+function ValueSync({
+  value,
+  lastMarkdown,
+}: {
+  value: string;
+  lastMarkdown: MutableRefObject<string>;
+}) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (value === lastMarkdown.current) return;
+    lastMarkdown.current = value;
+    editor.update(() => {
+      $convertFromMarkdownString(value, MARKDOWN_TRANSFORMERS);
+    });
+  }, [value, editor, lastMarkdown]);
+
+  return null;
+}
+
+/** A rich text field that reads and writes markdown. */
+export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
+  {
+    value,
+    onChange,
+    placeholder,
+    size = "md",
+    height = "md",
+    autoGrow = false,
+    maxHeight = "lg",
+    autoFocus = false,
+    footer,
+    simpleToolbar = false,
+    collapsibleToolbar = false,
+    autoFocusAtEnd = false,
+    onUploadingChange,
+    ariaLabelledBy,
+  },
+  ref,
+) {
+  // A collapsed toolbar opens on content that already uses it, so editing
+  // formatted text starts with the formatting in reach.
+  const [toolbarOpen, setToolbarOpen] = useState(
+    () => !collapsibleToolbar || hasMarkdownFormatting(value),
+  );
+  // What the editor last held, so a value we emitted doesn't loop back in.
+  const lastMarkdown = useRef(value);
+  const [uploading, setUploading] = useState(false);
+  useEffect(
+    () => onUploadingChange?.(uploading),
+    [uploading, onUploadingChange],
+  );
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const { blockFileUploads } = useOrgSettings();
+  const allowImages = !blockFileUploads;
+
+  // The dropzone sits outside the composer, so it reaches the upload handler
+  // through a ref rather than the editor context.
+  const dropHandler = useRef<(files: File[]) => void>(() => undefined);
+  const registerDrop = useCallback((handler: (files: File[]) => void) => {
+    dropHandler.current = handler;
+  }, []);
+
+  const {
+    getRootProps,
+    getInputProps,
+    open: openFilePicker,
+  } = useDropzone({
+    onDrop: (files: File[]) => dropHandler.current(files),
+    noClick: true,
+    noKeyboard: true,
+    disabled: !allowImages,
+    accept: UPLOAD_IMAGE_TYPES,
+  });
+
+  const handleChange = useCallback(
+    (editorState: EditorState) => {
+      editorState.read(() => {
+        const markdown = $convertToMarkdownString(MARKDOWN_TRANSFORMERS);
+        // Trailing blank lines don't render, so they aren't an edit: the
+        // paragraph kept after a final code block adds one to a synced value.
+        if (markdown.trimEnd() === lastMarkdown.current.trimEnd()) return;
+        lastMarkdown.current = markdown;
+        onChange?.(markdown);
+      });
+    },
+    [onChange],
+  );
+
+  const toolbar = (
+    <RichTextEditorToolbar
+      onPickImage={allowImages ? openFilePicker : undefined}
+      simple={simpleToolbar}
+      inset={collapsibleToolbar}
+    />
+  );
+
+  return (
+    <LexicalComposer
+      initialConfig={{
+        namespace: "rich-text-editor",
+        nodes: NODES,
+        theme: THEME,
+        editorState: () =>
+          $convertFromMarkdownString(value, MARKDOWN_TRANSFORMERS),
+        onError: (error) => {
+          throw error;
+        },
+      }}
+    >
+      <div
+        {...(allowImages
+          ? // The dropzone roots itself as a button, which is neither true nor
+            // stylable here: it would announce as one and take a pointer cursor.
+            (getRootProps({
+              role: "presentation",
+            }) as React.HTMLAttributes<HTMLDivElement>)
+          : {})}
+        className={clsx(styles.wrapper, styles[size])}
+        style={{
+          height: autoGrow ? undefined : RICH_TEXT_HEIGHTS[height],
+          minHeight: autoGrow ? RICH_TEXT_HEIGHTS[height] : undefined,
+          maxHeight: autoGrow ? RICH_TEXT_HEIGHTS[maxHeight] : undefined,
+        }}
+      >
+        {allowImages ? <input {...getInputProps()} /> : null}
+        {collapsibleToolbar ? (
+          <Collapse open={toolbarOpen}>{toolbar}</Collapse>
+        ) : (
+          toolbar
+        )}
+        <div className={styles.editableWrap}>
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                // Browsers report contenteditable as -1, so a dialog's
+                // autofocus would skip past the text without this.
+                tabIndex={0}
+                className={styles.editable}
+                aria-placeholder={placeholder ?? ""}
+                aria-labelledby={ariaLabelledBy}
+                placeholder={
+                  placeholder ? (
+                    <div className={styles.placeholder}>{placeholder}</div>
+                  ) : null
+                }
+              />
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          {/* After the text, so a dialog focuses the text rather than this. */}
+          {collapsibleToolbar ? (
+            <Tooltip
+              content={toolbarOpen ? "Hide formatting" : "Show formatting"}
+            >
+              <IconButton
+                type="button"
+                size="1"
+                variant="soft"
+                color="gray"
+                className={styles.toolbarToggle}
+                aria-label={toolbarOpen ? "Hide formatting" : "Show formatting"}
+                aria-expanded={toolbarOpen}
+                // Keeps the caret where it is, so the ribbon acts on the
+                // selection the writer already had.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setToolbarOpen((open) => !open)}
+              >
+                {toolbarOpen ? (
+                  <PiCaretUpBold size={10} />
+                ) : (
+                  <PiCaretDownBold size={10} />
+                )}
+              </IconButton>
+            </Tooltip>
+          ) : null}
+        </div>
+        <HistoryPlugin />
+        <ListPlugin />
+        <LinkPlugin />
+        <AutoLinkPlugin matchers={URL_MATCHERS} />
+        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
+        <OnChangePlugin ignoreSelectionChange onChange={handleChange} />
+        <PasteAndDrop
+          allowImages={allowImages}
+          setUploading={setUploading}
+          setUploadError={setUploadError}
+          registerDrop={registerDrop}
+        />
+        <ValueSync value={value} lastMarkdown={lastMarkdown} />
+        <TrailingParagraphAfterCode />
+        <EditorBridge
+          handleRef={ref}
+          autoFocus={autoFocus}
+          autoFocusAtEnd={autoFocusAtEnd}
+        />
+        {uploading ? <div className={styles.uploading}>Uploading…</div> : null}
+        {uploadError ? (
+          <Box px={size === "sm" ? "2" : "3"} pb={size === "sm" ? "2" : "3"}>
+            <HelperText status="error" size="sm">
+              {uploadError}
+            </HelperText>
+          </Box>
+        ) : null}
+        {footer}
+      </div>
+    </LexicalComposer>
+  );
+});
