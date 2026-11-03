@@ -56,10 +56,14 @@ export type CheckListItem = {
 // the flag itself.
 export function linkedFeatureAction(
   f: LinkedFeatureInfo,
-  version = f.draftRevisionVersion ?? null,
+  {
+    version = f.draftRevisionVersion ?? null,
+    // Straight to the draft's review, for a row waiting on it.
+    review = false,
+  }: { version?: number | null; review?: boolean } = {},
 ): ChecklistAction {
   return {
-    href: `/features/${f.feature.id}${version !== null ? `?v=${version}` : ""}`,
+    href: `/features/${f.feature.id}${version !== null ? `?v=${version}` : ""}${review ? "#review" : ""}`,
     external: true,
   };
 }
@@ -97,7 +101,10 @@ function toRow(
     ...(item.manual ? { manualKey: item.key } : {}),
     ...(flag
       ? {
-          action: linkedFeatureAction(flag, item.revision),
+          action: linkedFeatureAction(flag, {
+            version: item.revision,
+            review: isPendingApprovalItem(item),
+          }),
         }
       : {}),
   };

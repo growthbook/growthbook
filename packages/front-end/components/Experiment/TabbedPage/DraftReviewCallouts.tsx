@@ -9,6 +9,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import StatusDot from "@/components/Experiment/StatusDot";
 import useManagedFlagReview from "@/components/Experiment/LinkedChanges/useManagedFlagReview";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import {
   draftStatusDotColor,
   revisionStatusLabel,
@@ -206,6 +207,10 @@ export default function DraftReviewCallouts({
   openReview?: (() => void) | null;
   mutate: () => void;
 }) {
+  // Before launch, the checklist tracks the draft the start publishes, and no
+  // other bears on the experiment.
+  const { active: checklistActive } = usePreLaunchChecklist();
+  if (checklistActive) return null;
   const inReview = linkedFeatures.flatMap((info): DraftInReview[] =>
     flagDrafts(info).flatMap((draft, i) => {
       // Only the newest draft that changes the rule publishes at start.
