@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from "child_process";
+import { execFileSync, spawn, spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { writeFile } from "fs/promises";
 import path from "path";
@@ -499,12 +499,21 @@ export function claudeCodeHarness(
         };
       },
       // The CLI saves each session under ~/.claude; eval sessions don't stay.
+      // Never throws: a trial whose CLI crashed before saving a session has
+      // nothing to purge, and the CLI exits 1 for that, which would otherwise
+      // abort the run before its summary is written.
       cleanup: async () => {
         if (!launch) return;
-        execFileSync("claude", ["purge", launch.cwd, "--yes"], {
+        const purge = spawnSync("claude", ["purge", launch.cwd, "--yes"], {
           env: claudeEnv(),
-          stdio: "ignore",
+          encoding: "utf8",
         });
+        if (purge.status !== 0) {
+          const why = `${purge.stdout ?? ""}${purge.stderr ?? ""}`.trim();
+          process.stderr.write(
+            `claude purge ${launch.cwd} exited ${purge.status}: ${why.split("\n").pop() ?? ""}\n`,
+          );
+        }
       },
     };
   };

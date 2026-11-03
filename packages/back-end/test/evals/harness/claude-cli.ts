@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "child_process";
-import { mkdtempSync } from "fs";
+import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
 import { z } from "zod";
@@ -10,7 +10,8 @@ import { callUsage, type Usage } from "./record";
 // with the developer's own Claude login. No API key is read or passed.
 
 // The CLI finds its login in the OS keychain, which needs the user's identity
-// but nothing else from the developer's shell.
+// but nothing else from the developer's shell, and in CLAUDE_CONFIG_DIR when
+// the developer moved it.
 export function claudeEnv(extra: Record<string, string> = {}) {
   const pick = (name: string) =>
     process.env[name] ? { [name]: process.env[name] as string } : {};
@@ -22,6 +23,7 @@ export function claudeEnv(extra: Record<string, string> = {}) {
     ...pick("USER"),
     ...pick("LOGNAME"),
     ...pick("TMPDIR"),
+    ...pick("CLAUDE_CONFIG_DIR"),
     ...extra,
   };
 }
@@ -33,13 +35,13 @@ export const FENCE_FLAGS = ["--restricted", "--strict-mcp-config"];
 export function assertClaudeLogin(): string {
   let status: { loggedIn?: boolean };
   let version: string;
+  // The same environment the real calls get, so the check sees their login.
+  const options = { encoding: "utf8" as const, env: claudeEnv() };
   try {
-    version = execFileSync("claude", ["--version"], { encoding: "utf8" })
+    version = execFileSync("claude", ["--version"], options)
       .trim()
       .split(" ")[0];
-    status = JSON.parse(
-      execFileSync("claude", ["auth", "status"], { encoding: "utf8" }),
-    );
+    status = JSON.parse(execFileSync("claude", ["auth", "status"], options));
   } catch {
     throw new Error(
       "The evals call the `claude` CLI. Install Claude Code and log in.",
@@ -81,7 +83,11 @@ export async function askClaude<T>({
   prompt: string;
   schema?: z.ZodType<T>;
 }): Promise<{ text: string; output: T | null; usage: Usage }> {
-  scratch ??= mkdtempSync(path.join(tmpdir(), "gb-eval-claude-"));
+  if (!scratch) {
+    const dir = mkdtempSync(path.join(tmpdir(), "gb-eval-claude-"));
+    process.once("exit", () => rmSync(dir, { recursive: true, force: true }));
+    scratch = dir;
+  }
   const args = [
     "-p",
     "--output-format",
