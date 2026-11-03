@@ -29,7 +29,7 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import { useHoldouts } from "@/hooks/useHoldouts";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 
-export type ExperimentPageProps = {
+type ExperimentPageProps = {
   // When rendered inside another page (the contextual bandit measurement-arm
   // sub-page), the experiment id and breadcrumb come from the host page
   // instead of the route.

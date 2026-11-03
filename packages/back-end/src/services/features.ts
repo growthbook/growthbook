@@ -455,7 +455,7 @@ export function generateHoldoutsPayload({
   return holdoutDefs;
 }
 
-export function generateContextualBanditMeasurementArmsPayload({
+function generateContextualBanditMeasurementArmsPayload({
   cbMap,
   savedGroupStrategy,
   capabilities,

@@ -6,7 +6,7 @@ import type {
 export const CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE =
   "contextualBanditMeasurementArm" as const;
 
-export const CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX = "$cbma:";
+const CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX = "$cbma:";
 
 export const MEASUREMENT_ARM_CONTROL_VALUE = "control";
 export const MEASUREMENT_ARM_BANDIT_VALUE = "bandit";

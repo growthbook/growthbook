@@ -207,7 +207,7 @@ function getContextualBanditQuery(
     : Promise.resolve(null);
 }
 
-export async function createMeasurementArmExperiment(
+async function createMeasurementArmExperiment(
   context: Context,
   cb: ContextualBanditInterface,
   arm: ContextualBanditMeasurementArm,
