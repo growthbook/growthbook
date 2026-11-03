@@ -153,6 +153,7 @@ export default function AddEventTrackerModal({
             options={trackers.map((t) => ({
               value: t.value,
               label: t.label,
+              badge: t.beta ? "Beta" : undefined,
               avatar: (
                 <DataSourceLogo eventTracker={t.value} showLabel={false} />
               ),

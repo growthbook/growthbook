@@ -265,10 +265,16 @@ const ApiKeysModal: FC<{
           ]}
         />
       )}
-      {editMode && traceIngest && (
-        <Text as="p" color="text-mid" mt="6">
-          {TRACE_INGEST_HELP}
-        </Text>
+      {traceIngest && (editMode || !traceIngestFlag) && (
+        <Box mt="6">
+          <Text as="p" weight="semibold">
+            AI trace ingest key
+          </Text>
+          <Text as="p" color="text-mid">
+            This key only sends AI traces to GrowthBook. It can&apos;t access
+            the GrowthBook API.
+          </Text>
+        </Box>
       )}
       {authorityLocked && !traceIngest && (
         <HelperText status="info" mt="6">
