@@ -13,6 +13,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   createSnapshotFromPlan,
   PlannedExperimentSnapshot,
+  runAfterSnapshotSucceeds,
 } from "back-end/src/services/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
@@ -53,6 +54,11 @@ jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
       model: snapshot,
       startAnalysis: jest.fn(),
       setExperimentUpdateExecutionLogger: jest.fn(),
+      waitForResults: jest.fn().mockImplementation(async function (this: {
+        model: { status: string };
+      }) {
+        this.model = { ...this.model, status: "success" };
+      }),
     })),
 }));
 
@@ -65,6 +71,7 @@ jest.mock(
         model: snapshot,
         startAnalysis: jest.fn(),
         setExperimentUpdateExecutionLogger: jest.fn(),
+        waitForResults: jest.fn().mockResolvedValue(undefined),
       })),
   }),
 );
@@ -78,6 +85,7 @@ jest.mock(
         model: snapshot,
         startAnalysis: jest.fn(),
         setExperimentUpdateExecutionLogger: jest.fn(),
+        waitForResults: jest.fn().mockResolvedValue(undefined),
       })),
   }),
 );
@@ -297,6 +305,7 @@ describe("snapshot lifecycle", () => {
         queryParentId: plan.snapshot.id,
       }),
     );
+    await new Promise(setImmediate);
     expect(updateExperimentDashboardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         context,
@@ -307,6 +316,33 @@ describe("snapshot lifecycle", () => {
       }),
     );
   });
+
+  it.each([
+    ["succeeds", async () => {}, "success", true],
+    ["is cancelled", async () => {}, "running", false],
+    [
+      "fails",
+      async () => {
+        throw new Error("boom");
+      },
+      "error",
+      false,
+    ],
+  ] as const)(
+    "runAfterSnapshotSucceeds runs follow-up work only when the snapshot %s",
+    async (_label, waitForResults, status, expectRun) => {
+      const next = jest.fn().mockResolvedValue(undefined);
+      runAfterSnapshotSucceeds(
+        {
+          model: { ...makePlan().snapshot, status },
+          waitForResults,
+        } as unknown as Parameters<typeof runAfterSnapshotSucceeds>[0],
+        next,
+      );
+      await new Promise(setImmediate);
+      expect(next).toHaveBeenCalledTimes(expectRun ? 1 : 0);
+    },
+  );
 
   it("does not refresh dashboards for manual dashboard snapshots", async () => {
     const context = makeContext();

@@ -60,6 +60,9 @@ export const DashboardSnapshotContext = React.createContext<{
   updateAllSnapshots: async () => {},
 });
 
+// Covers a long Overall update; past this the dimension refresh was skipped.
+const MAX_DIMENSION_REFRESH_WAIT_MS = 60 * 60 * 1000;
+
 export default function DashboardSnapshotProvider({
   experiment,
   dashboard,
@@ -89,6 +92,10 @@ export default function DashboardSnapshotProvider({
   const [refreshError, setRefreshError] = useState<string | undefined>(
     undefined,
   );
+  // Set while the server refreshes dimension blocks after an Overall update
+  // finishes. Holds when that wait started, so a skipped refresh stops polling.
+  const [dimensionRefreshPendingSince, setDimensionRefreshPendingSince] =
+    useState<number | null>(null);
 
   const {
     data: allSnapshotsData,
@@ -195,6 +202,7 @@ export default function DashboardSnapshotProvider({
       prevBlocksRef.current !== undefined &&
       !isEqual(prevBlocksRef.current, dashboard.blocks)
     ) {
+      setDimensionRefreshPendingSince(null);
       mutateAllSnapshots();
     }
     prevBlocksRef.current = dashboard.blocks;
@@ -211,7 +219,18 @@ export default function DashboardSnapshotProvider({
           });
         }
       }
-      if (status === "running") {
+      const awaitingDimensionBlocks =
+        dimensionRefreshPendingSince !== null &&
+        Date.now() - dimensionRefreshPendingSince <
+          MAX_DIMENSION_REFRESH_WAIT_MS;
+      if (dimensionRefreshPendingSince !== null && !awaitingDimensionBlocks) {
+        setDimensionRefreshPendingSince(null);
+      }
+      if (awaitingDimensionBlocks) {
+        // The new dimension snapshot ids land on the dashboard itself.
+        mutateDefinitions();
+      }
+      if (status === "running" || awaitingDimensionBlocks) {
         mutateAllSnapshots();
       } else {
         clearInterval(intervalId);
@@ -220,15 +239,26 @@ export default function DashboardSnapshotProvider({
     return () => {
       clearInterval(intervalId);
     };
-  }, [mutateAllSnapshots, status, runningMetricAnalyses, apiCall]);
+  }, [
+    mutateAllSnapshots,
+    mutateDefinitions,
+    status,
+    runningMetricAnalyses,
+    apiCall,
+    dimensionRefreshPendingSince,
+  ]);
 
   const updateAllSnapshots = async () => {
     if (!dashboard || dashboard.id === "new") return;
     setRefreshError(undefined);
     try {
-      await apiCall(`/dashboards/${dashboard.id}/refresh`, {
-        method: "POST",
-      });
+      const res = await apiCall<{ dimensionRefreshPending?: boolean }>(
+        `/dashboards/${dashboard.id}/refresh`,
+        { method: "POST" },
+      );
+      if (res?.dimensionRefreshPending) {
+        setDimensionRefreshPendingSince(Date.now());
+      }
     } catch (e) {
       setRefreshError(e.message);
     } finally {
