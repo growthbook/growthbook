@@ -2,6 +2,7 @@ import cronstrue from "cronstrue";
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
+import { MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS } from "shared/validators";
 import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
@@ -513,7 +514,7 @@ export default function ExperimentSettings() {
               type="number"
               step="1"
               min="0"
-              max="168"
+              max={MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS}
               append="hours"
               containerClassName="mb-0"
               disabled={hasFileConfig()}
@@ -521,7 +522,7 @@ export default function ExperimentSettings() {
               {...form.register("noDataAlertGracePeriodHours", {
                 valueAsNumber: true,
                 min: 0,
-                max: 168,
+                max: MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
               })}
             />
           </Box>

@@ -24,6 +24,8 @@ import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import {
   AgreementType,
   ConfirmRule,
+  MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
+  noDataAlertGracePeriodHoursValidator,
   updateSdkWebhookValidator,
 } from "shared/validators";
 import { entityTypes } from "shared/constants";
@@ -1853,15 +1855,15 @@ export async function putOrganization(
       );
     }
 
-    const noDataAlertGracePeriodHours = settings?.noDataAlertGracePeriodHours;
     if (
-      noDataAlertGracePeriodHours !== undefined &&
-      (typeof noDataAlertGracePeriodHours !== "number" ||
-        !Number.isFinite(noDataAlertGracePeriodHours) ||
-        noDataAlertGracePeriodHours < 0 ||
-        noDataAlertGracePeriodHours > 168)
+      settings?.noDataAlertGracePeriodHours !== undefined &&
+      !noDataAlertGracePeriodHoursValidator.safeParse(
+        settings.noDataAlertGracePeriodHours,
+      ).success
     ) {
-      throw new Error("No data grace period must be between 0 and 168 hours");
+      throw new Error(
+        `No data grace period must be between 0 and ${MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS} hours`,
+      );
     }
 
     await updateOrganization(org.id, updates);
