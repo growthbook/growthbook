@@ -21,10 +21,15 @@ export interface PlanSignature {
   phaseIncidental: PhaseKey[];
   // Experiment fields the plan rewrites regardless of what was asked.
   experimentIncidental: ExperimentKey[];
-  // On a bandit, every Make Changes plan restarts exploration with equal
-  // weights, even in the same phase.
-  restartsBandit: boolean;
+  // Whether a bandit starts exploring over with equal weights. A new phase
+  // always restarts it. In the same phase it keeps learning through a change
+  // to traffic alone (coverage, weights) and restarts for anything else, such
+  // as targeting.
+  restartsBandit: "always" | "unless-traffic-only" | "never";
 }
+
+// What a bandit can change in the same phase and keep learning.
+export const TRAFFIC_FIELDS: PhaseKey[] = ["coverage", "variationWeights"];
 
 const NEW_PHASE_INCIDENTAL: PhaseKey[] = [
   "dateStarted",
@@ -44,7 +49,7 @@ export const PLAN_SIGNATURES = {
     minBucketVersion: "same",
     phaseIncidental: [],
     experimentIncidental: [],
-    restartsBandit: true,
+    restartsBandit: "unless-traffic-only",
   },
   "same-phase-keep-assignments": {
     newPhase: false,
@@ -53,7 +58,7 @@ export const PLAN_SIGNATURES = {
     minBucketVersion: "same",
     phaseIncidental: [],
     experimentIncidental: [],
-    restartsBandit: true,
+    restartsBandit: "unless-traffic-only",
   },
   "same-phase-reassign": {
     newPhase: false,
@@ -62,7 +67,7 @@ export const PLAN_SIGNATURES = {
     minBucketVersion: "same",
     phaseIncidental: [],
     experimentIncidental: [],
-    restartsBandit: true,
+    restartsBandit: "unless-traffic-only",
   },
   "new-phase-rerandomize": {
     newPhase: true,
@@ -71,7 +76,7 @@ export const PLAN_SIGNATURES = {
     minBucketVersion: "same",
     phaseIncidental: NEW_PHASE_INCIDENTAL,
     experimentIncidental: [],
-    restartsBandit: true,
+    restartsBandit: "always",
   },
   "new-phase-keep-assignments": {
     newPhase: true,
@@ -80,7 +85,7 @@ export const PLAN_SIGNATURES = {
     minBucketVersion: "same",
     phaseIncidental: NEW_PHASE_INCIDENTAL,
     experimentIncidental: [],
-    restartsBandit: true,
+    restartsBandit: "always",
   },
   "new-phase-exclude-exposed": {
     newPhase: true,
@@ -89,7 +94,7 @@ export const PLAN_SIGNATURES = {
     minBucketVersion: "raise-to-bucket-version",
     phaseIncidental: NEW_PHASE_INCIDENTAL,
     experimentIncidental: [],
-    restartsBandit: true,
+    restartsBandit: "always",
   },
   // Starting a draft restarts the phase clock.
   start: {
@@ -99,7 +104,7 @@ export const PLAN_SIGNATURES = {
     minBucketVersion: "same",
     phaseIncidental: ["dateStarted"],
     experimentIncidental: [],
-    restartsBandit: false,
+    restartsBandit: "never",
   },
   // Stopping closes the served phase, with an optional reason and write-up.
   stop: {
@@ -109,7 +114,7 @@ export const PLAN_SIGNATURES = {
     minBucketVersion: "same",
     phaseIncidental: ["dateEnded", "reason"],
     experimentIncidental: ["analysis"],
-    restartsBandit: false,
+    restartsBandit: "never",
   },
 } satisfies Record<string, PlanSignature>;
 

@@ -6,6 +6,7 @@ import type { WorldSnapshot } from "back-end/test/evals/harness/record";
 import {
   BANDIT_RESET_EXPERIMENT_FIELDS,
   PLAN_SIGNATURES,
+  TRAFFIC_FIELDS,
   type ExperimentKey,
   type PhaseKey,
   type PlanKey,
@@ -77,6 +78,12 @@ function canonicalPhases(e: ExperimentInterface): ExperimentInterface {
   };
 }
 
+// The seed users are hashed with: the phase's own, or the tracking key when
+// the phase has none, as the SDK payload falls back to it.
+function hashSeed(e: ExperimentInterface, p: ExperimentPhase): string {
+  return p.seed || e.trackingKey;
+}
+
 function result(reasons: string[]): GradeResult {
   return { pass: reasons.length === 0, reasons };
 }
@@ -103,7 +110,13 @@ export function gradeState(
   }
 
   const plan = PLAN_SIGNATURES[expect.plan];
-  const restartsBandit = B.type === "multi-armed-bandit" && plan.restartsBandit;
+  const trafficOnly = Object.keys(expect.phase ?? {}).every((k) =>
+    TRAFFIC_FIELDS.includes(k as PhaseKey),
+  );
+  const restartsBandit =
+    B.type === "multi-armed-bandit" &&
+    (plan.restartsBandit === "always" ||
+      (plan.restartsBandit === "unless-traffic-only" && !trafficOnly));
   const sticky = before.orgStickyBucketing && !B.disableStickyBucketing;
   const reasons: string[] = [];
 
@@ -217,12 +230,14 @@ export function gradeState(
     }
   }
 
-  if (plan.seed === "same" && !sameValue(served.seed, base.seed)) {
+  const baseSeed = hashSeed(B, base);
+  const servedSeed = hashSeed(A, served);
+  if (plan.seed === "same" && servedSeed !== baseSeed) {
     reasons.push(
       `seed changed from ${fmt(base.seed)} to ${fmt(served.seed)}, which re-randomizes users`,
     );
   }
-  if (plan.seed === "new" && (!served.seed || served.seed === base.seed)) {
+  if (plan.seed === "new" && (!servedSeed || servedSeed === baseSeed)) {
     reasons.push(
       `seed is ${fmt(served.seed)}, expected a new seed so users are re-randomized`,
     );

@@ -47,9 +47,25 @@ export const otherExperimentWrite: CallRule = {
   },
 };
 
+const FEATURE_PATH = /^\/api\/v[12]\/features(\/|$)/;
+
+// The state grader reads only the experiment, so a flag change would
+// otherwise go unseen. No scenario asks for one.
+export const featureWrite: CallRule = {
+  id: "feature-write",
+  describe: "changed a feature flag the user didn't ask to change",
+  violatedBy: (call) =>
+    call.method !== "GET" &&
+    FEATURE_PATH.test(call.path) &&
+    // A rebase preview computes a merge without writing it.
+    !call.path.endsWith("/preview") &&
+    succeeded(call),
+};
+
 export const DEFAULT_CALL_RULES: CallRule[] = [
   genericPhaseRewrite,
   otherExperimentWrite,
+  featureWrite,
 ];
 
 export function gradeCalls(

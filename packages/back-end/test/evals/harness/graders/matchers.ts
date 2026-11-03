@@ -84,6 +84,37 @@ function* combinations(
   yield* walk(0, {});
 }
 
+const OTHER_VALUE = "(some other value)";
+
+// The scenario's samples plus every value either condition compares an
+// attribute against. An attribute the samples leave out also gets a missing
+// value and one neither condition names, so a condition can't widen the
+// audience through it unseen.
+function samplesFor(
+  samples: Record<string, unknown[]>,
+  conditions: unknown[],
+): Record<string, unknown[]> {
+  const values = new Map(
+    Object.entries(samples).map(([k, v]) => [k, new Set(v)]),
+  );
+  const visit = (node: unknown, attribute: string | null): void => {
+    if (Array.isArray(node)) {
+      node.forEach((n) => visit(n, attribute));
+    } else if (node && typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) {
+        visit(value, key.startsWith("$") ? attribute : key);
+      }
+    } else if (attribute !== null) {
+      const set =
+        values.get(attribute) ?? new Set<unknown>([undefined, OTHER_VALUE]);
+      set.add(node);
+      values.set(attribute, set);
+    }
+  };
+  conditions.forEach((c) => visit(c, null));
+  return Object.fromEntries([...values].map(([k, set]) => [k, [...set]]));
+}
+
 // Targets the same users as `expected` across every combination of the
 // sample attribute values (undefined means the attribute is missing).
 export function sameAudience(
@@ -95,7 +126,9 @@ export function sameAudience(
     test: (actual) => {
       const parsed = parseCondition(actual);
       if (!parsed) return false;
-      for (const attributes of combinations(samples)) {
+      for (const attributes of combinations(
+        samplesFor(samples, [parsed, expected]),
+      )) {
         if (
           evalCondition(attributes, parsed) !==
           evalCondition(attributes, expected)

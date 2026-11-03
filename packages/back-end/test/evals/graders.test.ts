@@ -109,12 +109,29 @@ describe("gradeState", () => {
     });
 
     it("fails when the seed is dropped, as a whole-array phase write does", () => {
+      const seeded = experiment({
+        trackingKey: "checkout-redesign",
+        phases: [phase({ coverage: 0.5, seed: "f81d4fae" })],
+      });
       expect(
-        grade(expect_, before, {
-          ...before,
+        grade(expect_, seeded, {
+          ...seeded,
           phases: [phase({ coverage: 1, seed: undefined })],
         }).reasons,
       ).toEqual([expect.stringContaining("seed changed")]);
+    });
+
+    it("allows dropping a seed that equals the tracking key, which the SDK falls back to", () => {
+      const seeded = experiment({
+        trackingKey: "checkout-redesign",
+        phases: [phase({ coverage: 0.5, seed: "checkout-redesign" })],
+      });
+      expect(
+        grade(expect_, seeded, {
+          ...seeded,
+          phases: [phase({ coverage: 1, seed: undefined })],
+        }).reasons,
+      ).toEqual([]);
     });
 
     it("ignores a condition rewritten from empty to {}", () => {
@@ -374,6 +391,20 @@ describe("gradeState", () => {
         expect.stringContaining("expected equal weights"),
       ]);
     });
+
+    it("keeps learning through a same-phase traffic change", () => {
+      const cut = {
+        ...bandit,
+        phases: [{ ...bandit.phases[0], coverage: 0.5 }],
+      };
+      expect(
+        grade(
+          { plan: "same-phase-reassign", phase: { coverage: 0.5 } },
+          bandit,
+          cut,
+        ).reasons,
+      ).toEqual([]);
+    });
   });
 
   describe("stop", () => {
@@ -439,6 +470,21 @@ describe("gradeCalls", () => {
       grade([call({ path: "/api/v1/experiments/exp_other/snapshot" })]).pass,
     ).toBe(true);
   });
+
+  it("flags feature flag writes but not reads or previews", () => {
+    expect(
+      grade([call({ path: "/api/v1/features/checkout-redesign" })]).reasons,
+    ).toEqual([expect.stringContaining("feature flag")]);
+    expect(
+      grade([
+        call({ method: "GET", path: "/api/v1/features/checkout-redesign" }),
+        call({
+          path: "/api/v2/features/checkout-redesign/revisions/2/rebase/preview",
+        }),
+        call({ path: "/api/v1/features/checkout-redesign", status: 403 }),
+      ]).pass,
+    ).toBe(true);
+  });
 });
 
 describe("matchers", () => {
@@ -451,6 +497,16 @@ describe("matchers", () => {
     expect(us.test('{"country":{"$in":["US"]}}')).toBe(true);
     expect(us.test('{"country":{"$ne":"US"}}')).toBe(false);
     expect(us.test("not json")).toBe(false);
+  });
+
+  it("catches an audience widened by an attribute outside the samples", () => {
+    const us = sameAudience({ country: "US" }, COUNTRIES);
+    expect(us.test('{"$or":[{"country":"US"},{"deviceType":"desktop"}]}')).toBe(
+      false,
+    );
+    expect(
+      us.test('{"country":"US","deviceType":{"$in":["mobile","desktop"]}}'),
+    ).toBe(false);
   });
 
   it("treats an empty condition as everyone", () => {
