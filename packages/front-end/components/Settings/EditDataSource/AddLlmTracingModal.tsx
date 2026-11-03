@@ -8,7 +8,12 @@ import {
   getDatasourceTemplateResources,
   getDatasourceTemplateSettings,
 } from "@/services/initial-resources";
-import { getLlmTracingSchema, LlmTracingFormat } from "@/services/llmTracing";
+import {
+  getLlmTracingSchema,
+  getLlmTracingSchemaOptionValues,
+  hasLlmTracingSetup,
+  LlmTracingFormat,
+} from "@/services/llmTracing";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import track from "@/services/track";
@@ -16,15 +21,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { TextField } from "@/ui/TextField";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-
-function getDefaultOptions(tool: LlmTracingFormat) {
-  return Object.fromEntries(
-    (getLlmTracingSchema(tool).options ?? []).map((option) => [
-      option.name,
-      String(option.defaultValue ?? ""),
-    ]),
-  );
-}
 
 export default function AddLlmTracingModal({
   datasource,
@@ -45,8 +41,17 @@ export default function AddLlmTracingModal({
   const tracker = getLlmTracingSchema(template);
   const { label, options = [] } = tracker;
   const [schemaOptions, setSchemaOptions] = useState<Record<string, string>>(
-    () => getDefaultOptions(template),
+    () =>
+      getLlmTracingSchemaOptionValues(
+        template,
+        datasource.settings?.schemaOptions,
+      ),
   );
+  const projectScopeLocked = hasLlmTracingSetup({
+    datasource,
+    tool: template,
+    factTables,
+  });
   const [progress, setProgress] = useState<number | null>(null);
 
   // Fact table SQL reads identifier types, so build resources from the
@@ -56,6 +61,7 @@ export default function AddLlmTracingModal({
       datasource,
       template,
       schemaOptions,
+      factTables,
     });
     const resources = getDatasourceTemplateResources({
       datasource: { ...datasource, settings: updatedSettings },
@@ -123,7 +129,12 @@ export default function AddLlmTracingModal({
           <TextField
             key={option.name}
             label={option.label}
-            helpText={option.helpText}
+            helpText={
+              projectScopeLocked
+                ? "Already chosen for this Data Source. Missing fact tables use the same scope."
+                : option.helpText
+            }
+            disabled={projectScopeLocked}
             value={schemaOptions[option.name] ?? ""}
             onChange={(e) =>
               setSchemaOptions({

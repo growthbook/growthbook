@@ -28,6 +28,10 @@ import {
 import { ApiCallType } from "@/services/auth";
 import { eventSchemas } from "@/services/eventSchema";
 import {
+  isLlmTracingFormat,
+  resolveLlmTracingSchemaOptions,
+} from "@/services/llmTracing";
+import {
   getInitialSettings,
   getTablePrefix,
   LANGFUSE_TABLES,
@@ -1140,15 +1144,25 @@ export function getDatasourceTemplateSettings({
   datasource,
   template,
   schemaOptions,
+  factTables = [],
 }: {
   datasource: DataSourceInterfaceWithParams;
   template: SchemaFormat;
   schemaOptions: Record<string, string>;
+  factTables?: Pick<FactTableInterface, "name" | "datasource" | "archived">[];
 }): DataSourceSettings {
+  const resolvedOptions = isLlmTracingFormat(template)
+    ? resolveLlmTracingSchemaOptions({
+        datasource,
+        tool: template,
+        schemaOptions,
+        factTables,
+      })
+    : schemaOptions;
   const initial = getInitialSettings(
     template,
     datasource.params,
-    schemaOptions,
+    resolvedOptions,
   );
   const settings = datasource.settings;
   const existingTypes = new Set(
@@ -1184,7 +1198,7 @@ export function getDatasourceTemplateSettings({
     // so Settings can show which projects the tool includes.
     schemaOptions: {
       ...settings.schemaOptions,
-      ...schemaOptions,
+      ...resolvedOptions,
     },
     userIdTypes: [
       ...(settings.userIdTypes || []),
@@ -1218,13 +1232,21 @@ export function getDatasourceTemplateResources({
       .filter((f) => f.datasource === datasource.id && !f.archived)
       .map((f) => f.name),
   );
+  const resolvedOptions = isLlmTracingFormat(template)
+    ? resolveLlmTracingSchemaOptions({
+        datasource,
+        tool: template,
+        schemaOptions,
+        factTables: existingFactTables,
+      })
+    : schemaOptions;
   const resources = getInitialDatasourceResources({
     datasource: {
       ...datasource,
       settings: {
         ...datasource.settings,
         schemaFormat: template,
-        schemaOptions,
+        schemaOptions: resolvedOptions,
       },
     },
   });

@@ -5,8 +5,10 @@ import {
   formatLlmTracingAddedDetail,
   getLlmTracingAddedAt,
   getLlmTracingProjectScope,
+  getLlmTracingSchemaOptionValues,
   getLlmTracingTools,
   isLlmTracingToolAdded,
+  resolveLlmTracingSchemaOptions,
 } from "@/services/llmTracing";
 
 function datasource(
@@ -116,6 +118,54 @@ describe("isLlmTracingToolAdded", () => {
         ],
       }),
     ).toBe(false);
+  });
+});
+
+describe("LLM tracing project scope", () => {
+  it("loads the saved project instead of the blank default", () => {
+    expect(
+      getLlmTracingSchemaOptionValues("langfuse", { projectId: " proj_1 " }),
+    ).toEqual({ projectId: "proj_1" });
+    expect(getLlmTracingSchemaOptionValues("phoenix", {})).toEqual({
+      projectName: "",
+    });
+  });
+
+  it("keeps the saved project once any of the tool is already set up", () => {
+    const partial = datasource({
+      settings: {
+        schemaFormat: "custom",
+        queries: {
+          exposure: [
+            {
+              id: "langfuse_user_id",
+              name: "Langfuse: Logged-in Users",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
+              query: "select 1",
+              dimensions: [],
+            },
+          ],
+        },
+        schemaOptions: { projectId: "proj_1" },
+      },
+    });
+    expect(
+      resolveLlmTracingSchemaOptions({
+        datasource: partial,
+        tool: "langfuse",
+        schemaOptions: { projectId: "" },
+        factTables: [factTable("Langfuse Traces")],
+      }),
+    ).toEqual({ projectId: "proj_1" });
+    expect(
+      resolveLlmTracingSchemaOptions({
+        datasource: datasource(),
+        tool: "langfuse",
+        schemaOptions: { projectId: "  proj_2  " },
+        factTables: [],
+      }),
+    ).toEqual({ projectId: "proj_2" });
   });
 });
 

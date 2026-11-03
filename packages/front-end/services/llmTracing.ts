@@ -48,8 +48,10 @@ export function getLlmTracingSchema(tool: LlmTracingFormat): eventSchema {
 
 type TracingFactTable = Pick<
   FactTableInterface,
-  "name" | "datasource" | "archived" | "dateCreated"
->;
+  "name" | "datasource" | "archived"
+> & {
+  dateCreated?: FactTableInterface["dateCreated"];
+};
 
 function matchingFactTables(
   datasourceId: string,
@@ -63,6 +65,64 @@ function matchingFactTables(
       !factTable.archived &&
       names.has(factTable.name),
   );
+}
+
+function projectOptionKey(tool: LlmTracingFormat): "projectId" | "projectName" {
+  return tool === "langfuse" ? "projectId" : "projectName";
+}
+
+// Prefixed queries, a datasource created as this tool, or one of its fact
+// tables. Their SQL already has a project scope baked in.
+export function hasLlmTracingSetup({
+  datasource,
+  tool,
+  factTables,
+}: {
+  datasource: Pick<DataSourceInterfaceWithParams, "id" | "settings">;
+  tool: LlmTracingFormat;
+  factTables: Pick<TracingFactTable, "name" | "datasource" | "archived">[];
+}): boolean {
+  if (datasource.settings?.schemaFormat === tool) return true;
+  const prefix = `${tool}_`;
+  const exposure = datasource.settings?.queries?.exposure || [];
+  if (exposure.some((query) => query.id.startsWith(prefix))) return true;
+  return matchingFactTables(datasource.id, tool, factTables).length > 0;
+}
+
+export function getLlmTracingSchemaOptionValues(
+  tool: LlmTracingFormat,
+  saved?: Record<string, string | number>,
+): Record<string, string> {
+  return Object.fromEntries(
+    (getLlmTracingSchema(tool).options ?? []).map((option) => [
+      option.name,
+      saved?.[option.name] !== undefined
+        ? String(saved[option.name]).trim()
+        : String(option.defaultValue ?? ""),
+    ]),
+  );
+}
+
+// A retry must keep the saved project. New fact tables would otherwise be
+// created for every project while the existing queries stay scoped.
+export function resolveLlmTracingSchemaOptions({
+  datasource,
+  tool,
+  schemaOptions,
+  factTables,
+}: {
+  datasource: Pick<DataSourceInterfaceWithParams, "id" | "settings">;
+  tool: LlmTracingFormat;
+  schemaOptions: Record<string, string>;
+  factTables: Pick<TracingFactTable, "name" | "datasource" | "archived">[];
+}): Record<string, string> {
+  const key = projectOptionKey(tool);
+  const requested = String(schemaOptions[key] ?? "").trim();
+  const saved = String(datasource.settings?.schemaOptions?.[key] ?? "").trim();
+  const project = hasLlmTracingSetup({ datasource, tool, factTables })
+    ? saved
+    : requested;
+  return { ...schemaOptions, [key]: project };
 }
 
 // Partial setups stay recoverable. The add modal skips unarchived fact tables.
