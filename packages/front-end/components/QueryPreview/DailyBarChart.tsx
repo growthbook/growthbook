@@ -47,10 +47,10 @@ export default function DailyBarChart({
           textStyle: { color: textColor },
           axisPointer: { type: "shadow" },
           formatter: (params: unknown) => {
-            const point = (Array.isArray(params) ? params[0] : params) as {
-              dataIndex?: number;
-            };
-            const entry = dailyValues[point?.dataIndex ?? -1];
+            const point = (Array.isArray(params) ? params[0] : params) as
+              | { dataIndex: number }
+              | undefined;
+            const entry = point && dailyValues[point.dataIndex];
             if (!entry) return "";
             const { day, value } = entry;
             const lines = tooltipLines?.(day, value) ?? [
