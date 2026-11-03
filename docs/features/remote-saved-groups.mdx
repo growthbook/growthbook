@@ -21,13 +21,6 @@ A Remote Group has a name and an attribute, like an [ID List](/features/targetin
 
 Rules that use a Remote Group match no one until the user's groups have been looked up. If the lookup fails or times out, the user is treated as being in no Remote Groups, including for "not in group" rules.
 
-<Warning>
-**Make sure a group is loaded before rules use it**
-
-A lookup can't tell a group that hasn't been loaded yet from a user who isn't in it. Until a group's IDs are loaded, a "not in group" rule can match everyone. Before publishing rules that use a new group, check that its version shows as loaded in the **Data stores** column on the group's page. The [GrowthBook Proxy](/features/remote-saved-groups-proxy) handles this for you.
-
-</Warning>
-
 ## Creating a Remote Group
 
 Go to **SDK Configuration** → **Saved Groups**, open the **Remote Groups** tab, and click **Add Remote Group**. Choose a name and the attribute the IDs belong to. The attribute must be a `string` or `number`; `secureString` attributes aren't supported, because the lookup needs the raw value.

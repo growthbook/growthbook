@@ -73,10 +73,6 @@ scoped.isOn("my-feature");
 
 `redisResolver` reads the Redis keys GrowthBook's loader writes. It takes a node-redis client, or any object with an `sMembers` method; for ioredis, pass `{ sMembers: (key) => redis.smembers(key) }`. If the lookup fails, `addRemoteSavedGroups` returns the user context unchanged, so rules using Remote Groups don't match.
 
-<Warning>
-Unlike the Proxy, `redisResolver` doesn't check whether a group has been loaded. A "not in group" rule matches everyone until it is, so check the group's **Data stores** column before publishing such rules.
-</Warning>
-
 If you look up groups some other way, pass them directly with the `remoteGroupIds` option, or with `growthbook.setRemoteGroupIds([...])` on a `GrowthBook` instance.
 
 ### Your Own Resolver
