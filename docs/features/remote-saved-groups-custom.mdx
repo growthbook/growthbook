@@ -24,7 +24,7 @@ The loader polls GrowthBook for each Remote Group's version, downloads new versi
   SECRET_API_KEY=secret_... \
   REMOTE_SAVED_GROUPS_STORE_ID=redis-us-east \
   REMOTE_SAVED_GROUPS_CONNECTION_URL=redis://localhost:6379 \
-  npx remote-saved-groups-redis-loader
+  npx @growthbook/remote-saved-groups-redis-loader
   ```
 
 - **In the GrowthBook Proxy**, with `REMOTE_SAVED_GROUPS_LOADER_ONLY=true`, so it only loads IDs. See [Loading IDs into Redis](/features/remote-saved-groups-proxy#loading-ids-into-redis) for the settings, store IDs and Redis requirements.
