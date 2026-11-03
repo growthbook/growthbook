@@ -26,7 +26,6 @@ export default function DailyBarChart({
 }) {
   const { theme } = useAppearanceUITheme();
   const { textColor, tooltipBackgroundColor } = getChartThemeColors(theme);
-  const valueByDay = new Map(dailyValues.map(({ day, value }) => [day, value]));
   const axisLabelColor = cssColorToHex("var(--gray-10)");
 
   return (
@@ -49,15 +48,16 @@ export default function DailyBarChart({
           axisPointer: { type: "shadow" },
           formatter: (params: unknown) => {
             const point = (Array.isArray(params) ? params[0] : params) as {
-              name?: string;
+              dataIndex?: number;
             };
-            const day = String(point?.name ?? "");
-            const value = valueByDay.get(day) ?? 0;
+            const entry = dailyValues[point?.dataIndex ?? -1];
+            if (!entry) return "";
+            const { day, value } = entry;
             const lines = tooltipLines?.(day, value) ?? [
               `${seriesName}: ${value.toLocaleString()}`,
             ];
             return [
-              `<strong>${date(new Date(`${day.slice(0, 10)}T00:00:00Z`), "UTC")}</strong>`,
+              `<strong>${date(new Date(`${day}T00:00:00Z`), "UTC")}</strong>`,
               ...lines,
             ].join("<br/>");
           },
