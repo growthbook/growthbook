@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
-import { interleavingEnvsForChange } from "shared/permissions";
+import {
+  canRunInterleavingControl,
+  interleavingEnvsForChange,
+} from "shared/permissions";
 import { interleavingInSDKPayload } from "shared/util";
 import {
   DropdownMenu,
@@ -48,7 +51,7 @@ export default function InterleavingMoreMenu({
     { project: il.project },
     changeEnvs,
   );
-  const canRun = !il.archived && canRunChange;
+  const canRun = canRunInterleavingControl(permissionsUtil, il, changeEnvs);
   // beforeDelete refuses while it is still serving, so offering it here would
   // guarantee an API error. Archive is the action that works.
   const canDelete =

@@ -1,6 +1,11 @@
 import { useForm } from "react-hook-form";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
+import { interleavingInSDKPayload } from "shared/util";
+import {
+  holdsInterleavingMoveDestination,
+  interleavingEnvsForChange,
+} from "shared/permissions";
 import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
@@ -11,6 +16,7 @@ import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 
 export default function EditInterleavingInfoModal({
   interleaving: il,
@@ -39,13 +45,25 @@ export default function EditInterleavingInfoModal({
     },
   });
 
+  const environments = useEnvironments();
+  const moveScope = {
+    ...il,
+    serving: interleavingInSDKPayload(il),
+  };
+  const changeEnvs = interleavingEnvsForChange({
+    existing: il,
+    environmentIds: environments.map((e) => e.id),
+  });
+
   // Ask the move question, not just the destination one: can this experiment,
   // where it currently lives, be moved into that project.
   const projectOptions = useProjectOptions(
     (project) =>
-      permissionsUtil.canUpdateInterleaving(
-        { project: il.project },
-        { project },
+      holdsInterleavingMoveDestination(
+        permissionsUtil,
+        moveScope,
+        project,
+        changeEnvs,
       ),
     il.project ? [il.project] : [],
   );
@@ -69,7 +87,9 @@ export default function EditInterleavingInfoModal({
           body: {
             name: data.name.trim(),
             trackingKey: data.trackingKey.trim(),
-            owner: data.owner,
+            // A stored owner who has left the org fails the server's membership
+            // check, which would block an unrelated name or tag edit.
+            owner: data.owner !== (il.owner ?? "") ? data.owner : undefined,
             project: data.project,
             tags: data.tags,
           },

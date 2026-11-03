@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
-import { interleavingEnvsForChange } from "shared/permissions";
 import { interleavingInSDKPayload } from "shared/util";
+import {
+  canRunInterleavingControl,
+  interleavingEnvsForChange,
+} from "shared/permissions";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -56,15 +59,11 @@ export default function InterleavingDetailPage({
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [descriptionModal, setDescriptionModal] = useState(false);
 
-  const canRun =
-    !il.archived &&
-    permissionsUtil.canRunInterleaving(
-      { project: il.project },
-      interleavingEnvsForChange({
-        existing: il,
-        environmentIds: environments.map((e) => e.id),
-      }),
-    );
+  const changeEnvs = interleavingEnvsForChange({
+    existing: il,
+    environmentIds: environments.map((e) => e.id),
+  });
+  const canRun = canRunInterleavingControl(permissionsUtil, il, changeEnvs);
   const canEdit =
     permissionsUtil.canUpdateInterleaving({ project: il.project }, {}) &&
     !il.archived;

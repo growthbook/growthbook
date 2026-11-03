@@ -703,6 +703,14 @@ export class InterleavingModel extends BaseClass {
         );
       }
     }
+    // Cancellation can take warehouse round trips, long enough for a concurrent
+    // start. _deleteOne has no guard, so re-check before it drops the doc.
+    const fresh = await this.getById(doc.id);
+    if (fresh && interleavingInSDKPayload(fresh)) {
+      throw new Error(
+        "Stop or archive this interleaving experiment before deleting it.",
+      );
+    }
   }
 
   protected async afterDelete(doc: InterleavingInterface) {

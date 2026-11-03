@@ -38,6 +38,15 @@ function keyFromName(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+// The response carries a server-stamped `date` the create body rejects.
+function schemaInput(
+  jsonSchema: ApiInterleavingInterface["jsonSchema"] | undefined,
+) {
+  if (!jsonSchema) return undefined;
+  const { date: _date, ...input } = jsonSchema;
+  return input;
+}
+
 function assertNoError(error: string | null) {
   if (error) throw new Error(error);
 }
@@ -175,7 +184,7 @@ export default function InterleavingForm({
             { ...s, enabled: s.enabled && canEnableEnvironment(id) },
           ]),
         ),
-        jsonSchema: initialValue?.jsonSchema ?? undefined,
+        jsonSchema: schemaInput(initialValue?.jsonSchema),
         coverage: initialValue?.coverage,
         condition: initialValue?.condition,
         savedGroups: initialValue?.savedGroups,
