@@ -902,6 +902,7 @@ export async function getRevision({
   version: number;
   includeLog?: boolean;
 }) {
+  if (version && typeof version !== "number") return null;
   const doc = await FeatureRevisionModel.findOne({
     organization,
     featureId,

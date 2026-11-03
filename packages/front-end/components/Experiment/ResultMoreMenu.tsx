@@ -109,6 +109,8 @@ export default function ResultMoreMenu({
   legacyQueries,
   legacyQueryError,
   onAddToDashboard,
+  canEditMetrics,
+  editMetricsLabel = "Add / remove metrics",
 }: {
   experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
@@ -127,12 +129,15 @@ export default function ResultMoreMenu({
   legacyQueries?: Queries;
   legacyQueryError?: string;
   onAddToDashboard?: () => void;
+  canEditMetrics?: boolean;
+  editMetricsLabel?: string;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { mutateDefinitions } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const canEdit = permissionsUtil.canViewExperimentModal(project);
+  const canEdit =
+    canEditMetrics ?? permissionsUtil.canViewExperimentModal(project);
 
   const { latestSummary: latest, snapshot } = useSnapshot();
 
@@ -438,7 +443,7 @@ export default function ResultMoreMenu({
               setDropdownOpen(false);
             }}
           >
-            Add / remove metrics
+            {editMetricsLabel}
           </DropdownMenuItem>
         ) : null,
       ],
@@ -482,6 +487,8 @@ export default function ResultMoreMenu({
     }))
     .filter((group) => group.items.length > 0);
 
+  if (menuItemGroups.length === 0) return null;
+
   return (
     <>
       <DropdownMenu
@@ -492,6 +499,7 @@ export default function ResultMoreMenu({
             radius="full"
             size="3"
             highContrast
+            aria-label="More results actions"
           >
             <BsThreeDotsVertical size={18} />
           </IconButton>

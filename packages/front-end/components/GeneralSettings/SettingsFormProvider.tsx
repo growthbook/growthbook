@@ -177,14 +177,13 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     // Saved values become the defaults; edited fields keep their draft.
     if (savedPrompts) promptForm.reset(savedPrompts, { keepDirtyValues: true });
   }, [savedPrompts, promptForm]);
-  const orgForm = useForm<OrgDetailsForm>({
-    defaultValues: { name: "", ownerEmail: "", installationName: "" },
-  });
   const orgDetails: OrgDetailsForm = {
     name: organization.name || "",
     ownerEmail: organization.ownerEmail || "",
     installationName: installationName || "",
   };
+  // Seeded with the server values, or the first paint reads every field as edited.
+  const orgForm = useForm<OrgDetailsForm>({ defaultValues: orgDetails });
   const orgKey = JSON.stringify(orgDetails);
   useEffect(() => {
     // Server values become the defaults; fields being edited keep their draft.

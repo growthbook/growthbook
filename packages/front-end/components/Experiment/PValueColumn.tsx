@@ -20,7 +20,6 @@ interface Props
     HTMLTableCellElement
   > {
   stats: SnapshotMetric;
-  baseline: SnapshotMetric;
   rowResults: RowResults;
   pValueCorrection?: PValueCorrection;
   showSuspicious?: boolean;
@@ -41,7 +40,6 @@ interface Props
 
 export default function PValueColumn({
   stats,
-  baseline,
   rowResults,
   pValueCorrection,
   showSuspicious = true,
@@ -87,7 +85,7 @@ export default function PValueColumn({
   });
 
   const renderContent = () => {
-    if (!baseline?.value || !stats?.value) {
+    if (!rowResults.hasData) {
       return <em className="text-muted small">No data</em>;
     }
 
