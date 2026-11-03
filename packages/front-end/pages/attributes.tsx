@@ -13,10 +13,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import TextField from "@/ui/TextField";
 import Pagination from "@/ui/Pagination";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import Field from "@/components/Forms/Field";
 import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
 import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
@@ -315,8 +315,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { references: identifierReferences } = useAttributeReferences(
     identifiers.map((i) => i.property),
   );
-  // Separate from the attributes search, which only filters that table. Same
-  // filters, driven by the dropdowns alone, with no search box.
+  // Separate from the attributes search, which only filters that table.
   const [showArchivedIdentifiers, setShowArchivedIdentifiers] = useState(false);
   const identifierRows = useMemo(
     () =>
@@ -351,7 +350,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
     disableUrlSearchTerm: true,
     pageSize: PAGE_SIZE,
     filterResults: archivedIdentifierFilter,
-    searchFields: ["property"],
+    searchFields: [
+      "property^3",
+      "description",
+      "datatype",
+      "projectNamesSearch",
+      "tagsSearch",
+    ],
     searchTermFilters: {
       is: (item) =>
         item.archived ? [item.datatype, "archived"] : [item.datatype],
@@ -652,12 +657,21 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </Flex>
             {identifiers.length > 0 ? (
               <>
-                <Flex justify="end">
+                <Flex justify="between" gap="3" align="center">
+                  <Box style={{ width: "40%", minWidth: 240 }}>
+                    <TextField
+                      placeholder="Search..."
+                      type="search"
+                      aria-label="Search identifiers"
+                      {...identifierSearchInputProps}
+                    />
+                  </Box>
                   <AttributeSearchFilters
                     attributes={identifiers}
                     searchInputProps={identifierSearchInputProps}
                     setSearchValue={setIdentifierSearchValue}
                     syntaxFilters={identifierSyntaxFilters}
+                    noun="identifiers"
                   />
                 </Flex>
                 <Table
@@ -800,8 +814,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         <TableCell colSpan={8}>
                           <Text color="text-low">
                             {identifiersFiltered
-                              ? "No identifiers match these filters."
-                              : "All identifiers are archived."}
+                              ? "No identifiers match this search."
+                              : "All identifiers are archived. Show them with More > Archived identifiers."}
                           </Text>
                         </TableCell>
                       </TableRow>
@@ -855,14 +869,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <Box>
                 <Box mb="3">
                   <Flex justify="between" gap="3" align="center">
-                    <Box
-                      className="relative"
-                      style={{ width: "40%", minWidth: 240 }}
-                    >
-                      <Field
-                        size="legacy"
+                    <Box style={{ width: "40%", minWidth: 240 }}>
+                      <TextField
                         placeholder="Search..."
                         type="search"
+                        aria-label="Search attributes"
                         {...searchInputProps}
                       />
                     </Box>

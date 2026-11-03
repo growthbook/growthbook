@@ -1689,11 +1689,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/attributes.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/attributes/[property].tsx": {
     "no-restricted-imports": {
       "count": 1

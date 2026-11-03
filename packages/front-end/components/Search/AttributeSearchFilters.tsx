@@ -23,6 +23,8 @@ const AttributeSearchFilters: FC<
   BaseSearchFiltersProps & {
     attributes: AttributeWithId[];
     customFields?: CustomField[];
+    // What the archived filter calls these rows.
+    noun?: string;
   }
 > = ({
   searchInputProps,
@@ -30,6 +32,7 @@ const AttributeSearchFilters: FC<
   attributes,
   setSearchValue,
   customFields = [],
+  noun = "attributes",
 }) => {
   const {
     dropdownFilterOpen,
@@ -199,7 +202,7 @@ const AttributeSearchFilters: FC<
           }}
         >
           <FilterItem
-            item="Archived attributes"
+            item={`Archived ${noun}`}
             exists={doesFilterExist("is", "archived", "")}
           />
         </DropdownMenuItem>

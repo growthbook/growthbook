@@ -434,7 +434,9 @@ export default function IdentifierModal({
                             description={
                               !editable && !linked
                                 ? "You don't have permission to edit this Data Source"
-                                : undefined
+                                : !linked && hasFixedUserIdTypes(d)
+                                  ? "Can only link to its existing identifier types"
+                                  : undefined
                             }
                             value={checked}
                             disabled={locked}

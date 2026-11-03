@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useId, useState } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import Text from "@/ui/Text";
@@ -48,6 +48,7 @@ export function DescriptionField({
   setValue: (value: string) => void;
   placeholder: string;
 }) {
+  const id = useId();
   const [hadValue] = useState(!!value);
   const [open, setOpen] = useState(hadValue);
 
@@ -65,10 +66,11 @@ export function DescriptionField({
   }
   return (
     <Flex direction="column" gap="1">
-      <Text as="label" weight="semibold">
+      <Text as="label" htmlFor={id} weight="semibold">
         Description
       </Text>
       <MarkdownInput
+        id={id}
         value={value}
         setValue={setValue}
         placeholder={placeholder}
