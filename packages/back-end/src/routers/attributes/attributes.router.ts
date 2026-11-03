@@ -4,6 +4,10 @@ import { attributeDataTypes } from "shared/constants";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawAttributesController from "./attributes.controller";
+import {
+  postIdentifierValidator,
+  putIdentifierValidator,
+} from "./attributes.validators";
 
 const router = express.Router();
 
@@ -36,29 +40,15 @@ router.post(
   AttributeController.postAttribute,
 );
 
-const identifierBody = z.strictObject({
-  property: z.string().min(1, "Attribute property cannot be empty"),
-  datatype: z.enum(["string", "number", "secureString"]),
-  description: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  customFields: z.record(z.string(), z.string()).optional(),
-  projects: z.array(z.string()),
-  datasources: z.array(
-    z.strictObject({ id: z.string(), userIdType: z.string() }),
-  ),
-});
-
 router.post(
   "/identifier",
-  validateRequestMiddleware({ body: identifierBody }),
+  validateRequestMiddleware({ body: postIdentifierValidator }),
   AttributeController.postIdentifier,
 );
 
 router.put(
   "/identifier",
-  validateRequestMiddleware({
-    body: identifierBody.extend({ previousName: z.string().optional() }),
-  }),
+  validateRequestMiddleware({ body: putIdentifierValidator }),
   AttributeController.putIdentifier,
 );
 

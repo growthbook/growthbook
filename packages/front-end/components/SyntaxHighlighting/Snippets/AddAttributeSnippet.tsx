@@ -24,8 +24,7 @@ const SNIPPET_LANGUAGES = (
   Object.keys(languageMapping) as SDKLanguage[]
 ).filter((language) => getSetAttributesCode(language, {}) !== null);
 
-// How to pass one new attribute from the SDK, in a language the user picks.
-// Languages from the user's SDK Connections in these projects come first.
+// SDK Connection languages in these projects are listed first.
 export default function AddAttributeSnippet({
   property,
   value,

@@ -5,8 +5,6 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 
-// The attribute and identifier modals: fields on the left, and the setup panel
-// on the right, kept in view while the fields scroll. Stacks on narrow screens.
 export default function AttributeFormLayout({
   children,
   panel,

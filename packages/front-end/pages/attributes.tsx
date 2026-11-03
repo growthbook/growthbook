@@ -61,6 +61,8 @@ const RESERVED_FILTER_KEYS = new Set([
 ]);
 
 const PAGE_SIZE = 10;
+// Same widths as the attributes table's defaults; the row menu column is last.
+const IDENTIFIER_COLUMN_WIDTHS = [200, 360, 170, 130, 130, 130, 40];
 
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
@@ -658,18 +660,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     syntaxFilters={identifierSyntaxFilters}
                   />
                 </Flex>
-                <Table variant="list" roundedCorners layout="fixed">
+                <Table
+                  variant="list"
+                  roundedCorners
+                  layout="fixed"
+                  scrollX
+                  minTableWidth={IDENTIFIER_COLUMN_WIDTHS.reduce(
+                    (sum, w) => sum + w,
+                    0,
+                  )}
+                >
                   <colgroup>
-                    {/* Same widths as the attributes table, with the spacer
-                        taking the leftover so description doesn't. */}
-                    <col style={{ width: 200 }} />
-                    <col style={{ width: 360 }} />
-                    <col style={{ width: 170 }} />
-                    <col style={{ width: 130 }} />
-                    <col style={{ width: 130 }} />
-                    <col style={{ width: 130 }} />
+                    {/* The spacer takes the leftover so description doesn't. */}
+                    {IDENTIFIER_COLUMN_WIDTHS.slice(0, -1).map((w, i) => (
+                      <col key={i} style={{ width: w }} />
+                    ))}
                     <col />
-                    <col style={{ width: 40 }} />
+                    <col style={{ width: IDENTIFIER_COLUMN_WIDTHS.at(-1) }} />
                   </colgroup>
                   <TableHeader>
                     <TableRow>

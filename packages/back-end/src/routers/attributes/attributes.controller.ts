@@ -32,6 +32,11 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSectionAndProjects,
 } from "back-end/src/util/custom-fields";
+import {
+  IdentifierLink,
+  PostIdentifierBody,
+  PutIdentifierBody,
+} from "./attributes.validators";
 
 async function createAttribute(
   req: AuthRequest<unknown>,
@@ -111,12 +116,6 @@ export const postAttribute = async (
     status: 200,
   });
 };
-
-type IdentifierFields = Pick<
-  SDKAttribute,
-  "property" | "datatype" | "description" | "tags" | "customFields" | "projects"
->;
-type IdentifierLink = { id: string; userIdType: string };
 
 // Checks every Data Source before anything is written, so a bad link doesn't
 // leave the attribute saved without it.
@@ -210,7 +209,7 @@ async function updateUserIdTypes(
 }
 
 export const postIdentifier = async (
-  req: AuthRequest<IdentifierFields & { datasources: IdentifierLink[] }>,
+  req: AuthRequest<PostIdentifierBody>,
   res: Response<{ status: number; failedDatasources: string[] }>,
 ) => {
   const { datasources: links, customFields, ...attributeFields } = req.body;
@@ -249,9 +248,7 @@ export const postIdentifier = async (
 // Links can only be added here. Changing or removing one happens on the Data
 // Source, since queries may already depend on it.
 export const putIdentifier = async (
-  req: AuthRequest<
-    IdentifierFields & { previousName?: string; datasources: IdentifierLink[] }
-  >,
+  req: AuthRequest<PutIdentifierBody>,
   res: Response<{ status: number; failedDatasources: string[] }>,
 ) => {
   const { datasources: links, ...attributeFields } = req.body;
