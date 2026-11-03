@@ -315,6 +315,12 @@ export const putIdentifier = async (
   await updateAttribute(req, context, {
     ...attributeFields,
     hashAttribute: true,
+    // String-only settings would otherwise survive a change to number and
+    // keep restricting its targeting operators.
+    ...(attributeFields.datatype !== "string" && {
+      format: "",
+      disableEqualityConditions: false,
+    }),
   });
 
   const updates = new Map<
@@ -626,6 +632,7 @@ export const getAttributeReferences = async (
     };
 
     addExp(experiment.hashAttribute);
+    if (experiment.fallbackAttribute) addExp(experiment.fallbackAttribute);
 
     const phase = experiment.phases?.slice(-1)?.[0];
     try {

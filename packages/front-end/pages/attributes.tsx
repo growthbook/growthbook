@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Switch from "@/ui/Switch";
 import Pagination from "@/ui/Pagination";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -313,15 +314,18 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { references: identifierReferences } = useAttributeReferences(
     identifiers.map((i) => i.property),
   );
+  // Separate from the attributes search, which only filters that table.
+  const [showArchivedIdentifiers, setShowArchivedIdentifiers] = useState(false);
+  const archivedIdentifierCount = identifiers.filter((i) => i.archived).length;
   const identifierRows = useMemo(
     () =>
       identifiers
-        .filter((i) => showArchived || !i.archived)
+        .filter((i) => showArchivedIdentifiers || !i.archived)
         .map((i) => ({
           ...i,
           usedIn: identifierReferences?.[i.property]?.experiments.length,
         })),
-    [identifiers, showArchived, identifierReferences],
+    [identifiers, showArchivedIdentifiers, identifierReferences],
   );
   const {
     items: pagedIdentifiers,
@@ -618,11 +622,21 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   Used to assign users to experiment variations.
                 </Text>
               </Box>
-              {canCreateAttributes && identifiers.length > 0 && (
-                <Button onClick={() => setIdentifierModal({})}>
-                  Add Identifier
-                </Button>
-              )}
+              <Flex align="center" gap="4">
+                {archivedIdentifierCount > 0 && (
+                  <Switch
+                    size="sm"
+                    label={`Show archived (${archivedIdentifierCount})`}
+                    value={showArchivedIdentifiers}
+                    onChange={setShowArchivedIdentifiers}
+                  />
+                )}
+                {canCreateAttributes && identifiers.length > 0 && (
+                  <Button onClick={() => setIdentifierModal({})}>
+                    Add Identifier
+                  </Button>
+                )}
+              </Flex>
             </Flex>
             {identifiers.length > 0 ? (
               <>
@@ -756,6 +770,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         </TableRow>
                       );
                     })}
+                    {pagedIdentifiers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8}>
+                          <Text color="text-low">
+                            All identifiers are archived.
+                          </Text>
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
                 {sortedIdentifiers.length > PAGE_SIZE && (
