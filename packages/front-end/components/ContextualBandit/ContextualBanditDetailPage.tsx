@@ -886,8 +886,8 @@ export default function ContextualBanditDetailPage({
                 cb={cb}
                 mutate={mutate}
               />
-              <ContextualBanditMeasurementArmSummary cb={cb} />
               <Frame>
+                <ContextualBanditMeasurementArmSummary cb={cb} />
                 <ContextualBanditResultsTable cb={cb} mutate={mutate} />
               </Frame>
             </Box>

@@ -1,4 +1,4 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useEffect } from "react";
 import { ago } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
@@ -13,7 +13,6 @@ import {
 import { useContextualBanditMeasurementArm } from "@/hooks/useContextualBandits";
 import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import Callout from "@/ui/Callout";
-import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -162,7 +161,7 @@ export default function ContextualBanditMeasurementArmSummary({
   }
 
   return (
-    <Frame mb="0">
+    <Box>
       <Flex justify="between" align="start" gap="4" wrap="wrap">
         <Box>
           <Flex align="center" gap="2" mb="2">
@@ -177,6 +176,7 @@ export default function ContextualBanditMeasurementArmSummary({
           <Link href={experimentHref}>View results</Link>
         ) : null}
       </Flex>
-    </Frame>
+      <Separator size="4" my="4" />
+    </Box>
   );
 }

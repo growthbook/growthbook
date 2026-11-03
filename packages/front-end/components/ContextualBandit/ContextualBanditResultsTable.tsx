@@ -8,7 +8,6 @@ import {
   conditionFromLeafClauses,
   getMetricLink,
   isActiveVariation,
-  isDeactivatedVariation,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
@@ -21,7 +20,6 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
 import VariationNumber from "@/ui/VariationNumber";
-import OutdatedBadge from "@/components/OutdatedBadge";
 import Tooltip from "@/ui/Tooltip";
 import SegmentedControl from "@/ui/SegmentedControl";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -34,8 +32,6 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
 import ContextualBanditOverviewTable from "@/components/ContextualBandit/ContextualBanditOverviewTable";
-import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 
 const numberFormatter = Intl.NumberFormat();
@@ -151,7 +147,6 @@ export default function ContextualBanditResultsTable({
   mutate: () => void;
 }) {
   const [mode, setMode] = useState<ComparisonMode>("weights");
-  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const {
     getDatasourceById,
     getExperimentMetricById,
@@ -207,10 +202,6 @@ export default function ContextualBanditResultsTable({
   };
 
   const queryLatest = latest;
-  const { status } = getQueryStatus(
-    queryLatest?.queries || [],
-    queryLatest?.error,
-  );
 
   const allExpandedMetrics = useMemo(() => {
     const ids = cb.decisionMetric ? [cb.decisionMetric] : [];
@@ -278,15 +269,6 @@ export default function ContextualBanditResultsTable({
     ],
     [overallVariations, cb.variations, pendingActiveVariations],
   );
-  const isOutdated = useMemo(
-    () =>
-      pendingActiveVariations.length > 0 ||
-      overallVariations.some((v) => {
-        const current = cb.variations.find((c) => c.id === v.variationId);
-        return !current || isDeactivatedVariation(current);
-      }),
-    [overallVariations, cb.variations, pendingActiveVariations],
-  );
   const numVariations = variations.length;
   const overallVariationWeights = useMemo(
     () => [
@@ -314,9 +296,6 @@ export default function ContextualBanditResultsTable({
     () => leaves.reduce((sum, leaf) => sum + leafTotalSampleSize(leaf), 0),
     [leaves],
   );
-
-  const showQueries =
-    !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
   const isExploring = cb.stage === "explore";
   const isSnapshotRunning = latest?.status === "running";
@@ -387,13 +366,6 @@ export default function ContextualBanditResultsTable({
           label={unitDisplayName}
           value={numberFormatter.format(totalUnits)}
           style={{ whiteSpace: "nowrap" }}
-        />
-      ) : null}
-      {isOutdated && hasTableData ? (
-        <OutdatedBadge
-          reasons={[
-            "The Contextual Bandit's variations have changed since the last results were computed. Update results to reflect the current variation set.",
-          ]}
         />
       ) : null}
       <ResultMoreMenu
@@ -525,15 +497,6 @@ export default function ContextualBanditResultsTable({
           />
         </>
       ) : null}
-
-      {queriesModalOpen && showQueries && (
-        <AsyncQueriesModal
-          close={() => setQueriesModalOpen(false)}
-          queries={queryLatest.queries.map((q) => q.query)}
-          savedQueries={[]}
-          error={queryLatest.error}
-        />
-      )}
     </Box>
   );
 }
