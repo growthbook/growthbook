@@ -45,7 +45,7 @@
     "@aws-sdk/s3-presigned-post": "^3.1031.0",
     "@aws-sdk/s3-request-presigner": "^3.1031.0",
     "@clickhouse/client": "^1.23.1",
-    "@databricks/sql": "^2.0.0",
+    "@databricks/sql": "^2.4.0",
     "@datadog/native-metrics": "^3.1.2",
     "@datadog/pprof": "^5.15.1",
     "@dqbd/tiktoken": "^1.0.21",

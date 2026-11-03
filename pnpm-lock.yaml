@@ -195,8 +195,8 @@ importers:
         specifier: ^1.23.1
         version: 1.23.1
       '@databricks/sql':
-        specifier: ^2.0.0
-        version: 2.0.0(encoding@0.1.13)
+        specifier: ^2.4.0
+        version: 2.4.0(encoding@0.1.13)
       '@datadog/native-metrics':
         specifier: ^3.1.2
         version: 3.1.2
@@ -2611,60 +2611,60 @@ packages:
   '@dabh/diagnostics@2.0.2':
     resolution: {integrity: sha512-+A1YivoVDNNVCdfozHSR8v/jyuuLTMXwjWuxPFlFlUapXoGc+Gj9mDlTDDfrwl7rXCl2tNZ0kE8sIBO6YOn96Q==}
 
-  '@databricks/databricks-sql-kernel-darwin-arm64@0.2.0':
-    resolution: {integrity: sha512-dSZJD1uileOqRDfs5KsW6m43PAl3GqzQMcETbRT1Zjw2FRLQDtLKTA3+VWmlUUHhIz583WeTps91Sjee79cXbA==}
+  '@databricks/databricks-sql-kernel-darwin-arm64@1.3.0':
+    resolution: {integrity: sha512-0oXTBrjakFnUZ/ohBrLZdZWojwV125RbzuIDibcfNXnZOzA+EnhtLsgveNnkJoABQzAaHqvXcuLiuX67E7Ivag==}
     engines: {node: '>=18.0.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@databricks/databricks-sql-kernel-darwin-x64@0.2.0':
-    resolution: {integrity: sha512-JEe7TqLrXrAoN3SWsi7NgjAo6V+7jEvBwLswwhl0qUp1MoPrZT+y5Kf49vuHPlh61vFgi2F6NlCNfdB/8wpihg==}
+  '@databricks/databricks-sql-kernel-darwin-x64@1.3.0':
+    resolution: {integrity: sha512-QDxiMluC4WS/L7EI8TlkP8GT0Nj/q+YmFFt7D/8aaN53LuGkZoyvjeS2z+dB2YxkStHsqXky4nt1babKvrQh7A==}
     engines: {node: '>=18.0.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@databricks/databricks-sql-kernel-linux-arm64-gnu@0.2.0':
-    resolution: {integrity: sha512-meJ2JF5w4qEiaiI9TNwg2iMgasadqeKSDAw3r3hWTEdzKwUY7saMTFNcjumwR8R3cQMCFJfp3YBOwKS5/hvN9A==}
+  '@databricks/databricks-sql-kernel-linux-arm64-gnu@1.3.0':
+    resolution: {integrity: sha512-JA7fRhcIdyoIGbDOAz3f6zRVJL9cIY2L3SdhyIn2LhbxNfbgLKqR6bXlyir67EgrrqP8ynWaFdzXJ6y9BJQXVw==}
     engines: {node: '>=18.0.0'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@databricks/databricks-sql-kernel-linux-arm64-musl@0.2.0':
-    resolution: {integrity: sha512-YTCPs11w6purXCQwJBCh99oHBwTEW4q46OWxO9Rnddo1wJd8EPBa3Misw08URoUVuVuEfYGy5YtSvuPfkkj8Vw==}
+  '@databricks/databricks-sql-kernel-linux-arm64-musl@1.3.0':
+    resolution: {integrity: sha512-OUkAIwm5MEjniOZasAhFXl9qNi6yzN4Uboam5c26gz9SenLjVooJH0KgL6rEpWOW27a6WsAOxKDBX2Nz8/9Z2w==}
     engines: {node: '>=18.0.0'}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@databricks/databricks-sql-kernel-linux-x64-gnu@0.2.0':
-    resolution: {integrity: sha512-wIEJX2mtoCc/KGOzzbxXwOR5aUB5dBSUG1Ypp+JLI28XsZB2eCLcP4jyAQ+Uklxn+SU1hICuok+30t/7wSvKUg==}
+  '@databricks/databricks-sql-kernel-linux-x64-gnu@1.3.0':
+    resolution: {integrity: sha512-fE8kh7axe7DiRn5bilVlq2YmY98pYicjGTD2ZBTYDyoR5kO9mpDHg4smeVTf40k5hS1AthRkZEgThKRNZD75yQ==}
     engines: {node: '>=18.0.0'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@databricks/databricks-sql-kernel-linux-x64-musl@0.2.0':
-    resolution: {integrity: sha512-0wtWdOxYh7BfeklDpI0tpTk/ljdjJmCQsNFPLy2C7EnK60J3sroYzTaFqgn8Qqc7T03VHZl/6GG1pXC3zPuU1g==}
+  '@databricks/databricks-sql-kernel-linux-x64-musl@1.3.0':
+    resolution: {integrity: sha512-y3W6t9Biy+eYLn8O0EYWrBgnZ33SufcMbfO7s1qoOf8vClXLVBYdnSZBhKS8qUX2CYzmQQWxuXVOz3VPrLCzzw==}
     engines: {node: '>=18.0.0'}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@databricks/databricks-sql-kernel-win32-arm64-msvc@0.2.0':
-    resolution: {integrity: sha512-gS4y1hIIDitr1d9bW6yWEkn4wMW7abinDwFFVUJtYsWkFS+rMq/8CwAYioqNprXQP+XEQS7fLiLYq/BYsQB3Aw==}
+  '@databricks/databricks-sql-kernel-win32-arm64-msvc@1.3.0':
+    resolution: {integrity: sha512-eeTZcNHMdWEtFKAzydWIt4bilN3ZNf3k7hDI5Y7i3wPLzMlEfSm2tGvtLUgFLslIaEb09YneFmCi2OiefSItSw==}
     engines: {node: '>=18.0.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@databricks/databricks-sql-kernel-win32-x64-msvc@0.2.0':
-    resolution: {integrity: sha512-zl6KtfB02eVsBNZEQ/kf/dhmesUqbVGwhSFb5oKlmtyj/1kah9R1FRKBVKTLt3v5n9LnjBnomV2s+DRxRSh4rA==}
+  '@databricks/databricks-sql-kernel-win32-x64-msvc@1.3.0':
+    resolution: {integrity: sha512-XZ4mfcUrwb8WbON3tCItqXDxlrk3yJmBUE5QJFAKGd/Zuc9eIo4NixT4+0PhnUQWDYnUSf2Ec1E997rYs/7/MQ==}
     engines: {node: '>=18.0.0'}
     cpu: [x64]
     os: [win32]
 
-  '@databricks/sql@2.0.0':
-    resolution: {integrity: sha512-XqWxf11nQjQ8QBUfYT0AhkcQpMADmNqk8UYqiusf0g82sNQPGX7HD6qRC578EONxjT7nD8/+c8Cyo7n1v8rLaQ==}
+  '@databricks/sql@2.4.0':
+    resolution: {integrity: sha512-agzrBxcu/2IpRb8gmOlG3qmbvtDGIpuTbfRd8DDc8PaI8NhFrzcC04lzMpsKvvejQIJiN4LFSk95Jp/phjeK5A==}
     engines: {node: '>=20.0.0'}
 
   '@datadog/flagging-core@1.2.1':
@@ -7578,9 +7578,6 @@ packages:
   async-retry@1.3.3:
     resolution: {integrity: sha512-wfr/jstw9xNi/0teMHrRW7dsz3Lt5ARhYNZ2ewpadnhaIp5mbALhOAP+EAdsC7t4Z6wqsDVv9+W6gm1Dk9mEyw==}
 
-  async@3.2.5:
-    resolution: {integrity: sha512-baNZyqaaLhyLVKm/DlvdW051MSgO6b8eVfIezl9E5PqWxFgzLm/wQntEW4zOytVburDEr0JlALEpdOFwvErLsg==}
-
   async@3.2.6:
     resolution: {integrity: sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==}
 
@@ -11504,9 +11501,6 @@ packages:
     resolution: {integrity: sha512-ur5UIdyw5Y7yEj9wLzhqXiy6GZ3Mwx0yGI+5sMn2r0N0v3cKJvUmFH5yPP+WXh9e0xfyzyJX95D8l088DNFj7A==}
     hasBin: true
 
-  openid-client@5.4.3:
-    resolution: {integrity: sha512-sVQOvjsT/sbSfYsQI/9liWQGVZH/Pp3rrtlGEwgk/bbHfrUDZ24DN57lAagIwFtuEu+FM9Ev7r85s8S/yPjimQ==}
-
   openid-client@5.6.5:
     resolution: {integrity: sha512-5P4qO9nGJzB5PI0LFlhj4Dzg3m4odt0qsJTfyEtZyOlkgpILwEioOhVVJOrS1iVH494S4Ee5OCjjg6Bf5WOj3w==}
 
@@ -11986,6 +11980,7 @@ packages:
     engines: {node: '>=0.6.0', teleport: '>=0.2.0'}
     deprecated: |-
       You or someone you depend on is using Q, the JavaScript Promise library that gave JavaScript developers strong feelings about promises. They can almost certainly migrate to the native JavaScript promise now. Thank you literally everyone for joining me in this bet against the odds. Be excellent to each other.
+
       (For a CapTP with native promises, see @endo/eventual-send and @endo/captp)
 
   qs@6.16.0:
@@ -16058,31 +16053,31 @@ snapshots:
       enabled: 2.0.0
       kuler: 2.0.0
 
-  '@databricks/databricks-sql-kernel-darwin-arm64@0.2.0':
+  '@databricks/databricks-sql-kernel-darwin-arm64@1.3.0':
     optional: true
 
-  '@databricks/databricks-sql-kernel-darwin-x64@0.2.0':
+  '@databricks/databricks-sql-kernel-darwin-x64@1.3.0':
     optional: true
 
-  '@databricks/databricks-sql-kernel-linux-arm64-gnu@0.2.0':
+  '@databricks/databricks-sql-kernel-linux-arm64-gnu@1.3.0':
     optional: true
 
-  '@databricks/databricks-sql-kernel-linux-arm64-musl@0.2.0':
+  '@databricks/databricks-sql-kernel-linux-arm64-musl@1.3.0':
     optional: true
 
-  '@databricks/databricks-sql-kernel-linux-x64-gnu@0.2.0':
+  '@databricks/databricks-sql-kernel-linux-x64-gnu@1.3.0':
     optional: true
 
-  '@databricks/databricks-sql-kernel-linux-x64-musl@0.2.0':
+  '@databricks/databricks-sql-kernel-linux-x64-musl@1.3.0':
     optional: true
 
-  '@databricks/databricks-sql-kernel-win32-arm64-msvc@0.2.0':
+  '@databricks/databricks-sql-kernel-win32-arm64-msvc@1.3.0':
     optional: true
 
-  '@databricks/databricks-sql-kernel-win32-x64-msvc@0.2.0':
+  '@databricks/databricks-sql-kernel-win32-x64-msvc@1.3.0':
     optional: true
 
-  '@databricks/sql@2.0.0(encoding@0.1.13)':
+  '@databricks/sql@2.4.0(encoding@0.1.13)':
     dependencies:
       apache-arrow: 13.0.0
       commander: 9.5.0
@@ -16090,20 +16085,20 @@ snapshots:
       node-fetch: 2.7.0(encoding@0.1.13)
       node-int64: 0.4.0
       open: 8.4.2
-      openid-client: 5.4.3
+      openid-client: 5.6.5
       proxy-agent: 6.5.0
       thrift: 0.23.0
       uuid: 11.1.1
       winston: 3.11.0
     optionalDependencies:
-      '@databricks/databricks-sql-kernel-darwin-arm64': 0.2.0
-      '@databricks/databricks-sql-kernel-darwin-x64': 0.2.0
-      '@databricks/databricks-sql-kernel-linux-arm64-gnu': 0.2.0
-      '@databricks/databricks-sql-kernel-linux-arm64-musl': 0.2.0
-      '@databricks/databricks-sql-kernel-linux-x64-gnu': 0.2.0
-      '@databricks/databricks-sql-kernel-linux-x64-musl': 0.2.0
-      '@databricks/databricks-sql-kernel-win32-arm64-msvc': 0.2.0
-      '@databricks/databricks-sql-kernel-win32-x64-msvc': 0.2.0
+      '@databricks/databricks-sql-kernel-darwin-arm64': 1.3.0
+      '@databricks/databricks-sql-kernel-darwin-x64': 1.3.0
+      '@databricks/databricks-sql-kernel-linux-arm64-gnu': 1.3.0
+      '@databricks/databricks-sql-kernel-linux-arm64-musl': 1.3.0
+      '@databricks/databricks-sql-kernel-linux-x64-gnu': 1.3.0
+      '@databricks/databricks-sql-kernel-linux-x64-musl': 1.3.0
+      '@databricks/databricks-sql-kernel-win32-arm64-msvc': 1.3.0
+      '@databricks/databricks-sql-kernel-win32-x64-msvc': 1.3.0
       lz4-napi: 2.9.1
     transitivePeerDependencies:
       - bufferutil
@@ -21835,8 +21830,6 @@ snapshots:
     dependencies:
       retry: 0.13.1
 
-  async@3.2.5: {}
-
   async@3.2.6: {}
 
   asynckit@0.4.0: {}
@@ -26831,13 +26824,6 @@ snapshots:
 
   opener@1.5.2: {}
 
-  openid-client@5.4.3:
-    dependencies:
-      jose: 4.15.5
-      lru-cache: 6.0.0
-      object-hash: 2.2.0
-      oidc-token-hash: 5.0.3
-
   openid-client@5.6.5:
     dependencies:
       jose: 4.15.5
@@ -29637,7 +29623,7 @@ snapshots:
     dependencies:
       '@colors/colors': 1.6.0
       '@dabh/diagnostics': 2.0.2
-      async: 3.2.5
+      async: 3.2.6
       is-stream: 2.0.1
       logform: 2.6.1
       one-time: 1.0.0
