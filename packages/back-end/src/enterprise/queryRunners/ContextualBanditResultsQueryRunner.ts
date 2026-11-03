@@ -23,6 +23,7 @@ import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotTraffic,
 } from "shared/types/experiment-snapshot";
+import { getValidDate } from "shared/dates";
 import {
   buildSnapshotSettingsForCb,
   getContextualBanditSettingsForStatsEngine,
@@ -554,6 +555,10 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       await refreshMeasurementArmAfterBanditRun(
         this.context,
         this.model.contextualBandit,
+        {
+          id: this.model.id,
+          dateCreated: getValidDate(this.model.dateCreated).toISOString(),
+        },
       );
 
       // Similar to experiment `analysisSummary` pattern, persist a lightweight health

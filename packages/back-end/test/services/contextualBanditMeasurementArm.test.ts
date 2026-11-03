@@ -668,7 +668,11 @@ describe("refreshMeasurementArmAfterBanditRun", () => {
     expect(updateExperimentMock.mock.calls[0][0].changes).toEqual({
       exposureQueryIdentifierType: "user_id",
     });
-    expect(queueExperimentUpdateMock).toHaveBeenCalledWith("org_1", "exp_ma");
+    expect(queueExperimentUpdateMock).toHaveBeenCalledWith(
+      "org_1",
+      "exp_ma",
+      undefined,
+    );
     expect(updateExperimentMock.mock.invocationCallOrder[0]).toBeLessThan(
       queueExperimentUpdateMock.mock.invocationCallOrder[0],
     );
@@ -681,7 +685,26 @@ describe("refreshMeasurementArmAfterBanditRun", () => {
     await refreshMeasurementArmAfterBanditRun(context, "cb_1");
 
     expect(updateExperimentMock).not.toHaveBeenCalled();
-    expect(queueExperimentUpdateMock).toHaveBeenCalledWith("org_1", "exp_ma");
+    expect(queueExperimentUpdateMock).toHaveBeenCalledWith(
+      "org_1",
+      "exp_ma",
+      undefined,
+    );
+  });
+
+  it("passes the Bandit run the arm's results will follow", async () => {
+    cbById.mockResolvedValue(makeCb());
+    getExperimentByIdMock.mockResolvedValue(makeArmExperiment());
+
+    await refreshMeasurementArmAfterBanditRun(context, "cb_1", {
+      id: "cbsnp_1",
+      dateCreated: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(queueExperimentUpdateMock).toHaveBeenCalledWith("org_1", "exp_ma", {
+      id: "cbsnp_1",
+      dateCreated: "2026-01-01T00:00:00.000Z",
+    });
   });
 
   it("does nothing when the arm is off", async () => {
