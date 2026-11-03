@@ -2,7 +2,7 @@ import { once } from "events";
 import type { Server } from "http";
 import type { AddressInfo } from "net";
 import bodyParser from "body-parser";
-import express, { type Request } from "express";
+import express, { type Request, type Response } from "express";
 import app from "back-end/src/app";
 import { init } from "back-end/src/init";
 import type { ApiCall } from "back-end/test/evals/harness/record";
@@ -55,15 +55,20 @@ export async function startEvalServer(): Promise<EvalServer> {
       const url = new URL(req.originalUrl, "http://eval");
       const query = Object.fromEntries(url.searchParams);
       const body: unknown = hasBody(req) ? structuredClone(req.body) : null;
-      res.on("finish", () => {
-        slot.call = {
+      // Recorded when the app ends the response, not on "finish": a client
+      // that hung up first (a turn cut off at its timeout) never gets
+      // "finish", yet the handler still made its write.
+      const end = res.end;
+      res.end = function (this: Response, ...args: unknown[]) {
+        slot.call ??= {
           method: req.method,
           path: url.pathname,
           ...(Object.keys(query).length ? { query } : {}),
           ...(body !== null ? { body } : {}),
           status: res.statusCode,
         };
-      });
+        return (end as (...a: unknown[]) => Response).apply(this, args);
+      } as Response["end"];
     }
     next();
   });
