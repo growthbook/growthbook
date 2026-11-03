@@ -549,11 +549,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         if (result.traffic) {
           updates.traffic = result.traffic;
         }
-        await refreshMeasurementArmAfterBanditRun(
-          this.context,
-          this.model.contextualBandit,
-        );
       }
+
+      await refreshMeasurementArmAfterBanditRun(
+        this.context,
+        this.model.contextualBandit,
+      );
 
       // Similar to experiment `analysisSummary` pattern, persist a lightweight health
       // summary on the CB doc so list views can render the shared status without loading
