@@ -157,13 +157,13 @@ FROM interleave_exposures
 
 The query must return these columns:
 
-| Column          | Description                                                                        |
-| --------------- | ---------------------------------------------------------------------------------- |
-| `timestamp`     | When the list was shown. Engagement before this timestamp is not credited.         |
-| `experiment_id` | Matched against the experiment's tracking key.                                     |
-| `ranking_id`    | One id per impression, as emitted by the SDK.                                      |
-| `items`         | JSON array of `{ itemId, variation, competitive }` objects, as emitted by the SDK. |
-| identifier      | The identifier type the analysis joins on, for example `user_id`.                  |
+| Column          | Description                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `timestamp`     | When the list was shown. Engagement before this timestamp is not credited.                   |
+| `experiment_id` | Matched against the experiment's tracking key.                                               |
+| `ranking_id`    | One id per impression, as emitted by the SDK.                                                |
+| `items`         | JSON array of `{ itemId, variation, competitive, position }` objects, as emitted by the SDK. |
+| identifier      | The identifier type the analysis joins on, for example `user_id`.                            |
 
 Each query declares one identifier type. Click **Test query** to check that the required columns come back. One query can serve every experiment on the Data Source.
 
@@ -236,18 +236,18 @@ Everything above is available through the [REST API](/api/Interleavings/operatio
   "name": "Search ranking: buyer's pick",
   "key": "search-ranking",
   "hashAttribute": "id",
-  "variations": [
-    { "key": "popular", "name": "Popular", "config": "{\"algorithm\":\"popular\"}" },
-    { "key": "buyers-pick", "name": "Buyer's pick", "config": "{\"algorithm\":\"buyers-pick\",\"weight\":0.3}" }
-  ],
-  "datasource": "ds_abc123",
+  "variations": {
+    "control":   { "key": "popular",     "name": "Popular",     "config": "{\"algorithm\":\"popular\"}" },
+    "treatment": { "key": "buyers-pick", "name": "Buyer's pick", "config": "{\"algorithm\":\"buyers-pick\",\"weight\":0.3}" }
+  },
+  "datasourceId": "ds_abc123",
   "interleavingExposureQueryId": "<exposure query id>",
   "userIdType": "user_id",
   "metrics": [
     { "id": "fact__clicks", "analyses": [{ "type": "paired" }, { "type": "preference", "attribution": "exposureCount" }] },
     {
       "id": "fact__orders",
-      "analyses": [{ "type": "paired" }]
+      "analyses": [{ "type": "preference", "attribution": "exposureCount" }]
     }
   ],
   "environmentSettings": { "production": { "enabled": true } }
@@ -322,9 +322,9 @@ export type InterleaveExposure = {
   hashAttribute: string;
 
   /**
-   * That attribute's value, stringified. This is the identifier the analysis
-   * joins on; it must be the same identifier your Fact Tables use. You can pass
-   * this field or use your pre-existing identifier.
+   * The hash attribute's value, stringified.
+   * Informational but can be used as the identifier column in your Exposure Query as ideally
+   * the identifier column is identical to this value.
    */
   hashValue: string;
 
