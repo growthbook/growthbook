@@ -70,6 +70,7 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
 import ConnectedResources from "@/components/Settings/EditDataSource/ConnectedResources";
 import DataSourceDescriptionSection from "@/components/Settings/EditDataSource/DataSourceDescriptionSection";
+import LlmTracingSettings from "@/components/Settings/EditDataSource/LlmTracingSettings";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import Explorer from "@/enterprise/components/ProductAnalytics/Explorer";
@@ -1026,6 +1027,14 @@ const DataSourcePage: FC = () => {
                   configuration.
                 </Callout>
               )}
+
+              <LlmTracingSettings
+                dataSource={d}
+                factTables={factTables}
+                canEdit={canUpdateDataSourceSettings}
+                onOpenTab={setTab}
+                onRefresh={refreshDataSource}
+              />
 
               <Frame mb="0">
                 <HistoryTable type="datasource" id={d.id} maxHeight="420px" />
