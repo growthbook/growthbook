@@ -34,10 +34,13 @@ const running = {
   dateCreated: new Date(),
   dateUpdated: new Date(),
   autoSnapshots: true,
+  goalMetrics: [],
+  secondaryMetrics: [],
+  guardrailMetrics: [],
   phases: [{ dateStarted: new Date(), variationWeights: [0.5, 0.5] }],
   variations: [
-    { id: "v0", key: "0", name: "Control" },
-    { id: "v1", key: "1", name: "Treatment" },
+    { id: "v0", key: "0", name: "Control", description: "", screenshots: [] },
+    { id: "v1", key: "1", name: "Treatment", description: "", screenshots: [] },
   ],
 };
 
