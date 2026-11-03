@@ -1,4 +1,4 @@
-import { format, quoteIdentifier, SQL_ROW_LIMIT } from "shared/sql";
+import { format, quoteColumnIdentifier, SQL_ROW_LIMIT } from "shared/sql";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import { stringRowFilterOperators } from "shared/validators";
 import {
@@ -25,16 +25,6 @@ export function isSafeIdentifier(name: string): boolean {
 function filterColumnExpr(column: string, dialect: SqlDialect): string {
   const cast = dialect.castToFilterString ?? dialect.castToString;
   return dialect.lowerString(cast(quoteColumnIdentifier(column, dialect)));
-}
-
-function quoteColumnIdentifier(name: string, dialect: SqlDialect): string {
-  const folded =
-    dialect.unquotedIdentifierFold === "upper"
-      ? name.toUpperCase()
-      : dialect.unquotedIdentifierFold === "lower"
-        ? name.toLowerCase()
-        : name;
-  return quoteIdentifier(folded, dialect.identifierQuote);
 }
 
 function exposureColumnsAsFactTable(

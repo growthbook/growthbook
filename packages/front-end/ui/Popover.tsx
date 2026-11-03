@@ -24,6 +24,8 @@ type UncontrolledPopoverProps = {
 type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   trigger: React.ReactNode;
   triggerAsChild?: boolean;
+  /** Positions the popover against this element. The trigger still opens it. */
+  anchor?: React.ReactNode;
   content: AllowedChildren;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
@@ -64,6 +66,7 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
 export function Popover({
   trigger,
   triggerAsChild = true,
+  anchor,
   content,
   side = "bottom",
   align = "center",
@@ -144,6 +147,9 @@ export function Popover({
 
   return (
     <RadixPopover.Root {...marginProps} {...rootProps}>
+      {anchor ? (
+        <RadixPopover.Anchor asChild>{anchor}</RadixPopover.Anchor>
+      ) : null}
       {anchorOnly ? (
         <RadixPopover.Anchor
           asChild={triggerAsChild}

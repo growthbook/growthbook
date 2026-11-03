@@ -46,6 +46,7 @@ import {
   interleavingInPayloadScope,
   interleavingPrerequisiteIds,
   interleavingTargetingServes,
+  interleavingVariationsList,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import {
@@ -579,7 +580,7 @@ export function generateInterleavingsPayload({
 
     let variations: InterleavingDefinitions[string]["variations"];
     try {
-      variations = il.variations.map((v) => ({
+      variations = interleavingVariationsList(il.variations).map((v) => ({
         key: v.key,
         config: parseInterleavingRankerConfig(v.config),
       }));
@@ -625,7 +626,7 @@ export function generateInterleavingsPayload({
     }
 
     features[id] = {
-      defaultValue: il.variations[0].key,
+      defaultValue: il.variations.control.key,
       rules: [rule],
     };
 

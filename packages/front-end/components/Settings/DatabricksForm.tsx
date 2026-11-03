@@ -13,7 +13,8 @@ const DatabricksForm: FC<{
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   setParams: (params: { [key: string]: string | boolean }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+  showAllowlist?: boolean;
+}> = ({ params, existing, onParamChange, setParams, showAllowlist }) => {
   const authType = params.authType ?? "pat";
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
     existing,
@@ -25,6 +26,7 @@ const DatabricksForm: FC<{
       <div className="col-md-12">
         <HostWarning
           host={params.host}
+          showAllowlist={showAllowlist}
           setHost={(host) => {
             setParams({
               host,
