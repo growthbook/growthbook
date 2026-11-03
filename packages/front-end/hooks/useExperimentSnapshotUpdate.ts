@@ -20,7 +20,7 @@ type SubmitUpdateOptions = {
 };
 
 type PostSnapshotResult =
-  | { status: "success" }
+  | { status: "success"; snapshotId: string | null }
   | { status: "needs-full-refresh"; reason: string }
   | { status: "failed" };
 
@@ -189,7 +189,7 @@ export function useExperimentSnapshotUpdate({
           );
         }
         onSuccess?.();
-        return { status: "success" };
+        return { status: "success", snapshotId: res.snapshot?.id ?? null };
       } catch (e) {
         const blocker = apiErrorToSnapshotRefreshBlocker(apiError);
         if (blocker) {
@@ -228,25 +228,26 @@ export function useExperimentSnapshotUpdate({
 
   // Returns true only when a snapshot refresh starts.
   const runSnapshot = useCallback(
+    // Resolves to the started snapshot's id, or null when nothing started.
     async (
       dimensionToRun: string,
       opts?: { force?: boolean; trackingSource?: string },
-    ): Promise<boolean> => {
+    ): Promise<string | null> => {
       const result = await postSnapshot(
         dimensionToRun,
         opts?.force ?? false,
         opts?.trackingSource,
       );
       if (result.status !== "needs-full-refresh") {
-        return result.status === "success";
+        return result.status === "success" ? result.snapshotId : null;
       }
-      if (!(await promptFullRefresh([result.reason]))) return false;
+      if (!(await promptFullRefresh([result.reason]))) return null;
       const retry = await postSnapshot(
         dimensionToRun,
         true,
         opts?.trackingSource,
       );
-      return retry.status === "success";
+      return retry.status === "success" ? retry.snapshotId : null;
     },
     [postSnapshot, promptFullRefresh],
   );

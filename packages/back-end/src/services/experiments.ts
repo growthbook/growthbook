@@ -274,6 +274,7 @@ import {
   getMetricsWithStaleIncrementalCache,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
+import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import {
   ExperimentUpdateLogPlan,
   ExperimentUpdateExecutionLogger,
@@ -1823,17 +1824,19 @@ async function planSnapshotQueryRunner({
   // Exploratory runs never rebuild metric caches. An Overall update rebuilds
   // the caches of the fact tables whose metrics drifted, which is cheaper than
   // a Full Refresh and than a non-incremental run that stores nothing.
+  const selectedFactMetrics = getQueryableMetricsFromSnapshotSettings(
+    snapshotSettings,
+    metricMap,
+  ).filter(isFactMetric);
   if (
     decision.runnerFamily === "incremental-exploratory" &&
     incrementalRefreshModel &&
     getMetricsWithStaleIncrementalCache({
       metricSources: incrementalRefreshModel.metricSources,
+      desiredFanOut: planMetricFanOut(selectedFactMetrics),
       currentMetricSettingsHashes: getMetricSettingsHashesForIncrementalRefresh(
         {
-          factMetrics: getQueryableMetricsFromSnapshotSettings(
-            snapshotSettings,
-            metricMap,
-          ).filter(isFactMetric),
+          factMetrics: selectedFactMetrics,
           factTableMap,
           snapshotSettings,
         },

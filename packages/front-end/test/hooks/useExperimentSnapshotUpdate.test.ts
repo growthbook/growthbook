@@ -311,30 +311,30 @@ describe("useExperimentSnapshotUpdate", () => {
     const setRefreshError = vi.fn();
     const { result } = render({ setRefreshError });
 
-    let started: boolean | undefined;
+    let started: string | null | undefined;
     await act(async () => {
       started = await result.current.runSnapshot("");
     });
 
-    expect(started).toBe(false);
+    expect(started).toBeNull();
     expect(setRefreshError).toHaveBeenCalledWith("metrics drifted");
     expect(result.current.fullRefreshConfirm.open).toBe(false);
     expect(apiCall).toHaveBeenCalledTimes(1);
   });
 
-  it("runSnapshot returns true when the post starts a refresh", async () => {
+  it("runSnapshot returns the started snapshot id", async () => {
     apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
     const { result } = render();
 
-    let started: boolean | undefined;
+    let started: string | null | undefined;
     await act(async () => {
       started = await result.current.runSnapshot("", { force: true });
     });
 
-    expect(started).toBe(true);
+    expect(started).toBe("snap_1");
   });
 
-  it("runSnapshot returns false when the full-refresh prompt is cancelled", async () => {
+  it("runSnapshot returns null when the full-refresh prompt is cancelled", async () => {
     mockApiInterruptionError({
       status: 409,
       code: "requires_full_refresh",
@@ -343,7 +343,7 @@ describe("useExperimentSnapshotUpdate", () => {
     });
     const { result } = render();
 
-    let started: boolean | undefined;
+    let started: string | null | undefined;
     await act(async () => {
       void result.current.runSnapshot("").then((r) => {
         started = r;
@@ -356,23 +356,23 @@ describe("useExperimentSnapshotUpdate", () => {
       result.current.fullRefreshConfirm.onCancel();
     });
 
-    expect(started).toBe(false);
+    expect(started).toBeNull();
     expect(apiCall).toHaveBeenCalledTimes(1);
   });
 
-  it("runSnapshot returns false when the post fails without a blocker", async () => {
+  it("runSnapshot returns null when the post fails without a blocker", async () => {
     apiCall.mockImplementationOnce(async () => {
       throw new Error("boom");
     });
     const setRefreshError = vi.fn();
     const { result } = render({ setRefreshError });
 
-    let started: boolean | undefined;
+    let started: string | null | undefined;
     await act(async () => {
       started = await result.current.runSnapshot("", { force: false });
     });
 
-    expect(started).toBe(false);
+    expect(started).toBeNull();
     expect(setRefreshError).toHaveBeenCalledWith("boom");
   });
 });

@@ -270,10 +270,12 @@ export function getMetricSettingsHashForIncrementalRefresh({
   factMetric,
   factTableMap,
   metricSettings,
+  lookbackOverride,
 }: {
   factMetric: FactMetricInterface;
   factTableMap: Map<string, FactTableInterface>;
   metricSettings?: MetricForSnapshot;
+  lookbackOverride?: ExperimentSnapshotSettings["lookbackOverride"];
 }): string {
   const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
   const numeratorFactTable = numeratorFactTableId
@@ -295,8 +297,21 @@ export function getMetricSettingsHashForIncrementalRefresh({
         )
       : {};
 
+  // A date lookback becomes a window measured back from the analysis end, so
+  // its length grows with the clock. Hash what the window is derived from so
+  // an unedited experiment keeps a stable hash.
+  const dateLookbackHashInput =
+    lookbackOverride?.type === "date" && hashedComputedSettings.windowSettings
+      ? {
+          windowSettings: undefined,
+          lookbackStartDate: new Date(lookbackOverride.value).toISOString(),
+          metricWindowSettings: factMetric.windowSettings,
+        }
+      : {};
+
   return hashObject({
     ...hashedComputedSettings,
+    ...dateLookbackHashInput,
     metricType: factMetric.metricType,
     numerator: factMetric.numerator,
     denominator: factMetric.denominator,
@@ -413,30 +428,41 @@ export function getMetricSettingsHashesForIncrementalRefresh({
         metricSettings: snapshotSettings.metricSettings.find(
           (ms) => ms.id === m.id,
         ),
+        lookbackOverride: snapshotSettings.lookbackOverride,
       }),
     ]),
   );
 }
 
 // Exploratory runs read metric caches as-is and never rebuild them, so a
-// selected metric whose cache is missing or was built with other settings
-// would silently read stale data.
+// selected metric whose cache is missing from any fact table it needs, or was
+// built with other settings, would silently read stale or partial data.
 export function getMetricsWithStaleIncrementalCache({
   metricSources,
+  desiredFanOut,
   currentMetricSettingsHashes,
 }: {
   metricSources: IncrementalRefreshInterface["metricSources"];
+  desiredFanOut: Pick<MetricFanOut, "perFt">;
   currentMetricSettingsHashes: Map<string, string>;
 }): string[] {
-  const storedMetrics = metricSources.flatMap((source) => source.metrics);
-  return [...currentMetricSettingsHashes]
-    .filter(([metricId, currentHash]) => {
-      const stored = storedMetrics.filter((m) => m.id === metricId);
-      return (
-        !stored.length || stored.some((m) => m.settingsHash !== currentHash)
-      );
-    })
-    .map(([metricId]) => metricId);
+  const stale = new Set<string>();
+  for (const { factTableId, metrics } of desiredFanOut.perFt) {
+    const cached = metricSources
+      .filter((source) => source.factTableId === factTableId)
+      .flatMap((source) => source.metrics);
+    for (const metric of metrics) {
+      const stored = cached.filter((m) => m.id === metric.id);
+      const currentHash = currentMetricSettingsHashes.get(metric.id);
+      if (
+        !stored.length ||
+        stored.some((m) => m.settingsHash !== currentHash)
+      ) {
+        stale.add(metric.id);
+      }
+    }
+  }
+  return [...stale];
 }
 
 // Hash of only the schema-breaking parts of a fact metric (fields that change

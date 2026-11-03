@@ -1003,6 +1003,7 @@ const startExperimentIncrementalRefreshQueries = async (
                     metricSettings: insertParams.settings.metricSettings.find(
                       (ms) => ms.id === m.id,
                     ),
+                    lookbackOverride: insertParams.settings.lookbackOverride,
                   }),
                 })),
                 tableFullName: metricSourceTableFullName,

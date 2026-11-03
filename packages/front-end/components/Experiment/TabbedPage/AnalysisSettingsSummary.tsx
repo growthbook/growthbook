@@ -194,22 +194,42 @@ export default function AnalysisSettingsSummary({
 
   // Track previous latest status to detect transition from "running" to "success"
   const previousLatestStatusRef = useRef<string | undefined>(latest?.status);
-  // Dimension breakdown to run once the Overall update it was blocked on
-  // finishes.
-  const dimensionAfterOverallRef = useRef<string | null>(null);
-  const resumeDimensionRef = useRef<(dimension: string) => void>(() => {});
 
   // Call reset when latest status transitions from "running" to "success"
   useEffect(() => {
-    const finishedRunning = previousLatestStatusRef.current === "running";
+    if (
+      previousLatestStatusRef.current === "running" &&
+      latest?.status === "success"
+    ) {
+      onSnapshotSuccessfulUpdate?.();
+    }
     previousLatestStatusRef.current = latest?.status;
-    if (!finishedRunning || latest?.status === "running") return;
-    const pendingDimension = dimensionAfterOverallRef.current;
-    dimensionAfterOverallRef.current = null;
-    if (latest?.status !== "success") return;
-    onSnapshotSuccessfulUpdate?.();
-    if (pendingDimension) resumeDimensionRef.current(pendingDimension);
   }, [latest?.status, onSnapshotSuccessfulUpdate]);
+
+  // Dimension breakdown to run once the Overall update it was blocked on
+  // succeeds. Keyed by that update's snapshot id, since `latest` follows
+  // whichever dimension is on screen.
+  const breakdownAfterOverallRef = useRef<{
+    dimension: string;
+    overallSnapshotId: string;
+  } | null>(null);
+  const resumeDimensionRef = useRef<(dimension: string) => void>(() => {});
+
+  useEffect(() => {
+    const pending = breakdownAfterOverallRef.current;
+    if (!pending) return;
+    // Picking another dimension while Overall runs cancels the breakdown.
+    if (dimension) {
+      breakdownAfterOverallRef.current = null;
+      return;
+    }
+    if (latest?.id !== pending.overallSnapshotId) return;
+    if (latest.status === "running") return;
+    breakdownAfterOverallRef.current = null;
+    if (latest.status === "success") {
+      resumeDimensionRef.current(pending.dimension);
+    }
+  }, [dimension, latest?.id, latest?.status]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -430,12 +450,17 @@ export default function AnalysisSettingsSummary({
   const updateMainResults = async (blocker: SnapshotRefreshBlocker) => {
     setRefreshBlocker(null);
     const blockedDimension = dimension ?? "";
-    const started = await runSnapshot("", {
+    const overallSnapshotId = await runSnapshot("", {
       force: blocker.kind === "requires-full-refresh",
     });
-    if (!started) return;
-    dimensionAfterOverallRef.current = blockedDimension || null;
+    if (!overallSnapshotId) return;
     goToOverallResults();
+    if (blockedDimension) {
+      breakdownAfterOverallRef.current = {
+        dimension: blockedDimension,
+        overallSnapshotId,
+      };
+    }
     setSnapshotType?.(undefined);
   };
 

@@ -1,5 +1,6 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/types/experiment";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { ExposureQueryColumnMapping } from "shared/types/datasource";
 import { OrganizationInterface } from "shared/types/organization";
 import { IncrementalRefreshInterface } from "shared/validators";
@@ -525,6 +526,15 @@ describe("getFactTablesNeedingRebuild", () => {
 });
 
 describe("getMetricsWithStaleIncrementalCache", () => {
+  const fanOut = (pairs: [string, string][]) => ({
+    perFt: [...new Set(pairs.map(([ft]) => ft))].map((factTableId) => ({
+      factTableId,
+      metrics: pairs
+        .filter(([ft]) => ft === factTableId)
+        .map(([, id]) => ({ id }) as FactMetricInterface),
+    })),
+  });
+
   it("returns nothing when every stored hash matches", () => {
     expect(
       getMetricsWithStaleIncrementalCache({
@@ -533,6 +543,7 @@ describe("getMetricsWithStaleIncrementalCache", () => {
             { id: "m_a", settingsHash: "h1" },
           ]),
         ],
+        desiredFanOut: fanOut([["ft_a", "m_a"]]),
         currentMetricSettingsHashes: new Map([["m_a", "h1"]]),
       }),
     ).toEqual([]);
@@ -547,6 +558,10 @@ describe("getMetricsWithStaleIncrementalCache", () => {
             { id: "m_b", settingsHash: "h_b" },
           ]),
         ],
+        desiredFanOut: fanOut([
+          ["ft_a", "m_a"],
+          ["ft_a", "m_b"],
+        ]),
         currentMetricSettingsHashes: new Map([
           ["m_a", "new"],
           ["m_b", "h_b"],
@@ -563,6 +578,10 @@ describe("getMetricsWithStaleIncrementalCache", () => {
             { id: "m_a", settingsHash: "h1" },
           ]),
         ],
+        desiredFanOut: fanOut([
+          ["ft_a", "m_a"],
+          ["ft_a", "m_new"],
+        ]),
         currentMetricSettingsHashes: new Map([
           ["m_a", "h1"],
           ["m_new", "h_new"],
@@ -582,6 +601,27 @@ describe("getMetricsWithStaleIncrementalCache", () => {
             { id: "m_cross_ft", settingsHash: "old" },
           ]),
         ],
+        desiredFanOut: fanOut([
+          ["ft_num", "m_cross_ft"],
+          ["ft_denom", "m_cross_ft"],
+        ]),
+        currentMetricSettingsHashes: new Map([["m_cross_ft", "h_cross"]]),
+      }),
+    ).toEqual(["m_cross_ft"]);
+  });
+
+  it("flags a cross-FT ratio metric missing one of its sources", () => {
+    expect(
+      getMetricsWithStaleIncrementalCache({
+        metricSources: [
+          makeMetricSource("grp_num", "ft_num", [
+            { id: "m_cross_ft", settingsHash: "h_cross" },
+          ]),
+        ],
+        desiredFanOut: fanOut([
+          ["ft_num", "m_cross_ft"],
+          ["ft_denom", "m_cross_ft"],
+        ]),
         currentMetricSettingsHashes: new Map([["m_cross_ft", "h_cross"]]),
       }),
     ).toEqual(["m_cross_ft"]);
@@ -596,6 +636,7 @@ describe("getMetricsWithStaleIncrementalCache", () => {
             { id: "m_removed", settingsHash: "old" },
           ]),
         ],
+        desiredFanOut: fanOut([["ft_a", "m_a"]]),
         currentMetricSettingsHashes: new Map([["m_a", "h1"]]),
       }),
     ).toEqual([]);
@@ -638,6 +679,42 @@ describe("getMetricSettingsHashesForIncrementalRefresh", () => {
     expect([...before.keys()]).toEqual(["m_a", "m_b"]);
     expect(after.get("m_a")).not.toBe(before.get("m_a"));
     expect(after.get("m_b")).toBe(before.get("m_b"));
+  });
+
+  it("keeps a date lookback's hash stable as its window grows", () => {
+    const hashWithLookbackWindowHours = (
+      windowValue: number,
+      lookbackStart: Date,
+    ) =>
+      getMetricSettingsHashesForIncrementalRefresh({
+        factMetrics: [metricA],
+        factTableMap: new Map(),
+        snapshotSettings: makeSnapshotSettings({
+          lookbackOverride: { type: "date", value: lookbackStart },
+          metricSettings: [
+            {
+              id: "m_a",
+              computedSettings: {
+                windowSettings: {
+                  type: "lookback",
+                  windowValue,
+                  windowUnit: "hours",
+                  delayValue: 0,
+                  delayUnit: "hours",
+                },
+              },
+            },
+          ] as ExperimentSnapshotSettings["metricSettings"],
+        }),
+      }).get("m_a");
+    const start = new Date("2026-10-01T00:00:00Z");
+
+    expect(hashWithLookbackWindowHours(48, start)).toBe(
+      hashWithLookbackWindowHours(49, start),
+    );
+    expect(hashWithLookbackWindowHours(48, start)).not.toBe(
+      hashWithLookbackWindowHours(48, new Date("2026-10-02T00:00:00Z")),
+    );
   });
 });
 

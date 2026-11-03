@@ -1861,6 +1861,7 @@ describe("snapshot planning", () => {
     );
     expect(getMetricsWithStaleIncrementalCacheMock).toHaveBeenCalledWith({
       metricSources: [],
+      desiredFanOut: { perFt: [], multiSourceGroups: [] },
       currentMetricSettingsHashes: new Map(),
     });
   });
