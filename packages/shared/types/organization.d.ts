@@ -402,6 +402,10 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  // When true, the main results "Update" button is disabled for stopped
+  // experiments so their results stay frozen. "Re-run all queries" and
+  // on-demand dimension analyses are still available.
+  disableResultsRefreshForStoppedExperiments?: boolean;
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentKeyExample?: string;
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt

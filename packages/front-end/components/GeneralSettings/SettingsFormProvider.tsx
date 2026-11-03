@@ -274,6 +274,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       banditBurnInValue: 1,
       banditBurnInUnit: "days",
       requireExperimentTemplates: false,
+      disableResultsRefreshForStoppedExperiments: false,
       requireUniqueExperimentTrackingKeys: false,
       experimentKeyExample: "",
       experimentKeyRegexValidator: "",

@@ -317,6 +317,18 @@ export default function ExperimentSettings() {
           </SettingsField>
         )}
 
+        <UnsavedMark name="disableResultsRefreshForStoppedExperiments">
+          <Checkbox
+            id="toggle-disableResultsRefreshForStoppedExperiments"
+            label="Disable updating results for stopped experiments"
+            description='Once an experiment is stopped, its main results "Update" button is disabled so results stay as they were at stop time. "Re-run all queries" and dimension breakdowns are still available.'
+            value={!!form.watch("disableResultsRefreshForStoppedExperiments")}
+            setValue={(v) =>
+              form.setValue("disableResultsRefreshForStoppedExperiments", v)
+            }
+          />
+        </UnsavedMark>
+
         <SettingsField
           name="attributionModel"
           label={

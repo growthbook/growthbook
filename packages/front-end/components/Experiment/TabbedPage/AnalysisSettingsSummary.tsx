@@ -75,6 +75,7 @@ import {
   getHonoredPrecomputedUnitDimensionIds,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
+import Tooltip from "@/ui/Tooltip";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -384,6 +385,12 @@ export default function AnalysisSettingsSummary({
     overallNeedsFullRefresh || overallNeverRanIncrementally;
   const hideOutdatedBadge =
     viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
+  // Org setting that freezes the main results of stopped experiments. On-demand
+  // dimension snapshots don't change the main results, so they stay enabled.
+  const mainResultsUpdateLocked =
+    !!orgSettings.disableResultsRefreshForStoppedExperiments &&
+    experiment.status === "stopped" &&
+    !viewingOnDemandDimension;
 
   const newerOverallResultsAvailable = isNewerOverallResultsDataAvailable(
     sourceSnapshot,
@@ -963,47 +970,55 @@ export default function AnalysisSettingsSummary({
             {ds &&
             permissionsUtil.canRunExperimentQueries(ds) &&
             allMetrics.length > 0 ? (
-              <RefreshResultsButton
-                entityType={
-                  experiment.type === "holdout" ? "holdout" : "experiment"
-                }
-                entityId={experiment.id}
-                datasourceId={experiment.datasource}
-                latest={latest}
-                experimentSnapshotTrackingProps={{
-                  trackingSource: "RunQueriesButton",
-                  datasourceType: datasource?.type || null,
-                }}
-                onSuccess={() => {
-                  if (experiment.type === "multi-armed-bandit") {
-                    setSnapshotType?.("exploratory");
-                  } else {
-                    setSnapshotType?.(undefined);
-                  }
-                }}
-                // Poll loop + post-submit refresh hit the default
-                // status-only `mutate()` — the provider auto-upgrades to a
-                // full snapshot fetch when status reports a newer successful
-                // run, so a heavy refetch here would be redundant.
-                mutate={mutate}
-                mutateAdditional={mutateExperiment}
-                setRefreshError={setRefreshError}
-                experiment={experiment}
-                phase={phase}
-                dimension={dimension}
-                setAnalysisSettings={setAnalysisSettings}
-                customValidation={confirmRefresh}
-                onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
-                disabled={
-                  viewingDimensionThatRequiresOverallFirst &&
-                  overallResultsRequiredBeforeDimensionRefresh
-                }
-                fullRefreshRequired={
-                  !viewingDimensionThatRequiresOverallFirst &&
-                  overallNeedsFullRefresh
-                }
-                fullRefreshReasons={fullRefreshReasons}
-              />
+              <Tooltip
+                content="Your organization's settings prevent updating results for stopped experiments."
+                enabled={mainResultsUpdateLocked}
+              >
+                <span style={{ display: "inline-flex" }}>
+                  <RefreshResultsButton
+                    entityType={
+                      experiment.type === "holdout" ? "holdout" : "experiment"
+                    }
+                    entityId={experiment.id}
+                    datasourceId={experiment.datasource}
+                    latest={latest}
+                    experimentSnapshotTrackingProps={{
+                      trackingSource: "RunQueriesButton",
+                      datasourceType: datasource?.type || null,
+                    }}
+                    onSuccess={() => {
+                      if (experiment.type === "multi-armed-bandit") {
+                        setSnapshotType?.("exploratory");
+                      } else {
+                        setSnapshotType?.(undefined);
+                      }
+                    }}
+                    // Poll loop + post-submit refresh hit the default
+                    // status-only `mutate()` — the provider auto-upgrades to a
+                    // full snapshot fetch when status reports a newer successful
+                    // run, so a heavy refetch here would be redundant.
+                    mutate={mutate}
+                    mutateAdditional={mutateExperiment}
+                    setRefreshError={setRefreshError}
+                    experiment={experiment}
+                    phase={phase}
+                    dimension={dimension}
+                    setAnalysisSettings={setAnalysisSettings}
+                    customValidation={confirmRefresh}
+                    onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
+                    disabled={
+                      mainResultsUpdateLocked ||
+                      (viewingDimensionThatRequiresOverallFirst &&
+                        overallResultsRequiredBeforeDimensionRefresh)
+                    }
+                    fullRefreshRequired={
+                      !viewingDimensionThatRequiresOverallFirst &&
+                      overallNeedsFullRefresh
+                    }
+                    fullRefreshReasons={fullRefreshReasons}
+                  />
+                </span>
+              </Tooltip>
             ) : null}
 
             <ResultMoreMenu
