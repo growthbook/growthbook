@@ -916,6 +916,8 @@ describe("expireOldQueries interleaving snapshots", () => {
         $set: {
           status: "error",
           error: expect.stringContaining("never recorded"),
+          // Advanced so the runner's CAS write can't undo this
+          dateUpdated: expect.any(Date),
         },
       },
     );
@@ -981,6 +983,8 @@ describe("expireOldQueries interleaving snapshots", () => {
           status: "error",
           error: expect.stringContaining("never started"),
           queries: [{ name: "ft_cart", query: "qry_1", status: "queued" }],
+          // Advanced so the runner's CAS write can't undo this
+          dateUpdated: expect.any(Date),
         },
       },
     );
@@ -1042,6 +1046,8 @@ describe("expireOldQueries interleaving snapshots", () => {
           status: "error",
           error: expect.stringContaining("never finalized"),
           queries: [{ name: "ft_cart", query: "qry_1", status: "succeeded" }],
+          // Advanced so the runner's CAS write can't undo this
+          dateUpdated: expect.any(Date),
         },
       },
     );
@@ -1066,6 +1072,8 @@ describe("expireOldQueries interleaving snapshots", () => {
           error: "Queries were interrupted. Please try updating results again.",
           status: "error",
           queries: [{ name: "ft_cart", query: "qry_1", status: "failed" }],
+          // Advanced so the runner's CAS write can't undo this
+          dateUpdated: expect.any(Date),
         },
       },
     );

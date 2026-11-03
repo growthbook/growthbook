@@ -22,6 +22,7 @@ export type InterleavingResultsQueryParams = {
 
 export type InterleavingQueryRunResult = {
   results: InterleavingMetricResult[];
+  usersExposed: number;
 };
 
 export class InterleavingResultsQueryRunner extends QueryRunner<
@@ -247,7 +248,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       }
     }
 
-    return { results };
+    return { results, usersExposed };
   }
 
   async getLatestModel(): Promise<InterleavingSnapshotInterface> {
@@ -287,16 +288,15 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
 
     if (status === "succeeded" && result) {
       updates.results = result.results;
+      updates.usersExposed = result.usersExposed;
     }
 
-    await this.context.models.interleavingSnapshots.updateById(
-      this.model.id,
-      updates,
-    );
-
-    return {
-      ...this.model,
-      ...updates,
-    };
+    const updated =
+      await this.context.models.interleavingSnapshots.finalizeIfRunning(
+        this.model.id,
+        updates,
+      );
+    // Already finalized by the reaper or a cancel; report its state, not ours.
+    return updated ?? (await this.getLatestModel());
   }
 }

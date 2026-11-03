@@ -121,6 +121,7 @@ export const interleavingSnapshotValidator = baseSchema
     queries: z.array(queryPointerValidator),
     settings: interleavingSnapshotSettingsValidator,
     results: z.array(interleavingMetricResultValidator).optional(),
+    usersExposed: z.number().optional(),
   })
   .strict();
 
@@ -156,12 +157,37 @@ export const apiInterleavingSnapshotValidator = namedSchema(
         .array(interleavingMetricResultValidator)
         .optional()
         .describe("Present once status is success"),
+      usersExposed: z
+        .number()
+        .optional()
+        .describe(
+          "Distinct units in the exposure query. Absent on snapshots run before this was recorded.",
+        ),
     })
     .strict(),
 );
 
 export type ApiInterleavingSnapshotInterface = z.infer<
   typeof apiInterleavingSnapshotValidator
+>;
+
+// Lightweight projection used while polling a run.
+export const apiInterleavingSnapshotStatusValidator = namedSchema(
+  "InterleavingSnapshotStatus",
+  z
+    .object({
+      id: z.string(),
+      status: interleavingSnapshotValidator.shape.status,
+      error: z.string().optional(),
+      dateCreated: z.iso.datetime(),
+      runStarted: z.iso.datetime().nullable(),
+      queries: z.array(queryPointerValidator),
+    })
+    .strict(),
+);
+
+export type ApiInterleavingSnapshotStatus = z.infer<
+  typeof apiInterleavingSnapshotStatusValidator
 >;
 
 const interleavingIdParams = z.strictObject({
@@ -203,9 +229,22 @@ export const apiInterleavingSnapshotReturn = z.object({
 export const apiInterleavingResultsReturn = z.object({
   snapshot: apiInterleavingSnapshotValidator
     .nullable()
-    .describe("null until the first refresh"),
+    .describe(
+      "The most recent snapshot that succeeded, so results stay readable while a newer run is in flight. null until the first run succeeds.",
+    ),
+  latest: apiInterleavingSnapshotStatusValidator
+    .nullable()
+    .describe(
+      "Status of the most recent snapshot in any state. Poll this to follow a run; it matches `snapshot` once that run succeeds. null until the first refresh.",
+    ),
 });
 
 export const apiInterleavingSnapshotsReturn = z.object({
   snapshots: z.array(apiInterleavingSnapshotValidator),
+});
+
+export const apiInterleavingStatusReturn = z.object({
+  latest: apiInterleavingSnapshotStatusValidator
+    .nullable()
+    .describe("null until the first refresh"),
 });

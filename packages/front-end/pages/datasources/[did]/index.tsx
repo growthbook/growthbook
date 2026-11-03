@@ -18,7 +18,8 @@ import { isTestableDataSourceType } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -74,9 +75,11 @@ import TextField from "@/ui/TextField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { DataSourceUsage } from "@/pages/datasources/queries/[did]";
 import useURLHash from "@/hooks/useURLHash";
+import { InterleavingExposureQueries } from "@/components/Settings/EditDataSource/InterleavingExposureQueries/InterleavingExposureQueries";
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
 export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
+export const IEQ_ANCHOR_ID = "interleaving-exposure-queries";
 
 // Default when this Data Source has no Event Forwarder tab. Queries is only
 // rendered for SQL sources; non-SQL sources fall back to Usage.
@@ -99,6 +102,7 @@ const EXPLORER_HEIGHT_WHEN_PAGE_SCROLLS = "max(480px, calc(100vh - 280px))";
 const LEGACY_ANCHOR_TABS: Record<string, (typeof DATA_SOURCE_TABS)[number]> = {
   [EAQ_ANCHOR_ID]: "queries",
   [CBAQ_ANCHOR_ID]: "queries",
+  [IEQ_ANCHOR_ID]: "queries",
 };
 
 function quotePropertyName(name: string) {
@@ -364,6 +368,7 @@ const DataSourcePage: FC = () => {
   const { hasCommercialFeature, settings: orgSettings } = useUser();
   // Default ON; the remote flag only turns this off for specific orgs.
   const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
+  const interleavingEnabled = useFeatureIsOn("interleave-exp");
 
   // Only the never-provisioned state replaces the settings UI with the onboarding
   // callout. A transient migration must NOT blank the config page — query sub-surfaces
@@ -399,6 +404,14 @@ const DataSourcePage: FC = () => {
   const canUpdateDataSourceSettings =
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
+
+  // Interleaving analysis unnests a JSON array of ranked items, so only
+  // dialects that can do that are offered the section.
+  const showInterleavingQueries =
+    !!d &&
+    interleavingEnabled &&
+    hasCommercialFeature("interleaving") &&
+    !!getDataSourceSqlDialect(d.type)?.jsonArray;
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
 
@@ -764,6 +777,14 @@ const DataSourcePage: FC = () => {
                         />
                       </Frame>
                     )}
+                  {showInterleavingQueries && (
+                    <Frame id={IEQ_ANCHOR_ID} mb="0">
+                      <InterleavingExposureQueries
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    </Frame>
+                  )}
                   {!isManagedWarehouse && (
                     <>
                       <Frame mb="0">

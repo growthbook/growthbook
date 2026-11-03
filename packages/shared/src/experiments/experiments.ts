@@ -2156,27 +2156,39 @@ export function shouldHighlight({
   stats,
   hasEnoughData,
   belowMinChange,
+  hasData,
 }: {
   metric: { id: string };
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   hasEnoughData: boolean;
   belowMinChange: boolean;
+  // Defaults to non-zero metric values. Denominator-sized rows pass their own,
+  // since a value of 0 is a real result there.
+  hasData?: boolean;
 }): boolean {
   return !!(
     metric &&
-    baseline?.value &&
-    stats?.value &&
+    (hasData ?? !!(baseline?.value && stats?.value)) &&
     hasEnoughData &&
     !belowMinChange
   );
 }
 
+export type SampleSizeSource = "denominator";
+
 export function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: ExperimentMetricDefinition,
+  sampleSizeFrom?: SampleSizeSource,
 ): { baselineValue?: number; variationValue?: number } {
+  if (sampleSizeFrom === "denominator") {
+    return {
+      baselineValue: baseline?.denominator,
+      variationValue: stats?.denominator,
+    };
+  }
   return quantileMetricType(metric)
     ? {
         baselineValue: baseline?.stats?.count,
@@ -2190,11 +2202,13 @@ export function hasEnoughData(
   stats: SnapshotMetric,
   metric: ExperimentMetricDefinition,
   metricDefaults: MetricDefaults,
+  sampleSizeFrom?: SampleSizeSource,
 ): boolean {
   const { baselineValue, variationValue } = getMetricSampleSize(
     baseline,
     stats,
     metric,
+    sampleSizeFrom,
   );
   if (!baselineValue || !variationValue) return false;
 
@@ -2270,6 +2284,7 @@ export function getMetricResultStatus({
   pValueThreshold,
   statsEngine,
   differenceType,
+  sampleSizeFrom,
 }: {
   metric: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
@@ -2280,13 +2295,20 @@ export function getMetricResultStatus({
   pValueThreshold: number;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
+  sampleSizeFrom?: SampleSizeSource;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
       ? "winning"
       : "losing";
 
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  const enoughData = hasEnoughData(
+    baseline,
+    stats,
+    metric,
+    metricDefaults,
+    sampleSizeFrom,
+  );
   const belowMinChange = isBelowMinChange(
     baseline,
     stats,
@@ -2294,12 +2316,21 @@ export function getMetricResultStatus({
     metricDefaults,
     differenceType,
   );
+  const sampleSize = getMetricSampleSize(
+    baseline,
+    stats,
+    metric,
+    sampleSizeFrom,
+  );
   const _shouldHighlight = shouldHighlight({
     metric,
     baseline,
     stats,
     hasEnoughData: enoughData,
     belowMinChange,
+    hasData: sampleSizeFrom
+      ? !!sampleSize.baselineValue && !!sampleSize.variationValue
+      : undefined,
   });
 
   let significant: boolean;
