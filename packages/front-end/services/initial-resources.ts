@@ -1180,6 +1180,12 @@ export function getDatasourceTemplateSettings({
 
   return {
     ...settings,
+    // The project id or name is baked into the SQL above, and also kept here
+    // so Settings can show which projects the tool includes.
+    schemaOptions: {
+      ...settings.schemaOptions,
+      ...schemaOptions,
+    },
     userIdTypes: [
       ...(settings.userIdTypes || []),
       ...initial.userIdTypes.filter((t) => !existingTypes.has(t.userIdType)),

@@ -333,6 +333,7 @@ describe("getDatasourceTemplateSettings", () => {
     ]);
     expect(exposure[1].name).toBe("Langfuse: Logged-in Users");
     expect(exposure[1].query).toContain("t.project_id = 'proj_1'");
+    expect(settings.schemaOptions).toEqual({ projectId: "proj_1" });
     expect(settings.queries?.identityJoins?.[0].ids).toEqual([
       "user_id",
       "session_id",
