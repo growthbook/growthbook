@@ -1,5 +1,21 @@
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import VariationLabel from "./VariationLabel";
+
+export const meta: StoryMeta = {
+  name: "VariationLabel",
+  category: "experimentation",
+  status: "stable",
+  summary: "Variation number with its name, truncating the name to fit.",
+  useWhen: ["Naming a variation in results, lists, or headers."],
+  avoidWhen: [
+    {
+      reason: "Only the variation number fits.",
+      use: "VariationNumber",
+    },
+  ],
+  related: ["VariationNumber"],
+};
 
 export default function VariationLabelStories() {
   return (

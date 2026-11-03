@@ -2,8 +2,24 @@ import React, { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import Link from "@/ui/Link";
+import { StoryMeta } from "@/ui/storyMeta";
 import ColumnSettingsButton from "./ColumnSettingsButton";
 import { ManagedColumn } from "./ColumnSettings";
+
+export const meta: StoryMeta = {
+  name: "ColumnSettingsButton",
+  category: "data-display",
+  status: "stable",
+  summary:
+    "Button that opens a popover for showing, hiding, and reordering table columns.",
+  useWhen: ["Tables where users pick which columns they see."],
+  avoidWhen: [
+    {
+      reason: "Tables with a fixed set of columns.",
+    },
+  ],
+  related: ["ColumnSettings", "Table"],
+};
 
 const INITIAL: ManagedColumn[] = [
   { id: "name", label: "Attribute", visible: true, alwaysVisible: true },

@@ -1,9 +1,25 @@
 import { useState } from "react";
 import { Flex, Grid, Separator } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Heading, { HeadingProps } from "./Heading";
 import { Select, SelectItem } from "./Select";
 import Text from "./Text";
 import Callout from "./Callout";
+
+export const meta: StoryMeta = {
+  name: "Heading",
+  category: "typography",
+  status: "stable",
+  summary: "Title Case heading with the design-system size scale.",
+  useWhen: ["Titling a page, section, modal, or card."],
+  avoidWhen: [
+    {
+      reason: "Body or label copy.",
+      use: "Text",
+    },
+  ],
+  related: ["Text"],
+};
 
 export default function HeadingStories() {
   const [headingColor, setHeadingColor] =

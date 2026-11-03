@@ -2,7 +2,26 @@ import { useRef, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import { StoryMeta } from "@/ui/storyMeta";
 import RichTextEditor, { RichTextEditorHandle } from "./RichTextEditor";
+
+export const meta: StoryMeta = {
+  name: "RichTextEditor",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Markdown editor with a formatting toolbar, auto-grow, and image upload. Its value and onChange are Markdown strings.",
+  useWhen: [
+    "Long-form text that supports formatting, such as comments or descriptions.",
+  ],
+  avoidWhen: [
+    {
+      reason: "A short single-line value.",
+      use: "TextField",
+    },
+  ],
+  related: ["TextField"],
+};
 
 const SAMPLE = `## Hypothesis
 

@@ -1,5 +1,26 @@
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { StoryMeta } from "@/ui/storyMeta";
 import DataList from "./DataList";
+
+export const meta: StoryMeta = {
+  name: "DataList",
+  category: "data-display",
+  status: "stable",
+  summary:
+    "Grid of labeled values for one record, with optional tooltips and a header.",
+  useWhen: ["Showing several properties of one object in columns."],
+  avoidWhen: [
+    {
+      reason: "One or two inline label and value pairs.",
+      use: "Metadata",
+    },
+    {
+      reason: "Many records with shared columns.",
+      use: "Table",
+    },
+  ],
+  related: ["Metadata"],
+};
 
 export default function DataListStories() {
   return (

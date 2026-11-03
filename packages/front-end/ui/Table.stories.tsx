@@ -1,4 +1,5 @@
 import { Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Table, {
   TableHeader,
   TableBody,
@@ -6,6 +7,28 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "./Table";
+
+export const meta: StoryMeta = {
+  name: "Table",
+  category: "data-display",
+  status: "stable",
+  summary: "Design-system table built on Radix Table.",
+  useWhen: [
+    "Rows of records with shared columns.",
+    "Replacing a Bootstrap table class.",
+  ],
+  avoidWhen: [
+    {
+      reason: "A few label and value pairs for one record.",
+      use: "DataList",
+    },
+    {
+      reason: "Values tinted by magnitude.",
+      use: "Heatmap",
+    },
+  ],
+  related: ["ColumnSettingsButton", "ColumnResizeHandle", "Pagination"],
+};
 
 const sampleRows = [
   { name: "Item One", status: "Active", date: "Jan 15, 2025" },

@@ -1,4 +1,5 @@
 import { Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import {
   DropdownMenu,
   DropdownMenuLabel,
@@ -6,6 +7,29 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "./DropdownMenu";
+
+export const meta: StoryMeta = {
+  name: "DropdownMenu",
+  category: "actions",
+  status: "stable",
+  summary:
+    "Menu of actions that opens from a trigger, with items, groups, separators, and submenus.",
+  useWhen: [
+    "Several secondary actions on a row, card, or page header.",
+    "Overflow actions behind a more button.",
+  ],
+  avoidWhen: [
+    {
+      reason: "Choosing a value for a form field.",
+      use: "Select",
+    },
+    {
+      reason: "A single action.",
+      use: "Button",
+    },
+  ],
+  related: ["SplitButton", "Button"],
+};
 
 export default function DropdownMenuStories() {
   return (

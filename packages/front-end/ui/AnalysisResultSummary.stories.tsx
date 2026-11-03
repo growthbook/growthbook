@@ -9,6 +9,23 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import Frame from "@/ui/Frame";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "AnalysisResultSummary",
+  category: "experimentation",
+  status: "stable",
+  summary:
+    "Compact view of one metric's analysis results. Usually rendered inside a Tooltip or Popover when hovering over a result cell.",
+  useWhen: ["Hover details for a result cell in an experiment results table."],
+  avoidWhen: [
+    {
+      reason: "A full per-variation breakdown.",
+      use: "VariationStatsTable",
+    },
+  ],
+  related: ["VariationStatsTable", "Tooltip", "Popover"],
+};
 
 const variationA = {
   id: "v0",

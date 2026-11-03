@@ -1,5 +1,27 @@
 import { Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "Field",
+  category: "inputs",
+  status: "legacy",
+  replacedBy: "TextField",
+  summary:
+    "Bootstrap-based text input. Prefer TextField for new work; this component remains for legacy forms and textareas.",
+  useWhen: ["Editing an existing legacy form that already uses it."],
+  avoidWhen: [
+    {
+      reason: "Any new single-line text input.",
+      use: "TextField",
+    },
+    {
+      reason: "Multi-line formatted text.",
+      use: "RichTextEditor",
+    },
+  ],
+  related: ["TextField"],
+};
 
 function TextInputSizesStory() {
   return (

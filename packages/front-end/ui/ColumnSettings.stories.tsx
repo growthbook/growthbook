@@ -1,6 +1,22 @@
 import React, { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import ColumnSettings, { ManagedColumn } from "./ColumnSettings";
+
+export const meta: StoryMeta = {
+  name: "ColumnSettings",
+  category: "data-display",
+  status: "stable",
+  summary: "List of table columns that can be shown, hidden, and reordered.",
+  useWhen: ["Building custom column controls around a Table."],
+  avoidWhen: [
+    {
+      reason: "Most tables. It already wraps this in a popover.",
+      use: "ColumnSettingsButton",
+    },
+  ],
+  related: ["ColumnSettingsButton", "Table"],
+};
 
 const INITIAL: ManagedColumn[] = [
   { id: "name", label: "Attribute", visible: true, alwaysVisible: true },

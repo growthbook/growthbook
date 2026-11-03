@@ -1,6 +1,28 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "SelectField",
+  category: "inputs",
+  status: "legacy",
+  replacedBy: "Select",
+  summary:
+    "Bootstrap-styled searchable select built on react-select, from components/Forms. Prefer Select for new work.",
+  useWhen: ["Editing an existing legacy form that already uses it."],
+  avoidWhen: [
+    {
+      reason: "A new single-value select.",
+      use: "Select",
+    },
+    {
+      reason: "Picking several values.",
+      use: "MultiSelectField",
+    },
+  ],
+  related: ["Select", "MultiSelectField"],
+};
 
 const FRUIT_OPTIONS = [
   { label: "Apple", value: "apple" },

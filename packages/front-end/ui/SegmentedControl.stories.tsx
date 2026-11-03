@@ -2,7 +2,30 @@ import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
+import { StoryMeta } from "@/ui/storyMeta";
 import SegmentedControl from "./SegmentedControl";
+
+export const meta: StoryMeta = {
+  name: "SegmentedControl",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Compact row of segments for switching between a few views or modes.",
+  useWhen: [
+    "Toggling between two to four views of the same content, such as chart types.",
+  ],
+  avoidWhen: [
+    {
+      reason: "Switching between distinct page sections.",
+      use: "Tabs",
+    },
+    {
+      reason: "Choosing a form value from many options.",
+      use: "Select",
+    },
+  ],
+  related: ["Tabs", "RadioGroup"],
+};
 
 export default function SegmentedControlStories() {
   const [view, setView] = useState<"day" | "week" | "month">("week");

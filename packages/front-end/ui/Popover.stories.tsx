@@ -1,8 +1,36 @@
 import React, { useState } from "react";
 import { Flex, Text, Box } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import { Popover } from "./Popover";
 import Button from "./Button";
 import Switch from "./Switch";
+
+export const meta: StoryMeta = {
+  name: "Popover",
+  category: "overlays",
+  status: "stable",
+  summary:
+    "Interactive content anchored to a trigger, opened on click or optionally on hover.",
+  useWhen: [
+    "Show small interactive content such as controls or a form next to a trigger.",
+    "Show richer details than a tooltip can hold.",
+  ],
+  avoidWhen: [
+    {
+      reason: "The content is short, plain text with no interaction.",
+      use: "Tooltip",
+    },
+    {
+      reason: "The user picks from a list of actions.",
+      use: "DropdownMenu",
+    },
+    {
+      reason: "The content needs the full screen or several steps.",
+      use: "Modal",
+    },
+  ],
+  related: ["Tooltip", "DropdownMenu", "ShareUrlPopover"],
+};
 
 export default function PopoverStories() {
   const [controlledOpen, setControlledOpen] = useState(false);

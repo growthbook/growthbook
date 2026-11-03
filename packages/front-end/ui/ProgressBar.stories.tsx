@@ -1,5 +1,25 @@
 import { Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import { ProgressBar } from "./ProgressBar";
+
+export const meta: StoryMeta = {
+  name: "ProgressBar",
+  category: "feedback",
+  status: "stable",
+  summary:
+    "A segmented bar where each segment has its own weight, completion, color, and tooltip.",
+  useWhen: [
+    "Show progress across several weighted stages.",
+    "Show partial completion of a single run.",
+  ],
+  avoidWhen: [
+    {
+      reason: "You need step-by-step navigation through a flow.",
+      use: "Stepper",
+    },
+  ],
+  related: ["Stepper"],
+};
 
 export default function ProgressBarStories() {
   return (

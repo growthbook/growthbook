@@ -1,6 +1,26 @@
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { ReactNode } from "react";
+import { StoryMeta } from "@/ui/storyMeta";
 import ScrollArea, { pinnedTo } from "./ScrollArea";
+
+export const meta: StoryMeta = {
+  name: "ScrollArea",
+  category: "layout",
+  status: "stable",
+  summary:
+    "A scroll container with styled scrollbars and optional fade or shadow cues at the edges.",
+  useWhen: [
+    "Cap the height or width of long content and let it scroll.",
+    "Show that more content is hidden past an edge.",
+  ],
+  avoidWhen: [
+    {
+      reason: "A long list should be split into pages.",
+      use: "Pagination",
+    },
+  ],
+  related: ["Pagination"],
+};
 
 const rows = Array.from({ length: 20 }, (_, i) => `Row ${i + 1}`);
 

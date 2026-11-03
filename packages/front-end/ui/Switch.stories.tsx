@@ -1,7 +1,23 @@
 import { useState } from "react";
 import { Flex, Grid, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
+import { StoryMeta } from "@/ui/storyMeta";
 import Switch from "./Switch";
+
+export const meta: StoryMeta = {
+  name: "Switch",
+  category: "inputs",
+  status: "stable",
+  summary: "On and off toggle with an optional label and description.",
+  useWhen: ["Enabling or disabling a setting, often applied immediately."],
+  avoidWhen: [
+    {
+      reason: "Selecting items or a boolean in a list of form choices.",
+      use: "Checkbox",
+    },
+  ],
+  related: ["Checkbox"],
+};
 
 export default function SwitchStories() {
   const [switchDisabled, setSwitchDisabled] = useState(false);

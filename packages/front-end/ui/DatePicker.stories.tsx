@@ -1,6 +1,20 @@
 import { Flex } from "@radix-ui/themes";
 import { useState } from "react";
 import DatePicker from "@/components/DatePicker";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "DatePicker",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Date or date range picker with optional time. The component lives in components/DatePicker, not @/ui.",
+  useWhen: [
+    "Picking a single date or a start and end date, with or without a time.",
+  ],
+  avoidWhen: [],
+  related: ["TextField"],
+};
 
 export default function DatePickerStories() {
   const [date1, setDate1] = useState<Date | undefined>();

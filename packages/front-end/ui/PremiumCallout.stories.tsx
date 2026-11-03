@@ -1,7 +1,27 @@
 import { Flex } from "@radix-ui/themes";
 import { Permissions } from "shared/permissions";
 import { UserContext } from "@/services/UserContext";
+import { StoryMeta } from "@/ui/storyMeta";
 import PremiumCallout from "./PremiumCallout";
+
+export const meta: StoryMeta = {
+  name: "PremiumCallout",
+  category: "feedback",
+  status: "stable",
+  summary:
+    "A callout that promotes a commercial feature and links to upgrade, optionally dismissible per user.",
+  useWhen: [
+    "Tell users a feature needs a higher plan.",
+    "Nudge an upgrade next to the gated feature.",
+  ],
+  avoidWhen: [
+    {
+      reason: "The message is not about a paid feature.",
+      use: "Callout",
+    },
+  ],
+  related: ["Callout"],
+};
 
 export default function PremiumCalloutStories() {
   return (

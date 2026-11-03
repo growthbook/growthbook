@@ -1,5 +1,24 @@
 import { useState } from "react";
 import { Flex, Slider } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "Slider",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Examples of the Radix Themes Slider for picking a value or range on a numeric scale. There is no @/ui wrapper; import Slider from @radix-ui/themes.",
+  useWhen: [
+    "Adjusting a percentage or number where the approximate position matters more than an exact value.",
+  ],
+  avoidWhen: [
+    {
+      reason: "The user needs to type an exact number.",
+      use: "TextField",
+    },
+  ],
+  related: ["TextField"],
+};
 export default function SliderStories() {
   const [sliderVal, setSliderVal] = useState(10);
 

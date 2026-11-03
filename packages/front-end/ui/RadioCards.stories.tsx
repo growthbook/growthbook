@@ -2,8 +2,28 @@ import { useState } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { StoryMeta } from "@/ui/storyMeta";
 import RadioCards from "./RadioCards";
 import Avatar from "./Avatar";
+
+export const meta: StoryMeta = {
+  name: "RadioCards",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Single-choice options rendered as selectable cards with a label, description, and optional avatar.",
+  useWhen: [
+    "A prominent choice where each option needs a short explanation.",
+    "Choosing a type or mode at the start of a flow.",
+  ],
+  avoidWhen: [
+    {
+      reason: "Simple options that fit on one line.",
+      use: "RadioGroup",
+    },
+  ],
+  related: ["RadioGroup"],
+};
 
 export default function RadioCardsStories() {
   const [radioCardSelected, setRadioCardSelected] = useState("");

@@ -2,6 +2,30 @@ import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiHourglassMedium } from "react-icons/pi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "Tabs",
+  category: "navigation",
+  status: "stable",
+  summary:
+    "Tabs that switch between panels of related content on the same page.",
+  useWhen: [
+    "Split a page into peer sections the user switches between.",
+    "Replace legacy Bootstrap nav-tabs.",
+  ],
+  avoidWhen: [
+    {
+      reason: "You are choosing a value or mode in a form.",
+      use: "SegmentedControl",
+    },
+    {
+      reason: "The sections are ordered steps in a flow.",
+      use: "Stepper",
+    },
+  ],
+  related: ["SegmentedControl"],
+};
 
 export default function TabsStories() {
   const [activeControlledTab, setActiveControlledTab] = useState("tab1");

@@ -1,6 +1,30 @@
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
+import { StoryMeta } from "@/ui/storyMeta";
 import RadioGroup from "./RadioGroup";
+
+export const meta: StoryMeta = {
+  name: "RadioGroup",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Vertical or horizontal list of labeled radio options where exactly one is selected.",
+  useWhen: [
+    "Two to five mutually exclusive options that should all be visible.",
+  ],
+  avoidWhen: [
+    {
+      reason:
+        "Options need rich content such as descriptions or icons in a card.",
+      use: "RadioCards",
+    },
+    {
+      reason: "Many options or limited space.",
+      use: "Select",
+    },
+  ],
+  related: ["RadioCards", "SegmentedControl", "Checkbox"],
+};
 
 export default function RadioGroupStories() {
   const [radioSelected, setRadioSelected] = useState("k1");

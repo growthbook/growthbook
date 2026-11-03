@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
+import { StoryMeta } from "@/ui/storyMeta";
 import Table, {
   TableHeader,
   TableBody,
@@ -9,6 +10,20 @@ import Table, {
   TableCell,
 } from "./Table";
 import ColumnResizeHandle from "./ColumnResizeHandle";
+
+export const meta: StoryMeta = {
+  name: "ColumnResizeHandle",
+  category: "data-display",
+  status: "stable",
+  summary: "Drag and keyboard handle that resizes a table column.",
+  useWhen: ["Table columns whose content width varies a lot."],
+  avoidWhen: [
+    {
+      reason: "Tables where auto-sized columns are fine.",
+    },
+  ],
+  related: ["Table", "ColumnSettingsButton"],
+};
 
 const COLUMNS = [
   { id: "name", label: "Name", defaultWidth: 200, resizable: true },

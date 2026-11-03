@@ -1,5 +1,22 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import TruncatedText from "./TruncatedText";
+
+export const meta: StoryMeta = {
+  name: "TruncatedText",
+  category: "typography",
+  status: "stable",
+  summary:
+    "Text cut off with an ellipsis at the available width, with the full text in a focusable tooltip.",
+  useWhen: ["Names or values that can overflow a fixed-width cell or row."],
+  avoidWhen: [
+    {
+      reason: "IDs or keys where the start and end both matter.",
+      use: "TruncateMiddleWithTooltip",
+    },
+  ],
+  related: ["Text", "TruncateMiddleWithTooltip"],
+};
 
 export default function TruncatedTextStories() {
   return (
