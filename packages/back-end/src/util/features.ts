@@ -309,7 +309,8 @@ export function mergeConditionAndSavedGroups({
         if (group.type === "condition") {
           // Condition groups must be non-empty
           if (!group.condition || group.condition === "{}") return false;
-        } else {
+        } else if (group.type === "list") {
+          // Remote groups' IDs aren't in GrowthBook, so they're never empty.
           const hasValues = group.hasValues ?? group.values?.length;
           // List groups must have defined values
           if (hasValues === undefined) return false;
@@ -1489,6 +1490,8 @@ export function getFeatureDefinition({
           const cb = cbMap?.get(r.contextualBanditId);
           if (!cb) return null;
 
+          if (cb.archived) return null;
+
           if (cb.status === "draft") return null;
 
           if (!hasPrerequisites && cb.prerequisites?.length) return null;
@@ -1744,6 +1747,9 @@ export function getFeatureDefinition({
               rule.coverage = clampedCoverage;
               if (r.hashAttribute) {
                 rule.hashAttribute = r.hashAttribute;
+              }
+              if (r.fallbackAttribute) {
+                rule.fallbackAttribute = r.fallbackAttribute;
               }
               if (r.seed) {
                 rule.seed = r.seed;

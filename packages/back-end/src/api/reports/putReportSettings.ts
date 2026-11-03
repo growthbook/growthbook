@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import { putReportSettingsValidator } from "shared/validators";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getValidDate } from "shared/dates";
@@ -78,7 +79,9 @@ export const putReportSettings = createApiRequestHandler(
   if (activationMetric !== undefined)
     newSettings.activationMetric = activationMetric;
   if (metricOverrides !== undefined)
-    newSettings.metricOverrides = metricOverrides;
+    newSettings.metricOverrides = metricOverrides.map((o) =>
+      omit(o, ["winRisk", "loseRisk"]),
+    );
   if (customMetricSlices !== undefined)
     newSettings.customMetricSlices = customMetricSlices;
   if (dimension !== undefined) newSettings.dimension = dimension;

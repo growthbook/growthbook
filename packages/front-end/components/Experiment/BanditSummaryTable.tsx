@@ -3,6 +3,7 @@ import { CSSTransition } from "react-transition-group";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BanditEvent } from "shared/validators";
 import clsx from "clsx";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
@@ -16,12 +17,14 @@ import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableToolti
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
+import { ROW_HEIGHT } from "@/components/Experiment/ResultsTable";
 import AlignedGraph from "./AlignedGraph";
 
 export const WIN_THRESHOLD_PROBABILITY = 0.95;
-const ROW_HEIGHT = 56;
 const ROW_HEIGHT_CONDENSED = 34;
 
 export type BanditSummaryTableProps = {
@@ -50,10 +53,12 @@ export default function BanditSummaryTable({
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
+  const [cellScale, setCellScale] = useState(1);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current?.clientWidth as number;
+    setCellScale(Math.max(Math.min(1, tableWidth / 1000), 0.7));
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
       "#bandit-summary-results thead tr:first-child th:not(.graph-cell)",
     );
@@ -178,12 +183,20 @@ export default function BanditSummaryTable({
   const shrinkRows = variations.length > 8;
   const rowHeight = !shrinkRows ? ROW_HEIGHT : ROW_HEIGHT_CONDENSED;
 
+  // The container resizes with the window and as the details panel opens. It
+  // only mounts once there are results, which can arrive after this does.
+  const hasResults = !!results;
   useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
-  }, []);
-  useLayoutEffect(onResize, []);
+    if (!hasResults || !tableContainerRef.current) return;
+    const resizeObserver = new ResizeObserver(() => onResize());
+    resizeObserver.observe(tableContainerRef.current);
+    const table = tableContainerRef.current.querySelector("table");
+    if (table) resizeObserver.observe(table);
+    return () => resizeObserver.disconnect();
+  }, [hasResults]);
+  useLayoutEffect(onResize, [cellScale]);
   useEffect(onResize, [isTabActive]);
+  const overflowing = useIsOverflowingX(tableContainerRef, hasResults);
 
   const {
     containerRef,
@@ -236,7 +249,10 @@ export default function BanditSummaryTable({
         />
       </CSSTransition>
 
-      <div ref={tableContainerRef} className="bandit-summary-results-wrapper">
+      <div
+        ref={tableContainerRef}
+        className={clsx("bandit-summary-results-wrapper", { overflowing })}
+      >
         <div className="w-100" style={{ minWidth: 500 }}>
           <table
             id="bandit-summary-results"
@@ -244,8 +260,11 @@ export default function BanditSummaryTable({
           >
             <thead>
               <tr className="results-top-row">
-                <th className="axis-col header-label" style={{ width: 280 }}>
-                  <div className="row px-0">
+                <th
+                  className="axis-col header-label"
+                  style={{ width: 280 * cellScale }}
+                >
+                  <Flex align="center" gap="2">
                     <ResultsVariationsFilter
                       variationNames={variations.map((v) => v.name)}
                       variationRanks={variationRanks}
@@ -256,18 +275,18 @@ export default function BanditSummaryTable({
                       showVariationsFilter={showVariationsFilter}
                       setShowVariationsFilter={setShowVariationsFilter}
                     />
-                    <div className="col-auto">Variation</div>
-                  </div>
+                    <span>Variation</span>
+                  </Flex>
                 </th>
                 <th
-                  className="axis-col label text-center px-0"
-                  style={{ width: 120 }}
+                  className="axis-col label"
+                  style={{ width: 120 * cellScale }}
                 >
                   Users
                 </th>
                 <th
-                  className="axis-col label text-center px-0"
-                  style={{ width: 120 }}
+                  className="axis-col label"
+                  style={{ width: 120 * cellScale }}
                 >
                   Mean
                 </th>
@@ -275,11 +294,11 @@ export default function BanditSummaryTable({
                   className="axis-col graph-cell"
                   style={{
                     width:
-                      (globalThis?.window?.innerWidth ?? 1000) < 900
+                      (tableContainerRef.current?.clientWidth ?? 900) < 900
                         ? graphCellWidth
                         : undefined,
                     minWidth:
-                      (globalThis?.window?.innerWidth ?? 1000) >= 900
+                      (tableContainerRef.current?.clientWidth ?? 900) >= 900
                         ? graphCellWidth
                         : undefined,
                   }}
@@ -348,53 +367,40 @@ export default function BanditSummaryTable({
                   <tr
                     className="results-variation-row align-items-center"
                     key={j}
+                    style={{ height: rowHeight }}
                   >
-                    <td style={{ width: 280 }}>
-                      <VariationLabel
-                        number={v.index}
-                        name={v.name}
-                        size="md"
-                      />
+                    <td
+                      className="variation"
+                      style={{ width: 280 * cellScale }}
+                    >
+                      <Box pl="5">
+                        <VariationLabel
+                          number={v.index}
+                          name={v.name}
+                          size="md"
+                        />
+                      </Box>
                     </td>
-                    <td className="text-center px-0">
+                    <td className="value">
                       {numberFormatter.format(
                         isFinite(stats.users) ? stats.users : 0,
                       )}
                     </td>
                     <td
-                      className={clsx(
-                        "results-mean value text-center position-relative",
-                        {
-                          won,
-                          hover: isHovered,
-                        },
-                      )}
+                      className={clsx("results-mean value", {
+                        won,
+                        hover: isHovered,
+                      })}
                       onMouseMove={onPointerMove}
                       onMouseLeave={onPointerLeave}
                       onClick={onPointerMove}
                     >
-                      <span className="position-relative" style={{ zIndex: 1 }}>
-                        {isFinite(stats.cr) && stats.users >= 100 ? (
-                          meanText
-                        ) : (
-                          <em className="text-muted">
-                            <small>Not enough data</small>
-                          </em>
-                        )}
-                      </span>
-                      {won && (
-                        <div
-                          className="position-absolute"
-                          style={{
-                            bottom: shrinkRows ? 2 : 5,
-                            right: 5,
-                            opacity: 0.5,
-                            fontSize: shrinkRows ? "14px" : "18px",
-                            pointerEvents: "none",
-                          }}
-                        >
-                          🎉
-                        </div>
+                      {isFinite(stats.cr) && stats.users >= 100 ? (
+                        meanText
+                      ) : (
+                        <Text size="sm" color="text-low" fontStyle="italic">
+                          Not enough data
+                        </Text>
                       )}
                     </td>
                     <td className="graph-cell overflow-hidden">
@@ -440,12 +446,22 @@ export default function BanditSummaryTable({
               })}
               <tr
                 key="summary"
-                className="results-variation-row bg-light align-items-center"
-                style={{ boxShadow: "none" }}
+                className="results-variation-row align-items-center"
+                style={{ height: rowHeight }}
               >
-                <td className="font-weight-bold pl-3">All variations</td>
-                <td className="text-center px-0 py-2 font-weight-bold">
-                  {totalUsers >= 0 ? numberFormatter.format(totalUsers) : null}
+                <td>
+                  <Box pl="5">
+                    <Text weight="medium" color="text-mid">
+                      All variations
+                    </Text>
+                  </Box>
+                </td>
+                <td className="value">
+                  <Text weight="medium">
+                    {totalUsers >= 0
+                      ? numberFormatter.format(totalUsers)
+                      : null}
+                  </Text>
                 </td>
                 <td />
                 <td />

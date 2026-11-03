@@ -1,4 +1,5 @@
 import md5 from "md5";
+import { isEqual } from "lodash";
 import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
@@ -24,8 +25,13 @@ import {
 import { OrganizationInterface } from "shared/types/organization";
 import { ExposureQuery } from "shared/types/datasource";
 import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
   getIdentifierTypeForSettingsHash,
   getSnapshotCutoffDate,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
@@ -130,8 +136,19 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 type HashExposureQuery = Pick<
   ExposureQuery,
-  "id" | "userIdType" | "userIdTypes"
+  "id" | "userIdType" | "userIdTypes" | "columnMapping"
 >;
+
+// The assignment query columns an incremental units table is built from
+const getUnitsTableColumns = (
+  query: Pick<ExposureQuery, "columnMapping">,
+  identifierType: string,
+) => ({
+  identifier: getExposureQueryIdentifierColumn(query, identifierType),
+  timestamp: getExposureQueryTimestampColumn(query),
+  experimentId: getExposureQueryExperimentIdColumn(query),
+  variationId: getExposureQueryVariationIdColumn(query),
+});
 
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
@@ -150,6 +167,29 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   );
   if (identifierType) {
     settingsForHash.exposureQueryIdentifierType = identifierType;
+  }
+
+  // Remapping a column the units table reads means rebuilding it. Other
+  // mapped columns (names, other identifiers) don't touch it, and while every
+  // units column keeps its standard name the hash is unchanged, so existing
+  // pipelines don't trigger a full refresh.
+  const exposureQuery = exposureQueries.find(
+    (q) => q.id === snapshotSettings.exposureQueryId,
+  );
+  if (exposureQuery?.columnMapping) {
+    const analysisIdentifierType = resolveAnalysisIdentifierType(
+      exposureQuery,
+      snapshotSettings.exposureQueryIdentifierType,
+    );
+    const unitsColumns = getUnitsTableColumns(
+      exposureQuery,
+      analysisIdentifierType,
+    );
+    if (
+      !isEqual(unitsColumns, getUnitsTableColumns({}, analysisIdentifierType))
+    ) {
+      settingsForHash.unitsColumns = unitsColumns;
+    }
   }
 
   // Incremental units SQL used to ignore segment and queryFilter before #6711.

@@ -2,6 +2,7 @@ import { getValidDate } from "shared/dates";
 import {
   buildMinimalOrCondition,
   format,
+  quoteColumnIdentifier,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
 } from "shared/sql";
@@ -83,19 +84,7 @@ function getTimestampColumnExpression(
   }
   if (!factTable.quoteTimestampColumn) return factTable.timestampColumn;
 
-  return quoteSqlIdentifier(factTable.timestampColumn, helpers);
-}
-
-function quoteSqlIdentifier(name: string, helpers: SqlDialect): string {
-  const quote = helpers.identifierQuote;
-  const folded =
-    helpers.unquotedIdentifierFold === "upper"
-      ? name.toUpperCase()
-      : helpers.unquotedIdentifierFold === "lower"
-        ? name.toLowerCase()
-        : name;
-  const escaped = folded.split(quote).join(`${quote}${quote}`);
-  return `${quote}${escaped}${quote}`;
+  return quoteColumnIdentifier(factTable.timestampColumn, helpers);
 }
 
 // Funnel fact metrics are excluded: product-analytics explorations describe
@@ -2201,7 +2190,7 @@ function generateProductAnalyticsRawTableSQL(
 
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
   const timestampColumn = hasTimestampColumn(config.dataset.timestampColumn)
-    ? quoteSqlIdentifier(config.dataset.timestampColumn, dialect)
+    ? quoteColumnIdentifier(config.dataset.timestampColumn, dialect)
     : null;
   const whereClause = timestampColumn
     ? `WHERE ${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`

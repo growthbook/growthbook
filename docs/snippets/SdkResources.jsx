@@ -1215,7 +1215,7 @@ export const SdkResources = ({ sdk }) => {
   const sdkInfo = {
     js: {
       name: "JS SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -1236,6 +1236,15 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -1298,7 +1307,7 @@ export const SdkResources = ({ sdk }) => {
     },
     react: {
       name: "React SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -1327,6 +1336,15 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -1442,7 +1460,7 @@ export const SdkResources = ({ sdk }) => {
     },
     php: {
       name: "PHP SDK",
-      version: "2.6.1",
+      version: "3.0.0",
       github: "https://github.com/growthbook/growthbook-php",
       examples: [],
       packageRepos: [
@@ -1457,6 +1475,9 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v3.0.0",
         },
         {
           remoteEval: "≥ v2.5.0",
@@ -1498,7 +1519,7 @@ export const SdkResources = ({ sdk }) => {
     },
     node: {
       name: "Node SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -1521,19 +1542,28 @@ export const SdkResources = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
+        },
+        {
           savedGroupReferencesV2: "≥ v1.8.0",
         },
         {
           contextualBandits: "≥ v1.7.0",
         },
         {
+          trackingPlugin: "≥ v1.7.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v1.6.4",
         },
         {
           caseInsensitiveRegex: "≥ v1.6.3",
-        },
-        {
-          trackingPlugin: "≥ v1.7.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -1569,7 +1599,7 @@ export const SdkResources = ({ sdk }) => {
     },
     ruby: {
       name: "Ruby SDK",
-      version: "1.3.0",
+      version: "2.0.0",
       github: "https://github.com/growthbook/growthbook-ruby",
       examples: [
         {
@@ -1589,6 +1619,18 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          caseInsensitiveMembership: "≥ v2.0.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferences: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v2.0.0",
         },
         {
           prerequisites: "≥ v1.3.0",
@@ -1615,7 +1657,7 @@ export const SdkResources = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "3.2.0",
+      version: "4.0.0",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -1677,7 +1719,7 @@ export const SdkResources = ({ sdk }) => {
     },
     go: {
       name: "Go SDK",
-      version: "0.6.0",
+      version: "0.7.0",
       github: "https://github.com/growthbook/growthbook-golang",
       examples: [
         {
@@ -1744,7 +1786,7 @@ export const SdkResources = ({ sdk }) => {
     },
     rust: {
       name: "Rust SDK",
-      version: "0.3.0",
+      version: "0.4.0",
       github: "https://github.com/growthbook/growthbook-rust",
       examples: [
         {
@@ -1802,7 +1844,7 @@ export const SdkResources = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.11.1",
+      version: "0.12.0",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -1834,6 +1876,9 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.12.0",
         },
         {
           savedGroupReferences: "≥ v0.11.1",
@@ -1878,7 +1923,7 @@ export const SdkResources = ({ sdk }) => {
     },
     csharp: {
       name: "C# SDK",
-      version: "1.2.0",
+      version: "2.0.0",
       github: "https://github.com/growthbook/growthbook-c-sharp",
       examples: [
         {
@@ -1898,6 +1943,9 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v2.0.0",
         },
         {
           caseInsensitiveMembership: "≥ v1.2.0",
@@ -1939,7 +1987,7 @@ export const SdkResources = ({ sdk }) => {
     },
     elixir: {
       name: "Elixir SDK",
-      version: "0.3.0",
+      version: "0.4.0",
       github: "https://github.com/growthbook/growthbook-elixir",
       examples: [],
       packageRepos: [
@@ -1954,6 +2002,12 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          caseInsensitiveMembership: "≥ v0.4.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v0.4.0",
         },
         {
           encryption: "≥ v0.3.0",
@@ -1977,7 +2031,7 @@ export const SdkResources = ({ sdk }) => {
     },
     kotlin: {
       name: "Kotlin SDK",
-      version: "7.6.0",
+      version: "10.0.0",
       github: "https://github.com/growthbook/growthbook-kotlin",
       examples: [],
       packageRepos: [
@@ -1992,6 +2046,12 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferences: "≥ v10.0.0",
+        },
+        {
+          contextualBandits: "≥ v8.0.0",
         },
         {
           trackingPlugin: "≥ v7.8.0",
@@ -2033,7 +2093,7 @@ export const SdkResources = ({ sdk }) => {
     },
     swift: {
       name: "Swift SDK",
-      version: "1.2.4",
+      version: "2.0.0",
       github: "https://github.com/growthbook/growthbook-swift",
       examples: [],
       packageRepos: [
@@ -2048,6 +2108,9 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferences: "≥ v2.0.0",
         },
         {
           contextualBandits: "≥ v1.2.3",
@@ -2092,7 +2155,7 @@ export const SdkResources = ({ sdk }) => {
     },
     reactNative: {
       name: "React Native SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -2113,6 +2176,15 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -2449,7 +2521,7 @@ export const SdkResources = ({ sdk }) => {
     },
     flutter: {
       name: "Flutter SDK",
-      version: "4.4.0",
+      version: "5.0.0",
       github: "https://github.com/growthbook/growthbook-flutter",
       examples: [],
       packageRepos: [
@@ -2505,7 +2577,7 @@ export const SdkResources = ({ sdk }) => {
     },
     roku: {
       name: "Roku SDK",
-      version: "1.4.1",
+      version: "2.0.0",
       github: "https://github.com/growthbook/growthbook-roku",
       examples: [
         {
@@ -2524,6 +2596,15 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          caseInsensitiveMembership: "≥ v2.0.0",
+        },
+        {
+          caseInsensitiveRegex: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferences: "≥ v2.0.0",
         },
         {
           encryption: "≥ v1.4.1",

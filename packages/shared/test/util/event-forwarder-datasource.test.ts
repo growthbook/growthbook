@@ -11,6 +11,7 @@ import {
   getEventForwarderSinkTypeForDatasource,
   getEventForwarderUserIdTypeSourceAttribute,
   isEventForwarderManaged,
+  isEventForwarderSetupStepComplete,
   resolveEventForwarderManagedName,
   resolveEventForwarderManagedUserIdTypes,
   supportsEventForwarder,
@@ -64,6 +65,55 @@ describe("supportsEventForwarder", () => {
     expect(supportsEventForwarder({ type: "postgres" })).toBe(false);
     expect(supportsEventForwarder(null)).toBe(false);
     expect(supportsEventForwarder(undefined)).toBe(false);
+  });
+});
+
+describe("isEventForwarderSetupStepComplete", () => {
+  it("returns false when there is no config", () => {
+    expect(isEventForwarderSetupStepComplete(null)).toBe(false);
+    expect(isEventForwarderSetupStepComplete(undefined)).toBe(false);
+  });
+
+  it("returns false while a forwarder has never been configured", () => {
+    expect(
+      isEventForwarderSetupStepComplete({
+        status: "unconfigured",
+        connectorName: "",
+      }),
+    ).toBe(false);
+  });
+
+  it.each(["pending", "ready", "paused", "schema_update_error"] as const)(
+    "returns true for %s regardless of connectorName",
+    (status) => {
+      expect(
+        isEventForwarderSetupStepComplete({ status, connectorName: "" }),
+      ).toBe(true);
+    },
+  );
+
+  it("treats a first-time setup failure (no connector ever created) as incomplete", () => {
+    expect(
+      isEventForwarderSetupStepComplete({
+        status: "error",
+        connectorName: "",
+      }),
+    ).toBe(false);
+    expect(
+      isEventForwarderSetupStepComplete({
+        status: "error",
+        connectorName: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it("treats an operational error after a previous successful setup as complete", () => {
+    expect(
+      isEventForwarderSetupStepComplete({
+        status: "error",
+        connectorName: "connector-1",
+      }),
+    ).toBe(true);
   });
 });
 

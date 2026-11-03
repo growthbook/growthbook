@@ -262,6 +262,62 @@ describe("remote-eval", () => {
     cleanup();
   });
 
+  it.each(["option", "attribute"])(
+    "includes remote group IDs from the %s in a custom cache key",
+    async (source) => {
+      useFrozenClock();
+      await clearCache();
+      const [fetch, cleanup] = mockApi({
+        features: {
+          vip: {
+            defaultValue: false,
+            rules: [
+              {
+                condition: { __gb_remoteGroupIds: { $in: ["grp_vip"] } },
+                force: true,
+              },
+            ],
+          },
+        },
+      });
+      const gb = new GrowthBook({
+        apiHost: "https://fakeapi.sample.io",
+        clientKey: "remote-groups-cache",
+        remoteEval: true,
+        cacheKeyAttributes: ["uid"],
+        attributes: { uid: "5", __gb_remoteGroupIds: [] },
+        ...(source === "option" ? { remoteGroupIds: [] } : {}),
+      });
+      try {
+        await gb.loadFeatures();
+        expect(gb.isOn("vip")).toBe(false);
+
+        if (source === "option") {
+          await gb.setRemoteGroupIds(["grp_vip"]);
+        } else {
+          await gb.setAttributes({
+            uid: "5",
+            __gb_remoteGroupIds: ["grp_vip"],
+          });
+        }
+        expect(gb.isOn("vip")).toBe(true);
+        expect(fetch).toHaveBeenCalledTimes(2);
+
+        if (source === "option") {
+          await gb.setRemoteGroupIds([]);
+        } else {
+          await gb.setAttributes({ uid: "5", __gb_remoteGroupIds: [] });
+        }
+        expect(gb.isOn("vip")).toBe(false);
+        expect(fetch).toHaveBeenCalledTimes(2);
+      } finally {
+        gb.destroy();
+        cleanup();
+        await clearCache();
+      }
+    },
+  );
+
   it("doesn't fire network requests before loadFeatures is called", async () => {
     await clearCache();
     const [f, cleanup] = mockApi(sdkPayload);

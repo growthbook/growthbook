@@ -17,7 +17,6 @@ const BaseClass = MakeModelClass({
     deleteEvent: "metricGroup.delete",
   },
   globallyUniquePrimaryKeys: false,
-  additionalIndexes: [{ fields: { organization: 1, id: 1 } }],
   defaultValues: {
     owner: "",
     tags: [],

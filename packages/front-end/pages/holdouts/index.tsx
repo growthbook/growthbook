@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { date, datetime } from "shared/dates";
-import { getHoldoutStage } from "shared/util";
 import Link from "next/link";
-import { startCase } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,7 +14,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import { useHoldouts } from "@/hooks/useHoldouts";
+import { holdoutStatusLabel, useHoldouts } from "@/hooks/useHoldouts";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -118,11 +116,7 @@ const HoldoutsPage = (): React.ReactElement => {
       if (!proj) return acc;
       return [...acc, proj.name];
     }, []);
-    const statusString =
-      startCase(item.experiment.status) +
-      (getHoldoutStage(item, item.experiment) === "analysis-period"
-        ? ": Analysis Phase"
-        : "");
+    const statusString = holdoutStatusLabel(item, item.experiment);
     const ownerName = getOwnerDisplay(item.experiment.owner);
     return {
       name: item.name,

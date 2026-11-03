@@ -1963,6 +1963,28 @@ describe("getExperimentExposuresQuery", () => {
     expect(sql).toMatch(/SELECT\s+\*/);
   });
 
+  it("filters, orders and row-filters on mapped columns", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      exposureQuery: {
+        query: "SELECT * FROM t",
+        identifierType: "user_id",
+        columnMapping: {
+          userIdColumns: { user_id: "uid" },
+          timestampColumn: "ts",
+          experimentIdColumn: "eid",
+          variationIdColumn: "vid",
+        },
+      },
+      rowFilters: [{ operator: "=", column: "variation_id", values: ["1"] }],
+    });
+    expect(sql).toContain("`eid` = 'my-experiment'");
+    expect(sql).toContain("`ts` >=");
+    expect(sql).toMatch(/ORDER BY\s+`ts` DESC,\s+`uid` DESC,\s+`vid` DESC/);
+    expect(sql).toContain("LOWER(cast(`vid` as string))");
+    expect(sql).not.toMatch(/`(timestamp|experiment_id|variation_id|user_id)`/);
+  });
+
   it("applies the phase filter the analysis applies", () => {
     const phaseParams = {
       ...params,

@@ -192,6 +192,19 @@ export function holdsFeatureMoveDestination(
   );
 }
 
+// Starting publishes each linked flag's draft, so waiving that draft's approval
+// takes bypass authority on the experiment's project and on the flag's.
+export function canBypassStartApproval(
+  permissionsUtil: Pick<Permissions, "canBypassFlagApprovalChecks">,
+  experiment: { project?: string },
+  flag: { project?: string },
+): boolean {
+  return (
+    permissionsUtil.canBypassFlagApprovalChecks(experiment, "feature") &&
+    permissionsUtil.canBypassFlagApprovalChecks(flag, "feature")
+  );
+}
+
 // Enabling an environment at creation reaches the SDK payload immediately.
 export function canEnableEnvironmentOnCreate(
   permissionsUtil: PermissionsUtil,
