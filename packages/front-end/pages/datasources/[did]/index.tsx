@@ -839,7 +839,7 @@ const DataSourcePage: FC = () => {
                 <Flex
                   direction="column"
                   gap="3"
-                  mt={exploreFillsViewport ? "0" : "3"}
+                  mt="3"
                   style={
                     exploreFillsViewport ? { flex: 1, minHeight: 0 } : undefined
                   }
