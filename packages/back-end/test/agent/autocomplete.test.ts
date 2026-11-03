@@ -73,6 +73,12 @@ describe("cleanCompletion", () => {
       cleanCompletion("show me the data", "show me the ", ["Data Quality"]),
     ).toBe("data");
   });
+  it("returns a whole reply for an empty draft, with no leading space", () => {
+    expect(cleanCompletion("Yes, chart it over time.", "")).toBe(
+      "Yes, chart it over time.",
+    );
+    expect(cleanCompletion("", "")).toBe("");
+  });
   it("returns nothing for an unchanged draft", () => {
     expect(cleanCompletion("create a flag", "create a flag")).toBe("");
   });

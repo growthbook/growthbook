@@ -12,7 +12,18 @@ const CommentForm: FC<{
   autofocus?: boolean;
   onSave: () => void;
   onCancel?: () => void;
-}> = ({ cta, type, id, index, initialValue, autofocus, onSave, onCancel }) => {
+  compact?: boolean;
+}> = ({
+  cta,
+  type,
+  id,
+  index,
+  initialValue,
+  autofocus,
+  onSave,
+  onCancel,
+  compact,
+}) => {
   const { apiCall } = useAuth();
 
   return (
@@ -21,6 +32,7 @@ const CommentForm: FC<{
       initialValue={initialValue}
       autofocus={autofocus}
       onCancel={onCancel}
+      compact={compact}
       onSubmit={async (comment) => {
         if (index >= 0) {
           await apiCall(`/discussion/${type}/${id}/${index}`, {

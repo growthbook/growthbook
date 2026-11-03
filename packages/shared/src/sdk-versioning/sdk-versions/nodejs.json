@@ -1,8 +1,12 @@
 {
   "versions": [
     {
-      "version": "1.8.1",
-      "prerelease": true
+      "version": "2.0.0",
+      "capabilities": [
+        "interleaving",
+        "savedGroupReferencesRemote",
+        "contextualBanditsAuto"
+      ]
     },
     {
       "version": "1.8.0",

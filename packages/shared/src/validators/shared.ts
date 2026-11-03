@@ -252,6 +252,13 @@ export const skipHooksBodyField = z
   .describe(
     `Set to true to publish despite a Custom Hook rejection. This does not bypass schema validation; use \`skipSchemaValidation\` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored. ${HUMAN_OVERRIDE_NOTE}`,
   );
+export const allowUnscopedRulesBodyField = z
+  .boolean()
+  .optional()
+  .describe(
+    `When the organization requires rules to target specific environments or Projects, set to true to save a rule that applies to All Environments and All Projects. ${HUMAN_OVERRIDE_NOTE}`,
+  );
+
 export const publishOverrideBodyFields = {
   ignoreWarnings: ignoreWarningsBodyField,
   skipSchemaValidation: skipSchemaValidationBodyField,
@@ -271,10 +278,10 @@ export const bypassApprovalPublishBodyField = z
 
 /**
  * The closed set of bypass sources a response may report: a request field
- * (`ignoreWarnings`, the privileged `skipSchemaValidation`, `skipHooks`), the
- * caller's permission on the entity (`bypassApprovalPermission`), or an
- * organization setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a
- * revert).
+ * (`ignoreWarnings`, the privileged `skipSchemaValidation`, `skipHooks`, or an
+ * experiment start's `skipChecklist`), the caller's permission on the entity
+ * (`bypassApprovalPermission`), or an organization setting
+ * (`restApiBypassesReviews`, or `revertsBypassApproval` on a revert).
  *
  * The source of truth for both the runtime schema and `BypassVia`, so a handler
  * cannot report a provenance the API docs do not describe.
@@ -286,6 +293,7 @@ export const bypassViaValues = [
   "bypassApprovalPermission",
   "restApiBypassesReviews",
   "revertsBypassApproval",
+  "skipChecklist",
 ] as const;
 
 // Reported on a SUCCESSFUL publish when a gate that would otherwise have blocked

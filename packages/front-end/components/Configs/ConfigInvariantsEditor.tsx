@@ -101,7 +101,7 @@ const formatOperatorOption: FormatOptionLabelType = (opt, { context }) => {
           width: 20,
           flexShrink: 0,
           textAlign: "center",
-          fontFamily: "monospace",
+          fontFamily: "var(--code-font-family)",
           marginRight: 6,
         }}
       >
@@ -578,7 +578,6 @@ export default function ConfigInvariantsEditor({
           }}
           minLines={4}
           maxLines={16}
-          fontSize="0.75rem"
           slimGutter
           resizable
           showCopyButton
@@ -606,7 +605,7 @@ export default function ConfigInvariantsEditor({
         <Box
           mt="3"
           style={{
-            fontFamily: "var(--font-mono, monospace)",
+            fontFamily: "var(--code-font-family)",
             fontSize: 12,
             color: "var(--gray-11)",
             wordBreak: "break-all",
@@ -719,7 +718,7 @@ export default function ConfigInvariantsEditor({
           <Box
             mt="1"
             style={{
-              fontFamily: "var(--font-mono, monospace)",
+              fontFamily: "var(--code-font-family)",
               fontSize: 12,
               color: "var(--gray-11)",
               wordBreak: "break-all",

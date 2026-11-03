@@ -14,7 +14,7 @@ import EventTrackerSelector, {
   backendEventTrackerOptions,
   pluginSupportedTrackers,
 } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import { getAppOrigin, isCloud } from "@/services/env";
 import { DataRegion, getEventIngestorHost } from "@/services/dataRegions";
 import Callout from "@/ui/Callout";
@@ -520,7 +520,7 @@ import { growthbookAdapter } from "@flags-sdk/growthbook";
                 <code>GROWTHBOOK_CLIENT_KEY</code>
               </td>
               <td className="px-3">
-                <ClickToCopy>{apiKey}</ClickToCopy>
+                <CopyableCode value={apiKey} />
               </td>
             </tr>
             <tr>
@@ -531,7 +531,7 @@ import { growthbookAdapter } from "@flags-sdk/growthbook";
                 )}
               </td>
               <td className="px-3">
-                <ClickToCopy>{apiHost}</ClickToCopy>
+                <CopyableCode value={apiHost} />
               </td>
             </tr>
             <tr>
@@ -540,7 +540,7 @@ import { growthbookAdapter } from "@flags-sdk/growthbook";
                 <span className="text-muted small ml-2">(optional)</span>
               </td>
               <td className="px-3">
-                <ClickToCopy>{getAppOrigin()}</ClickToCopy>
+                <CopyableCode value={getAppOrigin()} />
               </td>
             </tr>
             <tr>

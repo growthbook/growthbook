@@ -1,5 +1,8 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  UserPermission,
+} from "shared/types/organization";
 import {
   roleToPermissionMap,
   Permissions,
@@ -38,6 +41,7 @@ describe("Role permissions", () => {
   const environmentsResource = { projects: [], id: "" };
   const envs = ["production"];
   const sdkConnection = { projects: [], environment: "" };
+  const eventWebhook = { projects: [], environments: [] };
   const updates = {};
   const event = { containsSecrets: false, projects: [] };
   const secretEvent = { containsSecrets: true, projects: [] };
@@ -60,7 +64,7 @@ describe("Role permissions", () => {
     expect(p.canCreateAttribute(projectsResource)).toBe(false);
     expect(p.canCreateDataSource(projectsResource)).toBe(false);
     expect(p.canCreateDimension()).toBe(false);
-    expect(p.canCreateEventWebhook()).toBe(false);
+    expect(p.canCreateEventWebhook(eventWebhook)).toBe(false);
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
@@ -82,7 +86,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteAttribute(projectsResource)).toBe(false);
     expect(p.canDeleteDataSource(projectsResource)).toBe(false);
     expect(p.canDeleteDimension()).toBe(false);
-    expect(p.canDeleteEventWebhook()).toBe(false);
+    expect(p.canDeleteEventWebhook(eventWebhook)).toBe(false);
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
@@ -124,7 +128,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
     expect(p.canUpdateDimension()).toBe(false);
-    expect(p.canUpdateEventWebhook()).toBe(false);
+    expect(p.canUpdateEventWebhook(eventWebhook, updates)).toBe(false);
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
@@ -151,7 +155,7 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEventWebhook()).toBe(false);
+    expect(p.canViewEventWebhook(eventWebhook)).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(false);
     expect(p.canViewEvent(secretEvent)).toBe(false);
@@ -196,7 +200,7 @@ describe("Role permissions", () => {
     expect(p.canCreateAttribute(projectsResource)).toBe(false);
     expect(p.canCreateDataSource(projectsResource)).toBe(false);
     expect(p.canCreateDimension()).toBe(false);
-    expect(p.canCreateEventWebhook()).toBe(false);
+    expect(p.canCreateEventWebhook(eventWebhook)).toBe(false);
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
@@ -218,7 +222,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteAttribute(projectsResource)).toBe(false);
     expect(p.canDeleteDataSource(projectsResource)).toBe(false);
     expect(p.canDeleteDimension()).toBe(false);
-    expect(p.canDeleteEventWebhook()).toBe(false);
+    expect(p.canDeleteEventWebhook(eventWebhook)).toBe(false);
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
@@ -261,7 +265,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
     expect(p.canUpdateDimension()).toBe(false);
-    expect(p.canUpdateEventWebhook()).toBe(false);
+    expect(p.canUpdateEventWebhook(eventWebhook, updates)).toBe(false);
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
@@ -288,7 +292,7 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEventWebhook()).toBe(false);
+    expect(p.canViewEventWebhook(eventWebhook)).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
     expect(p.canViewEvent(secretEvent)).toBe(false);
@@ -333,7 +337,7 @@ describe("Role permissions", () => {
     expect(p.canCreateAttribute(projectsResource)).toBe(false);
     expect(p.canCreateDataSource(projectsResource)).toBe(false);
     expect(p.canCreateDimension()).toBe(false);
-    expect(p.canCreateEventWebhook()).toBe(false);
+    expect(p.canCreateEventWebhook(eventWebhook)).toBe(false);
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
@@ -355,7 +359,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteAttribute(projectsResource)).toBe(false);
     expect(p.canDeleteDataSource(projectsResource)).toBe(false);
     expect(p.canDeleteDimension()).toBe(false);
-    expect(p.canDeleteEventWebhook()).toBe(false);
+    expect(p.canDeleteEventWebhook(eventWebhook)).toBe(false);
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
@@ -398,7 +402,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
     expect(p.canUpdateDimension()).toBe(false);
-    expect(p.canUpdateEventWebhook()).toBe(false);
+    expect(p.canUpdateEventWebhook(eventWebhook, updates)).toBe(false);
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
@@ -425,7 +429,7 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEventWebhook()).toBe(false);
+    expect(p.canViewEventWebhook(eventWebhook)).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
     expect(p.canViewEvent(secretEvent)).toBe(false);
@@ -470,7 +474,7 @@ describe("Role permissions", () => {
     expect(p.canCreateAttribute(projectsResource)).toBe(false);
     expect(p.canCreateDataSource(projectsResource)).toBe(false);
     expect(p.canCreateDimension()).toBe(false);
-    expect(p.canCreateEventWebhook()).toBe(false);
+    expect(p.canCreateEventWebhook(eventWebhook)).toBe(false);
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
@@ -492,7 +496,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteAttribute(projectsResource)).toBe(false);
     expect(p.canDeleteDataSource(projectsResource)).toBe(false);
     expect(p.canDeleteDimension()).toBe(false);
-    expect(p.canDeleteEventWebhook()).toBe(false);
+    expect(p.canDeleteEventWebhook(eventWebhook)).toBe(false);
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
@@ -535,7 +539,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
     expect(p.canUpdateDimension()).toBe(false);
-    expect(p.canUpdateEventWebhook()).toBe(false);
+    expect(p.canUpdateEventWebhook(eventWebhook, updates)).toBe(false);
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
@@ -562,7 +566,7 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEventWebhook()).toBe(false);
+    expect(p.canViewEventWebhook(eventWebhook)).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
     expect(p.canViewEvent(secretEvent)).toBe(false);
@@ -607,7 +611,7 @@ describe("Role permissions", () => {
     expect(p.canCreateAttribute(projectsResource)).toBe(true);
     expect(p.canCreateDataSource(projectsResource)).toBe(false);
     expect(p.canCreateDimension()).toBe(false);
-    expect(p.canCreateEventWebhook()).toBe(false);
+    expect(p.canCreateEventWebhook(eventWebhook)).toBe(false);
     expect(p.canCreateExperiment(projectResource)).toBe(false);
     expect(p.canCreateFactMetric(projectsResource)).toBe(false);
     expect(p.canCreateFactTable(projectsResource)).toBe(false);
@@ -629,7 +633,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteAttribute(projectsResource)).toBe(true);
     expect(p.canDeleteDataSource(projectsResource)).toBe(false);
     expect(p.canDeleteDimension()).toBe(false);
-    expect(p.canDeleteEventWebhook()).toBe(false);
+    expect(p.canDeleteEventWebhook(eventWebhook)).toBe(false);
     expect(p.canDeleteExperiment(projectResource)).toBe(false);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(false);
     expect(p.canDeleteFactTable(projectsResource)).toBe(false);
@@ -672,7 +676,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(false);
     expect(p.canUpdateDimension()).toBe(false);
-    expect(p.canUpdateEventWebhook()).toBe(false);
+    expect(p.canUpdateEventWebhook(eventWebhook, updates)).toBe(false);
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(false);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(false);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(false);
@@ -699,7 +703,7 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEventWebhook()).toBe(false);
+    expect(p.canViewEventWebhook(eventWebhook)).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
     expect(p.canViewEvent(secretEvent)).toBe(false);
@@ -744,7 +748,7 @@ describe("Role permissions", () => {
     expect(p.canCreateAttribute(projectsResource)).toBe(false);
     expect(p.canCreateDataSource(projectsResource)).toBe(false);
     expect(p.canCreateDimension()).toBe(true);
-    expect(p.canCreateEventWebhook()).toBe(false);
+    expect(p.canCreateEventWebhook(eventWebhook)).toBe(false);
     expect(p.canCreateExperiment(projectResource)).toBe(true);
     expect(p.canCreateFactMetric(projectsResource)).toBe(true);
     expect(p.canCreateFactTable(projectsResource)).toBe(true);
@@ -766,7 +770,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteAttribute(projectsResource)).toBe(false);
     expect(p.canDeleteDataSource(projectsResource)).toBe(false);
     expect(p.canDeleteDimension()).toBe(true);
-    expect(p.canDeleteEventWebhook()).toBe(false);
+    expect(p.canDeleteEventWebhook(eventWebhook)).toBe(false);
     expect(p.canDeleteExperiment(projectResource)).toBe(true);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(true);
     expect(p.canDeleteFactTable(projectsResource)).toBe(true);
@@ -809,7 +813,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(true);
     expect(p.canUpdateDimension()).toBe(true);
-    expect(p.canUpdateEventWebhook()).toBe(false);
+    expect(p.canUpdateEventWebhook(eventWebhook, updates)).toBe(false);
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
@@ -836,7 +840,7 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEventWebhook()).toBe(false);
+    expect(p.canViewEventWebhook(eventWebhook)).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
     expect(p.canViewEvent(secretEvent)).toBe(false);
@@ -881,7 +885,7 @@ describe("Role permissions", () => {
     expect(p.canCreateAttribute(projectsResource)).toBe(true);
     expect(p.canCreateDataSource(projectsResource)).toBe(false);
     expect(p.canCreateDimension()).toBe(true);
-    expect(p.canCreateEventWebhook()).toBe(false);
+    expect(p.canCreateEventWebhook(eventWebhook)).toBe(false);
     expect(p.canCreateExperiment(projectResource)).toBe(true);
     expect(p.canCreateFactMetric(projectsResource)).toBe(true);
     expect(p.canCreateFactTable(projectsResource)).toBe(true);
@@ -903,7 +907,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteAttribute(projectsResource)).toBe(true);
     expect(p.canDeleteDataSource(projectsResource)).toBe(false);
     expect(p.canDeleteDimension()).toBe(true);
-    expect(p.canDeleteEventWebhook()).toBe(false);
+    expect(p.canDeleteEventWebhook(eventWebhook)).toBe(false);
     expect(p.canDeleteExperiment(projectResource)).toBe(true);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(true);
     expect(p.canDeleteFactTable(projectsResource)).toBe(true);
@@ -946,7 +950,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(false);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(true);
     expect(p.canUpdateDimension()).toBe(true);
-    expect(p.canUpdateEventWebhook()).toBe(false);
+    expect(p.canUpdateEventWebhook(eventWebhook, updates)).toBe(false);
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
@@ -973,7 +977,7 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEventWebhook()).toBe(false);
+    expect(p.canViewEventWebhook(eventWebhook)).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
     expect(p.canViewEvent(secretEvent)).toBe(false);
@@ -1018,7 +1022,7 @@ describe("Role permissions", () => {
     expect(p.canCreateAttribute(projectsResource)).toBe(true);
     expect(p.canCreateDataSource(projectsResource)).toBe(true);
     expect(p.canCreateDimension()).toBe(true);
-    expect(p.canCreateEventWebhook()).toBe(true);
+    expect(p.canCreateEventWebhook(eventWebhook)).toBe(true);
     expect(p.canCreateExperiment(projectResource)).toBe(true);
     expect(p.canCreateFactMetric(projectsResource)).toBe(true);
     expect(p.canCreateFactTable(projectsResource)).toBe(true);
@@ -1040,7 +1044,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteAttribute(projectsResource)).toBe(true);
     expect(p.canDeleteDataSource(projectsResource)).toBe(true);
     expect(p.canDeleteDimension()).toBe(true);
-    expect(p.canDeleteEventWebhook()).toBe(true);
+    expect(p.canDeleteEventWebhook(eventWebhook)).toBe(true);
     expect(p.canDeleteExperiment(projectResource)).toBe(true);
     expect(p.canDeleteFactMetric(projectsResource)).toBe(true);
     expect(p.canDeleteFactTable(projectsResource)).toBe(true);
@@ -1083,7 +1087,7 @@ describe("Role permissions", () => {
     expect(p.canUpdateDataSourceParams(projectsResource)).toBe(true);
     expect(p.canUpdateDataSourceSettings(projectsResource)).toBe(true);
     expect(p.canUpdateDimension()).toBe(true);
-    expect(p.canUpdateEventWebhook()).toBe(true);
+    expect(p.canUpdateEventWebhook(eventWebhook, updates)).toBe(true);
     expect(p.canUpdateExperiment(projectResource, updates)).toBe(true);
     expect(p.canUpdateFactMetric(projectsResource, updates)).toBe(true);
     expect(p.canUpdateFactTable(projectsResource, updates)).toBe(true);
@@ -1110,7 +1114,7 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(true);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEventWebhook()).toBe(true);
+    expect(p.canViewEventWebhook(eventWebhook)).toBe(true);
     expect(p.canViewAuditLogs()).toBe(true);
     expect(p.canViewEvent(event)).toBe(true);
     expect(p.canViewEvent(secretEvent)).toBe(true);
@@ -1135,6 +1139,101 @@ describe("Role permissions", () => {
       p.canUpdateOfficialResources(projectsResource, projectsResource),
     ).toBe(true);
     expect(p.canDeleteOfficialResources(projectsResource)).toBe(true);
+  });
+});
+
+describe("event webhook permissions", () => {
+  const grant = (environments: string[]): UserPermission => ({
+    permissions: { manageEventWebhooks: true },
+    limitAccessByEnvironment: environments.length > 0,
+    environments,
+  });
+  const none: UserPermission = {
+    permissions: {},
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+  const webhook = (environments: string[], projects: string[] = []) => ({
+    projects,
+    environments,
+  });
+
+  describe("with an environment-limited grant", () => {
+    const p = new Permissions({ global: grant(["dev"]), projects: {} });
+
+    it("allows webhooks filtered to granted environments", () => {
+      expect(p.canCreateEventWebhook(webhook(["dev"]))).toBe(true);
+      expect(p.canViewEventWebhook(webhook(["dev"]))).toBe(true);
+      expect(p.canDeleteEventWebhook(webhook(["dev"]))).toBe(true);
+    });
+
+    it("rejects webhooks reaching other environments", () => {
+      expect(p.canViewEventWebhook(webhook(["prod"]))).toBe(false);
+      expect(p.canCreateEventWebhook(webhook(["dev", "prod"]))).toBe(false);
+    });
+
+    it("treats an empty environment filter as every environment", () => {
+      expect(p.canViewEventWebhook(webhook([]))).toBe(false);
+      expect(p.canUpdateEventWebhook(webhook(["dev"]), webhook([]))).toBe(
+        false,
+      );
+    });
+
+    it("checks both the existing and the updated webhook", () => {
+      expect(
+        p.canUpdateEventWebhook(webhook(["prod"]), { environments: ["dev"] }),
+      ).toBe(false);
+      expect(p.canUpdateEventWebhook(webhook(["dev"]), {})).toBe(true);
+    });
+
+    it("can reach the page but not org-wide secrets", () => {
+      expect(p.canManageSomeEventWebhooks()).toBe(true);
+      expect(p.canManageWebhookSecrets()).toBe(false);
+    });
+
+    it("keeps legacy SDK webhook access unchanged", () => {
+      expect(p.canManageLegacySDKWebhooks()).toBe(true);
+    });
+  });
+
+  describe("with an unlimited grant", () => {
+    const p = new Permissions({ global: grant([]), projects: {} });
+
+    it("allows every webhook and the secrets", () => {
+      expect(p.canViewEventWebhook(webhook([]))).toBe(true);
+      expect(p.canViewEventWebhook(webhook(["prod"], ["prj_a"]))).toBe(true);
+      expect(p.canManageWebhookSecrets()).toBe(true);
+    });
+  });
+
+  describe("with a project-level grant only", () => {
+    const p = new Permissions({
+      global: none,
+      projects: { prj_a: grant([]) },
+    });
+
+    it("allows webhooks filtered to that Project", () => {
+      expect(p.canCreateEventWebhook(webhook([], ["prj_a"]))).toBe(true);
+    });
+
+    it("rejects webhooks reaching other Projects", () => {
+      expect(p.canViewEventWebhook(webhook([]))).toBe(false);
+      expect(p.canViewEventWebhook(webhook([], ["prj_a", "prj_b"]))).toBe(
+        false,
+      );
+    });
+
+    it("can reach the page but nothing org-wide", () => {
+      expect(p.canManageSomeEventWebhooks()).toBe(true);
+      expect(p.canManageWebhookSecrets()).toBe(false);
+      expect(p.canManageLegacySDKWebhooks()).toBe(false);
+    });
+  });
+
+  it("denies everything without a grant", () => {
+    const p = new Permissions({ global: none, projects: {} });
+    expect(p.canManageSomeEventWebhooks()).toBe(false);
+    expect(p.canViewEventWebhook(webhook(["dev"]))).toBe(false);
   });
 });
 
@@ -1252,7 +1351,7 @@ describe("getEffectiveRolesForProject", () => {
   const roleSources = (
     ...args: Parameters<typeof getEffectiveRolesForProject>
   ) =>
-    getEffectiveRolesForProject(...args).map(
+    getEffectiveRolesForProject(...args).applied.map(
       ({ role, sourceType, sourceName }) => ({ role, sourceType, sourceName }),
     );
 
@@ -1362,16 +1461,20 @@ describe("getEffectiveRolesForProject", () => {
   });
 
   it("drops the member's global role when only a team has an explicit project role", () => {
-    const result = roleSources({ role: "admin", teams: ["team_1"] }, "prj_1", [
-      team("team_1", "Restricted", "readonly", [
-        {
-          project: "prj_1",
-          role: "noaccess",
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      ]),
-    ]);
+    const result = roleSources(
+      { role: "engineer", teams: ["team_1"] },
+      "prj_1",
+      [
+        team("team_1", "Restricted", "readonly", [
+          {
+            project: "prj_1",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ]),
+      ],
+    );
     expect(result).toEqual([
       { role: "noaccess", sourceType: "team", sourceName: "Restricted" },
     ]);
@@ -1392,11 +1495,11 @@ describe("getEffectiveRolesForProject", () => {
         teams: ["team_1"],
       },
       null,
-      [team("team_1", "Admins", "admin")],
+      [team("team_1", "Engineers", "engineer")],
     );
     expect(result).toEqual([
       { role: "readonly", sourceType: "user", sourceName: "user" },
-      { role: "admin", sourceType: "team", sourceName: "Admins" },
+      { role: "engineer", sourceType: "team", sourceName: "Engineers" },
     ]);
   });
 
@@ -1474,7 +1577,7 @@ describe("getEffectiveRolesForProject", () => {
         },
         null,
         [],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "qa_reviewer",
@@ -1514,7 +1617,7 @@ describe("getEffectiveRolesForProject", () => {
             ],
           },
         ],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "noaccess",
@@ -1558,7 +1661,7 @@ describe("getEffectiveRolesForProject", () => {
         },
         "prj_1",
         [],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "engineer",
@@ -1566,6 +1669,7 @@ describe("getEffectiveRolesForProject", () => {
         sourceName: "user",
         limitAccessByEnvironment: true,
         environments: ["staging"],
+        project: "prj_1",
       },
     ]);
   });

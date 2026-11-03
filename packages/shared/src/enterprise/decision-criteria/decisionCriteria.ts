@@ -520,6 +520,50 @@ function getDaysLeftStatus({
   }
 }
 
+function computeSrmAndMultipleExposuresUnhealthyData({
+  srm,
+  multipleExposures,
+  totalUsers,
+  numOfVariations,
+  minUsersPerVariation,
+  healthSettings,
+}: {
+  srm: number;
+  multipleExposures: number;
+  totalUsers: number;
+  numOfVariations: number;
+  minUsersPerVariation: number;
+  healthSettings: ExperimentHealthSettings;
+}): Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> {
+  const result: Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> = {};
+
+  const srmHealthData = getSRMHealthData({
+    srm,
+    srmThreshold: healthSettings.srmThreshold,
+    totalUsersCount: totalUsers,
+    numOfVariations,
+    minUsersPerVariation,
+  });
+  if (srmHealthData === "unhealthy") {
+    result.srm = true;
+  }
+
+  const multipleExposuresHealthData = getMultipleExposureHealthData({
+    multipleExposuresCount: multipleExposures,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+    minPercentThreshold: healthSettings.multipleExposureMinPercent,
+  });
+  if (multipleExposuresHealthData.status === "unhealthy") {
+    result.multipleExposures = {
+      rawDecimal: multipleExposuresHealthData.rawDecimal,
+      multipleExposedUsers: multipleExposures,
+    };
+  }
+
+  return result;
+}
+
 export function getExperimentResultStatus({
   experimentData,
   healthSettings,
@@ -607,37 +651,23 @@ export function getExperimentResultStatus({
     : undefined;
 
   if (healthSummary?.totalUsers) {
-    const srmHealthData = getSRMHealthData({
-      srm: healthSummary.srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: getLatestPhaseVariations(experimentData).length,
-      minUsersPerVariation:
-        experimentData.type === "multi-armed-bandit"
-          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-    });
-
-    if (srmHealthData === "unhealthy") {
-      unhealthyData.srm = true;
-    }
+    Object.assign(
+      unhealthyData,
+      computeSrmAndMultipleExposuresUnhealthyData({
+        srm: healthSummary.srm,
+        multipleExposures: healthSummary.multipleExposures,
+        totalUsers: healthSummary.totalUsers,
+        numOfVariations: getLatestPhaseVariations(experimentData).length,
+        minUsersPerVariation:
+          experimentData.type === "multi-armed-bandit"
+            ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+            : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+        healthSettings,
+      }),
+    );
 
     if (healthSummary.covariateImbalance?.isImbalanced) {
       unhealthyData.covariateImbalance = true;
-    }
-
-    const multipleExposuresHealthData = getMultipleExposureHealthData({
-      multipleExposuresCount: healthSummary.multipleExposures,
-      totalUsersCount: healthSummary.totalUsers,
-      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-      minPercentThreshold: healthSettings.multipleExposureMinPercent,
-    });
-
-    if (multipleExposuresHealthData.status === "unhealthy") {
-      unhealthyData.multipleExposures = {
-        rawDecimal: multipleExposuresHealthData.rawDecimal,
-        multipleExposedUsers: healthSummary.multipleExposures,
-      };
     }
 
     if (
@@ -746,6 +776,69 @@ export function getExperimentResultStatus({
   if (healthSettings.decisionFrameworkEnabled && daysLeftStatus) {
     return daysLeftStatus;
   }
+}
+
+export function getContextualBanditResultStatus({
+  srm,
+  totalUsers,
+  multipleExposures = 0,
+  numOfVariations,
+  healthSettings,
+}: {
+  srm: number | null;
+  totalUsers: number;
+  multipleExposures?: number;
+  numOfVariations: number;
+  healthSettings: ExperimentHealthSettings;
+}): ExperimentResultStatusData | undefined {
+  if (totalUsers === 0) {
+    return {
+      status: "no-data",
+    };
+  }
+
+  const unhealthyData: ExperimentUnhealthyData = {};
+
+  const srmHealthData = getSRMHealthData({
+    // A missing SRM p-value can't be unhealthy; Infinity keeps it "healthy".
+    srm: srm ?? Infinity,
+    srmThreshold: healthSettings.srmThreshold,
+    totalUsersCount: totalUsers,
+    numOfVariations,
+    // Bandits reweight frequently, so use the bandit-specific minimum.
+    minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  });
+  if (srmHealthData === "unhealthy") {
+    unhealthyData.srm = true;
+  }
+
+  const multipleExposuresHealthData = getMultipleExposureHealthData({
+    multipleExposuresCount: multipleExposures,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+    minPercentThreshold: healthSettings.multipleExposureMinPercent,
+  });
+  if (multipleExposuresHealthData.status === "unhealthy") {
+    unhealthyData.multipleExposures = {
+      rawDecimal: multipleExposuresHealthData.rawDecimal,
+      multipleExposedUsers: multipleExposures,
+    };
+  }
+
+  if (unhealthyData.srm || unhealthyData.multipleExposures) {
+    return {
+      status: "unhealthy",
+      unhealthyData,
+      tooltip: [
+        unhealthyData.srm ? "SRM" : null,
+        unhealthyData.multipleExposures ? "Multiple exposures" : null,
+      ]
+        .filter(Boolean)
+        .join(", "),
+    };
+  }
+
+  return undefined;
 }
 
 export function getSafeRolloutDaysLeft({
@@ -913,14 +1006,16 @@ export function getPresetDecisionCriteriaForOrg(
 // Pure mapping of a snapshot dimension's variations to their tiebreaker-metric
 // relative lift, keyed by the snapshot's own variation ids (index-aligned with
 // the analysis results). Callers own loading the snapshot/metric.
+// `variationIds` names each of `variations` as the decision status does;
+// `snapshotColumnVariationIds` gives them for a snapshot's columns.
 export function buildTiebreakerLiftMap({
   variations,
-  snapshotVariationIds,
+  variationIds,
   metricId,
   inverse,
 }: {
   variations: SnapshotVariation[];
-  snapshotVariationIds: string[];
+  variationIds: string[];
   metricId: string;
   inverse?: boolean;
 }): Record<string, number> | null {
@@ -930,11 +1025,42 @@ export function buildTiebreakerLiftMap({
   const sign = inverse ? -1 : 1;
   const map: Record<string, number> = {};
   variations.forEach((dv, i) => {
-    const id = snapshotVariationIds[i];
+    const id = variationIds[i];
     const expected = dv?.metrics?.[metricId]?.expected;
     if (id && typeof expected === "number") map[id] = expected * sign;
   });
   return Object.keys(map).length > 0 ? map : null;
+}
+
+/**
+ * Of ship winners tied on the criteria, the one clearly ahead on a metric: its
+ * lift interval wholly above each other's (below, for a lower-is-better
+ * metric). Null when none is, or any lacks an interval.
+ */
+export function clearLeader({
+  variations,
+  variationIds,
+  tiedVariationIds,
+  metricId,
+  inverse,
+}: {
+  variations: SnapshotVariation[];
+  variationIds: string[];
+  tiedVariationIds: string[];
+  metricId: string;
+  inverse?: boolean;
+}): string | null {
+  const intervals = tiedVariationIds.flatMap((id) => {
+    const ci = variations[variationIds.indexOf(id)]?.metrics?.[metricId]?.ci;
+    return ci ? [{ id, ci: inverse ? [-ci[1], -ci[0]] : ci }] : [];
+  });
+  if (intervals.length < 2 || intervals.length < tiedVariationIds.length) {
+    return null;
+  }
+  const leader = intervals.find((v) =>
+    intervals.every((other) => other === v || v.ci[0] > other.ci[1]),
+  );
+  return leader?.id ?? null;
 }
 
 export type ScheduledShipDecision =

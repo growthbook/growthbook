@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { Response } from "express";
 import { AccountPlan } from "shared/enterprise";
 import { LicenseServerError } from "back-end/src/util/errors";
@@ -23,7 +24,7 @@ import {
  * want to restart their servers.
  */
 export async function getLicenseData(req: AuthRequest, res: Response) {
-  if (!req.superAdmin) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
     const context = getContextFromReq(req);
     if (!context.permissions.canManageBilling()) {
       context.permissions.throwPermissionError();

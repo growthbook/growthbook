@@ -1,7 +1,12 @@
-import { generateProductAnalyticsSQL } from "shared/enterprise";
+import {
+  calculateProductAnalyticsDateRange,
+  generateProductAnalyticsSQL,
+  transformProductAnalyticsRowsToResult,
+} from "shared/enterprise";
 import { format, createLikeStringMatchFn } from "shared/sql";
 import {
   ExplorationConfig,
+  PopulationValue,
   ProductAnalyticsDimension,
 } from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
@@ -1656,5 +1661,186 @@ describe("productAnalytics", () => {
         datasource,
       ),
     ).toThrow("Timestamp column is required");
+  });
+
+  describe("population datasets", () => {
+    const populationValue = (
+      overrides: Partial<PopulationValue> = {},
+    ): PopulationValue => ({
+      type: "population",
+      name: "Big spenders",
+      unit: "user_id",
+      source: { type: "factTable", factTableId: "orders" },
+      rowFilters: [{ operator: ">", column: "revenue", values: ["10"] }],
+      ...overrides,
+    });
+    const populationConfig = (
+      values: PopulationValue[] = [populationValue()],
+      overrides: Partial<
+        Pick<ExplorationConfig, "dateRange" | "dimensions">
+      > = {},
+    ): ExplorationConfig => ({
+      type: "population",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+      ],
+      ...overrides,
+      dataset: { type: "population", values },
+    });
+    const countAtLeastThree = populationValue({
+      rowFilters: [],
+      aggregateFilter: ">=3",
+      aggregateFilterColumn: "$$count",
+    });
+
+    it("counts each matching unit once per date bucket", () => {
+      const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+        populationConfig(),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(orderedMetricIds).toEqual(["population_0"]);
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+MAX\(m0\) AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /CASE\s+WHEN \(\(revenue > 10\)\) THEN 1\s+ELSE NULL\s+END AS m0/,
+      );
+    });
+
+    it("applies the aggregate filter per unit within each date bucket", () => {
+      const { sql } = generateProductAnalyticsSQL(
+        populationConfig([countAtLeastThree]),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m0\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+    });
+
+    it("counts members per week over the last 30 days", () => {
+      const dateRange: ExplorationConfig["dateRange"] = {
+        predefined: "last30Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      };
+      const { sql } = generateProductAnalyticsSQL(
+        populationConfig([countAtLeastThree], {
+          dateRange,
+          dimensions: [
+            { dimensionType: "date", column: null, dateGranularity: "week" },
+          ],
+        }),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      const { startDate } = calculateProductAnalyticsDateRange(dateRange);
+      expect(sql).toContain(`timestamp >= ${helpers.toTimestamp(startDate)}`);
+      expect(sql).toContain("date_trunc('week', timestamp) AS dimension0");
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m0\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /_factTable0_unit0_rollup AS \(\s+SELECT\s+dimension0,\s+CAST\(SUM\(m0\) AS FLOAT\) AS m0_numerator,[\s\S]*?FROM\s+_factTable0_unit0\s+GROUP BY\s+dimension0\s+\)/,
+      );
+    });
+
+    it("counts each value as its own series", () => {
+      const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+        populationConfig([
+          populationValue(),
+          populationValue({
+            name: "Repeat visitors",
+            unit: "anonymous_id",
+            rowFilters: [],
+            aggregateFilter: ">=3",
+            aggregateFilterColumn: "$$count",
+          }),
+        ]),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(orderedMetricIds).toEqual(["population_0", "population_1"]);
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+MAX\(m0\) AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /SELECT\s+unit1,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m1\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m1\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit1,\s+dimension0/,
+      );
+    });
+
+    it("preserves population labels with interleaved fact tables", () => {
+      const orders = factTableMap.get("orders")!;
+      const tables = new Map(factTableMap);
+      tables.set("other_orders", { ...orders, id: "other_orders" });
+      const config = populationConfig([
+        populationValue(),
+        populationValue({
+          source: { type: "factTable", factTableId: "other_orders" },
+        }),
+        populationValue(),
+      ]);
+      const { orderedMetricIds } = generateProductAnalyticsSQL(
+        config,
+        tables,
+        metricMap,
+        helpers,
+        datasource,
+      );
+      const result = transformProductAnalyticsRowsToResult(
+        config,
+        [
+          {
+            dimension0: "2026-10-22",
+            m0_numerator: 10,
+            m1_numerator: 20,
+            m2_numerator: 30,
+          },
+        ],
+        orderedMetricIds,
+      );
+
+      expect(result.rows[0].values).toEqual([
+        expect.objectContaining({ metricId: "population_0", numerator: 10 }),
+        expect.objectContaining({ metricId: "population_1", numerator: 20 }),
+        expect.objectContaining({ metricId: "population_2", numerator: 30 }),
+      ]);
+    });
+
+    it("requires a unit on every value", () => {
+      expect(() =>
+        generateProductAnalyticsSQL(
+          populationConfig([populationValue({ unit: null })]),
+          factTableMap,
+          metricMap,
+          helpers,
+          datasource,
+        ),
+      ).toThrow("Population unit is required");
+    });
   });
 });

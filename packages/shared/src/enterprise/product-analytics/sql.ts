@@ -2,6 +2,7 @@ import { getValidDate } from "shared/dates";
 import {
   buildMinimalOrCondition,
   format,
+  quoteColumnIdentifier,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
 } from "shared/sql";
@@ -39,6 +40,7 @@ import {
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
+  PopulationDataset,
   dateGranularity,
 } from "../../validators/product-analytics";
 import {
@@ -82,19 +84,7 @@ function getTimestampColumnExpression(
   }
   if (!factTable.quoteTimestampColumn) return factTable.timestampColumn;
 
-  return quoteSqlIdentifier(factTable.timestampColumn, helpers);
-}
-
-function quoteSqlIdentifier(name: string, helpers: SqlDialect): string {
-  const quote = helpers.identifierQuote;
-  const folded =
-    helpers.unquotedIdentifierFold === "upper"
-      ? name.toUpperCase()
-      : helpers.unquotedIdentifierFold === "lower"
-        ? name.toLowerCase()
-        : name;
-  const escaped = folded.split(quote).join(`${quote}${quote}`);
-  return `${quote}${escaped}${quote}`;
+  return quoteColumnIdentifier(factTable.timestampColumn, helpers);
 }
 
 // Funnel fact metrics are excluded: product-analytics explorations describe
@@ -207,6 +197,58 @@ function getMetricsAndUnitsFromValues(
 
   return { metrics, units: Array.from(units) };
 }
+// Each population value is a distinct-units count with an optional aggregate
+// filter. The aggregate filter is applied per unit within each dimension
+// bucket (e.g. per day), not across the whole date range.
+function getPopulationFactTableGroups(
+  dataset: PopulationDataset,
+  factTableMap: FactTableMap,
+): FactTableGroup[] {
+  const groups: Record<string, FactTableGroup> = {};
+  dataset.values.forEach((value, index) => {
+    if (!value.unit) {
+      throw new Error("Population unit is required");
+    }
+    const factTable = factTableMap.get(value.source.factTableId);
+    if (!factTable) {
+      throw new Error(`Fact table ${value.source.factTableId} not found`);
+    }
+    const metric = createSimpleMetric(
+      "unit_count",
+      null,
+      value.rowFilters,
+      value.name,
+    );
+    groups[factTable.id] ??= {
+      index: Object.keys(groups).length,
+      factTable: toMinimalFactTable(factTable),
+      metrics: [],
+      units: [],
+    };
+    const group = groups[factTable.id];
+    group.metrics.push({
+      index,
+      unit: value.unit,
+      metric: {
+        ...metric,
+        id: `population_${index}`,
+        numerator: {
+          ...metric.numerator,
+          factTableId: factTable.id,
+          ...(value.aggregateFilter && value.aggregateFilterColumn
+            ? {
+                aggregateFilter: value.aggregateFilter,
+                aggregateFilterColumn: value.aggregateFilterColumn,
+              }
+            : {}),
+        },
+      },
+    });
+    if (!group.units.includes(value.unit)) group.units.push(value.unit);
+  });
+  return Object.values(groups);
+}
+
 function getFactTableGroups({
   config,
   factTableMap,
@@ -279,6 +321,8 @@ function getFactTableGroups({
           },
         ];
       })();
+    case "population":
+      return getPopulationFactTableGroups(config.dataset, factTableMap);
     case "funnel":
     case "journey":
       // Dispatched away from this code path in generateProductAnalyticsSQL;
@@ -1941,7 +1985,7 @@ export function generateProductAnalyticsSQL(
       const data = getMetricData(m, f.factTable, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
-      if (!m.useDenominator) orderedMetricIds.push(m.metric.id);
+      if (!m.useDenominator) orderedMetricIds[m.index] = m.metric.id;
     });
   });
 
@@ -2146,7 +2190,7 @@ function generateProductAnalyticsRawTableSQL(
 
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
   const timestampColumn = hasTimestampColumn(config.dataset.timestampColumn)
-    ? quoteSqlIdentifier(config.dataset.timestampColumn, dialect)
+    ? quoteColumnIdentifier(config.dataset.timestampColumn, dialect)
     : null;
   const whereClause = timestampColumn
     ? `WHERE ${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`

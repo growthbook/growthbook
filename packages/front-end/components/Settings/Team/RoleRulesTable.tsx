@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, ReactNode } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
-import { getRoleDisplayName } from "shared/permissions";
+import { getRoleDisplayName, holdsGlobalAdmin } from "shared/permissions";
 import { PiTrash, PiInfo, PiPlus, PiPlusBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,16 +43,22 @@ export default function RoleRulesTable({
   value,
   setValue,
   teams = [],
+  forApiKey = false,
+  footerEnd,
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
   teams?: TeamRuleSource[];
+  // An API key's project rules stay binding even over All Projects admin.
+  forApiKey?: boolean;
+  footerEnd?: ReactNode;
 }) {
   const { organization, hasCommercialFeature } = useUser();
   const hasAdvancedPermissions = hasCommercialFeature("advanced-permissions");
   const { projects } = useDefinitions();
 
   const rules = useMemo(() => toRules(value, teams), [value, teams]);
+  const adminEverywhere = !forApiKey && holdsGlobalAdmin(value, teams);
   const inert = useMemo(
     () => inertRules(rules, organization),
     [rules, organization],
@@ -164,6 +170,21 @@ export default function RoleRulesTable({
         )}
         <TableCell width={WIDTHS[4]}>
           <Flex align="center" gap="1" justify="end" wrap="wrap">
+            {!forApiKey &&
+              rule.project === ALL_PROJECTS &&
+              rule.role === "admin" && (
+                <Tooltip content="Admin already grants everything, so other global and Project roles have no effect.">
+                  <Badge
+                    color="gray"
+                    variant="soft"
+                    label={
+                      <Flex align="center" gap="1">
+                        <PiInfo /> Overrides all other roles
+                      </Flex>
+                    }
+                  />
+                </Tooltip>
+              )}
             {inert.has(rule.key) && (
               <Tooltip content={inertReason(rule, inert.get(rule.key))}>
                 <Badge
@@ -243,7 +264,9 @@ export default function RoleRulesTable({
           )}
           {!isAllProjects && (
             <Text size="sm" color="text-low">
-              replaces the All Projects rules inside it
+              {adminEverywhere
+                ? "Has no effect for a global Admin."
+                : "Replaces the All Projects rules inside it"}
             </Text>
           )}
         </Flex>
@@ -282,11 +305,18 @@ export default function RoleRulesTable({
   return (
     <Box>
       {groups.map(renderGroup)}
-      {unusedProjects.length > 0 && hasAdvancedPermissions && (
-        <Button variant="soft" onClick={() => addRule(unusedProjects[0].id)}>
-          <PiPlus /> Add project override
-        </Button>
-      )}
+      <Flex align="center" gap="3">
+        {unusedProjects.length > 0 && hasAdvancedPermissions && (
+          <Button
+            variant="soft"
+            icon={<PiPlus />}
+            onClick={() => addRule(unusedProjects[0].id)}
+          >
+            Add Project override
+          </Button>
+        )}
+        {footerEnd && <Box ml="auto">{footerEnd}</Box>}
+      </Flex>
     </Box>
   );
 }

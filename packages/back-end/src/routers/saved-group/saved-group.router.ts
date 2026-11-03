@@ -2,6 +2,8 @@ import express from "express";
 import { z } from "zod";
 import {
   postSavedGroupBodyValidator,
+  paginationQueryFields,
+  postSavedGroupUploadBodyValidator,
   putSavedGroupBodyValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -97,6 +99,71 @@ router.put(
     body: putSavedGroupBodyValidator,
   }),
   savedGroupController.putSavedGroup,
+);
+
+router.get(
+  "/:id/uploads",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+    query: z
+      .object({
+        ...paginationQueryFields,
+        // Comma-separated version numbers, e.g. "3,7"
+        versions: z
+          .string()
+          .regex(/^\d+(,\d+)*$/)
+          .optional(),
+      })
+      .strict(),
+  }),
+  savedGroupController.getSavedGroupUploads,
+);
+
+router.get(
+  "/:id/uploads/:version",
+  validateRequestMiddleware({
+    params: z
+      .object({ id: z.string(), version: z.coerce.number().int().positive() })
+      .strict(),
+  }),
+  savedGroupController.getSavedGroupUpload,
+);
+
+router.get(
+  "/:id/uploads/:version/download-url",
+  validateRequestMiddleware({
+    params: z
+      .object({ id: z.string(), version: z.coerce.number().int().positive() })
+      .strict(),
+  }),
+  savedGroupController.getSavedGroupUploadDownloadUrl,
+);
+
+router.delete(
+  "/:id/uploads/:version",
+  validateRequestMiddleware({
+    params: z
+      .object({ id: z.string(), version: z.coerce.number().int().positive() })
+      .strict(),
+  }),
+  savedGroupController.deleteSavedGroupUpload,
+);
+
+router.post(
+  "/:id/upload-url",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+  }),
+  savedGroupController.postSavedGroupUploadUrl,
+);
+
+router.post(
+  "/:id/uploads",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+    body: postSavedGroupUploadBodyValidator,
+  }),
+  savedGroupController.postSavedGroupUpload,
 );
 
 router.delete(

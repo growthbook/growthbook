@@ -36,6 +36,11 @@ import {
 } from "back-end/src/services/features";
 import { getFeatureDefinition } from "back-end/src/util/features";
 
+jest.mock("back-end/src/models/VisualChangesetModel", () => ({
+  getAllCbVisualExperiments: jest.fn().mockResolvedValue([]),
+  getContextualBanditsWithVisualChangesets: jest.fn().mockResolvedValue([]),
+}));
+
 function minimalContext(
   orgOverrides?: Partial<OrganizationInterface>,
 ): ApiReqContext {
@@ -2341,6 +2346,48 @@ describe("getUsedSavedGroupIds", () => {
         groupMap,
       ),
     ).toEqual(new Set(["list_1"]));
+  });
+
+  it("includes derived remote groups and their source groups", () => {
+    const remoteMap: GroupMap = new Map([
+      ...groupMap,
+      ["vip", { type: "remote", attributeKey: "account_id" }],
+    ]);
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: { id: "vip:parent_id" } }),
+        [],
+        remoteMap,
+      ),
+    ).toEqual(new Set(["vip:parent_id", "vip"]));
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ __gb_remoteGroupIds: { $in: ["vip:parent_id"] } }),
+        [],
+        remoteMap,
+      ),
+    ).toEqual(new Set(["vip:parent_id", "vip"]));
+  });
+
+  it("includes the source of a derived group named in a condition group", () => {
+    const remoteMap: GroupMap = new Map([
+      ...groupMap,
+      ["vip", { type: "remote", attributeKey: "account_id" }],
+      [
+        "cond_vip",
+        {
+          type: "condition",
+          condition: JSON.stringify({ $savedGroups: ["vip:parent_id"] }),
+        },
+      ],
+    ]);
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: { id: "cond_vip" } }),
+        [],
+        remoteMap,
+      ),
+    ).toEqual(new Set(["cond_vip", "vip:parent_id", "vip"]));
   });
 
   it("includes groups reachable only through a shipped condition", () => {

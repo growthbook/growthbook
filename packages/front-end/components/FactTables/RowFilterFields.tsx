@@ -55,7 +55,7 @@ export function RowFilterFields({
 
   const columnSelect = isSqlExpr ? null : (
     <SelectField
-      size="small"
+      size="md"
       value={getRowFilterSelectValue(filter)}
       onChange={(v) =>
         onUpdate(
@@ -77,7 +77,7 @@ export function RowFilterFields({
   const operatorSelect = state.operatorInputRequired &&
     firstSelectCompleted && (
       <SelectField
-        size="small"
+        size="md"
         value={state.displayOperator}
         onChange={(v: RowFilter["operator"]) =>
           onUpdate(getRowFilterOperatorChange(v, filter, state.isDateColumn))

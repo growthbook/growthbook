@@ -24,6 +24,7 @@ import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/conf
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
@@ -37,6 +38,7 @@ import {
   buildScheduleRampAction,
   validateRuleAttributes,
   assertValidRevisionRulePrerequisites,
+  assertScopedRules,
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -52,7 +54,7 @@ import {
   assertNoRawConfigExtends,
   assertValidRuleConfigKeys,
   composeConfigBacking,
-  resolveScopeFromInput,
+  withPatchedScope,
   assertCanUseRuleScheduling,
   assertValidExperimentRefRule,
   experimentRefChanged,
@@ -94,6 +96,15 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       },
     ),
   );
+  const stagedRule = staged.rules?.find((r) => r.id === req.params.ruleId);
+  if (stagedRule) {
+    assertScopedRules(
+      req.context,
+      [withPatchedScope(stagedRule, patch)],
+      [stagedRule],
+    );
+  }
+  await holdRoute(req.context, putFeatureRevisionRuleV2Validator, req);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -201,21 +212,10 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
 
     // Apply patch including v2 scope fields.
     const { allEnvironments, environments, ...basePatch } = patch;
-    const updatedRule = applyPatch(oldRule, basePatch as RulePatchInput);
-
-    // Apply scope changes if present. When the client sends only
-    // `environments` (without `allEnvironments`), infer `allEnvironments:false`
-    // — the user explicitly listed envs, so they want single/multi-env scope
-    // even if the rule was previously `allEnvironments: true`.
-    if (allEnvironments !== undefined || environments !== undefined) {
-      const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
-        resolveScopeFromInput(
-          allEnvironments,
-          environments ?? (oldRule.environments as string[] | undefined),
-        );
-      (updatedRule as FeatureRule).allEnvironments = resolvedAllEnvs;
-      (updatedRule as FeatureRule).environments = resolvedEnvs;
-    }
+    const updatedRule = withPatchedScope(
+      applyPatch(oldRule, basePatch as RulePatchInput),
+      { allEnvironments, environments },
+    );
 
     // Recompose config-backing into the stored value(s). For force/rollout an
     // omitted `config`/`value` is preserved from the existing rule; `config:

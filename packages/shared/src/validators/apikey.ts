@@ -3,12 +3,8 @@ import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
 import { confirmRulesValidator } from "./confirmations";
 
-export const requesterHeaderValidator = z.enum([
-  "optional",
-  "required",
-  "rejected",
-]);
-export const requesterPermissionsValidator = z.enum(["assume", "key"]);
+// Who an org key's requests act as: itself, or the member a request names.
+export const actAsValidator = z.enum(["system", "user"]);
 
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
@@ -65,15 +61,10 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Org API keys and scoped PATs. Project-specific role overrides, same shape as member projectRoles",
     ),
-  requesterHeader: requesterHeaderValidator
+  actAs: actAsValidator
     .optional()
     .describe(
-      "Org API keys only. Whether requests may (`optional`, default), must (`required`) or must not (`rejected`) send `X-GrowthBook-Requested-By`",
-    ),
-  requesterPermissions: requesterPermissionsValidator
-    .optional()
-    .describe(
-      "Org API keys only. `assume` (default) acts as the named member, within the key's role; `key` acts as the key and only records the member",
+      "Org API keys only. `system` (default): requests act as the key, and a member named with `X-GrowthBook-Requested-By` is only recorded. `user`: every request must name a member with that header and acts as them, within the key's role",
     ),
   disabled: z
     .boolean()
@@ -127,10 +118,37 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Actions this key can't complete until a person confirms them. Null or absent means off.",
     ),
+  keyIssuedAt: z
+    .date()
+    .optional()
+    .describe(
+      "When the current secret was issued. Absent means `dateCreated`; set on rotation, and the expiration policy's maximum lifetime runs from it.",
+    ),
+  previousKey: z
+    .string()
+    .optional()
+    .describe(
+      "The secret a rotation replaced, still accepted until `previousKeyExpiresAt`.",
+    ),
+  previousKeyExpiresAt: z
+    .date()
+    .nullable()
+    .optional()
+    .describe("When `previousKey` stops being accepted."),
+  previousKeyLastUsed: z
+    .date()
+    .nullable()
+    .optional()
+    .describe(
+      "Most recent authentication with `previousKey`. `null` means it hasn't been used since the rotation.",
+    ),
 });
 
 export const secretApiKey = apiKeySchema
   .omit({ id: true, secret: true, environment: true, project: true })
   .safeExtend({ id: z.string(), secret: z.literal(true) });
 
-export const secretApiKeyRedacted = secretApiKey.omit({ key: true });
+export const secretApiKeyRedacted = secretApiKey.omit({
+  key: true,
+  previousKey: true,
+});

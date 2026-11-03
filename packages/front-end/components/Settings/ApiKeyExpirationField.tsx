@@ -12,10 +12,8 @@ import {
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { date, datetimeAt } from "shared/dates";
-import { Box, Grid } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import DatePicker from "@/components/DatePicker";
-import Frame from "@/ui/Frame";
-import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
@@ -39,14 +37,20 @@ const ApiKeyExpirationField: FC<{
   maxLifetimeDays: MaxLifetimeDays;
   value: Date | null;
   setValue: (date: Date | null) => void;
-  /** The key being edited, whose policy maximum runs from its creation. */
-  existing?: { expiresAt?: ExpiresAt; dateCreated: ExpiresAt };
-}> = ({ maxLifetimeDays, value, setValue, existing }) => {
+  /** The key being edited, whose policy maximum runs from when its secret was issued. */
+  existing?: {
+    expiresAt?: ExpiresAt;
+    dateCreated: ExpiresAt;
+    keyIssuedAt?: ExpiresAt;
+  };
+  /** Why the viewer can't create a replacement for an expired key, or null when they can. */
+  replaceBlocked: string | null;
+}> = ({ maxLifetimeDays, value, setValue, existing, replaceBlocked }) => {
   const required = (maxLifetimeDays ?? null) !== null;
   const latest = existing
     ? latestEditedExpiration(
         existing.expiresAt,
-        existing.dateCreated,
+        existing.keyIssuedAt ?? existing.dateCreated,
         maxLifetimeDays,
       )
     : maxExpirationDate(maxLifetimeDays);
@@ -117,100 +121,100 @@ const ApiKeyExpirationField: FC<{
   // A preset only says how long; this turns it into the date it lands on.
   const expiresNote =
     value && !problem && !picksDate ? (
-      <Text size="sm" color="text-mid">{`Expires ${datetimeAt(value)}.`}</Text>
+      <Text
+        size="sm"
+        color="text-mid"
+        mt="1"
+      >{`Expires ${datetimeAt(value)}.`}</Text>
     ) : null;
 
+  const notice = expired ? (
+    <HelperText status="warning">
+      This key has expired and can&apos;t be extended.{" "}
+      {replaceBlocked ?? "Create a new key to replace it."}
+    </HelperText>
+  ) : required && latest ? (
+    // Day precision to match the picker.
+    <HelperText status={cleared ? "warning" : "info"}>
+      {cleared
+        ? `Your organization changed its expiration policy, so the date you chose is no longer allowed. The latest allowed is now ${date(latest)}.`
+        : existing
+          ? `Your organization's ${maxLifetimeDays}-day maximum counts from when this key was created or last rotated, so the latest allowed is ${date(latest)}.`
+          : `Your organization requires an expiration date, and the latest allowed is ${date(latest)}.`}
+    </HelperText>
+  ) : null;
+
+  // Two cells of the parent's grid: this column beside the name, and any
+  // notice across the full width below them.
   return (
-    <Box mt="6">
-      <Heading as="h4" size="sm" mb="1">
-        Expiration
-      </Heading>
-      {expired ? (
-        <HelperText status="warning">
-          This key has expired and can&apos;t be extended. Create a new key to
-          replace it.
-        </HelperText>
-      ) : (
-        <>
-          {/* Day precision to match the picker. */}
-          {required && latest && (
-            <HelperText status={cleared ? "warning" : "info"} mb="3">
-              {cleared
-                ? `Your organization changed its expiration policy, so the date you chose is no longer allowed. The latest allowed is now ${date(latest)}.`
-                : existing
-                  ? `Your organization's ${maxLifetimeDays}-day maximum counts from when this key was created, so the latest allowed is ${date(latest)}.`
-                  : `Your organization requires an expiration date, and the latest allowed is ${date(latest)}.`}
-            </HelperText>
-          )}
-          <Frame py="1" px="3">
-            <Grid
-              columns="100px 210px 1fr"
-              gapX="4"
-              align="center"
-              style={{ gridAutoRows: "minmax(40px, auto)" }}
-            >
-              <Text as="label" weight="semibold" mb="0">
-                Expires
-              </Text>
-              <SelectField
-                aria-label="Expires"
-                size="small"
-                maxMenuHeight={360}
-                sort={false}
-                isSearchable={false}
-                placeholder="Choose an expiration"
-                value={selection}
-                onChange={(next) => {
-                  setSelection(next);
-                  if (next === NEVER) {
-                    setValue(null);
-                  } else if (next !== DATE) {
-                    setValue(addDays(new Date(), Number(next)));
-                  }
-                }}
-                options={[
-                  ...presets.map((days) => ({
-                    label: presetLabel(days),
-                    value: String(days),
-                  })),
-                  { label: "Expires on date", value: DATE },
-                  // Offered under a policy only as the edited key's unchanged state.
-                  ...(!required || (existing && !existing.expiresAt)
-                    ? [{ label: "No expiration", value: NEVER }]
-                    : []),
-                ]}
-                formatOptionLabel={({ label, value }, { context }) =>
-                  context === "value" && value === DATE ? "Expires on" : label
+    <>
+      <Flex direction="column" style={{ minWidth: 0 }}>
+        {expired ? (
+          <>
+            <Text as="div" size="md" weight="semibold">
+              Expires
+            </Text>
+            <Text color="text-mid">Expired</Text>
+          </>
+        ) : (
+          <>
+            <SelectField
+              label="Expires"
+              legacyLabelFormatting={false}
+              size="md"
+              maxMenuHeight={360}
+              sort={false}
+              isSearchable={false}
+              placeholder="Choose an expiration"
+              value={selection}
+              onChange={(next) => {
+                setSelection(next);
+                if (next === NEVER) {
+                  setValue(null);
+                } else if (next !== DATE) {
+                  setValue(addDays(new Date(), Number(next)));
                 }
-              />
-              <Box>{expiresNote}</Box>
-              {picksDate && (
-                <>
-                  <Text as="label" htmlFor={dateId} weight="semibold" mb="0">
-                    Date
-                  </Text>
-                  <DatePicker
-                    id={dateId}
-                    size="md"
-                    date={value ?? undefined}
-                    setDate={(d) => setValue(d ?? null)}
-                    precision="date"
-                    timeZone="local"
-                    disableBefore={addDays(new Date(), 1)}
-                    disableAfter={latest ?? undefined}
-                    clampInput={false}
-                    error={dateError}
-                    required
-                    containerClassName=""
-                  />
-                  <Box />
-                </>
-              )}
-            </Grid>
-          </Frame>
-        </>
-      )}
-    </Box>
+              }}
+              options={[
+                ...presets.map((days) => ({
+                  label: presetLabel(days),
+                  value: String(days),
+                })),
+                { label: "Expires on date", value: DATE },
+                // Offered under a policy only as the edited key's unchanged state.
+                ...(!required || (existing && !existing.expiresAt)
+                  ? [{ label: "No expiration", value: NEVER }]
+                  : []),
+              ]}
+              formatOptionLabel={({ label, value }, { context }) =>
+                context === "value" && value === DATE ? "Expires on" : label
+              }
+            />
+            {picksDate && (
+              <Box mt="2">
+                <DatePicker
+                  id={dateId}
+                  label="Date"
+                  size="md"
+                  date={value ?? undefined}
+                  setDate={(d) => setValue(d ?? null)}
+                  precision="date"
+                  timeZone="local"
+                  disableBefore={addDays(new Date(), 1)}
+                  disableAfter={latest ?? undefined}
+                  clampInput={false}
+                  error={dateError}
+                  required
+                  containerClassName=""
+                />
+              </Box>
+            )}
+            {expiresNote}
+          </>
+        )}
+      </Flex>
+      {notice && <Box style={{ gridColumn: "1 / -1" }}>{notice}</Box>}
+    </>
   );
 };
 

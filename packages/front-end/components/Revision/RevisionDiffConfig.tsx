@@ -3,6 +3,8 @@ import {
   renderSavedGroupSettings,
   renderSavedGroupTargeting,
   renderSavedGroupValues,
+  renderSavedGroupUploadVersion,
+  getSavedGroupUploadVersionBadges,
   getSavedGroupSettingsBadges,
   getSavedGroupTargetingBadges,
   getSavedGroupValuesBadges,
@@ -35,6 +37,12 @@ export const REVISION_SAVED_GROUP_DIFF_CONFIG: RevisionDiffConfig<SavedGroupInte
         keys: ["attributeKey", "values"] as (keyof SavedGroupInterface)[],
         render: renderSavedGroupValues,
         getBadges: getSavedGroupValuesBadges,
+      },
+      {
+        label: "Uploaded IDs",
+        keys: ["currentUploadVersion"] as (keyof SavedGroupInterface)[],
+        render: renderSavedGroupUploadVersion,
+        getBadges: getSavedGroupUploadVersionBadges,
       },
     ],
     normalizeSnapshot: (snapshot: SavedGroupInterface): SavedGroupInterface => {

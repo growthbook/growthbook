@@ -1083,6 +1083,9 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsSourceTableFullName: unitsTableFullName,
             metrics: partition.metrics,
             lastMaxTimestamp: existingSource?.maxTimestamp || null,
+            // In-progress conversions are judged against the data the metric
+            // sources hold, which ends at the scan end, not at the run time.
+            asOf: params.incrementalRefreshStartTime,
             dimensionsForPrecomputation,
             dimensionsForAnalysis: [],
             metricSources: [
@@ -1169,6 +1172,7 @@ const startExperimentIncrementalRefreshQueries = async (
         unitsSourceTableFullName: unitsTableFullName,
         metrics: subGroup.metrics,
         lastMaxTimestamp: null,
+        asOf: params.incrementalRefreshStartTime,
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
         metricSources: subGroup.pipelines.map((p) => ({

@@ -1,12 +1,13 @@
 import React, { FC, useMemo, useState } from "react";
 import { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
-import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import EventUser from "@/components/Avatar/EventUser";
 import Link from "@/ui/Link";
 import { getEventText } from "@/components/Events/EventsPage/utils";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { EventDetail } from "@/components/Events/EventDetail/EventDetail";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -19,7 +20,7 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
   const permissionsUtils = usePermissionsUtil();
 
   const { data } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
-    shouldRun: () => permissionsUtils.canCreateApiKey(),
+    shouldRun: () => permissionsUtils.canViewApiKeys(),
   });
 
   const apiKeyDescriptions = useMemo(() => {
@@ -65,35 +66,19 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
           </span>
         </td>
         <td>
-          <a
-            href={`/events/${event.id}`}
-            onClick={(e) => {
-              e.preventDefault();
-              setShowDetails(!showDetails);
-            }}
+          <Link
+            onClick={() => setShowDetails(!showDetails)}
+            aria-expanded={showDetails}
           >
-            <div className="d-flex align-items-center py-1">
-              <p className="mb-0">{getEventText(event)}</p>
+            <Flex as="span" align="center" gap="2">
+              {getEventText(event)}
               {showDetails ? (
-                <FaAngleUp className="ml-2" />
+                <PiCaretUp aria-hidden />
               ) : (
-                <FaAngleDown className="ml-2" />
+                <PiCaretDown aria-hidden />
               )}
-            </div>
-          </a>
-          {showDetails && (
-            <div>
-              <div className="mt-2">
-                <Code
-                  language="json"
-                  filename={event.data.event}
-                  code={JSON.stringify(event.data, null, 2)}
-                  expandable={false}
-                />
-              </div>
-              <Link href={`/events/${event.id}`}>Permalink to Event</Link>
-            </div>
-          )}
+            </Flex>
+          </Link>
         </td>
         <td className="">
           <span className="tr-hover small py-1">
@@ -101,6 +86,16 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
           </span>
         </td>
       </tr>
+      {showDetails && (
+        <tr>
+          <td colSpan={5}>
+            {/* Zero intrinsic width: long lines scroll instead of widening the table. */}
+            <Box width="0" minWidth="100%">
+              <EventDetail event={event} />
+            </Box>
+          </td>
+        </tr>
+      )}
     </>
   );
 };

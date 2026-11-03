@@ -1,0 +1,64 @@
+// The glyph is the button, so its hover outline traces the bubble.
+.chatLauncher {
+  position: fixed;
+  right: 10px;
+  z-index: 10;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  color: var(--violet-9);
+  cursor: pointer;
+  transition: filter 100ms ease;
+
+  // Hard shadows at eight angles trace the glyph's alpha as a crisp outline;
+  // a single blurred shadow would smudge.
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    filter: drop-shadow(2px 0 0 var(--violet-a3))
+      drop-shadow(-2px 0 0 var(--violet-a3))
+      drop-shadow(0 2px 0 var(--violet-a3))
+      drop-shadow(0 -2px 0 var(--violet-a3))
+      drop-shadow(1.4px 1.4px 0 var(--violet-a3))
+      drop-shadow(-1.4px 1.4px 0 var(--violet-a3))
+      drop-shadow(1.4px -1.4px 0 var(--violet-a3))
+      drop-shadow(-1.4px -1.4px 0 var(--violet-a3));
+  }
+}
+
+// Keeps the chat mark's footprint so the launcher doesn't move when opened.
+// Phosphor draws the bubble at r=104 in a 256 viewBox: 81.25% of the box.
+.closeLauncher {
+  composes: chatLauncher;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeCircle {
+  width: 81.25%;
+  height: 81.25%;
+  border-radius: 50%;
+  background: var(--violet-9);
+  color: var(--violet-contrast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Phosphor centres the bubble on the icon's box (only its tail hangs below),
+// so the question glyph sits dead centre.
+.chatMark {
+  position: relative;
+  display: block;
+}
+
+.chatMarkGlyph {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--violet-contrast);
+}

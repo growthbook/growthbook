@@ -35,13 +35,22 @@ import {
   setTag as sentrySetTag,
 } from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  hasSuperAdminPermission,
+  userHasPermission,
+} from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import Cookies from "js-cookie";
-import { AgreementType, SdkPayloadSizeAlert } from "shared/validators";
+import {
+  AgreementType,
+  SdkPayloadSizeAlert,
+  SuperAdmin,
+} from "shared/validators";
 import { AIProvider, STTModel } from "shared/ai";
 import { NonJsonResponseError } from "shared/util";
+import { z } from "zod";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -54,6 +63,7 @@ import {
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
+import { ApiCallError } from "@/services/apiCallError";
 import { getJitsuClient, trackPageView } from "@/services/track";
 import { getOrGeneratePageId, growthbook } from "@/services/utils";
 
@@ -82,13 +92,16 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
   createMetricGroups: false,
-  manageApiKeys: false,
+  viewApiKeys: false,
+  createApiKeys: false,
+  editApiKeys: false,
+  deleteApiKeys: false,
+  managePersonalAccessTokens: false,
   manageBilling: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,
   manageTags: false,
   manageTeam: false,
-  manageEventWebhooks: false,
   manageIntegrations: false,
   organizationSettings: false,
   superDeleteReport: false,
@@ -105,7 +118,7 @@ export interface UserContextValue {
   name?: string;
   pylonHmacHash?: string;
   email?: string;
-  superAdmin?: boolean;
+  superAdmin?: SuperAdmin;
   npsSurveyAt?: string;
   accountCreatedAt?: string;
   npsSurveyEnabled?: boolean;
@@ -136,6 +149,8 @@ export interface UserContextValue {
   roles: Role[];
   teams?: Team[];
   error?: string;
+  // The Enterprise SSO connection the user's orgs require when the current login doesn't use it
+  requiredSSOConnectionId?: string;
   orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
@@ -159,7 +174,7 @@ interface UserResponse {
   email: string;
   pylonHmacHash: string;
   verified: boolean;
-  superAdmin: boolean;
+  superAdmin: SuperAdmin;
   npsSurveyAt?: string;
   accountCreatedAt?: string;
   npsSurveyEnabled?: boolean;
@@ -223,6 +238,16 @@ let currentUser: null | {
 } = null;
 export function getCurrentUser() {
   return currentUser;
+}
+
+function getRequiredSSOConnectionId(error: unknown) {
+  if (!(error instanceof ApiCallError) || error.code !== "sso_required") {
+    return undefined;
+  }
+  const parsed = z
+    .object({ ssoConnectionId: z.string() })
+    .safeParse(error.details);
+  return parsed.success ? parsed.data.ssoConnectionId : undefined;
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
@@ -298,7 +323,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (data?.organizations && setOrganizations) {
-      setOrganizations(data.organizations, data.superAdmin);
+      setOrganizations(
+        data.organizations,
+        hasSuperAdminPermission(data.superAdmin, "impersonate"),
+      );
     }
   }, [data, setOrganizations]);
 
@@ -337,7 +365,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.superAdmin ? getSuperadminDefaultRole() : "readonly",
+      role: hasSuperAdminPermission(data.superAdmin, "impersonate")
+        ? getSuperadminDefaultRole()
+        : "readonly",
       projectRoles: [],
     };
   }
@@ -384,7 +414,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       anonymous_id,
       id: data?.userId || "",
       user_id: data?.userId || "",
-      superAdmin: data?.superAdmin || false,
+      superAdmin: hasSuperAdminPermission(data?.superAdmin, "view"),
       cloud: isCloud(),
       // Raw _ga value, matching Jitsu's ids.ga; cloud-only since self-hosted it's the customer's GA
       gaCookie: isCloud() ? Cookies.get("_ga") || "" : "",
@@ -620,7 +650,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
-        orgSuspended: organization?.suspended === true && !data?.superAdmin,
+        requiredSSOConnectionId: getRequiredSSOConnectionId(error),
+        orgSuspended:
+          organization?.suspended === true &&
+          !hasSuperAdminPermission(data?.superAdmin, "impersonate"),
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         watching: watching,
         canSubscribe,

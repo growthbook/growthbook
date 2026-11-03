@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   Permissions,
   archiveFootprintForControl,
+  canApplyExpirationPolicy,
+  canManageApiKeySecret,
+  canSetApiKeyDisabled,
   featurePublishFootprint,
   revertFootprint,
   serveFootprint,
@@ -362,5 +365,46 @@ describe("metric creation has no environment footprint", () => {
       true,
     );
     expect(permissions.canCreateMetric({ projects: ["prj_web"] })).toBe(false);
+  });
+});
+
+describe("API key controls have no environment footprint", () => {
+  it("keeps each grant for an environment-limited role", () => {
+    const envLimited = (granted: string) =>
+      new Permissions({
+        global: {
+          permissions: { [granted]: true },
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+        },
+        projects: {},
+      });
+    const deleteOnly = envLimited("deleteApiKeys");
+    const editOnly = envLimited("editApiKeys");
+    const tokensOnly = envLimited("managePersonalAccessTokens");
+    const createOnly = envLimited("createApiKeys");
+
+    expect(canManageApiKeySecret(createOnly, {}, "u_1")).toBe(true);
+    expect(
+      canSetApiKeyDisabled(deleteOnly, { disabled: false }, "u_1", true),
+    ).toBe(true);
+    expect(canApplyExpirationPolicy(deleteOnly, "secret")).toBe(true);
+    expect(
+      canSetApiKeyDisabled(
+        editOnly,
+        { disabled: true, disabledBy: "u_x" },
+        "u_1",
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      canSetApiKeyDisabled(
+        tokensOnly,
+        { userId: "u_owner", disabled: false },
+        "u_1",
+        true,
+      ),
+    ).toBe(true);
+    expect(canApplyExpirationPolicy(tokensOnly, "pat")).toBe(true);
   });
 });

@@ -12,6 +12,8 @@ import { useUser } from "@/services/UserContext";
 import { DocLink, DocSection } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { radixSize } from "@/ui/sizes";
+import { Size } from "@/ui/HelperText";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Link from "@/ui/Link";
 import styles from "./Callout.module.scss";
@@ -23,6 +25,7 @@ export type Props = {
   renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
   children: React.ReactNode;
   docSection?: DocSection;
+  size?: Size;
 } & MarginProps;
 
 export default function PremiumCallout({
@@ -32,6 +35,7 @@ export default function PremiumCallout({
   children,
   docSection,
   renderWhenDismissed,
+  size = "md",
   ...containerProps
 }: Props) {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
@@ -71,7 +75,9 @@ export default function PremiumCallout({
   const link =
     hasFeature && docSection ? (
       <DocLink docSection={docSection}>
-        View docs <PiArrowSquareOut size={15} />
+        <Flex as="span" align="center" gap="1">
+          View docs <PiArrowSquareOut size={15} />
+        </Flex>
       </DocLink>
     ) : pro ? (
       <Link
@@ -89,8 +95,13 @@ export default function PremiumCallout({
         href="https://www.growthbook.io/demo"
         target="_blank"
         rel="noreferrer"
+        color="indigo"
+        underline="always"
+        weight="medium"
       >
-        Talk to Sales <PiArrowSquareOut size={15} />
+        <Flex as="span" align="center" gap="1">
+          Talk to Sales <PiArrowSquareOut size={15} />
+        </Flex>
       </Link>
     );
 
@@ -107,18 +118,19 @@ export default function PremiumCallout({
         className={styles.callout}
         color={color}
         role="alert"
-        size="2"
+        size={radixSize(size)}
         {...containerProps}
         style={{
           position: "relative",
+          alignItems: "center",
         }}
       >
         <RadixCallout.Icon>{icon}</RadixCallout.Icon>
         {/* Render as a div instead of RadixCallout.Text (which forces <p>)
             so block-level children and the inner Flex don't produce invalid
             <div>-inside-<p> nesting. */}
-        <Text as="div" size="2">
-          <Flex align="start" gap="1" pr="3">
+        <Text as="div" size={radixSize(size)}>
+          <Flex align="center" gap="1" pr="3">
             <div>{children}</div>
             {/* nowrap keeps the CTA label + external-link icon on one line */}
             <div style={{ flex: 1, whiteSpace: "nowrap" }}>{link}</div>

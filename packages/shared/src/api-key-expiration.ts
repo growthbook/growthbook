@@ -19,7 +19,8 @@ export type MaxLifetimeDays = number | null | undefined;
 
 export type ExpiresAt = Date | string | null | undefined;
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_HOUR = 60 * 60 * 1000;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
 
 export function addDays(from: Date, days: number): Date {
   return new Date(from.getTime() + days * MS_PER_DAY);
@@ -101,21 +102,59 @@ export function getExpirationProblem(
 
 /**
  * The latest expiry an edit may set, or `null` when there's no policy. The
- * maximum runs from creation so an edit can't stretch a key past the policy,
- * but shortening is always allowed, even for a key that is already over it.
+ * maximum runs from when the secret was issued so an edit can't stretch a key
+ * past the policy, but shortening is always allowed, even for a key that is
+ * already over it.
  */
 export function latestEditedExpiration(
   current: ExpiresAt,
-  dateCreated: ExpiresAt,
+  issuedAt: ExpiresAt,
   maxLifetimeDays: MaxLifetimeDays,
   now: Date = new Date(),
 ): Date | null {
   if ((maxLifetimeDays ?? null) === null) return null;
   const max = maxLifetimeDays as number;
-  const fromCreation = addDays(toDate(dateCreated) ?? now, max);
+  const fromIssue = addDays(toDate(issuedAt) ?? now, max);
   // A key with no expiry gets the same grace the policy backfill would stamp.
   const kept = toDate(current) ?? addDays(now, max);
-  return fromCreation > kept ? fromCreation : kept;
+  return fromIssue > kept ? fromIssue : kept;
+}
+
+/** How long a rotated key's previous secret can stay valid, in hours. */
+export const ROTATION_GRACE_PRESET_HOURS = [0, 1, 24, 168] as const;
+export const MAX_ROTATION_GRACE_HOURS = 168;
+
+/** When a rotated key's replaced secret stops working: never after the expiry it was issued with. */
+export function previousKeyExpiration(
+  current: ExpiresAt,
+  gracePeriodHours: number,
+  now: Date = new Date(),
+): Date | null {
+  if (!gracePeriodHours) return null;
+  const graceEnd = new Date(now.getTime() + gracePeriodHours * MS_PER_HOUR);
+  const expiresAt = toDate(current);
+  return expiresAt && expiresAt < graceEnd ? expiresAt : graceEnd;
+}
+
+/**
+ * A rotated key's new expiry: the same lifetime it had, counted from the new
+ * secret, and never past the policy maximum.
+ */
+export function rotatedExpiration(
+  current: ExpiresAt,
+  issuedAt: ExpiresAt,
+  maxLifetimeDays: MaxLifetimeDays,
+  now: Date = new Date(),
+): Date | null {
+  const expiresAt = toDate(current);
+  const issued = toDate(issuedAt);
+  const kept =
+    expiresAt && issued
+      ? new Date(now.getTime() + expiresAt.getTime() - issued.getTime())
+      : null;
+  const max = maxExpirationDate(maxLifetimeDays, now);
+  if (!max) return kept;
+  return kept && kept < max ? kept : max;
 }
 
 /** Preset durations the policy still allows, longest last. */

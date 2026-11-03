@@ -3,6 +3,7 @@ import { SDKAttribute } from "shared/types/organization";
 import { extractConditionAttributeKeys } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { parseIdsQuery } from "back-end/src/util/validation";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
@@ -279,9 +280,9 @@ export const getAttributeReferences = async (
   res: Response<{ status: 200; references: AttributeReferencesMap }>,
 ) => {
   const context = getContextFromReq(req);
-  const attributeKeys = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean).map(decodeURIComponent)
-    : [];
+  const attributeKeys = (parseIdsQuery(req.query.ids) ?? []).map(
+    decodeURIComponent,
+  );
 
   if (!attributeKeys.length) {
     return res.status(200).json({ status: 200, references: {} });

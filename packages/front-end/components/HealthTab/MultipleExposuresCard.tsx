@@ -4,8 +4,6 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
-import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
@@ -13,8 +11,13 @@ import { IssueValue } from "./IssueTags";
 
 interface Props {
   totalUsers: number;
+  multipleExposures: number;
   onNotify?: (issue: IssueValue) => void;
-  snapshot: ExperimentSnapshotInterface | SafeRolloutSnapshotInterface;
+  snapshotId?: string;
+  // Contextual Bandits retain each user's first assignment in decision results
+  // (only the balance query drops duplicates within a leaf and period), so the
+  // warning must not claim these users were removed from results.
+  isBandit?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -25,8 +28,10 @@ const numberFormatter = new Intl.NumberFormat();
 
 export default function MultipleExposuresCard({
   totalUsers,
+  multipleExposures,
   onNotify,
-  snapshot,
+  snapshotId,
+  isBandit = false,
 }: Props) {
   const settings = useOrgSettings();
 
@@ -37,25 +42,25 @@ export default function MultipleExposuresCard({
   const health = useMemo(
     () =>
       getMultipleExposureHealthData({
-        multipleExposuresCount: snapshot?.multipleExposures ?? 0,
+        multipleExposuresCount: multipleExposures,
         totalUsersCount: totalUsers,
         minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
         minPercentThreshold,
       }),
-    [snapshot?.multipleExposures, totalUsers, minPercentThreshold],
+    [multipleExposures, totalUsers, minPercentThreshold],
   );
 
   useEffect(() => {
     if (health.status === "unhealthy" && onNotify) {
       onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
     }
-  }, [snapshot, health, onNotify]);
+    // `snapshotId` is intentionally a dependency so a new snapshot re-notifies
+    // the parent even when `health` and `onNotify` are unchanged.
+  }, [health, onNotify, snapshotId]);
 
-  if (!snapshot || health.status === "not-enough-traffic") {
+  if (health.status === "not-enough-traffic") {
     return null;
   }
-
-  const { multipleExposures } = snapshot;
 
   return (
     <div className="appbox p-3">
@@ -82,10 +87,14 @@ export default function MultipleExposuresCard({
           ) : (
             <Callout status="warning">
               <strong>Multiple Exposures Warning</strong>.{" "}
-              {numberFormatter.format(multipleExposures)} users (
+              {numberFormatter.format(multipleExposures)} units (
               {percentFormatter.format(health.rawDecimal)}) saw multiple
-              variations and were automatically removed from results. Check for
-              bugs in your implementation, event tracking, or data pipeline.
+              variations
+              {isBandit
+                ? " and were left out of the balance check, but remain in results on their first exposure"
+                : " and were automatically removed from results"}
+              . Check for bugs in your implementation, event tracking, or data
+              pipeline.
             </Callout>
           )}
         </div>

@@ -4,6 +4,10 @@ import { crudEndpoint, customEndpoint } from "../api-model";
 import { booleanQueryField } from "../validators/shared";
 import { FEATURE_LANDING_ACTIONS } from "../validators/confirmations";
 import { contextualLeafClauseValidator } from "../validators/contextual-bandit-event";
+import {
+  contextualBanditSrmLatestPeriodValidator,
+  contextualBanditTrafficValidator,
+} from "../validators/contextual-bandit-snapshot";
 import { queryPointerValidator } from "../validators/queries";
 import {
   contextualBanditEventResponseShape,
@@ -19,6 +23,8 @@ import {
 import {
   cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
+  listContextualBanditVisualChangesetsEndpoint,
+  postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
@@ -46,6 +52,10 @@ export const updateContextualBandit = crudEndpoint(
   contextualBanditApiSpec,
   "update",
 );
+export const deleteContextualBandit = crudEndpoint(
+  contextualBanditApiSpec,
+  "delete",
+);
 export const startContextualBandit = customEndpoint(
   contextualBanditApiSpec,
   startContextualBanditEndpoint,
@@ -65,6 +75,14 @@ export const updateContextualBanditVariations = customEndpoint(
 export const cancelContextualBandit = customEndpoint(
   contextualBanditApiSpec,
   cancelContextualBanditEndpoint,
+);
+export const postContextualBanditVisualChangesets = customEndpoint(
+  contextualBanditApiSpec,
+  postContextualBanditVisualChangesetsEndpoint,
+);
+export const listContextualBanditVisualChangesets = customEndpoint(
+  contextualBanditApiSpec,
+  listContextualBanditVisualChangesetsEndpoint,
 );
 
 export const getContextualBanditCurrentWeights = {
@@ -149,6 +167,18 @@ export const getContextualBanditEvent = {
   method: "get" as const,
   path: "/contextual-bandits/:id/events/:eventId",
 };
+
+const contextualBanditLatestStatusSchema = z.object({
+  id: z.string(),
+  status: z.enum(["running", "success", "error"]),
+  error: z.string(),
+  queries: z.array(queryPointerValidator),
+  runStarted: z.string().nullable(),
+  dateCreated: z.string(),
+  multipleExposures: z.number(),
+  type: z.string(),
+  triggeredBy: z.string(),
+});
 
 export const getContextualBanditResults = {
   bodySchema: z.never(),
@@ -235,37 +265,63 @@ export const getContextualBanditResults = {
               ),
             }),
           ),
-        })
-        .nullable(),
-      latest: z
-        .object({
-          id: z.string(),
-          status: z.enum(["running", "success", "error"]),
-          error: z.string(),
-          queries: z.array(queryPointerValidator),
-          runStarted: z.string().nullable(),
+          snapshotId: z.string(),
           dateCreated: z.string(),
-          multipleExposures: z.number(),
-          type: z.string(),
-          triggeredBy: z.string(),
-          srm: z
+          // Health computed by the same run that produced these results. Null
+          // only for runs that predate health checks. A failed traffic query
+          // is reported via `health.traffic.error`, not by nulling `health`.
+          health: z
             .object({
-              statistic: z.number(),
-              pValue: z.number(),
-              degreesOfFreedom: z.number().int().nonnegative(),
+              variations: z.array(
+                z.object({
+                  variationId: z.string(),
+                  variationName: z.string().optional(),
+                  weight: z.number(),
+                }),
+              ),
+              traffic: contextualBanditTrafficValidator.nullable(),
+              srm: z
+                .object({
+                  statistic: z.number(),
+                  pValue: z.number(),
+                  degreesOfFreedom: z.number().int().nonnegative(),
+                  latestPeriod:
+                    contextualBanditSrmLatestPeriodValidator.optional(),
+                })
+                .nullable(),
+              multipleExposures: z.number().nullable(),
             })
             .nullable(),
         })
         .nullable(),
+      latest: contextualBanditLatestStatusSchema.nullable(),
     })
     .strict(),
   summary: "Get latest Contextual Bandit results",
   description:
-    "Returns the latest contextual-bandit stats engine output (per-context responses tagged with their leaf, the per-leaf targeting conditions, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
+    "Returns the latest contextual-bandit stats engine output (per-context responses tagged with their leaf, the per-leaf targeting conditions, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the health checks (traffic, SRM, multiple exposures) computed by that same run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results and health tabs.",
   operationId: "getContextualBanditResults",
   tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/results",
+};
+
+export const getContextualBanditStatus = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: contextualBanditIdOnlyParam,
+  responseSchema: z
+    .object({
+      latest: contextualBanditLatestStatusSchema.nullable(),
+    })
+    .strict(),
+  summary: "Get Contextual Bandit run status",
+  description:
+    "Returns just the status of the most recent snapshot run for the contextual bandit (id, status, queries, timestamps). A lightweight alternative to the full results endpoint, intended for polling while a run is in progress.",
+  operationId: "getContextualBanditStatus",
+  tags: ["ContextualBandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/status",
 };
 
 export const getContextualBanditLinkedFeatures = {
@@ -315,6 +371,7 @@ export const addContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "post" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const updateContextualBanditLinkedFeature = {
@@ -345,6 +402,7 @@ export const updateContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "put" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const deleteContextualBanditLinkedFeature = {

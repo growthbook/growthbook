@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
@@ -53,50 +53,56 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
           // With no clipboard, the whole key shows so it can be copied by hand.
           <code className={styles.fullKey}>{value}</code>
         ) : (
-          <span className={value ? styles.sizer : styles.blurText}>
+          <span className={value ? styles.sizer : styles.blurText} aria-hidden>
             {valueWhenHidden}
           </span>
         )}
         {value ? (
           <>
             {copySupported ? (
-              // A popover rather than a tooltip, which closes on click and
-              // would never show "Copied".
-              <Popover
-                anchorOnly
-                open={hovered}
-                onOpenChange={(open) => (open ? setHovered(true) : leave())}
-                disableDismiss
-                onOpenAutoFocus={(e) => e.preventDefault()}
-                side="top"
-                contentStyle={{ padding: "4px 8px", pointerEvents: "none" }}
-                content={
-                  <Flex align="center" gap="1">
-                    {copied && copySuccess ? <PiCheck /> : <PiCopy />}
-                    <Text size="sm">
-                      {copied && copySuccess ? "Copied" : "Click to copy"}
-                    </Text>
-                  </Flex>
-                }
-                trigger={
-                  <button
-                    ref={keyRef}
-                    type="button"
-                    className={styles.key}
-                    onClick={() => {
-                      performCopy(value);
-                      setCopied(true);
-                    }}
-                    onMouseEnter={() => setHovered(true)}
-                    onMouseMove={() => setHovered(true)}
-                    onMouseLeave={leave}
-                    onFocus={() => setHovered(true)}
-                    onBlur={leave}
-                  >
-                    <code className={styles.secret}>{value}</code>
-                  </button>
-                }
-              />
+              <>
+                {/* A popover rather than a tooltip, which closes on click and
+                  would never show "Copied". */}
+                <Popover
+                  anchorOnly
+                  open={hovered}
+                  onOpenChange={(open) => (open ? setHovered(true) : leave())}
+                  disableDismiss
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  side="top"
+                  contentStyle={{ padding: "4px 8px", pointerEvents: "none" }}
+                  content={
+                    <Flex align="center" gap="1">
+                      {copied && copySuccess ? <PiCheck /> : <PiCopy />}
+                      <Text size="sm">
+                        {copied && copySuccess ? "Copied" : "Click to copy"}
+                      </Text>
+                    </Flex>
+                  }
+                  trigger={
+                    <button
+                      ref={keyRef}
+                      type="button"
+                      className={styles.key}
+                      aria-label="Copy secret"
+                      onClick={() => {
+                        performCopy(value);
+                        setCopied(true);
+                      }}
+                      onMouseEnter={() => setHovered(true)}
+                      onMouseMove={() => setHovered(true)}
+                      onMouseLeave={leave}
+                      onFocus={() => setHovered(true)}
+                      onBlur={leave}
+                    >
+                      <code className={styles.secret}>{value}</code>
+                    </button>
+                  }
+                />
+                <VisuallyHidden role="status">
+                  {copied && copySuccess ? "Copied" : ""}
+                </VisuallyHidden>
+              </>
             ) : null}
             <Box
               position="absolute"

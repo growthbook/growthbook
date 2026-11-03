@@ -4,14 +4,18 @@ import pick from "lodash/pick";
 import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { hasVisualChanges } from "shared/util";
+import { hasVisualChanges, isDefined } from "shared/util";
 import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
-import { ApiVisualChangeset } from "shared/validators";
+import {
+  ApiVisualChangeset,
+  ContextualBanditInterface,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
+import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import type {
   ChangesetOwner,
@@ -69,6 +73,7 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
     type: String,
     index: true,
   },
+  dateUpdated: Date,
   // VisualChanges are associated with one of the variations of the experiment
   // associated with the VisualChangeset
   visualChanges: {
@@ -157,6 +162,7 @@ export async function findVisualChangesetsByExperiment(
   experiment: string,
   organization: string,
 ): Promise<VisualChangesetInterface[]> {
+  if (experiment && typeof experiment !== "string") return [];
   const visualChangesets = await VisualChangesetModel.find({
     experiment,
     organization,
@@ -211,6 +217,16 @@ export async function findVisualChangesetsByContextualBandit(
   return changesets.map(toInterface);
 }
 
+export async function deleteVisualChangesetsByContextualBandit(
+  contextualBanditId: string,
+  organization: string,
+): Promise<void> {
+  await VisualChangesetModel.deleteMany({
+    organization,
+    contextualBandit: contextualBanditId,
+  });
+}
+
 export async function findVisualChangesetsByContextualBanditIds(
   contextualBanditIds: string[],
   organization: string,
@@ -225,6 +241,47 @@ export async function findVisualChangesetsByContextualBanditIds(
     query = query.sort({ _id: -1 }).limit(limit);
   }
   return (await query).map(toInterface);
+}
+
+const cbOwnedFilter = (context: ReqContext | ApiReqContext) => ({
+  organization: context.org.id,
+  contextualBandit: { $exists: true, $ne: null },
+});
+
+export async function getContextualBanditsWithVisualChangesets(
+  context: ReqContext | ApiReqContext,
+): Promise<ContextualBanditInterface[]> {
+  const ids: unknown[] = await VisualChangesetModel.distinct(
+    "contextualBandit",
+    cbOwnedFilter(context),
+  );
+  return context.models.contextualBandits.getUnarchivedByIds(
+    ids.filter((id): id is string => typeof id === "string" && id !== ""),
+  );
+}
+
+export async function getAllCbVisualExperiments(
+  context: ReqContext | ApiReqContext,
+): Promise<CbVisualExperiment[]> {
+  const changesets = (
+    await VisualChangesetModel.find(cbOwnedFilter(context))
+  ).map(toInterface);
+
+  if (!changesets.length) return [];
+
+  const cbs = await context.models.contextualBandits.getUnarchivedByIds(
+    Array.from(
+      new Set(changesets.map((c) => c.contextualBandit).filter(isDefined)),
+    ),
+  );
+  const cbById = new Map(cbs.map((cb) => [cb.id, cb]));
+
+  return changesets.flatMap((visualChangeset) => {
+    const contextualBandit =
+      visualChangeset.contextualBandit &&
+      cbById.get(visualChangeset.contextualBandit);
+    return contextualBandit ? [{ contextualBandit, visualChangeset }] : [];
+  });
 }
 
 export async function createVisualChange(
@@ -412,12 +469,15 @@ export const updateVisualChangeset = async ({
   context,
   updates,
   bypassWebhooks,
+  guarded = false,
 }: {
   visualChangeset: VisualChangesetInterface;
   owner: ChangesetOwner | null;
   context: ReqContext | ApiReqContext;
   updates: VisualChangesetUpdates;
   bypassWebhooks?: boolean;
+  // Writes only if nothing has updated it since `visualChangeset` was read.
+  guarded?: boolean;
 }) => {
   // pick() preserves explicit-undefined keys, which would flow into $set and
   // could unset fields if Mongoose's casting behavior changes. Strip them.
@@ -454,14 +514,21 @@ export const updateVisualChangeset = async ({
     {
       id: visualChangeset.id,
       organization: context.org.id,
+      ...(guarded && {
+        dateUpdated: visualChangeset.dateUpdated ?? { $exists: false },
+      }),
     },
     {
       $set: {
         ...safeUpdates,
         visualChanges,
+        dateUpdated: new Date(),
       },
     },
   );
+  if (!res.matchedCount) {
+    return { matched: false, nModified: 0, visualChanges };
+  }
 
   if (owner) {
     await owner.setHasVisualChangesets(true);
@@ -485,7 +552,7 @@ export const updateVisualChangeset = async ({
     bypassWebhooks,
   });
 
-  return { nModified: res.modifiedCount, visualChanges };
+  return { matched: true, nModified: res.modifiedCount, visualChanges };
 };
 
 const onVisualChangesetCreate = async ({

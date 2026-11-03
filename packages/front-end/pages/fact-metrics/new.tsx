@@ -4,6 +4,8 @@ import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import { CommercialFeature } from "shared/enterprise";
+import { getFactMetricCommercialFeature } from "@/services/factMetrics";
+import { duplicateFactMetric } from "@/services/metrics";
 import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -97,25 +99,14 @@ export default function NewFactMetricPage() {
     );
   }
 
-  // Matches the old modal's duplicate normalization (FactMetricList.tsx,
-  // pre-migration): only "admin" managedBy carries over, and only if this
-  // user could create it themselves - otherwise a copy of an API-managed or
-  // admin-managed metric would be rejected outright by the backend instead
-  // of saving as an ordinary metric.
-  const duplicatedManagedBy: "" | "admin" =
-    duplicateSource?.managedBy === "admin" &&
-    permissionsUtil.canCreateOfficialResources(duplicateSource)
-      ? "admin"
-      : "";
-  const duplicateFrom = template
-    ? template
-    : duplicateSource
-      ? {
-          ...duplicateSource,
-          name: duplicateSource.name + " (copy)",
-          managedBy: duplicatedManagedBy,
-        }
-      : null;
+  const duplicateFrom =
+    template ??
+    (duplicateSource
+      ? duplicateFactMetric(
+          duplicateSource,
+          permissionsUtil.canCreateOfficialResources(duplicateSource),
+        )
+      : null);
 
   // Check the Projects the new metric will actually get (MetricWorkspace
   // copies them from its fact table), not just the Project picked in the
@@ -137,20 +128,13 @@ export default function NewFactMetricPage() {
     managedBy: "",
   });
 
-  // MetricEditor's MetricTypeSelect only disables a commercial-gated option
-  // for a fresh choice - it doesn't stop a pre-seeded quantile/retention
-  // template or duplicate from saving, so this stays a page-level gate.
+  // Seeded templates and duplicates can bypass the metric type picker.
   const seedMetricType = template?.metricType ?? duplicateSource?.metricType;
-  const missingCommercialFeature:
-    | "quantile-metrics"
-    | "retention-metrics"
-    | null =
-    seedMetricType === "quantile" && !hasCommercialFeature("quantile-metrics")
-      ? "quantile-metrics"
-      : seedMetricType === "retention" &&
-          !hasCommercialFeature("retention-metrics")
-        ? "retention-metrics"
-        : null;
+  const commercialFeature = getFactMetricCommercialFeature(seedMetricType);
+  const missingCommercialFeature =
+    commercialFeature && !hasCommercialFeature(commercialFeature)
+      ? commercialFeature
+      : null;
 
   const hasDatasource = datasources.some(
     (d) =>
@@ -211,11 +195,10 @@ export default function NewFactMetricPage() {
       ) : missingCommercialFeature ? (
         <UpgradeMessage
           commercialFeature={missingCommercialFeature}
-          upgradeMessage={
-            missingCommercialFeature === "quantile-metrics"
-              ? "create quantile metrics"
-              : "create retention metrics"
-          }
+          upgradeMessage={`create ${
+            // Match the type picker's "Percentile" label.
+            seedMetricType === "quantile" ? "percentile" : seedMetricType
+          } metrics`}
           showUpgradeModal={() =>
             setUpgradeModal({
               source: `${template ? "metric-template" : "metric-duplicate"}-${missingCommercialFeature}`,

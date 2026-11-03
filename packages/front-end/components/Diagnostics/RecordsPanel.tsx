@@ -159,6 +159,7 @@ export default function RecordsPanel<TRow extends object, TResponse>({
         setValue={(filters) => applyControls({ rowFilters: filters })}
         columnSource={columnSource}
         disabled={isRefreshing}
+        listMaxHeight={tableMaxHeight}
       />
     </Flex>
   );

@@ -1,14 +1,17 @@
 import { ReactNode } from "react";
-import { renderHook, waitFor } from "@testing-library/react";
-import { SWRConfig } from "swr";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import useSWR, { SWRConfig } from "swr";
 import { populationEndpoints } from "shared/api-endpoints";
 import { ApiPopulation } from "shared/validators";
-import { usePopulations } from "@/hooks/usePopulations";
+import { usePopulations, useRefreshPopulations } from "@/hooks/usePopulations";
 import { useAuth } from "@/services/auth";
-import { useRestApiCall } from "@/services/restApi";
+import { getRestApiCacheKey, useRestApiCall } from "@/services/restApi";
 
 vi.mock("@/services/auth", () => ({ useAuth: vi.fn() }));
-vi.mock("@/services/restApi", () => ({
+vi.mock("@/services/restApi", async (importOriginal) => ({
+  getRestApiCacheKey: (
+    await importOriginal<typeof import("@/services/restApi")>()
+  ).getRestApiCacheKey,
   useRestApiCall: vi.fn(),
   useRestApi: vi.fn(),
 }));
@@ -198,5 +201,76 @@ describe("usePopulations", () => {
     await waitFor(() => expect(result.current.error?.message).toBe("nope"));
     expect(result.current.loading).toBe(false);
     expect(result.current.populations).toEqual([]);
+  });
+});
+
+describe("useRefreshPopulations", () => {
+  const restApiCall = vi.fn();
+  const detailFetcher = vi.fn();
+
+  beforeEach(() => {
+    restApiCall.mockReset();
+    restApiCall.mockResolvedValue(
+      page([population("pop_a")], { hasMore: false, nextOffset: null }),
+    );
+    detailFetcher.mockReset();
+    detailFetcher.mockResolvedValue({ population: population("pop_a") });
+    vi.mocked(useRestApiCall).mockReturnValue(
+      restApiCall as ReturnType<typeof useRestApiCall>,
+    );
+    vi.mocked(useAuth).mockReturnValue({
+      orgId: "org_1",
+    } as unknown as ReturnType<typeof useAuth>);
+  });
+
+  function render() {
+    return renderHook(
+      () => {
+        usePopulations();
+        useSWR(
+          getRestApiCacheKey("org_1", populationEndpoints.getPopulation, {
+            params: { id: "pop_a" },
+          }),
+          detailFetcher,
+        );
+        return useRefreshPopulations();
+      },
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <SWRConfig
+            value={{
+              provider: () => new Map(),
+              dedupingInterval: 0,
+              shouldRetryOnError: false,
+              revalidateOnFocus: false,
+            }}
+          >
+            {children}
+          </SWRConfig>
+        ),
+      },
+    );
+  }
+
+  it("refetches the list", async () => {
+    const { result } = render();
+    await waitFor(() => expect(restApiCall).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(detailFetcher).toHaveBeenCalledTimes(1));
+
+    await act(() => result.current());
+
+    expect(restApiCall).toHaveBeenCalledTimes(2);
+    expect(detailFetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("also refetches a Population's detail when given its id", async () => {
+    const { result } = render();
+    await waitFor(() => expect(restApiCall).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(detailFetcher).toHaveBeenCalledTimes(1));
+
+    await act(() => result.current("pop_a"));
+
+    expect(restApiCall).toHaveBeenCalledTimes(2);
+    expect(detailFetcher).toHaveBeenCalledTimes(2);
   });
 });

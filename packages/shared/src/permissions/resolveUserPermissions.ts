@@ -29,6 +29,7 @@ import { Permissions } from "./permissionsClass";
 import type { RevisionModel } from "./revisionPermissions";
 import {
   allowedEnvironments,
+  holdsGlobalAdmin,
   roleSupportsEnvLimit,
   roleToPermissionMap,
 } from "./permissions.utils";
@@ -286,12 +287,15 @@ function applyProjectAccessRestrictions(
   }
 }
 
-// Used for both org API keys and member records.
+// Used for both org API keys and member records. Pass `member` for a member:
+// a global admin could rewrite their own project roles, so those roles have no
+// effect. An API key can't, so its project roles stay binding.
 export function getRolePermissions(
   roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
   allTeams: RoleSourceTeam[],
   restrictedProjects?: string[],
+  { member = false }: { member?: boolean } = {},
 ): UserPermissions {
   const permissions: UserPermissions = {
     global: getUserPermission(roleInfo, org),
@@ -328,6 +332,17 @@ export function getRolePermissions(
         mergeUserAndTeamPermissions(permissions, teamPermissions, org);
       }
     }
+  }
+
+  // A global admin already has everything, so their project roles have no effect.
+  if (
+    member &&
+    holdsGlobalAdmin(
+      roleInfo,
+      allTeams.filter((t) => roleInfo.teams?.includes(t.id)),
+    )
+  ) {
+    permissions.projects = {};
   }
 
   applyProjectAccessRestrictions(permissions, restrictedProjects);
@@ -405,7 +420,7 @@ export function teamsForMember(
 ): { id: string; name: string }[] {
   const member = (org.members ?? []).find((m) => m.id === userId);
   if (!member?.teams?.length) return [];
-  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byId = new Map((teams ?? []).map((t) => [t.id, t]));
   return member.teams
     .map((id) => byId.get(id))
     .filter((t): t is { id: string; name: string } => !!t)
@@ -441,7 +456,7 @@ export function assessRequiredApproverTeams({
     ),
   );
 
-  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byId = new Map((teams ?? []).map((t) => [t.id, t]));
 
   // Drop rules implied by a stricter one: satisfying a subset rule satisfies
   // the superset, so listing both reads as two sign-offs. Deleted teams are
@@ -567,9 +582,18 @@ export function assessGoverningApprovalCoverage({
     const roles =
       assumingKeyRole === undefined ? [roleInfo] : [roleInfo, assumingKeyRole];
     const held = roles.filter((r): r is MemberRoleWithProjects => r !== null);
+    // The approver may be a member or an org key; an assuming key is a key.
+    const isMember = org.members.some((m) => m.id === id);
     const permissions =
       held.length === roles.length
-        ? held.map((r) => new Permissions(getRolePermissions(r, org, teams)))
+        ? held.map(
+            (r, i) =>
+              new Permissions(
+                getRolePermissions(r, org, teams, undefined, {
+                  member: i === 0 && isMember,
+                }),
+              ),
+          )
         : [];
     const canReview = (scope: string[]) =>
       permissions.length > 0 &&

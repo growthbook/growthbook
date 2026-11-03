@@ -1,6 +1,7 @@
-import React, { forwardRef, useEffect, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useRef } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { radixSize, Size } from "@/ui/sizes";
 import styles from "./Table.module.scss";
 
@@ -63,23 +64,11 @@ export default function Table({
     (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [overflowX, setOverflowX] = useState(false);
-
   // A pinned column only earns its divider once there is something behind it.
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (!scrollX || !stickyLastColumn || !wrapper) return;
-    const check = () =>
-      setOverflowX(wrapper.scrollWidth > wrapper.clientWidth + 1);
-    check();
-    const observer = new ResizeObserver(check);
-    observer.observe(wrapper);
-    // The table too: a drag-resize changes its width without changing the
-    // wrapper's.
-    const table = wrapper.querySelector("table");
-    if (table) observer.observe(table);
-    return () => observer.disconnect();
-  }, [scrollX, stickyLastColumn]);
+  const overflowX = useIsOverflowingX(
+    wrapperRef,
+    !!scrollX && !!stickyLastColumn,
+  );
 
   useEffect(() => {
     if (!isListVariant || !useStickyHeader) return;
@@ -114,6 +103,15 @@ export default function Table({
   const tableElement = (
     <RadixTable.Root
       {...props}
+      // The list wrapper carries the floor instead, where a drag-resize moves it.
+      style={
+        !isListVariant && minTableWidth
+          ? ({
+              ...props.style,
+              "--table-min-width": `${minTableWidth}px`,
+            } as React.CSSProperties)
+          : props.style
+      }
       variant={radixVariant}
       size={size !== undefined ? radixSize(size) : undefined}
       className={clsx(className, isListVariant && styles.tableList)}

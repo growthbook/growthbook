@@ -170,6 +170,8 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   delete newDoc.capValue;
   delete newDoc.conversionDelayHours;
   delete newDoc.conversionWindowHours;
+  delete newDoc.winRisk;
+  delete newDoc.loseRisk;
 
   return newDoc as MetricInterface;
 }
@@ -819,6 +821,14 @@ export function upgradeExperimentDoc(
 
   if (experiment.decisionFrameworkSettings === undefined) {
     experiment.decisionFrameworkSettings = {};
+  }
+  // The old target MDE modal saved a cleared field as null, meaning the
+  // metric's own target MDE, which is what leaving the entry out says.
+  const targetMDEOverrides =
+    experiment.decisionFrameworkSettings.decisionFrameworkMetricOverrides;
+  if (targetMDEOverrides) {
+    experiment.decisionFrameworkSettings.decisionFrameworkMetricOverrides =
+      targetMDEOverrides.filter((o) => (o.targetMDE ?? null) !== null);
   }
 
   // releasedVariationId

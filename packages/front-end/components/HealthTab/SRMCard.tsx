@@ -1,30 +1,26 @@
 import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
 import { ExperimentReportVariation } from "shared/types/report";
-import { useEffect, useLayoutEffect, useMemo } from "react";
-import { getSRMHealthData } from "shared/health";
-import {
-  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_THRESHOLD,
-} from "shared/constants";
+import { DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
 import clsx from "clsx";
-import { useUser } from "@/services/UserContext";
+import { Box } from "@radix-ui/themes";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
-import SRMWarning from "@/components/Experiment/SRMWarning";
 import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
 import { IssueValue } from "./IssueTags";
+import { SRMWarningFooter, useSrmHealth } from "./SRMCardShell";
 
 interface Props {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   totalUsers: number;
   onNotify?: (issue: IssueValue) => void;
+  snapshotId?: string;
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
   healthTabConfigParams?: HealthTabConfigParams;
@@ -41,6 +37,7 @@ export default function SRMCard({
   variations,
   totalUsers,
   onNotify,
+  snapshotId,
   dataSource,
   exposureQuery,
   healthTabConfigParams,
@@ -48,42 +45,14 @@ export default function SRMCard({
   newDesign = false,
   hideDimensions = false,
 }: Props) {
-  const { settings } = useUser();
-
-  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-  const srmHealth = useMemo(
-    () =>
-      getSRMHealthData({
-        srm: traffic.overall.srm,
-        srmThreshold,
-        numOfVariations: variations.length,
-        totalUsersCount: totalUsers,
-        minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-      }),
-    [traffic.overall.srm, srmThreshold, variations.length, totalUsers],
-  );
-
-  function onResize() {
-    const childHeight =
-      document.getElementById("child-container")?.clientHeight;
-    const parentElement = document.getElementById("parent-container");
-
-    parentElement && (parentElement.style.height = `${childHeight}px`);
-  }
-
-  useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
-  }, []);
-  useLayoutEffect(onResize, []);
-
-  useEffect(() => {
-    if (srmHealth === "unhealthy") {
-      onNotify &&
-        onNotify({ label: "Experiment Balance", value: "balanceCheck" });
-    }
-  }, [traffic, srmHealth, onNotify]);
+  const srmHealth = useSrmHealth({
+    srm: traffic.overall.srm,
+    numOfVariations: variations.length,
+    totalUsersCount: totalUsers,
+    minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    onNotify,
+    snapshotId,
+  });
 
   if (!traffic?.overall?.variationUnits?.length) {
     return (
@@ -106,71 +75,48 @@ export default function SRMCard({
         }),
       }}
     >
-      <div
-        className={clsx("overflow-hidden", { row: !hideDimensions })}
-        id="parent-container"
-      >
+      <div className={clsx("overflow-hidden", { row: !hideDimensions })}>
         <div className={clsx({ "col-8 border-right pr-4": !hideDimensions })}>
-          <div
-            className="overflow-auto"
-            id="child-container"
-            ref={(node) => {
-              if (node) {
-                const childHeight = node.clientHeight;
-                const parentElement =
-                  document.getElementById("parent-container");
-
-                parentElement &&
-                  (parentElement.style.height = `${childHeight}px`);
-              }
-            }}
-          >
-            <h2 className="d-inline">Experiment Balance Check</h2>{" "}
-            {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
-            <p className="mt-1">
-              Shows actual unit split compared to percent selected for the
-              experiment
-            </p>
-            <hr className="mb-0"></hr>
-            <div style={{ paddingTop: "10px" }}>
-              <div className="row justify-content-start w-100 overflow-auto">
-                <VariationUsersTable
-                  users={traffic.overall.variationUnits}
-                  variations={variations}
-                  srm={traffic.overall.srm}
-                />
-              </div>
-              <div>
-                {srmHealth !== "not-enough-traffic" ? (
-                  <SRMWarning
-                    srm={traffic.overall.srm}
-                    variations={variations}
-                    users={traffic.overall.variationUnits}
-                    showWhenHealthy
-                    isBandit={false}
-                  />
-                ) : (
-                  <Callout status="info">
-                    More traffic is required to detect a Sample Ratio Mismatch
-                    (SRM).
-                  </Callout>
-                )}
-              </div>
-            </div>
+          <h2 className="d-inline">Experiment Balance Check</h2>{" "}
+          {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
+          <p className="mt-1">
+            Shows actual unit split compared to percent selected for the
+            experiment
+          </p>
+          <hr className="mb-0"></hr>
+          <div style={{ paddingTop: "10px" }}>
+            <VariationUsersTable
+              users={traffic.overall.variationUnits}
+              variations={variations}
+              srm={traffic.overall.srm}
+            />
+            <Box mt="3">
+              <SRMWarningFooter
+                srm={traffic.overall.srm}
+                srmHealth={srmHealth}
+                variations={variations}
+                users={traffic.overall.variationUnits}
+                isBandit={false}
+              />
+            </Box>
           </div>
         </div>
         {!hideDimensions && (
-          <div className="col h-100 p-0 overflow-hidden">
-            <DimensionIssues
-              dimensionData={traffic.dimension}
-              variations={variations}
-              dataSource={dataSource}
-              exposureQuery={exposureQuery}
-              healthTabConfigParams={healthTabConfigParams}
-              canConfigHealthTab={canConfigHealthTab}
-              isBandit={false}
-            />
-          </div>
+          // Out of the flow, so the balance check alone sets the row's height
+          // and a long dimension list scrolls within it.
+          <Box className="col" p="0" position="relative">
+            <Box position="absolute" inset="0" overflow="hidden">
+              <DimensionIssues
+                dimensionData={traffic.dimension}
+                variations={variations}
+                dataSource={dataSource}
+                exposureQuery={exposureQuery}
+                healthTabConfigParams={healthTabConfigParams}
+                canConfigHealthTab={canConfigHealthTab}
+                isBandit={false}
+              />
+            </Box>
+          </Box>
         )}
       </div>
     </div>

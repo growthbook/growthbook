@@ -12,12 +12,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Every job only checks out code and reads caches, so the token needs nothing more.
+permissions:
+  contents: read
+
+# Forks and mirrors without Depot can set the CI_RUNNER and CI_RUNNER_LARGE
+# repository variables (e.g. to ubuntu-latest) to run CI on other runners.
 jobs:
   format:
-    runs-on: depot-ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
         with:
@@ -27,10 +33,10 @@ jobs:
         run: pnpm pretty:check
 
   licenses:
-    runs-on: depot-ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
         with:
@@ -41,10 +47,10 @@ jobs:
 
   # The whole-monorepo type-aware eslint run peaks near 4.5GB, so it needs 16GB.
   lint:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ${{ vars.CI_RUNNER_LARGE || 'depot-ubuntu-24.04-4' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # No eslint cache here on purpose. ESLint keys its cache on file content
       # plus the serialized config, neither of which changes when a type in
@@ -63,10 +69,10 @@ jobs:
 
   # Separate job so the JS jobs never install a Python toolchain.
   stats:
-    runs-on: depot-ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Before poetry exists, so the root postinstall skips its stats install and
       # the explicit step below is the only one.
@@ -75,7 +81,7 @@ jobs:
           build-deps: "false"
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: 3.11
           cache: "pip"
@@ -90,7 +96,7 @@ jobs:
           CI: true
 
       - name: Cache poetry dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: poetry-cache
         with:
           path: packages/stats/.venv
@@ -115,10 +121,10 @@ jobs:
           CI: true
 
   openapi:
-    runs-on: depot-ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
 
@@ -133,10 +139,10 @@ jobs:
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
 
   type-check:
-    runs-on: depot-ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
         with:
@@ -144,7 +150,7 @@ jobs:
 
       # Only this job emits full-repo buildinfo, so only this job caches it.
       - name: Cache tsbuildinfo
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # Explicit paths, not `**`: that glob walks node_modules, ~40s on save.
           path: |
@@ -166,7 +172,7 @@ jobs:
   # A 4-vCPU runner gives Jest only 3 workers for 300+ files, so shard instead.
   # The 2 vCPU base runner drops each shard to one worker, so pay for 4 here.
   test-back-end:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ${{ vars.CI_RUNNER_LARGE || 'depot-ubuntu-24.04-4' }}
     # A silently killed Jest worker leaves the parent waiting on the 6h default.
     timeout-minutes: 15
     env:
@@ -178,12 +184,12 @@ jobs:
         shard: [1, 2, 3, 4]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
 
       - name: Cache Jest transform cache
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: packages/back-end/.jest-cache
           key: ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
@@ -195,7 +201,7 @@ jobs:
       # Otherwise Jest workers race for the same mongod and die on its lockfile.
       - name: Cache mongod binary
         id: cache-mongod
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/mongodb-binaries
           key: ${{ runner.os }}-mongod-${{ env.MONGOMS_VERSION }}
@@ -214,12 +220,12 @@ jobs:
   # everything else used to queue behind it.
   test-front-end:
     # vitest gets one worker per vCPU-1, so 2 vCPU leaves it single-threaded.
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ${{ vars.CI_RUNNER_LARGE || 'depot-ubuntu-24.04-4' }}
     # A silently killed worker leaves the parent waiting on the 6h default.
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
 
@@ -229,15 +235,15 @@ jobs:
           CI: true
 
   test-packages:
-    runs-on: depot-ubuntu-24.04
+    runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
 
       - name: Cache Jest transform cache
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: packages/shared/.jest-cache
           key: ${{ runner.os }}-jest-shared-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}

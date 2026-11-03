@@ -5,8 +5,10 @@ import {
   ApiErrorCode,
   ConfirmAction,
   type ConfirmationNotice,
+  SuperAdminPermission,
 } from "shared/validators";
 import { routeConfirmation } from "shared/util";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -18,6 +20,7 @@ import {
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import {
+  formatGateLine,
   hookErrorText,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
@@ -31,10 +34,13 @@ import {
   ApiError,
   BulkImportPartialFailureError,
   BulkPublishCommitError,
+  ChecklistIncompleteError,
   ConfirmationRequiredError,
   CustomHookError,
+  DraftLimitError,
   MergeConflictError,
   SoftWarningError,
+  UnscopedRuleError,
 } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
@@ -243,6 +249,7 @@ export async function runApiHandler(
       return { status: 202, body: e.body, headers: e.headers };
     }
     const body: ApiErrorResponse = { message: e.message };
+    const { isJwtAuth } = req as unknown as ApiRequestLocals;
     if (e instanceof ApiError) {
       body.code = e.code;
       body.details = e.details;
@@ -260,6 +267,13 @@ export async function runApiHandler(
       body.gates = e.gates;
       body.warnings = e.warnings;
     }
+    // An experiment start's blockers, on the same model.
+    if (e instanceof ChecklistIncompleteError) {
+      body.gates = e.gates;
+      if (!isJwtAuth) {
+        body.message = [e.message, ...e.gates.map(formatGateLine)].join("\n");
+      }
+    }
     // Bulk-publish commit failures carry per-item outcomes so callers can see
     // which entities compensated cleanly.
     if (e instanceof BulkPublishCommitError) {
@@ -272,11 +286,22 @@ export async function runApiHandler(
     if (e instanceof SoftWarningError) {
       body.warnings = e.warnings;
       // Front-end shows a "Save anyway" dialog and doesn't need a retry hint
-      const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
       if (!isJwtAuth) {
         body.message =
           e.message +
           '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
+      }
+    }
+    if (!isJwtAuth) {
+      if (e instanceof UnscopedRuleError) {
+        body.message =
+          e.message +
+          ' Set specific `environments`, or resend with `"allowUnscopedRules": true` in the request body.';
+      }
+      if (e instanceof DraftLimitError) {
+        body.message =
+          e.message +
+          " To create a new one anyway, resend with `?overrideDraftLimit=true`.";
       }
     }
     const status = e.status || 400;
@@ -290,10 +315,14 @@ export async function runApiHandler(
 
 function refusalNotices(e: Error): ConfirmationNotice[] {
   if (e instanceof PublishBlockedError) return gateNotices(e.gates);
+  if (e instanceof ChecklistIncompleteError) return gateNotices(e.gates);
   if (e instanceof SoftWarningError) {
     return [
       { severity: "warning", messages: [e.message, ...e.warnings], via: null },
     ];
+  }
+  if (e instanceof UnscopedRuleError || e instanceof DraftLimitError) {
+    return [{ severity: "warning", messages: [e.message], via: null }];
   }
   if (e instanceof CustomHookError) {
     return [
@@ -499,10 +528,13 @@ export function createApiRequestHandler<
 
 export const statusCodeReturn = z.strictObject({ status: z.number() });
 
-export async function validateIsSuperUserRequest(req: {
-  user?: UserInterface;
-  organization: OrganizationInterface;
-}) {
+export async function validateIsSuperUserRequest(
+  req: {
+    user?: UserInterface;
+    organization: OrganizationInterface;
+  },
+  permission: SuperAdminPermission,
+) {
   if (!IS_MULTI_ORG) {
     throw new Error("This endpoint requires multi-org mode.");
   }
@@ -519,9 +551,9 @@ export async function validateIsSuperUserRequest(req: {
     );
   }
 
-  if (!req.user.superAdmin) {
+  if (!hasSuperAdminPermission(req.user.superAdmin, permission)) {
     throw new Error(
-      "This endpoint requires the Personal Access Token of a super admin.",
+      `This endpoint requires the Personal Access Token of a super admin with the ${permission} permission.`,
     );
   }
 

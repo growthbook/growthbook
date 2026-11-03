@@ -39,12 +39,6 @@ export const updateContextualBanditLinkedFeature = createApiRequestHandler(
     req.body.draftVersion,
   );
 
-  await holdLinkedFeatureWrite(
-    req.context,
-    feature,
-    req.body.autoPublish,
-    req.body.draftVersion,
-  );
   const result = await updateContextualBanditFeatureRule({
     context: req.context,
     contextualBandit,
@@ -54,6 +48,13 @@ export const updateContextualBanditLinkedFeature = createApiRequestHandler(
     audit: req.audit,
     autoPublish: req.body.autoPublish,
     draftVersion: req.body.draftVersion,
+    beforeWrite: () =>
+      holdLinkedFeatureWrite(
+        req.context,
+        feature,
+        req.body.autoPublish,
+        req.body.draftVersion,
+      ),
   });
 
   return {

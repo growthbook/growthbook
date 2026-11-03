@@ -38,6 +38,7 @@ import { InterleavingInterface } from "../validators/interleaving";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import type { ExplorationDataset } from "../validators/product-analytics";
+import type { NotificationFilters } from "../validators/event-webhook";
 import {
   PermissionError,
   getExposureQueryProjects,
@@ -72,6 +73,8 @@ type NotificationEvent = {
   containsSecrets: boolean;
   projects: string[];
 };
+
+type EventWebhookScope = Pick<NotificationFilters, "projects" | "environments">;
 
 // The Event Forwarder Events fact table is `managedBy: "api"` but is
 // intentionally editable and deletable by users for now, so it skips the
@@ -130,22 +133,6 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
-  public canViewEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageEventWebhooks");
-  };
-
-  public canCreateEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageEventWebhooks");
-  };
-
-  public canUpdateEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageEventWebhooks");
-  };
-
-  public canDeleteEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageEventWebhooks");
-  };
-
   public canCreateAndUpdateTag = (): boolean => {
     return this.checkGlobalPermission("manageTags");
   };
@@ -167,12 +154,24 @@ export class Permissions {
     return this.checkGlobalPermission("manageIntegrations");
   };
 
+  public canViewApiKeys = (): boolean => {
+    return this.checkGlobalPermission("viewApiKeys");
+  };
+
   public canCreateApiKey = (): boolean => {
-    return this.checkGlobalPermission("manageApiKeys");
+    return this.checkGlobalPermission("createApiKeys");
+  };
+
+  public canUpdateApiKey = (): boolean => {
+    return this.checkGlobalPermission("editApiKeys");
   };
 
   public canDeleteApiKey = (): boolean => {
-    return this.checkGlobalPermission("manageApiKeys");
+    return this.checkGlobalPermission("deleteApiKeys");
+  };
+
+  public canManagePersonalAccessTokens = (): boolean => {
+    return this.checkGlobalPermission("managePersonalAccessTokens");
   };
 
   public canManageTeam = (): boolean => {
@@ -672,6 +671,22 @@ export class Permissions {
     );
   };
 
+  // A project move serves the pseudo flag through the destination's SDK
+  // connections too, so both sides need run permission.
+  public canRunInterleavingUpdate = (
+    existing: Pick<InterleavingInterface, "project">,
+    updated: Pick<InterleavingInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    const projects = new Set(existing.project ? [existing.project] : [""]);
+    if ("project" in updated) projects.add(updated.project || "");
+    return this.checkEnvFilterPermission(
+      { projects: [...projects] },
+      environments,
+      "runExperiments",
+    );
+  };
+
   public canRunContextualBanditQueries = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
@@ -964,7 +979,7 @@ export class Permissions {
   public canCreateFactTable = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+    if (factTable.managedBy) {
       if (!this.canCreateOfficialResources(factTable)) {
         return false;
       }
@@ -1027,11 +1042,7 @@ export class Permissions {
     factTable: Pick<FactTableInterface, "projects" | "managedBy"> &
       Partial<Pick<FactTableInterface, "id" | "datasource">>,
   ): boolean => {
-    if (
-      factTable.managedBy &&
-      ["admin", "api"].includes(factTable.managedBy) &&
-      !isEventForwarderManagedFactTable(factTable)
-    ) {
+    if (factTable.managedBy && !isEventForwarderManagedFactTable(factTable)) {
       if (!this.canDeleteOfficialResources(factTable)) {
         return false;
       }
@@ -1055,7 +1066,7 @@ export class Permissions {
   public canCreateFactMetric = (
     metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+    if (metric.managedBy) {
       if (!this.canCreateOfficialResources(metric)) {
         return false;
       }
@@ -1067,10 +1078,7 @@ export class Permissions {
     existing: Pick<FactMetricInterface, "projects" | "managedBy">,
     updates: UpdateProps<FactMetricInterface>,
   ): boolean => {
-    if (
-      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
-      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
-    ) {
+    if (existing.managedBy || updates.managedBy) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
         return false;
       }
@@ -1086,7 +1094,7 @@ export class Permissions {
   public canDeleteFactMetric = (
     metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+    if (metric.managedBy) {
       if (!this.canCreateOfficialResources(metric)) {
         return false;
       }
@@ -1583,7 +1591,8 @@ export class Permissions {
       datasetType === "metric" ||
       datasetType === "fact_table" ||
       datasetType === "funnel" ||
-      datasetType === "journey"
+      datasetType === "journey" ||
+      datasetType === "population"
     ) {
       return this.canRunMetricAnalysisQueries(datasource);
     }
@@ -1866,8 +1875,55 @@ export class Permissions {
   public canManageLegacySDKWebhooks = (): boolean => {
     // These webhooks are deprecated
     // Restrict access to admins by using the event webhooks permission
-    return this.checkGlobalPermission("manageEventWebhooks");
+    return this.hasPermission("manageEventWebhooks", "");
   };
+
+  // Viewing exposes the webhook's headers and signing key, so it takes the same authority as managing it.
+  public canViewEventWebhook = (webhook: EventWebhookScope): boolean => {
+    return this.canManageEventWebhook(webhook);
+  };
+
+  public canCreateEventWebhook = (webhook: EventWebhookScope): boolean => {
+    return this.canManageEventWebhook(webhook);
+  };
+
+  public canUpdateEventWebhook = (
+    existing: EventWebhookScope,
+    updates: Partial<EventWebhookScope>,
+  ): boolean => {
+    return (
+      this.canManageEventWebhook(existing) &&
+      this.canManageEventWebhook({ ...existing, ...updates })
+    );
+  };
+
+  public canDeleteEventWebhook = (webhook: EventWebhookScope): boolean => {
+    return this.canManageEventWebhook(webhook);
+  };
+
+  // Gates the event webhooks page: true if any Project grants the permission, in any environment.
+  public canManageSomeEventWebhooks = (): boolean => {
+    return ["", ...Object.keys(this.userPermissions.projects)].some((project) =>
+      this.hasPermission("manageEventWebhooks", project),
+    );
+  };
+
+  // Secrets are shared by every webhook, so managing them needs authority over all of them.
+  public canManageWebhookSecrets = (): boolean => {
+    return this.canManageEventWebhook({ projects: [], environments: [] });
+  };
+
+  private canManageEventWebhook(webhook: EventWebhookScope): boolean {
+    // An empty environment filter matches every environment.
+    if (!webhook.environments.length) {
+      return this.checkUnrestrictedEnvAuthority(webhook, "manageEventWebhooks");
+    }
+    return this.checkEnvFilterPermission(
+      webhook,
+      webhook.environments,
+      "manageEventWebhooks",
+    );
+  }
 
   public canCreateSDKWebhook = (
     sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">,

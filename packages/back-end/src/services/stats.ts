@@ -880,8 +880,9 @@ export function analyzeExperimentTraffic({
       trafficResults.multipleExposures =
         (trafficResults.multipleExposures ?? 0) + (Number(r.units) || 0);
     }
+    // Exact variation-id match only. Any value that doesn't match a known
+    // variation id is skipped rather than coerced.
     const variationIndex = variationIdMap[r.variation];
-    // skip if variation is not found (this happens if variation is __multiple__)
     if (variationIndex === undefined) return;
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();

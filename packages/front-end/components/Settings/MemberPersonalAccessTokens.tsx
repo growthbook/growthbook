@@ -3,6 +3,7 @@ import { ApiKeyInterface } from "shared/types/apikey";
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiMagnifyingGlass } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -62,9 +63,7 @@ const MemberPersonalAccessTokens: FC = () => {
   const { users, settings } = useUser();
   const orgTokensDisabled = !!settings?.disablePersonalAccessTokens;
   const permissionsUtil = usePermissionsUtil();
-  const canManage = permissionsUtil.canDeleteApiKey();
-  // The apiKey history endpoint gates on create, not delete.
-  const canViewAuditLog = permissionsUtil.canCreateApiKey();
+  const canManage = permissionsUtil.canManagePersonalAccessTokens();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
@@ -129,6 +128,7 @@ const MemberPersonalAccessTokens: FC = () => {
     defaultSortField: "memberName",
     searchFields: ["memberName", "memberEmail", "description"],
     pageSize: 20,
+    subtleSortIcons: true,
   });
 
   if (!canManage) return null;
@@ -144,7 +144,7 @@ const MemberPersonalAccessTokens: FC = () => {
   };
 
   return (
-    <Frame mb="4">
+    <Frame mb="4" py="5" px="5">
       <Heading as="h3" size="md" mb="1">
         Member Tokens
       </Heading>
@@ -157,11 +157,11 @@ const MemberPersonalAccessTokens: FC = () => {
       {loadError ? (
         <Callout status="error">{loadError.message}</Callout>
       ) : !data ? (
-        <Text as="p" color="text-mid">
+        <Text as="p" color="text-mid" mb="0">
           <LoadingSpinner /> Loading...
         </Text>
       ) : rows.length === 0 ? (
-        <Text as="p" color="text-mid">
+        <Text as="p" color="text-mid" mb="0">
           No members have created personal access tokens.
         </Text>
       ) : (
@@ -175,10 +175,12 @@ const MemberPersonalAccessTokens: FC = () => {
           )}
           <Flex align="center" gap="3" mb="2">
             <Text weight="medium">{`${visibleRows.length} token${visibleRows.length === 1 ? "" : "s"}`}</Text>
-            <Box width="250px" flexShrink="0">
+            <Box width="280px" flexShrink="0">
               <TextField
                 type="search"
-                placeholder="Search..."
+                aria-label="Search tokens"
+                placeholder="Search tokens"
+                prepend={<PiMagnifyingGlass aria-hidden />}
                 {...searchInputProps}
               />
             </Box>
@@ -192,9 +194,9 @@ const MemberPersonalAccessTokens: FC = () => {
               />
             )}
           </Flex>
-          <Table variant="surface">
+          <Table variant="surface" minTableWidth={720}>
             <TableHeader>
-              <TableRow>
+              <TableRow style={{ whiteSpace: "nowrap" }}>
                 <SortableTableColumnHeader field="memberName">
                   Member
                 </SortableTableColumnHeader>
@@ -277,7 +279,7 @@ const MemberPersonalAccessTokens: FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Flex gap="4">
+                      <Flex gap="4" justify="end">
                         <Button
                           variant="ghost"
                           color={token.disabled ? "violet" : "red"}
@@ -285,14 +287,12 @@ const MemberPersonalAccessTokens: FC = () => {
                         >
                           {token.disabled ? "Enable" : "Disable"}
                         </Button>
-                        {canViewAuditLog && (
-                          <Button
-                            variant="ghost"
-                            onClick={() => setAuditLogToken(token)}
-                          >
-                            Audit log
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          onClick={() => setAuditLogToken(token)}
+                        >
+                          Audit log
+                        </Button>
                       </Flex>
                     </TableCell>
                   </TableRow>

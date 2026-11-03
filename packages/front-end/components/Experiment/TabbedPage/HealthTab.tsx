@@ -384,6 +384,7 @@ function HealthSnapshotCards({
             variations={variations}
             totalUsers={totalUsers}
             onNotify={handleHealthNotification}
+            snapshotId={snapshot.id}
             dataSource={datasource}
             exposureQuery={exposureQuery}
             healthTabConfigParams={healthTabConfigParams}
@@ -413,7 +414,8 @@ function HealthSnapshotCards({
           <MultipleExposuresCard
             totalUsers={totalUsers}
             onNotify={handleHealthNotification}
-            snapshot={snapshot}
+            multipleExposures={snapshot.multipleExposures}
+            snapshotId={snapshot.id}
           />
         </div>
       )}

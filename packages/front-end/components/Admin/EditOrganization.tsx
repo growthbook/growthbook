@@ -1,22 +1,23 @@
 import { useState, FC, useCallback, useEffect } from "react";
-import {
-  OrganizationInterface,
-  OrganizationMessage,
-} from "shared/types/organization";
+import isEqual from "lodash/isEqual";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   EventForwarderSinkType,
   EventForwarderStatus,
 } from "shared/types/event-forwarder";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Spinner } from "@radix-ui/themes";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-
-type MessageWithId = OrganizationMessage & { id: string };
+import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 type EventForwarderRow = {
   datasourceId: string;
@@ -33,16 +34,25 @@ const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
 
 const EditOrganization: FC<{
   onEdit: () => void;
-  close?: () => void;
+  close: () => void;
   id: string;
-  disablable: boolean;
   currentOrg: OrganizationInterface;
-}> = ({ onEdit, close, id, disablable = true, currentOrg }) => {
+}> = ({ onEdit, close, id, currentOrg }) => {
+  const { superAdmin, userId } = useUser();
+  // Only changed fields are sent, so disabling the rest is enough
+  const canMetadata = hasSuperAdminPermission(superAdmin, "metadata");
+  const canBilling = hasSuperAdminPermission(superAdmin, "billing");
+  const canSso = hasSuperAdminPermission(superAdmin, "sso");
+  // Event forwarder actions run inside the org, so they also need a way in
+  const canProvision =
+    hasSuperAdminPermission(superAdmin, "provision") &&
+    (hasSuperAdminPermission(superAdmin, "impersonate") ||
+      currentOrg.members.some((m) => m.id === userId));
   const [name, setName] = useState(currentOrg.name);
   const [owner, setOwner] = useState(currentOrg.ownerEmail);
   const [externalId, setExternalId] = useState(currentOrg.externalId || "");
   const [licenseKey, setLicenseKey] = useState(currentOrg.licenseKey || "");
-  const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats || 3);
+  const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats ?? 3);
   const [legacyEnterprise, setLegacyEnterprise] = useState(
     currentOrg.enterprise || false,
   );
@@ -52,25 +62,37 @@ const EditOrganization: FC<{
   const [autoApproveMembers, setAutoApproveMembers] = useState(
     currentOrg.autoApproveMembers || false,
   );
+  const [restrictLoginMethod, setRestrictLoginMethod] = useState(
+    currentOrg.restrictLoginMethod || "",
+  );
   const [disableSelfServeBilling, setDisableSelfServeBilling] = useState(
     currentOrg.disableSelfServeBilling || false,
-  );
-  const [suspended, setSuspended] = useState(currentOrg.suspended || false);
-  const [messages, setMessages] = useState<MessageWithId[]>(
-    (currentOrg.messages || []).map((m) => ({
-      ...m,
-      id: crypto.randomUUID(),
-    })),
   );
   const [eventForwarders, setEventForwarders] = useState<EventForwarderRow[]>(
     [],
   );
-  const [eventForwardersLoading, setEventForwardersLoading] = useState(true);
+  const [eventForwardersLoading, setEventForwardersLoading] =
+    useState(canProvision);
   const [eventForwardersError, setEventForwardersError] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [deletingEventForwarderId, setDeletingEventForwarderId] = useState<
     string | null
   >(null);
+
+  const values = {
+    name,
+    externalId,
+    licenseKey,
+    ownerEmail: owner,
+    verifiedDomain,
+    autoApproveMembers,
+    restrictLoginMethod,
+    enterprise: legacyEnterprise,
+    freeSeats,
+    disableSelfServeBilling,
+  };
+  // Snapshot from the first render, to diff against on submit
+  const [initialValues] = useState(values);
 
   const { apiCall } = useAuth();
 
@@ -103,52 +125,25 @@ const EditOrganization: FC<{
   }, [apiCall, id]);
 
   useEffect(() => {
-    refreshEventForwarders();
-  }, [refreshEventForwarders]);
+    if (canProvision) refreshEventForwarders();
+  }, [refreshEventForwarders, canProvision]);
 
   const handleSubmit = async () => {
+    // Send only what this admin changed, so a stale value for a field they
+    // didn't touch can't overwrite another admin's edit or fail a permission check
+    const changes = Object.fromEntries(
+      Object.entries(values).filter(
+        ([k, v]) => !isEqual(v, initialValues[k as keyof typeof values]),
+      ),
+    );
     await apiCall<{
       status: number;
       message?: string;
     }>("/admin/organization", {
       method: "PUT",
-      body: JSON.stringify({
-        orgId: id,
-        name,
-        externalId,
-        licenseKey,
-        ownerEmail: owner,
-        verifiedDomain,
-        autoApproveMembers,
-        enterprise: legacyEnterprise,
-        freeSeats,
-        disableSelfServeBilling,
-        suspended,
-        messages: messages.map(({ id: _id, ...m }) => m),
-      }),
+      body: JSON.stringify({ orgId: id, ...changes }),
     });
     onEdit();
-  };
-
-  const addMessage = () => {
-    setMessages([
-      ...messages,
-      { id: crypto.randomUUID(), message: "", level: "info" },
-    ]);
-  };
-
-  const updateMessage = (
-    id: string,
-    field: keyof OrganizationMessage,
-    value: string,
-  ) => {
-    setMessages(
-      messages.map((m) => (m.id === id ? { ...m, [field]: value } : m)),
-    );
-  };
-
-  const removeMessage = (id: string) => {
-    setMessages(messages.filter((m) => m.id !== id));
   };
 
   const handleDeleteEventForwarder = async (datasourceId: string) => {
@@ -190,339 +185,163 @@ const EditOrganization: FC<{
   };
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
-      header={"Edit Organization"}
-      cta={"Update"}
+      header="Edit Organization"
+      cta="Update"
       close={close}
-      inline={!close}
-      secondaryCTA={
-        disablable ? (
-          <div className="flex-grow-1">
-            {currentOrg.disabled ? (
-              <button
-                className="btn btn-info"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await apiCall<{
-                    status: number;
-                    message?: string;
-                  }>(`/admin/organization/enable`, {
-                    method: "PUT",
-                    body: JSON.stringify({ orgId: id }),
-                  });
-                  onEdit();
-                  if (close) close();
-                }}
-              >
-                Enable
-              </button>
-            ) : (
-              <button
-                className="btn btn-danger"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  if (
-                    confirm(
-                      "Are you sure you want to disable this organization? Users will not be able to use this organization",
-                    )
-                  ) {
-                    await apiCall<{
-                      status: number;
-                      message?: string;
-                    }>(`/admin/organization/disable`, {
-                      method: "PUT",
-                      body: JSON.stringify({ orgId: id }),
-                    });
-                    onEdit();
-                    if (close) close();
-                  }
-                }}
-              >
-                Disable
-              </button>
-            )}
-          </div>
-        ) : null
-      }
     >
-      <div className="form-group">
-        Company Name
-        <input
-          type="text"
-          className="form-control"
+      <Flex direction="column" gap="4">
+        <TextField
+          label="Name"
           value={name}
           required
           minLength={3}
+          disabled={!canMetadata}
           onChange={(e) => setName(e.target.value)}
         />
         {isCloud() ? (
-          <div className="mt-3">
-            License Key
-            <input
-              type="text"
-              className="form-control"
-              value={licenseKey}
-              onChange={(e) => setLicenseKey(e.target.value)}
-            />
-          </div>
+          <TextField
+            label="License key"
+            value={licenseKey}
+            disabled={!canBilling}
+            onChange={(e) => setLicenseKey(e.target.value)}
+          />
         ) : (
-          <div className="mt-3">
-            External Id (optional)
-            <input
-              type="text"
-              className="form-control"
-              value={externalId}
-              minLength={3}
-              onChange={(e) => setExternalId(e.target.value)}
-            />
-            <span className="text-muted small">
-              This field can be used to identify the organization within your
-              company.
-            </span>
-          </div>
+          <TextField
+            label="External ID"
+            value={externalId}
+            disabled={!canMetadata}
+            minLength={3}
+            helpText="Identifies the organization within your company."
+            onChange={(e) => setExternalId(e.target.value)}
+          />
         )}
-        <div className="mt-3">
-          Owner Email
-          <input
-            type="email"
-            className="form-control"
-            value={owner}
-            required
-            onChange={(e) => setOwner(e.target.value)}
-          />
-        </div>
-        <div className="mt-3">
-          Verified Domain
-          <input
-            type="text"
-            className="form-control"
-            value={verifiedDomain}
-            onChange={(e) => setVerifiedDomain(e.target.value)}
-          />
-          <span className="text-muted small">
-            This is used so new users can auto join this org by matching email
-            domain.
-          </span>
-        </div>
-        <div className="mt-3">
-          <Checkbox
-            id="autoApproveMembers"
-            label="Auto approve members with email domain"
-            value={autoApproveMembers}
-            setValue={setAutoApproveMembers}
-          />
-        </div>
+        <TextField
+          label="Owner email"
+          type="email"
+          value={owner}
+          required
+          disabled={!canMetadata}
+          onChange={(e) => setOwner(e.target.value)}
+        />
+        <TextField
+          label="Verified domain"
+          value={verifiedDomain}
+          disabled={!canSso}
+          helpText="New users with an email on this domain can auto-join this organization."
+          onChange={(e) => setVerifiedDomain(e.target.value)}
+        />
+        <Checkbox
+          id="autoApproveMembers"
+          label="Auto-approve members with this email domain"
+          value={autoApproveMembers}
+          setValue={setAutoApproveMembers}
+          disabled={!canSso}
+        />
         {isCloud() ? (
           <>
-            <div className="mt-3">
-              <Checkbox
-                id="suspended"
-                label="Suspend organization"
-                value={suspended}
-                setValue={setSuspended}
-                disabled={!disablable}
-                disabledMessage="You cannot suspend the organization you are currently logged into."
+            {!currentOrg.restrictLoginMethod?.startsWith("vercel:") && (
+              <TextField
+                label="Required SSO connection ID"
+                value={restrictLoginMethod}
+                placeholder="SSO connection ID"
+                helpText="Members must sign in through this SSO connection, which can belong to another organization."
+                disabled={!canSso}
+                onChange={(e) => setRestrictLoginMethod(e.target.value)}
               />
-              <div>
-                <span className="text-muted small">
-                  Blocks all users and API keys from accessing this
-                  organization.
-                </span>
-              </div>
-            </div>
-            <div className="mt-3">
-              Free Seats
-              <input
-                type="number"
-                min={0}
-                className="form-control"
-                value={freeSeats}
-                onChange={(e) => setFreeSeats(parseInt(e.target.value))}
-              />
-              <div>
-                <span className="text-muted small">
-                  Number of seats that can be added when on a free plan (3 is
-                  the default)
-                </span>
-              </div>
-            </div>
-            <div className="mt-3">
-              <Checkbox
-                id="disableSelfServeBilling"
-                label="Disable self-serve billing"
-                value={disableSelfServeBilling}
-                setValue={setDisableSelfServeBilling}
-              />
-              <div>
-                <span className="text-muted small">
-                  Prevents users in this org from managing their own
-                  subscription.
-                </span>
-              </div>
-            </div>
-            <div className="p-2 border mt-3">
-              <div>
-                <b>Deprecated:</b>
-                <div className="small">
-                  This is an old way to enable enterprise features for an
-                  organization, which does not expire, and does not restrict
-                  seats. Please uncheck this and use Retool to set a licenseKey
+            )}
+            <TextField
+              label="Free seats"
+              type="number"
+              min={0}
+              value={freeSeats}
+              disabled={!canBilling}
+              helpText="Seats available on a free plan. The default is 3."
+              onChange={(e) => setFreeSeats(parseInt(e.target.value))}
+            />
+            <Checkbox
+              id="disableSelfServeBilling"
+              label="Disable self-serve billing"
+              description="Prevents members from managing their own subscription."
+              value={disableSelfServeBilling}
+              setValue={setDisableSelfServeBilling}
+              disabled={!canBilling}
+            />
+            <Callout status="warning">
+              <Flex direction="column" gap="2">
+                <Text>
+                  Legacy Enterprise doesn&apos;t expire or limit seats, and
+                  isn&apos;t billed. Uncheck it and set a license key in Retool
                   instead.
-                </div>
-              </div>
-              <div className="mt-3">
+                </Text>
                 <Checkbox
                   id="legacyEnterpriseToggle"
-                  label="Enable Enterprise"
+                  label="Enable legacy Enterprise"
                   value={legacyEnterprise}
                   setValue={setLegacyEnterprise}
+                  disabled={!canBilling}
                 />
-                <div>
-                  <span className="text-muted small">
-                    Organizations with enterprise enabled this way are not
-                    billed, and will not expire.
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="d-flex justify-content-between align-items-center mb-1">
-                <label className="mb-0 font-weight-bold">
-                  Organization Messages
-                </label>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={addMessage}
-                >
-                  + Add Message
-                </button>
-              </div>
-              <div className="text-muted small mb-2">
-                Banners displayed to all users in this org. Supports Markdown.
-                Useful for maintenance notices or account alerts. Each message
-                will appear on every page.
-              </div>
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className="d-flex gap-2 mb-2 align-items-center"
-                >
-                  <input
-                    type="text"
-                    className="form-control form-control-sm flex-grow-1"
-                    placeholder="Message text (Markdown supported)"
-                    value={msg.message}
-                    onChange={(e) =>
-                      updateMessage(msg.id, "message", e.target.value)
-                    }
-                  />
-                  <select
-                    className="form-control form-control-sm"
-                    style={{ width: 110, flexShrink: 0 }}
-                    value={msg.level}
-                    onChange={(e) =>
-                      updateMessage(
-                        msg.id,
-                        "level",
-                        e.target.value as OrganizationMessage["level"],
-                      )
-                    }
-                  >
-                    <option value="info">Info</option>
-                    <option value="warning">Warning</option>
-                    <option value="danger">Danger</option>
-                  </select>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-danger"
-                    style={{ flexShrink: 0 }}
-                    onClick={() => removeMessage(msg.id)}
-                  >
-                    &times;
-                  </button>
-                </div>
-              ))}
-            </div>
-            {!eventForwardersLoading && eventForwarders.length > 0 ? (
-              <div className="mt-3">
-                <label className="mb-1 font-weight-bold">
-                  Event Forwarders
-                </label>
+              </Flex>
+            </Callout>
+            {eventForwardersLoading ? (
+              <Flex align="center" gap="2">
+                <Spinner size="1" />
+                <Text color="text-mid">Loading event forwarders...</Text>
+              </Flex>
+            ) : eventForwardersError && eventForwarders.length === 0 ? (
+              <Callout status="error">{eventForwardersError}</Callout>
+            ) : eventForwarders.length > 0 ? (
+              <Flex direction="column" gap="2">
+                <Text weight="semibold">Event forwarders</Text>
                 {eventForwardersError ? (
-                  <div className="text-danger small mb-2">
-                    {eventForwardersError}
-                  </div>
+                  <Callout status="error">{eventForwardersError}</Callout>
                 ) : null}
                 {eventForwarders.map((row) => {
                   const canToggle =
                     row.status === "ready" || row.status === "paused";
                   const isLoading = actionLoadingId === row.datasourceId;
                   return (
-                    <div
-                      key={row.datasourceId}
-                      className="d-flex gap-2 mb-2 align-items-center"
-                    >
-                      <Flex align="center" gap="2" flexGrow="1">
-                        <span className="text-truncate" title={row.name}>
+                    <Flex key={row.datasourceId} align="center" gap="2">
+                      <Flex align="center" gap="2" flexGrow="1" minWidth="0">
+                        <Text truncate title={row.name}>
                           {row.name}
-                        </span>
-                        <span
-                          className="text-muted small"
-                          style={{ width: 80, flexShrink: 0 }}
-                        >
+                        </Text>
+                        <Text color="text-mid" size="sm">
                           {SINK_TYPE_LABELS[row.sinkType]}
-                        </span>
+                        </Text>
                       </Flex>
-                      <Flex align="center" gap="2">
-                        {canToggle ? (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-secondary"
-                            style={{ flexShrink: 0, width: 72 }}
-                            disabled={isLoading}
-                            onClick={() => handlePauseResumeEventForwarder(row)}
-                          >
-                            {isLoading ? (
-                              <LoadingSpinner
-                                style={{ width: "12px", height: "12px" }}
-                              />
-                            ) : row.status === "ready" ? (
-                              "Pause"
-                            ) : (
-                              "Resume"
-                            )}
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          style={{ flexShrink: 0 }}
-                          disabled={isLoading}
-                          onClick={() =>
-                            setDeletingEventForwarderId(row.datasourceId)
-                          }
+                      {canToggle ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={isLoading}
+                          onClick={() => handlePauseResumeEventForwarder(row)}
                         >
-                          Delete
-                        </button>
-                      </Flex>
-                    </div>
+                          {row.status === "ready" ? "Pause" : "Resume"}
+                        </Button>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        color="red"
+                        disabled={isLoading}
+                        onClick={() =>
+                          setDeletingEventForwarderId(row.datasourceId)
+                        }
+                      >
+                        Delete
+                      </Button>
+                    </Flex>
                   );
                 })}
-              </div>
-            ) : null}
-            {eventForwardersLoading ? (
-              <div className="mt-3 d-flex align-items-center gap-2 text-muted small">
-                <LoadingSpinner style={{ width: "14px", height: "14px" }} />
-                Loading event forwarders...
-              </div>
+              </Flex>
             ) : null}
             {deletingEventForwarderId ? (
               <ConfirmDialog
-                title="Delete Event Forwarder configuration?"
+                title="Delete Event Forwarder Configuration?"
                 content="This cannot be undone from the UI."
                 yesText="Delete"
                 onConfirm={async () => {
@@ -534,8 +353,8 @@ const EditOrganization: FC<{
             ) : null}
           </>
         ) : null}
-      </div>
-    </Modal>
+      </Flex>
+    </ModalStandard>
   );
 };
 

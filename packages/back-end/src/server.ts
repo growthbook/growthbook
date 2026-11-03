@@ -1,11 +1,16 @@
 import "./init/aliases";
+import "./init/distrustRoots";
 import "./init/dotenv";
 import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
 import { uploadsInit } from "./init/uploads";
-import { KEEP_ALIVE_TIMEOUT_MS } from "./util/secrets";
+import {
+  KEEP_ALIVE_TIMEOUT_MS,
+  OAUTH_AS_ENABLED,
+  OAUTH_ISSUER,
+} from "./util/secrets";
 import {
   initializeGrowthBookClient,
   destroyGrowthBookClient,
@@ -25,6 +30,15 @@ const server = app.listen(app.get("port"), () => {
   // Boot-time operational check (real server only; not exercised by tests, which
   // import app directly). Self-contained and warn-only.
   void uploadsInit();
+  // OAuth clients compare the issuer byte for byte, and a request's host isn't stable.
+  if (OAUTH_AS_ENABLED && !OAUTH_ISSUER) {
+    logger.warn(
+      "The OAuth Authorization Server is on, but neither OAUTH_ISSUER nor API_HOST is set, " +
+        "so it advertises each request's host as its issuer. MCP sign-in breaks if the API " +
+        "is reached under more than one hostname or behind a proxy that rewrites the host. " +
+        "Set OAUTH_ISSUER or API_HOST, or set OAUTH_AS_ENABLED=0 to turn it off.",
+    );
+  }
 });
 
 server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;

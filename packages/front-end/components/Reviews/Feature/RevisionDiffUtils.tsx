@@ -78,7 +78,11 @@ import {
   RampActionLabel,
   formatSimpleWindow,
 } from "@/components/Features/FeatureDiffRenders";
-import type { FeatureRevisionDiff } from "@/hooks/useFeatureRevisionDiff";
+import {
+  ENVIRONMENT_TOGGLES_KEY,
+  legacyEnvironmentRefs,
+  type FeatureRevisionDiff,
+} from "@/hooks/useFeatureRevisionDiff";
 import { holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import { Popover } from "@/ui/Popover";
@@ -542,6 +546,15 @@ export type DiffCommentsProps = {
   onSubmitNew?: (text: string) => Promise<void>;
 };
 
+// A spot's comment, made under its ref or the legacy one it replaced.
+function anchorAt(
+  { anchors }: DiffCommentsProps,
+  refId: string,
+  legacyId: string | undefined,
+): AnchoredComment | undefined {
+  return anchors.get(refId) ?? (legacyId ? anchors.get(legacyId) : undefined);
+}
+
 // One interactive spot in the comment overlay. A spot with an existing
 // comment renders a persistent marker that jumps to the comment in the
 // revision timeline; an empty spot renders a hover-revealed affordance that
@@ -599,6 +612,9 @@ function DiffCommentCell({
             <CommentComposer
               placeholder="Comment on this line…"
               initialValue={`${formatDiffRef(refObj, getSnapshot())}\n\n`}
+              // The quoted lines take the first rows, so the text needs room below.
+              height="lg"
+              maxHeight="xl"
               autofocus
               autofocusAtEnd
               onCancel={() => onOpenChange(false)}
@@ -680,6 +696,24 @@ export function ExpandableDiff({
   const [openAnchorId, setOpenAnchorId] = useState<string | null>(null);
 
   const commentsEnabled = !!anchorKey && !!comments;
+  // Comments made when each environment's toggle was its own section.
+  const legacyRefs = useMemo(
+    () =>
+      anchorKey === ENVIRONMENT_TOGGLES_KEY
+        ? legacyEnvironmentRefs(a, b)
+        : null,
+    [anchorKey, a, b],
+  );
+  const legacyIdByRefId = useMemo(
+    () =>
+      new Map(
+        Array.from(legacyRefs ?? [], ([legacyId, ref]) => [
+          diffRefId(ref),
+          legacyId,
+        ]),
+      ),
+    [legacyRefs],
+  );
 
   // A timeline reference to a line in this section opens it past the size
   // gate, and brings that line into view when only some rows are rendered
@@ -689,15 +723,17 @@ export function ExpandableDiff({
     if (!anchorKey) return;
     const onExpand = (e: Event) => {
       const ref = (e as CustomEvent<DiffCommentRef>).detail;
-      if (ref.sectionKey !== anchorKey) return;
+      const target =
+        ref.sectionKey === anchorKey ? ref : legacyRefs?.get(diffRefId(ref));
+      if (!target) return;
       setExpandedFor([a, b]);
       setOpen(true);
-      setRevealLine({ side: ref.side, line: ref.line });
+      setRevealLine({ side: target.side, line: target.line });
     };
     window.addEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
     return () =>
       window.removeEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
-  }, [anchorKey, a, b]);
+  }, [anchorKey, a, b, legacyRefs]);
 
   // Line diff of the section, computed once; per-line snapshots (the
   // before/after window embedded in a composed comment's diff-ref block) are
@@ -739,11 +775,15 @@ export function ExpandableDiff({
               line,
             };
             const refId = line ? diffRefId(refObj) : null;
-            const anchored = refId ? comments.anchors.get(refId) : undefined;
+            const legacyId = refId ? legacyIdByRefId.get(refId) : undefined;
+            const anchored = refId
+              ? anchorAt(comments, refId, legacyId)
+              : undefined;
             const interactive =
               !!refId && (!!anchored || !!comments.onSubmitNew);
             return {
               refId,
+              legacyId,
               content: interactive ? (
                 <DiffCommentCell
                   refObj={refObj}
@@ -759,13 +799,20 @@ export function ExpandableDiff({
             };
           }
         : undefined,
-    [commentsEnabled, anchorKey, comments, openAnchorId, snapshotEntries],
+    [
+      commentsEnabled,
+      anchorKey,
+      comments,
+      openAnchorId,
+      snapshotEntries,
+      legacyIdByRefId,
+    ],
   );
   const renderGutter = useMemo(
     () =>
       commentCell
         ? (data: { lineNumber: number; prefix: string }) => {
-            const { refId, content } = commentCell(
+            const { refId, legacyId, content } = commentCell(
               data.prefix === "L" ? "L" : "R",
               data.lineNumber,
             );
@@ -774,6 +821,7 @@ export function ExpandableDiff({
                 className="gb-diff-comment-cell"
                 data-diff-ref={refId ?? undefined}
               >
+                {legacyId ? <span data-diff-ref={legacyId} /> : null}
                 {content}
               </td>
             );
@@ -786,12 +834,13 @@ export function ExpandableDiff({
     () =>
       commentCell
         ? (side: "L" | "R", line: number) => {
-            const { refId, content } = commentCell(side, line);
+            const { refId, legacyId, content } = commentCell(side, line);
             return (
               <div
                 data-diff-ref={refId ?? undefined}
                 style={{ position: "absolute", inset: 0 }}
               >
+                {legacyId ? <span data-diff-ref={legacyId} /> : null}
                 {content}
               </div>
             );
@@ -816,7 +865,11 @@ export function ExpandableDiff({
               line: parseInt(m[2], 10),
             };
             const refId = diffRefId(refObj);
-            const anchored = comments.anchors.get(refId);
+            const anchored = anchorAt(
+              comments,
+              refId,
+              legacyIdByRefId.get(refId),
+            );
             if (anchored) {
               if (anchored.logId) scrollToRevisionLogEntry(anchored.logId);
               return;
@@ -825,7 +878,7 @@ export function ExpandableDiff({
             setOpenAnchorId((prev) => (prev === refId ? null : refId));
           }
         : undefined,
-    [commentsEnabled, anchorKey, comments],
+    [commentsEnabled, anchorKey, comments, legacyIdByRefId],
   );
 
   if (a === b) return null;
@@ -1622,6 +1675,7 @@ export function formatSectionTitle(title: string): string {
 // (FeatureRevisionDiff) and the generic (DiffItem-derived) flows produce this,
 // so FormattedChanges is entity-agnostic and shared across both surfaces.
 export type FormattedChangeItem = {
+  // Empty when the surface already names the section: no heading is drawn.
   title: string;
   a: string;
   b: string;
@@ -1647,12 +1701,16 @@ export function FormattedChanges({
       {diffs.map((d) =>
         d.customRender || !jsonFallback ? (
           <Box key={d.title} p="3" my="3" className="rounded bg-light">
-            <Flex align="center" gap="2" mb="2" wrap="wrap">
-              <Heading as="h6" size="sm" color="text-mid" mb="0">
-                {formatSectionTitle(d.title)}
-              </Heading>
-              {d.titleSuffix}
-            </Flex>
+            {(d.title || d.titleSuffix) && (
+              <Flex align="center" gap="2" mb="2" wrap="wrap">
+                {d.title && (
+                  <Heading as="h6" size="sm" color="text-mid" mb="0">
+                    {formatSectionTitle(d.title)}
+                  </Heading>
+                )}
+                {d.titleSuffix}
+              </Flex>
+            )}
             {d.customRender ?? (
               <Text size="md" as="div" color="text-low">
                 This section changed.{" "}

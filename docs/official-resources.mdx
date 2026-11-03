@@ -44,7 +44,7 @@ When creating resources via the REST API, use the optional `managedBy` property:
 - **`managedBy: "api"`**: The resource is not editable in the app but can be modified via the REST API. This is ideal for resources managed by external repositories or systems.
 - **`managedBy: "admin"`**: The resource can be modified in the app or via the REST API, but only by users with the `ManageOfficialResources` policy.
 
-###3. config.yml
+### 3. config.yml
 
 When resources are created via the `config.yml` file, they are automatically marked as "Official" and are not editable in the app. To make changes to these resources, you must update the `config.yml` file.
 

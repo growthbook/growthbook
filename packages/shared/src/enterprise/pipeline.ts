@@ -347,7 +347,10 @@ export function prestoCreateTablePartitions(columns: string[]) {
 export type SourceSnapshotRef = Pick<
   ExperimentSnapshotInterface,
   "id" | "dateCreated"
->;
+> & {
+  // The latest data the source's results consider.
+  analysisEndDate: Date;
+};
 
 /**
  * The upstream source reference for a snapshot, or undefined when the snapshot
@@ -356,7 +359,7 @@ export type SourceSnapshotRef = Pick<
 export function getExperimentSourceSnapshotRef(
   snapshot?: Pick<
     ExperimentSnapshotInterface,
-    "sourceSnapshotId" | "sourceSnapshotDateCreated"
+    "sourceSnapshotId" | "sourceSnapshotDateCreated" | "sourceSnapshotEndDate"
   >,
 ): SourceSnapshotRef | undefined {
   if (!snapshot?.sourceSnapshotId || !snapshot.sourceSnapshotDateCreated) {
@@ -366,6 +369,10 @@ export function getExperimentSourceSnapshotRef(
   return {
     id: snapshot.sourceSnapshotId,
     dateCreated: getValidDate(snapshot.sourceSnapshotDateCreated),
+    // Docs written before the end date was persisted fall back to the run time.
+    analysisEndDate: getValidDate(
+      snapshot.sourceSnapshotEndDate ?? snapshot.sourceSnapshotDateCreated,
+    ),
   };
 }
 
