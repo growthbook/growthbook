@@ -181,8 +181,10 @@ import {
   adoptManagedFlagForExperiment,
   clearManagedMarkersForExperiment,
   assertManagedFlagKeyFormat,
+  assertManagedFlagCreatable,
   createManagedFlagForNewExperiment,
   ensureManagedFlagForExperiment,
+  healManagedFlag,
   ownsManagedFlag,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
@@ -1337,6 +1339,10 @@ export async function postExperiments(
       data.implementationType = "none";
     }
   }
+  // Refused before the experiment is written, rather than rolled back after.
+  if (ownsManagedFlag({ ...data, type: experimentType })) {
+    assertManagedFlagCreatable(context, data.project ?? "");
+  }
 
   // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
   // Filter out invalid metric ids from the data
@@ -1721,7 +1727,7 @@ export async function postExperiment(
     audit: req.audit,
   });
   // Switching to Values creates the flag straight away.
-  const updated = await ensureManagedFlagForExperiment({
+  const updated = await healManagedFlag({
     context,
     experiment: applied,
     eventAudit: res.locals.eventAudit,

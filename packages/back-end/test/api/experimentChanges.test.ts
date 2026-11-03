@@ -986,6 +986,22 @@ describe("applyExperimentChanges", () => {
     expect(Object.keys(stored?.linkedExperiments ?? {})).toEqual([EXP]);
   });
 
+  it("refuses leaving Values without consent to delete its flag, writing nothing", async () => {
+    await seed({ withDraft: true });
+    await makeFlagManaged();
+
+    await expect(
+      run({
+        experiment: {
+          changes: { implementationType: "none" },
+          base: { implementationType: "values" },
+        },
+      }),
+    ).rejects.toThrow("deletes the managed Feature Flag");
+    expect(await featureIdExists(context, FLAG)).toBe(true);
+    expect((await storedExperiment()).linkedFeatures).toEqual([FLAG]);
+  });
+
   it("removes the implementation, deleting the flag so Values can take its key again", async () => {
     await seed({ withDraft: true });
     await makeFlagManaged();
@@ -1018,6 +1034,25 @@ describe("applyExperimentChanges", () => {
         })
       )?.id,
     ).toBe(FLAG);
+  });
+
+  it("refuses a switch to Values before writing when its flag can't be created", async () => {
+    await seed({ withDraft: false });
+    await setExperiment({ linkedFeatures: [], implementationType: "none" });
+    context = makeContext({ settings: { requireProjectForFeatures: true } });
+
+    await expect(
+      run({
+        experiment: {
+          changes: { implementationType: "values" },
+          base: { implementationType: "none" },
+        },
+      }),
+    ).rejects.toThrow("requires a Project on every Feature Flag");
+    expect((await storedExperiment()).implementationType).toBe("none");
+    expect(
+      await collection("features").findOne({ "managedBy.experimentId": EXP }),
+    ).toBeNull();
   });
 
   it("keeps the flag a racing save created instead of making a second", async () => {

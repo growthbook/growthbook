@@ -444,8 +444,14 @@ export function ManagedFlagReviewComments({
   const { userId } = useUser();
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const { reviewComments, insufficientReasons, state, post, submitting } =
-    review;
+  const {
+    reviewComments,
+    insufficientReasons,
+    state,
+    post,
+    submitting,
+    error,
+  } = review;
   if (!reviewComments.length) return null;
 
   return (
@@ -497,7 +503,7 @@ export function ManagedFlagReviewComments({
                   {canRetractRow && (
                     <DropdownMenuItem
                       color="red"
-                      onClick={() => post("undo-review")}
+                      onClick={() => void post("undo-review")}
                     >
                       Retract review
                     </DropdownMenuItem>
@@ -518,18 +524,27 @@ export function ManagedFlagReviewComments({
                     <Button
                       disabled={submitting || !editText.trim()}
                       onClick={async () => {
-                        await post(
-                          `log/${l.id}`,
-                          { comment: editText, version: review.version },
-                          "PUT",
-                        );
-                        setEditingLogId(null);
+                        // Kept open on a failure, so the text isn't lost.
+                        if (
+                          await post(
+                            `log/${l.id}`,
+                            { comment: editText, version: review.version },
+                            "PUT",
+                          )
+                        ) {
+                          setEditingLogId(null);
+                        }
                       }}
                     >
                       Save
                     </Button>
                     <Link onClick={() => setEditingLogId(null)}>Cancel</Link>
                   </Flex>
+                  {error ? (
+                    <HelperText status="error" size="sm">
+                      {error}
+                    </HelperText>
+                  ) : null}
                 </Flex>
               ) : undefined
             }

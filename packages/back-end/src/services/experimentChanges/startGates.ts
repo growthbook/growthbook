@@ -22,13 +22,21 @@ const FLAG_BLOCKERS: {
   prefix: string;
   type: string;
   action: string | null;
+  // The experiment's own flag, where that differs.
+  managedAction?: string;
 }[] = [
   {
     prefix: PENDING_APPROVAL_ITEM_PREFIX,
     type: "approval-required",
     action: "request-review",
   },
-  { prefix: "mergeConflict:", type: "merge-conflict", action: "rebase" },
+  // The managed flag's conflict has no merge to pick sides in; its draft goes.
+  {
+    prefix: "mergeConflict:",
+    type: "merge-conflict",
+    action: "rebase",
+    managedAction: "discard",
+  },
   { prefix: STALE_VALUES_ITEM_PREFIX, type: "stale-values", action: "rebase" },
   {
     prefix: "unrelatedDraftChanges:",
@@ -79,9 +87,9 @@ export function startChecklistGates(
             resolution:
               featureId === managedFeatureId && blocker.action
                 ? {
-                    action: blocker.action,
+                    action: blocker.managedAction ?? blocker.action,
                     method: "POST",
-                    path: `/experiments/${experimentId}/variation-values/${blocker.action}`,
+                    path: `/experiments/${experimentId}/variation-values/${blocker.managedAction ?? blocker.action}`,
                   }
                 : draftRoute(
                     featureId,

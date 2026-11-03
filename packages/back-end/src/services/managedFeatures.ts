@@ -335,6 +335,27 @@ function stageManagedExperimentRule({
   });
 }
 
+// What would refuse a Values experiment's flag, so a save can refuse before it
+// writes rather than land without one.
+export function assertManagedFlagCreatable(
+  context: ReqContext | ApiReqContext,
+  project: string,
+): void {
+  if (!getEnvironments(context.org).length) {
+    throw new BadRequestError(
+      "Must have at least one environment configured to use Feature Flags",
+    );
+  }
+  if (context.org.settings?.requireProjectForFeatures && !project) {
+    throw new BadRequestError(
+      "This organization requires a Project on every Feature Flag — set a Project on the experiment first.",
+    );
+  }
+  if (!context.permissions.canCreateFeature({ project }, [])) {
+    context.permissions.throwPermissionError();
+  }
+}
+
 // Born inert: disabled everywhere, rule staged on a draft.
 export async function createManagedFeatureForExperiment({
   context,
@@ -357,19 +378,9 @@ export async function createManagedFeatureForExperiment({
     variations,
   });
 
-  const allEnvironments = getEnvironments(org);
-  if (!allEnvironments.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags",
-    );
-  }
-
   const project = experiment.project ?? "";
-  if (org.settings?.requireProjectForFeatures && !project) {
-    throw new Error(
-      "This organization requires a Project on every Feature Flag — set a Project on the experiment first.",
-    );
-  }
+  assertManagedFlagCreatable(context, project);
+  const allEnvironments = getEnvironments(org);
 
   const regexValidator = org.settings?.featureRegexValidator;
 
@@ -394,10 +405,6 @@ export async function createManagedFeatureForExperiment({
       : undefined,
     managedBy: { type: "experiment", experimentId: experiment.id },
   };
-
-  if (!context.permissions.canCreateFeature(baseFeature, [])) {
-    context.permissions.throwPermissionError();
-  }
 
   if (featureId !== undefined && !FEATURE_KEY_PATTERN.test(featureId)) {
     throw new Error(
@@ -528,14 +535,16 @@ async function readManagedValuesForDuplicate({
     const stamp = (r: typeof draftBefore) =>
       r ? `${r.version}:${r.dateUpdated.getTime()}` : "none";
     if (stamp(draftBefore) === stamp(draftAfter)) {
+      // The values read are the draft's, so they take the type it publishes.
+      const valueType = pendingValueType(before, draftAfter);
       return {
         sparse: !!info.sparse,
-        valueType: before.valueType,
+        valueType,
         variations: copyManagedVariationValues({
           sourceValues: info.values,
           sourceVariations: sourceExperiment.variations,
           targetVariations: targetExperiment.variations,
-          valueType: before.valueType,
+          valueType,
         }),
       };
     }
@@ -677,6 +686,23 @@ export async function ensureManagedFlagForExperiment({
     audit,
   });
   return (await getExperimentById(context, experiment.id)) ?? experiment;
+}
+
+// A Values experiment missing its flag gets one on its next save. Seeding wasn't
+// asked for and the save has landed, so only a seeding failure is logged.
+export async function healManagedFlag(
+  args: Parameters<typeof ensureManagedFlagForExperiment>[0],
+): Promise<ExperimentInterface> {
+  try {
+    return await ensureManagedFlagForExperiment(args);
+  } catch (e) {
+    if (args.values) throw e;
+    logger.warn(
+      { err: e, experimentId: args.experiment.id },
+      "Could not create the missing managed Feature Flag",
+    );
+    return args.experiment;
+  }
 }
 
 type ManagedFlagState = z.infer<typeof apiExperimentVariationValues>;
@@ -1415,6 +1441,51 @@ export async function planImplementationTypeRelease(
   return { releaseManagedFlagFor: managed ? next : null };
 }
 
+// Every refusal the release makes, so a caller can make them before it holds
+// for confirmation. Returns the flag it would release.
+export async function assertManagedFlagReleasable({
+  context,
+  experiment,
+  next,
+  acknowledged = false,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  next: ImplementationType;
+  acknowledged?: boolean;
+}): Promise<FeatureInterface | null> {
+  if (next === "values") return null;
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature) return null;
+  const envs = enabledEnvIds(context, feature);
+  if (keepsManagedFlag(next)) {
+    if (
+      !context.permissions.canPublishFeature(feature, envs) ||
+      !context.permissions.canUpdateExperiment(experiment, {})
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    return feature;
+  }
+  if (experiment.status !== "draft") {
+    throw new BadRequestError(
+      "The managed Feature Flag can only be removed while the experiment is a draft. Set its status back to Draft first.",
+    );
+  }
+  if (!context.permissions.canDeleteFeature(feature, envs)) {
+    context.permissions.throwPermissionError();
+  }
+  if (!acknowledged) {
+    throw new SoftWarningError(
+      "Changing the implementation type deletes the managed Feature Flag.",
+      [
+        `Changing the implementation type from Values deletes managed Feature Flag "${feature.id}" and any pending variation values.`,
+      ],
+    );
+  }
+  return feature;
+}
+
 // Converts the flag where it stays linked; anything else deletes it (drafts only).
 export async function releaseManagedFlagForImplementationChange({
   context,
@@ -1429,17 +1500,13 @@ export async function releaseManagedFlagForImplementationChange({
   audit?: (data: AuditInterfaceInput) => Promise<void>;
   acknowledged?: boolean;
 }): Promise<ExperimentInterface> {
-  if (next === "values") return experiment;
-  const feature = await getManagedFeatureForExperiment(context, experiment);
+  const feature = await assertManagedFlagReleasable({
+    context,
+    experiment,
+    next,
+    acknowledged,
+  });
   if (!feature) return experiment;
-  if (!keepsManagedFlag(next) && !acknowledged) {
-    throw new SoftWarningError(
-      "Changing the implementation type deletes the managed Feature Flag.",
-      [
-        `Changing the implementation type from Values deletes managed Feature Flag "${feature.id}" and any pending variation values.`,
-      ],
-    );
-  }
   if (keepsManagedFlag(next)) {
     await ejectManagedFeature({
       context,

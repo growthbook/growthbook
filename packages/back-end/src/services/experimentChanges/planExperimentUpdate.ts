@@ -65,6 +65,7 @@ import {
   assertManagedFlagCanMove,
   moveManagedFlagWithExperiment,
   assertManagedFlagKeyFormat,
+  assertManagedFlagCreatable,
   getManagedFeatureForExperiment,
   moveManagedFlagHoldout,
   planImplementationTypeRelease,
@@ -203,7 +204,10 @@ const DEEP_COMPARED_KEYS = new Set<keyof ExperimentInterface>([
 async function planImplementationTypeChange(
   context: ReqContext,
   experiment: ExperimentInterface,
-  data: Pick<ExperimentUpdateInput, "implementationType" | "trackingKey">,
+  data: Pick<
+    ExperimentUpdateInput,
+    "implementationType" | "trackingKey" | "project"
+  >,
 ): Promise<ImplementationType | null> {
   const next = data.implementationType;
   if (next === undefined) return null;
@@ -223,6 +227,10 @@ async function planImplementationTypeChange(
       trackingKey: data.trackingKey ?? experiment.trackingKey,
       id: experiment.id,
     });
+    assertManagedFlagCreatable(
+      context,
+      ("project" in data ? data.project : experiment.project) ?? "",
+    );
   }
   return null;
 }

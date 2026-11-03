@@ -19,6 +19,7 @@ import {
   getConfigSubtree,
   getFeatureBaseConfigKey,
   castFeatureValue,
+  expandSparseToFull,
   hasPendingScheduledStart,
   isManagedByExperiment,
   linkedFeatureEnvStates,
@@ -791,21 +792,29 @@ function FlagColumn({
       };
     });
   };
-  // Re-express what's there in the new type rather than clearing it.
+  // Re-express what each variation serves in the new type rather than
+  // clearing it. Only JSON can be sparse, so a sparse patch serves expanded.
   const changeType = (next: FeatureValueType) => {
     if (next === valueType) return;
     stage({
       valueType: next,
+      ...(sparse && { sparse: false }),
       values: Object.fromEntries(
-        variations.map((v, i) => [
-          v.id,
-          castFeatureValue({
-            value: valueFor(v.id) ?? "",
-            from: valueType,
-            to: next,
-            index: i,
-          }),
-        ]),
+        variations.map((v, i) => {
+          const value = valueFor(v.id) ?? "";
+          return [
+            v.id,
+            castFeatureValue({
+              value:
+                sparse && v.id !== controlId
+                  ? expandSparseToFull(value, sparseBase)
+                  : value,
+              from: valueType,
+              to: next,
+              index: i,
+            }),
+          ];
+        }),
       ),
     });
   };

@@ -5,7 +5,7 @@ import { FeatureInterface } from "shared/types/feature";
 type DiffInput = Pick<
   LinkedFeatureInfo,
   "liveValues" | "liveSparse" | "pendingDraft" | "liveEnvironmentStates"
-> & { feature: Pick<FeatureInterface, "defaultValue"> };
+> & { feature: Pick<FeatureInterface, "defaultValue" | "valueType"> };
 
 /** Whether the draft would move where the experiment runs. */
 export function environmentStatesDiffer(
@@ -34,6 +34,7 @@ function sparseExpansionDiffers(info: DiffInput): boolean {
 export function hasUnpublishedChanges(info: DiffInput): boolean {
   if (!info.pendingDraft) return false;
   return (
+    info.pendingDraft.valueType !== info.feature.valueType ||
     (info.pendingDraft.values ?? []).some(
       (v) =>
         info.liveValues?.find((l) => l.variationId === v.variationId)?.value !==

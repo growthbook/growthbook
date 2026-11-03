@@ -129,11 +129,13 @@ export default function useManagedFlagReview({
   const baseRevision = useFeatureRevisions(info.feature.id, [
     revision?.baseVersion,
   ]).get(revision?.baseVersion);
+  // No merge until the draft's own base loads: merged against live, it would
+  // drop what live changed since.
   const mergeResult = useMemo(() => {
-    if (!revision || !liveRevision) return null;
+    if (!revision || !liveRevision || !baseRevision) return null;
     return autoMerge(
       liveRevisionFromFeature(liveRevision, info.feature),
-      fillRevisionFromFeature(baseRevision ?? liveRevision, info.feature),
+      fillRevisionFromFeature(baseRevision, info.feature),
       revision,
       allEnvironments.map((e) => e.id),
       {},
@@ -287,17 +289,20 @@ export default function useManagedFlagReview({
     await refresh();
   }
 
+  // Whether it went through; a failure shows as `error`.
   async function post(
     path: string,
     body: Record<string, unknown> = {},
     method: "POST" | "PUT" = "POST",
-  ) {
+  ): Promise<boolean> {
     setSubmitting(true);
     setError(null);
     try {
       await runAction(path, body, method);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
+      return false;
     } finally {
       setSubmitting(false);
     }

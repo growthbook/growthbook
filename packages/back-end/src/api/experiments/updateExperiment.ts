@@ -17,6 +17,7 @@ import {
 import {
   assertManagedFlagCanMove,
   moveManagedFlagWithExperiment,
+  assertManagedFlagReleasable,
   planImplementationTypeRelease,
   releaseManagedFlagForImplementationChange,
 } from "back-end/src/services/managedFeatures";
@@ -643,6 +644,14 @@ export const updateExperiment = createApiRequestHandler(
       ? experiment.pendingFeatureDrafts
       : undefined,
   );
+  if (releaseManagedFlagFor) {
+    await assertManagedFlagReleasable({
+      context: req.context,
+      experiment,
+      next: releaseManagedFlagFor,
+      acknowledged: req.context.ignoreWarnings,
+    });
+  }
   // Everything that can refuse has run, so a confirmed update only writes.
   await requireConfirmation(req.context, {
     actions: [

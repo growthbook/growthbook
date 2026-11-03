@@ -192,11 +192,14 @@ const ImportExperimentList: FC<{
 
   // One identifier at a time, and only real experiments: a single variation
   // has nothing to compare.
+  const isRowListed = useCallback(
+    (e: (typeof pastExpArr)[number]) =>
+      isRowAvailable(e) && e.numVariations >= 2,
+    [isRowAvailable],
+  );
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
-      const rows = items.filter(
-        (e) => isRowAvailable(e) && e.numVariations >= 2,
-      );
+      const rows = items.filter(isRowListed);
       if (!dedupeFilter) return rows;
       // Group by trackingKey instead of trackingKey/exposureQueryId
       const deduped = new Map<string, (typeof rows)[0]>();
@@ -207,7 +210,7 @@ const ImportExperimentList: FC<{
       });
       return Array.from(deduped.values());
     },
-    [dedupeFilter, isRowAvailable],
+    [dedupeFilter, isRowListed],
   );
   const searchTermFilters = useMemo(
     () => ({
@@ -319,7 +322,7 @@ const ImportExperimentList: FC<{
     (!!data.experiments.error ||
       data.experiments.queries.every((q) => q.status === "failed"));
 
-  const identifierRows = pastExpArr.filter(isRowAvailable);
+  const identifierRows = pastExpArr.filter(isRowListed);
 
   // Queries the last refresh didn't run (no permission) or that failed. Records
   // not yet refreshed one query at a time have no runs and can't tell.

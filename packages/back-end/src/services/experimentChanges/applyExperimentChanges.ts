@@ -48,7 +48,7 @@ import {
 import {
   discardDraftIfNoop,
   stageManagedFeatureFields,
-  ensureManagedFlagForExperiment,
+  healManagedFlag,
   requireManagedFeature,
 } from "back-end/src/services/managedFeatures";
 import {
@@ -988,21 +988,4 @@ async function assertManagedFlagRenamableUpFront(
     );
   }
   await assertManagedFlagRenamable(context, experiment, feature, to);
-}
-
-// A Values experiment missing its flag gets one on its next save. Seeding wasn't
-// asked for and the save has landed, so only a seeding failure is logged.
-async function healManagedFlag(
-  args: Parameters<typeof ensureManagedFlagForExperiment>[0],
-): Promise<ExperimentInterface> {
-  try {
-    return await ensureManagedFlagForExperiment(args);
-  } catch (e) {
-    if (args.values) throw e;
-    logger.warn(
-      { err: e, experimentId: args.experiment.id },
-      "Could not create the missing managed Feature Flag",
-    );
-    return args.experiment;
-  }
 }

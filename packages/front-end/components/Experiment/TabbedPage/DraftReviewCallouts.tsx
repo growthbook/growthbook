@@ -155,6 +155,7 @@ function ManagedReviewAction({
       ? { label: review.submit.label, run: review.submit.run }
       : null;
   if (!action) return null;
+  const shownError = error ?? review.error;
   if (asLink) {
     return editsBlocked ? (
       <Tooltip content={editsBlocked}>
@@ -163,12 +164,29 @@ function ManagedReviewAction({
         </span>
       </Tooltip>
     ) : (
-      <Link onClick={action.run} color="violet" underline="hover">
-        {action.label}
-      </Link>
+      <Flex direction="column" align="end" gap="1">
+        <Link
+          onClick={async () => {
+            setError(null);
+            try {
+              await action.run();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : String(e));
+            }
+          }}
+          color="violet"
+          underline="hover"
+        >
+          {action.label}
+        </Link>
+        {shownError ? (
+          <HelperText status="error" size="sm">
+            {shownError}
+          </HelperText>
+        ) : null}
+      </Flex>
     );
   }
-  const shownError = error ?? review.error;
   return (
     <Flex direction="column" align="end" gap="1">
       <Tooltip content={editsBlocked} enabled={!!editsBlocked}>

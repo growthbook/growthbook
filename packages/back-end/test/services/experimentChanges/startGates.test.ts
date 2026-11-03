@@ -93,6 +93,10 @@ describe("startChecklistGates on the managed flag", () => {
           hardBlock: true,
           featureId: "managed",
         }),
+        item("mergeConflict:managed", {
+          hardBlock: true,
+          featureId: "managed",
+        }),
       ],
       new Map([["managed", 4]]),
       "managed",
@@ -110,6 +114,13 @@ describe("startChecklistGates on the managed flag", () => {
         key: "pendingApproval:managed",
         resolution: expect.objectContaining({
           path: "/experiments/exp_1/variation-values/request-review",
+        }),
+      }),
+      expect.objectContaining({
+        key: "mergeConflict:managed",
+        resolution: expect.objectContaining({
+          action: "discard",
+          path: "/experiments/exp_1/variation-values/discard",
         }),
       }),
     ]);

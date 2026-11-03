@@ -11,6 +11,7 @@ const draft = (overrides: Partial<PendingDraft>): PendingDraft =>
     environmentStates: {},
     sparse: false,
     defaultValue: "{}",
+    valueType: "json",
     ...overrides,
   }) as PendingDraft;
 
@@ -117,6 +118,15 @@ describe("hasUnpublishedChanges", () => {
       draftDefault: '{"color":"blue"}',
       expected: false,
     },
+    {
+      name: "is true when only the value type changes",
+      liveValues: live,
+      liveEnvs: prod,
+      draftValues: live,
+      draftEnvs: prod,
+      draftType: "string",
+      expected: true,
+    },
   ] as {
     name: string;
     liveValues?: LinkedFeatureInfo["liveValues"];
@@ -126,6 +136,7 @@ describe("hasUnpublishedChanges", () => {
     draftEnvs?: PendingDraft["environmentStates"];
     draftSparse?: boolean;
     draftDefault?: string;
+    draftType?: PendingDraft["valueType"];
     expected: boolean;
   }[])(
     "$name",
@@ -137,11 +148,12 @@ describe("hasUnpublishedChanges", () => {
       draftEnvs,
       draftSparse = false,
       draftDefault = "{}",
+      draftType = "json",
       expected,
     }) => {
       expect(
         hasUnpublishedChanges({
-          feature: { defaultValue: "{}" },
+          feature: { defaultValue: "{}", valueType: "json" },
           liveValues,
           liveSparse,
           liveEnvironmentStates: liveEnvs,
@@ -151,6 +163,7 @@ describe("hasUnpublishedChanges", () => {
                 environmentStates: draftEnvs,
                 sparse: draftSparse,
                 defaultValue: draftDefault,
+                valueType: draftType,
               })
             : undefined,
         }),
