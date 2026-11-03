@@ -106,6 +106,7 @@ export async function getReportById(
   organization: string,
   id: string,
 ): Promise<ReportInterface | null> {
+  if (id && typeof id !== "string") return null;
   const report = await ReportModel.findOne({
     organization,
     id,
@@ -117,6 +118,7 @@ export async function getReportById(
 export async function getReportByUid(
   uid: string,
 ): Promise<ReportInterface | null> {
+  if (uid && typeof uid !== "string") return null;
   const report = await ReportModel.findOne({
     uid,
   });

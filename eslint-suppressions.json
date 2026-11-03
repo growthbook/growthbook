@@ -474,14 +474,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/FactTables/FactTableModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/FactTables/RecommendedFactMetricsModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1366,14 +1358,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/NewDataSourceForm.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/NewExperimentChecklistItem.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -1508,16 +1492,6 @@
   "packages/front-end/components/Teams/TeamModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/importing/ImportFromStatsig/ImportFromStatsig.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/enterprise/components/AIChat/AIChatModelSelect.tsx": {

@@ -1074,7 +1074,6 @@ const INTERLEAVING_FIELD_ACTIONS: Partial<
   description: null,
   owner: null,
   tags: null,
-  archived: null,
 };
 
 export function interleavingChangeActions(

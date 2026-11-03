@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "2.0.0",
+      "capabilities": [
+        "caseInsensitiveMembership",
+        "caseInsensitiveRegex",
+        "savedGroupReferences"
+      ]
+    },
+    {
       "version": "1.4.1",
       "capabilities": ["encryption", "stickyBucketing"]
     },

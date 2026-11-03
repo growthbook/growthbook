@@ -249,6 +249,7 @@ export async function findSDKConnectionByKey(
   key: string,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ) {
+  if (key && typeof key !== "string") return null;
   const doc = await SDKConnectionModel.findOne({ key });
   return doc ? visibleByKey(toInterface(doc), includeArchived) : null;
 }
@@ -609,6 +610,7 @@ export async function deleteSDKConnectionModel(
 }
 
 export async function markSDKConnectionUsed(key: string) {
+  if (key && typeof key !== "string") return;
   await SDKConnectionModel.updateOne(
     { key },
     {
