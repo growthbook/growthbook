@@ -4,7 +4,6 @@ import type {
   FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
-import { isSupportedWithPopulation } from "../populations";
 import type {
   ExplorationConfig,
   ExplorationDataset,
@@ -481,25 +480,17 @@ export function getIsRatioByIndex(
 }
 
 /**
- * Build an array of flags indexed by dataset value position: true when the
- * value renders as a rate over the row's `populationCount` rather than over
- * its own denominator.
+ * True when every metric is shown as a percentage of the population: its
+ * count divided by the row's `populationCount`.
  *
- * shortcut: Proportion metrics always divide by the population, since their
- * denominator equals their numerator. When other metric types support
- * populations, make this a per-metric choice.
+ * One flag covers every metric because a population only accepts Proportion
+ * metrics, whose denominator equals their numerator. If other metric types
+ * gain population support, this needs to become a per-metric choice.
  */
-export function getPopulationDenominatorByIndex(
+export function getShowsPopulationRates(
   config: ExplorationConfig | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): boolean[] {
-  if (config?.dataset?.type !== "metric" || !config.dataset.population) {
-    return [];
-  }
-  return config.dataset.values.map((v) => {
-    const m = getFactMetricById(v.metricId ?? "");
-    return !!m && isSupportedWithPopulation(m);
-  });
+): boolean {
+  return config?.dataset?.type === "metric" && !!config.dataset.population;
 }
 
 /** Everything a surface needs to turn result rows into rendered values. */
@@ -510,10 +501,7 @@ export function getExplorationRenderOpts(
   return {
     showAs: getEffectiveShowAs(config, getFactMetricById),
     isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
-    populationDenominatorByIndex: getPopulationDenominatorByIndex(
-      config,
-      getFactMetricById,
-    ),
+    showsPopulationRates: getShowsPopulationRates(config),
   };
 }
 
@@ -534,7 +522,7 @@ export function getRowMetricValue(
 ): number | null {
   const v = row.values?.[metricIndex];
   if (!v) return null;
-  if (opts.populationDenominatorByIndex[metricIndex]) {
+  if (opts.showsPopulationRates) {
     return row.populationCount ? (v.numerator ?? 0) / row.populationCount : 0;
   }
   return getEffectiveMetricValue(v, {
@@ -560,13 +548,20 @@ export type ExplorationColumn =
       dimIndex: number;
     }
   | {
+      /** The population's member count, shared by every metric in the row. */
+      kind: "population";
+      key: string;
+      label: string;
+    }
+  | {
       kind: "metric";
       key: string;
       label: string;
       metricIndex: number;
       /**
        * - "numerator" / "denominator" / "value": the three columns emitted for
-       *   ratio metrics (Value = N/D).
+       *   ratio metrics (Value = N/D). Population rates emit only "numerator"
+       *   and "value", since the members are in the population column.
        * - "single": one column whose value respects the effective showAs.
        */
       sub: "numerator" | "denominator" | "value" | "single";
@@ -623,34 +618,32 @@ export function buildExplorationColumns(
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);
-  const dividesByPopulation = getPopulationDenominatorByIndex(
-    config,
-    getFactMetricById,
-  );
+  const showsPopulationRates = getShowsPopulationRates(config);
   const effectiveShowAs = getEffectiveShowAs(config, getFactMetricById);
   const sharedUnit = getSharedUnit(config);
 
+  if (showsPopulationRates) {
+    cols.push({
+      kind: "population",
+      key: "__population__",
+      label: "Population Members",
+    });
+  }
+
   values.forEach((v, metricIndex) => {
     const name = v.name;
-    if (dividesByPopulation[metricIndex]) {
+    if (showsPopulationRates) {
       cols.push({
         kind: "metric",
         key: `__metric_${metricIndex}_numerator__`,
-        label: `${name} Count`,
+        label: `${name} Count in Population`,
         metricIndex,
         sub: "numerator",
       });
       cols.push({
         kind: "metric",
-        key: `__metric_${metricIndex}_denominator__`,
-        label: `${name} Members`,
-        metricIndex,
-        sub: "denominator",
-      });
-      cols.push({
-        kind: "metric",
         key: `__metric_${metricIndex}_value__`,
-        label: `${name} Rate`,
+        label: `${name} % of Population`,
         metricIndex,
         sub: "value",
       });
@@ -723,9 +716,10 @@ export function getExplorationCellValue(
   if (col.kind === "dimension") {
     return row.dimensions[col.dimIndex] ?? null;
   }
+  if (col.kind === "population") return row.populationCount ?? null;
   const v = row.values?.[col.metricIndex];
   if (!v) return null;
-  const denominator = renderOpts.populationDenominatorByIndex[col.metricIndex]
+  const denominator = renderOpts.showsPopulationRates
     ? (row.populationCount ?? null)
     : v.denominator;
   if (col.sub === "numerator") return v.numerator;
@@ -741,8 +735,8 @@ export function getExplorationCellValue(
 export type ExplorationRenderOpts = {
   showAs: ShowAs;
   isRatioByIndex: boolean[];
-  /** See getPopulationDenominatorByIndex. */
-  populationDenominatorByIndex: boolean[];
+  /** See getShowsPopulationRates. */
+  showsPopulationRates: boolean;
 };
 
 function getRowTotal(

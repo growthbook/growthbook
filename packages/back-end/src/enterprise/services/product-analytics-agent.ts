@@ -372,7 +372,11 @@ function buildResultCsv(
       return typeof raw === "number" ? String(raw) : raw;
     }
     if (raw == null) return "";
-    if (col.sub === "numerator" || col.sub === "denominator") {
+    if (
+      col.kind === "population" ||
+      col.sub === "numerator" ||
+      col.sub === "denominator"
+    ) {
       return typeof raw === "number" ? String(raw) : String(raw);
     }
     // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.

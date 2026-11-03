@@ -201,9 +201,7 @@ export default function ExplorerChart({
     () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
-  // A population limits the chart to Proportion metrics, all shown as rates.
-  const showsPopulationRates =
-    renderOpts.populationDenominatorByIndex.some(Boolean);
+  const { showsPopulationRates } = renderOpts;
   const formatValue = showsPopulationRates ? formatPercent : formatNumber;
 
   const defaultValueAxisName = getDefaultValueAxisName(
@@ -263,7 +261,7 @@ export default function ExplorerChart({
       return {
         value,
         label: `${v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`}${
-          renderOpts.populationDenominatorByIndex[metricIndex]
+          renderOpts.showsPopulationRates
             ? " (% of Population members in this date range)"
             : ""
         }`,

@@ -60,7 +60,7 @@ import {
   isSupportedWithPopulation,
   getDateGranularity,
   getDefaultValueAxisName as getShowAsValueAxisName,
-  getPopulationDenominatorByIndex,
+  getShowsPopulationRates,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
@@ -95,9 +95,7 @@ export function getDefaultValueAxisName(
   config: ExplorationConfig,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string {
-  if (
-    !getPopulationDenominatorByIndex(config, getFactMetricById).some(Boolean)
-  ) {
+  if (!getShowsPopulationRates(config)) {
     return getShowAsValueAxisName(config, getFactMetricById);
   }
   // Membership is decided per bucket, so name the bucket the rate is out of.
@@ -1925,7 +1923,7 @@ export function countsEveryPopulationMember(
   );
 }
 
-// shortcut: a fixed cutoff; replace with confidence intervals if we add them.
+// A fixed cutoff until the explorer shows confidence intervals.
 export const SMALL_POPULATION_SIZE = 100;
 
 /** True when any row's rate is based on fewer than SMALL_POPULATION_SIZE members. */

@@ -73,7 +73,7 @@ const row = {
 describe("population rates", () => {
   it("divides Proportion metrics by the row's population", () => {
     const opts = getExplorationRenderOpts(makeConfig(true), getFactMetricById);
-    expect(opts.populationDenominatorByIndex).toEqual([true]);
+    expect(opts.showsPopulationRates).toBe(true);
     expect(getRowMetricValue(row, 0, opts)).toBe(0.125);
   });
 
@@ -81,13 +81,13 @@ describe("population rates", () => {
     const config = { ...makeConfig(true), showAs: "total" as const };
     expect(showAsAppliesTo(config, getFactMetricById)).toBe(false);
     const opts = getExplorationRenderOpts(config, getFactMetricById);
-    expect(opts.populationDenominatorByIndex).toEqual([true]);
+    expect(opts.showsPopulationRates).toBe(true);
     expect(getRowMetricValue(row, 0, opts)).toBe(0.125);
   });
 
   it("keeps the count when there's no population", () => {
     const opts = getExplorationRenderOpts(makeConfig(false), getFactMetricById);
-    expect(opts.populationDenominatorByIndex).toEqual([]);
+    expect(opts.showsPopulationRates).toBe(false);
     expect(getRowMetricValue(row, 0, opts)).toBe(25);
   });
 
@@ -96,19 +96,36 @@ describe("population rates", () => {
     expect(getRowMetricValue({ ...row, populationCount: 0 }, 0, opts)).toBe(0);
   });
 
-  it("splits table columns into count, population and rate", () => {
-    const config = makeConfig(true);
+  it("shows the population's members once, then count and rate per metric", () => {
+    const base = makeConfig(true);
+    if (base.dataset.type !== "metric") throw new Error("metric dataset");
+    const config: ExplorationConfig = {
+      ...base,
+      dataset: {
+        ...base.dataset,
+        values: [
+          base.dataset.values[0],
+          { ...base.dataset.values[0], name: "Activation 2" },
+        ],
+      },
+    };
+    const twoMetricRow = {
+      ...row,
+      values: [row.values[0], { ...row.values[0], numerator: 50 }],
+    };
     const opts = getExplorationRenderOpts(config, getFactMetricById);
     const cols = buildExplorationColumns(config, getFactMetricById).filter(
-      (c) => c.kind === "metric",
+      (c) => c.kind !== "dimension",
     );
     expect(cols.map((c) => c.label)).toEqual([
-      "Activation Count",
-      "Activation Members",
-      "Activation Rate",
+      "Population Members",
+      "Activation Count in Population",
+      "Activation % of Population",
+      "Activation 2 Count in Population",
+      "Activation 2 % of Population",
     ]);
-    expect(cols.map((c) => getExplorationCellValue(row, c, opts))).toEqual([
-      25, 200, 0.125,
-    ]);
+    expect(
+      cols.map((c) => getExplorationCellValue(twoMetricRow, c, opts)),
+    ).toEqual([200, 25, 0.125, 50, 0.25]);
   });
 });
