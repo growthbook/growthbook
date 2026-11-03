@@ -12,6 +12,17 @@ jest.mock("back-end/src/util/secrets", () => ({
   CRON_ENABLED: 0,
 }));
 
+// Starting and stopping log GrowthBook's own telemetry and read its flags (plan
+// limits). Either one starts the app's SDK client, which streams flags from the
+// CDN and keeps Jest's worker alive past the last test. The flags' code
+// fallbacks keep this run offline and repeatable.
+jest.mock("back-end/src/services/growthbook", () => ({
+  ...jest.requireActual("back-end/src/services/growthbook"),
+  getGrowthBookClient: () => null,
+  getBackendFeatureValue: (_key: string, fallback: unknown) => fallback,
+  trackEventForContext: () => undefined,
+}));
+
 // Key-free half of the evals: each scenario's seed and graders, exercised
 // without a model.
 jest.setTimeout(30000);
