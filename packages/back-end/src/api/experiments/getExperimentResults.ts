@@ -1,4 +1,5 @@
 import { getExperimentResultsValidator } from "shared/validators";
+import { NotFoundError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -14,7 +15,7 @@ export const getExperimentResults = createApiRequestHandler(
 )(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
-    throw new Error("Could not find experiment with that id");
+    throw new NotFoundError("Could not find experiment with that id");
   }
 
   const phase = parseInt(req.query.phase ?? experiment.phases.length - 1 + "");

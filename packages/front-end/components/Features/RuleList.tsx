@@ -70,6 +70,7 @@ type CommonProps = {
   lockedBySchedule?: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   hideInactive?: boolean;
+  showRuleIds?: boolean;
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
@@ -113,6 +114,7 @@ export default function RuleList(props: RuleListProps) {
     lockedBySchedule,
     experimentsMap,
     hideInactive,
+    showRuleIds,
     isDraft,
     safeRolloutsMap,
     holdout,
@@ -560,6 +562,7 @@ export default function RuleList(props: RuleListProps) {
                 lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
+                showRuleIds={showRuleIds}
                 isDraft={isDraft}
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={holdout}
@@ -616,6 +619,7 @@ export default function RuleList(props: RuleListProps) {
               lockedBySchedule={lockedBySchedule}
               experimentsMap={experimentsMap}
               hideInactive={hideInactive}
+              showRuleIds={showRuleIds}
               unreachable={isUnreachable(activeId as string)}
               conflictBanners={ruleConflictBanners(activeId as string)}
               isDraft={isDraft}

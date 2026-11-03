@@ -1,3 +1,7 @@
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getSettingsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -34,6 +38,8 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
       ),
     },
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
+    winRisk: DEFAULT_WIN_RISK_THRESHOLD,
+    loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
     preferredEnvironment:
       req.context.org.settings?.preferredEnvironment ?? null,
   };

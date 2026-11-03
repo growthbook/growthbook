@@ -229,7 +229,7 @@ function FunnelStepInput({
                     containerStyle={{ marginBottom: 0, width: 80 }}
                   />
                   <SelectField
-                    size="small"
+                    size="md"
                     aria-label="Conversion window unit"
                     value={step.conversionWindow.unit}
                     options={CONVERSION_WINDOW_UNITS.map((u) => ({

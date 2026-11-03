@@ -1490,6 +1490,8 @@ export function getFeatureDefinition({
           const cb = cbMap?.get(r.contextualBanditId);
           if (!cb) return null;
 
+          if (cb.archived) return null;
+
           if (cb.status === "draft") return null;
 
           if (!hasPrerequisites && cb.prerequisites?.length) return null;
@@ -1745,6 +1747,9 @@ export function getFeatureDefinition({
               rule.coverage = clampedCoverage;
               if (r.hashAttribute) {
                 rule.hashAttribute = r.hashAttribute;
+              }
+              if (r.fallbackAttribute) {
+                rule.fallbackAttribute = r.fallbackAttribute;
               }
               if (r.seed) {
                 rule.seed = r.seed;

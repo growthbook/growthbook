@@ -1,6 +1,5 @@
 import { useForm, UseFormReturn } from "react-hook-form";
-import omit from "lodash/omit";
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
@@ -12,7 +11,6 @@ import {
   FactMetricInterface,
   ColumnRef,
   CreateFactMetricProps,
-  UpdateFactMetricProps,
   MetricQuantileSettings,
   FactTableDefinition,
   FactTableInterface,
@@ -27,6 +25,7 @@ import {
 import {
   getAggregateFilters,
   getColumnRefWhereClause,
+  getCompatibleFunnelAutoSliceColumns,
   getSelectedColumnDatatype,
   reconcileInlineFilterPrompts,
 } from "shared/experiments";
@@ -83,10 +82,6 @@ import { DocLink } from "@/components/DocLink";
 export interface Props {
   close?: () => void;
   initialFactTable?: string;
-  existing?: Partial<FactMetricInterface>;
-  duplicate?: boolean;
-  showAdvancedSettings?: boolean;
-  onSave?: () => void;
   source: string;
   datasource?: string;
 }
@@ -1185,10 +1180,6 @@ export default function FactMetricModal(props: Props) {
 function StandardFactMetricModal({
   close,
   initialFactTable,
-  existing,
-  duplicate = false,
-  showAdvancedSettings,
-  onSave,
   source,
   datasource,
 }: Props) {
@@ -1210,6 +1201,7 @@ function StandardFactMetricModal({
     getDatasourceById,
     project,
     getFactTableById,
+    factTables,
     mutateDefinitions,
   } = useDefinitions();
 
@@ -1223,20 +1215,16 @@ function StandardFactMetricModal({
   const defaultValues = getDefaultFactMetricProps({
     datasources,
     metricDefaults,
-    existing,
     settings,
     project,
     initialFactTable: initialFactTable
       ? getFactTableById(initialFactTable) || undefined
       : undefined,
     initialDatasource: datasource,
-    managedBy: existing?.managedBy,
   });
 
   // Multiple percent values by 100 for the UI
   // These are corrected in the submit method later
-  defaultValues.winRisk = defaultValues.winRisk * 100;
-  defaultValues.loseRisk = defaultValues.loseRisk * 100;
   defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
   defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
   defaultValues.targetMDE = defaultValues.targetMDE * 100;
@@ -1247,9 +1235,7 @@ function StandardFactMetricModal({
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
-  const [advancedOpen, setAdvancedOpen] = useState(
-    showAdvancedSettings || false,
-  );
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const type = form.watch("metricType");
 
@@ -1281,18 +1267,10 @@ function StandardFactMetricModal({
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
         : "";
 
-  const isNew = !existing || duplicate;
-  const initialType = existing?.metricType;
+  const canChangeDatasource = !datasource;
   useEffect(() => {
-    if (isNew) {
-      track("Viewed Create Fact Metric Modal", { source, flow: "modal" });
-    } else {
-      track("Viewed Edit Fact Metric Modal", {
-        type: initialType,
-        source,
-      });
-    }
-  }, [isNew, initialType, source]);
+    track("Viewed Create Fact Metric Modal", { source, flow: "modal" });
+  }, [source]);
 
   const quantileSettings = form.watch("quantileSettings") || {
     type: "event",
@@ -1316,8 +1294,45 @@ function StandardFactMetricModal({
   // Funnel steps live outside react-hook-form: their nested step/filter shape
   // breaks its typed field-path resolution.
   const [funnelSettings, setFunnelSettings] = useState<FunnelSettings | null>(
-    existing?.funnelSettings || null,
+    null,
   );
+  const availableAutoSliceColumns = useMemo(() => {
+    if (type !== "funnel") {
+      return (
+        numeratorFactTable?.columns.filter(
+          (column) => column.isAutoSliceColumn && !column.deleted,
+        ) ?? []
+      );
+    }
+    if (!funnelSettings) return [];
+    return getCompatibleFunnelAutoSliceColumns({
+      steps: funnelSettings.steps,
+      getFactTable: (id) => factTables.find((factTable) => factTable.id === id),
+    }).map(({ column }) => column);
+  }, [type, numeratorFactTable, funnelSettings, factTables]);
+
+  // A fact table change can leave a saved funnel holding a column its steps no
+  // longer share. Drop those on open so the form matches what would actually
+  // be computed, and tell the user rather than wiping the selection silently.
+  const [droppedAutoSliceColumns, setDroppedAutoSliceColumns] = useState<
+    string[]
+  >([]);
+  useEffect(() => {
+    if (type !== "funnel") return;
+    const compatibleColumns = new Set(
+      availableAutoSliceColumns.map((column) => column.column),
+    );
+    const currentColumns = form.getValues("metricAutoSlices") ?? [];
+    const nextColumns = currentColumns.filter((column) =>
+      compatibleColumns.has(column),
+    );
+    if (nextColumns.length !== currentColumns.length) {
+      setDroppedAutoSliceColumns(
+        currentColumns.filter((column) => !compatibleColumns.has(column)),
+      );
+      form.setValue("metricAutoSlices", nextColumns);
+    }
+  }, [type, availableAutoSliceColumns, form]);
 
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
@@ -1354,7 +1369,7 @@ function StandardFactMetricModal({
     <Modal
       trackingEventModalType=""
       open={true}
-      header={!isNew ? "Edit Metric" : "Create Fact Metric"}
+      header="Create Fact Metric"
       bodyClassName="p-0"
       close={close}
       submit={form.handleSubmit(
@@ -1396,8 +1411,6 @@ function StandardFactMetricModal({
             }
 
             // Correct percent values shown as whole numbers in the UI
-            values.winRisk = values.winRisk / 100;
-            values.loseRisk = values.loseRisk / 100;
             values.minPercentChange = values.minPercentChange / 100;
             values.maxPercentChange = values.maxPercentChange / 100;
             if (values.targetMDE) {
@@ -1412,7 +1425,6 @@ function StandardFactMetricModal({
               denominator: null,
               funnelSettings: fs,
               quantileSettings: null,
-              metricAutoSlices: [],
             };
 
             const trackProps = getFactMetricTrackProps(
@@ -1421,35 +1433,22 @@ function StandardFactMetricModal({
               "modal",
             );
 
-            if (!isNew) {
-              const updatePayload = omit(funnelBody, [
-                "datasource",
-              ]) as UpdateFactMetricProps;
-              await apiCall(`/fact-metrics/${existing.id}`, {
-                method: "PUT",
-                body: JSON.stringify(updatePayload),
-              });
-              track("Edit Fact Metric", trackProps);
-              await mutateDefinitions();
-            } else {
-              const createPayload: CreateFactMetricProps = {
-                ...funnelBody,
-                projects:
-                  getFactTableById(fs.steps[0].factTableId)?.projects ||
-                  selectedDataSource.projects ||
-                  [],
-              };
-              await apiCall<{ factMetric: FactMetricInterface }>(
-                `/fact-metrics`,
-                {
-                  method: "POST",
-                  body: JSON.stringify(createPayload),
-                },
-              );
-              track("Create Fact Metric", trackProps);
-              await mutateDefinitions();
-              onSave && onSave();
-            }
+            const createPayload: CreateFactMetricProps = {
+              ...funnelBody,
+              projects:
+                getFactTableById(fs.steps[0].factTableId)?.projects ||
+                selectedDataSource.projects ||
+                [],
+            };
+            await apiCall<{ factMetric: FactMetricInterface }>(
+              `/fact-metrics`,
+              {
+                method: "POST",
+                body: JSON.stringify(createPayload),
+              },
+            );
+            track("Create Fact Metric", trackProps);
+            await mutateDefinitions();
             return;
           }
 
@@ -1529,8 +1528,6 @@ function StandardFactMetricModal({
           if (!selectedDataSource) throw new Error("Must select a data source");
 
           // Correct percent values
-          values.winRisk = values.winRisk / 100;
-          values.loseRisk = values.loseRisk / 100;
           values.minPercentChange = values.minPercentChange / 100;
           values.maxPercentChange = values.maxPercentChange / 100;
           if (values.targetMDE) {
@@ -1539,58 +1536,30 @@ function StandardFactMetricModal({
 
           const trackProps = getFactMetricTrackProps(values, source, "modal");
 
-          if (!isNew) {
-            // Track auto slices changes
-            const previousSlices = existing.metricAutoSlices || [];
-            const newSlices = values.metricAutoSlices || [];
-            if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
-              track("metric-auto-slices-updated", {
-                metricId: existing.id,
-                previousSlices: previousSlices,
-                newSlices: newSlices,
-                sliceCount: newSlices.length,
-              });
-            }
-
-            const updatePayload = omit(values, [
-              "datasource",
-            ]) as UpdateFactMetricProps;
-            await apiCall(`/fact-metrics/${existing.id}`, {
-              method: "PUT",
-              body: JSON.stringify(updatePayload),
+          // Track auto slices for new metrics
+          const newSlices = values.metricAutoSlices || [];
+          if (newSlices.length > 0) {
+            track("metric-auto-slices-updated", {
+              newSlices: newSlices,
+              sliceCount: newSlices.length,
             });
-            track("Edit Fact Metric", trackProps);
-            await mutateDefinitions();
-          } else {
-            // Track auto slices for new metrics
-            const newSlices = values.metricAutoSlices || [];
-            if (newSlices.length > 0) {
-              track("metric-auto-slices-updated", {
-                newSlices: newSlices,
-                sliceCount: newSlices.length,
-              });
-            }
-
-            const createPayload: CreateFactMetricProps = {
-              ...values,
-              funnelSettings: null,
-              projects:
-                numeratorFactTable?.projects ||
-                selectedDataSource.projects ||
-                [],
-            };
-
-            await apiCall<{
-              factMetric: FactMetricInterface;
-            }>(`/fact-metrics`, {
-              method: "POST",
-              body: JSON.stringify(createPayload),
-            });
-            track("Create Fact Metric", trackProps);
-            await mutateDefinitions();
-
-            onSave && onSave();
           }
+
+          const createPayload: CreateFactMetricProps = {
+            ...values,
+            funnelSettings: null,
+            projects:
+              numeratorFactTable?.projects || selectedDataSource.projects || [],
+          };
+
+          await apiCall<{
+            factMetric: FactMetricInterface;
+          }>(`/fact-metrics`, {
+            method: "POST",
+            body: JSON.stringify(createPayload),
+          });
+          track("Create Fact Metric", trackProps);
+          await mutateDefinitions();
         },
         (errors) => {
           throw new Error(
@@ -1610,7 +1579,7 @@ function StandardFactMetricModal({
             autoFocus
             required
           />
-          {!existing && !initialFactTable && (
+          {!initialFactTable && (
             <SelectField
               size="legacy"
               label="Data Source"
@@ -1858,7 +1827,7 @@ function StandardFactMetricModal({
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
                     supportsAggregatedFilter={true}
-                    allowChangingDatasource={!datasource}
+                    allowChangingDatasource={canChangeDatasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1879,7 +1848,7 @@ function StandardFactMetricModal({
                       datasource={selectedDataSource}
                       disableFactTableSelector={!!initialFactTable}
                       supportsAggregatedFilter={true}
-                      allowChangingDatasource={!datasource}
+                      allowChangingDatasource={canChangeDatasource}
                       key={selectedDataSource.id}
                     />
                   </div>
@@ -1908,7 +1877,7 @@ function StandardFactMetricModal({
                     includeDistinctDates={true}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
-                    allowChangingDatasource={!datasource}
+                    allowChangingDatasource={canChangeDatasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1930,7 +1899,7 @@ function StandardFactMetricModal({
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
                     supportsAggregatedFilter={false}
-                    allowChangingDatasource={!datasource}
+                    allowChangingDatasource={canChangeDatasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1984,7 +1953,7 @@ function StandardFactMetricModal({
                     setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
-                    allowChangingDatasource={!datasource}
+                    allowChangingDatasource={canChangeDatasource}
                     key={selectedDataSource.id}
                     extraField={
                       <>
@@ -2060,7 +2029,7 @@ function StandardFactMetricModal({
                       supportsAggregatedFilter={
                         numerator.column === "$$distinctUsers"
                       }
-                      allowChangingDatasource={!datasource}
+                      allowChangingDatasource={canChangeDatasource}
                       key={selectedDataSource.id}
                     />
                   </div>
@@ -2119,15 +2088,9 @@ function StandardFactMetricModal({
                 />
               )}
 
-              {type !== "funnel" &&
-                hasMetricSlicesFeature &&
+              {hasMetricSlicesFeature &&
                 (() => {
-                  const factTableId = form.watch("numerator.factTableId");
-                  const factTable = getFactTableById(factTableId);
-                  const availableSlices =
-                    factTable?.columns?.filter(
-                      (col) => col.isAutoSliceColumn && !col.deleted,
-                    ) || [];
+                  const availableSlices = availableAutoSliceColumns;
 
                   return (
                     <div className="mt-3 mb-4">
@@ -2147,10 +2110,18 @@ function StandardFactMetricModal({
                       >
                         Choose metric breakdowns to automatically analyze in
                         your experiments.{" "}
+                        {type === "funnel"
+                          ? "A funnel slices every step at once, so only columns enabled as Auto Slices on every step's Fact Table can be used. "
+                          : ""}
                         <DocLink useRadix={false} docSection="autoSlices">
                           Learn More <PiArrowSquareOut />
                         </DocLink>
                       </Text>
+                      {droppedAutoSliceColumns.length > 0 && (
+                        <Callout status="warning" mb="2">
+                          {`Removed ${droppedAutoSliceColumns.join(", ")} from this funnel's Auto Slices — the column is no longer enabled as an Auto Slice on every step's Fact Table.`}
+                        </Callout>
+                      )}
                       {hasMetricSlicesFeature && (
                         <div className="mt-2">
                           {availableSlices.length > 0 ? (
@@ -2178,8 +2149,9 @@ function StandardFactMetricModal({
                               }}
                               size="1"
                             >
-                              No slices available. Configure your fact table to
-                              enable auto slices.
+                              {type === "funnel"
+                                ? "No slices available. Enable the same Auto Slice column on every step's Fact Table."
+                                : "No slices available. Configure your fact table to enable auto slices."}
                             </Text>
                           )}
                         </div>

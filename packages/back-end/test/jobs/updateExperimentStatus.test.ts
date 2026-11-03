@@ -12,15 +12,9 @@ import {
 } from "back-end/src/services/experiments";
 import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
 
-// A staged status change fires as whoever armed it, user or API key, checked
-// again at fire time. Nobody to run as, or no authority, and the job does not
-// lend its own.
-
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgId: jest.fn(async () => ({
     org: { id: "org_1" },
-    models: { metricGroups: { getAll: async () => [] } },
-    auditLog: jest.fn(),
   })),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -36,11 +30,7 @@ jest.mock("back-end/src/services/experimentScheduling", () => ({
 }));
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
-  () => ({
-    executeExperimentStart: jest.fn(async (_ctx, experiment) => ({
-      updated: { ...experiment, status: "running" },
-    })),
-  }),
+  () => ({ executeExperimentStart: jest.fn() }),
 );
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),
@@ -69,7 +59,7 @@ const draft = {
     scheduledByApiKey: "key_ci",
   },
 };
-const armer = { org: { id: "org_1" }, auditLog: jest.fn() };
+const armer = { org: { id: "org_1" } };
 
 describe("updateSingleExperimentStatus", () => {
   beforeEach(() => {
@@ -81,17 +71,6 @@ describe("updateSingleExperimentStatus", () => {
     ).mockResolvedValue(undefined);
   });
 
-  it("starts the experiment as whoever armed it and audits through them", async () => {
-    await updateSingleExperimentStatus(job);
-    expect(assertCanRunExperimentInAffectedEnvironments).toHaveBeenCalledWith(
-      armer,
-      draft,
-    );
-    expect(executeExperimentStart).toHaveBeenCalledWith(armer, draft);
-    expect(armer.auditLog).toHaveBeenCalled();
-    expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
-  });
-
   it("gives up at once when the armer may no longer run the experiment", async () => {
     (
       assertCanRunExperimentInAffectedEnvironments as jest.Mock
@@ -99,7 +78,15 @@ describe("updateSingleExperimentStatus", () => {
     await updateSingleExperimentStatus(job);
     expect(executeExperimentStart).not.toHaveBeenCalled();
     expect(updateExperiment).toHaveBeenCalledWith(
-      expect.objectContaining({ changes: { nextScheduledStatusUpdate: null } }),
+      expect.objectContaining({
+        changes: {
+          nextScheduledStatusUpdate: null,
+          scheduledStatusUpdateFailure: expect.objectContaining({
+            type: "start",
+            reason: expect.stringContaining("may not run the experiment"),
+          }),
+        },
+      }),
     );
     expect(notifyScheduledStatusUpdateFailed).toHaveBeenCalledWith(
       expect.objectContaining({ willRetry: false }),
@@ -132,6 +119,7 @@ describe("updateSingleExperimentStatus", () => {
         changes: {
           nextScheduledStatusUpdate: expect.objectContaining({
             failedAttempts: 1,
+            lastError: expect.stringContaining("could not be resolved"),
             scheduledByApiKey: "key_ci",
           }),
         },

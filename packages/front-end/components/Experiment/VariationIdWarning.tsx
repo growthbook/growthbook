@@ -7,6 +7,7 @@ import {
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import FixVariationIds from "@/components/Experiment/FixVariationIds";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
@@ -88,18 +89,21 @@ const VariationIdWarning: FC<{
       return null;
     }
     return (
-      <div className="px-3">
-        <Callout status="info">
-          Results are out of date. Update Data to refresh.
-        </Callout>
-      </div>
+      <Callout status="info" contentAlign="center" mx="3" mb="3">
+        Results are out of date. Click Update to refresh.
+      </Callout>
     );
   }
 
   // There are unknown variations
   if (unknownVariations?.length > 0) {
+    const canUpdateIds =
+      !!setVariationIds &&
+      !!datasource &&
+      permissionsUtil.canRunExperimentQueries(datasource) &&
+      permissionsUtil.canViewExperimentModal(project);
     return (
-      <div className="px-3">
+      <>
         {idModal && setVariationIds && (
           <FixVariationIds
             close={() => setIdModal(false)}
@@ -109,49 +113,48 @@ const VariationIdWarning: FC<{
             setVariationIds={setVariationIds}
           />
         )}
-        <Callout status="warning">
-          <strong>Warning:</strong> Expected {variations.length} variation ids (
+        <Callout
+          status="warning"
+          contentAlign="center"
+          mx="3"
+          mb="3"
+          action={
+            canUpdateIds ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIdModal(true)}
+              >
+                Update keys
+              </Button>
+            ) : null
+          }
+        >
+          Expected {variations.length} variation keys (
           <CommaList vals={definedVariations} />
-          ), but database returned{" "}
+          ), but the database returned{" "}
           {returnedVariations.length === definedVariations.length
             ? "a different set"
             : returnedVariations.length}{" "}
           (<CommaList vals={returnedVariations} />
-          ).{" "}
-          {setVariationIds &&
-            datasource &&
-            permissionsUtil.canRunExperimentQueries(datasource) &&
-            permissionsUtil.canViewExperimentModal(project) && (
-              <button
-                className="btn btn-info btn-sm ml-3"
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setIdModal(true);
-                }}
-              >
-                Update Ids
-              </button>
-            )}
+          ).
         </Callout>
-      </div>
+      </>
     );
   }
 
   // Results missing variations
   if (definedVariations.length > returnedVariations.length) {
     return (
-      <div className="px-3">
-        <Callout status="warning">
-          <strong>Warning</strong>: Missing data from the following variation
-          ids:{" "}
-          <CommaList
-            vals={definedVariations.filter(
-              (v) => !returnedVariations.includes(v),
-            )}
-          />
-        </Callout>
-      </div>
+      <Callout status="warning" contentAlign="center" mx="3" mb="3">
+        Missing data for variation keys:{" "}
+        <CommaList
+          vals={definedVariations.filter(
+            (v) => !returnedVariations.includes(v),
+          )}
+        />
+        .
+      </Callout>
     );
   }
 

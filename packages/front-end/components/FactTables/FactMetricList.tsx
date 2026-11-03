@@ -389,7 +389,7 @@ export default function FactMetricList({
                     </Link>
                   </td>
                   <td>
-                    <FactMetricTypeDisplayName type={metric.metricType} />
+                    <FactMetricTypeDisplayName metric={metric} />
                   </td>
                   {shouldShowSliceAnalysisColumn && (
                     <td>

@@ -6,6 +6,7 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import {
+  CustomMetricSlice,
   ExperimentStatus,
   ExperimentType,
   MetricOverride,
@@ -39,8 +40,14 @@ import {
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  excludeFunnelSliceRows,
+  ExperimentTableRow,
+} from "@/services/experiments";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
+import FunnelStepSliceLink, {
+  funnelMetricHasSlices,
+} from "@/components/Experiment/FunnelStepSliceLink";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -85,6 +92,8 @@ const CompactResults: FC<{
   isTabActive: boolean;
   setTab?: (tab: ExperimentTab) => void;
   mainTableOnly?: boolean;
+  // Off where the page already reports the experiment's health.
+  showHealthWarnings?: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
@@ -147,6 +156,7 @@ const CompactResults: FC<{
   isTabActive,
   setTab,
   mainTableOnly,
+  showHealthWarnings = true,
   noStickyHeader,
   noTooltip,
   experimentType,
@@ -324,12 +334,13 @@ const CompactResults: FC<{
   // Filter rows based on expansion state when there's no slice filter
   const hasSliceFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
   const filteredRows = useMemo(() => {
+    const visibleRows = excludeFunnelSliceRows(rows);
     if (hasSliceFilter) {
       // When filter is active, use isHiddenByFilter from the hook
-      return rows;
+      return visibleRows;
     }
     // When no filter, filter out slice rows that aren't expanded
-    return rows.filter((row) => {
+    return visibleRows.filter((row) => {
       if (!row.isChildRow) return true; // Always include parent rows
       // Check if parent metric is expanded
       if (row.parentRowId) {
@@ -342,7 +353,7 @@ const CompactResults: FC<{
 
   return (
     <>
-      {!mainTableOnly && (
+      {!mainTableOnly && showHealthWarnings && (
         <>
           <Flex direction="column" gap="2" mx="3">
             {experimentType !== "multi-armed-bandit" && (
@@ -406,6 +417,7 @@ const CompactResults: FC<{
             shouldShowMetricSlices: true,
             getChildRowCounts,
             sliceTagsFilter,
+            customMetricSlices,
           })}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
@@ -463,6 +475,7 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
               sliceTagsFilter,
+              customMetricSlices,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -520,6 +533,7 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
               sliceTagsFilter,
+              customMetricSlices,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -549,9 +563,11 @@ export default CompactResults;
 export function getRenderLabelColumn({
   expandedMetrics,
   toggleExpandedMetric,
+  getFactTableById,
   shouldShowMetricSlices,
   getChildRowCounts,
   sliceTagsFilter,
+  customMetricSlices,
 }: {
   expandedMetrics?: Record<string, boolean>;
   toggleExpandedMetric?: (
@@ -563,7 +579,25 @@ export function getRenderLabelColumn({
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => number;
   sliceTagsFilter?: string[];
+  customMetricSlices?: CustomMetricSlice[];
 }) {
+  // Resolved per metric rather than per row: a step row only links to the
+  // drilldown when the funnel actually has slices to show there.
+  const funnelSlicesByMetricId = new Map<string, boolean>();
+  const hasFunnelSlices = (metric: ExperimentMetricDefinition): boolean => {
+    const cached = funnelSlicesByMetricId.get(metric.id);
+    if (cached !== undefined) return cached;
+    const hasSlices = getFactTableById
+      ? funnelMetricHasSlices({
+          metric,
+          customMetricSlices,
+          getFactTableById,
+        })
+      : false;
+    funnelSlicesByMetricId.set(metric.id, hasSlices);
+    return hasSlices;
+  };
+
   return function renderLabelColumn({
     label,
     metric,
@@ -585,7 +619,12 @@ export function getRenderLabelColumn({
 
     // Funnel step row
     if (isFunnelStepRow) {
-      return <FunnelStepLabel label={label} row={row} />;
+      return (
+        <Flex justify="between" align="start" width="100%">
+          <FunnelStepLabel label={label} row={row} />
+          {hasFunnelSlices(row.metric) && <FunnelStepSliceLink row={row} />}
+        </Flex>
+      );
     }
 
     // Slice row

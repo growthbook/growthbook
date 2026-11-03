@@ -66,6 +66,8 @@ export const userInterface = z
     name: z.string().optional(),
     email: z.string(),
     verified: z.boolean(),
+    // IdP `sub` this user must sign in with on Cloud's default login; "" or missing means unbound
+    authSubject: z.string().optional(),
     passwordHash: z.string().optional(),
     superAdmin: superAdminValidator,
     minTokenDate: z.date().optional(),

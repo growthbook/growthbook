@@ -1,6 +1,11 @@
 import { crudEndpoint, customEndpoint } from "../api-model";
 import {
+  getInterleavingResultsEndpoint,
+  getInterleavingSnapshotEndpoint,
+  getInterleavingStatusEndpoint,
   interleavingApiSpec,
+  listInterleavingSnapshotsEndpoint,
+  refreshInterleavingEndpoint,
   startInterleavingEndpoint,
   stopInterleavingEndpoint,
 } from "../validators/interleaving.spec";
@@ -14,6 +19,7 @@ export const listInterleavings = crudEndpoint(interleavingApiSpec, "list");
 export const createInterleaving = crudEndpoint(interleavingApiSpec, "create");
 export const getInterleaving = crudEndpoint(interleavingApiSpec, "get");
 export const updateInterleaving = crudEndpoint(interleavingApiSpec, "update");
+export const deleteInterleaving = crudEndpoint(interleavingApiSpec, "delete");
 export const startInterleaving = customEndpoint(
   interleavingApiSpec,
   startInterleavingEndpoint,
@@ -21,4 +27,24 @@ export const startInterleaving = customEndpoint(
 export const stopInterleaving = customEndpoint(
   interleavingApiSpec,
   stopInterleavingEndpoint,
+);
+export const refreshInterleaving = customEndpoint(
+  interleavingApiSpec,
+  refreshInterleavingEndpoint,
+);
+export const getInterleavingResults = customEndpoint(
+  interleavingApiSpec,
+  getInterleavingResultsEndpoint,
+);
+export const getInterleavingStatus = customEndpoint(
+  interleavingApiSpec,
+  getInterleavingStatusEndpoint,
+);
+export const listInterleavingSnapshots = customEndpoint(
+  interleavingApiSpec,
+  listInterleavingSnapshotsEndpoint,
+);
+export const getInterleavingSnapshot = customEndpoint(
+  interleavingApiSpec,
+  getInterleavingSnapshotEndpoint,
 );

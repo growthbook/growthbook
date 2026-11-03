@@ -68,7 +68,7 @@ export function RotateApiKeyModal({
           <SelectField
             label="Current secret stops"
             legacyLabelFormatting={false}
-            size="small"
+            size="md"
             sort={false}
             isSearchable={false}
             value={gracePeriodHours}
