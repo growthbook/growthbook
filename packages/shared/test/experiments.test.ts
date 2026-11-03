@@ -3239,6 +3239,24 @@ describe("getClusterExperimentMetricEligibility", () => {
       }),
     ).toEqual({ allowed: true, level: "subunit" });
   });
+
+  it("keeps a cluster-grained fact table at the cluster level despite a cluster↔sub-unit identity join", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_cluster_only"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+          datasourceSettings: {
+            queries: {
+              identityJoins: [{ ids: ["region_id", "user_id"] }],
+            },
+          } as never,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "cluster" });
+  });
 });
 
 describe("getClusterMetricAnalysisLevel", () => {

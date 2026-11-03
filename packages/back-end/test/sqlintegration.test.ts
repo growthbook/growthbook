@@ -2680,11 +2680,11 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     // per arm (which would double-count its events, since the fact join is on
     // the cluster id). This mirrors the incremental-refresh path.
     expect(normalized).toMatch(
-      /__distinctUsers AS \( SELECT region_id[\s\S]*?CASE WHEN COUNT\(DISTINCT variation\) > 1 THEN '__multiple__' ELSE MAX\(variation\) END\s*\) AS variation,\s*MIN\(timestamp\) AS timestamp[\s\S]*? FROM __distinctSubUnits GROUP BY region_id \)/,
+      /__distinctUsers AS \( SELECT region_id[\s\S]*?CASE WHEN COUNT\(DISTINCT variation\) > 1 THEN '__multiple__' ELSE MAX\(variation\) END\s*\) AS variation,\s*MIN\(timestamp\) AS timestamp[\s\S]*? FROM __clusterSubUnitRows GROUP BY region_id \)/,
     );
     // variation must NOT appear in the cluster roll-up GROUP BY.
     expect(normalized).not.toMatch(
-      /FROM __distinctSubUnits GROUP BY region_id,\s*variation/,
+      /FROM __clusterSubUnitRows GROUP BY region_id,\s*variation/,
     );
     expect(normalized).toMatch(/__userMetricJoin.*m\.region_id = d\.region_id/);
 

@@ -1489,28 +1489,18 @@ export function getClusterMetricAnalysisLevel(
     datasourceSettings?: DataSourceSettings;
   },
 ): ClusterMetricAnalysisLevel | null {
-  if (
-    !getNonRollupAggregation(metric) &&
-    isFactMetricJoinable(
-      metric,
-      clusterSubUnitIdentifier,
-      getFactTable,
-      datasourceSettings,
-    )
-  ) {
-    return "subunit";
-  }
-  if (
-    clusterIdentifier &&
-    isFactMetricJoinable(
-      metric,
-      clusterIdentifier,
-      getFactTable,
-      datasourceSettings,
-    )
-  ) {
-    return "cluster";
-  }
+  const canRollUp = !getNonRollupAggregation(metric);
+  // Without datasource settings, joinability means the fact table declares the
+  // id type directly.
+  const direct = (idType: string) =>
+    isFactMetricJoinable(metric, idType, getFactTable);
+  const viaJoins = (idType: string) =>
+    isFactMetricJoinable(metric, idType, getFactTable, datasourceSettings);
+
+  if (canRollUp && direct(clusterSubUnitIdentifier)) return "subunit";
+  if (clusterIdentifier && direct(clusterIdentifier)) return "cluster";
+  if (canRollUp && viaJoins(clusterSubUnitIdentifier)) return "subunit";
+  if (clusterIdentifier && viaJoins(clusterIdentifier)) return "cluster";
   return null;
 }
 

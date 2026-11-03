@@ -1865,6 +1865,12 @@ export default abstract class SqlIntegration
       effectiveBaseIdType,
     } = this.parseExperimentParams(params);
 
+    // A segment keyed on the cluster column joins through the exposure rows
+    // directly, so it needs no identity join table.
+    const segmentIdType = segment ? segment.userIdType || "user_id" : null;
+    const segmentIsClusterKeyed =
+      segmentIdType !== null && segmentIdType === clusterIdColumn;
+
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
@@ -1872,7 +1878,7 @@ export default abstract class SqlIntegration
         objects: [
           [effectiveBaseIdType],
           // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-          segment ? [segment.userIdType || "user_id"] : [],
+          segmentIdType && !segmentIsClusterKeyed ? [segmentIdType] : [],
         ],
         from: settings.startDate,
         to: settings.endDate,
@@ -1880,6 +1886,9 @@ export default abstract class SqlIntegration
         experimentId: settings.experimentId,
       },
     );
+    const segmentJoinIdType = segmentIsClusterKeyed
+      ? clusterIdColumn
+      : baseIdType;
 
     const newExpIdentifierCol = `e.${getExposureQueryIdentifierColumn(
       exposureQuery,
@@ -1935,7 +1944,7 @@ export default abstract class SqlIntegration
             ? `, __segment as (${getSegmentCTE(
                 this.getSqlDialect(),
                 segment,
-                baseIdType,
+                segmentJoinIdType,
                 idJoinMap,
                 factTableMap,
                 {
@@ -2010,7 +2019,7 @@ export default abstract class SqlIntegration
             FROM __filteredNewExposures e
             ${
               segment
-                ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})
+                ? `JOIN __segment s ON (s.${segmentJoinIdType} = e.${segmentJoinIdType})
             WHERE s.date <= ${this.getSqlDialect().castUserDateCol("e.timestamp")}`
                 : ""
             }
