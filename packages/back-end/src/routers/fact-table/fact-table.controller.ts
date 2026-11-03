@@ -65,6 +65,7 @@ import {
   applyColumnUpdates,
   buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
+  pruneAggregatedFactTableSettings,
   validateAggregatedFactTableSettings,
   validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
@@ -412,6 +413,11 @@ export const putFactTable = async (
     );
   }
 
+  const effectiveUserIdTypes =
+    columnRefreshResults?.userIdTypes ??
+    data.userIdTypes ??
+    factTable.userIdTypes;
+
   if (data.aggregatedFactTableSettings) {
     if (!context.hasPremiumFeature("pipeline-mode")) {
       throw new Error(
@@ -422,14 +428,28 @@ export const putFactTable = async (
       context.permissions.throwPermissionError();
     }
     // Validate against the effective userIdTypes after any column refresh.
-    const effectiveUserIdTypes =
-      columnRefreshResults?.userIdTypes ??
-      data.userIdTypes ??
-      factTable.userIdTypes;
     validateAggregatedFactTableSettings(
       data.aggregatedFactTableSettings,
       effectiveUserIdTypes,
     );
+  }
+
+  // Removing an identifier also stops its scheduled aggregation, without
+  // requiring permission to configure new aggregation jobs. Only for an edit
+  // of the Fact Table itself: a column-only refresh would otherwise need the
+  // edit permission, and fail on a table managed by the API or dbt.
+  if (
+    data.aggregatedFactTableSettings === undefined &&
+    factTable.aggregatedFactTableSettings &&
+    (data.userIdTypes || needsColumnRefresh(factTable, data))
+  ) {
+    const settings = pruneAggregatedFactTableSettings(
+      factTable.aggregatedFactTableSettings,
+      effectiveUserIdTypes,
+    );
+    if (settings !== factTable.aggregatedFactTableSettings) {
+      data.aggregatedFactTableSettings = settings;
+    }
   }
 
   // A mapping change forces a refresh above, so this sees the new column list;

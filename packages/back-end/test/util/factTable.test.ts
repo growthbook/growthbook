@@ -1,4 +1,8 @@
-import { ColumnInterface, UpdateColumnProps } from "shared/types/fact-table";
+import {
+  AggregatedFactTableSettings,
+  ColumnInterface,
+  UpdateColumnProps,
+} from "shared/types/fact-table";
 import {
   DataSourceInterface,
   GrowthbookClickhouseDataSource,
@@ -7,6 +11,7 @@ import {
   applyColumnUpdates,
   columnsHaveAutoSlices,
   deriveUserIdTypesFromColumns,
+  pruneAggregatedFactTableSettings,
   validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
   ensureAutoSliceDefaults,
@@ -759,6 +764,57 @@ describe("buildColumnTypeMaps", () => {
     });
 
     expect([...datatypes]).toEqual([["revenue", "number"]]);
+  });
+});
+
+describe("pruneAggregatedFactTableSettings", () => {
+  const settings: AggregatedFactTableSettings = {
+    idTypes: ["user_id", "anonymous_id"],
+    updateTime: { time: "02:00", timezone: "America/Chicago" },
+    lookbackWindow: 60,
+    restateChunkDays: 3,
+  };
+
+  it("removes unsupported identifiers and preserves the remaining job settings", () => {
+    expect(pruneAggregatedFactTableSettings(settings, ["user_id"])).toEqual({
+      idTypes: ["user_id"],
+      updateTime: { time: "02:00", timezone: "America/Chicago" },
+      lookbackWindow: 60,
+      restateChunkDays: 3,
+    });
+    expect(settings.idTypes).toEqual(["user_id", "anonymous_id"]);
+  });
+
+  it("disables aggregation when no configured identifiers remain", () => {
+    expect(
+      pruneAggregatedFactTableSettings(settings, ["device_id"]),
+    ).toBeNull();
+    expect(pruneAggregatedFactTableSettings(settings, [])).toBeNull();
+  });
+
+  it("leaves valid settings unchanged without adding jobs for new identifiers", () => {
+    expect(
+      pruneAggregatedFactTableSettings(settings, [
+        "anonymous_id",
+        "user_id",
+        "device_id",
+      ]),
+    ).toBe(settings);
+  });
+
+  it("removes a job when its mapped column disappears during refresh", () => {
+    const datasource = makeStandardDatasource([
+      { userIdType: "user_id" },
+      { userIdType: "anonymous_id" },
+    ]);
+    const userIdTypes = deriveUserIdTypesFromColumns(
+      datasource,
+      [makeColumn("user_id"), makeColumn("anon_id", true)],
+      { anonymous_id: "anon_id" },
+    );
+    expect(
+      pruneAggregatedFactTableSettings(settings, userIdTypes)?.idTypes,
+    ).toEqual(["user_id"]);
   });
 });
 

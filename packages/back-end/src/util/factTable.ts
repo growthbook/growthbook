@@ -327,6 +327,15 @@ function isValidIanaTimezone(timezone: string): boolean {
   }
 }
 
+export function pruneAggregatedFactTableSettings(
+  settings: AggregatedFactTableSettings,
+  userIdTypes: string[],
+): AggregatedFactTableSettings | null {
+  const idTypes = settings.idTypes.filter((id) => userIdTypes.includes(id));
+  if (idTypes.length === settings.idTypes.length) return settings;
+  return idTypes.length ? { ...settings, idTypes } : null;
+}
+
 // Throws if the aggregated fact table settings are invalid: every id type must
 // be one of the fact table's userIdTypes, updateTime must be a valid "HH:mm"
 // time in a valid IANA timezone, and lookbackWindow must be a positive integer.
