@@ -1616,7 +1616,7 @@ export function getFeatureDefinition({
                 ) as FeatureDefinitionRule)
               : candidate;
           const cbRule = pickAllowed(rule);
-          if (allowedKeys && includeRuleIds && r.id != null) {
+          if (allowedKeys && includeRuleIds && (r.id ?? null) !== null) {
             (cbRule as Record<string, unknown>).id = stemRuleId(r.id);
           }
           if (!measurementArm) return cbRule;
