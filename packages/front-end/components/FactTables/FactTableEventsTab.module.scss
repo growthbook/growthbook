@@ -1,0 +1,15 @@
+.sectionLabel {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-1);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-mid);
+}
+
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -2,6 +2,7 @@ import { FactTableInterface, ColumnInterface } from "shared/types/fact-table";
 import { useState } from "react";
 import { IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiPlusBold } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -154,72 +155,75 @@ export default function VirtualColumnList({ factTable }: Props) {
             }
           >
             <Button
+              variant="outline"
+              icon={<PiPlusBold />}
               onClick={() => {
                 if (!canEdit) return;
                 setNewOpen(true);
               }}
               disabled={!canEdit}
             >
-              Add Virtual Column
+              Add virtual column
             </Button>
           </Tooltip>
         </div>
       </div>
-      {virtualColumns.length > 0 && (
-        <>
-          <table className="table appbox gbtable mt-2 mb-0">
-            <thead>
-              <tr>
-                <SortableTH field="name">Name</SortableTH>
-                <SortableTH field="sql">Expression</SortableTH>
-                <SortableTH field="datatype">Type</SortableTH>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((column) => (
-                <tr key={column.column}>
-                  <td style={{ verticalAlign: "top" }}>{column.name}</td>
-                  <td style={{ verticalAlign: "top" }}>
-                    <div style={{ marginTop: 2 }}>
-                      <InlineCode language="sql" code={column.sql || ""} />
-                    </div>
-                  </td>
-                  <td style={{ verticalAlign: "top" }}>
-                    {column.datatype || "unknown"}
-                  </td>
-                  <td style={{ verticalAlign: "top" }}>
-                    <VirtualColumnRowMenu
-                      column={column}
-                      factTableId={factTable.id}
-                      canEdit={canEdit}
-                      canDelete={canEdit}
-                      onEdit={() => setEditOpen(column.column)}
-                    />
-                  </td>
-                </tr>
-              ))}
-              {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={4} align={"center"}>
-                    No matching virtual columns.{" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        clear();
-                      }}
-                    >
-                      Clear search field
-                    </a>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          {pagination}
-        </>
-      )}
+      <table className="table appbox gbtable mt-2 mb-0">
+        <thead>
+          <tr>
+            <SortableTH field="name">Name</SortableTH>
+            <SortableTH field="sql">Expression</SortableTH>
+            <SortableTH field="datatype">Type</SortableTH>
+            <th style={{ width: 30 }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((column) => (
+            <tr key={column.column}>
+              <td style={{ verticalAlign: "top" }}>{column.name}</td>
+              <td style={{ verticalAlign: "top" }}>
+                <div style={{ marginTop: 2 }}>
+                  <InlineCode language="sql" code={column.sql || ""} />
+                </div>
+              </td>
+              <td style={{ verticalAlign: "top" }}>
+                {column.datatype || "unknown"}
+              </td>
+              <td style={{ verticalAlign: "top" }}>
+                <VirtualColumnRowMenu
+                  column={column}
+                  factTableId={factTable.id}
+                  canEdit={canEdit}
+                  canDelete={canEdit}
+                  onEdit={() => setEditOpen(column.column)}
+                />
+              </td>
+            </tr>
+          ))}
+          {!virtualColumns.length && (
+            <tr>
+              <td colSpan={4}>No virtual columns yet.</td>
+            </tr>
+          )}
+          {!items.length && isFiltered && (
+            <tr>
+              <td colSpan={4} align={"center"}>
+                No matching virtual columns.{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    clear();
+                  }}
+                >
+                  Clear search field
+                </a>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      {pagination}
     </>
   );
 }

@@ -4,8 +4,9 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretRightBold } from "react-icons/pi";
 import { FactTableInterface } from "shared/types/fact-table";
-import { hasStartDateFilter } from "shared/sql";
+import { hasStartDateFilter, usesBackslashStringEscapes } from "shared/sql";
 import { getFactMetricFactTableIds } from "shared/experiments";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
@@ -24,7 +25,11 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { getEventColumns, getSqlSummaryTokens } from "@/services/factTables";
+import {
+  getEventColumns,
+  getMetricsForEvent,
+  getSqlSummaryTokens,
+} from "@/services/factTables";
 import { formatSql } from "@/services/sqlFormatter";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -44,27 +49,26 @@ import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenI
 import FactTableDetailsModal from "./FactTableDetailsModal";
 import NewFactTableModal from "./NewFactTableModal";
 import ColumnList from "./ColumnList";
-import ColumnValues from "./ColumnValues";
+import ColumnValues, { ColumnValuesPanel } from "./ColumnValues";
 import VirtualColumnList from "./VirtualColumnList";
 import FactFilterList from "./FactFilterList";
-import FactMetricList from "./FactMetricList";
+import FactTableMetricsTab from "./FactTableMetricsTab";
 import AggregatedFactTablesCard from "./AggregatedFactTablesCard";
 import FactTableEventsTab from "./FactTableEventsTab";
 import FactTableSampleRows from "./FactTableSampleRows";
 import styles from "./FactTableDetailsPage.module.scss";
 
-// One line of SQL from the top-level FROM, colored like the full SQL view
-function SqlSummary({ sql }: { sql: string }) {
-  const { hasSelect, tokens } = getSqlSummaryTokens(sql);
+// One line of SQL with SELECT lists shortened, colored like the full SQL view
+function SqlSummary({
+  sql,
+  backslashEscapes,
+}: {
+  sql: string;
+  backslashEscapes: boolean;
+}) {
   return (
     <span className={styles.sqlLine}>
-      {hasSelect && (
-        <>
-          <span className={styles.keyword}>SELECT</span>
-          <span className={styles.muted}> … </span>
-        </>
-      )}
-      {tokens.map((t, i) => (
+      {getSqlSummaryTokens(sql, backslashEscapes).map((t, i) => (
         <span
           key={i}
           className={t.kind === "other" ? undefined : styles[t.kind]}
@@ -135,6 +139,12 @@ export default function FactTableDetailsPage() {
   }, [factTableDefinition, mutateFactTable]);
 
   const valueCounts = useColumnValueCounts(factTable?.id || "");
+  const [tab, setTab] = useState<string | null>(null);
+  // Set by an event's "+N more" link; narrows the Metrics tab to that event
+  const [metricsEvent, setMetricsEvent] = useState<{
+    column: string;
+    value: string;
+  } | null>(null);
 
   if (!ready || (!data && !factTableError)) return <LoadingOverlay />;
 
@@ -152,6 +162,7 @@ export default function FactTableDetailsPage() {
   );
   const eventColumns = getEventColumns(factTable);
   const datasource = getDatasourceById(factTable.datasource);
+  const dialect = datasource ? getDataSourceSqlDialect(datasource.type) : null;
   const canOpenInExplorer = datasource
     ? permissionsUtil.canRunFactQueries(datasource)
     : false;
@@ -441,7 +452,12 @@ export default function FactTableDetailsPage() {
               className={styles.caret}
               style={{ transform: showSql ? "rotate(90deg)" : undefined }}
             />
-            <SqlSummary sql={factTable.sql} />
+            <SqlSummary
+              sql={factTable.sql}
+              backslashEscapes={
+                !!dialect && usesBackslashStringEscapes(dialect)
+              }
+            />
           </button>
           {canEdit && (
             <Button
@@ -489,7 +505,13 @@ export default function FactTableDetailsPage() {
         )}
       </Frame>
 
-      <Tabs defaultValue={eventColumns.length > 0 ? "events" : "columns"}>
+      <Tabs
+        value={tab ?? (eventColumns.length > 0 ? "events" : "columns")}
+        onValueChange={(value) => {
+          setTab(value);
+          if (value !== "metrics") setMetricsEvent(null);
+        }}
+      >
         <TabsList>
           {eventColumns.length > 0 && (
             <TabsTrigger value="events">
@@ -510,7 +532,9 @@ export default function FactTableDetailsPage() {
           </TabsTrigger>
         </TabsList>
 
-        <Box pt="4">
+        {/* A full viewport of height keeps a short or loading tab from
+            shrinking the page, which made the browser scroll to the top */}
+        <Box pt="4" minHeight="100vh">
           {eventColumns.length > 0 && (
             <TabsContent value="events">
               <FactTableEventsTab
@@ -518,7 +542,11 @@ export default function FactTableDetailsPage() {
                 eventColumns={eventColumns}
                 metrics={metrics}
                 valueCounts={valueCounts}
-                canLoadCounts={canLoadCounts}
+                canRefresh={canLoadCounts}
+                onShowMetrics={(column, value) => {
+                  setMetricsEvent({ column, value });
+                  setTab("metrics");
+                }}
               />
             </TabsContent>
           )}
@@ -528,8 +556,10 @@ export default function FactTableDetailsPage() {
               factTable={factTable}
               canEdit={canEditColumns}
               hideSearch
-              renderValues={(col) => (
-                <ColumnValues
+              detailsLayout
+              renderValues={(col) => <ColumnValues column={col} />}
+              renderExpanded={(col) => (
+                <ColumnValuesPanel
                   column={col}
                   counts={valueCounts.counts[col.column]}
                   loading={!!valueCounts.loading[col.column]}
@@ -557,10 +587,34 @@ export default function FactTableDetailsPage() {
           </TabsContent>
 
           <TabsContent value="metrics">
-            <FactMetricList
+            {metricsEvent ? (
+              <Flex align="center" gap="3" mb="3">
+                <Text color="text-mid">
+                  Showing Fact Metrics that use{" "}
+                  <code>{metricsEvent.value}</code>
+                </Text>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setMetricsEvent(null)}
+                >
+                  Show all
+                </Button>
+              </Flex>
+            ) : null}
+            <FactTableMetricsTab
               factTable={factTable}
-              metrics={metrics}
-              hideSearch
+              eventColumns={eventColumns}
+              metrics={
+                metricsEvent
+                  ? getMetricsForEvent(
+                      metrics,
+                      factTable.id,
+                      metricsEvent.column,
+                      metricsEvent.value,
+                    )
+                  : metrics
+              }
             />
           </TabsContent>
         </Box>

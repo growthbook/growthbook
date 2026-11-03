@@ -2,13 +2,21 @@ import { Box, Flex } from "@radix-ui/themes";
 import { ColumnInterface } from "shared/types/fact-table";
 import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import { useState } from "react";
+import { PiArrowClockwise } from "react-icons/pi";
+import { ago } from "shared/dates";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { ValueCount } from "@/hooks/useColumnValueCounts";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
-import Link from "@/ui/Link";
+import TextField from "@/ui/TextField";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import Text from "@/ui/Text";
-import { Popover } from "@/ui/Popover";
 
 const CHIPS = 4;
 
@@ -17,30 +25,26 @@ export function useTopValuesLookbackDays(): number {
   return topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE;
 }
 
-export function LoadRowCountsButton({
-  loading,
-  error,
-  onLoad,
-}: {
-  loading: boolean;
-  error?: string;
-  onLoad: () => void;
-}) {
+// Compact chips for the collapsed row; the full list lives in ColumnValuesPanel
+export default function ColumnValues({ column }: { column: ColumnInterface }) {
+  const values = column.topValues || [];
+  if (!values.length) return null;
+
   return (
-    <Flex direction="column" gap="1" align="start">
-      <Button size="sm" variant="outline" loading={loading} onClick={onLoad}>
-        Load row counts
-      </Button>
-      {error ? (
-        <Text size="sm" color="text-low">
-          {error}
-        </Text>
+    <Flex gap="1" align="center" wrap="wrap">
+      {values.slice(0, CHIPS).map((v) => (
+        <Badge key={v} label={v} color="gray" variant="soft" />
+      ))}
+      {values.length > CHIPS ? (
+        <Text color="text-low">+{values.length - CHIPS} more</Text>
       ) : null}
     </Flex>
   );
 }
 
-export default function ColumnValues({
+const compact = new Intl.NumberFormat(undefined, { notation: "compact" });
+
+export function ColumnValuesPanel({
   column,
   counts,
   loading,
@@ -54,60 +58,128 @@ export default function ColumnValues({
   // Omitted when the viewer can't run the top-values query
   onLoad?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const lookbackDays = useTopValuesLookbackDays();
-  const values = column.topValues || [];
-  if (!values.length) return null;
 
+  // Columns saved before counts existed show values only until refreshed
+  const withCounts =
+    counts ??
+    (column.topValueCounts?.length ? column.topValueCounts : undefined);
   const rows: { value: string; count?: number }[] =
-    counts ?? values.map((value) => ({ value }));
+    withCounts ?? (column.topValues || []).map((value) => ({ value }));
+  const q = search.trim().toLowerCase();
+  const visible = rows.filter((r) => !q || r.value.toLowerCase().includes(q));
+  const showCounts = !!withCounts;
+  // Bars are relative to the top value; the table's total row count is unknown
+  const maxCount = Math.max(1, ...rows.map((r) => r.count ?? 0));
 
   return (
-    <Flex gap="1" align="center" wrap="wrap">
-      {values.slice(0, CHIPS).map((v) => (
-        <Badge key={v} label={v} color="gray" variant="soft" />
-      ))}
-      <Popover
-        open={open}
-        onOpenChange={setOpen}
-        side="bottom"
-        align="start"
-        contentStyle={{ width: 360 }}
-        trigger={
-          <Link>
-            {values.length > CHIPS
-              ? `+${values.length - CHIPS} more`
-              : "Details"}
-          </Link>
-        }
-        content={
-          <Flex direction="column" gap="2">
-            {!counts && onLoad ? (
-              <LoadRowCountsButton
-                loading={loading}
-                error={error}
-                onLoad={onLoad}
-              />
+    <Flex direction="column" gap="2" style={{ maxWidth: 900 }}>
+      <Flex justify="between" align="center" gap="3">
+        <Box flexGrow="1" style={{ maxWidth: 400 }}>
+          <TextField
+            size="sm"
+            type="search"
+            placeholder={`Search ${rows.length} values`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </Box>
+        {onLoad ? (
+          <Flex align="center" gap="3">
+            {column.topValuesDate ? (
+              <Text size="sm" color="text-mid">
+                Refreshed {ago(column.topValuesDate)}
+              </Text>
             ) : null}
-            <Box style={{ maxHeight: 300, overflowY: "auto" }}>
-              {rows.map((r) => (
-                <Flex key={r.value} justify="between" gap="3" py="1">
-                  <Text>{r.value}</Text>
-                  {r.count !== undefined ? (
-                    <Text color="text-mid">{r.count.toLocaleString()}</Text>
-                  ) : null}
-                </Flex>
-              ))}
-            </Box>
-            <Text size="sm" color="text-low">
-              Top {rows.length} values over the last {lookbackDays} days
-              {counts
-                ? ". Counts may be approximate on some data sources."
-                : ""}
-            </Text>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<PiArrowClockwise />}
+              loading={loading}
+              onClick={onLoad}
+            >
+              Refresh
+            </Button>
           </Flex>
-        }
-      />
+        ) : null}
+      </Flex>
+      {error ? (
+        <Text size="sm" color="text-low">
+          Couldn&apos;t refresh values: {error}
+        </Text>
+      ) : null}
+      <Table variant="list" roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Value</TableColumnHeader>
+            {showCounts ? (
+              <>
+                <TableColumnHeader justify="end">Rows</TableColumnHeader>
+                <TableColumnHeader>Relative to top value</TableColumnHeader>
+              </>
+            ) : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {visible.map((r) => (
+            <TableRow key={r.value}>
+              <TableCell>
+                <code>{r.value}</code>
+              </TableCell>
+              {showCounts ? (
+                <>
+                  <TableCell justify="end">
+                    {r.count !== undefined ? (
+                      <span title={r.count.toLocaleString()}>
+                        {compact.format(r.count)}
+                      </span>
+                    ) : (
+                      <Text color="text-low">…</Text>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Box
+                      aria-hidden
+                      style={{
+                        width: "100%",
+                        minWidth: 120,
+                        height: 6,
+                        borderRadius: 3,
+                        background: "var(--gray-a3)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Box
+                        style={{
+                          width: `${((r.count ?? 0) / maxCount) * 100}%`,
+                          height: "100%",
+                          background: "var(--accent-9)",
+                        }}
+                      />
+                    </Box>
+                  </TableCell>
+                </>
+              ) : null}
+            </TableRow>
+          ))}
+          {!visible.length ? (
+            <TableRow>
+              <TableCell colSpan={showCounts ? 3 : 1}>
+                <Text color="text-mid">No values match “{search}”.</Text>
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+      <Text size="sm" color="text-low">
+        {`Top ${rows.length} values${showCounts ? " by row count" : ""} over the last ${lookbackDays} days.`}
+        {showCounts
+          ? " Counts may be approximate on some data sources."
+          : onLoad
+            ? " Refresh to load row counts."
+            : ""}
+      </Text>
     </Flex>
   );
 }

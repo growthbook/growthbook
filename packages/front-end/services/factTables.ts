@@ -440,16 +440,37 @@ export const getPickerTableName = (
   template: SourceTableTemplate | null,
 ) => template?.name ?? table.tableName.replace(/_?\*$/, "");
 
+// Column names the new Fact Table flow treats as an event name
+export const INLINE_FILTER_CANDIDATES = [
+  "event_name",
+  "eventName",
+  "event_type",
+  "eventType",
+  "event",
+  "se_action",
+];
+
 /**
  * Event Columns: string columns whose values name the event each row records.
- * The new Fact Table flow saves its "Event name" mapping as alwaysInlineFilter.
+ * Only event tables have them. The new Fact Table flow saves its "Event name"
+ * mapping as alwaysInlineFilter. Tables created before tableType existed count
+ * as event tables when one of those columns has a conventional event name.
  */
 export function getEventColumns(
-  factTable: Pick<FactTableInterface, "columns">,
+  factTable: Pick<FactTableInterface, "columns" | "tableType">,
 ): ColumnInterface[] {
-  return factTable.columns.filter(
+  const columns = factTable.columns.filter(
     (c) => c.alwaysInlineFilter && c.datatype === "string" && !c.deleted,
   );
+  if (factTable.tableType === "event") return columns;
+  const legacyEventTable =
+    !factTable.tableType &&
+    columns.some((c) =>
+      INLINE_FILTER_CANDIDATES.some(
+        (name) => name.toLowerCase() === c.column.toLowerCase(),
+      ),
+    );
+  return legacyEventTable ? columns : [];
 }
 
 const SQL_KEYWORDS = new Set(
@@ -463,21 +484,23 @@ const SQL_KEYWORDS = new Set(
 
 export type SqlSummaryToken = {
   text: string;
-  kind: "keyword" | "string" | "variable" | "cast" | "other";
+  kind: "keyword" | "string" | "variable" | "cast" | "muted" | "other";
   spaceBefore: boolean;
 };
 
 /**
- * One-line summary of a SQL query as tokens: everything from its first
- * top-level FROM, with comments dropped and whitespace collapsed. Falls back
- * to the whole query when there is no top-level FROM.
+ * One-line summary of a SQL query as tokens, with comments dropped and
+ * whitespace collapsed. Every SELECT list that ends at a FROM, including ones
+ * in subqueries and CTEs, is shortened to "…". Pass `backslashEscapes` for
+ * dialects where `\'` escapes a quote (see usesBackslashStringEscapes).
  */
-export function getSqlSummaryTokens(sql: string): {
-  hasSelect: boolean;
-  tokens: SqlSummaryToken[];
-} {
+export function getSqlSummaryTokens(
+  sql: string,
+  backslashEscapes = false,
+): SqlSummaryToken[] {
   const tokens: SqlSummaryToken[] = [];
-  let fromIndex = -1;
+  // SELECTs still waiting for their FROM: index of the SELECT token and depth
+  const selects: { index: number; depth: number }[] = [];
   let depth = 0;
   let space = false;
   let i = 0;
@@ -513,7 +536,8 @@ export function getSqlSummaryTokens(sql: string): {
       // Quotes are escaped by doubling, so a doubled quote just continues
       let j = i + 1;
       while (j < sql.length) {
-        if (sql[j] === c && sql[j + 1] === c) j += 2;
+        if (backslashEscapes && c !== "`" && sql[j] === "\\") j += 2;
+        else if (sql[j] === c && sql[j + 1] === c) j += 2;
         else if (sql[j] === c) break;
         else j++;
       }
@@ -525,28 +549,75 @@ export function getSqlSummaryTokens(sql: string): {
       while (j < sql.length && /[\w$]/.test(sql[j])) j++;
       const word = sql.slice(i, j);
       const upper = word.toUpperCase();
-      if (fromIndex < 0 && depth === 0 && upper === "FROM") {
-        fromIndex = tokens.length;
+      const open = selects[selects.length - 1];
+      if (upper === "FROM" && open?.depth === depth) {
+        selects.pop();
+        tokens.splice(open.index + 1, tokens.length, {
+          text: "…",
+          kind: "muted",
+          spaceBefore: true,
+        });
+        space = true;
+      }
+      if (upper === "SELECT") {
+        // A SELECT without a FROM (as in UNION ALL SELECT 1) keeps its list
+        if (open?.depth === depth) selects.pop();
+        selects.push({ index: tokens.length, depth });
       }
       push(word, SQL_KEYWORDS.has(upper) ? "keyword" : "other");
       i = j;
     } else {
       if (c === "(") depth++;
-      if (c === ")") depth = Math.max(0, depth - 1);
+      if (c === ")") {
+        depth = Math.max(0, depth - 1);
+        while (selects.length && selects[selects.length - 1].depth > depth) {
+          selects.pop();
+        }
+      }
       push(c);
       i++;
     }
   }
-  const summary = tokens.slice(Math.max(fromIndex, 0));
-  if (summary.length) summary[0] = { ...summary[0], spaceBefore: false };
-  return { hasSelect: fromIndex > 0, tokens: summary };
+  return tokens;
 }
 
 /** The summary from getSqlSummaryTokens as plain text */
-export function getSqlSummary(sql: string): string {
-  return getSqlSummaryTokens(sql)
-    .tokens.map((t) => (t.spaceBefore ? " " : "") + t.text)
+export function getSqlSummary(sql: string, backslashEscapes = false): string {
+  return getSqlSummaryTokens(sql, backslashEscapes)
+    .map((t) => (t.spaceBefore ? " " : "") + t.text)
     .join("");
+}
+
+/**
+ * Events a Fact Metric filters this Fact Table to with `=` or `in` on one of
+ * `columns`: one entry per funnel step, otherwise the numerator's events and
+ * then the denominator's.
+ */
+export function getMetricEvents(
+  metric: FactMetricInterface,
+  factTableId: string,
+  columns: string[],
+): string[] {
+  const events = (
+    ref?: { factTableId: string; rowFilters?: RowFilter[] } | null,
+  ) =>
+    ref?.factTableId === factTableId
+      ? (ref.rowFilters || [])
+          .filter(
+            (f) =>
+              columns.includes(f.column ?? "") &&
+              (f.operator === "=" || f.operator === "in"),
+          )
+          .flatMap((f) => f.values || [])
+      : [];
+  if (metric.metricType === "funnel") {
+    return (metric.funnelSettings?.steps || [])
+      .map((s) => events(s).join(", "))
+      .filter(Boolean);
+  }
+  return [
+    ...new Set([...events(metric.numerator), ...events(metric.denominator)]),
+  ];
 }
 
 /**

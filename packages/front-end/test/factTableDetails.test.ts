@@ -5,35 +5,62 @@ import {
 } from "shared/types/fact-table";
 import {
   getEventColumns,
+  getMetricEvents,
   getMetricsForEvent,
   getSqlSummary,
   getSqlSummaryTokens,
 } from "@/services/factTables";
 
 describe("getSqlSummary", () => {
-  it("starts at the top-level FROM and collapses whitespace", () => {
+  it("shortens the SELECT list and collapses whitespace", () => {
     expect(
       getSqlSummary(
         `SELECT\n  user_id,\n  event AS event_name\nFROM   analytics.tracks\nWHERE x = 1`,
       ),
-    ).toBe("FROM analytics.tracks WHERE x = 1");
+    ).toBe("SELECT … FROM analytics.tracks WHERE x = 1");
   });
 
   it("skips FROM inside subqueries, strings, and comments", () => {
     const sql = `SELECT (SELECT 1 FROM t2) AS a, 'from here' AS b -- FROM nope
 /* FROM nope */ FROM t1 WHERE c = 'it''s'`;
-    expect(getSqlSummary(sql)).toBe("FROM t1 WHERE c = 'it''s'");
+    expect(getSqlSummary(sql)).toBe("SELECT … FROM t1 WHERE c = 'it''s'");
   });
 
   it("keeps template variables intact", () => {
     expect(getSqlSummary("SELECT * FROM t WHERE ts >= '{{startDate}}'")).toBe(
-      "FROM t WHERE ts >= '{{startDate}}'",
+      "SELECT … FROM t WHERE ts >= '{{startDate}}'",
     );
-    expect(getSqlSummary("SELECT * FROM {{ table }}")).toBe("FROM {{ table }}");
+    expect(getSqlSummary("SELECT * FROM {{ table }}")).toBe(
+      "SELECT … FROM {{ table }}",
+    );
   });
 
-  it("returns the whole query when there is no top-level FROM", () => {
+  it("ends strings at backslash-escaped quotes only when asked", () => {
+    const sql = "SELECT a FROM t WHERE c = 'it\\'s' AND d = 1";
+    expect(getSqlSummary(sql, true)).toBe(
+      "SELECT … FROM t WHERE c = 'it\\'s' AND d = 1",
+    );
+    // Without backslash escapes, the string ends at the backslash's quote
+    expect(getSqlSummaryTokens(sql).map((t) => t.text)).toContain("'it\\'");
+  });
+
+  it("keeps a SELECT list that has no FROM", () => {
     expect(getSqlSummary("SELECT\n 1")).toBe("SELECT 1");
+    expect(getSqlSummary("SELECT a FROM t UNION ALL SELECT 1")).toBe(
+      "SELECT … FROM t UNION ALL SELECT 1",
+    );
+  });
+
+  it("shortens SELECT lists in subqueries and CTEs", () => {
+    expect(
+      getSqlSummary(
+        "WITH w AS (SELECT a, ROW_NUMBER() OVER (PARTITION BY b) AS rn FROM t)\n" +
+          "SELECT x, (SELECT MAX(y) FROM u) AS m, EXTRACT(YEAR FROM ts)\n" +
+          "FROM (SELECT * FROM w WHERE rn = 1) s",
+      ),
+    ).toBe(
+      "WITH w AS (SELECT … FROM t) SELECT … FROM (SELECT … FROM w WHERE rn = 1) s",
+    );
   });
 });
 
@@ -54,10 +81,33 @@ describe("getEventColumns", () => {
       col({ column: "flag", datatype: "boolean", alwaysInlineFilter: true }),
       col({ column: "old", alwaysInlineFilter: true, deleted: true }),
     ];
-    expect(getEventColumns({ columns }).map((c) => c.column)).toEqual([
-      "event",
-      "path",
-    ]);
+    expect(
+      getEventColumns({ columns, tableType: "event" }).map((c) => c.column),
+    ).toEqual(["event", "path"]);
+  });
+
+  it("returns none for tables declared as another type", () => {
+    const columns = [col({ column: "event", alwaysInlineFilter: true })];
+    expect(getEventColumns({ columns, tableType: "rollup" })).toEqual([]);
+  });
+
+  it("treats untyped tables as event tables only when an always-filtered column has an event name", () => {
+    expect(
+      getEventColumns({
+        columns: [
+          col({ column: "EVENT_NAME", alwaysInlineFilter: true }),
+          col({ column: "path", alwaysInlineFilter: true }),
+        ],
+      }).map((c) => c.column),
+    ).toEqual(["EVENT_NAME", "path"]);
+    expect(
+      getEventColumns({
+        columns: [
+          col({ column: "path", alwaysInlineFilter: true }),
+          col({ column: "event_name" }),
+        ],
+      }),
+    ).toEqual([]);
   });
 });
 
@@ -104,12 +154,54 @@ describe("getMetricsForEvent", () => {
   });
 });
 
+describe("getMetricEvents", () => {
+  const ref = (factTableId: string, rowFilters: RowFilter[]) => ({
+    factTableId,
+    column: "$$count",
+    rowFilters,
+  });
+  const ev = (operator: RowFilter["operator"], values: string[]) => ({
+    column: "event",
+    operator,
+    values,
+  });
+
+  it("lists numerator then denominator events once each", () => {
+    const metric = {
+      metricType: "ratio",
+      numerator: ref("ft", [ev("=", ["purchase"]), ev("!=", ["refund"])]),
+      denominator: ref("ft", [ev("in", ["view", "purchase"])]),
+    } as FactMetricInterface;
+    expect(getMetricEvents(metric, "ft", ["event"])).toEqual([
+      "purchase",
+      "view",
+    ]);
+  });
+
+  it("lists one entry per funnel step on this table", () => {
+    const metric = {
+      metricType: "funnel",
+      numerator: null,
+      funnelSettings: {
+        steps: [
+          ref("ft", [ev("=", ["add_to_cart"])]),
+          ref("other", [ev("=", ["checkout"])]),
+          ref("ft", [ev("in", ["purchase", "upgrade"])]),
+        ],
+      },
+    } as unknown as FactMetricInterface;
+    expect(getMetricEvents(metric, "ft", ["event"])).toEqual([
+      "add_to_cart",
+      "purchase, upgrade",
+    ]);
+  });
+});
+
 describe("getSqlSummaryTokens", () => {
   it("labels keywords, strings, template variables, and casts", () => {
-    const { hasSelect, tokens } = getSqlSummaryTokens(
+    const tokens = getSqlSummaryTokens(
       "SELECT a FROM t WHERE ts >= {{startDate}} AND x::float > 1 AND e = 'buy'",
     );
-    expect(hasSelect).toBe(true);
     const kinds = Object.fromEntries(tokens.map((t) => [t.text, t.kind]));
     expect(kinds).toMatchObject({
       FROM: "keyword",
@@ -120,9 +212,5 @@ describe("getSqlSummaryTokens", () => {
       "'buy'": "string",
       t: "other",
     });
-  });
-
-  it("reports no SELECT when the query has no top-level FROM", () => {
-    expect(getSqlSummaryTokens("SELECT 1").hasSelect).toBe(false);
   });
 });

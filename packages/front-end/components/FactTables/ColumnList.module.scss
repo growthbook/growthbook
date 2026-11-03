@@ -1,0 +1,27 @@
+// Bootstrap's .table top-aligns cells, which offsets the expand caret
+table.detailsTable {
+  td,
+  th {
+    vertical-align: middle;
+  }
+}
+
+// Ghost IconButtons carry a negative margin that pulls them off-center
+.iconCell {
+  text-align: center;
+
+  > button {
+    margin: 0;
+  }
+}
+
+.frame {
+  margin-top: var(--space-2);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+  overflow: hidden;
+
+  table {
+    border-top: 1px solid var(--gray-a5);
+  }
+}
