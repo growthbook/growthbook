@@ -379,7 +379,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         defaultWidth: 200,
         minWidth: 120,
         render: (v, width) => (
-          <>
+          <Flex align="center" gap="2">
             <Link
               href={`/attributes/${encodeURIComponent(v.property)}`}
               style={{ color: "var(--gray-12)" }}
@@ -391,13 +391,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   maxWidth="100%"
                 />
               </Text>
-            </Link>{" "}
-            {v.archived && (
-              <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
-                archived
-              </span>
-            )}
-          </>
+            </Link>
+            {v.archived && <Badge label="Archived" color="gray" />}
+          </Flex>
         ),
       },
       {
@@ -916,10 +912,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   </TableHeader>
                   <TableBody>
                     {filteredAttributes.map((v) => (
-                      <TableRow
-                        className={v.archived ? "disabled" : ""}
-                        key={"attr-row-" + v.property}
-                      >
+                      <TableRow key={"attr-row-" + v.property}>
                         {visibleColumns.map((col) => {
                           const { className, style } = col.cellProps?.(v) ?? {};
                           return (
