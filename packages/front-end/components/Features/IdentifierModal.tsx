@@ -436,6 +436,10 @@ export default function IdentifierModal({
                               </Text>
                               <Badge label="Linked" color="gray" />
                             </Flex>
+                          ) : !editable ? (
+                            <Text size="sm" color="text-low">
+                              No permission
+                            </Text>
                           ) : !checked || !settledName ? (
                             <Text color="text-low">—</Text>
                           ) : (
