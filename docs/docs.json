@@ -76,6 +76,7 @@
                     "pages": [
                       "features/rules",
                       "features/targeting",
+                      "features/remote-saved-groups",
                       "features/safe-rollouts",
                       "features/ramp-schedules",
                       "features/prerequisites",
@@ -240,6 +241,15 @@
                       "bandits/contextual",
                       "bandits/contextual-config",
                       "bandits/contextual-via-api"
+                    ]
+                  },
+                  {
+                    "group": "Interleaving",
+                    "tag": "BETA",
+                    "pages": [
+                      "experimentation-analysis/interleaving",
+                      "experimentation-analysis/interleaving/setup",
+                      "experimentation-analysis/interleaving/results"
                     ]
                   },
                   "app/holdouts"
@@ -693,8 +703,11 @@
                   "api/experiments/operation/listExperimentResults",
                   "api/experiments/operation/getExperiment",
                   "api/experiments/operation/updateExperiment",
+                  "api/experiments/operation/deleteExperiment",
                   "api/experiments/operation/getExperimentStartChecklist",
                   "api/experiments/operation/getExperimentResults",
+                  "api/experiments/operation/postExperimentArchive",
+                  "api/experiments/operation/postExperimentUnarchive",
                   "api/experiments/operation/postExperimentStart",
                   "api/experiments/operation/postExperimentStartChecklistManualComplete",
                   "api/experiments/operation/postExperimentStop",
@@ -1012,6 +1025,7 @@
                   "api/ContextualBandits/operation/deleteContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/getContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBandit",
+                  "api/ContextualBandits/operation/deleteContextualBandit",
                   "api/ContextualBandits/operation/listContextualBandits",
                   "api/ContextualBandits/operation/createContextualBandit",
                   "api/ContextualBandits/operation/startContextualBandit",
@@ -1047,14 +1061,30 @@
                 ]
               },
               {
+                "group": "Interleaving Exposure Queries",
+                "pages": [
+                  "api/InterleavingExposureQueries/operation/getInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/updateInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/deleteInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/listInterleavingExposureQueries",
+                  "api/InterleavingExposureQueries/operation/createInterleavingExposureQuery"
+                ]
+              },
+              {
                 "group": "Interleaving Experiments",
                 "pages": [
                   "api/Interleavings/operation/getInterleaving",
                   "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/deleteInterleaving",
                   "api/Interleavings/operation/listInterleavings",
                   "api/Interleavings/operation/createInterleaving",
                   "api/Interleavings/operation/startInterleaving",
-                  "api/Interleavings/operation/stopInterleaving"
+                  "api/Interleavings/operation/stopInterleaving",
+                  "api/Interleavings/operation/refreshInterleaving",
+                  "api/Interleavings/operation/getInterleavingResults",
+                  "api/Interleavings/operation/getInterleavingStatus",
+                  "api/Interleavings/operation/listInterleavingSnapshots",
+                  "api/Interleavings/operation/getInterleavingSnapshot"
                 ]
               },
               {
@@ -1247,6 +1277,9 @@
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
               "api/Interleaving_model",
+              "api/InterleavingExposureQuery_model",
+              "api/InterleavingSnapshot_model",
+              "api/InterleavingSnapshotStatus_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",

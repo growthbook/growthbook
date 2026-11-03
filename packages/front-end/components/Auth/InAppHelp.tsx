@@ -1,15 +1,29 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { PiChatCircleFill } from "react-icons/pi";
+import { Flex, Separator } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Button from "@/ui/Button";
+import { Popover } from "@/ui/Popover";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import styles from "./InAppHelp.module.scss";
+
+// Pylon's launcher is a third-party iframe, so its footprint can't be measured.
+const PYLON_CLEARANCE_PX = 76;
+
+const LAUNCHER_SIZE_PX = 56;
+const LAUNCHER_BOTTOM_PX = 10;
 
 export default function InAppHelp() {
   const router = useRouter();
+  const launcher = useRef<HTMLButtonElement>(null);
   const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -41,6 +55,23 @@ export default function InAppHelp() {
     }
   }, [config, commercialFeatures]);
 
+  // Publish the launcher's footprint so bottom-right overlays can clear it.
+  useEffect(() => {
+    const publish = (px: number) =>
+      document.documentElement.style.setProperty(
+        "--help-launcher-clearance",
+        `${px}px`,
+      );
+    publish(
+      window["pylon"]
+        ? PYLON_CLEARANCE_PX
+        : launcher.current
+          ? LAUNCHER_BOTTOM_PX + LAUNCHER_SIZE_PX
+          : 0,
+    );
+    return () => publish(0);
+  });
+
   // Hide on presentation view (fullscreen present mode)
   if (router.pathname.startsWith("/present/")) return null;
 
@@ -57,86 +88,113 @@ export default function InAppHelp() {
         />
       )}
 
-      {showFreeHelpWidget && (
-        <div
-          className="bg-light shadow border rounded position-fixed"
-          style={{
-            right: "50px",
-            bottom: "80px",
-            maxWidth: "310px",
-            zIndex: 10,
-          }}
-        >
-          <div className="bg-purple rounded-top p-3 pb-4 d-flex align-items-center">
-            <img
-              alt="GrowthBook"
-              src="/logo/growth-book-logomark-white.svg"
-              className="mb-1 pr-1"
-              style={{ height: 30 }}
-            />
-            <h2 className="text-white m-0">How can we help?</h2>
-          </div>
-          <div
+      <Popover
+        open={showFreeHelpWidget}
+        onOpenChange={setShowFreeHelpWidget}
+        triggerAsChild
+        side="top"
+        align="end"
+        // The chat mark's tail makes the launcher's edges look further out.
+        sideOffset={5}
+        alignOffset={5}
+        showArrow={false}
+        contentStyle={{ padding: 0, width: 300, overflow: "hidden" }}
+        trigger={
+          <button
+            ref={launcher}
+            type="button"
+            className={
+              showFreeHelpWidget ? styles.closeLauncher : styles.chatLauncher
+            }
             style={{
-              position: "relative",
-              top: "-30px",
-              marginBottom: "-30px",
+              bottom: LAUNCHER_BOTTOM_PX,
+              width: LAUNCHER_SIZE_PX,
+              height: LAUNCHER_SIZE_PX,
             }}
+            aria-label={showFreeHelpWidget ? "Close help" : "Help"}
           >
-            <div className="bg-white border rounded p-3 m-3 shadow">
-              <p className="mb-2">
-                <strong>Have a question?</strong>
-              </p>
-              <a
-                href="https://slack.growthbook.io/?ref=app-top-nav"
-                target="blank"
-                className="btn btn-primary font-weight-normal my-2 w-100"
-              >
-                Join The Slack Community <FaArrowRight className="ml-2" />
-              </a>
-              <a
-                href="https://docs.growthbook.io/"
-                target="blank"
-                className="btn btn-outline-primary font-weight-normal my-2 w-100"
-              >
-                View Docs <FaArrowRight className="ml-2" />
-              </a>
-            </div>
-            {showUpgradeModal && (
-              <div className="bg-white border rounded p-3 m-3 shadow">
-                <p className="mb-2">
-                  <strong>
-                    Upgrade your account to unlock live chat support and access
-                    to premium features.
-                  </strong>
-                </p>
-                <button
-                  className="btn btn-premium font-weight-normal my-2 w-100"
-                  onClick={() => setUpgradeModal(true)}
-                >
-                  Upgrade Now <GBPremiumBadge />
-                </button>
-              </div>
+            {showFreeHelpWidget ? (
+              <span className={styles.closeCircle}>
+                <BsXLg size={18} />
+              </span>
+            ) : (
+              <span className={styles.chatMark}>
+                <PiChatCircleFill size={LAUNCHER_SIZE_PX} />
+                <BsQuestionLg className={styles.chatMarkGlyph} size={20} />
+              </span>
             )}
-          </div>
-        </div>
-      )}
-      <button
-        className="btn btn-primary d-flex align-items-center justify-content-center position-fixed rounded-circle"
-        onClick={() => {
-          setShowFreeHelpWidget(!showFreeHelpWidget);
-        }}
-        style={{
-          right: "20px",
-          bottom: "20px",
-          zIndex: 10,
-          height: "50px",
-          width: "50px",
-          fontSize: "30px",
-        }}
-      >
-        {showFreeHelpWidget ? <BsXLg /> : <BsQuestionLg />}
-      </button>
+          </button>
+        }
+        content={
+          <>
+            <Flex
+              align="center"
+              gap="2"
+              px="4"
+              py="3"
+              // Heading inherits this colour.
+              style={{ background: "var(--violet-9)", color: "white" }}
+            >
+              <img
+                alt="GrowthBook"
+                src="/logo/growth-book-logomark-white.svg"
+                style={{ height: 22 }}
+              />
+              <Heading as="h4" size="sm" mb="0">
+                How Can We Help?
+              </Heading>
+            </Flex>
+            <Flex direction="column" gap="3" p="4">
+              <Text weight="medium" color="text-high">
+                Have a question?
+              </Text>
+              <Button
+                icon={<FaArrowRight />}
+                iconPosition="right"
+                onClick={() =>
+                  window.open(
+                    "https://slack.growthbook.io/?ref=app-top-nav",
+                    "_blank",
+                    "noopener",
+                  )
+                }
+              >
+                Join the Slack community
+              </Button>
+              <Button
+                variant="outline"
+                icon={<FaArrowRight />}
+                iconPosition="right"
+                onClick={() =>
+                  window.open(
+                    "https://docs.growthbook.io/",
+                    "_blank",
+                    "noopener",
+                  )
+                }
+              >
+                View docs
+              </Button>
+              {showUpgradeModal && (
+                <>
+                  <Separator size="4" />
+                  <Text weight="medium" color="text-high">
+                    Upgrade to unlock live chat support and premium features.
+                  </Text>
+                  <Button
+                    variant="soft"
+                    icon={<GBPremiumBadge />}
+                    iconPosition="right"
+                    onClick={() => setUpgradeModal(true)}
+                  >
+                    Upgrade now
+                  </Button>
+                </>
+              )}
+            </Flex>
+          </>
+        }
+      />
     </>
   );
 }

@@ -869,6 +869,7 @@ function ReviewAndPublishRevision<T>({
     adminPublish,
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
+    scheduledStartDay: null,
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule,

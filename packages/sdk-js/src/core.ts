@@ -1128,21 +1128,25 @@ export function getHashAttribute(
 
   const attributes = getAttributes(ctx.user);
 
-  if (attributes[hashAttribute]) {
+  if (isHashable(attributes[hashAttribute])) {
     hashValue = attributes[hashAttribute];
   }
 
   // if no match, try fallback
-  if (!hashValue && fallback) {
-    if (attributes[fallback]) {
-      hashValue = attributes[fallback];
-    }
-    if (hashValue) {
-      hashAttribute = fallback;
-    }
+  if (!hashValue && fallback && isHashable(attributes[fallback])) {
+    hashValue = attributes[fallback];
+    hashAttribute = fallback;
   }
 
   return { hashAttribute, hashValue };
+}
+
+// Only strings and numbers identify a user. Anything else, along with "" and
+// 0, counts as missing.
+function isHashable(value: unknown): value is string | number {
+  if (typeof value === "string") return value !== "";
+  if (typeof value === "number") return value !== 0 && Number.isFinite(value);
+  return false;
 }
 
 function urlIsValid(urlRegex: RegExp, ctx: EvalContext): boolean {

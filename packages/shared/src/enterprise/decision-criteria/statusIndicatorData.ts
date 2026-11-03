@@ -19,7 +19,7 @@ export type StatusIndicatorData = {
   detailedStatus?: string;
   needsAttention?: boolean;
   tooltip?: string;
-  // Most actionable status have higher numbers
+  // More actionable statuses sort first.
   sortOrder: number;
 };
 
@@ -62,10 +62,15 @@ export function getStatusIndicatorData({
     };
   }
 
-  if (experimentData.status == "running") {
-    // Contextual bandits reuse this badge but run their own SRM / multiple
-    // exposure health checks (with bandit-specific thresholds) instead of the
-    // full experiment decision framework.
+  if (experimentData.status === "running") {
+    if (experimentData.type === "interleaving") {
+      return {
+        color: "indigo",
+        status: "Running",
+        sortOrder: 7,
+      };
+    }
+
     if (experimentData.type === "contextual-bandit") {
       const health = experimentData.analysisSummary?.health;
       if (health) {
@@ -109,7 +114,10 @@ export function getStatusIndicatorData({
   }
 
   if (experimentData.status === "stopped") {
-    if (experimentData.type === "contextual-bandit") {
+    if (
+      experimentData.type === "contextual-bandit" ||
+      experimentData.type === "interleaving"
+    ) {
       return {
         color: "gray",
         status: "Stopped",

@@ -28,6 +28,7 @@ import {
   addMemberFromSSOConnection,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
+  isOrgScopedLogin,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -109,13 +110,26 @@ export async function getUser(req: AuthRequest, res: Response) {
       validateLoginMethod(org, req);
       return true;
     } catch (e) {
-      lastError = e;
+      lastError = e.message;
       return false;
     }
   });
 
   // If all of a user's orgs were filtered out, throw an error
-  if (orgs.length && !validOrgs.length) {
+  // An SSO login gets onboarding instead, so it can still accept an invite or see a pending request
+  if (orgs.length && !validOrgs.length && !isOrgScopedLogin(req)) {
+    // Name the required connection so the app can switch the user to it in one click
+    const ssoConnectionId = orgs
+      .map((org) => org.restrictLoginMethod)
+      .find((id) => id && !id.startsWith("vercel:"));
+    if (IS_CLOUD && ssoConnectionId) {
+      return res.status(403).json({
+        status: 403,
+        message: "Your organization requires you to log in with Enterprise SSO",
+        code: "sso_required",
+        details: { ssoConnectionId },
+      });
+    }
     throw new Error(lastError || "Must log in with SSO");
   }
 
@@ -399,7 +413,7 @@ export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
       message: "no verified user found",
     });
   }
-  const orgs = await findVerifiedOrgsForNewUser(email);
+  const orgs = await findVerifiedOrgsForNewUser(email, req);
 
   // Filter out orgs that the user is already a member of
   const joinableOrgs = orgs?.filter((org) => {

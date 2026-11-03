@@ -17,6 +17,14 @@ is not listed below, you can use the generic Open ID Connect.
 For GrowthBook Cloud, you will need to send your account representative the following: **CLIENT_ID**, **CLIENT_SECRET**,
 **EMAIL_DOMAIN**, what provider you're using, and for some providers, the **TENANT_ID**. You can use the instructions below to get these values.
 
+<Note>
+  On GrowthBook Cloud, signing in with your company's SSO only gives access to that company's organization. If you also
+  belong to other organizations (for example, a personal one), they won't appear in the organization switcher while you're
+  signed in with SSO. Log out and sign in with Google or email and password to access them, to accept an invitation from
+  another organization, to create a new organization, or to authorize an MCP client or other OAuth app for one. The same
+  applies to signing in through the Vercel integration.
+</Note>
+
 If you are self-hosting, you can use the instructions below to create a JSON object with the settings, then it should be
 JSON encoded and then set to the environment variable `SSO_CONFIG`.
 

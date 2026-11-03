@@ -120,6 +120,22 @@ export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
   return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
+// Quotes a column the user named in their own SQL. Quoting is exact-match, so
+// the name must first be folded the way the warehouse folded their unquoted
+// alias: Snowflake's `AS user_id` becomes USER_ID, which `"user_id"` misses.
+export function quoteColumnIdentifier(
+  name: string,
+  dialect: Pick<SqlDialect, "identifierQuote" | "unquotedIdentifierFold">,
+): string {
+  const folded =
+    dialect.unquotedIdentifierFold === "upper"
+      ? name.toUpperCase()
+      : dialect.unquotedIdentifierFold === "lower"
+        ? name.toLowerCase()
+        : name;
+  return quoteIdentifier(folded, dialect.identifierQuote);
+}
+
 export const SQL_ROW_LIMIT = 1000;
 export const ASK_ROW_LIMIT = 500;
 

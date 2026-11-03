@@ -204,6 +204,8 @@ export type LegacyFactMetricInterface = Omit<
   hasConversionWindow?: boolean;
   conversionWindowValue?: number;
   conversionWindowUnit?: ConversionWindowUnit;
+  winRisk?: number;
+  loseRisk?: number;
 
   numerator: LegacyColumnRef;
   denominator: LegacyColumnRef | null;

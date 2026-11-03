@@ -1,0 +1,44 @@
+.tile {
+  position: relative;
+}
+
+.deleteSlot {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease;
+
+  .tile:hover &,
+  .tile:focus-within & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+// Radix's solid hover is one step (red-9 -> red-10), too subtle over a photo.
+.deleteButton {
+  transition: background-color 100ms ease;
+
+  &:hover {
+    background-color: var(--red-11);
+  }
+}
+
+.uploadTile {
+  position: relative;
+}
+
+.uploadHint {
+  position: absolute;
+  top: 75%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--violet-11);
+  opacity: 0;
+  transition: opacity 100ms ease;
+  pointer-events: none;
+}
+
+.uploadTile:hover .uploadHint {
+  opacity: 1;
+}

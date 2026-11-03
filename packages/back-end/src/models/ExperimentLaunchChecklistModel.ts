@@ -82,6 +82,7 @@ export async function getExperimentLaunchChecklist(
   organizationId: string,
   projectId: string,
 ): Promise<ExperimentLaunchChecklistInterface | null> {
+  if (projectId && typeof projectId !== "string") return null;
   const doc: ExperimentLaunchChecklistDocument | null =
     await ExperimentLaunchChecklistModel.findOne({
       organizationId,
