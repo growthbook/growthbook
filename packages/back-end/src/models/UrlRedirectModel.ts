@@ -95,7 +95,8 @@ const BaseClass = MakeModelClass({
 });
 
 export class UrlRedirectModel extends BaseClass<WriteOptions> {
-  public findByExperiment(experiment: string) {
+  public async findByExperiment(experiment: string) {
+    if (experiment && typeof experiment !== "string") return [];
     // Assume we already checked read permissions for the experiment
     return this._find({ experiment }, { bypassReadPermissionChecks: true });
   }

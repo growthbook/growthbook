@@ -258,6 +258,8 @@ const MetricsSelector: FC<{
   metricOverrides?: MetricOverride[];
   /** Opens an override editor on the metrics a card was opened for. */
   onManageOverrides?: (metricIds: string[]) => void;
+  /** Why that editor couldn't change these metrics; its button stays shut. */
+  manageOverridesBlockedReason?: string | null;
   /** Lets a chosen metric's card list the settings it's analysed with. */
   settingsScope?: MetricSettingsScope;
   /** Goal metrics' target MDEs, which count as overrides here. */
@@ -285,6 +287,7 @@ const MetricsSelector: FC<{
   requireDatasource = false,
   metricOverrides,
   onManageOverrides,
+  manageOverridesBlockedReason,
   settingsScope,
   targetMDEOverrides,
 }) => {
@@ -737,6 +740,7 @@ const MetricsSelector: FC<{
               id={value}
               overrides={metricOverrides}
               onManageOverrides={onManageOverrides}
+              manageOverridesBlockedReason={manageOverridesBlockedReason}
               settingsScope={settingsScope}
               targetMDEOverrides={targetMDEOverrides}
               members={metricsWithJoinableStatus}
@@ -754,6 +758,7 @@ const MetricsSelector: FC<{
       filterConversionWindowMetrics,
       metricOverrides,
       onManageOverrides,
+      manageOverridesBlockedReason,
       settingsScope,
       targetMDEOverrides,
     ],

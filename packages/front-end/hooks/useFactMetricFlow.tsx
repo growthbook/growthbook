@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -8,12 +7,8 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  duplicateFactMetric,
-  resolveFactMetricCreation,
-} from "@/services/metrics";
 import { envAllowsCreatingMetrics } from "@/services/env";
-import FactTableModal from "@/components/FactTables/FactTableModal";
+import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import Modal from "@/ui/Modal";
 import Callout from "@/ui/Callout";
@@ -29,7 +24,6 @@ type FactMetricCreationTarget = {
 };
 
 type ModalTarget = FactMetricCreationTarget & {
-  edit?: FactMetricInterface;
   source: string;
 };
 
@@ -40,17 +34,9 @@ export default function useFactMetricFlow(
     embedded = false,
   }: { onInlineEdit?: (source: string) => void; embedded?: boolean } = {},
 ) {
-  const newFlow = useFeatureIsOn("new-metric-creation-flow");
-  const flagReady = !!useGrowthBook()?.ready;
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-  const {
-    factTables,
-    project,
-    projects,
-    ready: definitionsReady,
-  } = useDefinitions();
-  const ready = flagReady && definitionsReady;
+  const { factTables, project, projects, ready } = useDefinitions();
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [tableTarget, setTableTarget] = useState<ModalTarget | null>(null);
   const [createdTable, setCreatedTable] = useState<FactTableInterface | null>(
@@ -76,7 +62,14 @@ export default function useFactMetricFlow(
         : (!target.datasource || table.datasource === target.datasource) &&
           isProjectListValidForProject(table.projects, targetProject),
     );
-    const mode = resolveFactMetricCreation(ready, newFlow, !!table, embedded);
+    // Without a fact table, the metric editor has nothing to build on
+    const mode = !ready
+      ? "pending"
+      : !table
+        ? "fact-table"
+        : embedded
+          ? "inline"
+          : "page";
     const canCreate =
       mode === "fact-table"
         ? permissionsUtil.canViewCreateFactTableModal(targetProject, projects)
@@ -93,7 +86,7 @@ export default function useFactMetricFlow(
         ? "Metric creation is disabled."
         : !canCreate
           ? mode === "fact-table"
-            ? "You don't have permission to create a Fact Table in this Project."
+            ? "You don't have permission to create a fact table in this Project."
             : "You don't have permission to add Fact Metrics in this Project."
           : null;
     const params = new URLSearchParams({
@@ -107,7 +100,7 @@ export default function useFactMetricFlow(
       mode,
       disabledReason,
       permissionError: ready && !canCreate ? disabledReason : null,
-      label: mode === "fact-table" ? "Create Fact Table" : "Add Fact Metric",
+      label: mode === "fact-table" ? "Create fact table" : "Add Fact Metric",
       href:
         mode === "page"
           ? `/fact-metrics/new?${params}`
@@ -138,21 +131,17 @@ export default function useFactMetricFlow(
   const edit = useCallback(
     (metric: FactMetricInterface, editSource = source) => {
       if (!ready) return false;
-      if (newFlow) {
-        if (onInlineEdit) onInlineEdit(editSource);
-        else {
-          const params = new URLSearchParams({
-            edit: "true",
-            source: editSource,
-          });
-          void router.push(`/fact-metrics/${metric.id}?${params}`);
-        }
-      } else {
-        setModalTarget({ edit: metric, source: editSource });
+      if (onInlineEdit) onInlineEdit(editSource);
+      else {
+        const params = new URLSearchParams({
+          edit: "true",
+          source: editSource,
+        });
+        void router.push(`/fact-metrics/${metric.id}?${params}`);
       }
       return true;
     },
-    [ready, newFlow, onInlineEdit, router, source],
+    [ready, onInlineEdit, router, source],
   );
 
   const createButton = (
@@ -220,11 +209,10 @@ export default function useFactMetricFlow(
     setTableTarget(null);
     setError(null);
   };
-  const duplicate = modalTarget?.duplicate;
   const modal = tableTarget ? (
-    <FactTableModal
+    <NewFactTableModal
       close={() => setTableTarget(null)}
-      initialDatasource={tableTarget.datasource}
+      datasourceId={tableTarget.datasource}
       onCreate={(factTable) => {
         setCreatedTable(factTable);
         setTableTarget(null);
@@ -236,7 +224,7 @@ export default function useFactMetricFlow(
           setError({
             title: "Add Fact Metric",
             message:
-              "You don't have permission to add Fact Metrics to this Fact Table.",
+              "You don't have permission to add Fact Metrics to this fact table.",
           });
           return;
         }
@@ -269,16 +257,6 @@ export default function useFactMetricFlow(
       close={close}
       initialFactTable={modalTarget.factTable}
       datasource={modalTarget.datasource}
-      existing={
-        modalTarget.edit ??
-        (duplicate
-          ? duplicateFactMetric(
-              duplicate,
-              permissionsUtil.canCreateOfficialResources(duplicate),
-            )
-          : undefined)
-      }
-      duplicate={!!duplicate}
       source={modalTarget.source}
     />
   );
