@@ -20,8 +20,8 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 
 export default function LlmTracingSettings({
   dataSource,
@@ -116,13 +116,11 @@ export default function LlmTracingSettings({
                     {`Add ${tool.label}`}
                   </Button>
                 ) : (
-                  <Tooltip content="Someone with permission to edit Data Source settings can add it.">
-                    <Box flexShrink="0">
-                      <HelperText status="info" icon={null}>
-                        Not added
-                      </HelperText>
-                    </Box>
-                  </Tooltip>
+                  <Box flexShrink="0">
+                    <PermissionBlocker>
+                      You don&apos;t have permission to add it.
+                    </PermissionBlocker>
+                  </Box>
                 )}
               </Flex>
             </Box>
