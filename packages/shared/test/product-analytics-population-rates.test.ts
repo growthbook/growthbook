@@ -1,7 +1,6 @@
 import {
   buildExplorationColumns,
   getExplorationCellValue,
-  getEffectiveShowAs,
   getExplorationRenderOpts,
   getRowMetricValue,
   showAsAppliesTo,
@@ -78,18 +77,12 @@ describe("population rates", () => {
     expect(getRowMetricValue(row, 0, opts)).toBe(0.125);
   });
 
-  it("defaults to the percentage and offers Show As with a population", () => {
-    const config = makeConfig(true);
-    expect(showAsAppliesTo(config, getFactMetricById)).toBe(true);
-    expect(getEffectiveShowAs(config, getFactMetricById)).toBe("per_unit");
-    expect(showAsAppliesTo(makeConfig(false), getFactMetricById)).toBe(false);
-  });
-
-  it("shows the count with a population when showAs is total", () => {
+  it("always shows the percentage with a population, with no Show As", () => {
     const config = { ...makeConfig(true), showAs: "total" as const };
+    expect(showAsAppliesTo(config, getFactMetricById)).toBe(false);
     const opts = getExplorationRenderOpts(config, getFactMetricById);
-    expect(opts.populationDenominatorByIndex).toEqual([]);
-    expect(getRowMetricValue(row, 0, opts)).toBe(25);
+    expect(opts.populationDenominatorByIndex).toEqual([true]);
+    expect(getRowMetricValue(row, 0, opts)).toBe(0.125);
   });
 
   it("keeps the count when there's no population", () => {

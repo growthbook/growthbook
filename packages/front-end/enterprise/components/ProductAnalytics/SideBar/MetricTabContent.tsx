@@ -18,7 +18,6 @@ import {
   getMetricMixClass,
   getMetricPopulationConflict,
   countsEveryPopulationMember,
-  getEffectiveShowAs,
   MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -221,8 +220,6 @@ export default function MetricTabContent() {
                 </Link>
               )}
               {population &&
-              getEffectiveShowAs(draftExploreState, getFactMetricById) ===
-                "per_unit" &&
               selectedMetric &&
               countsEveryPopulationMember(selectedMetric, v) ? (
                 <Text size="sm" color="text-mid">

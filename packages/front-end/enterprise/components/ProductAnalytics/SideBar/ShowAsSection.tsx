@@ -18,15 +18,7 @@ export default function ShowAsSection() {
     getFactMetricById,
   );
   const sharedUnit = getSharedUnit(draftExploreState);
-  const hasPopulation =
-    draftExploreState.dataset.type === "metric" &&
-    !!draftExploreState.dataset.population;
-  const totalLabel = hasPopulation ? "Count" : "Event Totals";
-  const perUnitLabel = hasPopulation
-    ? "Percentage of Population"
-    : sharedUnit
-      ? `Per ${sharedUnit}`
-      : "Per Unit";
+  const perUnitLabel = sharedUnit ? `Per ${sharedUnit}` : "Per Unit";
 
   return (
     <Flex
@@ -42,7 +34,7 @@ export default function ShowAsSection() {
       <Text weight="medium">Show As</Text>
       <RadioGroup
         options={[
-          { label: totalLabel, value: "total" },
+          { label: "Event Totals", value: "total" },
           { label: perUnitLabel, value: "per_unit" },
         ]}
         value={value}

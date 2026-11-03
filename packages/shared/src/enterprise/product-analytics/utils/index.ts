@@ -330,8 +330,8 @@ export function metricHasMeaningfulPerUnit(
  *   which per-unit rendering is non-degenerate. Ratio/quantile metrics ignore
  *   showAs, and proportion/retention/dailyParticipation collapse per_unit to ~1
  *   in the product-analytics layer (no exposure set → denominator == numerator).
- * - Metric datasets with a population: always applies. "total" is the count,
- *   "per_unit" the percentage of the population.
+ * - Metric datasets with a population: never applies. Proportion metrics
+ *   always render as a percentage of the population.
  * - fact_table / data_source datasets: never applies.
  */
 export function showAsAppliesTo(
@@ -343,7 +343,7 @@ export function showAsAppliesTo(
   if (config.dataset.values.length === 0) return false;
   const selectedValues = config.dataset.values.filter((v) => !!v.metricId);
   if (selectedValues.length === 0) return false;
-  if (config.dataset.population) return true;
+  if (config.dataset.population) return false;
   return selectedValues.some((v) => {
     const type = getFactMetricById(v.metricId ?? "")?.metricType;
     const c = getMetricMixClass(type);
@@ -370,7 +370,6 @@ export function inferShowAs(
 ): ShowAs {
   if (!showAsAppliesTo(config, getFactMetricById)) return "total";
   if (!config || config.dataset.type !== "metric") return "total";
-  if (config.dataset.population) return "per_unit";
 
   const selectedValues = config.dataset.values.filter((v) => !!v.metricId);
   if (selectedValues.length === 0) return "total";
@@ -441,11 +440,7 @@ export function getDefaultValueAxisName(
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string {
   if (!showAsAppliesTo(config, getFactMetricById)) return "";
-  if (getEffectiveShowAs(config, getFactMetricById) === "total") {
-    return config?.dataset.type === "metric" && config.dataset.population
-      ? "Count"
-      : "Total";
-  }
+  if (getEffectiveShowAs(config, getFactMetricById) === "total") return "Total";
   const sharedUnit = getSharedUnit(config);
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
 }
@@ -488,9 +483,9 @@ export function getIsRatioByIndex(
 /**
  * Build an array of flags indexed by dataset value position: true when the
  * value renders as a rate over the row's `populationCount` rather than over
- * its own denominator. With showAs "total", the counts render instead.
+ * its own denominator.
  *
- * shortcut: Proportion metrics divide by the population, since their
+ * shortcut: Proportion metrics always divide by the population, since their
  * denominator equals their numerator. When other metric types support
  * populations, make this a per-metric choice.
  */
@@ -498,11 +493,7 @@ export function getPopulationDenominatorByIndex(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): boolean[] {
-  if (
-    config?.dataset?.type !== "metric" ||
-    !config.dataset.population ||
-    getEffectiveShowAs(config, getFactMetricById) !== "per_unit"
-  ) {
+  if (config?.dataset?.type !== "metric" || !config.dataset.population) {
     return [];
   }
   return config.dataset.values.map((v) => {

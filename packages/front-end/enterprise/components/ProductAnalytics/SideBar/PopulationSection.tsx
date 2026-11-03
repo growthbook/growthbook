@@ -97,8 +97,6 @@ export default function PopulationSection() {
       const firstPick = !prev.dataset.population;
       return {
         ...prev,
-        // A Mean metric's choice doesn't carry over; default to the percentage.
-        showAs: firstPick ? undefined : prev.showAs,
         chartType: getUnstackedChartType(prev.chartType) ?? prev.chartType,
         dimensions: firstPick
           ? prev.dimensions.map((d) =>
