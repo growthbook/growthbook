@@ -53,9 +53,6 @@ export function assertClaudeLogin(): string {
   return version;
 }
 
-// An empty directory, so one-shot calls never pick up a project's CLAUDE.md.
-let scratch: string | null = null;
-
 const resultSchema = z.object({
   is_error: z.boolean(),
   result: z.string().optional(),
@@ -83,11 +80,6 @@ export async function askClaude<T>({
   prompt: string;
   schema?: z.ZodType<T>;
 }): Promise<{ text: string; output: T | null; usage: Usage }> {
-  if (!scratch) {
-    const dir = mkdtempSync(path.join(tmpdir(), "gb-eval-claude-"));
-    process.once("exit", () => rmSync(dir, { recursive: true, force: true }));
-    scratch = dir;
-  }
   const args = [
     "-p",
     "--output-format",
@@ -107,11 +99,11 @@ export async function askClaude<T>({
         ]
       : []),
   ];
+  // An empty directory, so the call never picks up a project's CLAUDE.md.
+  // Removed here: exit listeners registered under Jest never fire.
+  const cwd = mkdtempSync(path.join(tmpdir(), "gb-eval-claude-"));
   const stdout = await new Promise<string>((resolve, reject) => {
-    const child = spawn("claude", args, {
-      cwd: scratch ?? undefined,
-      env: claudeEnv(),
-    });
+    const child = spawn("claude", args, { cwd, env: claudeEnv() });
     let out = "";
     let err = "";
     child.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
@@ -125,7 +117,7 @@ export async function askClaude<T>({
           ),
     );
     child.stdin.end(prompt);
-  });
+  }).finally(() => rmSync(cwd, { recursive: true, force: true }));
   const result = resultSchema.parse(JSON.parse(stdout));
   if (result.is_error) {
     throw new Error(`claude failed: ${result.result ?? "no message"}`);
