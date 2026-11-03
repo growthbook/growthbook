@@ -7,6 +7,7 @@ import {
   GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import type { SidebarLinkFilterProps, SidebarLinkProps } from "./SidebarLink";
 import styles from "./Layout.module.scss";
 
@@ -69,6 +70,12 @@ export const navlinks: SidebarLinkProps[] = [
         // Default ON; the remote flag only turns this off for specific orgs.
         filter: ({ gb }) =>
           gb?.getFeatureValue("contextual-bandits", true) ?? true,
+      },
+      {
+        name: "Interleaving",
+        href: "/interleavings",
+        path: /^interleavings?($|\/)/,
+        filter: ({ gb }) => isInterleavingEnabled(gb),
       },
       {
         name: "Holdouts",

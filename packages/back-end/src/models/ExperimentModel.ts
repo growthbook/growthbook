@@ -527,6 +527,7 @@ export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
 ): Promise<ExperimentInterface | null> {
+  if (id && typeof id !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     id,
@@ -544,6 +545,7 @@ export async function getExperimentById(
 export async function getExperimentByUid(
   uid: string,
 ): Promise<ExperimentInterface | null> {
+  if (uid && typeof uid !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     uid,
   });
@@ -823,6 +825,7 @@ export async function getExperimentByTrackingKey(
   context: ReqContext | ApiReqContext,
   trackingKey: string,
 ): Promise<ExperimentInterface | null> {
+  if (trackingKey && typeof trackingKey !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     trackingKey,

@@ -1,3 +1,4 @@
+import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { DataSourceOptionKey } from "./useDataSourceOptionEligibility";
 
@@ -25,16 +26,18 @@ export function useDataSourceOptionPricing(): {
         detail: null,
       };
 
+  // Event pricing is Cloud billing. Enterprise usage is billed per contract.
+  const showPricing = isCloud() && plan !== "enterprise";
+
   return {
     pricing: {
       managed: meteredEvents,
       "event-forwarder": meteredEvents,
       custom: { headline: "No per-event cost", detail: null },
     },
-    // Enterprise usage is billed per contract, so list pricing doesn't apply.
-    showPricing: plan !== "enterprise",
+    showPricing,
     pricingFootnote:
-      isProPlan || plan === "enterprise"
+      !showPricing || isProPlan
         ? null
         : "* The Starter plan is capped at the included limit. Upgrade to Pro to unlock usage-based billing above the included limit.",
   };

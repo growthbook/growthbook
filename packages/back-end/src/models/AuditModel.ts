@@ -104,7 +104,7 @@ function historyQuery(
     organization,
     [`${side}.object`]: type,
     ...(Object.keys(idMatch).length ? { [`${side}.id`]: idMatch } : {}),
-    ...(auditId ? { id: auditId } : {}),
+    ...(auditId ? { id: { $eq: auditId } } : {}),
     ...(event ? { event } : {}),
     ...(before ? { dateCreated: { $lt: before } } : {}),
   };

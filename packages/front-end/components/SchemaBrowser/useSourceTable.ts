@@ -395,7 +395,6 @@ export function useSourceTable({
       mode === "sql" && tableModeAvailable ? () => setMode("table") : undefined,
     mode,
     setMode,
-    tableModeAvailable,
     selectedTable,
     selectTable,
     template,

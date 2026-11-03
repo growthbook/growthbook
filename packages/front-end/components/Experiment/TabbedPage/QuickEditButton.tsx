@@ -21,12 +21,15 @@ export const editsOnClick = styles.clickFrame;
 export function QuickEditRow({
   label,
   onEdit,
+  blockedReason = null,
   align = "start",
   centered = false,
   children,
 }: {
   label: string;
   onEdit?: (() => void) | null;
+  /** Shown on the row instead of opening the editor. */
+  blockedReason?: string | null;
   align?: "start" | "center";
   // Wraps around its centre, the button spilling past the end so it doesn't
   // pull the content off centre.
@@ -37,8 +40,9 @@ export function QuickEditRow({
     <QuickEditButton
       label={label}
       onClick={onEdit}
+      blockedReason={blockedReason}
       labelTooltip={false}
-      fillsRow
+      fillsRow={!blockedReason}
     />
   ) : null;
   return (
@@ -47,7 +51,11 @@ export function QuickEditRow({
       justify={centered ? "center" : "between"}
       wrap={centered ? "wrap" : undefined}
       gap="3"
-      className={onEdit ? clsx(styles.revealsEdit, styles.clickRow) : undefined}
+      className={
+        onEdit
+          ? clsx(styles.revealsEdit, !blockedReason && styles.clickRow)
+          : undefined
+      }
     >
       {children}
       {button && centered ? (

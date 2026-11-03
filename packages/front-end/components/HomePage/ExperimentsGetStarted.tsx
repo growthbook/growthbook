@@ -7,7 +7,6 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import { DocLink } from "@/components/DocLink";
 import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
@@ -28,7 +27,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [importExperimentsOpen, setImportExperimentsOpen] = useState(false);
   const [designExperimentOpen, setDesignExperimentOpen] = useState(false);
 
@@ -83,18 +81,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     <>
       {factMetricFlow.modal}
       <div>
-        {dataSourceOpen && (
-          <NewDataSourceForm
-            source="get-started"
-            onCancel={() => setDataSourceOpen(false)}
-            onSuccess={async () => {
-              await mutateDefinitions();
-              setDataSourceOpen(false);
-            }}
-            showImportSampleData={false}
-          />
-        )}
-
         {importExperimentsOpen && (
           <ImportExperimentModal
             onClose={() => setImportExperimentsOpen(false)}
@@ -190,11 +176,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finishedCTA="View data sources"
                     imageLeft={true}
                     onClick={(finished) => {
-                      if (finished) {
-                        router.push("/datasources");
-                      } else {
-                        setDataSourceOpen(true);
-                      }
+                      router.push(
+                        finished ? "/datasources" : "/datasources/new",
+                      );
                     }}
                   />
                   <GetStartedStep
