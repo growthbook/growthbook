@@ -42524,11 +42524,8 @@ paths:
                                           the population's Fact Table are
                                           supported; the request is rejected if
                                           any metric is incompatible.
-                                        anyOf:
-                                          - title: Exploration Population
-                                            $ref: >-
-                                              #/components/schemas/ExplorationPopulation
-                                          - type: 'null'
+                                        $ref: >-
+                                          #/components/schemas/ExplorationPopulation
                                     required:
                                       - type
                                       - values
@@ -45910,11 +45907,8 @@ paths:
                                           the population's Fact Table are
                                           supported; the request is rejected if
                                           any metric is incompatible.
-                                        anyOf:
-                                          - title: Exploration Population
-                                            $ref: >-
-                                              #/components/schemas/ExplorationPopulation
-                                          - type: 'null'
+                                        $ref: >-
+                                          #/components/schemas/ExplorationPopulation
                                     required:
                                       - type
                                       - values
@@ -49493,11 +49487,7 @@ paths:
                                       population's Fact Table are supported; the
                                       request is rejected if any metric is
                                       incompatible.
-                                    anyOf:
-                                      - title: Exploration Population
-                                        $ref: >-
-                                          #/components/schemas/ExplorationPopulation
-                                      - type: 'null'
+                                    $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
                                   - values
@@ -53087,11 +53077,7 @@ paths:
                                       population's Fact Table are supported; the
                                       request is rejected if any metric is
                                       incompatible.
-                                    anyOf:
-                                      - title: Exploration Population
-                                        $ref: >-
-                                          #/components/schemas/ExplorationPopulation
-                                      - type: 'null'
+                                    $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
                                   - values
@@ -59144,10 +59130,7 @@ paths:
                         every metric in the request. Only proportion metrics on
                         the population's Fact Table are supported; the request
                         is rejected if any metric is incompatible.
-                      anyOf:
-                        - title: Exploration Population
-                          $ref: '#/components/schemas/ExplorationPopulation'
-                        - type: 'null'
+                      $ref: '#/components/schemas/ExplorationPopulation'
                   required:
                     - type
                     - values
@@ -59597,11 +59580,7 @@ paths:
                                       population's Fact Table are supported; the
                                       request is rejected if any metric is
                                       incompatible.
-                                    anyOf:
-                                      - title: Exploration Population
-                                        $ref: >-
-                                          #/components/schemas/ExplorationPopulation
-                                      - type: 'null'
+                                    $ref: '#/components/schemas/ExplorationPopulation'
                                 required:
                                   - type
                                   - values
@@ -82014,10 +81993,7 @@ components:
                               metrics on the population's Fact Table are
                               supported; the request is rejected if any metric
                               is incompatible.
-                            anyOf:
-                              - title: Exploration Population
-                                $ref: '#/components/schemas/ExplorationPopulation'
-                              - type: 'null'
+                            $ref: '#/components/schemas/ExplorationPopulation'
                         required:
                           - type
                           - values
@@ -85656,10 +85632,7 @@ components:
                         every metric in the request. Only proportion metrics on
                         the population's Fact Table are supported; the request
                         is rejected if any metric is incompatible.
-                      anyOf:
-                        - title: Exploration Population
-                          $ref: '#/components/schemas/ExplorationPopulation'
-                        - type: 'null'
+                      $ref: '#/components/schemas/ExplorationPopulation'
                   required:
                     - type
                     - values

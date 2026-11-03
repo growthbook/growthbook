@@ -4,7 +4,7 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  getPopulationViolations,
+  getMetricPopulationViolations,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
@@ -174,14 +174,14 @@ const SEPT_1_TO_3: ExplorationDateRange = {
 
 function explore({
   metrics,
-  population = null,
+  population,
   overall = false,
   dimensions = overall ? [] : DAILY,
   dateRange = SEPT_1_TO_3,
   unit = "user_id",
 }: {
   metrics: FactMetricInterface[];
-  population?: ExplorationPopulation | null;
+  population?: ExplorationPopulation;
   overall?: boolean;
   dimensions?: ProductAnalyticsDimension[];
   dateRange?: ExplorationDateRange;
@@ -244,8 +244,11 @@ function violations(
   config: MetricExplorationConfig,
   metrics: FactMetricInterface[] = ALL_METRICS,
 ) {
-  return getPopulationViolations({
-    dataset: config.dataset,
+  const { population, values } = config.dataset;
+  if (!population) throw new Error("Expected a population");
+  return getMetricPopulationViolations({
+    population,
+    values,
     dimensions: config.dimensions,
     datasource: config.datasource,
     metricMap: new Map(metrics.map((m) => [m.id, m])),
@@ -329,14 +332,8 @@ describe("metric explorations with a population", () => {
             [1, 1],
           ],
         },
-        // Frank has events but spent $0: the day is kept, with no members.
-        "2026-09-03": {
-          populationCount: 0,
-          values: [
-            [null, 0],
-            [null, 0],
-          ],
-        },
+        // Frank has events but spent $0: with no members, the day has no row,
+        // as a day with no activity has none without a population.
       },
     ],
     [
@@ -383,7 +380,6 @@ describe("metric explorations with a population", () => {
       {
         "2026-09-01": { populationCount: 1, values: [[1, 1]] }, // Alice (2 purchases)
         "2026-09-02": { populationCount: 1, values: [[1, 1]] }, // Bob (login + purchase)
-        "2026-09-03": { populationCount: 0, values: [[null, 0]] },
       },
     ],
     [
@@ -473,6 +469,7 @@ describe("metric explorations with a population", () => {
         explore({
           metrics: [purchasers],
           population: mobileUsers({ unit: "anonymous_id" }),
+          unit: "anonymous_id",
         }),
         "does not support identifier types: anonymous_id",
       ],
@@ -509,13 +506,38 @@ describe("metric explorations with a population", () => {
       ],
     ])("rejects %s", (_, config, message) => {
       expect(violations(config)).toContain(message);
-      // Only the population makes these invalid.
+    });
+
+    // Fact Tables come from the metrics, so the population's own Fact Table
+    // isn't loaded; that must not read as "not found".
+    it("reports only the mismatch for a population on another Fact Table", () => {
       expect(
-        violations({
-          ...config,
-          dataset: { ...config.dataset, population: null },
-        }),
-      ).toBe("");
+        violations(
+          explore({
+            metrics: [purchasers],
+            population: mobileUsers({
+              source: { type: "factTable", factTableId: "other" },
+            }),
+          }),
+        ),
+      ).toBe(
+        'Metric "Purchasers" must use the same Fact Table as the Population.',
+      );
+    });
+
+    it("reports a missing metric rather than checking the population", () => {
+      expect(
+        violations(
+          explore({ metrics: [purchasers], population: mobileUsers() }),
+          [],
+        ),
+      ).toBe("Metric purchasers not found.");
+    });
+
+    it("rejects a population with no metrics", () => {
+      expect(
+        violations(explore({ metrics: [], population: mobileUsers() })),
+      ).toBe("Populations require at least one metric.");
     });
 
     it.each(
@@ -618,16 +640,28 @@ describe("metric explorations with a population", () => {
       expect(sql).not.toMatch(/\bm2\b/);
       // The population count has no denominator column.
       expect(sql).not.toContain("population_count_denominator");
-      // Each metric is read only for members, in a named CTE; no joins.
-      expect(sql).toContain("_factTable0_unit0_members AS");
-      expect(
-        sql.match(/WHEN population_count IS NOT NULL THEN m[01]\s/g),
-      ).toHaveLength(2);
+      // Each metric is read only for members, filtered in the rollup; no joins.
+      expect(sql).toMatch(/WHERE\s+population_count IS NOT NULL/);
       expect(sql).not.toContain("JOIN");
     });
 
+    // Request validation catches this first; the builder still refuses rather
+    // than return a series unfiltered by membership.
+    it("rejects a metric outside the population's unit", () => {
+      expect(() =>
+        generate(
+          explore({
+            metrics: [purchasers],
+            population: mobileUsers({ unit: "anonymous_id" }),
+          }),
+        ),
+      ).toThrow(
+        "Every metric must use the population's Fact Table and identifier type in order to be filtered by population membership.",
+      );
+    });
+
     it.each([
-      ["without a population", null],
+      ["without a population", undefined],
       ["with a population", mobileRevenueOver10],
     ])("matches the snapshot %s", (_, population) => {
       expect(

@@ -72,6 +72,7 @@ describe("explorationConfigReferencesColumn", () => {
     }
 
     it.each<Partial<ExplorationPopulation>>([
+      { unit: "margin_vc" },
       { aggregateFilter: ">0", aggregateFilterColumn: "margin_vc" },
       { rowFilters: [{ column: "margin_vc", operator: ">", values: ["0"] }] },
       { rowFilters: [{ operator: "sql_expr", values: ["margin_vc > 0"] }] },

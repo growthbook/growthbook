@@ -32,6 +32,7 @@ export const explorationPopulationValidator = componentSchema(
         .array(rowFilterValidator)
         .optional()
         .transform((filters) => filters ?? [])
+        // Re-declares the array after the transform so the OpenAPI spec still documents it
         .pipe(z.array(rowFilterValidator))
         .meta({ default: [] }),
       unit: z
@@ -75,7 +76,6 @@ const metricDatasetValidator = z
     type: z.literal("metric"),
     values: z.array(metricValueValidator),
     population: explorationPopulationValidator
-      .nullable()
       .optional()
       .describe(
         "**Beta** — this field is new and may change in backwards-incompatible ways. A population applied to every metric in the request. Only proportion metrics on the population's Fact Table are supported; the request is rejected if any metric is incompatible.",
@@ -250,7 +250,7 @@ const journeyDatasetValidator = z
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
 // Populations: one single-step population definition per value.
-const populationValueValidator = explorationPopulationValidator.extend({
+const populationValueValidator = populationStepValidator.extend({
   name: z.string(),
   type: z.literal("population"),
   unit: z.string().nullable(),
