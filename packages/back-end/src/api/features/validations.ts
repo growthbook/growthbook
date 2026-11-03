@@ -1087,12 +1087,23 @@ export async function assertValidFeatureRules(
     // Experiments the same save changes, judged as they will be.
     planned = [],
     copiesRules = false,
-  }: { planned?: ExperimentInterface[]; copiesRules?: boolean } = {},
+    feature,
+  }: {
+    planned?: ExperimentInterface[];
+    copiesRules?: boolean;
+    feature?: FeatureInterface;
+  } = {},
 ): Promise<void> {
   if (!copiesRules) assertScopedRules(context, rules, stored);
   assertValidChangedRuleEnvironments(context, rules, stored);
   await assertValidChangedRuleProjectIds(rules, stored, context);
-  await assertValidChangedRuleExperimentIds(rules, stored, context, planned);
+  await assertValidChangedRuleExperimentIds(
+    rules,
+    stored,
+    context,
+    planned,
+    feature,
+  );
   await validateChangedRuleReferences(rules, stored, context);
   validateRulesScheduleRules(rules, context, stored);
 }
@@ -1108,6 +1119,7 @@ export async function assertValidRuleWrite(
 ): Promise<void> {
   await assertValidFeatureRules(context, [rule], stored ? [stored] : [], {
     planned,
+    feature,
   });
   if (
     !stored ||

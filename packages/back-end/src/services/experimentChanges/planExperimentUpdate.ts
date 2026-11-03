@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getValidDate } from "shared/dates";
 import {
-  experimentHasLinkedChanges,
+  hasLinkedChangesBesidesManagedFlag,
   includeExperimentInPayload,
 } from "shared/util";
 import {
@@ -65,6 +65,8 @@ import {
   assertManagedFlagCanMove,
   moveManagedFlagWithExperiment,
   assertManagedFlagKeyFormat,
+  getManagedFeatureForExperiment,
+  moveManagedFlagHoldout,
   planImplementationTypeRelease,
   releaseManagedFlagForImplementationChange,
 } from "back-end/src/services/managedFeatures";
@@ -245,9 +247,6 @@ export async function planExperimentUpdate(
     context.permissions.throwPermissionError();
   }
 
-  if (data.implementationType === "multi") {
-    throw new BadRequestError("implementationType cannot be set to multi");
-  }
   const releaseManagedFlagFor = await planImplementationTypeChange(
     context,
     experiment,
@@ -496,7 +495,11 @@ export async function planExperimentUpdate(
   // in the live! feature revision
   if (
     holdoutChanges &&
-    (experiment.status !== "draft" || experimentHasLinkedChanges(experiment))
+    (experiment.status !== "draft" ||
+      hasLinkedChangesBesidesManagedFlag(
+        experiment,
+        (await getManagedFeatureForExperiment(context, experiment))?.id ?? null,
+      ))
   ) {
     throw new BadRequestError(
       "A holdout can only change while the experiment is a draft with nothing linked. Discard the holdout change, or set the status back to draft and remove its linked changes.",
@@ -882,6 +885,9 @@ export async function writeExperimentUpdatePlan({
       holdout.remove,
       experiment.id,
     );
+  }
+  if (holdout.add || holdout.remove) {
+    await moveManagedFlagHoldout(context, updated);
   }
   return { experiment, updated };
 }

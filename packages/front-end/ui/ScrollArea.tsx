@@ -53,8 +53,8 @@ const ScrollArea = forwardRef<
      */
     edgeCue?: "fade" | "shadow";
     /**
-     * Edges marked instead by content pinned (sticky) to them, given
-     * `pinnedTo`'s class: the shadow falls past it.
+     * Edges left unmarked. Content pinned (sticky) to one, given `pinnedTo`'s
+     * class, casts the shadow past itself instead.
      */
     skipEdges?: Edge[];
     onScroll?: UIEventHandler<HTMLDivElement>;
@@ -185,7 +185,9 @@ const ScrollArea = forwardRef<
       onScroll={onScroll}
       className={clsx(
         styles.root,
-        fill && styles.fullWidth,
+        // With nothing to scroll to sideways, wider content has no use for
+        // the room.
+        (fill || !sideways) && styles.fullWidth,
         fill && fillMinHeight !== undefined && styles.bounded,
         edgeCue === "fade" && styles.fades,
         shadowed ? styles.fillsWrapper : className,

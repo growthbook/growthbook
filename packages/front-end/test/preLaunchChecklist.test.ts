@@ -301,6 +301,21 @@ describe("getChecklistItems", () => {
     ).toBe(tier);
   });
 
+  // "None" defers the choice; a Bandit still can't start without one.
+  it.each([
+    { type: "multi-armed-bandit" as const, tier: "blocking" },
+    { type: "standard" as const, tier: null },
+  ])("$type marked None with nothing linked", ({ type, tier }) => {
+    const linked = find(
+      checklistItems({
+        experiment: experiment({ type, implementationType: "none" }),
+        linkedFeatures: [],
+      }),
+      "linkedChanges",
+    );
+    expect(linked ? getChecklistTier(linked) : null).toBe(tier);
+  });
+
   // The experiment's own flag; its values are fixed in the review.
   const managed = (over: Partial<LinkedFeatureInfo> = {}) =>
     flag("f1", {

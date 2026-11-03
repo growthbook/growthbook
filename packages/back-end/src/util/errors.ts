@@ -4,7 +4,11 @@ import {
   apiErrorRegistry,
 } from "shared/validators";
 import { experimentFieldLabels } from "shared/experiments";
-import { capitalizeFirstCharacter } from "shared/util";
+import {
+  capitalizeFirstCharacter,
+  type ImplementationLinkages,
+  storedImplementationType,
+} from "shared/util";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 
 export abstract class ApiError<C extends ApiErrorCode> extends Error {
@@ -222,6 +226,20 @@ export class ManagedFeatureError extends ApiError<"feature_managed_by_experiment
     );
     this.name = "ManagedFeatureError";
   }
+}
+
+// Values is an experiment's whole implementation: converting its Feature Flag
+// to unmanaged is what makes room for another.
+export function assertNotValuesImplementation(
+  context: { isApiRequest: boolean },
+  experiment: ImplementationLinkages & { id: string },
+): void {
+  if (storedImplementationType(experiment) !== "values") return;
+  throw new BadRequestError(
+    context.isApiRequest
+      ? `Experiment "${experiment.id}" serves its variation values from a managed Feature Flag. Detach it first (POST /experiments/${experiment.id}/variation-values/detach) to add another implementation.`
+      : "This experiment serves its variation values from its own Feature Flag. Convert it to an unmanaged Feature Flag first to add another implementation.",
+  );
 }
 
 export class NotFoundError extends Error {

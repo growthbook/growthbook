@@ -193,9 +193,15 @@ export default function ExperimentDetailsPanel({
             </TabsTrigger>
           </TabsList>
         </Flex>
-        <ScrollArea fill style={{ flex: 1, minHeight: 0 }}>
+        {/* Held to the rail's height, so the comments scroll above a composer
+            pinned under them. */}
+        <ScrollArea
+          fill
+          fillMinHeight="300px"
+          style={{ flex: 1, minHeight: 0 }}
+        >
           <TabsContent value="details">
-            <Flex px="5" py="4" direction="column" gap="4">
+            <Flex px="5" pt="4" pb="8" direction="column" gap="4">
               {showTodo ? (
                 <>
                   <PanelSection title={todoTitle(checklistItemsRemaining)}>

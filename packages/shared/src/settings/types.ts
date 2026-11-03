@@ -1,3 +1,4 @@
+import { selectableImplementationTypes } from "shared/constants";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   ExperimentInterface,
@@ -93,6 +94,7 @@ interface BaseSettings {
   banditBurnInValue: number;
   banditBurnInUnit: "hours" | "days";
   experimentMinLengthDays: number;
+  defaultExperimentImplementation: (typeof selectableImplementationTypes)[number];
   experimentMaxLengthDays: number | undefined;
   maxMetricSliceLevels: number;
   topValuesLookbackValue: number;

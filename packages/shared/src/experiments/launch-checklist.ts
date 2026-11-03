@@ -289,8 +289,9 @@ export function getLaunchChecklistItems({
     : linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       !!experiment.hasVisualChangesets ||
       !!experiment.hasURLRedirects;
-  // Implemented outside GrowthBook, so there's nothing to link.
-  if (implementationType !== "none") {
+  // Implemented outside GrowthBook, so there's nothing to link. A Bandit
+  // still needs one to shift traffic.
+  if (implementationType !== "none" || isBandit) {
     pushBuiltIn("linkedChanges", {
       label: valuesMode
         ? "Add variation values"

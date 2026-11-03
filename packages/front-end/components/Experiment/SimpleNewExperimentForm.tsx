@@ -18,7 +18,9 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
-import ImplementationTypeSelect from "@/components/Experiment/ImplementationTypeSelect";
+import ImplementationTypeSelect, {
+  useImplementationTypeField,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
   formatAttributeOptionLabel,
@@ -290,6 +292,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     form.watch("trackingKey"),
   );
   const selectedProject = form.watch("project") ?? "";
+  const setImplementationType = useImplementationTypeField(form);
   const creatingInDemoProject =
     !!demoProjectId && selectedProject === demoProjectId;
 
@@ -714,7 +717,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       <Box mb="4">
         <ImplementationTypeSelect
           value={form.watch("implementationType")}
-          setValue={(v) => form.setValue("implementationType", v)}
+          setValue={setImplementationType}
         />
       </Box>
 

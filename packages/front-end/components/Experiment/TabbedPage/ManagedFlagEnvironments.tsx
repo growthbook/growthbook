@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPencilSimple } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -18,7 +17,7 @@ import {
 } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import { environmentStatesDiffer } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { FlagEnvironmentsDraft } from "./ExperimentEdits";
-import styles from "./ManagedFlagEnvironments.module.scss";
+import { QuickEditRow } from "./QuickEditButton";
 
 const SHOWN_ENVIRONMENTS = 6;
 
@@ -96,12 +95,11 @@ export default function ManagedFlagEnvironments({
           }}
         />
       ) : null}
-      <Flex
+      <QuickEditRow
+        label="Edit environments"
+        onEdit={editable ? () => setEditing(true) : null}
         align="center"
-        justify="center"
-        gap="3"
-        wrap="wrap"
-        className={editable ? styles.editable : undefined}
+        centered
       >
         <Text size="lg" weight="medium" color="text-high">
           Environments:
@@ -131,23 +129,7 @@ export default function ManagedFlagEnvironments({
             Takes effect when published.
           </Text>
         ) : null}
-        {editable ? (
-          <span className={styles.pencil}>
-            <IconButton
-              type="button"
-              className={styles.edit}
-              variant="ghost"
-              color="violet"
-              radius="full"
-              size="1"
-              onClick={() => setEditing(true)}
-              aria-label="Edit environments"
-            >
-              <PiPencilSimple size="14" />
-            </IconButton>
-          </span>
-        ) : null}
-      </Flex>
+      </QuickEditRow>
     </Box>
   );
 }

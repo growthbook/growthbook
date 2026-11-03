@@ -953,6 +953,99 @@ describe("applyExperimentChanges", () => {
     ).toBeUndefined();
   });
 
+  it("moves a Values draft's own flag into its new holdout, live and in its draft", async () => {
+    await seed({ withDraft: true });
+    await makeFlagManaged();
+    await collection("holdouts").insertOne({
+      id: "hld_new",
+      organization: ORG_ID,
+      name: "New",
+      projects: [],
+      experimentId: "exp_hld_new",
+      linkedExperiments: {},
+      linkedFeatures: {},
+      environmentSettings: {},
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+
+    await run({
+      experiment: {
+        changes: { holdoutId: "hld_new" },
+        base: { holdoutId: null },
+      },
+    });
+
+    const holdout = { id: "hld_new", value: "a" };
+    expect(
+      (await collection("features").findOne({ id: FLAG }))?.holdout,
+    ).toEqual(holdout);
+    expect((await storedRevision(2))?.holdout).toEqual(holdout);
+    const stored = await collection("holdouts").findOne({ id: "hld_new" });
+    expect(Object.keys(stored?.linkedFeatures ?? {})).toEqual([FLAG]);
+    expect(Object.keys(stored?.linkedExperiments ?? {})).toEqual([EXP]);
+  });
+
+  it("removes the implementation, deleting the flag so Values can take its key again", async () => {
+    await seed({ withDraft: true });
+    await makeFlagManaged();
+    await collection("experiments").updateOne(
+      { id: EXP },
+      { $set: { trackingKey: FLAG } },
+    );
+
+    const removed = await run({
+      experiment: {
+        changes: { implementationType: "none" },
+        base: { implementationType: "values" },
+      },
+      deleteManagedFlag: true,
+    });
+    expect(removed.experiment.implementationType).toBe("none");
+    expect(removed.experiment.linkedFeatures).toEqual([]);
+    expect(await featureIdExists(context, FLAG)).toBe(false);
+
+    await run({
+      experiment: {
+        changes: { implementationType: "values" },
+        base: { implementationType: "none" },
+      },
+    });
+    expect(
+      (
+        await collection("features").findOne({
+          "managedBy.experimentId": EXP,
+        })
+      )?.id,
+    ).toBe(FLAG);
+  });
+
+  it("keeps the flag a racing save created instead of making a second", async () => {
+    await seed({ withDraft: false });
+    await setExperiment({
+      linkedFeatures: [],
+      implementationType: "values",
+      trackingKey: FLAG,
+    });
+    // The other save's flag, created but not linked yet.
+    await collection("features").updateOne(
+      { id: FLAG },
+      {
+        $set: {
+          managedBy: { type: "experiment", experimentId: EXP },
+          rules: [],
+        },
+      },
+    );
+
+    await run({ experiment: hypothesisChange("old") });
+
+    const managed = await collection("features")
+      .find({ "managedBy.experimentId": EXP })
+      .toArray();
+    expect(managed.map((f) => f.id)).toEqual([FLAG]);
+  });
+
   describe("a save adding a variation", () => {
     const addV2 = (stored: {
       variations: ReturnType<typeof seededVariations>;
@@ -1648,6 +1741,40 @@ describe("applyExperimentChanges", () => {
       });
     });
 
+    it("replaces Values with a URL Redirect in one save, deleting its flag", async () => {
+      await seed({ withDraft: false });
+      await makeFlagManaged();
+
+      const result = await run({
+        experiment: {
+          changes: { implementationType: "none" },
+          base: { implementationType: "values" },
+        },
+        deleteManagedFlag: true,
+        addUrlRedirects: [staged(A)],
+      });
+
+      expect(await featureIdExists(context, FLAG)).toBe(false);
+      expect(await storedRedirects()).toEqual([
+        expect.objectContaining({ urlPattern: A }),
+      ]);
+      expect(result.experiment).toMatchObject({
+        linkedFeatures: [],
+        hasURLRedirects: true,
+        implementationType: "urlredirect",
+      });
+    });
+
+    it("adds no URL Redirect beside a Values experiment's own flag", async () => {
+      await seed({ withDraft: false });
+      await makeFlagManaged();
+
+      await expect(run({ addUrlRedirects: [staged(A)] })).rejects.toThrow(
+        "serves its variation values from",
+      );
+      expect(await storedRedirects()).toEqual([]);
+    });
+
     it("adds no URL Redirect once the experiment started after it was loaded", async () => {
       await seedLinked();
       const loaded = await storedExperiment();
@@ -1806,10 +1933,10 @@ describe("applyExperimentChanges", () => {
         },
       },
       {
-        name: "a new URL Redirect beside an implementation type change",
+        name: "a new URL Redirect beside a switch to Values",
         body: {
           experiment: {
-            changes: { implementationType: "urlredirect", hypothesis: "new" },
+            changes: { implementationType: "values", hypothesis: "new" },
             base: { implementationType: null, hypothesis: "old" },
           },
           addUrlRedirects: [staged(A)],

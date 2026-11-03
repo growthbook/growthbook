@@ -4,6 +4,7 @@ import {
   deriveImplementationType,
   getImplementationType,
   hasImplementationLinkages,
+  storedImplementationType,
 } from "../src/util/implementation-type";
 import { canEditDeliveryInPlace } from "../src/util";
 
@@ -49,14 +50,39 @@ describe("getImplementationType", () => {
     ).toBe("values");
   });
 
+  it("is multi once anything sits beside the managed flag", () => {
+    expect(
+      getImplementationType({
+        linkedFeatures: ["f"],
+        hasManagedFlag: true,
+        hasURLRedirects: true,
+      }),
+    ).toBe("multi");
+    expect(
+      getImplementationType({
+        implementationType: "values",
+        linkedFeatures: ["f", "g"],
+      }),
+    ).toBe("multi");
+  });
+
   it("uses the stored value while nothing is linked", () => {
     expect(getImplementationType({ implementationType: "none" })).toBe("none");
     expect(getImplementationType({ implementationType: "visual" })).toBe(
       "visual",
     );
+  });
+
+  it("keeps a chosen mix whatever is linked so far", () => {
+    expect(getImplementationType({ implementationType: "multi" })).toBe(
+      "multi",
+    );
     expect(
-      getImplementationType({ implementationType: "multi" }),
-    ).toBeUndefined();
+      getImplementationType({
+        implementationType: "multi",
+        linkedFeatures: ["f"],
+      }),
+    ).toBe("multi");
   });
 
   it("lets what is wired up override a stale or missing stored value", () => {
@@ -72,16 +98,27 @@ describe("getImplementationType", () => {
         linkedFeatures: ["f"],
       }),
     ).toBe("feature");
-    expect(
-      getImplementationType({
-        implementationType: "values",
-        linkedFeatures: ["f"],
-        hasURLRedirects: true,
-      }),
-    ).toBe("multi");
     expect(getImplementationType({ hasURLRedirects: true })).toBe(
       "urlredirect",
     );
+  });
+});
+
+describe("storedImplementationType", () => {
+  it("keeps values through a mix, and stores what is derived otherwise", () => {
+    const mix = {
+      implementationType: "values" as const,
+      linkedFeatures: ["f"],
+      hasURLRedirects: true,
+    };
+    expect(getImplementationType(mix)).toBe("multi");
+    expect(storedImplementationType(mix)).toBe("values");
+    expect(
+      storedImplementationType({
+        implementationType: "feature",
+        hasURLRedirects: true,
+      }),
+    ).toBe("urlredirect");
   });
 });
 
@@ -100,6 +137,15 @@ describe("canChangeImplementationType", () => {
     expect(canChangeImplementationType(exp, "none")).toBe(false);
   });
 
+  it("can always become a mix", () => {
+    expect(
+      canChangeImplementationType(
+        { linkedFeatures: ["f"], hasURLRedirects: true },
+        "multi",
+      ),
+    ).toBe(true);
+  });
+
   it("lets a legacy experiment adopt the label its linkages imply", () => {
     expect(
       canChangeImplementationType({ linkedFeatures: ["f"] }, "feature"),
@@ -115,22 +161,13 @@ describe("implementationTypeAfterUnlink", () => {
         linkedFeatures: [],
       }),
     ).toBe("feature");
-    expect(implementationTypeAfterUnlink({})).toBeUndefined();
-  });
-
-  it("leaves a legacy mix undecided once nothing is linked", () => {
     expect(
       implementationTypeAfterUnlink({
         implementationType: "multi",
         hasVisualChangesets: false,
       }),
-    ).toBeUndefined();
-    expect(
-      implementationTypeAfterUnlink({
-        implementationType: "multi",
-        linkedFeatures: ["f"],
-      }),
     ).toBe("multi");
+    expect(implementationTypeAfterUnlink({})).toBeUndefined();
   });
 });
 

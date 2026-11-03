@@ -20,6 +20,7 @@ import {
   SettingsGroup,
   UnsavedMark,
 } from "@/components/GeneralSettings/SettingsGroup";
+import ImplementationTypeSelect from "@/components/Experiment/ImplementationTypeSelect";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 
@@ -53,6 +54,31 @@ export default function ExperimentSettings() {
 
   return (
     <>
+      <SettingsGroup
+        id="exp-defaults"
+        title="Defaults for New Experiments"
+        description="Applied when someone creates an experiment. A Project can set its own."
+        keywords="implementation type values feature flag visual editor url redirect none"
+      >
+        <SettingsField
+          name="defaultExperimentImplementation"
+          label="Implementation"
+          help="Preselected when creating an experiment."
+        >
+          <Box width="320px" maxWidth="100%">
+            <ImplementationTypeSelect
+              label={null}
+              value={form.watch("defaultExperimentImplementation")}
+              setValue={(value) =>
+                form.setValue("defaultExperimentImplementation", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+        </SettingsField>
+      </SettingsGroup>
+
       <SettingsGroup
         id="exp-launch"
         title="Launch Requirements"

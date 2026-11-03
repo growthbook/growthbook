@@ -122,9 +122,7 @@ export const putExperimentVariationValues = createApiRequestHandler(
   putExperimentVariationValuesValidator,
 )(async (req) => {
   const experiment = await requireExperiment(req.context, req.params.id);
-  if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
-    req.context.permissions.throwPermissionError();
-  }
+  // Values take the flag's authority, checked by each write below.
   const feature = await requireManagedFlag(req.context, experiment);
 
   // Validate before any write.
@@ -242,9 +240,6 @@ export const postExperimentVariationValuesPublish = createApiRequestHandler(
   postExperimentVariationValuesPublishValidator,
 )(async (req) => {
   const experiment = await requireExperiment(req.context, req.params.id);
-  if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
-    req.context.permissions.throwPermissionError();
-  }
   const feature = await requireManagedFlag(req.context, experiment);
 
   await publishManagedDraft({

@@ -758,18 +758,8 @@
       "count": 4
     }
   },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/DecisionFrameworkSettings.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/PValueThresholdField.tsx": {
-    "no-restricted-syntax": {
       "count": 1
     }
   },

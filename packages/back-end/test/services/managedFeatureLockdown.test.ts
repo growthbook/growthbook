@@ -72,11 +72,22 @@ describe("blockManagedFeatureWrites", () => {
     ["GET", "/feature/flag"],
     // The read-only eval POST.
     ["POST", "/feature/flag/3/eval"],
+    ["POST", "/feature/flag/eject-managed"],
   ])("allows %s %s on a managed flag", async (method, path) => {
     mockGetFeature.mockResolvedValue(feature(true));
     expect(await run(method, path, "flag")).toBeUndefined();
     expect(mockGetFeature).not.toHaveBeenCalled();
   });
+
+  it.each(["eval", "eject-managed"])(
+    "blocks writes to a managed flag keyed %s",
+    async (id) => {
+      mockGetFeature.mockResolvedValue(feature(true));
+      expect(await run("POST", `/feature/${id}`, id)).toBeInstanceOf(
+        ManagedFeatureError,
+      );
+    },
+  );
 
   it("allows a mutating request to an unmanaged flag", async () => {
     mockGetFeature.mockResolvedValue(feature(false));

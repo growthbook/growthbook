@@ -87,6 +87,7 @@ import { convertTemplateToExperiment } from "@/services/experiments";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import ImplementationTypeSelect, {
   implementationNoun,
+  useImplementationTypeField,
 } from "@/components/Experiment/ImplementationTypeSelect";
 import Link from "@/ui/Link";
 import Markdown from "@/components/Markdown/Markdown";
@@ -266,10 +267,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }),
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
-      implementationType:
-        initialValue?.implementationType === "multi"
-          ? undefined
-          : (initialValue?.implementationType ?? "none"),
+      implementationType: initialValue?.implementationType ?? "none",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,
@@ -344,6 +342,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const selectedProject = form.watch("project");
+  // A duplicate or template keeps its own; an import is analysis only.
+  const setImplementationType = useImplementationTypeField(
+    form,
+    !isImport && !initialValue?.implementationType,
+  );
 
   // Filter by the form-selected project — the page's project goes stale when
   // the selector changes.
@@ -969,7 +972,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <ImplementationTypeSelect
                   noun={implementationNoun(type)}
                   value={form.watch("implementationType")}
-                  setValue={(v) => form.setValue("implementationType", v)}
+                  setValue={setImplementationType}
                 />
               </Box>
             )}

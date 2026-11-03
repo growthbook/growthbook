@@ -2622,9 +2622,9 @@ export async function applyRevisionChanges(
   // restore, so a concurrent writer's newer value survives; the original
   // failure surfaces either way.
   try {
-    onSafeRolloutsWritten?.(
-      await updateSafeRolloutStatuses(context, feature, revision),
-    );
+    // Awaited apart from the callback: `?.()` skips its arguments when absent.
+    const written = await updateSafeRolloutStatuses(context, feature, revision);
+    onSafeRolloutsWritten?.(written);
   } catch (e) {
     try {
       await restorePublishedFeatureDoc(
@@ -2876,13 +2876,13 @@ export async function applyHoldoutSideEffects(
   }
 
   // Feature side only; planHoldoutExperimentLinkage owns the experiment half.
+  // Awaited apart from the callback: `?.()` skips its arguments when absent.
   if (newHoldoutId) {
-    onFeatureLinked?.(
-      await context.models.holdout.addFeatureToHoldout(
-        newHoldoutId,
-        feature.id,
-      ),
+    const entry = await context.models.holdout.addFeatureToHoldout(
+      newHoldoutId,
+      feature.id,
     );
+    onFeatureLinked?.(entry);
   }
 }
 

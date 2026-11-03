@@ -1,3 +1,4 @@
+import { selectableImplementationTypes } from "../constants";
 import type { ImplementationType } from "../validators/experiments";
 
 export type ImplementationLinkages = {
@@ -10,22 +11,16 @@ export type ImplementationLinkages = {
   hasManagedFlag?: boolean;
 };
 
-// "multi" is only ever derived. "none" picks a kind later, or never.
+// "none" picks a kind later, or never.
 export const SELECTABLE_IMPLEMENTATION_TYPES: ImplementationType[] = [
-  "none",
-  "values",
-  "feature",
-  "urlredirect",
-  "visual",
+  ...selectableImplementationTypes,
 ];
 
 // Removing the last implementation keeps the chosen kind, so the card still
-// offers that kind; only a legacy mix has no single kind to keep.
+// offers that kind.
 export function implementationTypeAfterUnlink(
   exp: ImplementationLinkages,
 ): ImplementationType | undefined {
-  if (exp.implementationType === "multi" && !hasImplementationLinkages(exp))
-    return undefined;
   return exp.implementationType ?? undefined;
 }
 
@@ -52,16 +47,32 @@ export function deriveImplementationType(
 }
 
 // Linkages win; the stored type only speaks while nothing is linked.
-// A managed flag is one linked flag, so "values" stands beside a single feature.
+// A Values experiment's one linked flag is its managed flag; anything beside
+// it makes a mix.
 export function getImplementationType(
   exp: ImplementationLinkages,
 ): ImplementationType | undefined {
-  if (exp.hasManagedFlag) return "values";
   const stored = exp.implementationType ?? undefined;
   const derived = deriveImplementationType(exp);
-  if (!derived) return stored === "multi" ? undefined : stored;
-  if (stored === "values" && derived === "feature") return "values";
-  return derived;
+  if (exp.hasManagedFlag || stored === "values") {
+    const onlyItsFlag =
+      !derived ||
+      (derived === "feature" && (exp.linkedFeatures?.length ?? 0) <= 1);
+    return onlyItsFlag ? "values" : "multi";
+  }
+  // Chosen, it stays a mix whatever is linked so far.
+  if (stored === "multi") return "multi";
+  return derived ?? stored;
+}
+
+// What a write stores: the derived type, except that "values" stays until it's
+// changed on purpose, since only the flag's marker says it.
+export function storedImplementationType(
+  exp: ImplementationLinkages,
+): ImplementationType | undefined {
+  return exp.implementationType === "values"
+    ? "values"
+    : getImplementationType(exp);
 }
 
 // Nothing is served from its setup: marked "none", or an older experiment with
@@ -71,11 +82,18 @@ export function isAnalysisOnly(exp: ImplementationLinkages): boolean {
   return !type || type === "none";
 }
 
-// Locked while anything is linked, except to the label the linkages already imply.
+// Leaving Values for these converts its flag, which stays linked; anything
+// else deletes it.
+export function keepsManagedFlag(next: ImplementationType): boolean {
+  return next === "feature" || next === "multi";
+}
+
+// Locked while anything is linked, except to the label the linkages already
+// imply, or to a mix, which holds anything.
 export function canChangeImplementationType(
   exp: ImplementationLinkages,
   next: ImplementationType,
 ): boolean {
-  if (!hasImplementationLinkages(exp)) return true;
+  if (next === "multi" || !hasImplementationLinkages(exp)) return true;
   return next === deriveImplementationType(exp);
 }

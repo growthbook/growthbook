@@ -262,6 +262,23 @@ export function experimentHasLinkedChanges(
   return hasImplementationLinkages(exp);
 }
 
+// A holdout change moves the experiment's own flag along; anything else linked
+// keeps the holdout it was published with.
+export function hasLinkedChangesBesidesManagedFlag(
+  exp: Pick<
+    ExperimentInterface,
+    "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
+  >,
+  managedFeatureId: string | null,
+): boolean {
+  return experimentHasLinkedChanges({
+    ...exp,
+    linkedFeatures: (exp.linkedFeatures ?? []).filter(
+      (id) => id !== managedFeatureId,
+    ),
+  });
+}
+
 export function hasPendingScheduledStart(exp: {
   nextScheduledStatusUpdate?: { type: string } | null;
 }): boolean {

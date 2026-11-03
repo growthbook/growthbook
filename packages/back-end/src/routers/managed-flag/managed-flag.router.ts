@@ -28,7 +28,6 @@ router.get(
 );
 router.post("/", experimentsController.postExperimentManagedFlag);
 router.post("/eject", experimentsController.postExperimentManagedFlagEject);
-router.post("/remove", experimentsController.postExperimentManagedFlagRemove);
 
 // Review routes reuse the feature controllers so the lifecycle can't drift.
 router.post(

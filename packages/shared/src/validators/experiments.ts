@@ -3,6 +3,7 @@ import {
   statsEngines,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
   MAX_DESCRIPTION_LENGTH,
+  selectableImplementationTypes,
 } from "shared/constants";
 import { REQUIRES_PERSON_NOTE } from "./event-user";
 import {
@@ -196,8 +197,8 @@ const legacyImplementation = [
   "custom",
 ] as const;
 
-// How the experiment reaches users. "multi" is derived for legacy experiments
-// with several kinds; "none" is deliberate; absent means undecided.
+// How the experiment reaches users. "multi" allows several kinds at once;
+// "none" is deliberate; absent means undecided.
 export const implementationType = [
   "values",
   "feature",
@@ -207,6 +208,8 @@ export const implementationType = [
   "none",
 ] as const;
 export type ImplementationType = (typeof implementationType)[number];
+export type SelectableImplementationType =
+  (typeof selectableImplementationTypes)[number];
 
 export const experimentNotification = [
   "auto-update",
@@ -1505,9 +1508,9 @@ const apiPhaseInput = z.object({
 });
 
 const implementationTypeBodyField = z
-  .enum(["values", "feature", "urlredirect", "visual", "none"])
+  .enum(["values", "feature", "urlredirect", "visual", "multi", "none"])
   .describe(
-    'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
+    'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "multi" combines Feature Flags, Visual Editor changes and URL Redirects; "none" is analysis only. A single kind is fixed once a Feature Flag, Visual Editor change or URL Redirect is linked, while "multi" can be chosen at any time. Changing a Values experiment: "feature" or "multi" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
   )
   .optional();
 

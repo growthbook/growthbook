@@ -1,0 +1,39 @@
+// Its last line fades out toward the link to the rest, which sits over the
+// end of it. The padding below, where the next line starts, stays hidden.
+.clamped {
+  mask-image:
+    linear-gradient(#000, #000),
+    linear-gradient(to left, transparent 5.5em, #000 9em);
+  mask-size:
+    100% calc(100% - 1lh - var(--space-1)),
+    100% 1lh;
+  mask-position:
+    top,
+    left 0 bottom var(--space-1);
+  mask-repeat: no-repeat;
+}
+
+.more {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+// The whole comment opens it, so the link answers to a hover anywhere on it.
+.comment {
+  outline: none;
+
+  &:has(.more) {
+    cursor: pointer;
+  }
+
+  // Tints the card's surface, drawn by its ::before, under the text.
+  &:has(.more):hover :global(.rt-Card)::before {
+    background-image: linear-gradient(var(--gray-a1), var(--gray-a1));
+  }
+
+  &:hover .more {
+    color: var(--accent-10);
+    text-decoration-line: underline;
+  }
+}

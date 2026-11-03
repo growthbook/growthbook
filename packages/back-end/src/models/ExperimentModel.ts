@@ -4,7 +4,7 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import {
   changesetOwnerRef,
-  getImplementationType,
+  storedImplementationType,
   implementationTypeAfterUnlink,
   includeExperimentInPayload,
   hasVisualChanges,
@@ -1020,7 +1020,7 @@ export async function updateExperiment({
 
   // Linkages outrank a stored implementationType; a stale one is fixed on write.
   const merged = { ...experiment, ...changes };
-  const effectiveImplementationType = getImplementationType(merged);
+  const effectiveImplementationType = storedImplementationType(merged);
   const allChanges = {
     ...changes,
     ...(effectiveImplementationType &&

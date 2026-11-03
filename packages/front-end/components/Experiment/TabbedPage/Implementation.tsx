@@ -17,9 +17,9 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import {
   canEditDeliveryInPlace,
-  experimentHasLinkedChanges,
   getImplementationType,
   getLinkedChangeEnvs,
+  hasLinkedChangesBesidesManagedFlag,
   hasPendingScheduledStart,
   isManagedByExperiment,
 } from "shared/util";
@@ -34,6 +34,7 @@ import { PiWarningFill } from "react-icons/pi";
 import UrlRedirectColumn from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import {
   ADDABLE_KINDS,
+  type AddableKind,
   AddImplementationMenu,
 } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import VisualChangesetColumn from "@/components/Experiment/VisualChangesetColumn";
@@ -45,6 +46,7 @@ import {
   StagedNote,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -77,6 +79,7 @@ import {
   FlagEnvironmentsDraft,
   HoldoutDraft,
   ImplementationTypeDraft,
+  experimentFieldChanges,
   useExperimentEdits,
   useExperimentFieldEdit,
   useRegisterExperimentEdit,
@@ -234,6 +237,7 @@ export default function Implementation({
   const pendingScheduledStart = hasPendingScheduledStart(experiment);
 
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const { requireProjectForFeatures } = useOrgSettings();
 
   const [linkedDraft, setLinkedDraft] = useStagedState<LinkedChangesDraft>(
@@ -285,11 +289,14 @@ export default function Implementation({
   const [redirectModal, setRedirectModal] = useState<{
     // Null to add one.
     target: ShownRedirect | null;
+    replacesValues?: boolean;
   } | null>(null);
   // Every check the save runs, so a refusal shows in the modal, not at Save.
   const stageRedirect = async (
     target: ShownRedirect | null,
     fields: RedirectFields,
+    // Staged with it once the checks pass, ahead of it.
+    alongside?: () => void,
   ) => {
     const key = newRedirectKey(linkedDraft);
     const change = (d: LinkedChangesDraft) =>
@@ -298,6 +305,7 @@ export default function Implementation({
       LINKED_CHANGES_EDIT_ID,
       linkedChangesBody(change(stagedLinked), shownVariationIds),
     );
+    alongside?.();
     setLinkedDraft(change);
   };
   const { canEdit: canEditExperiment } = useExperimentEditing(experiment);
@@ -305,11 +313,18 @@ export default function Implementation({
   const { hasCommercialFeature } = useUser();
   const unscheduledDraft =
     experiment.status === "draft" && !experiment.nextScheduledStatusUpdate;
-  // Mirrors the server: a holdout changes only on a draft with nothing linked.
+  // Mirrors the server: a holdout changes only on a draft with nothing linked
+  // but its own flag.
+  const managedFeature =
+    linkedFeatures.find((f) => isManagedByExperiment(f.feature, experiment.id))
+      ?.feature ?? null;
+  const managedFeatureId = managedFeature?.id ?? null;
+  const holdoutBoundLinks = hasLinkedChangesBesidesManagedFlag(
+    experiment,
+    managedFeatureId,
+  );
   const holdoutEditable =
-    experiment.type !== "holdout" &&
-    unscheduledDraft &&
-    !experimentHasLinkedChanges(experiment);
+    experiment.type !== "holdout" && unscheduledDraft && !holdoutBoundLinks;
   const holdoutInReach = !!holdoutDraft && canEdit;
   // Leaving needs nothing more; joining or switching needs the feature.
   const canStageHoldout = holdoutInReach && holdoutEditable;
@@ -318,7 +333,7 @@ export default function Implementation({
     holdoutInReach &&
     experiment.type !== "holdout" &&
     experiment.status === "draft" &&
-    experimentHasLinkedChanges(experiment)
+    holdoutBoundLinks
       ? "A holdout can only change while nothing is linked to this experiment."
       : null;
   // A staged holdout the experiment has since outgrown (started, or gained a
@@ -354,7 +369,7 @@ export default function Implementation({
       : null;
   const shownRedirects = shownUrlRedirects(stagedLinked, urlRedirects);
   const shownChangesets = shownVisualChangesets(stagedLinked, visualChangesets);
-  const [addedFlags] = useAddedFlags();
+  const [addedFlags, setAddedFlags] = useAddedFlags();
   const hasFlags = linkedFeatures.length > 0 || addedFlags.length > 0;
   const hasVisual = shownChangesets.length > 0;
   const hasRedirects = shownRedirects.length > 0;
@@ -364,26 +379,61 @@ export default function Implementation({
         kind
       ],
   );
-  const hasManagedFlag = linkedFeatures.some((f) =>
-    isManagedByExperiment(f.feature, experiment.id),
-  );
+  const hasManagedFlag = managedFeatureId !== null;
   const stagedType = implementationTypeDraft?.value?.type ?? null;
-  // Staged changes included. Once chosen, a single kind only adds more of
-  // itself; changing it means changing the implementation type.
+  // Staged off Values, the rest reads as the save leaves it: converted, the
+  // flag stays linked; removed, it's gone.
+  const keepsValues =
+    hasManagedFlag && (stagedType === null || stagedType === "values");
+  const deletesValues = !!implementationTypeDraft?.value?.deletesManagedFlag;
+  // Values sits beside nothing else: however its change is undone, what was
+  // added in its place goes too.
+  const addedBesideValues =
+    keepsValues &&
+    (linkedDraft.addedRedirects.length > 0 || addedFlags.length > 0);
+  useEffect(() => {
+    if (!addedBesideValues) return;
+    setLinkedDraft((d) => ({ ...d, addedRedirects: [] }));
+    setAddedFlags([]);
+  }, [addedBesideValues, setLinkedDraft, setAddedFlags]);
+  // Staged changes included.
   const implementationType = getImplementationType({
     implementationType: stagedType ?? experiment.implementationType,
     linkedFeatures: [
-      ...linkedFeatures.map((f) => f.feature.id),
+      ...linkedFeatures
+        .map((f) => f.feature.id)
+        .filter((id) => !deletesValues || id !== managedFeatureId),
       ...addedFlags.map((a) => a.feature.id),
     ],
     hasVisualChangesets: hasVisual,
     hasURLRedirects: hasRedirects,
-    hasManagedFlag,
+    hasManagedFlag: keepsValues,
   });
   const addKind =
-    implementationType === "multi"
-      ? shownKinds[0]
-      : (ADDABLE_KINDS.find((kind) => kind === implementationType) ?? null);
+    implementationType === "values"
+      ? ADDABLE_KINDS[0]
+      : implementationType === "multi"
+        ? (shownKinds[0] ?? ADDABLE_KINDS[0])
+        : (ADDABLE_KINDS.find((kind) => kind === implementationType) ?? null);
+  // What a draft's Values can change to, each with the save: a Feature Flag
+  // by converting its flag, anything else by deleting it.
+  const managedEnvs = managedFeature
+    ? getEnabledEnvironments(managedFeature, allEnvironments)
+    : [];
+  const valuesChangesTo: AddableKind[] =
+    keepsValues &&
+    managedFeature &&
+    implementationTypeDraft &&
+    experiment.status === "draft"
+      ? ADDABLE_KINDS.filter((kind) =>
+          kind === "feature"
+            ? permissionsUtil.canPublishFeature(managedFeature, managedEnvs)
+            : permissionsUtil.canDeleteFeature(managedFeature, managedEnvs),
+        )
+      : [];
+  // Staged only once what replaces it is, so backing out leaves Values as it was.
+  const leaveValues = () =>
+    implementationTypeDraft?.set({ type: "none", deletesManagedFlag: true });
   // Saving creates the flag, as the server does for any Values experiment
   // without one.
   const canChooseValues =
@@ -442,27 +492,39 @@ export default function Implementation({
     getLatestPhaseVariations(experiment)
       .map((v) => v.id)
       .join();
-  const [saveBeforeVisual, setSaveBeforeVisual] = useState(false);
-  // The experiment's own Feature Flag is its whole implementation.
+  // What a Visual Editor change waits on: the experiment it's added to is the
+  // saved one.
+  const [saveBeforeVisual, setSaveBeforeVisual] = useState<
+    "variations" | "values" | null
+  >(null);
   const addImplementation =
     stagedType === "values" && !hasManagedFlag ? (
       <StagedNote onUndo={() => implementationTypeDraft?.set(null)}>
         Saving creates this experiment&apos;s Feature Flag to serve its
         variation values.
       </StagedNote>
-    ) : canAddAny && implementationType !== "values" ? (
+    ) : canAddAny && (!keepsValues || valuesChangesTo.length) ? (
       <AddImplementationMenu
         experiment={experiment}
         onAdd={{
-          feature: () => setFeatureModal(true),
+          feature: keepsValues
+            ? () =>
+                implementationTypeDraft?.set({
+                  type: "feature",
+                  deletesManagedFlag: false,
+                })
+            : () => setFeatureModal(true),
           visual: () =>
-            variationsUnsaved
-              ? setSaveBeforeVisual(true)
-              : setVisualEditorModal(true),
-          urlredirect: () => setRedirectModal({ target: null }),
+            keepsValues
+              ? setSaveBeforeVisual("values")
+              : variationsUnsaved
+                ? setSaveBeforeVisual("variations")
+                : setVisualEditorModal(true),
+          urlredirect: () =>
+            setRedirectModal({ target: null, replacesValues: keepsValues }),
         }}
         primary={addKind}
-        mixed={implementationType === "multi"}
+        changesValuesTo={keepsValues ? valuesChangesTo : null}
         blockedReasons={{
           feature: addBlockedReason,
           visual: linkedChangesLockedReason,
@@ -542,7 +604,13 @@ export default function Implementation({
           experiment={experiment}
           variations={shownVariations}
           urlRedirect={redirectModal.target ?? undefined}
-          stage={(fields) => stageRedirect(redirectModal.target, fields)}
+          stage={(fields) =>
+            stageRedirect(
+              redirectModal.target,
+              fields,
+              redirectModal.replacesValues ? leaveValues : undefined,
+            )
+          }
           close={() => setRedirectModal(null)}
           source={
             redirectModal.target ? "redirect-linked-changes" : "tabbed-page"
@@ -551,15 +619,35 @@ export default function Implementation({
       ) : null}
       {saveBeforeVisual ? (
         <ConfirmDialog
-          title="Save changes first?"
-          content="Visual changes are added to the saved experiment, so its variation changes need saving first. This saves all your staged changes."
+          title={
+            saveBeforeVisual === "values"
+              ? "Replace Values with AI Visual Editor changes?"
+              : "Save changes first?"
+          }
+          content={
+            saveBeforeVisual === "values"
+              ? "AI Visual Editor changes are added to the saved experiment, so this saves your staged changes now and deletes this experiment's Feature Flag."
+              : "AI Visual Editor changes are added to the saved experiment, so its staged changes need saving first. This saves all your staged changes."
+          }
           yesText="Save and continue"
           onConfirm={async () => {
-            setSaveBeforeVisual(false);
-            // A refused save shows why on the save bar.
-            if ((await edits?.saveAll()) === null) setVisualEditorModal(true);
+            const replacesValues = saveBeforeVisual === "values";
+            setSaveBeforeVisual(null);
+            // Saved with the rest rather than staged, so cancelling here
+            // leaves Values as it was. A refused save shows why on the bar.
+            const refusal = await edits?.saveAll(
+              replacesValues
+                ? {
+                    ...experimentFieldChanges(experiment, {
+                      implementationType: "none",
+                    }),
+                    deleteManagedFlag: true,
+                  }
+                : undefined,
+            );
+            if (refusal === null) setVisualEditorModal(true);
           }}
-          onCancel={() => setSaveBeforeVisual(false)}
+          onCancel={() => setSaveBeforeVisual(null)}
         />
       ) : null}
       {editingKeys && canEditExperiment && (

@@ -7,7 +7,7 @@ import {
   DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { getImplementationType, stringifyFeatureValue } from "shared/util";
+import { storedImplementationType, stringifyFeatureValue } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -705,7 +705,7 @@ export function upgradeExperimentDoc(
   const experiment = cloneDeep(orig);
 
   // Linkages outrank the stored type; unset when nothing is linked so the picker stays open.
-  const effectiveImplementationType = getImplementationType(experiment);
+  const effectiveImplementationType = storedImplementationType(experiment);
   if (effectiveImplementationType) {
     experiment.implementationType = effectiveImplementationType;
   } else {

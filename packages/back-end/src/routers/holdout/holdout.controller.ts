@@ -46,6 +46,7 @@ import {
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { logger } from "back-end/src/util/logger";
+import { assertLoadedFeatureNotManaged } from "back-end/src/services/managedFeatures";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { SoftWarningError } from "back-end/src/util/errors";
@@ -468,6 +469,8 @@ export const deleteHoldoutFeature = async (
       message: "Feature is not linked to a holdout",
     });
   }
+  // Its holdout follows the experiment's.
+  assertLoadedFeatureNotManaged(feature);
 
   // Stripping the holdout changes what the live flag serves, so it takes
   // publish authority over the environments it serves in — not draft authority.

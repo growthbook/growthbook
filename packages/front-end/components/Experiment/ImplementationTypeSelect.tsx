@@ -1,8 +1,21 @@
-import { type CSSProperties } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef } from "react";
 import { Flex, type AvatarProps } from "@radix-ui/themes";
-import { ExperimentType, ImplementationType } from "shared/validators";
+import type { UseFormReturn } from "react-hook-form";
+import {
+  ExperimentType,
+  ImplementationType,
+  SelectableImplementationType,
+} from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SELECTABLE_IMPLEMENTATION_TYPES } from "shared/util";
+import { getScopedSettings } from "shared/settings";
+import { DEFAULT_EXPERIMENT_IMPLEMENTATION } from "shared/constants";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { PiChartBar, PiDesktop, PiFlag, PiLink, PiTag } from "react-icons/pi";
+import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Avatar from "@/ui/Avatar";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
@@ -50,7 +63,8 @@ export const IMPLEMENTATION_TYPE_OPTIONS: Record<ImplementationType, Option> = {
   },
   multi: {
     header: "Multiple",
-    description: () => "More than one kind of implementation",
+    description: () =>
+      "Combine Feature Flags, AI Visual Editor changes and URL Redirects",
     icon: <PiChartBar />,
     color: "gray",
   },
@@ -154,38 +168,106 @@ function ImplementationTypeLabel({
   );
 }
 
+/**
+ * What a new experiment in this Project starts as: the Project's setting, else
+ * the organization's. Values gives way to none where its flag can't be created.
+ */
+function useDefaultImplementationType(projectId: string): ImplementationType {
+  const { organization } = useUser();
+  const { getProjectById } = useDefinitions();
+  const { requireProjectForFeatures } = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
+  const type =
+    getScopedSettings({
+      organization,
+      project: getProjectById(projectId) ?? undefined,
+    }).settings.defaultExperimentImplementation.value ??
+    DEFAULT_EXPERIMENT_IMPLEMENTATION;
+  const valuesBlocked =
+    !permissionsUtil.canCreateFeature(
+      { project: projectId },
+      NO_ENVIRONMENT_BINDING,
+    ) ||
+    (!!requireProjectForFeatures && !projectId);
+  return type === "values" && valuesBlocked ? "none" : type;
+}
+
+/**
+ * Keeps a create form's implementation type on its Project's default until
+ * someone picks one; returns the setter for that pick.
+ */
+export function useImplementationTypeField(
+  form: UseFormReturn<Partial<ExperimentInterfaceStringDates>>,
+  enabled = true,
+): (value: ImplementationType | undefined) => void {
+  const fallback = useDefaultImplementationType(form.watch("project") ?? "");
+  const picked = useRef(false);
+  useEffect(() => {
+    if (enabled && !picked.current) {
+      form.setValue("implementationType", fallback);
+    }
+  }, [enabled, fallback, form]);
+  return (value) => {
+    picked.current = true;
+    form.setValue("implementationType", value);
+  };
+}
+
 export default function ImplementationTypeSelect({
   value,
   setValue,
   noun = "experiment",
+  label = "Implementation",
+  inherited,
 }: {
   value: ImplementationType | undefined;
-  setValue: (value: ImplementationType) => void;
+  // Only what it offers can be picked.
+  setValue: (value: SelectableImplementationType | undefined) => void;
   noun?: string;
+  label?: ReactNode;
+  // Where it can follow a parent setting: what that is, offered as the empty
+  // choice.
+  inherited?: ImplementationType;
 }) {
   return (
     <SelectField
-      label="Implementation"
+      label={label}
       value={value ?? ""}
-      onChange={(v) => setValue(v as ImplementationType)}
+      onChange={(v) =>
+        setValue((v || undefined) as SelectableImplementationType | undefined)
+      }
       // The current value stays visible even when it is not offered.
       options={[
-        ...SELECTABLE_IMPLEMENTATION_TYPES,
-        ...(value && !SELECTABLE_IMPLEMENTATION_TYPES.includes(value)
-          ? [value]
+        ...(inherited
+          ? [
+              {
+                value: "",
+                label: `Organization default (${IMPLEMENTATION_TYPE_OPTIONS[inherited].header})`,
+              },
+            ]
           : []),
-      ].map((type) => ({
-        value: type,
-        label: IMPLEMENTATION_TYPE_OPTIONS[type].header,
-        isDisabled: !SELECTABLE_IMPLEMENTATION_TYPES.includes(type),
-      }))}
-      formatOptionLabel={(option, { context }) => (
-        <ImplementationTypeLabel
-          type={option.value as ImplementationType}
-          noun={noun}
-          compact={context === "value"}
-        />
-      )}
+        ...[
+          ...SELECTABLE_IMPLEMENTATION_TYPES,
+          ...(value && !SELECTABLE_IMPLEMENTATION_TYPES.includes(value)
+            ? [value]
+            : []),
+        ].map((type) => ({
+          value: type,
+          label: IMPLEMENTATION_TYPE_OPTIONS[type].header,
+          isDisabled: !SELECTABLE_IMPLEMENTATION_TYPES.includes(type),
+        })),
+      ]}
+      formatOptionLabel={(option, { context }) =>
+        option.value ? (
+          <ImplementationTypeLabel
+            type={option.value as ImplementationType}
+            noun={noun}
+            compact={context === "value"}
+          />
+        ) : (
+          <Text>{option.label}</Text>
+        )
+      }
       isSearchable={false}
       sort={false}
       // Every option at once: it opens upward rather than scroll when there

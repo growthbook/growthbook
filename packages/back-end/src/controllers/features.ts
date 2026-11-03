@@ -287,7 +287,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
-import { resumeFeatureRename } from "back-end/src/services/featureRename/renameManagedFlag";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRepair";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
@@ -5997,16 +5996,6 @@ export async function getFeatureById(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  // A rename that stopped partway leaves revisions under the old id.
-  if (feature.renaming) {
-    await resumeFeatureRename(context, feature).catch((e) =>
-      logger.error(
-        { err: e, featureId: feature.id },
-        "Could not finish renaming a Feature Flag",
-      ),
-    );
-  }
-
   const [minimalRevisions, rampScheduleDocs, holdout] = await Promise.all([
     getMinimalRevisions(context, org.id, id),
     context.models.rampSchedules.getAllByFeatureId(feature.id),

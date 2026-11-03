@@ -22,29 +22,39 @@ export function QuickEditRow({
   label,
   onEdit,
   align = "start",
+  centered = false,
   children,
 }: {
   label: string;
   onEdit?: (() => void) | null;
   align?: "start" | "center";
+  // Wraps around its centre, the button spilling past the end so it doesn't
+  // pull the content off centre.
+  centered?: boolean;
   children: ReactNode;
 }) {
+  const button = onEdit ? (
+    <QuickEditButton
+      label={label}
+      onClick={onEdit}
+      labelTooltip={false}
+      fillsRow
+    />
+  ) : null;
   return (
     <Flex
       align={align}
-      justify="between"
+      justify={centered ? "center" : "between"}
+      wrap={centered ? "wrap" : undefined}
       gap="3"
       className={onEdit ? clsx(styles.revealsEdit, styles.clickRow) : undefined}
     >
       {children}
-      {onEdit ? (
-        <QuickEditButton
-          label={label}
-          onClick={onEdit}
-          labelTooltip={false}
-          fillsRow
-        />
-      ) : null}
+      {button && centered ? (
+        <span className={styles.spills}>{button}</span>
+      ) : (
+        button
+      )}
     </Flex>
   );
 }

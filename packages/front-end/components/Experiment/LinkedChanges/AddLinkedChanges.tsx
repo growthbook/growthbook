@@ -8,6 +8,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ReactElement } from "react";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import {
+  PiCaretDownBold,
   PiCaretDownFill,
   PiDesktop,
   PiFlag,
@@ -19,9 +20,14 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import Avatar from "@/ui/Avatar";
 import Frame from "@/ui/Frame";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
 import {
@@ -244,7 +250,7 @@ export default function AddLinkedChanges({
 }
 
 // The experiment page's own add controls.
-type AddableKind = "feature" | "visual" | "urlredirect";
+export type AddableKind = "feature" | "visual" | "urlredirect";
 export const ADDABLE_KINDS: AddableKind[] = [
   "feature",
   "visual",
@@ -386,7 +392,7 @@ export function AddImplementationMenu({
   experiment,
   onAdd,
   primary = null,
-  mixed = false,
+  changesValuesTo = null,
   blockedReasons = {},
   values = null,
 }: {
@@ -395,14 +401,38 @@ export function AddImplementationMenu({
   // The kind the main button adds; none while no kind is chosen yet, when
   // each kind is listed with what it's for.
   primary?: AddableKind | null;
-  // A mix of kinds can add any other; otherwise it adds only more of its one.
-  mixed?: boolean;
+  // On a Values experiment, the kinds that can take its place.
+  changesValuesTo?: AddableKind[] | null;
   // Why a kind can't be added right now.
   blockedReasons?: Partial<Record<AddableKind, string | null>>;
   // Offered while no kind is chosen: values the experiment's own Feature
   // Flag serves.
   values?: { choose: () => void; blockedReason: string | null } | null;
 }) {
+  if (changesValuesTo) {
+    return (
+      <DropdownMenu
+        trigger={
+          <Link size="sm" color="gray">
+            Change implementation <PiCaretDownBold size={10} />
+          </Link>
+        }
+        menuPlacement="end"
+        variant="soft"
+      >
+        <DropdownMenuLabel>Change implementation</DropdownMenuLabel>
+        {changesValuesTo.map((type) => (
+          <AddImplementationItem
+            key={type}
+            type={type}
+            experiment={experiment}
+            onClick={onAdd[type]}
+            blockedReason={blockedReasons[type]}
+          />
+        ))}
+      </DropdownMenu>
+    );
+  }
   if (!primary) {
     const valuesOption = IMPLEMENTATION_TYPE_OPTIONS.values;
     // Values stands apart in its own box; the others are the less routine path.
@@ -458,32 +488,20 @@ export function AddImplementationMenu({
       </Flex>
     );
   }
-  if (!mixed) {
-    return (
-      <AddImplementationButton
-        type={primary}
-        experiment={experiment}
-        onClick={onAdd[primary]}
-        blockedReason={blockedReasons[primary]}
-      />
-    );
-  }
   return (
     <SplitButton
       variant="outline"
       menu={
         <DropdownMenu
           trigger={
-            <Button
-              variant="outline"
-              aria-label="Add another kind of implementation"
-            >
+            <Button variant="outline" aria-label="Add implementation menu">
               <PiCaretDownFill />
             </Button>
           }
           menuPlacement="end"
           variant="soft"
         >
+          <DropdownMenuLabel>Add implementation</DropdownMenuLabel>
           {ADDABLE_KINDS.filter((type) => type !== primary).map((type) => (
             <AddImplementationItem
               key={type}

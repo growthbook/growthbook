@@ -8,7 +8,9 @@ import {
   isManagedByExperiment,
   featureKeyFormatError,
   FEATURE_KEY_PATTERN,
-  getImplementationType,
+  type ImplementationLinkages,
+  keepsManagedFlag,
+  storedImplementationType,
   managedFeatureKeyCandidate,
   mergeResultHasChanges,
   seedManagedVariationValues,
@@ -37,6 +39,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { expressApiHandler, OpenApiRoute } from "back-end/src/util/handler";
 import {
+  applyHoldoutSideEffects,
   createFeature,
   deleteFeature,
   featureIdExists,
@@ -439,6 +442,12 @@ export async function createManagedFeatureForExperiment({
         await discardOrphanedManagedFlag(context, id);
         throw e;
       }
+      // A save racing this one created the flag first; it's the one to keep.
+      const taken = await getFeature(context, id);
+      if (taken && isManagedByExperiment(taken, experiment.id)) {
+        const draft = await getActiveDraft(context, taken);
+        return { feature: taken, version: draft?.version ?? taken.version };
+      }
       // The index is the arbiter; an explicit id has a caller who can pick another.
       if (featureId !== undefined) {
         throw new Error(
@@ -616,12 +625,11 @@ export function assertManagedFlagKeyFormat(
 
 /** Every Values experiment owns a managed flag, except a holdout. */
 export function ownsManagedFlag(
-  experiment: Parameters<typeof getImplementationType>[0] &
-    Pick<ExperimentInterface, "type">,
+  experiment: ImplementationLinkages & Pick<ExperimentInterface, "type">,
 ): boolean {
   return (
     experiment.type !== "holdout" &&
-    getImplementationType(experiment) === "values"
+    storedImplementationType(experiment) === "values"
   );
 }
 
@@ -1158,6 +1166,8 @@ export async function publishManagedDraft({
 }): Promise<FeatureInterface> {
   const feature = await requireManagedFeature(context, experiment);
   // Publish-class: it changes what a running experiment serves.
+  // TODO: that also changes what it measures; consider routing value changes
+  // through Make Changes, with experiment permission too.
   if (
     !context.permissions.canPublishFeature(
       feature,
@@ -1387,7 +1397,7 @@ export async function planImplementationTypeRelease(
   if (next === current) return null;
 
   const afterRelease =
-    managed && next !== "feature"
+    managed && !keepsManagedFlag(next)
       ? {
           ...experiment,
           linkedFeatures: (experiment.linkedFeatures ?? []).filter(
@@ -1405,7 +1415,7 @@ export async function planImplementationTypeRelease(
   return { releaseManagedFlagFor: managed ? next : null };
 }
 
-// Feature Flag keeps it as an ordinary linked flag; anything else deletes it (drafts only).
+// Converts the flag where it stays linked; anything else deletes it (drafts only).
 export async function releaseManagedFlagForImplementationChange({
   context,
   experiment,
@@ -1422,7 +1432,7 @@ export async function releaseManagedFlagForImplementationChange({
   if (next === "values") return experiment;
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) return experiment;
-  if (next !== "feature" && !acknowledged) {
+  if (!keepsManagedFlag(next) && !acknowledged) {
     throw new SoftWarningError(
       "Changing the implementation type deletes the managed Feature Flag.",
       [
@@ -1430,7 +1440,7 @@ export async function releaseManagedFlagForImplementationChange({
       ],
     );
   }
-  if (next === "feature") {
+  if (keepsManagedFlag(next)) {
     await ejectManagedFeature({
       context,
       feature,
@@ -1443,7 +1453,42 @@ export async function releaseManagedFlagForImplementationChange({
   return (await getExperimentById(context, experiment.id)) ?? experiment;
 }
 
-export async function removeManagedFeatureForExperiment(
+// Only on a draft, whose flag isn't serving yet: live and the pending draft
+// both take the experiment's new holdout, so starting it publishes no change.
+export async function moveManagedFlagHoldout(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  const holdoutId = experiment.holdoutId || null;
+  if (!feature || (feature.holdout?.id ?? null) === holdoutId) return;
+  const draft = await getActiveDraft(context, feature);
+  // Holdout users get control.
+  const holdout = holdoutId
+    ? { id: holdoutId, value: draft?.defaultValue ?? feature.defaultValue }
+    : null;
+  await updateFeature(context, feature, holdout ? { holdout } : {}, {
+    casOnDateUpdated: feature.dateUpdated,
+    unsetHoldout: !holdout,
+  });
+  await applyHoldoutSideEffects(context, feature, holdout, { skipGuard: true });
+  if (draft) {
+    await updateRevision(
+      context,
+      feature,
+      draft,
+      { holdout },
+      {
+        user: context.auditUser,
+        action: "edit holdout",
+        subject: holdoutId ? `to ${holdoutId}` : "removed",
+        value: JSON.stringify(holdout),
+      },
+    );
+  }
+}
+
+async function removeManagedFeatureForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   audit?: (data: AuditInterfaceInput) => Promise<void>,
@@ -1598,7 +1643,10 @@ function isMutatingMethod(method: string): boolean {
 }
 
 // Reads that are POSTs, and the eject that ends the lockdown.
-const LOCKDOWN_EXEMPT_POST_PATHS = [/\/eval$/, /\/eject-managed$/];
+const LOCKDOWN_EXEMPT_POST_PATHS = [
+  /^\/feature\/[^/]+\/[^/]+\/eval$/,
+  /^\/feature\/[^/]+\/eject-managed$/,
+];
 
 export const blockManagedFeatureWrites: RequestHandler = (req, res, next) => {
   if (!isMutatingMethod(req.method)) return next();

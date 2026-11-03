@@ -189,7 +189,6 @@ import {
   managedFlagAdoptionBlocker,
   planManagedFlagKey,
   publishManagedDraft,
-  removeManagedFeatureForExperiment,
   requireManagedFeature,
 } from "back-end/src/services/managedFeatures";
 import {
@@ -1320,13 +1319,6 @@ export async function postExperiments(
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
 
-  if (data.implementationType === "multi") {
-    res.status(400).json({
-      status: 400,
-      message: "implementationType cannot be set to multi",
-    });
-    return;
-  }
   const originalExperiment = req.query.originalId
     ? await getExperimentById(context, req.query.originalId)
     : null;
@@ -1336,7 +1328,7 @@ export async function postExperiments(
       const inherited = originalExperiment
         ? getImplementationType(originalExperiment)
         : undefined;
-      if (inherited && inherited !== "multi") {
+      if (inherited) {
         data.implementationType = inherited;
       }
     } else if (data.linkedFeatures?.length) {
@@ -3572,10 +3564,7 @@ export async function postExperimentManagedFlagPublish(
     throw new NotFoundError("Experiment not found");
   }
 
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
-    context.permissions.throwPermissionError();
-  }
-
+  // Publishing values takes the flag's authority, checked inside.
   const feature = await publishManagedDraft({
     context,
     experiment,
@@ -3586,22 +3575,6 @@ export async function postExperimentManagedFlagPublish(
   });
 
   res.status(200).json({ status: 200, feature });
-}
-
-export async function postExperimentManagedFlagRemove(
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>,
-) {
-  const context = getContextFromReq(req);
-  const experiment = await getExperimentById(context, req.params.id);
-  if (!experiment) {
-    throw new NotFoundError("Experiment not found");
-  }
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
-    context.permissions.throwPermissionError();
-  }
-  await removeManagedFeatureForExperiment(context, experiment, req.audit);
-  res.status(200).json({ status: 200 });
 }
 
 export async function postExperimentManagedFlagEject(

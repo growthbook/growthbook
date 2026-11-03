@@ -4,6 +4,7 @@ import {
   OWNER_JOB_TITLES,
   USAGE_INTENTS,
   attributeDataTypes,
+  selectableImplementationTypes,
 } from "shared/constants";
 import {
   ENV_SCOPED_PERMISSIONS,
@@ -407,6 +408,8 @@ export interface OrganizationSettings {
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
+  // A Project's own setting overrides it.
+  defaultExperimentImplementation?: (typeof selectableImplementationTypes)[number];
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;

@@ -102,6 +102,7 @@ import {
 } from "./ImplementationColumn";
 import {
   FlagEnvironmentsDraft,
+  ImplementationTypeDraft,
   useExperimentEdits,
   useEditBase,
   useHoldEditBases,
@@ -641,6 +642,12 @@ function FlagColumn({
   const { apiCall } = useAuth();
   const allEnvironments = useEnvironments();
   const [converting, setConverting] = useState(false);
+  // Removing the implementation deletes the flag on save, freeing its key.
+  const [stagedType, setStagedType] = useStagedState<
+    ImplementationTypeDraft["value"]
+  >("implementationType", null);
+  const removing = managed && !!stagedType?.deletesManagedFlag;
+  const convertStaged = managed && stagedType?.type === "feature";
   const valuesEditId = `flag:${feature.id}${
     group ? `:${group.ruleIds.join(",")}` : ""
   }`;
@@ -767,7 +774,7 @@ function FlagColumn({
   const onFlag = info.state === "live" || info.state === "draft";
   const canEditFlagLinks =
     canEdit && permissionsUtil.canEditFeatureDrafts(feature);
-  const canEditFlag = canEditFlagLinks && !pendingRemoval;
+  const canEditFlag = canEditFlagLinks && !pendingRemoval && !removing;
   const editable = canEditFlag && !lockedBySchedule && (onFlag || relinking);
 
   const stage = (patch: Partial<Staged>) => {
@@ -1252,6 +1259,7 @@ function FlagColumn({
   // and edit on the experiment.
   const convertItem =
     managed &&
+    !convertStaged &&
     permissionsUtil.canPublishFeature(
       feature,
       getEnabledEnvironments(feature, allEnvironments),
@@ -1259,6 +1267,27 @@ function FlagColumn({
     permissionsUtil.canUpdateExperiment(experiment, {}) ? (
       <DropdownMenuItem key="convert" onClick={() => setConverting(true)}>
         Convert to unmanaged Feature Flag
+      </DropdownMenuItem>
+    ) : null;
+  // A draft's flag has served nothing, so it goes entirely.
+  const removeItem =
+    managed &&
+    !removing &&
+    !convertStaged &&
+    experiment.status === "draft" &&
+    canEdit &&
+    permissionsUtil.canDeleteFeature(
+      feature,
+      getEnabledEnvironments(feature, allEnvironments),
+    ) ? (
+      <DropdownMenuItem
+        key="remove-implementation"
+        color="red"
+        onClick={() =>
+          setStagedType({ type: "none", deletesManagedFlag: true })
+        }
+      >
+        Remove implementation
       </DropdownMenuItem>
     ) : null;
   const editItems = [
@@ -1322,6 +1351,7 @@ function FlagColumn({
       ) : null}
     </Flex>
   );
+  const lifecycleItems = [convertItem, removeItem].filter(Boolean);
   const menuItems = showingLive
     ? [convertItem].filter(Boolean)
     : [
@@ -1330,7 +1360,10 @@ function FlagColumn({
           <DropdownMenuSeparator key="separator" />
         ) : null,
         ...editItems,
-        convertItem,
+        (reviewItem || editItems.length) && lifecycleItems.length ? (
+          <DropdownMenuSeparator key="lifecycle-separator" />
+        ) : null,
+        ...lifecycleItems,
       ].filter(Boolean);
 
   return (
@@ -1538,7 +1571,15 @@ function FlagColumn({
           ) : null
         }
       >
-        {noValues && !orphaned ? (
+        {removing ? (
+          <StagedNote onUndo={() => setStagedType(null)}>
+            Saving removes this implementation and deletes its Feature Flag.
+          </StagedNote>
+        ) : convertStaged ? (
+          <StagedNote onUndo={() => setStagedType(null)}>
+            Saving converts this to an unmanaged Feature Flag.
+          </StagedNote>
+        ) : noValues && !orphaned ? (
           <Text size="sm" color="text-low">
             {managed
               ? "Not live yet."
