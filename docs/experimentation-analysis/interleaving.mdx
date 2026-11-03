@@ -16,7 +16,7 @@ import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
 Search, recommendation, and feed teams regularly iterate on their **rankers** with new models, new data, and new parameters and weights. A mature ranker is already good, so most changes have small effects, and small effects need a lot of users. Testing rankers one A/B test at a time becomes the bottleneck. Offline evaluation is fast, but it is a [poor predictor](https://dl.acm.org/doi/10.1145/3292500.3330744) of which ranker wins with real users.
 
-Interleaving sits between the offline evaluation and proper A/B testing. Instead of showing ranker A to one group of users and ranker B to another, it **merges both rankers' lists into one** and shows that list to everyone. Every user compares both rankers, so each user is their own control. Companies that run interleaving report needing a small fraction of the traffic a standard experiment needs:
+Interleaving sits between offline evaluation and A/B testing. Instead of showing ranker A to one group of users and ranker B to another, it **merges both rankers' lists into one** every time a list is shown, so every user sees items from both rankers. Every user compares both rankers, so each user is their own control. Companies that run interleaving report needing a small fraction of the traffic a standard experiment needs:
 
 | Company                                                                                            | Traffic needed vs. an A/B test |
 | -------------------------------------------------------------------------------------------------- | ------------------------------ |
