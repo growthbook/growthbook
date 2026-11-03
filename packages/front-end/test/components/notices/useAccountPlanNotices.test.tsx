@@ -4,6 +4,11 @@ import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
+const traceIngest = vi.hoisted(() => ({ on: true }));
+vi.mock("@growthbook/growthbook-react", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useFeatureIsOn: () => traceIngest.on,
+}));
 vi.mock("@/services/UserContext");
 vi.mock("@/hooks/usePermissionsUtils");
 vi.mock("@/services/track");
@@ -60,7 +65,7 @@ describe("useAccountPlanNotices", () => {
     });
   });
 
-  it("shows an error, with an upgrade, when AI traces usage is over", () => {
+  const tracesOver = () =>
     vi.mocked(useUser).mockReturnValue({
       // @ts-expect-error "partial test mock"
       usage: {
@@ -70,14 +75,27 @@ describe("useAccountPlanNotices", () => {
       license: null,
       seatsInUse: 0,
     });
+
+  it("shows an error, with a generic upgrade, when AI traces usage is over", () => {
+    traceIngest.on = true;
+    tracesOver();
     canManageBilling(true);
 
     const [notice] = renderHook(() => useAccountPlanNotices()).result.current;
     expect(notice).toMatchObject({
       severity: "error",
       title: "AI traces usage limit exceeded",
-      upgrade: { commercialFeature: "unlimited-managed-warehouse-usage" },
+      upgrade: { commercialFeature: null },
     });
+  });
+
+  it("hides the AI traces notice while trace ingest is off", () => {
+    traceIngest.on = false;
+    tracesOver();
+    canManageBilling(true);
+
+    expect(titles()).not.toContain("AI traces usage limit exceeded");
+    traceIngest.on = true;
   });
 
   describe("enterprise license seat quota", () => {

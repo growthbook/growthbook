@@ -1,4 +1,5 @@
 import { date, daysLeft } from "shared/dates";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -10,6 +11,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
   const { usage, license, licenseError, seatsInUse } = useUser();
   const canManageBilling = permissionsUtil.canManageBilling();
   const canViewUsage = permissionsUtil.canViewUsage();
+  const traceIngestEnabled = useFeatureIsOn("trace-ingest");
 
   const usageDetails = (
     docsHref: string,
@@ -79,7 +81,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
   }
 
   const traces = usage?.traces?.status;
-  if (traces === "approaching" || traces === "over") {
+  if (traceIngestEnabled && (traces === "approaching" || traces === "over")) {
     notices.push({
       id: "traces-usage",
       severity: traces === "over" ? "error" : "warning",
@@ -87,16 +89,26 @@ export default function useAccountPlanNotices(): AppNotice[] {
         traces === "over"
           ? "AI traces usage limit exceeded"
           : "Approaching AI traces usage limit",
-      details: usageDetails(
-        "https://docs.growthbook.io/integrations/llm-tracing#sending-traces-to-growthbook",
-        "Clicked Read About AI Traces Limits Link in Tooltip",
+      details: (
+        <>
+          Click to upgrade, or visit{" "}
+          <Link
+            href="https://docs.growthbook.io/integrations/llm-tracing#sending-traces-to-growthbook"
+            external
+            onClick={() =>
+              track("Clicked Read About AI Traces Limits Link in Tooltip")
+            }
+          >
+            GrowthBook Docs &gt; AI traces
+          </Link>
+        </>
       ),
       upgrade: {
         source:
           traces === "over"
             ? "traces-usage-exceeded-topnav-notification"
             : "traces-usage-approaching-topnav-notification",
-        commercialFeature: "unlimited-managed-warehouse-usage",
+        commercialFeature: null,
       },
     });
   }
