@@ -1,3 +1,6 @@
+// Keep in sync with `.topbar` height in components/Layout/TopNav.module.scss.
+export const TOP_NAV_HEIGHT_PX = 56;
+
 // Keep both heights in sync with `.experiment-tabs` and `.feature-tabs` in global.scss.
 export const TABS_HEADER_HEIGHT_PX = 55;
 export const TABS_BAR_HEIGHT_PX = 40;

@@ -24,7 +24,7 @@ export const meta: StoryMeta = {
 export default function ErrorDisplayStories() {
   return (
     <Flex direction="column" gap="3" maxWidth="600px">
-      <ErrorDisplay error="Unable to connect to the data source." />
+      <ErrorDisplay error="Unable to connect to the Data Source." />
       <ErrorDisplay
         error="Query failed: column `user_id` does not exist."
         details={`Error: column "user_id" does not exist\n  at Query.run (query.ts:42)\n  at Runner.execute (runner.ts:118)`}

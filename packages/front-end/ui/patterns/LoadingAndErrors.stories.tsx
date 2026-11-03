@@ -4,6 +4,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ErrorDisplay from "@/ui/ErrorDisplay";
+import SegmentedControl from "@/ui/SegmentedControl";
 import Text from "@/ui/Text";
 import { StoryMeta } from "@/ui/storyMeta";
 
@@ -16,6 +17,7 @@ export const meta: StoryMeta = {
   useWhen: [
     "A page or section reads data with `useApi`.",
     "A failed save has technical details worth showing. Use `ErrorDisplay`.",
+    "A load error the user can recover from. Offer a retry under the `Callout`.",
   ],
   avoidWhen: [
     {
@@ -56,7 +58,14 @@ function Section({ outcome }: { outcome: Outcome }) {
   const { data, error, reload } = useFakeApi(outcome);
 
   if (error) {
-    return <Callout status="error">{error.message}</Callout>;
+    return (
+      <Flex direction="column" gap="2" align="start">
+        <Callout status="error">{error.message}</Callout>
+        <Button variant="outline" onClick={() => reload()}>
+          Try again
+        </Button>
+      </Flex>
+    );
   }
   if (!data) {
     return (
@@ -83,26 +92,18 @@ export default function LoadingAndErrorsStory() {
 
   return (
     <Flex direction="column" gap="4">
-      <Flex gap="3">
-        <Button
-          variant={outcome === "success" ? "solid" : "outline"}
-          onClick={() => {
-            setOutcome("success");
-            setKey((k) => k + 1);
-          }}
-        >
-          Load successfully
-        </Button>
-        <Button
-          variant={outcome === "error" ? "solid" : "outline"}
-          onClick={() => {
-            setOutcome("error");
-            setKey((k) => k + 1);
-          }}
-        >
-          Load with an error
-        </Button>
-      </Flex>
+      <SegmentedControl
+        value={outcome}
+        setValue={(v) => {
+          setOutcome(v);
+          setKey((k) => k + 1);
+        }}
+        aria-label="Example outcome"
+        options={[
+          { value: "success", label: "Load successfully" },
+          { value: "error", label: "Load with an error" },
+        ]}
+      />
       <Section key={key} outcome={outcome} />
       <Box>
         <Text weight="semibold">Inline error with details</Text>

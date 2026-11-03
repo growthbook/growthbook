@@ -32,7 +32,7 @@ export default function ConfirmDialogStories() {
       </Button>
       {open === "default" && (
         <ConfirmDialog
-          title="Publish changes?"
+          title="Publish Changes?"
           content="This will make the draft live in all environments."
           yesText="Publish"
           onConfirm={() => setOpen(null)}

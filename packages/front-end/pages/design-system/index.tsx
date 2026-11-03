@@ -5,6 +5,8 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
+import { TOP_NAV_HEIGHT_PX } from "@/components/Layout/constants";
 import {
   StoryMeta,
   StoryModule,
@@ -65,10 +67,11 @@ function buildSections() {
     .filter((s) => s.entries.length > 0);
 }
 
-const TOP_NAV_HEIGHT = 56;
 const PAGE_TOP_PADDING = 24;
 const PAGE_BOTTOM_PADDING = 16;
-const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;
+const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT_PX + PAGE_TOP_PADDING;
+// Anchor jumps land a heading level with the top of the sticky sidebar.
+const SCROLL_MARGIN_TOP = SIDEBAR_TOP_OFFSET;
 const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
   SIDEBAR_TOP_OFFSET + PAGE_BOTTOM_PADDING
 }px)`;
@@ -76,7 +79,7 @@ const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
 export default function DesignSystemPage() {
   const sections = useMemo(buildSections, []);
   return (
-    <div className="pt-4 pb-3">
+    <Box pt="5" pb="4">
       <Flex gap="6">
         <nav
           aria-label="Components"
@@ -121,7 +124,7 @@ export default function DesignSystemPage() {
                 id={section.id}
                 direction="column"
                 gap="7"
-                style={{ scrollMarginTop: 90 }}
+                style={{ scrollMarginTop: SCROLL_MARGIN_TOP }}
               >
                 <Heading as="h2" size="xl">
                   {section.label}
@@ -134,7 +137,7 @@ export default function DesignSystemPage() {
           </Flex>
         </div>
       </Flex>
-    </div>
+    </Box>
   );
 }
 
@@ -144,7 +147,7 @@ function StoryFrame({ id, meta, Stories }: Entry) {
       id={id}
       pb="7"
       style={{
-        scrollMarginTop: 90,
+        scrollMarginTop: SCROLL_MARGIN_TOP,
         borderBottom: "1px solid var(--gray-a4)",
       }}
     >
@@ -171,17 +174,9 @@ function StoryFrame({ id, meta, Stories }: Entry) {
         )}
       </Flex>
 
-      <Box
-        p="5"
-        mb="4"
-        style={{
-          border: "1px solid var(--gray-a5)",
-          borderRadius: "var(--radius-4)",
-          background: "var(--color-panel-solid)",
-        }}
-      >
+      <Frame>
         <Stories />
-      </Box>
+      </Frame>
 
       <Guidance meta={meta} />
     </Box>

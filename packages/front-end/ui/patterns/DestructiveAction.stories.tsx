@@ -81,7 +81,7 @@ export default function DestructiveActionStory() {
       </Button>
       {confirmArchive && (
         <ConfirmDialog
-          title="Archive this experiment?"
+          title="Archive Experiment"
           content="It will be hidden from lists and stop updating results."
           yesText="Archive"
           color="red"

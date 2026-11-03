@@ -77,6 +77,7 @@ export default function EmptyStateStory() {
         <Box>
           <TextField
             label="Search"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             mb="3"
@@ -96,9 +97,16 @@ export default function EmptyStateStory() {
               {rows.length === 0 && (
                 <TableRow>
                   <TableCell style={{ textAlign: "center" }}>
-                    {search.trim()
-                      ? "No Constants match the current filter."
-                      : "No Constants found."}
+                    {search.trim() ? (
+                      <Flex direction="column" align="center" gap="2">
+                        No Constants match the current filter.
+                        <Button variant="ghost" onClick={() => setSearch("")}>
+                          Clear search
+                        </Button>
+                      </Flex>
+                    ) : (
+                      "No Constants found."
+                    )}
                   </TableCell>
                 </TableRow>
               )}

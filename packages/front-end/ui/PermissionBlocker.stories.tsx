@@ -26,7 +26,7 @@ export default function PermissionBlockerStories() {
   return (
     <Flex direction="column" gap="3">
       <PermissionBlocker>
-        You don&apos;t have permission to edit this feature.
+        You don&apos;t have permission to edit this Feature Flag.
       </PermissionBlocker>
       <PermissionBlocker size="md">
         You don&apos;t have permission to publish to production.
