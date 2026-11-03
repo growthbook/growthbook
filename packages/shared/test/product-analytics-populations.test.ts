@@ -4,7 +4,7 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  getPopulationViolations,
+  getMetricPopulationViolations,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
@@ -246,7 +246,7 @@ function violations(
 ) {
   const { population, values } = config.dataset;
   if (!population) throw new Error("Expected a population");
-  return getPopulationViolations({
+  return getMetricPopulationViolations({
     population,
     values,
     dimensions: config.dimensions,
@@ -469,6 +469,7 @@ describe("metric explorations with a population", () => {
         explore({
           metrics: [purchasers],
           population: mobileUsers({ unit: "anonymous_id" }),
+          unit: "anonymous_id",
         }),
         "does not support identifier types: anonymous_id",
       ],
@@ -505,6 +506,38 @@ describe("metric explorations with a population", () => {
       ],
     ])("rejects %s", (_, config, message) => {
       expect(violations(config)).toContain(message);
+    });
+
+    // Fact Tables come from the metrics, so the population's own Fact Table
+    // isn't loaded; that must not read as "not found".
+    it("reports only the mismatch for a population on another Fact Table", () => {
+      expect(
+        violations(
+          explore({
+            metrics: [purchasers],
+            population: mobileUsers({
+              source: { type: "factTable", factTableId: "other" },
+            }),
+          }),
+        ),
+      ).toBe(
+        'Metric "Purchasers" must use the same Fact Table as the Population.',
+      );
+    });
+
+    it("reports a missing metric rather than checking the population", () => {
+      expect(
+        violations(
+          explore({ metrics: [purchasers], population: mobileUsers() }),
+          [],
+        ),
+      ).toBe("Metric purchasers not found.");
+    });
+
+    it("rejects a population with no metrics", () => {
+      expect(
+        violations(explore({ metrics: [], population: mobileUsers() })),
+      ).toBe("Populations require at least one metric.");
     });
 
     it.each(

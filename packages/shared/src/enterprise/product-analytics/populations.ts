@@ -23,7 +23,7 @@ function isSupportedWithPopulation(
 
 // The population applies to every metric in the request, so one incompatible
 // metric rejects the request.
-export function getPopulationViolations({
+export function getMetricPopulationViolations({
   population,
   values,
   dimensions,
@@ -47,7 +47,10 @@ export function getPopulationViolations({
   }
   for (const value of values) {
     const metric = metricMap.get(value.metricId);
-    if (!metric) continue;
+    if (!metric) {
+      violations.push(`Metric ${value.metricId} not found.`);
+      continue;
+    }
     if (!isSupportedWithPopulation(metric)) {
       const supported = [...POPULATION_METRIC_TYPES].join(", ");
       violations.push(
@@ -66,13 +69,17 @@ export function getPopulationViolations({
       );
     }
   }
-  return [
-    ...violations,
-    ...getPopulationRuleViolations({
-      datasource,
-      userIdTypes: [population.unit],
-      steps: [population],
-      factTables: [...factTableMap.values()],
-    }),
-  ];
+  if (!values.length) {
+    violations.push("Populations require at least one metric.");
+  }
+
+  // return early if there are metric incompatibility violations
+  if (violations.length) return violations;
+
+  return getPopulationRuleViolations({
+    datasource,
+    userIdTypes: [population.unit],
+    steps: [population],
+    factTables: [...factTableMap.values()],
+  });
 }

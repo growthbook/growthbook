@@ -17,7 +17,7 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
-  getPopulationViolations,
+  getMetricPopulationViolations,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -223,7 +223,7 @@ export async function runProductAnalyticsExploration(
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
 
     if (dataset.population) {
-      const populationViolations = getPopulationViolations({
+      const populationViolations = getMetricPopulationViolations({
         population: dataset.population,
         values: dataset.values,
         dimensions: config.dimensions,
