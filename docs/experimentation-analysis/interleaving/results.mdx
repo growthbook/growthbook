@@ -20,9 +20,11 @@ Every interleaving result answers the same question: **which ranker's items did 
 
 Paired analysis is the better powered tool when the engagement happens on the list itself, such as a click. Preference analysis is the one to use when the outcome is recorded somewhere that never sees the list, such as an order or booking, and when you want every user to count equally (see Airbnb's [blog post](https://medium.com/airbnb-engineering/beyond-a-b-test-speeding-up-airbnb-search-ranking-experimentation-through-interleaving-7087afa09c8e) and [paper](https://arxiv.org/abs/2508.00751) for more details, which we largely follow here).
 
-The Results tab shows one row per metric and analysis. An orders metric with both analyses produces two rows; a clicks metric with paired analysis produces one.
+The Results tab shows one row per metric and analysis. Below "Added to Cart" is tracked with a paired analysis, and "Orders" is tracked with a preference analysis.
 
-{/* TODO screenshot: Results tab with paired and preference sections */}
+![Example of both paired and preference analysis of an interleaving experiment.](/static/images/interleaving/results-table.png)
+
+For example, the results table above is showing that items drafted in competitive pairs by the "Price first" ranker are about 15 percentage points more likely to get added to cart than those picked by the "Buyers' pick" ranker. It's also showing that the "Price first" ranker is preferred by 73.3 percent of users expressing a preference when you look at the orders that users are placing and which ranker drafted the ordered items more frequently, but that effect is not statistically significant.
 
 Every row compares the second ranker (treatment) with the first (control) and shows the number of users behind the comparison, each ranker's value, the difference with its confidence interval, and a p-value. Rows are colored significant when the p-value is below your organization's or project's threshold.
 
