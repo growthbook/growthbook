@@ -70,6 +70,8 @@ const env = { ...process.env };
 for (const [name, variable] of Object.entries(FLAGS)) {
   if (values[name] !== undefined) env[variable] = values[name];
 }
+// Trials must run against the test Mongo; see openWorldDb.
+env.NODE_ENV = "test";
 env.DISABLE_PYTHON_MONITOR = "true";
 env.GB_STATS_ENGINE_MIN_POOL_SIZE = "0";
 env.NODE_OPTIONS = `${env.NODE_OPTIONS ?? ""} --no-node-snapshot --max-old-space-size=8192`;

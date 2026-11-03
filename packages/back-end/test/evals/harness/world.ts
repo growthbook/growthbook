@@ -16,6 +16,14 @@ import type { WorldSnapshot } from "./record";
 // One database per eval or test file; every trial gets its own org inside it,
 // so concurrent trials never see each other's state.
 export async function openWorldDb(): Promise<void> {
+  // mongoInit, here and in the eval server's init(), reads MONGO_URL only
+  // under NODE_ENV=test and otherwise connects to MONGODB_URI, the database
+  // closeWorldDb would then drop.
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error(
+      `The evals need NODE_ENV=test, got "${process.env.NODE_ENV}". Unset NODE_ENV and Jest sets it.`,
+    );
+  }
   process.env.MONGO_URL = testMongoUri();
   await mongoInit();
   // Building a context registers every model, which creates its indexes.
