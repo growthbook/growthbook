@@ -2015,7 +2015,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         const out = await buildSDKPayloadForConnection({
           context: cbContext(armDoc),
           connection: {
-            ...connectionForVersion("1.8.1"),
+            ...connectionForVersion("2.0.0"),
             includeVisualExperiments: true,
           },
           data: cbData({
