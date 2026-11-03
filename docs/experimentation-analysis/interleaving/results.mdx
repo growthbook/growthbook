@@ -108,7 +108,6 @@ A common setup is paired analysis on clicks for a fast, sensitive read, and pref
 
 - **How often the rankers disagreed.** Only competitive items count, so two rankers that mostly agree produce few comparisons, and a winner takes long to show and would change little for your users. Compare the number of users in the results with your traffic; a small share means the candidate may not be worth an A/B test slot. We have planned health checks to help you understand this component of interleaving experimentation.
 - **Engaged users.** A significant paired result from a handful of engaged users is potentially fragile.
-- **Run an A/A first.** Interleave a ranker against itself with different config names. Both analyses should show no preference. This checks your exposure query, your `item_id` join, and your `ranking_id` plumbing at once.
 - **Balance.** The draft gives each ranker the same number of competitive items and the first pick in about half the rounds. If your exposure rows show otherwise, something between the SDK and the warehouse is reordering or dropping items. Again, we have planned health checks to automate this process.
 
 ## How interleaving relates to A/B test results
@@ -129,3 +128,4 @@ Why interleaving needs so much less traffic in the first place: the comparison i
 - No dimensions, metric capping, or conversion windows. Exposures and engagement are bounded by the experiment's run windows.
 - Paired analysis requires `ranking_id` on engagement events. Attributing events without one to the user's most recent matching impression is not available yet.
 - Exposure count is the only preference attribution. Engagement-signal attribution, which credits a conversion to the ranker that earned a separate signal event such as the click on the booked item, is planned.
+- Furthermore, exposure count attribution currently uses all exposures, including those after the preference signal.

@@ -13,7 +13,7 @@ Setting up an interleaving experiment touches four places: your ranking code, yo
 ## Before you start
 
 - **Plan.** Interleaving is in private beta for Enterprise customers. Ask your GrowthBook account team to enable it.
-- **SDKs.** The [JavaScript](/lib/js), [React](/lib/react), and [Node.js](/lib/node) SDKs support interleaving from version 1.9.0. Other SDKs are not supported yet.
+- **SDKs.** The [JavaScript](/lib/js), [React](/lib/react), and [Node.js](/lib/node) SDKs support interleaving from version 2.0.0. Other SDKs are not supported yet.
 - **Warehouses.** The analysis unnests a JSON array in SQL. Redshift and Vertica are not supported yet.
 - **Rankers.** Your ranking code must return a ranked list for a given config object. The config is authored in GrowthBook and handed to your code unchanged.
 
@@ -121,12 +121,12 @@ For example, a React list that logs one click per item:
 function ResultList({ user, result, trackingProps }) {
   return result.map((item) => (
     <FeaturedProduct
-      key={item.id}
+      key={item.sku}
       item={item}
       onClick={() =>
         analytics.track("Click Result", {
           userId: user.id,
-          item_id: item.id,
+          item_id: item.sku, // must match what getItemId() returned in Step 1
           ...trackingProps, // experiment_id and ranking_id when interleaved
         })
       }
@@ -148,10 +148,10 @@ An interleaving experiment reads exposures through an **Interleaving Exposure Qu
 ```sql
 SELECT
   user_id,
-  received_at   AS timestamp,
-  experiment_id AS experiment_id,
-  ranking_id    AS ranking_id,
-  items         AS items
+  event_timestamp AS timestamp,
+  experiment_id   AS experiment_id,
+  ranking_id      AS ranking_id,
+  items           AS items
 FROM interleave_exposures
 ```
 
@@ -209,6 +209,7 @@ Go to **Experiments → Interleaving** and click **Add Interleaving Experiment**
 | Setting                         | Description                                                                                                                                                                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Key**                         | What your code passes to `interleave()`. It cannot be changed later. Several experiments may share a key, but only one can run per environment at a time.                                                                                        |
+| **Tracking key**                | The experiment's tracking key. It uniquely identifies exposures from this interleaving experiment in your data under the `experiment_id` column in the exposure query.                                                                           |
 | **Hash attribute**              | Decides which users are interleaved when coverage is below 100%.                                                                                                                                                                                 |
 | **Rankers**                     | Exactly two. The first is the control and the default: users who are not interleaved get its list. Each has a key (recorded as `variation` in exposures), a name, and a JSON config that `getList()` receives.                                   |
 | **Ranker config schema**        | Optional JSON Schema that validates both configs.                                                                                                                                                                                                |
@@ -243,10 +244,10 @@ Everything above is available through the [REST API](/api/Interleavings/operatio
   "interleavingExposureQueryId": "<exposure query id>",
   "userIdType": "user_id",
   "metrics": [
-    { "id": "fact__clicks", "analyses": [{ "type": "paired" }] },
+    { "id": "fact__clicks", "analyses": [{ "type": "paired" }, { "type": "preference", "attribution": "exposureCount" }] },
     {
       "id": "fact__orders",
-      "analyses": [{ "type": "paired" }, { "type": "preference", "attribution": "exposureCount" }]
+      "analyses": [{ "type": "paired" }]
     }
   ],
   "environmentSettings": { "production": { "enabled": true } }
@@ -258,8 +259,6 @@ Then [start](/api/Interleavings/operation/startInterleaving) it.
 ## Step 6: Start it and check the data
 
 An interleaving experiment is a **draft** until you start it. Starting adds it to the SDK payload for the enabled environments, and only exposures between start and stop are analyzed. Stopping or archiving removes it from SDK payloads immediately; results stay available.
-
-{/* TODO screenshot: experiment page with status and Results tab */}
 
 Shortly after starting, click **Update** on the Results tab. If no results appear, check that:
 
