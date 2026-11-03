@@ -660,6 +660,7 @@ const LLM_TRACE_USER_ID_TYPES = ["user_id", "session_id", "trace_id"];
 function getLlmCallMetrics(
   callsFilter: string,
   errorsFilter: string,
+  { includeCost = true }: { includeCost?: boolean } = {},
 ): InitialDatasourceResources["factTables"][number]["metrics"] {
   const callsOnly = [
     { operator: "saved_filter" as const, values: [callsFilter] },
@@ -670,18 +671,22 @@ function getLlmCallMetrics(
       metricType: "mean",
       numerator: { factTableId: "", column: "$$count", rowFilters: callsOnly },
     },
-    {
-      name: "LLM cost per user",
-      metricType: "mean",
-      inverse: true,
-      // The min-sample check sums metric values, and per-user cost is fractions of a cent.
-      minSampleSize: 0,
-      numerator: {
-        factTableId: "",
-        column: "total_cost",
-        rowFilters: callsOnly,
-      },
-    },
+    ...(includeCost
+      ? [
+          {
+            name: "LLM cost per user",
+            metricType: "mean" as const,
+            inverse: true,
+            // The min-sample check sums metric values, and per-user cost is fractions of a cent.
+            minSampleSize: 0,
+            numerator: {
+              factTableId: "",
+              column: "total_cost",
+              rowFilters: callsOnly,
+            },
+          },
+        ]
+      : []),
     {
       name: "LLM error rate",
       metricType: "ratio",
@@ -1121,7 +1126,7 @@ function getGrowthBookTracesResources(
           id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.spans,
           name: "AI spans",
           description:
-            "One row per AI span (model calls, tool calls, and agent runs) with latency, token, and cost details",
+            "One row per AI span (model calls, tool calls, and agent runs) with latency and token details",
           sql: `SELECT
   Timestamp AS timestamp,
   UserId AS ${idType},
@@ -1140,8 +1145,7 @@ function getGrowthBookTracesResources(
   OutputTokens AS output_tokens,
   InputTokens + OutputTokens AS total_tokens,
   CacheReadTokens AS cache_read_tokens,
-  CacheWriteTokens AS cache_write_tokens,
-  Cost AS total_cost
+  CacheWriteTokens AS cache_write_tokens
 FROM ai_spans_priced
 WHERE ${dateClause}`,
           eventName: "",
@@ -1168,7 +1172,6 @@ WHERE ${dateClause}`,
             total_tokens: { datatype: "number" },
             cache_read_tokens: { datatype: "number" },
             cache_write_tokens: { datatype: "number" },
-            total_cost: { datatype: "number", numberFormat: "currency" },
           }),
         },
         filters: [
@@ -1195,7 +1198,7 @@ WHERE ${dateClause}`,
           },
         ],
         metrics: [
-          ...getLlmCallMetrics("Model calls", "Errors"),
+          ...getLlmCallMetrics("Model calls", "Errors", { includeCost: false }),
           {
             name: "Tokens per user",
             metricType: "mean",
@@ -1215,7 +1218,7 @@ WHERE ${dateClause}`,
           id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.turns,
           name: "AI turns",
           description:
-            "One row per trace (a request to your AI feature) with its model calls, tool calls, tokens, and cost",
+            "One row per trace (a request to your AI feature) with its model calls, tool calls, and tokens",
           sql: `SELECT
   Timestamp AS timestamp,
   UserId AS ${idType},
@@ -1226,7 +1229,6 @@ WHERE ${dateClause}`,
   ModelCalls AS model_calls,
   ToolCalls AS tool_calls,
   TotalTokens AS total_tokens,
-  TotalCost AS total_cost,
   Errors AS errors
 FROM ai_turns
 WHERE ${dateClause}
@@ -1246,7 +1248,6 @@ WHERE ${dateClause}
             model_calls: { datatype: "number" },
             tool_calls: { datatype: "number" },
             total_tokens: { datatype: "number" },
-            total_cost: { datatype: "number", numberFormat: "currency" },
             errors: { datatype: "number" },
           }),
         },
@@ -1264,7 +1265,7 @@ WHERE ${dateClause}
           id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.conversations,
           name: "AI conversations",
           description:
-            "One row per conversation with its turns, model calls, tool calls, tokens, and cost",
+            "One row per conversation with its turns, model calls, tool calls, and tokens",
           sql: `SELECT
   Timestamp AS timestamp,
   UserId AS ${idType},
@@ -1274,7 +1275,6 @@ WHERE ${dateClause}
   ModelCalls AS model_calls,
   ToolCalls AS tool_calls,
   TotalTokens AS total_tokens,
-  TotalCost AS total_cost,
   Errors AS errors
 FROM ai_conversations
 WHERE ${dateClause}
@@ -1290,7 +1290,6 @@ WHERE ${dateClause}
             model_calls: { datatype: "number" },
             tool_calls: { datatype: "number" },
             total_tokens: { datatype: "number" },
-            total_cost: { datatype: "number", numberFormat: "currency" },
             errors: { datatype: "number" },
           }),
         },

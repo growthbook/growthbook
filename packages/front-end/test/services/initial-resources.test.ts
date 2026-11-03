@@ -443,6 +443,9 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
     const spans = factTables[0];
     expect(spans.factTable.sql).toContain("FROM ai_spans_priced");
     expect(spans.factTable.sql).not.toContain("FINAL");
+    for (const ft of factTables) {
+      expect(ft.factTable.sql).not.toContain("total_cost");
+    }
     expect(spans.filters.find((f) => f.name === "Model calls")?.value).toBe(
       "operation IN ('chat', 'text_completion', 'generate_content', 'embeddings')",
     );
@@ -453,7 +456,6 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
     }
     expect(spans.metrics.map((m) => m.name)).toEqual([
       "LLM calls per user",
-      "LLM cost per user",
       "LLM error rate",
       "p95 LLM latency",
       "Tokens per LLM call",
