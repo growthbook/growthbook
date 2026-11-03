@@ -10,6 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 
 // A normalized row for the shared revision dropdown. Entity wrappers map their
@@ -26,6 +27,31 @@ export interface RevisionDropdownRow {
   meta?: ReactNode;
   // Status badge — wrapper-built so each entity keeps its own badge component.
   badge?: ReactNode;
+  // Shown on hover, beside the row and over the trigger while it's selected.
+  details?: ReactNode;
+}
+
+// Hover-only, so a click still selects or opens the menu.
+function DetailsOnHover({
+  details,
+  side,
+  children,
+}: {
+  details?: ReactNode;
+  side: "left" | "bottom";
+  children: ReactNode;
+}) {
+  if (!details) return <>{children}</>;
+  return (
+    <Popover
+      openOnHover
+      anchorOnly
+      side={side}
+      sideOffset={8}
+      trigger={<div style={{ width: "100%", minWidth: 0 }}>{children}</div>}
+      content={details}
+    />
+  );
 }
 
 function RevisionRow({ row }: { row: RevisionDropdownRow }) {
@@ -41,7 +67,12 @@ function RevisionRow({ row }: { row: RevisionDropdownRow }) {
               whiteSpace: "nowrap",
               maxWidth: 400,
             }}
-            title={revisionLabelText(row.version, row.title)}
+            // The details popover names the revision in full.
+            title={
+              row.details
+                ? undefined
+                : revisionLabelText(row.version, row.title)
+            }
           >
             <RevisionLabel version={row.version} title={row.title} />
           </span>
@@ -79,6 +110,7 @@ export default function RevisionDropdown({
   triggerPlaceholder,
   triggerNumbered,
   context,
+  width,
   menuPlacement = "end",
   paginate = true,
   windowFromSelection = true,
@@ -98,6 +130,8 @@ export default function RevisionDropdown({
   // selected row has a title.
   triggerNumbered?: boolean;
   context?: "header";
+  // Overrides the header context's width.
+  width?: number;
   menuPlacement?: "start" | "center" | "end";
   // When false, all rows render with no "Show all" paging (the feature
   // drafts-only mode).
@@ -142,45 +176,56 @@ export default function RevisionDropdown({
     setOpen(false);
   };
 
-  const triggerWidth = context === "header" ? 280 : "100%";
+  const triggerWidth = width ?? (context === "header" ? 280 : "100%");
 
+  // The menu's trigger renders as its child, taking the button's class and
+  // handlers, so the hover details go inside it.
   const trigger = (
-    <Flex
-      align="center"
-      justify="between"
-      gap="3"
-      style={{ width: triggerWidth, overflow: "hidden" }}
-    >
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text weight="semibold">
-          {selectedRow ? (
-            <span
-              style={{
-                display: "block",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: 400,
-              }}
-              title={revisionLabelText(selectedRow.version, selectedRow.title)}
-            >
-              <RevisionLabel
-                numbered={triggerNumbered ?? !!selectedRow.title}
-                version={selectedRow.version}
-                title={selectedRow.title}
-              />
-            </span>
-          ) : (
-            (triggerPlaceholder ?? null)
+    <Flex align="center" style={{ width: triggerWidth, overflow: "hidden" }}>
+      <DetailsOnHover
+        details={open ? undefined : selectedRow?.details}
+        side="bottom"
+      >
+        <Flex align="center" justify="between" gap="3" width="100%">
+          <Box style={{ flex: 1, minWidth: 0 }}>
+            <Text weight="semibold">
+              {selectedRow ? (
+                <span
+                  style={{
+                    display: "block",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: 400,
+                  }}
+                  title={
+                    selectedRow.details
+                      ? undefined
+                      : revisionLabelText(
+                          selectedRow.version,
+                          selectedRow.title,
+                        )
+                  }
+                >
+                  <RevisionLabel
+                    numbered={triggerNumbered ?? !!selectedRow.title}
+                    version={selectedRow.version}
+                    title={selectedRow.title}
+                  />
+                </span>
+              ) : (
+                (triggerPlaceholder ?? null)
+              )}
+            </Text>
+          </Box>
+          {selectedBadge && (
+            <Flex flexShrink="0" align="center" gap="2">
+              {selectedBadge}
+            </Flex>
           )}
-        </Text>
-      </Box>
-      {selectedBadge && (
-        <Flex flexShrink="0" align="center" gap="2">
-          {selectedBadge}
+          <PiCaretDownBold style={{ flexShrink: 0 }} />
         </Flex>
-      )}
-      <PiCaretDownBold style={{ flexShrink: 0 }} />
+      </DetailsOnHover>
     </Flex>
   );
 
@@ -206,7 +251,9 @@ export default function RevisionDropdown({
           }`}
           onClick={() => handleSelect(row.key)}
         >
-          <RevisionRow row={row} />
+          <DetailsOnHover details={row.details} side="left">
+            <RevisionRow row={row} />
+          </DetailsOnHover>
         </DropdownMenuItem>
       ))}
       {remaining > 0 && (

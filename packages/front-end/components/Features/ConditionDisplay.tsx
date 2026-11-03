@@ -493,7 +493,6 @@ export default function ConditionDisplay({
     parts.push(
       <SavedGroupTargetingDisplay
         savedGroups={savedGroupTargeting}
-        groupClassName={rows ? undefined : "col-auto"}
         initialAnd={false}
         key={`${partId++}-saved-group-targeting`}
         prefix={!prefixUsed ? prefix : undefined}
@@ -519,7 +518,7 @@ export default function ConditionDisplay({
             console.error(e, p.condition);
           }
           parts.push(
-            <Flex wrap="wrap" gap="2" key={partId++} className="w-100 col-auto">
+            <Flex wrap="wrap" gap="2" key={partId++} className="w-100">
               {!prefixUsed && prefix}
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>

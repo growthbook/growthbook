@@ -56,38 +56,41 @@ export default function ExperimentSummary({
       </Flex>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">INCLUDE</Text>
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>
-              {coveragePercentFormatter.format(effectiveCoverage)}
-            </Text>
-          }
-        />
-        of units in the experiment
-        {hasNamespace && (
-          <>
-            (
-            <Badge
-              color="gray"
-              label={
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {percentFormatter.format(namespaceRange)}
-                </Text>
-              }
-            />
-            of the namespace and
-            <Badge
-              color="gray"
-              label={
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {coveragePercentFormatter.format(coverage ?? 1)}
-                </Text>
-              }
-            />
-            exposure)
-          </>
-        )}
+        <Text>
+          <Badge
+            color="gray"
+            label={
+              <Text style={{ color: "var(--slate-12)" }}>
+                {coveragePercentFormatter.format(effectiveCoverage)}
+              </Text>
+            }
+          />{" "}
+          of units in the experiment
+          {hasNamespace && (
+            <>
+              {" "}
+              (
+              <Badge
+                color="gray"
+                label={
+                  <Text style={{ color: "var(--slate-12)" }}>
+                    {percentFormatter.format(namespaceRange)}
+                  </Text>
+                }
+              />{" "}
+              of the namespace and{" "}
+              <Badge
+                color="gray"
+                label={
+                  <Text style={{ color: "var(--slate-12)" }}>
+                    {coveragePercentFormatter.format(coverage ?? 1)}
+                  </Text>
+                }
+              />{" "}
+              exposure)
+            </>
+          )}
+        </Text>
       </Flex>
       <Text weight="medium">SERVE</Text>
       <Box

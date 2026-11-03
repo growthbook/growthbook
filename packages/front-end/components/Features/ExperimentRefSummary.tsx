@@ -205,21 +205,26 @@ export default function ExperimentRefSummary({
       </Flex>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">INCLUDE</Text>
-        <PlainEntityBadge
-          label={coveragePercentFormatter.format(effectiveCoverage)}
-        />
-        of units in the {isBandit ? "Bandit" : "experiment"}
-        {hasNamespace && (
-          <>
-            (
-            <PlainEntityBadge label={percentFormatter.format(namespaceRange)} />
-            of the namespace and
-            <PlainEntityBadge
-              label={coveragePercentFormatter.format(phase?.coverage ?? 1)}
-            />
-            exposure)
-          </>
-        )}
+        <Text>
+          <PlainEntityBadge
+            label={coveragePercentFormatter.format(effectiveCoverage)}
+          />{" "}
+          of units in the {isBandit ? "Bandit" : "experiment"}
+          {hasNamespace && (
+            <>
+              {" "}
+              (
+              <PlainEntityBadge
+                label={percentFormatter.format(namespaceRange)}
+              />{" "}
+              of the namespace and{" "}
+              <PlainEntityBadge
+                label={coveragePercentFormatter.format(phase?.coverage ?? 1)}
+              />{" "}
+              exposure)
+            </>
+          )}
+        </Text>
       </Flex>
       {releasedValue ? (
         <ForceSummary

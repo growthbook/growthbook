@@ -1,21 +1,10 @@
 import dynamic from "next/dynamic";
-import { createPortal } from "react-dom";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  useMemo,
-  useState,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useCallback,
-} from "react";
-import { FaArrowRight } from "react-icons/fa";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   PiPlusCircleBold,
-  PiPlus,
-  PiPencilSimpleFill,
   PiCaretRightBold,
   PiCaretDownBold,
   PiPencil,
@@ -23,7 +12,7 @@ import {
   PiProhibit,
   PiClockFill,
 } from "react-icons/pi";
-import { ago, datetime } from "shared/dates";
+import { datetime } from "shared/dates";
 import {
   filterEnvironmentsByFeature,
   getMalformedPrereqConditionError,
@@ -37,7 +26,7 @@ import {
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ACTIVE_DRAFT_STATUSES,
   SafeRolloutInterface,
@@ -45,18 +34,13 @@ import {
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
-import EventUser from "@/components/Avatar/EventUser";
-import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
-import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
-import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import {
   getFeatureDefaultValue,
   useEnvironments,
@@ -66,10 +50,6 @@ import {
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
-// eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the new-draft modal; migrate to @/ui/Modal in a follow-up
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -78,29 +58,17 @@ import {
   FeatureUsageSparkline,
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
-import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
-import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
-import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
-import RevisionLabel, {
-  revisionLabelText,
-} from "@/components/Reviews/RevisionLabel";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Markdown from "@/components/Markdown/Markdown";
 import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
-import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
-import { CustomFieldDraftInfo } from "@/components/CustomFields/CustomFieldEditModal";
-import { useCustomFields } from "@/hooks/useCustomFields";
-import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
-import { FeatureTab } from "@/pages/features/[fid]";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -202,14 +170,11 @@ export default function FeaturesOverview({
   revisions,
   experiments,
   mutate,
-  editProjectModal,
-  setEditProjectModal,
   version,
   setVersion,
   safeRollouts,
   holdout,
   rampSchedules,
-  setTab,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
@@ -221,28 +186,12 @@ export default function FeaturesOverview({
   holdout: HoldoutInterface | undefined;
   rampSchedules: RampScheduleInterface[] | undefined;
   mutate: () => Promise<unknown>;
-  editProjectModal: boolean;
-  setEditProjectModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
-  setTab: (tab: FeatureTab) => void;
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
   const [showInvalidPrereqs, setShowInvalidPrereqs] = useState(false);
-  const [confirmNewDraft, setConfirmNewDraft] = useState(false);
-  // Always reflects the current live version — used in async callbacks to avoid
-  // stale closure captures when ramp actions auto-publish new revisions.
-  const liveVersionRef = useRef(feature.version);
-  liveVersionRef.current = feature.version;
-  const [newDraftTitle, setNewDraftTitle] = useState("");
-  const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
-  const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
-  const [newDraftNotes, setNewDraftNotes] = useState("");
-  const [showNewDraftNotes, setShowNewDraftNotes] = useState(false);
-  const [creatingDraft, setCreatingDraft] = useState(false);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState("");
   const [descriptionExpanded, setDescriptionExpanded] = useLocalStorage(
     `feature-description-expanded`,
     false,
@@ -253,7 +202,6 @@ export default function FeaturesOverview({
   const [showDependents, setShowDependents] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
-  const [editCommentModel, setEditCommentModal] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
     envId?: string;
@@ -261,21 +209,8 @@ export default function FeaturesOverview({
   } | null>(null);
   const showKillSwitchManager = killSwitchTarget !== null;
 
-  const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const commitTitleEdit = useCallback(async () => {
-    if (!revision) return;
-    setEditingTitle(false);
-    const next = titleDraft.trim();
-    if (next !== (revision.title ?? "")) {
-      await apiCall(`/feature/${feature.id}/${revision.version}/title`, {
-        method: "PUT",
-        body: JSON.stringify({ title: next }),
-      });
-      await mutate();
-    }
-  }, [titleDraft, revision, feature.id, apiCall, mutate]);
   const { showFeatureUsage } = useFeatureUsage();
 
   const allEnvironments = useEnvironments();
@@ -383,8 +318,6 @@ export default function FeaturesOverview({
     return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
   }, [safeRollouts]);
 
-  const allCustomFields = useCustomFields();
-
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
 
@@ -398,7 +331,7 @@ export default function FeaturesOverview({
     ro.observe(el);
   }, []);
   // Watch a sentinel just above the sticky banner. When the sentinel scrolls
-  // out of the viewport (above the 110px sticky offset), the banner is
+  // out of the viewport (above the 118px sticky offset), the banner is
   // genuinely pinned — a more reliable signal than getBoundingClientRect math,
   // which falsely reports "pinned" whenever the banner's natural position
   // already sits near the top of the page.
@@ -424,34 +357,6 @@ export default function FeaturesOverview({
     bannerSentinelObserver.current = observer;
   }, []);
 
-  // Slot refs for the draft CTA portal ("Open review" navigation).
-  // The portal host migrates between the revision card slot and the sticky banner
-  // slot so the same DOM node is reused without duplicating handler logic.
-  const ctaSlotRef = useRef<HTMLDivElement>(null);
-  const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
-  const [draftCtaPortalHost] = useState<HTMLDivElement | null>(() => {
-    if (typeof document === "undefined") return null;
-    const div = document.createElement("div");
-    div.style.display = "contents";
-    return div;
-  });
-  // No deps array: the effect must re-run on every render because ctaSlotRef
-  // isn't a stable dep — it starts null while the component's early return
-  // fires (props loading), then becomes populated once the full JSX renders.
-  // useLayoutEffect ensures refs are set before the effect runs, so appendChild
-  // always sees the correct target. The call is idempotent when the portal host
-  // is already in the right slot.
-  useLayoutEffect(() => {
-    if (!draftCtaPortalHost) return;
-    const target = bannerPinned ? bannerCtaSlotRef.current : ctaSlotRef.current;
-    if (target) target.appendChild(draftCtaPortalHost);
-  });
-
-  // Per-modal acknowledgment of the soft draft cap: creating past the cap
-  // requires ticking the checkbox in the warning callout. Resets whenever the
-  // modal closes.
-  const [draftCapAcknowledged, setDraftCapAcknowledged] = useState(false);
-
   if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
@@ -473,15 +378,6 @@ export default function FeaturesOverview({
   const isDraft =
     !!revision &&
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
-
-  // Soft per-feature draft cap (org setting). Purely advisory in the UI:
-  // a warning dot + tooltip on "New Draft" and a callout in the confirm
-  // modal — creating the draft is never blocked.
-  const activeDraftCount = revisionList.filter((r) =>
-    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-  ).length;
-  const maxDrafts = settings.maxConcurrentDrafts || 0;
-  const atDraftCap = maxDrafts > 0 && activeDraftCount >= maxDrafts;
 
   const projectId = feature.project;
 
@@ -524,9 +420,6 @@ export default function FeaturesOverview({
     const envList = featureReviewConfig?.environments ?? [];
     return envList.length === 0 ? "all" : new Set(envList);
   })();
-  const metadataReviewRequired =
-    approvalsEngaged &&
-    featureReviewConfig?.featureRequireMetadataReview !== false;
 
   // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
   // projection, so a draft staging a project move judged the wrong project.
@@ -538,13 +431,6 @@ export default function FeaturesOverview({
     envs.some((envId) =>
       permissionsUtil.canPublishFeature(baseFeature, [envId]),
     );
-
-  const featureCustomFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    feature.project,
-  );
-  const hasCustomFields = (featureCustomFields?.length ?? 0) > 0;
 
   let hasRules = false;
   const invalidPrereqs: {
@@ -608,90 +494,6 @@ export default function FeaturesOverview({
     featureKey: feature.id,
     featureType: feature.valueType,
     tags: feature.tags || [],
-  };
-
-  // Draft CTA — defined once and rendered via a stable portal host moved
-  // between the revision card and sticky banner. Just a navigation affordance:
-  // all lifecycle actions (review, publish, fix conflicts, discard) live on the
-  // review tab, which evaluates the full policy matrix. Shown to everyone.
-  const draftCtaGroup = isDraft ? (
-    <Box>
-      <Button
-        icon={<FaArrowRight />}
-        iconPosition="right"
-        onClick={() => setTab("review")}
-        style={{ whiteSpace: "nowrap" as const }}
-      >
-        Review &amp; Publish
-      </Button>
-    </Box>
-  ) : null;
-
-  const renderRevisionInfo = () => {
-    return (
-      <Flex direction="column">
-        {/* Revised by (left) + Created/Published (right) — side by side on wide, stacked on narrow */}
-        <Flex
-          align="center"
-          justify="between"
-          wrap="wrap"
-          style={{ rowGap: "var(--space-1)", columnGap: "var(--space-4)" }}
-        >
-          {(() => {
-            const cb = revision.createdBy;
-            if (cb?.type === "dashboard" || cb?.type === "api_key") {
-              return (
-                <Metadata
-                  label="Revised by"
-                  value={
-                    <Flex align="center" gap="2" wrap="wrap">
-                      <EventUser
-                        user={cb}
-                        display="avatar-name-email"
-                        size="sm"
-                      />
-                    </Flex>
-                  }
-                />
-              );
-            }
-            if (cb?.type === "system") {
-              return (
-                <Metadata
-                  label="Generated by"
-                  value={
-                    <em>
-                      {cb.subtype === "ramp-schedule"
-                        ? "ramp schedule"
-                        : "system"}
-                    </em>
-                  }
-                />
-              );
-            }
-            return null;
-          })()}
-          <Flex align="center" gap="4" wrap="wrap">
-            <Metadata label="Created" value={datetime(revision.dateCreated)} />
-            {revision.status === "published" && revision.datePublished && (
-              <Metadata
-                label="Published"
-                value={datetime(revision.datePublished)}
-              />
-            )}
-            {revision.status === "draft" && (
-              <Metadata label="Last update" value={ago(revision.dateUpdated)} />
-            )}
-          </Flex>
-        </Flex>
-        <CoAuthors rev={revision} mt="3" mb="3" />
-        <InlineRevisionDescription
-          comment={revision.comment}
-          canEdit={canEditDrafts}
-          onEdit={() => setEditCommentModal(true)}
-        />
-      </Flex>
-    );
   };
 
   return (
@@ -842,7 +644,7 @@ export default function FeaturesOverview({
                 <div
                   style={{
                     width: "100%",
-                    backgroundColor: "var(--color-background)",
+                    backgroundColor: "var(--color-panel-solid)",
                     borderRadius: "var(--radius-3)",
                     overflow: "hidden",
                     maxWidth: bannerPinned ? 1280 : 1500,
@@ -883,15 +685,7 @@ export default function FeaturesOverview({
                         {bannerProps.message}
                       </span>
                     </Flex>
-                    <Flex
-                      align="center"
-                      gap="2"
-                      justify="end"
-                      style={{ flexShrink: 0, gridColumn: 3 }}
-                    >
-                      {/* Slot: draftCtaGroup portal mounts here when banner is pinned */}
-                      <div ref={bannerCtaSlotRef} />
-                    </Flex>
+                    <span />
                   </Box>
                 </div>
               </div>
@@ -927,156 +721,6 @@ export default function FeaturesOverview({
             )}
           </Callout>
         )}
-        {revision && (
-          <Frame mt="2" mb="4" px="6" py="4">
-            <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
-              <Flex align="start" gap="4" style={{ marginTop: 5 }}>
-                <Flex direction="column" gap="1">
-                  <Flex align="center" gap="2">
-                    {revision.title && (
-                      <span
-                        style={{
-                          display: "inline-block",
-                          fontVariantNumeric: "tabular-nums",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Text as="span" color="text-mid" size="md">
-                          {revision.version}.
-                        </Text>
-                      </span>
-                    )}
-                    {editingTitle ? (
-                      <Field
-                        size="legacy"
-                        autoFocus
-                        value={titleDraft}
-                        placeholder={`Revision ${revision.version}`}
-                        onChange={(e) => setTitleDraft(e.target.value)}
-                        onKeyDown={async (e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            await commitTitleEdit();
-                          } else if (e.key === "Escape") {
-                            setEditingTitle(false);
-                            setTitleDraft(revision.title || "");
-                          }
-                        }}
-                        onBlur={commitTitleEdit}
-                        containerStyle={{ maxWidth: 250, marginBottom: 0 }}
-                        style={{
-                          border: "none",
-                          borderBottom: "1px solid var(--violet-9)",
-                          borderCollapse: "collapse",
-                          borderRadius: 0,
-                          outline: "none",
-                          background: "transparent",
-                          boxShadow: "none",
-                          padding: "0 2px",
-                          height: "auto",
-                          fontSize: "var(--font-size-3)",
-                          fontWeight: 700,
-                        }}
-                      />
-                    ) : (
-                      <Text weight="semibold" size="lg">
-                        <OverflowText
-                          maxWidth={250}
-                          title={revisionLabelText(
-                            revision.version,
-                            revision.title,
-                          )}
-                        >
-                          <RevisionLabel
-                            version={revision.version}
-                            title={revision.title}
-                            numbered={false}
-                          />
-                        </OverflowText>
-                      </Text>
-                    )}
-                    {isDraft && canEditDrafts && !editingTitle && (
-                      <IconButton
-                        variant="ghost"
-                        color="violet"
-                        size="2"
-                        radius="full"
-                        onClick={() => {
-                          setTitleDraft(revision.title || "");
-                          setEditingTitle(true);
-                        }}
-                        mx="1"
-                      >
-                        <PiPencilSimpleFill />
-                      </IconButton>
-                    )}
-                    <RevisionStatusBadge
-                      revision={revision}
-                      liveVersion={feature.version}
-                    />
-                  </Flex>
-                  {isDraft &&
-                    baseRevision &&
-                    baseRevision.version !== feature.version && (
-                      <Text as="span" size="sm" color="text-low">
-                        based on{" "}
-                        <Text as="span" size="sm" weight="medium">
-                          Revision {baseRevision.version}
-                        </Text>
-                      </Text>
-                    )}
-                </Flex>
-              </Flex>
-
-              <Flex align="center" justify="end" gap="4" flexGrow="1">
-                {/* Lifecycle actions (revert, discard, publish) live in the
-                    Review & Publish tab — the card only offers "New Draft"
-                    and navigation into the review surface. */}
-                {canEditDrafts && !isDraft && (
-                  <Box position="relative">
-                    <Tooltip
-                      shouldDisplay={atDraftCap}
-                      body={`This feature has ${activeDraftCount} active draft${
-                        activeDraftCount === 1 ? "" : "s"
-                      }, at your organization's cap of ${maxDrafts} per feature. You can still create one after acknowledging the cap.`}
-                    >
-                      <Button
-                        loading={creatingDraft}
-                        onClick={() => setConfirmNewDraft(true)}
-                        variant="soft"
-                        style={{ whiteSpace: "nowrap" }}
-                      >
-                        New Draft
-                      </Button>
-                      {atDraftCap && (
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: -3,
-                            right: -3,
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            backgroundColor: "var(--amber-9)",
-                            border: "2px solid var(--color-panel-solid)",
-                            pointerEvents: "none",
-                          }}
-                        />
-                      )}
-                    </Tooltip>
-                  </Box>
-                )}
-                {/* Slot: draftCtaGroup portal mounts here when not scrolled
-                    past the revision card */}
-                {isDraft && <div ref={ctaSlotRef} />}
-              </Flex>
-            </Flex>
-            <Separator size="4" my="3" />
-            {renderRevisionInfo()}
-          </Frame>
-        )}
-        {/* Portal: renders draftCtaGroup into whichever slot is active (ctaSlotRef or bannerCtaSlotRef) */}
-        {draftCtaPortalHost && createPortal(draftCtaGroup, draftCtaPortalHost)}
 
         <Frame mt="2" mb="4" px="0" py="0" style={{ overflow: "hidden" }}>
           <Collapsible
@@ -1094,9 +738,7 @@ export default function FeaturesOverview({
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
                 <Heading as="h4" size="sm" mb="0">
-                  {hasCustomFields && !descriptionExpanded
-                    ? "Description & Additional Fields"
-                    : "Description"}
+                  Description
                 </Heading>
                 <Flex align="center" gap="2">
                   {canEditDrafts && !isReadOnly && (
@@ -1120,7 +762,7 @@ export default function FeaturesOverview({
             }
           >
             <Box px="6" pb="4">
-              <Box className="mh-350px" style={{ overflowY: "auto" }} mb="2">
+              <Box className="mh-350px" style={{ overflowY: "auto" }}>
                 {feature.description ? (
                   <Markdown className="card-text">
                     {feature.description}
@@ -1131,23 +773,6 @@ export default function FeaturesOverview({
                   </Box>
                 )}
               </Box>
-              <CustomFieldDisplay
-                target={feature}
-                canEdit={canEditDrafts && !isReadOnly}
-                mutate={mutate}
-                section={"feature"}
-                mt="4"
-                draftInfo={
-                  !isReadOnly
-                    ? ({
-                        feature,
-                        revisionList: revisionList || [],
-                        gatedEnvSet: metadataReviewRequired ? "all" : "none",
-                        onDraftCreated: (v) => setVersion(v),
-                      } satisfies CustomFieldDraftInfo)
-                    : undefined
-                }
-              />
             </Box>
           </Collapsible>
         </Frame>
@@ -1704,17 +1329,6 @@ export default function FeaturesOverview({
           </>
         )}
 
-        <Frame mb="4" px="6" py="4">
-          <Heading as="h4" size="sm" mb="3">
-            Comments
-          </Heading>
-          <DiscussionThread
-            type="feature"
-            id={feature.id}
-            projects={feature.project ? [feature.project] : []}
-          />
-        </Frame>
-
         {/* Modals */}
 
         {showDescriptionModal && (
@@ -1734,255 +1348,6 @@ export default function FeaturesOverview({
             revisionList={revisionList || []}
             mutate={mutate}
             setVersion={setVersion}
-          />
-        )}
-        {editProjectModal && (
-          <EditProjectForm
-            label={
-              <>
-                Projects{" "}
-                <Tooltip
-                  body={
-                    "The dropdown below has been filtered to only include projects where you have permission to update Features"
-                  }
-                />
-              </>
-            }
-            permissionRequired={(project) =>
-              permissionsUtil.canEditFeatureDrafts({ project })
-            }
-            save={(project) =>
-              apiCall(`/feature/${feature.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ project }),
-              })
-            }
-            cancel={() => setEditProjectModal(false)}
-            mutate={mutate}
-            current={feature.project}
-            additionalMessage={
-              <Callout status="error" mb="3">
-                Changing the project may prevent this Feature and any linked
-                Experiments from being sent to users.
-              </Callout>
-            }
-          />
-        )}
-        {confirmNewDraft && (
-          <Modal
-            trackingEventModalType="create-new-draft"
-            open={true}
-            close={() => {
-              setConfirmNewDraft(false);
-              setNewDraftTitle("");
-              setNewDraftTitleStash("");
-              setEditingNewDraftTitle(false);
-              setNewDraftNotes("");
-              setShowNewDraftNotes(false);
-              setDraftCapAcknowledged(false);
-            }}
-            header="Create New Draft"
-            cta="Create Draft"
-            ctaEnabled={!atDraftCap || draftCapAcknowledged}
-            disabledMessage="Acknowledge the draft cap warning to continue"
-            loading={creatingDraft}
-            submit={async () => {
-              setCreatingDraft(true);
-              try {
-                const res = await apiCall<{ draftVersion: number }>(
-                  `/feature/${feature.id}/draft`,
-                  {
-                    method: "POST",
-                    body: JSON.stringify({
-                      ...(newDraftTitle.trim()
-                        ? { title: newDraftTitle.trim() }
-                        : {}),
-                      ...(newDraftNotes.trim()
-                        ? { comment: newDraftNotes.trim() }
-                        : {}),
-                    }),
-                  },
-                );
-                await mutate();
-                setVersion(res.draftVersion);
-              } finally {
-                setCreatingDraft(false);
-              }
-            }}
-          >
-            <Flex direction="column" gap="2">
-              {atDraftCap && (
-                <Callout status="warning" mb="2">
-                  <Flex direction="column" gap="2" align="start">
-                    <Text>
-                      This feature already has {activeDraftCount} active draft
-                      {activeDraftCount === 1 ? "" : "s"} — your organization
-                      recommends keeping it to {maxDrafts} per feature.
-                    </Text>
-                    <Checkbox
-                      id="acknowledge-draft-cap"
-                      label="Acknowledge and override"
-                      weight="regular"
-                      value={draftCapAcknowledged}
-                      setValue={setDraftCapAcknowledged}
-                    />
-                  </Flex>
-                </Callout>
-              )}
-              <Text>
-                Creating a <Text weight="semibold">new draft</Text> based on{" "}
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "var(--space-1)",
-                    whiteSpace: "nowrap",
-                    backgroundColor: "var(--gray-a2)",
-                    padding: "1px 4px",
-                    margin: "2px",
-                    borderRadius: "var(--radius-2)",
-                  }}
-                >
-                  <Text as="span" size="md" weight="semibold" color="text-high">
-                    <OverflowText
-                      maxWidth={200}
-                      title={revisionLabelText(
-                        feature.version,
-                        revisions.find((r) => r.version === feature.version)
-                          ?.title,
-                      )}
-                    >
-                      <RevisionLabel
-                        version={feature.version}
-                        title={
-                          revisions.find((r) => r.version === feature.version)
-                            ?.title
-                        }
-                        minWidth={0}
-                      />
-                    </OverflowText>
-                  </Text>
-                  <RevisionStatusBadge
-                    revision={revisions.find(
-                      (r) => r.version === feature.version,
-                    )}
-                    liveVersion={feature.version}
-                  />
-                </span>
-              </Text>
-              <Box my="3">
-                <Flex align="center" gap="2">
-                  {newDraftTitle.trim() && !editingNewDraftTitle && (
-                    <span
-                      style={{
-                        display: "inline-block",
-                        fontVariantNumeric: "tabular-nums",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Text as="span" color="text-mid" size="sm">
-                        {Math.max(0, ...revisionList.map((r) => r.version)) + 1}
-                        .
-                      </Text>
-                    </span>
-                  )}
-                  {editingNewDraftTitle ? (
-                    <Field
-                      size="legacy"
-                      autoFocus
-                      value={newDraftTitle}
-                      placeholder={`Revision ${Math.max(0, ...revisionList.map((r) => r.version)) + 1}`}
-                      onChange={(e) => setNewDraftTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          setEditingNewDraftTitle(false);
-                        } else if (e.key === "Escape") {
-                          setNewDraftTitle(newDraftTitleStash);
-                          setEditingNewDraftTitle(false);
-                        }
-                      }}
-                      onBlur={() => setEditingNewDraftTitle(false)}
-                      containerStyle={{ maxWidth: 250, marginBottom: 0 }}
-                      style={{
-                        border: "none",
-                        borderBottom: "1px solid var(--violet-9)",
-                        borderRadius: 0,
-                        outline: "none",
-                        background: "transparent",
-                        boxShadow: "none",
-                        padding: "0 2px",
-                        height: "auto",
-                      }}
-                    />
-                  ) : (
-                    <Text weight="semibold">
-                      <RevisionLabel
-                        version={
-                          Math.max(0, ...revisionList.map((r) => r.version)) + 1
-                        }
-                        title={newDraftTitle.trim() || null}
-                        numbered={false}
-                      />
-                    </Text>
-                  )}
-                  {!editingNewDraftTitle && (
-                    <IconButton
-                      variant="ghost"
-                      color="violet"
-                      size="2"
-                      radius="full"
-                      onClick={() => {
-                        setNewDraftTitleStash(newDraftTitle);
-                        setEditingNewDraftTitle(true);
-                      }}
-                      mx="1"
-                    >
-                      <PiPencilSimpleFill />
-                    </IconButton>
-                  )}
-                </Flex>
-              </Box>
-              {showNewDraftNotes ? (
-                <Field
-                  size="legacy"
-                  label="Description"
-                  labelClassName="font-weight-bold"
-                  textarea
-                  value={newDraftNotes}
-                  onChange={(e) => setNewDraftNotes(e.target.value)}
-                />
-              ) : (
-                <Link
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowNewDraftNotes(true);
-                  }}
-                >
-                  <Flex align="center" gap="1" mb="3">
-                    <PiPlus />
-                    <Text weight="medium">Add description</Text>
-                  </Flex>
-                </Link>
-              )}
-            </Flex>
-          </Modal>
-        )}
-        {editCommentModel && revision && (
-          <EditRevisionDescriptionModal
-            close={() => setEditCommentModal(false)}
-            initialValue={revision.comment || ""}
-            trackingEventModalType=""
-            onSubmit={async (comment) => {
-              await apiCall(
-                `/feature/${feature.id}/${revision.version}/comment`,
-                {
-                  method: "PUT",
-                  body: JSON.stringify({ comment }),
-                },
-              );
-              mutate();
-            }}
           />
         )}
         {prerequisiteModal !== null && (
