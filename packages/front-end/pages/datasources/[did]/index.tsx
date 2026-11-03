@@ -14,6 +14,7 @@ import {
   supportsEventForwarder,
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
+import { isTestableDataSourceType } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
@@ -39,7 +40,6 @@ import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSetting
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 import { dataSourceConnections } from "@/services/eventSchema";
 import {
   getDataRegionLabel,
@@ -203,7 +203,6 @@ function DataSourceDescriptionPreview({
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
-  const newDataSourceOnboarding = useNewDataSourceOnboarding();
   const [editConn, setEditConn] = useState(false);
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -246,7 +245,7 @@ const DataSourcePage: FC = () => {
   // Event Forwarder is first so an empty hash opens it when this Data Source
   // has one.
   const showEventForwarderTab = Boolean(
-    newDataSourceOnboarding.enabled &&
+    isCloud() &&
       d?.eventForwarderConfig &&
       d.eventForwarderConfig.status !== "unconfigured",
   );
@@ -313,7 +312,6 @@ const DataSourcePage: FC = () => {
     !!d &&
     d.properties?.queryLanguage === "sql" &&
     !isManagedWarehouse &&
-    newDataSourceOnboarding.enabled &&
     !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
 
   // Stretch the page to the bottom of the viewport, then give the explorer the
@@ -628,17 +626,6 @@ const DataSourcePage: FC = () => {
           </Frame>
         )}
 
-        {supportsSQL &&
-          !isManagedWarehouse &&
-          !newDataSourceOnboarding.enabled &&
-          d.dateUpdated === d.dateCreated &&
-          d.settings?.schemaFormat !== "custom" && (
-            <Callout status="info" mb="4">
-              We have prefilled the identifier types and assignment queries.
-              These may require editing to fit your data structure.
-            </Callout>
-          )}
-
         {isManagedWarehouse &&
           (managedWarehouseAwaitingProvisioning ? (
             <ManagedWarehouseNoEventsCallout />
@@ -937,7 +924,7 @@ const DataSourcePage: FC = () => {
                       size="sm"
                     />
                     {canUpdateConnectionParams &&
-                      (newDataSourceOnboarding.enabled ? (
+                      (isTestableDataSourceType(d.type) ? (
                         <LinkButton
                           href={`/datasources/${d.id}/connect`}
                           variant="outline"
@@ -1080,12 +1067,13 @@ const DataSourcePage: FC = () => {
         <DataSourceForm
           existing={true}
           data={d}
-          source={"datasource-detail"}
+          source="datasource-detail"
           onSuccess={async () => {
             await Promise.all([
               mutateDefinitions({}),
               mutateCurrentDataSource(),
             ]);
+            setEditConn(false);
           }}
           onCancel={() => {
             setEditConn(false);
