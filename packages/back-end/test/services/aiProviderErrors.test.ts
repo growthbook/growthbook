@@ -19,8 +19,10 @@ describe("getPublicAIErrorMessage", () => {
     );
   });
 
-  it("points at the model ID and base URL on 404", () => {
-    expect(getPublicAIErrorMessage(apiError(404))).toMatch(/model ID/);
+  it("names a missing model on 404", () => {
+    expect(getPublicAIErrorMessage(apiError(404))).toMatch(
+      /couldn't find this model/,
+    );
   });
 
   it("unwraps retry errors", () => {

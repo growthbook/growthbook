@@ -3,6 +3,7 @@ import {
   AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
   DEFAULT_EMBEDDING_MODEL,
+  findCustomModel,
   getCustomModelKey,
   getImageModelMeta,
   getProviderForAIModel,
@@ -132,6 +133,7 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
   options: T[],
   selected: string | undefined,
   label: (value: string) => string,
+  groupLabel = "Selected, no API key",
 ): (T | GroupedOption)[] {
   if (!selected) return options;
   const present = options.some((o) =>
@@ -142,7 +144,7 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
   if (present) return options;
   return [
     {
-      label: "Selected, no API key",
+      label: groupLabel,
       options: [{ value: selected, label: label(selected) }],
     },
     ...options,
@@ -181,7 +183,18 @@ export function getAvailableAIModelOptions(
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  return withSelectedOption(groups, selectedModel, getModelDisplayLabel);
+  // A custom model dropped from AI_CUSTOM_MODELS is missing for that reason,
+  // not for lack of a key; the back end falls back to the default.
+  const removedCustomModel =
+    !!selectedModel &&
+    !!parseCustomModelKey(selectedModel) &&
+    !findCustomModel(selectedModel, customModels);
+  return withSelectedOption(
+    groups,
+    selectedModel,
+    getModelDisplayLabel,
+    removedCustomModel ? "Selected, no longer configured" : undefined,
+  );
 }
 
 /**

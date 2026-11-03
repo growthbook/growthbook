@@ -262,6 +262,25 @@ describe("custom models in pickers", () => {
     expect(values(options)).not.toContain("custom:openai:my-gpt");
   });
 
+  it("flags a selected custom model that is no longer configured", () => {
+    const options = getAvailableAIModelOptions(
+      ["openai"],
+      "custom:openai:gone",
+      customModels,
+    );
+    expect(groupLabels(options)).toContain("Selected, no longer configured");
+    expect(groupLabels(options)).not.toContain("Selected, no API key");
+  });
+
+  it("still flags a configured custom model whose provider has no key", () => {
+    const options = getAvailableAIModelOptions(
+      ["anthropic"],
+      "custom:openai:my-gpt",
+      customModels,
+    );
+    expect(groupLabels(options)).toContain("Selected, no API key");
+  });
+
   it("labels a custom model by its id", () => {
     expect(getModelDisplayLabel("custom:openai:my-gpt")).toBe(
       "my-gpt (custom)",
