@@ -7,6 +7,8 @@ import {
   getInterleavingFeatureDefId,
   interleavingInSDKPayload,
   interleavingTargetingServes,
+  interleavingVariationsList,
+  mapInterleavingVariations,
   nextAvailableTrackingKey,
   parseInterleavingRankerConfig,
 } from "../src/util/interleaving";
@@ -130,6 +132,20 @@ describe("interleaving key", () => {
     expect(
       interleavingValidator.safeParse(omit(baseDoc, ["key"])).success,
     ).toBe(false);
+  });
+});
+
+describe("variation role helpers", () => {
+  const variations = { control: "c", treatment: "t" };
+
+  it("lists control first, then treatment", () => {
+    expect(interleavingVariationsList(variations)).toEqual(["c", "t"]);
+  });
+
+  it("maps each role to its own value and role name", () => {
+    expect(
+      mapInterleavingVariations(variations, (v, role) => `${role}:${v}`),
+    ).toEqual({ control: "control:c", treatment: "treatment:t" });
   });
 });
 

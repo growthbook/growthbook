@@ -240,6 +240,9 @@ const expireOldQueries = async () => {
           error: "Queries were interrupted. Please try updating results again.",
           status: "error",
           queries: ilSnapshot.queries,
+          // Advance the CAS token the runner's finalizeIfRunning guards on, or
+          // its in-flight write still matches and undoes this.
+          dateUpdated: new Date(),
         },
       },
     );
@@ -793,6 +796,7 @@ async function reapStalledInterleavingSnapshots() {
             status: "error",
             error:
               "Snapshot stalled: its queries were never recorded. This can happen when the server restarts mid-refresh. Please try updating results again.",
+            dateUpdated: new Date(),
           },
         },
       );
@@ -835,6 +839,7 @@ async function reapStalledInterleavingSnapshots() {
           status: "error",
           error,
           queries: snapshot.queries,
+          dateUpdated: new Date(),
         },
       },
     );

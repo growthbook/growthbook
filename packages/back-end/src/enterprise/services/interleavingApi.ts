@@ -1,6 +1,7 @@
 import type {
   ApiInterleavingInterface,
   ApiInterleavingSnapshotInterface,
+  ApiInterleavingSnapshotStatus,
   InterleavingInterface,
   InterleavingSnapshotInterface,
   InterleavingVariation,
@@ -29,6 +30,20 @@ export function toApiInterleavingSnapshot(
       endDate: s.endDate.toISOString(),
     },
     results: doc.results,
+    usersExposed: doc.usersExposed,
+  };
+}
+
+export function toApiInterleavingSnapshotStatus(
+  doc: InterleavingSnapshotInterface,
+): ApiInterleavingSnapshotStatus {
+  return {
+    id: doc.id,
+    status: doc.status,
+    error: doc.error,
+    dateCreated: doc.dateCreated.toISOString(),
+    runStarted: doc.runStarted?.toISOString() ?? null,
+    queries: doc.queries,
   };
 }
 

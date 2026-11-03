@@ -63,14 +63,17 @@ export function getColumnMappingError(
   {
     minColumns = 2,
     separateColumns = "separate timestamp and identifier columns",
+    // What each role can map to, for a caller that allows more than the types
+    timestampOptions = columns.filter(isTimestampCandidate),
+    identifierOptions = columns.filter(isIdentifierCandidate),
   } = {},
 ): string | null {
-  if (!columns.some(isTimestampCandidate)) {
+  if (!timestampOptions.length) {
     return fromTable
       ? "Selected table does not have a timestamp column."
       : "Your query must return a date column to use as the timestamp.";
   }
-  if (!columns.some(isIdentifierCandidate)) {
+  if (!identifierOptions.length) {
     return fromTable
       ? "Selected table does not have an identifier column."
       : "Your query must return a string or number column to use as an identifier.";
@@ -99,9 +102,15 @@ export const rematchUserIdColumns = (
 ): Record<string, string> =>
   Object.fromEntries(
     identifierTypes.flatMap((idType) => {
-      const column = rematchColumn(previous[idType] ?? "", columns, () =>
-        findColumnByName(columns, idType),
-      );
+      const prev = previous[idType] ?? "";
+      // A field inside a JSON column survives as long as that column does
+      const [root, field] = prev.split(".");
+      const column =
+        field && columns.some((c) => c.column === root && c.datatype === "json")
+          ? prev
+          : rematchColumn(prev, columns, () =>
+              findColumnByName(columns, idType),
+            );
       return column ? [[idType, column]] : [];
     }),
   );

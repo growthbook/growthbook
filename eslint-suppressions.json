@@ -474,14 +474,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/FactTables/FactTableModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/FactTables/RecommendedFactMetricsModal.tsx": {
     "no-restricted-imports": {
       "count": 1

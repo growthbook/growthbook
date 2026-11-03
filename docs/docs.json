@@ -243,6 +243,15 @@
                       "bandits/contextual-via-api"
                     ]
                   },
+                  {
+                    "group": "Interleaving",
+                    "tag": "BETA",
+                    "pages": [
+                      "experimentation-analysis/interleaving",
+                      "experimentation-analysis/interleaving/setup",
+                      "experimentation-analysis/interleaving/results"
+                    ]
+                  },
                   "app/holdouts"
                 ]
               },
@@ -1066,12 +1075,14 @@
                 "pages": [
                   "api/Interleavings/operation/getInterleaving",
                   "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/deleteInterleaving",
                   "api/Interleavings/operation/listInterleavings",
                   "api/Interleavings/operation/createInterleaving",
                   "api/Interleavings/operation/startInterleaving",
                   "api/Interleavings/operation/stopInterleaving",
                   "api/Interleavings/operation/refreshInterleaving",
                   "api/Interleavings/operation/getInterleavingResults",
+                  "api/Interleavings/operation/getInterleavingStatus",
                   "api/Interleavings/operation/listInterleavingSnapshots",
                   "api/Interleavings/operation/getInterleavingSnapshot"
                 ]
@@ -1268,6 +1279,7 @@
               "api/Interleaving_model",
               "api/InterleavingExposureQuery_model",
               "api/InterleavingSnapshot_model",
+              "api/InterleavingSnapshotStatus_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",

@@ -544,9 +544,16 @@ pre {
   }
 }
 
+// Same reason as above, but interleaving keeps the default content width: it
+// has no details panel, so it has no .experiment-column to re-cap.
+.main.interleaving {
+  min-height: 100vh;
+}
+
 .main.experiment,
 .main.bandit,
 .main.holdout,
+.main.interleaving,
 .public.experiment,
 .public.bandit,
 .public.holdout {

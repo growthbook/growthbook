@@ -1,13 +1,10 @@
 import { isFactMetric } from "shared/experiments";
+import { getInterleavingMetricIssue } from "shared/util";
 import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import {
-  InterleavingMetricConfig,
-  INTERLEAVING_RANKING_ID_COLUMN,
-  INTERLEAVING_ITEM_ID_COLUMN,
-} from "shared/validators";
+import { InterleavingMetricConfig } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -26,14 +23,6 @@ export type ResolvedInterleavingMetric = {
   metric: FactMetricInterface;
   factTable: FactTableInterface;
 };
-
-// Per-item values are summed/maxed again across impressions, which sketch
-// and distinct-count aggregations don't support
-const UNSUPPORTED_AGGREGATIONS = new Set([
-  "count distinct",
-  "hll merge",
-  "kll merge",
-]);
 
 /**
  * Load and validate the fact metrics an interleaving analysis reads. Used
@@ -61,58 +50,20 @@ export async function resolveInterleavingMetrics(
     if (metric.datasource !== datasourceId) {
       throw new Error(`${ref} must belong to datasource ${datasourceId}`);
     }
-    // Funnel metrics have no numerator
-    if (!metric.numerator) {
-      throw new Error(`${ref} must read from a fact table`);
-    }
-    const factTable = factTableMap.get(metric.numerator.factTableId);
-    if (!factTable) {
-      throw new Error(`Fact table not found for ${ref}`);
-    }
-    if (!factTable.userIdTypes.includes(userIdType)) {
-      throw new Error(
-        `${ref} requires the '${userIdType}' identifier type on its fact table`,
-      );
-    }
-    const hasColumn = (column: string) =>
-      factTable.columns.some((c) => c.column === column && !c.deleted);
-    if (!hasColumn(INTERLEAVING_ITEM_ID_COLUMN)) {
-      throw new Error(
-        `${ref} requires an '${INTERLEAVING_ITEM_ID_COLUMN}' column on its fact table`,
-      );
-    }
-    // Paired analysis joins engagement per impression
-    if (
-      config.analyses.some((a) => a.type === "paired") &&
-      !hasColumn(INTERLEAVING_RANKING_ID_COLUMN)
-    ) {
-      throw new Error(
-        `${ref} needs an '${INTERLEAVING_RANKING_ID_COLUMN}' column on its fact table to be joined per impression`,
-      );
-    }
-    const { metricType, numerator } = metric;
-    if (metricType !== "mean" && metricType !== "proportion") {
-      throw new Error(
-        `Interleaving metrics must be mean or proportion metrics: "${metric.name}" is a ${metricType} metric`,
-      );
-    }
-    if (
-      numerator.column === "$$distinctDates" ||
-      UNSUPPORTED_AGGREGATIONS.has(numerator.aggregation ?? "")
-    ) {
-      throw new Error(
-        `Interleaving metrics must use sum, max, or count aggregations: "${metric.name}"`,
-      );
-    }
-    // An aggregate filter thresholds a per-user total, but interleaving
-    // aggregates per item, so there is no grain that preserves the metric's
-    // meaning. Accepting one would silently report a sum where the metric
-    // defines an indicator.
-    if (numerator.aggregateFilter && numerator.aggregateFilterColumn) {
-      throw new Error(
-        `Interleaving metrics cannot use a user filter yet: "${metric.name}"`,
-      );
-    }
+    const factTable = metric.numerator
+      ? factTableMap.get(metric.numerator.factTableId)
+      : undefined;
+    // Same predicate the metric picker greys options out with, so a metric the
+    // UI offered cannot fail here for a reason the UI could have shown.
+    const issue = getInterleavingMetricIssue({
+      metric,
+      factTable,
+      userIdType,
+      analyses: config.analyses,
+    });
+    if (issue) throw new Error(issue);
+    if (!factTable) throw new Error(`Fact table not found for ${ref}`);
+
     return { config, metric, factTable };
   });
 }

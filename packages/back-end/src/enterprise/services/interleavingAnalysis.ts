@@ -144,6 +144,11 @@ export async function runInterleavingSnapshot(
     settings,
   });
 
+  if (!(await context.models.interleavings.getById(interleavingId))) {
+    await context.models.interleavingSnapshots.delete(snapshot);
+    context.throwNotFoundError(`Interleaving not found: ${interleavingId}`);
+  }
+
   const runner = new InterleavingResultsQueryRunner(
     context,
     snapshot,
