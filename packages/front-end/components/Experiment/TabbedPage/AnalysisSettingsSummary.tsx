@@ -50,7 +50,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu, {
   shouldOfferMenuRefresh,
 } from "@/components/Experiment/ResultMoreMenu";
-import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
+import {
+  type SnapshotRefreshBlocker,
+  useExperimentSnapshotUpdate,
+} from "@/hooks/useExperimentSnapshotUpdate";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -191,16 +194,21 @@ export default function AnalysisSettingsSummary({
 
   // Track previous latest status to detect transition from "running" to "success"
   const previousLatestStatusRef = useRef<string | undefined>(latest?.status);
+  // Dimension breakdown to run once the Overall update it was blocked on
+  // finishes.
+  const dimensionAfterOverallRef = useRef<string | null>(null);
+  const resumeDimensionRef = useRef<(dimension: string) => void>(() => {});
 
   // Call reset when latest status transitions from "running" to "success"
   useEffect(() => {
-    if (
-      previousLatestStatusRef.current === "running" &&
-      latest?.status === "success"
-    ) {
-      onSnapshotSuccessfulUpdate?.();
-    }
+    const finishedRunning = previousLatestStatusRef.current === "running";
     previousLatestStatusRef.current = latest?.status;
+    if (!finishedRunning || latest?.status === "running") return;
+    const pendingDimension = dimensionAfterOverallRef.current;
+    dimensionAfterOverallRef.current = null;
+    if (latest?.status !== "success") return;
+    onSnapshotSuccessfulUpdate?.();
+    if (pendingDimension) resumeDimensionRef.current(pendingDimension);
   }, [latest?.status, onSnapshotSuccessfulUpdate]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
@@ -390,10 +398,11 @@ export default function AnalysisSettingsSummary({
     hasOverallResults ? dimensionless : undefined,
   );
 
-  const [showMainRefreshModal, setShowMainRefreshModal] = useState(false);
+  const [refreshBlocker, setRefreshBlocker] =
+    useState<SnapshotRefreshBlocker | null>(null);
 
-  const handleSnapshotRefreshBlocked = () => {
-    setShowMainRefreshModal(true);
+  const handleSnapshotRefreshBlocked = (blocker: SnapshotRefreshBlocker) => {
+    setRefreshBlocker(blocker);
   };
 
   const { runSnapshot, fullRefreshConfirm } = useExperimentSnapshotUpdate({
@@ -412,10 +421,20 @@ export default function AnalysisSettingsSummary({
     setDimension?.("", true);
   }, [setSnapshotDimension, setAnalysisSettings, setDimension]);
 
-  const updateMainResults = async () => {
-    setShowMainRefreshModal(false);
-    const started = await runSnapshot("", { force: true });
+  resumeDimensionRef.current = (pendingDimension: string) => {
+    setSnapshotDimension(pendingDimension);
+    setDimension?.(pendingDimension);
+    runSnapshot(pendingDimension).catch((e) => setRefreshError(e.message));
+  };
+
+  const updateMainResults = async (blocker: SnapshotRefreshBlocker) => {
+    setRefreshBlocker(null);
+    const blockedDimension = dimension ?? "";
+    const started = await runSnapshot("", {
+      force: blocker.kind === "requires-full-refresh",
+    });
     if (!started) return;
+    dimensionAfterOverallRef.current = blockedDimension || null;
     goToOverallResults();
     setSnapshotType?.(undefined);
   };
@@ -1160,12 +1179,15 @@ export default function AnalysisSettingsSummary({
         </Callout>
       ) : null}
 
-      {showMainRefreshModal ? (
+      {refreshBlocker ? (
         <MainSnapshotRefreshDialog
+          kind={refreshBlocker.kind}
           onConfirm={() =>
-            updateMainResults().catch((e) => setRefreshError(e.message))
+            updateMainResults(refreshBlocker).catch((e) =>
+              setRefreshError(e.message),
+            )
           }
-          onCancel={() => setShowMainRefreshModal(false)}
+          onCancel={() => setRefreshBlocker(null)}
         />
       ) : null}
 

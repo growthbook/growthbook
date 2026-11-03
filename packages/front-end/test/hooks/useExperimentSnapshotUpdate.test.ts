@@ -278,6 +278,50 @@ describe("useExperimentSnapshotUpdate", () => {
     expect(apiCall).toHaveBeenCalledTimes(1);
   });
 
+  it("hands off a Dimension Results overall-update blocker to onSnapshotRefreshBlocked", async () => {
+    mockApiInterruptionError({
+      status: 409,
+      code: "requires_overall_update",
+      details: { reason: "metrics drifted" },
+      message: "requires overall update",
+    });
+    const onSnapshotRefreshBlocked = vi.fn();
+    const { result } = render({
+      dimension: "country",
+      onSnapshotRefreshBlocked,
+    });
+
+    await act(() => result.current.submitUpdate());
+
+    expect(onSnapshotRefreshBlocked).toHaveBeenCalledWith({
+      kind: "requires-overall-update",
+      reason: "metrics drifted",
+    });
+    expect(result.current.fullRefreshConfirm.open).toBe(false);
+    expect(apiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an overall-update blocker on an Overall Results request without prompting for a full refresh", async () => {
+    mockApiInterruptionError({
+      status: 409,
+      code: "requires_overall_update",
+      details: { reason: "metrics drifted" },
+      message: "requires overall update",
+    });
+    const setRefreshError = vi.fn();
+    const { result } = render({ setRefreshError });
+
+    let started: boolean | undefined;
+    await act(async () => {
+      started = await result.current.runSnapshot("");
+    });
+
+    expect(started).toBe(false);
+    expect(setRefreshError).toHaveBeenCalledWith("metrics drifted");
+    expect(result.current.fullRefreshConfirm.open).toBe(false);
+    expect(apiCall).toHaveBeenCalledTimes(1);
+  });
+
   it("runSnapshot returns true when the post starts a refresh", async () => {
     apiCall.mockResolvedValue({ status: 200, snapshot: { id: "snap_1" } });
     const { result } = render();

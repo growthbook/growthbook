@@ -10,7 +10,7 @@ import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
 
 export type SnapshotRefreshBlocker = {
-  kind: "requires-full-refresh";
+  kind: "requires-full-refresh" | "requires-overall-update";
   reason: string;
 };
 
@@ -24,13 +24,27 @@ type PostSnapshotResult =
   | { status: "needs-full-refresh"; reason: string }
   | { status: "failed" };
 
+function blockerKindForErrorCode(
+  code: unknown,
+): SnapshotRefreshBlocker["kind"] | null {
+  switch (code) {
+    case "requires_full_refresh":
+      return "requires-full-refresh";
+    case "requires_overall_update":
+      return "requires-overall-update";
+    default:
+      return null;
+  }
+}
+
 function apiErrorToSnapshotRefreshBlocker(
   err: unknown,
 ): SnapshotRefreshBlocker | null {
   if (!err || typeof err !== "object" || !("code" in err)) {
     return null;
   }
-  if (err.code !== "requires_full_refresh" || !("details" in err)) {
+  const kind = blockerKindForErrorCode(err.code);
+  if (!kind || !("details" in err)) {
     return null;
   }
   const details = err.details;
@@ -43,7 +57,7 @@ function apiErrorToSnapshotRefreshBlocker(
     return null;
   }
 
-  return { kind: "requires-full-refresh", reason: details.reason };
+  return { kind, reason: details.reason };
 }
 
 function getSnapshotDimensionForPostRequest({
@@ -180,7 +194,7 @@ export function useExperimentSnapshotUpdate({
         const blocker = apiErrorToSnapshotRefreshBlocker(apiError);
         if (blocker) {
           if (dimensionToRun === "") {
-            if (force) {
+            if (force || blocker.kind !== "requires-full-refresh") {
               setRefreshError(blocker.reason);
               return { status: "failed" };
             }

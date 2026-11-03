@@ -14,12 +14,15 @@ import { validateSnapshotDimension } from "back-end/src/services/snapshotDimensi
 import {
   DimensionAlreadyUpToDateError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  ExperimentIncrementalPipelineRequiresOverallUpdateError,
 } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 
 const REQUIRES_FULL_REFRESH_RESUBMIT_INSTRUCTIONS =
   'Send "dimension": "" to rebuild Overall Results, wait for that snapshot to finish, then resubmit this request unchanged.';
+const REQUIRES_OVERALL_UPDATE_RESUBMIT_INSTRUCTIONS =
+  'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request unchanged.';
 const DIMENSION_ALREADY_UP_TO_DATE_RESUBMIT_INSTRUCTIONS =
   'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request.';
 
@@ -98,6 +101,13 @@ export const postExperimentSnapshot = createApiRequestHandler(
         // Rethrow with additional guidance
         throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
           `${error.details.reason} ${REQUIRES_FULL_REFRESH_RESUBMIT_INSTRUCTIONS}`,
+        );
+      }
+      if (
+        error instanceof ExperimentIncrementalPipelineRequiresOverallUpdateError
+      ) {
+        throw new ExperimentIncrementalPipelineRequiresOverallUpdateError(
+          `${error.details.reason} ${REQUIRES_OVERALL_UPDATE_RESUBMIT_INSTRUCTIONS}`,
         );
       }
 

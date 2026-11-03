@@ -10,6 +10,8 @@ import {
   getExperimentSettingsHashForIncrementalRefresh,
   assertIncrementalRefreshPrerequisites,
   getFactTablesNeedingRebuild,
+  getMetricSettingsHashesForIncrementalRefresh,
+  getMetricsWithStaleIncrementalCache,
   exploratoryOverallRequiresFullRefresh,
   legacyDocDescribesPhase,
 } from "back-end/src/enterprise/services/data-pipeline";
@@ -519,6 +521,123 @@ describe("getFactTablesNeedingRebuild", () => {
       ]),
     });
     expect([...rebuild].sort()).toEqual(["ft_denom", "ft_num"]);
+  });
+});
+
+describe("getMetricsWithStaleIncrementalCache", () => {
+  it("returns nothing when every stored hash matches", () => {
+    expect(
+      getMetricsWithStaleIncrementalCache({
+        metricSources: [
+          makeMetricSource("grp_a", "ft_a", [
+            { id: "m_a", settingsHash: "h1" },
+          ]),
+        ],
+        currentMetricSettingsHashes: new Map([["m_a", "h1"]]),
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags a metric whose settings hash changed", () => {
+    expect(
+      getMetricsWithStaleIncrementalCache({
+        metricSources: [
+          makeMetricSource("grp_a", "ft_a", [
+            { id: "m_a", settingsHash: "old" },
+            { id: "m_b", settingsHash: "h_b" },
+          ]),
+        ],
+        currentMetricSettingsHashes: new Map([
+          ["m_a", "new"],
+          ["m_b", "h_b"],
+        ]),
+      }),
+    ).toEqual(["m_a"]);
+  });
+
+  it("flags a selected metric with no stored cache", () => {
+    expect(
+      getMetricsWithStaleIncrementalCache({
+        metricSources: [
+          makeMetricSource("grp_a", "ft_a", [
+            { id: "m_a", settingsHash: "h1" },
+          ]),
+        ],
+        currentMetricSettingsHashes: new Map([
+          ["m_a", "h1"],
+          ["m_new", "h_new"],
+        ]),
+      }),
+    ).toEqual(["m_new"]);
+  });
+
+  it("flags a cross-FT ratio metric stale in only one of its sources", () => {
+    expect(
+      getMetricsWithStaleIncrementalCache({
+        metricSources: [
+          makeMetricSource("grp_num", "ft_num", [
+            { id: "m_cross_ft", settingsHash: "h_cross" },
+          ]),
+          makeMetricSource("grp_denom", "ft_denom", [
+            { id: "m_cross_ft", settingsHash: "old" },
+          ]),
+        ],
+        currentMetricSettingsHashes: new Map([["m_cross_ft", "h_cross"]]),
+      }),
+    ).toEqual(["m_cross_ft"]);
+  });
+
+  it("ignores stored metrics that are no longer selected", () => {
+    expect(
+      getMetricsWithStaleIncrementalCache({
+        metricSources: [
+          makeMetricSource("grp_a", "ft_a", [
+            { id: "m_a", settingsHash: "h1" },
+            { id: "m_removed", settingsHash: "old" },
+          ]),
+        ],
+        currentMetricSettingsHashes: new Map([["m_a", "h1"]]),
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("getMetricSettingsHashesForIncrementalRefresh", () => {
+  const metricA = factMetricFactory.build({
+    id: "m_a",
+    metricType: "mean",
+    numerator: { factTableId: "ft_a", column: "amount" },
+  });
+  const metricB = factMetricFactory.build({
+    id: "m_b",
+    metricType: "mean",
+    numerator: { factTableId: "ft_a", column: "amount" },
+  });
+  const hashesWithCupedDays = (days: number) =>
+    getMetricSettingsHashesForIncrementalRefresh({
+      factMetrics: [metricA, metricB],
+      factTableMap: new Map(),
+      snapshotSettings: makeSnapshotSettings({
+        metricSettings: [
+          {
+            id: "m_a",
+            computedSettings: {
+              regressionAdjustmentEnabled: true,
+              regressionAdjustmentDays: days,
+            },
+          },
+          { id: "m_b" },
+        ] as ExperimentSnapshotSettings["metricSettings"],
+      }),
+    });
+
+  it("hashes each metric with its own snapshot settings", () => {
+    const before = hashesWithCupedDays(14);
+    const after = hashesWithCupedDays(7);
+
+    expect([...before.keys()]).toEqual(["m_a", "m_b"]);
+    expect(after.get("m_a")).not.toBe(before.get("m_a"));
+    expect(after.get("m_b")).toBe(before.get("m_b"));
   });
 });
 

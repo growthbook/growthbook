@@ -260,6 +260,7 @@ import {
   BadRequestError,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  ExperimentIncrementalPipelineRequiresOverallUpdateError,
   InvalidTrackingKeyError,
 } from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
@@ -269,7 +270,10 @@ import {
   legacyDocDescribesPhase,
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
+  getMetricSettingsHashesForIncrementalRefresh,
+  getMetricsWithStaleIncrementalCache,
 } from "back-end/src/enterprise/services/data-pipeline";
+import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import {
   ExperimentUpdateLogPlan,
   ExperimentUpdateExecutionLogger,
@@ -1684,6 +1688,7 @@ async function planSnapshotQueryRunner({
   integration,
   snapshotSettings,
   metricMap,
+  factTableMap,
   experiment,
   incrementalRefreshModel,
   latestOverallSnapshotId,
@@ -1699,6 +1704,7 @@ async function planSnapshotQueryRunner({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   latestOverallSnapshotId: string | null;
@@ -1800,11 +1806,6 @@ async function planSnapshotQueryRunner({
           ? "main-update"
           : "exploratory",
     });
-    return {
-      ...decision,
-      fullRefresh,
-      fullRefreshReason,
-    };
   } catch (error) {
     return resolveIncrementalPrerequisiteFailure({
       error,
@@ -1818,6 +1819,46 @@ async function planSnapshotQueryRunner({
       throwOnErrorInsteadOfFallback,
     });
   }
+
+  // Exploratory runs never rebuild metric caches. An Overall update rebuilds
+  // the caches of the fact tables whose metrics drifted, which is cheaper than
+  // a Full Refresh and than a non-incremental run that stores nothing.
+  if (
+    decision.runnerFamily === "incremental-exploratory" &&
+    incrementalRefreshModel &&
+    getMetricsWithStaleIncrementalCache({
+      metricSources: incrementalRefreshModel.metricSources,
+      currentMetricSettingsHashes: getMetricSettingsHashesForIncrementalRefresh(
+        {
+          factMetrics: getQueryableMetricsFromSnapshotSettings(
+            snapshotSettings,
+            metricMap,
+          ).filter(isFactMetric),
+          factTableMap,
+          snapshotSettings,
+        },
+      ),
+    }).length
+  ) {
+    if (isLatestPhase && throwOnErrorInsteadOfFallback) {
+      throw new ExperimentIncrementalPipelineRequiresOverallUpdateError(
+        "Metrics changed since Overall Results were last updated. Update Overall Results before running this dimension breakdown.",
+      );
+    }
+    return {
+      runnerFamily: "results",
+      incrementalFallbackReason:
+        "Metric settings changed since their incremental data was last cached; running a non-incremental update instead of reading stale data.",
+      fullRefresh,
+      fullRefreshReason,
+    };
+  }
+
+  return {
+    ...decision,
+    fullRefresh,
+    fullRefreshReason,
+  };
 }
 
 export type PlannedExperimentSnapshot = {
@@ -2060,6 +2101,7 @@ export async function planSnapshot({
     integration,
     snapshotSettings: data.settings,
     metricMap,
+    factTableMap,
     experiment,
     incrementalRefreshModel,
     latestOverallSnapshotId,

@@ -275,10 +275,7 @@ const EditMetricsForm: FC<{
                     experiment={experiment}
                     form={form}
                     statsEngine={statsEngine}
-                    disabled={
-                      !hasOverrideMetricsFeature ||
-                      isExperimentIncludedInIncrementalRefresh
-                    }
+                    disabled={!hasOverrideMetricsFeature}
                   />
                   {!hasOverrideMetricsFeature && (
                     <UpgradeMessage

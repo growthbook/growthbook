@@ -14,7 +14,6 @@ import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { decimalToPercent } from "@/services/utils";
 import {
   getOverridesBlockedReason,
@@ -62,26 +61,16 @@ export default function MetricOverridesModal({
     targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
   }) => void;
 }) {
-  const { getExperimentMetricById, getDatasourceById, metricGroups } =
-    useDefinitions();
+  const { getExperimentMetricById, metricGroups } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
-  // Incremental refresh reuses earlier results, which an override would
-  // silently contradict.
-  const incremental = getIsExperimentIncludedInIncrementalRefresh(
-    getDatasourceById(datasource) ?? undefined,
-    experiment.id,
-    experiment.type,
-  );
-  const hasFeature = hasCommercialFeature("override-metrics");
-  const canOverride = hasFeature && !incremental;
+  const canOverride = hasCommercialFeature("override-metrics");
   // A target MDE only changes how finished results are judged, so it stays
-  // editable where nothing else is.
+  // editable without the feature.
   const onlyTargetMDE = !canOverride && !!targetMDEOverrides;
   // What stays locked, beyond the goals' target MDEs.
   const blockedReason = getOverridesBlockedReason({
-    hasFeature,
-    incremental,
+    hasFeature: canOverride,
     targetMDEsEditable: !!targetMDEOverrides,
     goal: false,
   });

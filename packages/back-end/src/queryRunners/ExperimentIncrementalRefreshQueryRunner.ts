@@ -53,6 +53,7 @@ import {
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
+  getMetricSettingsHashesForIncrementalRefresh,
   getFactTablesNeedingRebuild,
   assertIncrementalRefreshPrerequisites,
 } from "back-end/src/enterprise/services/data-pipeline";
@@ -380,19 +381,12 @@ const startExperimentIncrementalRefreshQueries = async (
   // Current per-metric settings hash for every selected fact metric, keyed by
   // metric id. Compared against the hash persisted in each metric source to
   // detect metrics whose configuration changed since their cache was built.
-  const currentMetricSettingsHashes = new Map<string, string>();
-  factMetrics.forEach((m) => {
-    currentMetricSettingsHashes.set(
-      m.id,
-      getMetricSettingsHashForIncrementalRefresh({
-        factMetric: m,
-        factTableMap: params.factTableMap,
-        metricSettings: snapshotSettings.metricSettings.find(
-          (ms) => ms.id === m.id,
-        ),
-      }),
-    );
-  });
+  const currentMetricSettingsHashes =
+    getMetricSettingsHashesForIncrementalRefresh({
+      factMetrics,
+      factTableMap: params.factTableMap,
+      snapshotSettings,
+    });
 
   // Fact tables whose persisted cache no longer matches the desired metric
   // layout — a metric was added to or removed from the FT, a cross-FT ratio

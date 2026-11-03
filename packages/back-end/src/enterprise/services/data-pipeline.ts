@@ -395,6 +395,50 @@ export function getFactTablesNeedingRebuild({
   return factTablesToRebuild;
 }
 
+export function getMetricSettingsHashesForIncrementalRefresh({
+  factMetrics,
+  factTableMap,
+  snapshotSettings,
+}: {
+  factMetrics: FactMetricInterface[];
+  factTableMap: Map<string, FactTableInterface>;
+  snapshotSettings: ExperimentSnapshotSettings;
+}): Map<string, string> {
+  return new Map(
+    factMetrics.map((m) => [
+      m.id,
+      getMetricSettingsHashForIncrementalRefresh({
+        factMetric: m,
+        factTableMap,
+        metricSettings: snapshotSettings.metricSettings.find(
+          (ms) => ms.id === m.id,
+        ),
+      }),
+    ]),
+  );
+}
+
+// Exploratory runs read metric caches as-is and never rebuild them, so a
+// selected metric whose cache is missing or was built with other settings
+// would silently read stale data.
+export function getMetricsWithStaleIncrementalCache({
+  metricSources,
+  currentMetricSettingsHashes,
+}: {
+  metricSources: IncrementalRefreshInterface["metricSources"];
+  currentMetricSettingsHashes: Map<string, string>;
+}): string[] {
+  const storedMetrics = metricSources.flatMap((source) => source.metrics);
+  return [...currentMetricSettingsHashes]
+    .filter(([metricId, currentHash]) => {
+      const stored = storedMetrics.filter((m) => m.id === metricId);
+      return (
+        !stored.length || stored.some((m) => m.settingsHash !== currentHash)
+      );
+    })
+    .map(([metricId]) => metricId);
+}
+
 // Hash of only the schema-breaking parts of a fact metric (fields that change
 // the materialized table's column set or stored data types). Tolerable changes
 // (capping, conversion windows, thresholds, etc.) affect read-time

@@ -2624,6 +2624,7 @@ export const postExperimentSnapshotValidator = {
   exampleRequest: { body: { triggeredBy: "schedule" } } as const,
   possibleErrors: [
     "requires_full_refresh",
+    "requires_overall_update",
     "dimension_already_up_to_date",
   ] as const,
 };
