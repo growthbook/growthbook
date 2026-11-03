@@ -148,8 +148,7 @@ export default function MetricPreviewChart({
         )}
       </Box>
       <DailyBarChart
-        days={days}
-        values={days.map(dailyValue)}
+        dailyValues={days.map((day) => ({ day, value: dailyValue(day) }))}
         seriesName={metric.name}
         tooltipLines={(day, value) => {
           const cell = cellsByDay.get(day);

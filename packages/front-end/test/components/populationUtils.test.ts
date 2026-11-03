@@ -267,8 +267,11 @@ describe("getPopulationMemberCounts", () => {
         },
       }),
     ).toEqual({
-      days: ["2026-09-01", "2026-09-02", "2026-09-03"],
-      counts: [8, 0, 12],
+      dailyValues: [
+        { day: "2026-09-01", value: 8 },
+        { day: "2026-09-02", value: 0 },
+        { day: "2026-09-03", value: 12 },
+      ],
       total: 20,
     });
   });

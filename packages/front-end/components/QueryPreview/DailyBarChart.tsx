@@ -9,15 +9,13 @@ import {
 
 // One bar per UTC day, shared by the metric and population previews.
 export default function DailyBarChart({
-  days,
-  values,
+  dailyValues,
   seriesName,
   integerYAxis = false,
   tooltipLines,
   height,
 }: {
-  days: string[];
-  values: number[];
+  dailyValues: { day: string; value: number }[];
   seriesName: string;
   /** Show a y-axis with whole-number ticks; hidden by default. */
   integerYAxis?: boolean;
@@ -28,7 +26,7 @@ export default function DailyBarChart({
 }) {
   const { theme } = useAppearanceUITheme();
   const { textColor, tooltipBackgroundColor } = getChartThemeColors(theme);
-  const valueByDay = new Map(days.map((day, i) => [day, values[i] ?? 0]));
+  const valueByDay = new Map(dailyValues.map(({ day, value }) => [day, value]));
   const axisLabelColor = cssColorToHex("var(--gray-10)");
 
   return (
@@ -66,7 +64,7 @@ export default function DailyBarChart({
         },
         xAxis: {
           type: "category",
-          data: days,
+          data: dailyValues.map(({ day }) => day),
           axisLine: { show: false },
           axisTick: { show: false },
           splitLine: { show: false },
@@ -90,7 +88,7 @@ export default function DailyBarChart({
             name: seriesName,
             type: "bar",
             barCategoryGap: "15%",
-            data: values,
+            data: dailyValues.map(({ value }) => value),
             itemStyle: {
               color: cssColorToHex("var(--violet-9)"),
               borderRadius: [2, 2, 0, 0],

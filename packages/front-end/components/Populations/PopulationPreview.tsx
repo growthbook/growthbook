@@ -27,7 +27,9 @@ function MembersChart({
   hasAggregateFilter: boolean;
 }) {
   const chart = getPopulationMemberCounts(exploration);
-  const average = chart.days.length ? chart.total / chart.days.length : null;
+  const average = chart.dailyValues.length
+    ? chart.total / chart.dailyValues.length
+    : null;
   return (
     <>
       <Box minWidth="0">
@@ -44,8 +46,7 @@ function MembersChart({
         </Text>
       </Box>
       <DailyBarChart
-        days={chart.days}
-        values={chart.counts}
+        dailyValues={chart.dailyValues}
         seriesName="Members"
         integerYAxis
         height={280}
