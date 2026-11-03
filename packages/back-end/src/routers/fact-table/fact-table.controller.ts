@@ -482,18 +482,22 @@ export const putFactTable = async (
     await updateFactTableColumns(factTable, columnRefreshResults, context);
   }
 
-  // The refresh job loads a newly prompted column's values.
+  // The refresh job loads a newly prompted column's values. The job runs as an
+  // admin, so like the column endpoint it's skipped for a user who can't run
+  // queries; a foreground refresh already checked.
   // ponytail: re-detects every column for one; a top-values query for just that
   // column if warehouse cost matters
-  const promptTurnedOn = Object.entries(columnUpdates ?? {}).some(
-    ([column, changes]) =>
-      changes.alwaysInlineFilter &&
-      !factTable.columns.some(
-        (c) => c.column === column && c.alwaysInlineFilter,
-      ),
-  );
+  const loadPromptValues =
+    context.permissions.canRunFactQueries(datasource) &&
+    Object.entries(columnUpdates ?? {}).some(
+      ([column, changes]) =>
+        changes.alwaysInlineFilter &&
+        !factTable.columns.some(
+          (c) => c.column === column && c.alwaysInlineFilter,
+        ),
+    );
 
-  if (columnRefreshResults?.columnRefreshPending || promptTurnedOn) {
+  if (columnRefreshResults?.columnRefreshPending || loadPromptValues) {
     await queueFactTableColumnsRefresh({
       id: factTable.id,
       organization: factTable.organization,

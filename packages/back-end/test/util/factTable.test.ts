@@ -786,12 +786,19 @@ describe("applyColumnUpdates", () => {
     expect(updated[4]).toBe(columns[4]);
   });
 
-  it("rejects a missing or deleted column", () => {
+  it("rejects a missing column", () => {
     expect(() => applyColumnUpdates(columns, { nope: { name: "x" } })).toThrow(
       /Could not find column nope/,
     );
+  });
+
+  it("cleans up a deleted column but doesn't prompt on it", () => {
+    expect(
+      applyColumnUpdates(columns, { gone: { alwaysInlineFilter: false } })[3]
+        .alwaysInlineFilter,
+    ).toBe(false);
     expect(() =>
-      applyColumnUpdates(columns, { gone: { alwaysInlineFilter: false } }),
+      applyColumnUpdates(columns, { gone: { alwaysInlineFilter: true } }),
     ).toThrow(/Could not find column gone/);
   });
 

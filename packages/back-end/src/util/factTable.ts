@@ -218,8 +218,12 @@ export function applyColumnUpdates(
   // A Map, so a column named like an Object property can't match one
   const byColumn = new Map(Object.entries(updates));
   for (const [column, changes] of byColumn) {
-    const existing = columns.find((c) => c.column === column && !c.deleted);
-    if (!existing) throw new Error(`Could not find column ${column}`);
+    const existing = columns.find((c) => c.column === column);
+    // A deleted column can still be cleaned up, like the prompt on an event
+    // column the same request's SQL removed, but not prompted on
+    if (!existing || (existing.deleted && changes.alwaysInlineFilter)) {
+      throw new Error(`Could not find column ${column}`);
+    }
     if (changes.alwaysInlineFilter && existing.datatype !== "string") {
       throw new Error(
         `Only string columns are eligible for inline filtering: ${column}`,
@@ -228,7 +232,7 @@ export function applyColumnUpdates(
   }
   const dateUpdated = new Date();
   return columns.map((c) => {
-    const changes = c.deleted ? undefined : byColumn.get(c.column);
+    const changes = byColumn.get(c.column);
     return changes ? { ...c, ...changes, dateUpdated } : c;
   });
 }
