@@ -15,7 +15,7 @@ import { TextField } from "@/ui/TextField";
 import { StoryMeta } from "@/ui/storyMeta";
 
 export const meta: StoryMeta = {
-  name: "Empty state",
+  name: "Empty State",
   category: "patterns",
   status: "stable",
   summary:
@@ -27,14 +27,14 @@ export const meta: StoryMeta = {
   avoidWhen: [
     {
       reason: "The data failed to load.",
-      use: "Loading and errors",
+      use: "Loading and Errors",
     },
     {
       reason: "The feature needs a paid plan.",
-      use: "Permission-gated action",
+      use: "Permission-Gated Action",
     },
   ],
-  related: ["Table", "LinkButton", "Loading and errors"],
+  related: ["Table", "LinkButton", "Loading and Errors"],
   examples: ["pages/constants/index.tsx", "components/EmptyState.tsx"],
 };
 

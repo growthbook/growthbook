@@ -12,7 +12,7 @@ import Text from "@/ui/Text";
 import { StoryMeta } from "@/ui/storyMeta";
 
 export const meta: StoryMeta = {
-  name: "Destructive action",
+  name: "Destructive Action",
   category: "patterns",
   status: "stable",
   summary:
@@ -24,7 +24,7 @@ export const meta: StoryMeta = {
   avoidWhen: [
     {
       reason: "The action collects input before it runs.",
-      use: "Form in a modal",
+      use: "Form in a Modal",
     },
   ],
   related: ["ConfirmDialog", "DropdownMenu", "Button"],

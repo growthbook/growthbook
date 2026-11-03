@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import {
   findDanglingReferences,
+  slugify,
   StoryMeta,
   storyCategories,
   storyMetaSchema,
@@ -35,9 +36,7 @@ describe("design system stories", () => {
   it("gives every story a unique name and anchor", () => {
     const slugs = [
       ...storyCategories.map((c) => c.id),
-      ...metas.map(({ meta }) =>
-        meta.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      ),
+      ...metas.map(({ meta }) => slugify(meta.name)),
     ];
     const dupes = slugs.filter((s, i) => slugs.indexOf(s) !== i);
     expect(dupes).toEqual([]);

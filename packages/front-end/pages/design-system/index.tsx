@@ -9,6 +9,7 @@ import {
   StoryMeta,
   StoryModule,
   StoryStatus,
+  slugify,
   storyCategories,
 } from "@/ui/storyMeta";
 
@@ -313,10 +314,3 @@ function isRetired(meta: StoryMeta) {
 
 DesignSystemPage.preAuth = true;
 DesignSystemPage.preAuthTopNav = true;
-
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}

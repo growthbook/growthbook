@@ -10,7 +10,7 @@ export const storyCategories = [
   { id: "navigation", label: "Navigation" },
   { id: "layout", label: "Layout" },
   { id: "typography", label: "Typography" },
-  { id: "data-display", label: "Data display" },
+  { id: "data-display", label: "Data Display" },
   { id: "experimentation", label: "Experimentation" },
 ] as const;
 
@@ -69,4 +69,12 @@ export function findDanglingReferences(metas: StoryMeta[]): string[] {
     }
   }
   return problems;
+}
+
+/** Anchor id for a story or category name on the /design-system page. */
+export function slugify(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }

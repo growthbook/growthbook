@@ -10,7 +10,7 @@ import { TextField } from "@/ui/TextField";
 import { StoryMeta } from "@/ui/storyMeta";
 
 export const meta: StoryMeta = {
-  name: "Form in a modal",
+  name: "Form in a Modal",
   category: "patterns",
   status: "stable",
   summary:
@@ -22,14 +22,14 @@ export const meta: StoryMeta = {
   avoidWhen: [
     {
       reason: "You only need a yes or no answer.",
-      use: "Destructive action",
+      use: "Destructive Action",
     },
     {
       reason: "The layout needs more than a header, body, and footer.",
       use: "Modal",
     },
   ],
-  related: ["Modal", "TextField", "Select", "Destructive action"],
+  related: ["Modal", "TextField", "Select", "Destructive Action"],
   examples: [
     "components/Tags/TagsModal.tsx",
     "components/Projects/ProjectModal.tsx",

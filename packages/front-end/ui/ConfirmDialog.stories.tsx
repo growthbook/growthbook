@@ -41,7 +41,7 @@ export default function ConfirmDialogStories() {
       )}
       {open === "danger" && (
         <ConfirmDialog
-          title="Delete feature?"
+          title="Delete Feature Flag?"
           content="This cannot be undone."
           yesText="Delete"
           color="red"

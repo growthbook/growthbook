@@ -9,7 +9,7 @@ import Tooltip from "@/ui/Tooltip";
 import { StoryMeta } from "@/ui/storyMeta";
 
 export const meta: StoryMeta = {
-  name: "Permission-gated action",
+  name: "Permission-Gated Action",
   category: "patterns",
   status: "stable",
   summary:
@@ -71,8 +71,9 @@ export default function PermissionGatedActionStory() {
             content="You do not have permission to create Saved Groups."
             enabled={!canCreate}
           >
-            {/* A disabled button gets no hover events, so the tooltip wraps a span. */}
-            <span>
+            {/* A disabled button gets no hover or focus events, so the tooltip
+                wraps a focusable span that keyboard users can reach. */}
+            <span tabIndex={canCreate ? undefined : 0}>
               <Button disabled={!canCreate}>Add Saved Group</Button>
             </span>
           </Tooltip>

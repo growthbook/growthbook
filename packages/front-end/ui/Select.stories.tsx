@@ -12,7 +12,11 @@ export const meta: StoryMeta = {
   useWhen: ["Picking one value from a short, known list of options."],
   avoidWhen: [
     {
-      reason: "Picking several values or searching a long list.",
+      reason: "Searching a long list for a single value.",
+      use: "SelectField",
+    },
+    {
+      reason: "Picking several values.",
       use: "MultiSelectField",
     },
     {

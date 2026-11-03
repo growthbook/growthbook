@@ -11,10 +11,11 @@ export const meta: StoryMeta = {
     "Radix-based single-line text input with design system sizing, labels, and validation states. Supports native input types and standard HTML validation attributes.",
   useWhen: [
     "Any single-line text, number, email, or password input in new code.",
+    "Plain multi-line text, with the `multiline` prop.",
   ],
   avoidWhen: [
     {
-      reason: "Multi-line text or Markdown.",
+      reason: "Formatted text or Markdown.",
       use: "RichTextEditor",
     },
     {

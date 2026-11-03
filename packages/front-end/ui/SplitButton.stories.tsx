@@ -32,7 +32,7 @@ export default function SplitButtonStories() {
     <Flex direction="column" gap="3" align="start">
       <SplitButton
         menu={
-          <Button>
+          <Button aria-label="More save actions">
             <PiCaretDown />
           </Button>
         }

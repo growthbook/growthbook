@@ -8,7 +8,7 @@ import Text from "@/ui/Text";
 import { StoryMeta } from "@/ui/storyMeta";
 
 export const meta: StoryMeta = {
-  name: "Loading and errors",
+  name: "Loading and Errors",
   category: "patterns",
   status: "stable",
   summary:
@@ -20,14 +20,14 @@ export const meta: StoryMeta = {
   avoidWhen: [
     {
       reason: "The request loaded but returned no items.",
-      use: "Empty state",
+      use: "Empty State",
     },
     {
       reason: "The error comes from a modal submit. Throw it instead.",
-      use: "Form in a modal",
+      use: "Form in a Modal",
     },
   ],
-  related: ["Callout", "ErrorDisplay", "Empty state"],
+  related: ["Callout", "ErrorDisplay", "Empty State"],
   examples: ["pages/metric/[mid].tsx", "pages/report/[rid].tsx"],
 };
 
