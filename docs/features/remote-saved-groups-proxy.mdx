@@ -1,0 +1,78 @@
+---
+title: Remote Groups with the GrowthBook Proxy
+description: Set up the GrowthBook Proxy to load Remote Group IDs into Redis and look up each user's groups during remote evaluation.
+sidebarTitle: With the GrowthBook Proxy
+---
+
+The [GrowthBook Proxy](/self-host/proxy) (version 1.6.0 or later) handles [Remote Groups](/features/remote-saved-groups) for you. It loads uploaded IDs into Redis, and during [remote evaluation](/self-host/remote-evaluation) it looks up each user's groups before evaluating. Your app doesn't need any code for Remote Groups.
+
+To look up groups without the Proxy, such as in a server SDK or your own evaluation endpoint, see [Custom Lookups and Storage](/features/remote-saved-groups-custom).
+
+## Requirements
+
+- GrowthBook Proxy 1.6.0 or later
+- Redis 6.2 or later, single node or Redis Cluster. See [Redis requirements](#redis-requirements)
+- A secret API key for the Proxy with permission to publish Saved Groups, so it can report what it loaded. A read-only key works too, but GrowthBook then can't show which versions are loaded
+- An SDK that supports [remote evaluation](/self-host/remote-evaluation#supported-sdks)
+
+## Setup
+
+1. **Turn on remote evaluation.** On the SDK Connection, turn on **Remote Evaluation**. Point your SDK at the Proxy and turn on remote evaluation in the SDK. For example, in JavaScript set `apiHost` to the Proxy's URL and pass `remoteEval: true`. See [JavaScript remote evaluation](/lib/js#remote-evaluation).
+
+2. **Configure the Proxy.** Turn on Remote Groups, point the Proxy at Redis, and give the Redis a store ID:
+
+   ```bash
+   docker run -d -p 3300:3300 \
+     -e "GROWTHBOOK_API_HOST=https://growthbook-api.example.com" \
+     -e "SECRET_API_KEY=secret_..." \
+     -e "ENABLE_REMOTE_SAVED_GROUPS=true" \
+     -e "REMOTE_SAVED_GROUPS_CONNECTION_URL=redis://redis.example.com:6379" \
+     -e "REMOTE_SAVED_GROUPS_STORE_ID=redis-us-east" \
+     --name gbproxy growthbook/proxy
+   ```
+
+   If the Proxy already uses Redis for its cache (`CACHE_ENGINE=redis`), you can leave out `REMOTE_SAVED_GROUPS_CONNECTION_URL`; it uses `CACHE_CONNECTION_URL`.
+
+3. **Create a group and upload IDs.** See [Creating a Remote Group](/features/remote-saved-groups#creating-a-remote-group) and [Uploading IDs](/features/remote-saved-groups#uploading-ids). Publish the version you want the group to use.
+
+4. **Check that it loaded.** Within one poll (5 minutes by default), the group's page shows your store ID, such as `redis-us-east`, in the **Data stores** column for that version.
+
+5. **Use the group in rules.** See [Targeting with Remote Groups](/features/remote-saved-groups#targeting-with-remote-groups).
+
+## How Lookups Work
+
+During remote evaluation, the Proxy looks up the user's groups in Redis, using the attributes the client sent.
+
+- **Client IDs are ignored.** The Proxy replaces any group IDs the client sends, so users can't add themselves to a group.
+- **Lookups fail closed.** If Redis is unreachable or a lookup takes longer than `REMOTE_SAVED_GROUPS_TIMEOUT_MS`, the user is treated as being in no Remote Groups.
+- **Unloaded groups match no one.** Rules that use a group this Redis hasn't loaded yet don't match anyone, so a "not in group" rule never matches everyone while a group is loading.
+- **Clients get updates.** When a load changes a group's IDs, the Proxy tells streaming clients to fetch new results, as it does for feature changes.
+
+## Settings
+
+| Setting                                       | Default                                               | Description                                                                           |
+| --------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `ENABLE_REMOTE_SAVED_GROUPS`                  | `false`                                               | Turn on Remote Groups (lookups and the loader)                                        |
+| `REMOTE_SAVED_GROUPS_CONNECTION_URL`          | `CACHE_CONNECTION_URL` when `CACHE_ENGINE` is `redis` | The Redis connection URL                                                              |
+| `REMOTE_SAVED_GROUPS_USE_CLUSTER`             | `false`                                               | Use Redis Cluster                                                                     |
+| `REMOTE_SAVED_GROUPS_CLUSTER_ROOT_NODES_JSON` |                                                       | Redis Cluster root nodes, as JSON                                                     |
+| `REMOTE_SAVED_GROUPS_STORE_ID`                |                                                       | Required for the loader. Identifies this Redis in GrowthBook, such as `redis-us-east` |
+| `REMOTE_SAVED_GROUPS_TIMEOUT_MS`              | `1000`                                                | How long a lookup can take before the user is treated as in no Remote Groups          |
+| `REMOTE_SAVED_GROUPS_LOADER`                  | `true`                                                | Run the loader on this instance                                                       |
+| `REMOTE_SAVED_GROUPS_POLL_INTERVAL_MS`        | `300000`                                              | How often the loader checks for new versions                                          |
+| `REMOTE_SAVED_GROUPS_LOADER_ONLY`             | `false`                                               | Only run the loader, with no proxying or evaluation                                   |
+
+## Loading IDs into Redis
+
+The Proxy's loader polls GrowthBook for each Remote Group's version, downloads new versions, and loads them into Redis. After you publish a new version, the loader picks it up on its next poll. Changes to rules reach the Proxy like any other feature change.
+
+Replicas that share a Redis take turns loading each group. You can also run the loader on its own with `REMOTE_SAVED_GROUPS_LOADER_ONLY=true`, and turn it off on the other Proxies with `REMOTE_SAVED_GROUPS_LOADER=false`.
+
+The loader uses the Proxy's `SECRET_API_KEY`, and each poll makes an API request. Keep the poll interval in minutes, not seconds, especially with many replicas, so the Proxy stays within GrowthBook's API rate limit.
+
+**Store ID:** use one ID per Redis. Replicas sharing a Redis, or one Redis Cluster, use the same ID, and each separate Redis gets a different one. Each Redis shows up under its ID in a version's details.
+
+### Redis Requirements
+
+- Redis 6.2 or later. Redis Cluster is supported.
+- Loaded IDs have no expiry, so use an eviction policy that keeps them, such as `noeviction` or a `volatile-*` policy, or a Redis just for Remote Groups. If Redis evicts them, users silently drop out of their groups.
