@@ -145,10 +145,6 @@ export default function InterleavingResults({
             {/* Interleaving has no engine choice; the label says which test
                 family the p-values come from. */}
             <Metadata label="Engine" value="Frequentist" />
-            <Metadata
-              label="Significance threshold"
-              value={String(snapshot.settings.pValueThreshold)}
-            />
           </>
         )}
       </Flex>

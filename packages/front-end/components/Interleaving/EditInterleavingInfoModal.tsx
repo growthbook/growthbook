@@ -90,7 +90,9 @@ export default function EditInterleavingInfoModal({
             // A stored owner who has left the org fails the server's membership
             // check, which would block an unrelated name or tag edit.
             owner: data.owner !== (il.owner ?? "") ? data.owner : undefined,
-            project: data.project,
+            // Similarly only send project if it is changed
+            project:
+              data.project !== (il.project ?? "") ? data.project : undefined,
             tags: data.tags,
           },
         });
