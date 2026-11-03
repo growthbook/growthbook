@@ -1064,9 +1064,6 @@ export default {
         savedGroupReferencesV2: "≥ v0.3.0",
       },
       {
-        interleaving: "≥ v0.3.0",
-      },
-      {
         contextualBanditsAuto: "≥ v0.3.0",
       },
       {
@@ -1147,9 +1144,6 @@ export default {
         savedGroupReferencesV2: "≥ v0.3.0",
       },
       {
-        interleaving: "≥ v0.3.0",
-      },
-      {
         contextualBanditsAuto: "≥ v0.3.0",
       },
       {
@@ -1225,9 +1219,6 @@ export default {
         savedGroupReferencesV2: "≥ v0.3.0",
       },
       {
-        interleaving: "≥ v0.3.0",
-      },
-      {
         contextualBanditsAuto: "≥ v0.3.0",
       },
       {
@@ -1301,9 +1292,6 @@ export default {
       },
       {
         savedGroupReferencesV2: "≥ v0.3.0",
-      },
-      {
-        interleaving: "≥ v0.3.0",
       },
       {
         contextualBanditsAuto: "≥ v0.3.0",

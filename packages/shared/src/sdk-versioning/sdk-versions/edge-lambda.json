@@ -5,7 +5,6 @@
       "capabilities": [
         "contextualBandits",
         "savedGroupReferencesV2",
-        "interleaving",
         "contextualBanditsAuto"
       ]
     },
