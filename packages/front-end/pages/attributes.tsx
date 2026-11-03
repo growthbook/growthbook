@@ -13,7 +13,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
-import Switch from "@/ui/Switch";
 import Pagination from "@/ui/Pagination";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -314,18 +313,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { references: identifierReferences } = useAttributeReferences(
     identifiers.map((i) => i.property),
   );
-  // Separate from the attributes search, which only filters that table.
+  // Separate from the attributes search, which only filters that table. Same
+  // filters, driven by the dropdowns alone, with no search box.
   const [showArchivedIdentifiers, setShowArchivedIdentifiers] = useState(false);
-  const archivedIdentifierCount = identifiers.filter((i) => i.archived).length;
   const identifierRows = useMemo(
     () =>
-      identifiers
-        .filter((i) => showArchivedIdentifiers || !i.archived)
-        .map((i) => ({
-          ...i,
-          usedIn: identifierReferences?.[i.property]?.experiments.length,
-        })),
-    [identifiers, showArchivedIdentifiers, identifierReferences],
+      identifiers.map((i) => ({
+        ...i,
+        usedIn: identifierReferences?.[i.property]?.experiments.length,
+      })),
+    [identifiers, identifierReferences],
+  );
+  const archivedIdentifierFilter = useMemo(
+    () =>
+      showArchivedIdentifiers
+        ? undefined
+        : (items: typeof identifierRows) => items.filter((i) => !i.archived),
+    [showArchivedIdentifiers],
   );
   const {
     items: pagedIdentifiers,
@@ -333,6 +337,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
     page: identifierPage,
     setPage: setIdentifierPage,
     SortableTableColumnHeader: SortableIdentifierHeader,
+    searchInputProps: identifierSearchInputProps,
+    setSearchValue: setIdentifierSearchValue,
+    syntaxFilters: identifierSyntaxFilters,
+    isFiltered: identifiersFiltered,
   } = useSearch({
     items: identifierRows,
     localStorageKey: "identifiers",
@@ -340,8 +348,24 @@ const FeatureAttributesPage = (): React.ReactElement => {
     persistSort: false,
     disableUrlSearchTerm: true,
     pageSize: PAGE_SIZE,
+    filterResults: archivedIdentifierFilter,
     searchFields: ["property"],
+    searchTermFilters: {
+      is: (item) =>
+        item.archived ? [item.datatype, "archived"] : [item.datatype],
+      datatype: (item) => item.datatype,
+      project: (item) => item.projectNames || [],
+      tag: (item) => item.tags || [],
+    },
   });
+
+  useEffect(() => {
+    setShowArchivedIdentifiers(
+      identifierSyntaxFilters.some(
+        (f) => f.field === "is" && !f.negated && f.values.includes("archived"),
+      ),
+    );
+  }, [identifierSyntaxFilters]);
 
   type AttributeRow = (typeof attributesWithComputedFields)[number];
 
@@ -623,12 +647,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 </Text>
               </Box>
               <Flex align="center" gap="4">
-                {archivedIdentifierCount > 0 && (
-                  <Switch
-                    size="sm"
-                    label={`Show archived (${archivedIdentifierCount})`}
-                    value={showArchivedIdentifiers}
-                    onChange={setShowArchivedIdentifiers}
+                {identifiers.length > 0 && (
+                  <AttributeSearchFilters
+                    attributes={identifiers}
+                    searchInputProps={identifierSearchInputProps}
+                    setSearchValue={setIdentifierSearchValue}
+                    syntaxFilters={identifierSyntaxFilters}
                   />
                 )}
                 {canCreateAttributes && identifiers.length > 0 && (
@@ -774,7 +798,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <TableRow>
                         <TableCell colSpan={8}>
                           <Text color="text-low">
-                            All identifiers are archived.
+                            {identifiersFiltered
+                              ? "No identifiers match these filters."
+                              : "All identifiers are archived."}
                           </Text>
                         </TableCell>
                       </TableRow>
