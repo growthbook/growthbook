@@ -47,6 +47,22 @@ describe("getColumnMappingError", () => {
   it("rejects a single unknown column serving as both", () => {
     expect(getColumnMappingError(cols(""))).toMatch(/separate/);
   });
+
+  it("checks the options a caller passes instead of the types", () => {
+    const columns = cols("string", "boolean");
+    expect(getColumnMappingError(columns)).toMatch(/date column/);
+    expect(
+      getColumnMappingError(columns, false, {
+        timestampOptions: [columns[1]],
+      }),
+    ).toBeNull();
+    expect(
+      getColumnMappingError(columns, false, {
+        timestampOptions: [columns[1]],
+        identifierOptions: [],
+      }),
+    ).toMatch(/identifier/);
+  });
 });
 
 const schema = (schemaName: string, ...names: string[]): SchemaWithPath => ({

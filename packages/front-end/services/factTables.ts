@@ -63,14 +63,17 @@ export function getColumnMappingError(
   {
     minColumns = 2,
     separateColumns = "separate timestamp and identifier columns",
+    // What each role can map to, for a caller that allows more than the types
+    timestampOptions = columns.filter(isTimestampCandidate),
+    identifierOptions = columns.filter(isIdentifierCandidate),
   } = {},
 ): string | null {
-  if (!columns.some(isTimestampCandidate)) {
+  if (!timestampOptions.length) {
     return fromTable
       ? "Selected table does not have a timestamp column."
       : "Your query must return a date column to use as the timestamp.";
   }
-  if (!columns.some(isIdentifierCandidate)) {
+  if (!identifierOptions.length) {
     return fromTable
       ? "Selected table does not have an identifier column."
       : "Your query must return a string or number column to use as an identifier.";

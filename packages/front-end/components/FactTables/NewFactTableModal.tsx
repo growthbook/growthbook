@@ -448,12 +448,28 @@ export default function NewFactTableModal({
     setTableType(eventTypeColumn ? "event" : "model");
   };
 
-  // Saved mappings stay listed: older Fact Tables didn't check column types,
-  // and an identifier can be a field inside a JSON column
+  // Saved mappings stay options by name, as the server only type-checks a
+  // changed one: older Fact Tables didn't check column types, and an
+  // identifier can be a field inside a JSON column. The SQL step checks these
+  // same options.
   const savedIdColumns = [...new Set(Object.values(saved.userIdColumns))];
-  const savedMappedColumns = [
-    saved.timestampColumn,
-    ...savedIdColumns.map((c) => c.split(".")[0]),
+  const getTimestampOptions = (columns: DetectedColumn[]) =>
+    columns.filter(
+      (c) => isTimestampCandidate(c) || c.column === saved.timestampColumn,
+    );
+  const getIdentifierOptions = (columns: DetectedColumn[]) => [
+    ...columns.filter(
+      (c) => isIdentifierCandidate(c) || savedIdColumns.includes(c.column),
+    ),
+    ...savedIdColumns.flatMap((column) => {
+      const [root, field] = column.split(".");
+      const json = field
+        ? columns.find((c) => c.column === root && c.datatype === "json")
+        : undefined;
+      return json
+        ? [{ column, datatype: json.jsonFields?.[field]?.datatype ?? "" }]
+        : [];
+    }),
   ];
 
   const source = useSourceTable({
@@ -465,15 +481,11 @@ export default function NewFactTableModal({
     sql,
     setSql,
     initialColumns: savedColumns,
-    // Counted as unknown types, so the SQL step doesn't reject the saved
-    // mappings the next step still offers
     getColumnMappingError: (columns, fromTable) =>
-      getColumnMappingError(
-        columns.map((c) =>
-          savedMappedColumns.includes(c.column) ? { ...c, datatype: "" } : c,
-        ),
-        fromTable,
-      ),
+      getColumnMappingError(columns, fromTable, {
+        timestampOptions: getTimestampOptions(columns),
+        identifierOptions: getIdentifierOptions(columns),
+      }),
     columnSelection: {
       mapped: [
         timestampColumn,
@@ -503,23 +515,8 @@ export default function NewFactTableModal({
   } = source;
   const factTableSql = source.querySql;
 
-  const timestampOptions = (detected || []).filter(
-    (c) => isTimestampCandidate(c) || c.column === saved.timestampColumn,
-  );
-  const identifierOptions = [
-    ...(detected || []).filter(
-      (c) => isIdentifierCandidate(c) || savedIdColumns.includes(c.column),
-    ),
-    ...savedIdColumns.flatMap((column) => {
-      const [root, field] = column.split(".");
-      const json = field
-        ? detected?.find((c) => c.column === root && c.datatype === "json")
-        : undefined;
-      return json
-        ? [{ column, datatype: json.jsonFields?.[field]?.datatype ?? "" }]
-        : [];
-    }),
-  ];
+  const timestampOptions = getTimestampOptions(detected || []);
+  const identifierOptions = getIdentifierOptions(detected || []);
   // An event type is a low-cardinality string many rows share. A column named
   // like an id holds a value per row, so offering it would build a metric
   // filter whose dropdown lists every id in the table.
@@ -548,11 +545,6 @@ export default function NewFactTableModal({
     const timestamp = validColumn(timestampOptions, timestampColumn);
     if (!timestamp) throw new Error("Select a timestamp column");
 
-    const inlineFilter =
-      tableType === "event"
-        ? validColumn(inlineFilterOptions, inlineFilterColumn)
-        : "";
-
     const userIdTypes = identifierTypes.filter((t) =>
       validColumn(identifierOptions, userIdColumns[t] || ""),
     );
@@ -562,7 +554,26 @@ export default function NewFactTableModal({
 
     const remapped = getRemappedUserIdColumns(userIdTypes, userIdColumns);
 
+    const inlineFilter =
+      tableType === "event"
+        ? validColumn(inlineFilterOptions, inlineFilterColumn)
+        : "";
+
     if (existing && !duplicate) {
+      // Other types leave prompted columns to the column editor. The server
+      // detects a column it hasn't stored yet before updating it.
+      const columnUpdates: NonNullable<UpdateFactTableProps["columnUpdates"]> =
+        {};
+      if (tableType === "event" && inlineFilter !== saved.inlineFilterColumn) {
+        if (saved.inlineFilterColumn) {
+          columnUpdates[saved.inlineFilterColumn] = {
+            alwaysInlineFilter: false,
+          };
+        }
+        if (inlineFilter) {
+          columnUpdates[inlineFilter] = { alwaysInlineFilter: true };
+        }
+      }
       // A changed mapping re-detects columns, and older Fact Tables store
       // identity mappings that `remapped` leaves out
       const mappingChanged = !isEqual(
@@ -582,29 +593,12 @@ export default function NewFactTableModal({
         ...(usesEventName(factTableSql)
           ? { eventName: eventName || name }
           : {}),
+        ...(Object.keys(columnUpdates).length ? { columnUpdates } : {}),
       };
       await apiCall(`/fact-tables/${existing.id}`, {
         method: "PUT",
         body: JSON.stringify(changes),
       });
-      // Through the column endpoint, which loads a prompted column's values
-      if (inlineFilter !== saved.inlineFilterColumn) {
-        const updates: [string, boolean][] = [
-          [saved.inlineFilterColumn, false],
-          [inlineFilter, true],
-        ];
-        for (const [column, alwaysInlineFilter] of updates) {
-          if (!column) continue;
-          await apiCall(`/fact-tables/${existing.id}/column/${column}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              // Otherwise the server resets the display name
-              name: existing.columns.find((c) => c.column === column)?.name,
-              alwaysInlineFilter,
-            }),
-          });
-        }
-      }
       track("Edit Fact Table", editProps);
       await mutateDefinitions();
       return;

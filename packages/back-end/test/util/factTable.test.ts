@@ -4,6 +4,7 @@ import {
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import {
+  applyColumnUpdates,
   columnsHaveAutoSlices,
   deriveUserIdTypesFromColumns,
   validateColumnMappingTargets,
@@ -758,5 +759,45 @@ describe("buildColumnTypeMaps", () => {
     });
 
     expect([...datatypes]).toEqual([["revenue", "number"]]);
+  });
+});
+
+describe("applyColumnUpdates", () => {
+  const columns = [
+    { ...makeColumn("event_name", false, "string"), name: "Event" },
+    makeColumn("old_event", false, "string"),
+    makeColumn("amount", false, "number"),
+    makeColumn("gone", true, "string"),
+    makeColumn("constructor", false, "string"),
+  ];
+
+  it("changes only the given fields of the named columns", () => {
+    const updated = applyColumnUpdates(columns, {
+      event_name: { alwaysInlineFilter: true },
+      old_event: { alwaysInlineFilter: false },
+    });
+    expect(updated[0]).toMatchObject({
+      name: "Event",
+      datatype: "string",
+      alwaysInlineFilter: true,
+    });
+    expect(updated[1].alwaysInlineFilter).toBe(false);
+    expect(updated[2]).toBe(columns[2]);
+    expect(updated[4]).toBe(columns[4]);
+  });
+
+  it("rejects a missing or deleted column", () => {
+    expect(() => applyColumnUpdates(columns, { nope: { name: "x" } })).toThrow(
+      /Could not find column nope/,
+    );
+    expect(() =>
+      applyColumnUpdates(columns, { gone: { alwaysInlineFilter: false } }),
+    ).toThrow(/Could not find column gone/);
+  });
+
+  it("only prompts on string columns", () => {
+    expect(() =>
+      applyColumnUpdates(columns, { amount: { alwaysInlineFilter: true } }),
+    ).toThrow(/Only string columns/);
   });
 });

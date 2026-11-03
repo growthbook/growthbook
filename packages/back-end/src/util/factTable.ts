@@ -9,6 +9,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
   JSONColumnFields,
+  UpdateFactTableProps,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { TestQueryResult } from "shared/types/integrations";
@@ -204,6 +205,32 @@ export function validateNewUserIdColumnKeys({
       );
     }
   }
+}
+
+/**
+ * Changes only the given fields of each named column. Takes the list the
+ * request will write, so a column its own refresh just found can be updated.
+ */
+export function applyColumnUpdates(
+  columns: ColumnInterface[],
+  updates: NonNullable<UpdateFactTableProps["columnUpdates"]>,
+): ColumnInterface[] {
+  // A Map, so a column named like an Object property can't match one
+  const byColumn = new Map(Object.entries(updates));
+  for (const [column, changes] of byColumn) {
+    const existing = columns.find((c) => c.column === column && !c.deleted);
+    if (!existing) throw new Error(`Could not find column ${column}`);
+    if (changes.alwaysInlineFilter && existing.datatype !== "string") {
+      throw new Error(
+        `Only string columns are eligible for inline filtering: ${column}`,
+      );
+    }
+  }
+  const dateUpdated = new Date();
+  return columns.map((c) => {
+    const changes = c.deleted ? undefined : byColumn.get(c.column);
+    return changes ? { ...c, ...changes, dateUpdated } : c;
+  });
 }
 
 const SAFE_BARE_SQL_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;

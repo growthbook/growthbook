@@ -62,6 +62,7 @@ import {
   populateAutoSlices,
 } from "back-end/src/services/factTableColumns";
 import {
+  applyColumnUpdates,
   buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
@@ -349,7 +350,7 @@ export const putFactTable = async (
   >,
   res: Response<{ status: 200 }>,
 ) => {
-  const data = req.body;
+  const { columnUpdates, ...data } = req.body;
   const context = getContextFromReq(req);
 
   const factTable = await getFactTable(context, req.params.id);
@@ -362,6 +363,12 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
   const forceColumnRefresh = !!req.query?.forceColumnRefresh;
+  // A column that isn't stored yet, like one added in the warehouse since the
+  // last refresh, is detected before it's updated
+  const updatesUnstoredColumn = Object.keys(columnUpdates ?? {}).some(
+    (column) =>
+      !factTable.columns.some((c) => c.column === column && !c.deleted),
+  );
 
   let columnRefreshResults: Partial<
     Pick<
@@ -370,7 +377,11 @@ export const putFactTable = async (
     >
   > | null = null;
 
-  if (forceColumnRefresh || needsColumnRefresh(factTable, data)) {
+  if (
+    forceColumnRefresh ||
+    needsColumnRefresh(factTable, data) ||
+    updatesUnstoredColumn
+  ) {
     const updatedFactTable = {
       ...factTable,
       ...data,
@@ -437,13 +448,52 @@ export const putFactTable = async (
     existing: factTable,
   });
 
-  await updateFactTable(context, factTable, data);
+  let updatedColumns: ColumnInterface[] | null = null;
+  if (columnUpdates) {
+    // The column endpoint's gates
+    if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+      context.permissions.throwPermissionError();
+    }
+    const updated = Object.keys(columnUpdates);
+    if (
+      factTable.columns.some(
+        (c) => c.isVirtual && updated.includes(c.column),
+      ) &&
+      !context.permissions.canManageFactTableVirtualColumn(factTable)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    updatedColumns = applyColumnUpdates(
+      columnRefreshResults?.columns ?? factTable.columns,
+      columnUpdates,
+    );
+    if (columnRefreshResults) columnRefreshResults.columns = updatedColumns;
+  }
+
+  await updateFactTable(
+    context,
+    factTable,
+    updatedColumns && !columnRefreshResults
+      ? { ...data, columns: updatedColumns }
+      : data,
+  );
 
   if (columnRefreshResults) {
     await updateFactTableColumns(factTable, columnRefreshResults, context);
   }
 
-  if (columnRefreshResults?.columnRefreshPending) {
+  // The refresh job loads a newly prompted column's values.
+  // ponytail: re-detects every column for one; a top-values query for just that
+  // column if warehouse cost matters
+  const promptTurnedOn = Object.entries(columnUpdates ?? {}).some(
+    ([column, changes]) =>
+      changes.alwaysInlineFilter &&
+      !factTable.columns.some(
+        (c) => c.column === column && c.alwaysInlineFilter,
+      ),
+  );
+
+  if (columnRefreshResults?.columnRefreshPending || promptTurnedOn) {
     await queueFactTableColumnsRefresh({
       id: factTable.id,
       organization: factTable.organization,
