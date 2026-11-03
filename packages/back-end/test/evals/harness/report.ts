@@ -83,7 +83,8 @@ export function summarize(
       avgTurns: graded.length
         ? graded.reduce((n, o) => n + o.record.turns, 0) / graded.length
         : 0,
-      agentUsage: sumUsage(graded.map((o) => o.record.usage)),
+      // Every attempt the agent made, counted or not.
+      agentUsage: sumUsage(mine.map((o) => o.agentUsage)),
       invalid: mine.filter((o) => o.kind === "invalid").length,
       harnessErrors: harnessErrors.length,
     };
@@ -115,22 +116,28 @@ export function writeTrial(dir: string, outcome: TrialOutcome): void {
     path.join(dir, `${name}.json`),
     JSON.stringify(outcome, null, 2),
   );
-  if (outcome.kind !== "harness-error") {
-    const { verdict, record } = outcome;
-    const reasons = [
-      ...verdict.state.reasons.map((r) => `state: ${r}`),
-      ...verdict.calls.reasons.map((r) => `calls: ${r}`),
-      ...verdict.judge.reasons.map((r) => `judge: ${r}`),
-    ];
+  const { record } = outcome;
+  if (record) {
+    const [heading, reasons] =
+      outcome.kind === "harness-error"
+        ? ["HARNESS ERROR", [`harness: ${outcome.error.split("\n")[0]}`]]
+        : [
+            `${outcome.verdict.pass ? "PASS" : "FAIL"} (${outcome.kind})`,
+            [
+              ...outcome.verdict.state.reasons.map((r) => `state: ${r}`),
+              ...outcome.verdict.calls.reasons.map((r) => `calls: ${r}`),
+              ...outcome.verdict.judge.reasons.map((r) => `judge: ${r}`),
+              ...(outcome.verdict.judge.simulatorValid
+                ? []
+                : [`simulator: ${outcome.verdict.judge.simulatorReason}`]),
+            ],
+          ];
     writeFileSync(
       path.join(dir, `${name}.md`),
       [
-        `# ${name}: ${verdict.pass ? "PASS" : "FAIL"} (${outcome.kind})`,
+        `# ${name}: ${heading}`,
         "",
         ...reasons.map((r) => `- ${r}`),
-        ...(verdict.judge.simulatorValid
-          ? []
-          : [`- simulator: ${verdict.judge.simulatorReason}`]),
         "",
         `Ended: ${record.endReason} after ${record.turns} user turns. Skills loaded: ${record.skillsLoaded.join(", ") || "none"}.`,
         "",
@@ -217,7 +224,7 @@ export function formatReport(
     .map((o) => {
       const file = path.join(summary.resultsDir, trialFileName(o));
       if (o.kind === "harness-error") {
-        return `  ${trialFileName(o)} harness error → ${file}.json\n    ${o.error.split("\n")[0]}`;
+        return `  ${trialFileName(o)} harness error → ${file}.${o.record ? "md" : "json"}\n    ${o.error.split("\n")[0]}`;
       }
       const reasons = [
         ...o.verdict.state.reasons.map((r) => `state: ${r}`),

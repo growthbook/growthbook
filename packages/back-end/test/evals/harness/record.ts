@@ -86,7 +86,12 @@ export interface DriverEvidence {
   skillsLoaded: string[];
 }
 
-export type EndReason = "user-stopped" | "max-turns" | "agent-error";
+export type EndReason =
+  | "user-stopped"
+  | "max-turns"
+  | "agent-error"
+  // The harness failed mid-conversation; the trial is a harness error.
+  | "harness-error";
 
 export interface TrialRecord extends DriverEvidence {
   before: WorldSnapshot;

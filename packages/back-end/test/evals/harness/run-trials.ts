@@ -27,22 +27,45 @@ export type TrialOutcome = {
   trial: number;
   // Attempts thrown away because the simulated user broke character.
   discarded: number;
+  // What the agent cost across every attempt, discarded ones included.
+  agentUsage: Usage;
   // What the simulator and judge cost, on top of the agent.
   evalUsage: Usage;
 } & (
   | { kind: "graded"; record: TrialRecord; verdict: TrialVerdict }
   // The simulator broke character on every attempt.
   | { kind: "invalid"; record: TrialRecord; verdict: TrialVerdict }
-  | { kind: "harness-error"; error: string }
+  // The record holds what the agent did before the harness failed, once a
+  // conversation had started.
+  | { kind: "harness-error"; error: string; record: TrialRecord | null }
 );
+
+type Attempt =
+  | {
+      kind: "graded";
+      record: TrialRecord;
+      verdict: TrialVerdict;
+      evalUsage: Usage;
+    }
+  | {
+      kind: "failed";
+      error: string;
+      record: TrialRecord;
+      evalUsage: Usage;
+    };
 
 const MAX_ATTEMPTS = 3;
 
+const errorText = (e: unknown) =>
+  e instanceof Error ? (e.stack ?? e.message) : String(e);
+
+// Throws only before the conversation starts or while collecting its
+// evidence; after that, a failure comes back with the record so far.
 async function attempt(
   scenario: Scenario,
   factory: DriverFactory,
   config: EvalConfig,
-): Promise<{ record: TrialRecord; verdict: TrialVerdict; evalUsage: Usage }> {
+): Promise<Attempt> {
   const world = await createWorld({ agentModel: config.agentModel });
   const target = await scenario.seed(world);
   const before = await world.read(target);
@@ -54,39 +77,44 @@ async function attempt(
   ];
   let evalUsage = emptyUsage();
   let turns = 0;
-  let endReason: EndReason;
-  let turn = await driver.start(scenario.user.opening);
-  for (;;) {
-    conversation.push({ from: "agent", turn });
-    if (turn.kind === "error") {
-      endReason = "agent-error";
-      break;
-    }
-    if (turns >= scenario.maxTurns) {
-      endReason = "max-turns";
-      break;
-    }
-    if (turn.kind === "confirm" && driver.decide) {
-      const decision =
-        scenario.confirmCards === "approve" ? "confirm" : "cancel";
-      conversation.push({ from: "user", decision });
+  let endReason: EndReason = "harness-error";
+  let failure: { error: unknown } | null = null;
+  try {
+    let turn = await driver.start(scenario.user.opening);
+    for (;;) {
+      conversation.push({ from: "agent", turn });
+      if (turn.kind === "error") {
+        endReason = "agent-error";
+        break;
+      }
+      if (turns >= scenario.maxTurns) {
+        endReason = "max-turns";
+        break;
+      }
+      if (turn.kind === "confirm" && driver.decide) {
+        const decision =
+          scenario.confirmCards === "approve" ? "confirm" : "cancel";
+        conversation.push({ from: "user", decision });
+        turns++;
+        turn = await driver.decide(decision);
+        continue;
+      }
+      const simulated = await simulateUser(
+        config.simulatorModel,
+        scenario.user,
+        conversation,
+      );
+      evalUsage = addUsage(evalUsage, simulated.usage);
+      if (simulated.reply.stop) {
+        endReason = "user-stopped";
+        break;
+      }
+      conversation.push({ from: "user", text: simulated.reply.text });
       turns++;
-      turn = await driver.decide(decision);
-      continue;
+      turn = await driver.reply(simulated.reply.text);
     }
-    const simulated = await simulateUser(
-      config.simulatorModel,
-      scenario.user,
-      conversation,
-    );
-    evalUsage = addUsage(evalUsage, simulated.usage);
-    if (simulated.reply.stop) {
-      endReason = "user-stopped";
-      break;
-    }
-    conversation.push({ from: "user", text: simulated.reply.text });
-    turns++;
-    turn = await driver.reply(simulated.reply.text);
+  } catch (e) {
+    failure = { error: e };
   }
 
   const evidence = await driver.finish();
@@ -98,22 +126,35 @@ async function attempt(
     endReason,
     durationMs: Date.now() - started,
   };
-  const outcome = gradeOutcome(scenario, record.calls, before, record.after);
-  const judge = await judgeTrial(
-    config.judgeModel,
-    scenario.user,
-    record.transcript,
-    scenario.expect.judge ?? [],
-  );
-  return {
+  const failed = (e: unknown): Attempt => ({
+    kind: "failed",
+    error: errorText(e),
     record,
-    verdict: {
-      pass: outcome.state.pass && outcome.calls.pass && judge.pass,
-      ...outcome,
-      judge,
-    },
-    evalUsage: addUsage(evalUsage, judge.usage),
-  };
+    evalUsage,
+  });
+  if (failure) return failed(failure.error);
+
+  const outcome = gradeOutcome(scenario, record.calls, before, record.after);
+  try {
+    const judge = await judgeTrial(
+      config.judgeModel,
+      scenario.user,
+      record.transcript,
+      scenario.expect.judge ?? [],
+    );
+    return {
+      kind: "graded",
+      record,
+      verdict: {
+        pass: outcome.state.pass && outcome.calls.pass && judge.pass,
+        ...outcome,
+        judge,
+      },
+      evalUsage: addUsage(evalUsage, judge.usage),
+    };
+  } catch (e) {
+    return failed(e);
+  }
 }
 
 export async function runTrial(
@@ -122,32 +163,46 @@ export async function runTrial(
   factory: DriverFactory,
   config: EvalConfig,
 ): Promise<TrialOutcome> {
+  let agentUsage = emptyUsage();
   let evalUsage = emptyUsage();
+  let discarded = 0;
   const base = { scenarioId: scenario.id, trial };
+  const harnessError = (
+    error: string,
+    record: TrialRecord | null,
+  ): TrialOutcome => ({
+    ...base,
+    kind: "harness-error",
+    discarded,
+    agentUsage,
+    evalUsage,
+    error,
+    record,
+  });
   try {
-    for (let n = 1; ; n++) {
+    for (;;) {
       const result = await attempt(scenario, factory, config);
+      agentUsage = addUsage(agentUsage, result.record.usage);
       evalUsage = addUsage(evalUsage, result.evalUsage);
+      if (result.kind === "failed") {
+        return harnessError(result.error, result.record);
+      }
       const valid = result.verdict.judge.simulatorValid;
-      if (valid || n === MAX_ATTEMPTS) {
+      if (valid || discarded + 1 === MAX_ATTEMPTS) {
         return {
           ...base,
           kind: valid ? "graded" : "invalid",
-          discarded: n - 1,
+          discarded,
+          agentUsage,
           evalUsage,
           record: result.record,
           verdict: result.verdict,
         };
       }
+      discarded++;
     }
   } catch (e) {
-    return {
-      ...base,
-      kind: "harness-error",
-      discarded: 0,
-      evalUsage,
-      error: e instanceof Error ? (e.stack ?? e.message) : String(e),
-    };
+    return harnessError(errorText(e), null);
   }
 }
 
