@@ -9,6 +9,7 @@ import {
   getDatasourceTemplateSettings,
 } from "@/services/initial-resources";
 import {
+  getLlmTracingProjectScope,
   getLlmTracingSchema,
   getLlmTracingSchemaOptionValues,
   hasLlmTracingSetup,
@@ -125,25 +126,32 @@ export default function AddLlmTracingModal({
           Connected Resources. Nothing already on this Data Source is changed.
         </Text>
 
-        {options.map((option) => (
-          <TextField
-            key={option.name}
-            label={option.label}
-            helpText={
-              projectScopeLocked
-                ? "Already chosen for this Data Source. Missing fact tables use the same scope."
-                : option.helpText
-            }
-            disabled={projectScopeLocked}
-            value={schemaOptions[option.name] ?? ""}
-            onChange={(e) =>
-              setSchemaOptions({
-                ...schemaOptions,
-                [option.name]: e.target.value,
-              })
-            }
-          />
-        ))}
+        {options.map((option) => {
+          const value = schemaOptions[option.name] ?? "";
+          const scope = getLlmTracingProjectScope(template, schemaOptions);
+          return (
+            <TextField
+              key={option.name}
+              label={option.label}
+              helpText={
+                projectScopeLocked
+                  ? `${scope}. Already set for this Data Source and can't be changed. Missing fact tables use the same scope.`
+                  : option.helpText
+              }
+              placeholder={
+                projectScopeLocked && !value.trim() ? scope : undefined
+              }
+              disabled={projectScopeLocked}
+              value={value}
+              onChange={(e) =>
+                setSchemaOptions({
+                  ...schemaOptions,
+                  [option.name]: e.target.value,
+                })
+              }
+            />
+          );
+        })}
 
         {alreadyAdded && (
           <Callout status="info">
