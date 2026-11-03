@@ -90,7 +90,7 @@ export default function PopulationSection() {
       // Narrow on prev.type: only it discriminates the config union.
       if (prev.type !== "metric") return prev;
       if (!next) {
-        return { ...prev, dataset: { ...prev.dataset, population: null } };
+        return { ...prev, dataset: { ...prev.dataset, population: undefined } };
       }
       // Membership is decided per date bucket, so weekly buckets give steadier
       // rates than "auto", which is often daily.

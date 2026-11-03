@@ -118,7 +118,6 @@ export default function MetricTabContent() {
 
   return (
     <Flex direction="column" gap="4">
-      <PopulationSection />
       {!values.length && (
         <Text size="sm" color="text-low">
           Add at least one metric to chart
@@ -245,6 +244,7 @@ export default function MetricTabContent() {
           Add metric
         </Flex>
       </Button>
+      <PopulationSection />
     </Flex>
   );
 }

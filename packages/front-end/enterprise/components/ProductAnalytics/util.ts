@@ -58,6 +58,9 @@ import {
   getRelevantFactTableIds,
   clearInapplicableShowAs,
   isSupportedWithPopulation,
+  getDateGranularity,
+  getDefaultValueAxisName as getShowAsValueAxisName,
+  getPopulationDenominatorByIndex,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
@@ -75,7 +78,6 @@ export {
   clearInapplicableShowAs,
   getEffectiveMetricValue,
   getSharedUnit,
-  getDefaultValueAxisName,
   showAsAppliesTo,
   getIsRatioByIndex,
   buildExplorationColumns,
@@ -87,6 +89,28 @@ export {
 } from "shared/enterprise";
 export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
+
+/** Value-axis title when no custom `valueAxisLabel` is set, shared by the chart and its settings. */
+export function getDefaultValueAxisName(
+  config: ExplorationConfig,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (
+    !getPopulationDenominatorByIndex(config, getFactMetricById).some(Boolean)
+  ) {
+    return getShowAsValueAxisName(config, getFactMetricById);
+  }
+  // Membership is decided per bucket, so name the bucket the rate is out of.
+  const dateDimension = config.dimensions.find(
+    (d) => d.dimensionType === "date",
+  );
+  return dateDimension
+    ? `% of each ${getDateGranularity(
+        dateDimension.dateGranularity,
+        calculateProductAnalyticsDateRange(config.dateRange),
+      )}'s members`
+    : "% of members in this date range";
+}
 
 /** Explorer UI state: exploration config plus optional compare period (not on public API config). */
 export type ExplorerDraftConfig = ExplorationConfig & {

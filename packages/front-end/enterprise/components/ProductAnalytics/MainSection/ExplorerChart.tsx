@@ -206,18 +206,10 @@ export default function ExplorerChart({
     renderOpts.populationDenominatorByIndex.some(Boolean);
   const formatValue = showsPopulationRates ? formatPercent : formatNumber;
 
-  // Membership is decided per bucket, so name the bucket the rate is out of.
-  const populationDateDimension = showsPopulationRates
-    ? submittedExploreState.dimensions.find((d) => d.dimensionType === "date")
-    : undefined;
-  const defaultValueAxisName = !showsPopulationRates
-    ? getDefaultValueAxisName(submittedExploreState, getFactMetricById)
-    : populationDateDimension
-      ? `% of each ${getDateGranularity(
-          populationDateDimension.dateGranularity,
-          calculateProductAnalyticsDateRange(submittedExploreState.dateRange),
-        )}'s members`
-      : "% of members in this date range";
+  const defaultValueAxisName = getDefaultValueAxisName(
+    submittedExploreState,
+    getFactMetricById,
+  );
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();

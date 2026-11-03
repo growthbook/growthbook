@@ -29,7 +29,7 @@ import {
   getComparisonAlignmentStrategy,
   resolveLegacyExplorerComparisonMode,
   hasTimestampColumn,
-  getPopulationViolations,
+  getMetricPopulationViolations,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isFactFunnelMetric } from "shared/experiments";
@@ -455,9 +455,18 @@ export function ExplorerProvider({
   // The server's own check, so the Run button and the API reject the same configs.
   const populationViolations = useMemo(() => {
     const { dataset, dimensions, datasource } = cleanedDraftExploreState;
-    if (dataset.type !== "metric" || !dataset.population) return [];
-    return getPopulationViolations({
-      dataset,
+    // No metrics yet already blocks the run, so skip the server's "at least
+    // one metric" violation rather than flagging a fresh population.
+    if (
+      dataset.type !== "metric" ||
+      !dataset.population ||
+      !dataset.values.length
+    ) {
+      return [];
+    }
+    return getMetricPopulationViolations({
+      population: dataset.population,
+      values: dataset.values,
       dimensions,
       datasource,
       metricMap: new Map(factMetrics.map((m) => [m.id, m])),
