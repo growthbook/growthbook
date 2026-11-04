@@ -31,7 +31,6 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   assertCanEnableClusterExperiment,
-  assertClusterConfigUnlocked,
   assertCanRunExperimentChanges,
   assertExperimentKeyFormat,
   assertValidClusterExperimentConfig,
@@ -576,17 +575,6 @@ export async function planExperimentUpdate(
     changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
   }
 
-  await assertClusterConfigUnlocked(context, experiment, {
-    status: changes.status,
-    isClusterExperiment: changes.isClusterExperiment,
-    clusterSubUnitIdentifier: changes.clusterSubUnitIdentifier,
-    datasource: changes.datasource ?? experiment.datasource ?? "",
-    exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-    exposureQueryIdentifierType:
-      "exposureQueryIdentifierType" in changes
-        ? changes.exposureQueryIdentifierType
-        : experiment.exposureQueryIdentifierType,
-  });
   // Only turning it on is gated, so a downgraded org can still edit or turn
   // off an existing cluster experiment.
   if (changes.isClusterExperiment && !experiment.isClusterExperiment) {

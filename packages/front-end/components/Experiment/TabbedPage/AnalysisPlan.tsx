@@ -54,7 +54,6 @@ import AssignmentQueryFields, {
   ClusterExperimentFields,
   getClusterSubUnitOptions,
   getClusterChangeAfterLaunch,
-  getClusterFormState,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -923,16 +922,8 @@ function DataSourceModal({
   const clusterIdentifier = exposureQuery
     ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
     : undefined;
-  const { supportsClusterExperiments, locked, isClusterExperiment, lockError } =
-    getClusterFormState({
-      experiment,
-      datasource: selected ?? undefined,
-      savedDatasource:
-        getDatasourceById(experiment.datasource ?? "") ?? undefined,
-      checked: clusterChecked,
-      exposureQuery,
-      identifierType: clusterIdentifier,
-    });
+  const supportsClusterExperiments = !!selected?.properties?.exposureQueries;
+  const isClusterExperiment = supportsClusterExperiments && clusterChecked;
   const clusterChangedAfterLaunch = getClusterChangeAfterLaunch(experiment, {
     isClusterExperiment,
     clusterSubUnitIdentifier,
@@ -953,7 +944,6 @@ function DataSourceModal({
       cta="Confirm"
       ctaEnabled={
         changed &&
-        !lockError &&
         (!isClusterExperiment ||
           getClusterSubUnitOptions(exposureQuery, clusterIdentifier).includes(
             clusterSubUnitIdentifier,
@@ -988,9 +978,6 @@ function DataSourceModal({
           selection={selection}
           placeholder="Choose..."
           progressive
-          identifierError={
-            lockError?.field === "identifier" ? lockError.content : null
-          }
         />
       ) : null}
       {supportsClusterExperiments ? (
@@ -1001,14 +988,8 @@ function DataSourceModal({
           subUnitIdentifier={clusterSubUnitIdentifier}
           setIsClusterExperiment={setClusterChecked}
           setSubUnitIdentifier={setClusterSubUnitIdentifier}
-          locked={locked}
-          lockError={lockError}
           changedAfterLaunch={clusterChangedAfterLaunch}
         />
-      ) : lockError ? (
-        <HelperText status="error" size="sm">
-          {lockError.content}
-        </HelperText>
       ) : selected && cluster.isClusterExperiment ? (
         <HelperText status="warning" size="sm">
           {CLUSTER_OFF_FOR_DATASOURCE_MESSAGE}
