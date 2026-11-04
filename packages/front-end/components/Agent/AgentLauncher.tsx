@@ -1,5 +1,5 @@
 import React from "react";
-import PylonChatVisibility from "@/components/Auth/PylonChatVisibility";
+import HelpLauncherVisibility from "@/components/Auth/HelpLauncherVisibility";
 import { useUser } from "@/services/UserContext";
 import AgentPanel from "./AgentPanel";
 import { useAgentPanel } from "./AgentPanelContext";
@@ -27,8 +27,8 @@ export default function AgentLauncher() {
         onClose={closePanel}
         onToggleExpanded={toggleExpanded}
       />
-      {/* Keep the live chat widget from overlapping the panel while it's open. */}
-      <PylonChatVisibility hidden={open} />
+      {/* Keep the help launchers from overlapping the panel while it's open. */}
+      <HelpLauncherVisibility hidden={open} />
     </>
   );
 }

@@ -2,7 +2,8 @@
 .chatLauncher {
   position: fixed;
   right: 10px;
-  z-index: 10;
+  // Matches Pylon's chat bubble so both launchers stack the same way.
+  z-index: 2147480002;
   display: block;
   padding: 0;
   border: 0;
@@ -26,6 +27,11 @@
       drop-shadow(1.4px -1.4px 0 var(--violet-a3))
       drop-shadow(-1.4px -1.4px 0 var(--violet-a3));
   }
+}
+
+// Set by HelpLauncherVisibility. `.closeLauncher` composes this class, so it hides too.
+:global(html[data-help-launcher-hidden]) .chatLauncher {
+  display: none;
 }
 
 // Keeps the chat mark's footprint so the launcher doesn't move when opened.

@@ -20,7 +20,7 @@ import Callout from "@/ui/Callout";
 import Modal from "@/ui/Modal";
 import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import PylonChatVisibility from "@/components/Auth/PylonChatVisibility";
+import HelpLauncherVisibility from "@/components/Auth/HelpLauncherVisibility";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -329,7 +329,7 @@ export default function SqlExplorationExternalEditor({
 
   return (
     <>
-      <PylonChatVisibility hidden={open} />
+      <HelpLauncherVisibility hidden={open} />
       {emptyState ? (
         <Flex
           direction="column"
