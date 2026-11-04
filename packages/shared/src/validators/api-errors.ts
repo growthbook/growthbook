@@ -71,6 +71,14 @@ export const apiErrorRegistry = {
       reason: z.string(),
     }),
   },
+  requires_overall_update: {
+    status: 409,
+    description:
+      "The Incremental Pipeline needs an update of Overall Results before this request can be served",
+    detailsSchema: z.object({
+      reason: z.string(),
+    }),
+  },
   dimension_already_up_to_date: {
     status: 409,
     description:

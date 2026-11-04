@@ -21,10 +21,12 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
+  getMetricsWithStaleIncrementalCache,
 } from "back-end/src/enterprise/services/data-pipeline";
 import {
   BadRequestError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
+  ExperimentIncrementalPipelineRequiresOverallUpdateError,
 } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
@@ -97,6 +99,17 @@ jest.mock("back-end/src/enterprise", () => ({
 jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
   assertIncrementalRefreshPrerequisites: jest.fn(),
   exploratoryOverallRequiresFullRefresh: jest.fn(),
+  getMetricsWithStaleIncrementalCache: jest.fn(),
+  getMetricSettingsHashesForIncrementalRefresh: (
+    args: Parameters<
+      (typeof import("back-end/src/enterprise/services/data-pipeline"))["getMetricSettingsHashesForIncrementalRefresh"]
+    >[0],
+  ) =>
+    jest
+      .requireActual<
+        typeof import("back-end/src/enterprise/services/data-pipeline")
+      >("back-end/src/enterprise/services/data-pipeline")
+      .getMetricSettingsHashesForIncrementalRefresh(args),
   legacyDocDescribesPhase: (
     args: Parameters<
       (typeof import("back-end/src/enterprise/services/data-pipeline"))["legacyDocDescribesPhase"]
@@ -157,6 +170,10 @@ const assertIncrementalRefreshPrerequisitesMock =
 const exploratoryOverallRequiresFullRefreshMock =
   exploratoryOverallRequiresFullRefresh as jest.MockedFunction<
     typeof exploratoryOverallRequiresFullRefresh
+  >;
+const getMetricsWithStaleIncrementalCacheMock =
+  getMetricsWithStaleIncrementalCache as jest.MockedFunction<
+    typeof getMetricsWithStaleIncrementalCache
   >;
 const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
   typeof orgHasPremiumFeature
@@ -317,6 +334,7 @@ describe("snapshot planning", () => {
     getFactTableMapMock.mockResolvedValue(new Map() as FactTableMap);
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
     exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
+    getMetricsWithStaleIncrementalCacheMock.mockReturnValue([]);
   });
 
   it("plans a draft snapshot without persisting or mutating experiment state", async () => {
@@ -1807,6 +1825,89 @@ describe("snapshot planning", () => {
       "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
     );
   });
+
+  it("throws ExperimentIncrementalPipelineRequiresOverallUpdateError for a manual dimension request when a metric's incremental cache is stale", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    getMetricsWithStaleIncrementalCacheMock.mockReturnValue(["fact_stale"]);
+
+    const planning = planSnapshot({
+      experiment: makeExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    await expect(planning).rejects.toMatchObject({
+      code: "requires_overall_update",
+      details: {
+        reason:
+          "Metrics changed since Overall Results were last updated. Update Overall Results before running this dimension breakdown.",
+      },
+    });
+    await expect(planning).rejects.toThrow(
+      ExperimentIncrementalPipelineRequiresOverallUpdateError,
+    );
+    expect(getMetricsWithStaleIncrementalCacheMock).toHaveBeenCalledWith({
+      metricSources: [],
+      desiredFanOut: { perFt: [], multiSourceGroups: [] },
+      currentMetricSettingsHashes: new Map(),
+    });
+  });
+
+  it.each([
+    {
+      label: "a background job",
+      triggeredBy: "schedule" as const,
+      buildExperiment: makeExperiment,
+    },
+    {
+      label: "a non-latest phase",
+      triggeredBy: "manual" as const,
+      buildExperiment: makeNonLatestPhaseExperiment,
+    },
+  ])(
+    "falls back to results runner when a metric's incremental cache is stale for $label",
+    async ({ triggeredBy, buildExperiment }) => {
+      wireIncrementalIntegration(makeIncrementalDatasource());
+      assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+        undefined as never,
+      );
+      getMetricsWithStaleIncrementalCacheMock.mockReturnValue(["fact_stale"]);
+
+      const plan = await planSnapshot({
+        experiment: buildExperiment(),
+        context: makeExploratoryContext(),
+        type: "exploratory",
+        triggeredBy,
+        phaseIndex: 0,
+        useCache: true,
+        defaultAnalysisSettings: makeAnalysisSettings({
+          dimensions: ["exp:country"],
+        }),
+        additionalAnalysisSettings: [],
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(plan.snapshot.runnerKind).toBe("results");
+      expect(plan.incrementalFallbackReason).toBe(
+        "Metric settings changed since their incremental data was last cached; running a non-incremental update instead of reading stale data.",
+      );
+    },
+  );
 
   function makeNeverMaterializedContext() {
     const context = makeContext();

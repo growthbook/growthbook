@@ -44,7 +44,6 @@ import {
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { getOverridesBlockedReason } from "@/services/metricOverrides";
 import AssignmentQueryFields, {
   useAssignmentQuerySelection,
@@ -534,11 +533,6 @@ export default function AnalysisPlan({
   const overridesBlockedReason = (goal: boolean) =>
     getOverridesBlockedReason({
       hasFeature: hasCommercialFeature("override-metrics"),
-      incremental: getIsExperimentIncludedInIncrementalRefresh(
-        getDatasourceById(datasource) ?? undefined,
-        experiment.id,
-        experiment.type,
-      ),
       targetMDEsEditable: !!targetMDEOverrides,
       goal,
     });

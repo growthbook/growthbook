@@ -50,7 +50,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu, {
   shouldOfferMenuRefresh,
 } from "@/components/Experiment/ResultMoreMenu";
-import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
+import {
+  type SnapshotRefreshBlocker,
+  useExperimentSnapshotUpdate,
+} from "@/hooks/useExperimentSnapshotUpdate";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -202,6 +205,31 @@ export default function AnalysisSettingsSummary({
     }
     previousLatestStatusRef.current = latest?.status;
   }, [latest?.status, onSnapshotSuccessfulUpdate]);
+
+  // Dimension breakdown to run once the Overall update it was blocked on
+  // succeeds. Keyed by that update's snapshot id, since `latest` follows
+  // whichever dimension is on screen.
+  const breakdownAfterOverallRef = useRef<{
+    dimension: string;
+    overallSnapshotId: string;
+  } | null>(null);
+  const resumeDimensionRef = useRef<(dimension: string) => void>(() => {});
+
+  useEffect(() => {
+    const pending = breakdownAfterOverallRef.current;
+    if (!pending) return;
+    // Picking another dimension while Overall runs cancels the breakdown.
+    if (dimension) {
+      breakdownAfterOverallRef.current = null;
+      return;
+    }
+    if (latest?.id !== pending.overallSnapshotId) return;
+    if (latest.status === "running") return;
+    breakdownAfterOverallRef.current = null;
+    if (latest.status === "success") {
+      resumeDimensionRef.current(pending.dimension);
+    }
+  }, [dimension, latest?.id, latest?.status]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -390,10 +418,11 @@ export default function AnalysisSettingsSummary({
     hasOverallResults ? dimensionless : undefined,
   );
 
-  const [showMainRefreshModal, setShowMainRefreshModal] = useState(false);
+  const [refreshBlocker, setRefreshBlocker] =
+    useState<SnapshotRefreshBlocker | null>(null);
 
-  const handleSnapshotRefreshBlocked = () => {
-    setShowMainRefreshModal(true);
+  const handleSnapshotRefreshBlocked = (blocker: SnapshotRefreshBlocker) => {
+    setRefreshBlocker(blocker);
   };
 
   const { runSnapshot, fullRefreshConfirm } = useExperimentSnapshotUpdate({
@@ -412,11 +441,26 @@ export default function AnalysisSettingsSummary({
     setDimension?.("", true);
   }, [setSnapshotDimension, setAnalysisSettings, setDimension]);
 
-  const updateMainResults = async () => {
-    setShowMainRefreshModal(false);
-    const started = await runSnapshot("", { force: true });
-    if (!started) return;
+  resumeDimensionRef.current = (pendingDimension: string) => {
+    setSnapshotDimension(pendingDimension);
+    setDimension?.(pendingDimension);
+    runSnapshot(pendingDimension).catch((e) => setRefreshError(e.message));
+  };
+
+  const updateMainResults = async (blocker: SnapshotRefreshBlocker) => {
+    setRefreshBlocker(null);
+    const blockedDimension = dimension ?? "";
+    const overallSnapshotId = await runSnapshot("", {
+      force: blocker.kind === "requires-full-refresh",
+    });
+    if (!overallSnapshotId) return;
     goToOverallResults();
+    if (blockedDimension) {
+      breakdownAfterOverallRef.current = {
+        dimension: blockedDimension,
+        overallSnapshotId,
+      };
+    }
     setSnapshotType?.(undefined);
   };
 
@@ -1160,12 +1204,15 @@ export default function AnalysisSettingsSummary({
         </Callout>
       ) : null}
 
-      {showMainRefreshModal ? (
+      {refreshBlocker ? (
         <MainSnapshotRefreshDialog
+          kind={refreshBlocker.kind}
           onConfirm={() =>
-            updateMainResults().catch((e) => setRefreshError(e.message))
+            updateMainResults(refreshBlocker).catch((e) =>
+              setRefreshError(e.message),
+            )
           }
-          onCancel={() => setShowMainRefreshModal(false)}
+          onCancel={() => setRefreshBlocker(null)}
         />
       ) : null}
 

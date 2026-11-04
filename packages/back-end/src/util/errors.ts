@@ -344,6 +344,15 @@ export class ExperimentIncrementalPipelineRequiresFullRefreshError extends ApiEr
   }
 }
 
+export class ExperimentIncrementalPipelineRequiresOverallUpdateError extends ApiError<"requires_overall_update"> {
+  constructor(reason: string) {
+    super("requires_overall_update", reason, {
+      reason,
+    });
+    this.name = "ExperimentIncrementalPipelineRequiresOverallUpdateError";
+  }
+}
+
 export class DimensionAlreadyUpToDateError extends ApiError<"dimension_already_up_to_date"> {
   constructor(message: string, overallResultsAsOf: string) {
     super("dimension_already_up_to_date", message, {

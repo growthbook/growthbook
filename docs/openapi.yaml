@@ -18492,6 +18492,24 @@ paths:
                       - details
                   - type: object
                     description: >-
+                      The Incremental Pipeline needs an update of Overall
+                      Results before this request can be served
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - requires_overall_update
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorRequiresOverallUpdateDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
                       The requested dimension was already computed from the
                       latest Overall Results
                     properties:
@@ -88780,6 +88798,14 @@ components:
         - expectedStatuses
       additionalProperties: false
     ApiErrorRequiresFullRefreshDetails:
+      type: object
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+      additionalProperties: false
+    ApiErrorRequiresOverallUpdateDetails:
       type: object
       properties:
         reason:

@@ -1070,10 +1070,7 @@ const AnalysisForm: FC<{
                             form={
                               form as unknown as UseFormReturn<EditMetricsFormInterface>
                             }
-                            disabled={
-                              !hasOverrideMetricsFeature ||
-                              isExperimentIncludedInIncrementalRefresh
-                            }
+                            disabled={!hasOverrideMetricsFeature}
                           />
                           {!hasOverrideMetricsFeature && (
                             <UpgradeMessage

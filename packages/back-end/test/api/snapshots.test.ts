@@ -11,7 +11,10 @@ import {
   createExperimentSnapshotFromPlan,
   planExperimentSnapshot,
 } from "back-end/src/services/experiments";
-import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import {
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  ExperimentIncrementalPipelineRequiresOverallUpdateError,
+} from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
 
@@ -51,6 +54,8 @@ describe("snapshots API", () => {
   // so changing it should fail here.
   const REQUIRES_FULL_REFRESH_GUIDANCE =
     'Send "dimension": "" to rebuild Overall Results, wait for that snapshot to finish, then resubmit this request unchanged.';
+  const REQUIRES_OVERALL_UPDATE_GUIDANCE =
+    'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request unchanged.';
   const DIMENSION_ALREADY_UP_TO_DATE_GUIDANCE =
     'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request.';
 
@@ -759,6 +764,53 @@ describe("snapshots API", () => {
       expect(createExperimentSnapshot).not.toHaveBeenCalled();
     },
   );
+
+  it("returns 409 requires_overall_update when metric caches are stale", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      exposureQueryId: "eq_1",
+      phases: [{}],
+    };
+    const staleMetricsMessage =
+      "Metrics changed since Overall Results were last updated. Update Overall Results before running this dimension breakdown.";
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce(incrementalDatasource);
+    planExperimentSnapshot.mockRejectedValueOnce(
+      new ExperimentIncrementalPipelineRequiresOverallUpdateError(
+        staleMetricsMessage,
+      ),
+    );
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "exp:country" });
+
+    const guidedMessage = `${staleMetricsMessage} ${REQUIRES_OVERALL_UPDATE_GUIDANCE}`;
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      message: guidedMessage,
+      code: "requires_overall_update",
+      details: {
+        reason: guidedMessage,
+      },
+    });
+    expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+    expect(createExperimentSnapshot).not.toHaveBeenCalled();
+  });
 
   it.each([
     ["manual", undefined],
