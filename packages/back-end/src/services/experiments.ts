@@ -278,6 +278,7 @@ import {
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
+import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -3356,6 +3357,7 @@ export async function createSnapshotAnalysis(
     analysisSettings: [analysisSettings],
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     metricMap: metricMap,
+    isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
   });
   analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";
@@ -3421,6 +3423,7 @@ export async function createSnapshotAnalysesBatched(
       analysisSettings: analysisSettingsList,
       variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
+      isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
     });
 
     completedAnalyses = analyses.map((analysis, i) => ({

@@ -24,6 +24,7 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   getAnalysisSettingsForStatsEngine,
@@ -121,6 +122,7 @@ export async function generateExperimentNotebook(
     queryPointers: snapshot.queries,
     snapshotSettings: snapshot.settings,
     analysisSettings: analysis.settings,
+    isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     url: `/experiment/${experiment.id}`,
     name: experiment.name,
@@ -133,6 +135,7 @@ export async function generateNotebook({
   queryPointers,
   snapshotSettings,
   analysisSettings,
+  isStandaloneBreakdown = false,
   variationNames,
   url,
   name,
@@ -142,6 +145,7 @@ export async function generateNotebook({
   queryPointers: Queries;
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
+  isStandaloneBreakdown?: boolean;
   variationNames: string[];
   url: string;
   name: string;
@@ -209,6 +213,7 @@ export async function generateNotebook({
     queries,
     snapshotSettings,
     analysisSettings.dimensions[0],
+    { isStandaloneBreakdown },
   );
 
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
