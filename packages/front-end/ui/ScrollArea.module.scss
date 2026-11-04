@@ -47,7 +47,7 @@
 }
 
 .deep .shadow {
-  --shadow-color: var(--gray-a4);
+  --shadow-color: var(--edge-shadow-deep);
   --shadow-size: 12px;
 }
 
@@ -76,7 +76,12 @@
     bottom: -6px;
     height: 6px;
     pointer-events: none;
-    background: linear-gradient(to bottom, var(--gray-a2), 30%, transparent);
+    background: linear-gradient(
+      to bottom,
+      var(--edge-shadow),
+      30%,
+      transparent
+    );
   }
 
   // Over its own bottom border too, so pinned cells stacked in a column
@@ -89,14 +94,14 @@
     right: -6px;
     width: 6px;
     pointer-events: none;
-    background: linear-gradient(to right, var(--gray-a2), 30%, transparent);
+    background: linear-gradient(to right, var(--edge-shadow), 30%, transparent);
   }
 }
 
 // Held over the area's end from beside it, the shadow its bottom edge would
 // have, cast above itself; positioned, as anything pinned is.
 .shadowed[data-under-pinned~="bottom"] ~ .pinnedBottom::before {
-  --shadow-color: var(--gray-a2);
+  --shadow-color: var(--edge-shadow);
   --shadow-size: 6px;
   content: "";
   position: absolute;
@@ -109,14 +114,14 @@
 }
 
 .deep[data-under-pinned~="bottom"] ~ .pinnedBottom::before {
-  --shadow-color: var(--gray-a4);
+  --shadow-color: var(--edge-shadow-deep);
   --shadow-size: 12px;
 }
 
 // A narrow shadow over an edge with more past it, as beside a pinned column;
 // most of it in the first third, so it reads as an edge, not a band.
 .shadow {
-  --shadow-color: var(--gray-a2);
+  --shadow-color: var(--edge-shadow);
   --shadow-size: 6px;
   position: absolute;
   z-index: 1;
