@@ -10,7 +10,10 @@ export type ActionsOverlay = {
   revealOnHover?: boolean;
 };
 
-/** A value with its action buttons pinned over one corner. */
+/**
+ * A value with its action buttons pinned over one corner. Inside anything with
+ * the `hoverActions` class, they're hidden until that is hovered or focused.
+ */
 export default function CornerActions({
   overlay,
   actions,
@@ -31,7 +34,7 @@ export default function CornerActions({
         <Flex
           align="center"
           gap="3"
-          className={reveal ? styles.actions : undefined}
+          className={styles.actions}
           style={{
             position: "absolute",
             bottom: -4,

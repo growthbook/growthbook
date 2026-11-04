@@ -72,6 +72,7 @@ import {
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import FeatureRules from "./FeatureRules";
+import cornerStyles from "./CornerActions.module.scss";
 
 export const featureStatusColors = {
   on: "var(--green-10)",
@@ -1178,40 +1179,44 @@ export default function FeaturesOverview({
         {revision && (
           <>
             <Frame mt="4" px="6" py="4">
-              <Flex align="center" justify="between">
-                <Flex align="center" gap="1" mb="3">
-                  <Heading as="h4" size="sm" mb="0">
-                    Default Value
-                  </Heading>
+              {/* Its copy and fullscreen buttons show while it's hovered, as a
+                  rule's do. */}
+              <div className={cornerStyles.hoverActions}>
+                <Flex align="center" justify="between">
+                  <Flex align="center" gap="1" mb="3">
+                    <Heading as="h4" size="sm" mb="0">
+                      Default Value
+                    </Heading>
+                  </Flex>
+                  {canEditDrafts && !isReadOnly && (
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      onClick={() => setEdit(true)}
+                    >
+                      Edit
+                    </Button>
+                  )}
                 </Flex>
-                {canEditDrafts && !isReadOnly && (
-                  <Button
-                    variant="ghost"
-                    size="md"
-                    onClick={() => setEdit(true)}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </Flex>
-              <Box mt="2" mb="1">
-                <Flex width="100%">
-                  <Box flexGrow="1">
-                    <ForceSummary
-                      value={getFeatureDefaultValue(feature)}
-                      feature={feature}
-                      isDefault={true}
-                      // Match FeatureRules' tab: ignore a stored env that isn't
-                      // one of this feature's environments (falls back to base).
-                      environment={
-                        rulesEnv !== null && envs.includes(rulesEnv)
-                          ? rulesEnv
-                          : undefined
-                      }
-                    />
-                  </Box>
-                </Flex>
-              </Box>
+                <Box mt="2" mb="1">
+                  <Flex width="100%">
+                    <Box flexGrow="1">
+                      <ForceSummary
+                        value={getFeatureDefaultValue(feature)}
+                        feature={feature}
+                        isDefault={true}
+                        // Match FeatureRules' tab: ignore a stored env that isn't
+                        // one of this feature's environments (falls back to base).
+                        environment={
+                          rulesEnv !== null && envs.includes(rulesEnv)
+                            ? rulesEnv
+                            : undefined
+                        }
+                      />
+                    </Box>
+                  </Flex>
+                </Box>
+              </div>
 
               <Box
                 mt="6"

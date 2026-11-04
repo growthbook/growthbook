@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import Badge from "@/ui/Badge";
+import cornerStyles from "./CornerActions.module.scss";
 
 // Shared visual chrome for `Rule` and `HoldoutRule`. Owns the outer
 // Card + colored side bar + drag-handle slot + index badge + content
@@ -39,8 +40,9 @@ export default function RuleCard({
   dragHandleProps,
   children,
 }: Props) {
+  // Its values' copy and fullscreen buttons show while it's hovered.
   return (
-    <Card>
+    <Card className={cornerStyles.hoverActions}>
       <div
         style={{
           position: "absolute",
