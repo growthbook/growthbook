@@ -206,6 +206,7 @@ export const putDataSourceSettingsValidator = {
   summary: "Set a data source's identifier types, joins and assignment queries",
   description:
     "Each list is optional, and a list left out stays as it is. Every assignment query or identifier join query the request adds or changes is first run against the warehouse, reading no rows. If one fails, nothing is saved and the error names the query.",
+  confirmation: ["other.write"] as const,
   operationId: "putDataSourceSettings",
   tags: ["data-sources"],
   method: "put" as const,
