@@ -7,6 +7,8 @@ export const EXPERIMENT_OUTDATED_REASON_LABELS = {
   datasourceId: "Data source changed",
   exposureQueryId: "Experiment assignment query changed",
   exposureQueryIdentifierType: "Experiment assignment identifier type changed",
+  isClusterExperiment: "Cluster analysis setting changed",
+  clusterSubUnitIdentifier: "Cluster sub-unit identifier changed",
   startDate: "Analysis start date changed",
   regressionAdjustmentEnabled: "CUPED settings changed",
 } as const;

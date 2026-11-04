@@ -314,6 +314,7 @@ export interface AnalysisSettingsForStatsEngine {
   one_sided_intervals?: boolean;
   use_covariate_as_response?: boolean;
   post_stratification_enabled?: boolean;
+  is_cluster_experiment?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {

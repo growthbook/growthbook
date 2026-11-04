@@ -526,10 +526,19 @@ export default function AnalysisPlan({
   }, [settingsOpen, settingsFocus, setSettingsOpen, canEdit]);
 
   // Metrics an experiment can't use show disabled, with the reason.
+  const clusterSettings = {
+    isClusterExperiment: !!experiment.isClusterExperiment,
+    clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier ?? undefined,
+  };
   const getMetricDisabledInfo = useMetricDisabledInfo(
     datasource,
     experiment.id,
     experiment.type,
+    {
+      ...clusterSettings,
+      exposureQueryId,
+      exposureQueryIdentifierType: identifierType || undefined,
+    },
   );
   const overridesBlockedReason = (goal: boolean) =>
     getOverridesBlockedReason({
@@ -562,6 +571,7 @@ export default function AnalysisPlan({
         requireDatasource
         exposureQueryId={exposureQueryId}
         exposureQueryIdentifierType={identifierType || undefined}
+        {...clusterSettings}
         project={experiment.project}
         includeFacts
         includeGroups

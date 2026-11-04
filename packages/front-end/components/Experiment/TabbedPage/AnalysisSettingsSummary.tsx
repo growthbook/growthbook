@@ -314,6 +314,8 @@ export default function AnalysisSettingsSummary({
       datasourceId: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId ?? "",
       exposureQueryIdentifierType: userIdType,
+      isClusterExperiment: experiment.isClusterExperiment,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
       // Match isOutdated's commercial-feature gate for regression adjustment.
       regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
         ? !!experiment.regressionAdjustmentEnabled
@@ -337,6 +339,8 @@ export default function AnalysisSettingsSummary({
         ),
         dimensionless.settings.exposureQueryIdentifierType,
       ),
+      isClusterExperiment: dimensionless.settings.isClusterExperiment,
+      clusterSubUnitIdentifier: dimensionless.settings.clusterSubUnitIdentifier,
       regressionAdjustmentEnabled:
         dimensionless.settings.regressionAdjustmentEnabled,
       experimentId: dimensionless.settings.experimentId,
@@ -742,6 +746,20 @@ export default function AnalysisSettingsSummary({
     ) {
       reasons.push(
         getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
+      );
+    }
+    // A missing flag means off, and a sub-unit only counts in cluster mode.
+    const expSubUnit = exp.isClusterExperiment
+      ? (exp.clusterSubUnitIdentifier ?? null)
+      : null;
+    const snapshotSubUnit = snapshotSettings.isClusterExperiment
+      ? (snapshotSettings.clusterSubUnitIdentifier ?? null)
+      : null;
+    if (!!exp.isClusterExperiment !== !!snapshotSettings.isClusterExperiment) {
+      reasons.push(getExperimentOutdatedReasonLabel("isClusterExperiment"));
+    } else if (expSubUnit !== snapshotSubUnit) {
+      reasons.push(
+        getExperimentOutdatedReasonLabel("clusterSubUnitIdentifier"),
       );
     }
     if (

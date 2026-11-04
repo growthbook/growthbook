@@ -1,4 +1,8 @@
-import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
+import {
+  getClusterSubUnit,
+  getDelayWindowHours,
+  getUserIdTypes,
+} from "shared/experiments";
 import {
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
@@ -64,22 +68,45 @@ export function getExperimentUnitsQuery(
 
   const exposureQuery = unitsSettings.exposureQuery;
 
+  const clusterSubUnit = getClusterSubUnit(unitsSettings);
+  const clusterIdColumn = clusterSubUnit ? exposureQuery.identifierType : null;
+  const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
+
+  // Dimensions and segments keyed on the cluster column (e.g. region_id) join
+  // through the exposure rows directly, so they need no identity join table.
+  const isClusterKeyed = (idType: string) => idType === clusterIdColumn;
+  const getUnitDimensionIdType = (d: (typeof unitDimensions)[number]) =>
+    d.dimension.userIdType || "user_id";
+  const segmentIdType = segment ? segment.userIdType || "user_id" : null;
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
     {
       objects: [
-        [exposureQuery.identifierType],
+        [effectiveBaseIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-        segment ? [segment.userIdType || "user_id"] : [],
+        ...unitDimensions
+          .map(getUnitDimensionIdType)
+          .filter((idType) => !isClusterKeyed(idType))
+          .map((idType) => [idType]),
+        segmentIdType && !isClusterKeyed(segmentIdType) ? [segmentIdType] : [],
       ],
       from: unitsSettings.startDate,
       to: unitsSettings.endDate,
-      forcedBaseIdType: exposureQuery.identifierType,
+      forcedBaseIdType: effectiveBaseIdType,
       experimentId: unitsSettings.experimentId,
     },
   );
+
+  const getUnitDimensionJoinIdType = (
+    d: (typeof unitDimensions)[number],
+  ): string => {
+    const idType = getUnitDimensionIdType(d);
+    return isClusterKeyed(idType) ? idType : baseIdType;
+  };
+  const segmentJoinIdType =
+    segmentIdType && isClusterKeyed(segmentIdType) ? segmentIdType : baseIdType;
 
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
@@ -170,6 +197,14 @@ export function getExperimentUnitsQuery(
           `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
         )} as variation
         , ${dialect.castUserDateCol(rawTimestampColumn)} as timestamp
+        ${
+          clusterIdColumn
+            ? `, e.${getExposureQueryIdentifierColumn(
+                exposureQuery,
+                clusterIdColumn,
+              )} as ${clusterIdColumn}`
+            : ""
+        }
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -231,7 +266,7 @@ export function getExperimentUnitsQuery(
         ? `, __segment as (${getSegmentCTE(
             dialect,
             segment,
-            baseIdType,
+            segmentJoinIdType,
             idJoinMap,
             factTableMap,
             {
@@ -249,7 +284,7 @@ export function getExperimentUnitsQuery(
         (d) =>
           `, __dim_unit_${d.dimension.id} as (${getDimensionCTE(
             d.dimension,
-            baseIdType,
+            getUnitDimensionJoinIdType(d),
             idJoinMap,
           )})`,
       )
@@ -260,6 +295,11 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} AS ${baseIdType}
         , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
+        ${
+          clusterIdColumn
+            ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}`
+            : ""
+        }
         ${unitDimensions
           .map(
             (d) => `
@@ -294,17 +334,18 @@ export function getExperimentUnitsQuery(
         __experimentExposures e
         ${
           segment
-            ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
+            ? `JOIN __segment s ON (s.${segmentJoinIdType} = e.${segmentJoinIdType})`
             : ""
         }
         ${unitDimensions
-          .map(
-            (d) => `
+          .map((d) => {
+            const joinIdType = getUnitDimensionJoinIdType(d);
+            return `
             LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-              __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+              __dim_unit_${d.dimension.id}.${joinIdType} = e.${joinIdType}
             )
-          `,
-          )
+          `;
+          })
           .join("\n")}
         ${
           activationMetric

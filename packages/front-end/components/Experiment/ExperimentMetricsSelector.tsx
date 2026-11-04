@@ -8,6 +8,7 @@ import {
   isFactMetric,
   isFactFunnelMetric,
   getUserIdTypes,
+  getClusterExperimentMetricEligibility,
 } from "shared/experiments";
 import {
   FactMetricType,
@@ -47,6 +48,8 @@ export interface Props {
   experimentId?: string;
   requireDatasource?: boolean;
   experimentType: ExperimentType | undefined;
+  isClusterExperiment?: boolean;
+  clusterSubUnitIdentifier?: string;
   // Each selector beside its label, as on the experiment's setup page.
   asRows?: boolean;
 }
@@ -72,9 +75,25 @@ export function useMetricDisabledInfo(
   datasource: string | undefined,
   experimentId: string | undefined,
   experimentType: ExperimentType | undefined,
+  cluster?: {
+    isClusterExperiment?: boolean;
+    clusterSubUnitIdentifier?: string;
+    exposureQueryId?: string;
+    exposureQueryIdentifierType?: string;
+  },
 ) {
-  const { getExperimentMetricById, getDatasourceById, metricGroups } =
-    useDefinitions();
+  const {
+    getExperimentMetricById,
+    getDatasourceById,
+    getFactTableById,
+    metricGroups,
+  } = useDefinitions();
+  const {
+    isClusterExperiment = false,
+    clusterSubUnitIdentifier,
+    exposureQueryId,
+    exposureQueryIdentifierType,
+  } = cluster ?? {};
   const datasourceObj = datasource ? getDatasourceById(datasource) : null;
   const incrementalRefresh = getIsExperimentIncludedInIncrementalRefresh(
     datasourceObj ?? undefined,
@@ -100,6 +119,42 @@ export function useMetricDisabledInfo(
             disabled: true,
             reason: "Funnel metrics are not supported in Bandit experiments",
           };
+        }
+      }
+
+      if (isClusterExperiment) {
+        const ids = isGroup
+          ? expandMetricGroups(
+              metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
+              metricGroups,
+            )
+          : [metricId];
+        const exposureQuery = getExposureQuery(
+          datasourceObj?.settings,
+          exposureQueryId,
+        );
+        for (const id of ids) {
+          const metric = getExperimentMetricById(id);
+          if (!metric) continue;
+          const eligibility = getClusterExperimentMetricEligibility(metric, {
+            clusterIdentifier: exposureQuery
+              ? resolveAnalysisIdentifierType(
+                  exposureQuery,
+                  exposureQueryIdentifierType,
+                )
+              : undefined,
+            clusterSubUnitIdentifier,
+            getFactTable: getFactTableById,
+            datasourceSettings: datasourceObj?.settings,
+          });
+          if (!eligibility.allowed) {
+            return {
+              disabled: true,
+              reason: isGroup
+                ? `"${metric.name}" can't be used in cluster experiments. ${eligibility.reason}`
+                : eligibility.reason,
+            };
+          }
         }
       }
 
@@ -178,6 +233,11 @@ export function useMetricDisabledInfo(
       datasourceObj,
       incrementalRefresh,
       experimentType,
+      isClusterExperiment,
+      clusterSubUnitIdentifier,
+      exposureQueryId,
+      exposureQueryIdentifierType,
+      getFactTableById,
       getExperimentMetricById,
       metricGroups,
     ],
@@ -211,6 +271,8 @@ export default function ExperimentMetricsSelector({
   experimentId,
   requireDatasource = false,
   experimentType,
+  isClusterExperiment = false,
+  clusterSubUnitIdentifier,
   asRows = false,
 }: Props) {
   const { getExperimentMetricById, getDatasourceById, factTables } =
@@ -220,6 +282,12 @@ export default function ExperimentMetricsSelector({
     datasource,
     experimentId,
     experimentType,
+    {
+      isClusterExperiment,
+      clusterSubUnitIdentifier,
+      exposureQueryId,
+      exposureQueryIdentifierType,
+    },
   );
 
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
@@ -326,6 +394,8 @@ export default function ExperimentMetricsSelector({
               datasource={datasource}
               exposureQueryId={exposureQueryId}
               exposureQueryIdentifierType={exposureQueryIdentifierType}
+              isClusterExperiment={isClusterExperiment}
+              clusterSubUnitIdentifier={clusterSubUnitIdentifier}
               project={project}
               autoFocus={autoFocus}
               includeFacts={true}
@@ -375,6 +445,8 @@ export default function ExperimentMetricsSelector({
               datasource={datasource}
               exposureQueryId={exposureQueryId}
               exposureQueryIdentifierType={exposureQueryIdentifierType}
+              isClusterExperiment={isClusterExperiment}
+              clusterSubUnitIdentifier={clusterSubUnitIdentifier}
               project={project}
               includeFacts={true}
               filterConversionWindowMetrics={filterConversionWindowMetrics}
@@ -410,6 +482,8 @@ export default function ExperimentMetricsSelector({
               datasource={datasource}
               exposureQueryId={exposureQueryId}
               exposureQueryIdentifierType={exposureQueryIdentifierType}
+              isClusterExperiment={isClusterExperiment}
+              clusterSubUnitIdentifier={clusterSubUnitIdentifier}
               project={project}
               includeFacts={true}
               filterConversionWindowMetrics={filterConversionWindowMetrics}
