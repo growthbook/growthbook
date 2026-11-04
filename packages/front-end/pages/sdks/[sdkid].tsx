@@ -10,7 +10,7 @@ import {
   SDKConnectionSettingsRevisionSnapshot,
 } from "shared/validators";
 import { useRouter } from "next/router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { PiDotsThreeVertical } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -59,6 +59,17 @@ import { docUrl } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { PayloadSizeCallout } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 import { capitalizeFirstLetter } from "@/services/utils";
+import CollapsiblePanelLayout, {
+  DetailsPanelToggle,
+  PANEL_WIDTH_PX,
+} from "@/components/CollapsiblePanelLayout";
+import {
+  NARROW_LAYOUT_BREAKPOINT_PX,
+  TABS_HEADER_HEIGHT_PX,
+} from "@/components/Layout/constants";
+import ScrollArea from "@/ui/ScrollArea";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useMediaQuery from "@/hooks/useMediaQuery";
 
 // Webhooks are required: an empty list reads as "every webhook was added" and
 // flags a false conflict.
@@ -210,6 +221,30 @@ export default function SDKConnectionPage() {
     null,
   );
   const [activeTab, setActiveTab] = useState<string>("overview");
+  // As on the experiment page: open state and width are remembered, and when
+  // narrow the panel opens only on request, over the content.
+  // The layout's footer, which the Setup rows' save bar renders into.
+  const [saveBarSlot, setSaveBarSlot] = useState<HTMLDivElement | null>(null);
+  const [detailsOpen, setDetailsOpen] = useLocalStorage(
+    "sdk-connection-details-panel-open",
+    true,
+  );
+  const [detailsWidth, setDetailsWidth] = useLocalStorage(
+    "sdk-connection-details-panel-width",
+    PANEL_WIDTH_PX,
+  );
+  const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
+  const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
+  useEffect(() => setOpenWhileNarrow(false), [narrow]);
+  const [detailsShown, setDetailsShown]: [boolean, (open: boolean) => void] =
+    narrow
+      ? [openWhileNarrow, setOpenWhileNarrow]
+      : [detailsOpen, setDetailsOpen];
+  // The toggle is a fresh start: a width dragged out earlier is forgotten.
+  const toggleDetailsPanel = (open: boolean) => {
+    setDetailsWidth(PANEL_WIDTH_PX);
+    setDetailsShown(open);
+  };
 
   const connection: SDKConnectionInterface | undefined =
     data?.connections?.find((conn) => conn.id === sdkid);
@@ -375,6 +410,23 @@ export default function SDKConnectionPage() {
   const sdkDocSection = displayedConn.languages?.[0]
     ? languageMapping[displayedConn.languages[0]]?.docs
     : undefined;
+
+  const revisionCard = (
+    <RevisionSummaryCard
+      allRevisions={allRevisions}
+      selectedRevision={selectedRevision}
+      entityNoun="SDK Connection"
+      hasRevisions={hasRevisions}
+      canEditTitle={canUpdate}
+      canEditDescription={canUpdate}
+      fallbackOwnerId=""
+      fallbackDateCreated={new Date(connection.dateCreated)}
+      onSelectRevision={selectFlow}
+      onTitleCommit={saveRevisionTitle}
+      onNewDraft={canUpdate ? () => setConfirmNewDraft(true) : undefined}
+      onReviewPublish={() => setActiveTab("review")}
+    />
+  );
 
   return (
     <div className="contents container pagecontents">
@@ -587,38 +639,67 @@ export default function SDKConnectionPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} mt="4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
-          <TabsTrigger value="implementation">Implementation</TabsTrigger>
-          {showRevisionUI && (
-            <TabsTrigger value="review">Review &amp; Publish</TabsTrigger>
-          )}
-        </TabsList>
-        {/* The Review & Publish tab renders its own revision header. */}
-        {showRevisionUI && activeTab !== "review" && (
-          <Box mt="4">
-            <RevisionSummaryCard
-              allRevisions={allRevisions}
-              selectedRevision={selectedRevision}
-              entityNoun="SDK Connection"
-              hasRevisions={hasRevisions}
-              canEditTitle={canUpdate}
-              canEditDescription={canUpdate}
-              fallbackOwnerId=""
-              fallbackDateCreated={new Date(connection.dateCreated)}
-              onSelectRevision={selectFlow}
-              onTitleCommit={saveRevisionTitle}
-              onNewDraft={
-                canUpdate ? () => setConfirmNewDraft(true) : undefined
-              }
-              onReviewPublish={() => setActiveTab("review")}
-            />
+        <Flex align="center">
+          <Box flexGrow="1" minWidth="0">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+              <TabsTrigger value="implementation">Implementation</TabsTrigger>
+              {showRevisionUI && (
+                <TabsTrigger value="review">Review &amp; Publish</TabsTrigger>
+              )}
+            </TabsList>
           </Box>
-        )}
-        <TabsContent value="overview">
-          <Flex direction={{ initial: "column", md: "row" }} gap="6">
-            <Box style={{ flex: 1, minWidth: 0 }}>
+          {activeTab === "overview" && (
+            <DetailsPanelToggle
+              open={detailsShown}
+              setOpen={toggleDetailsPanel}
+            />
+          )}
+        </Flex>
+        {/* The Review & Publish tab renders its own revision header, and
+            Overview puts it beside the details panel. */}
+        {showRevisionUI &&
+          activeTab !== "review" &&
+          activeTab !== "overview" && <Box mt="4">{revisionCard}</Box>}
+        {/* Through the container's padding, so the panel meets the window's
+            edge and stays stuck to the bottom, and the layout's clip leaves
+            room for the cards' shadows. */}
+        <TabsContent
+          value="overview"
+          style={{ marginLeft: -15, marginRight: -15, marginBottom: -15 }}
+        >
+          <CollapsiblePanelLayout
+            open={detailsShown}
+            top={TABS_HEADER_HEIGHT_PX}
+            width={detailsWidth}
+            onWidthChange={setDetailsWidth}
+            onCollapse={() => setDetailsShown(false)}
+            footer={<div ref={setSaveBarSlot} />}
+            panel={
+              <ScrollArea fill style={{ height: "100%" }}>
+                <Box px="5" py="2">
+                  <SDKConnectionDetailsRail
+                    connection={displayedConn}
+                    webhookCount={webhookData?.webhooks?.length ?? 0}
+                    onOpenWebhooks={() => setActiveTab("webhooks")}
+                  />
+                </Box>
+              </ScrollArea>
+            }
+          >
+            {/* No wrapper around the card: its draft banner sticks within this
+                column, so it stays pinned the whole way down. */}
+            <Box
+              pt={showRevisionUI ? "4" : "0"}
+              pb="6"
+              // The container's padding, given back where the panel isn't.
+              style={{
+                paddingLeft: 15,
+                paddingRight: detailsShown ? "var(--space-5)" : 15,
+              }}
+            >
+              {showRevisionUI && revisionCard}
               <Box mt="5">
                 <Heading size="lg" as="h2" mb="3">
                   Keys
@@ -637,6 +718,7 @@ export default function SDKConnectionPage() {
                   connection={displayedConn}
                   mutate={mutate}
                   canUpdate={canUpdate}
+                  saveBarSlot={saveBarSlot}
                   onRevisionCreated={onRevisionCreated}
                   openRevisions={openRevisions}
                   allRevisions={allRevisions}
@@ -648,23 +730,7 @@ export default function SDKConnectionPage() {
                 />
               </Box>
             </Box>
-            <Box
-              mt="5"
-              pl={{ initial: "0", md: "5" }}
-              style={{
-                width: "100%",
-                maxWidth: 320,
-                flexShrink: 0,
-                borderLeft: "1px solid var(--gray-a5)",
-              }}
-            >
-              <SDKConnectionDetailsRail
-                connection={displayedConn}
-                webhookCount={webhookData?.webhooks?.length ?? 0}
-                onOpenWebhooks={() => setActiveTab("webhooks")}
-              />
-            </Box>
-          </Flex>
+          </CollapsiblePanelLayout>
         </TabsContent>
         <TabsContent value="webhooks">
           <Box mt="4">

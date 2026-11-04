@@ -1,9 +1,8 @@
-import { ReactNode, useState } from "react";
+import { useEffect, useState } from "react";
 import { Revision, getSdkConnectionGoverningRules } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { draftValuesEqual } from "shared/util";
 import { DraftMode } from "@/components/DraftSelector";
-import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -18,6 +17,19 @@ export type SdkConnectionRevisionProps = {
   approvalRequired?: boolean;
   canAutoPublish?: boolean;
   metadataReviewRequired?: boolean;
+};
+
+export type SaveDestination = {
+  mode: DraftMode;
+  drafts: { id: string; label: string }[];
+  selectedDraftId: string | null;
+  selectedDraftLabel: string | null;
+  canAutoPublish: boolean;
+  approvalRequired: boolean;
+  metadataOnly: boolean;
+  // Only a new draft is possible, so there is nothing to choose.
+  singleOption: boolean;
+  choose: (mode: DraftMode, draftId?: string | null) => void;
 };
 
 export type SdkConnectionScope = {
@@ -79,7 +91,7 @@ export function useSdkConnectionRevisionFlow({
   proposedScope?: SdkConnectionScope;
 } & SdkConnectionRevisionProps): {
   revisionAware: boolean;
-  draftSelector: ReactNode;
+  destination: SaveDestination;
   save: (body: Record<string, unknown>) => Promise<void>;
 } {
   const { apiCall } = useAuth();
@@ -135,22 +147,51 @@ export function useSdkConnectionRevisionFlow({
   const metadataOnlyRevisionFlow =
     effectiveApprovalRequired && !effectiveMetadataReviewRequired;
 
-  const draftSelector = revisionAware ? (
-    <RevisionDraftSelectorForChanges
-      entityId={connection.id}
-      openRevisions={openRevisions ?? []}
-      allRevisions={allRevisions ?? []}
-      mode={draftMode}
-      setMode={setDraftMode}
-      selectedDraftId={selectedDraftId}
-      setSelectedDraftId={setSelectedDraftId}
-      canAutoPublish={effectiveCanAutoPublish}
-      approvalRequired={effectiveApprovalRequired}
-      metadataOnly={metadataOnlyRevisionFlow}
-      defaultExpanded={!effectiveCanAutoPublish}
-      dropdownRequiresApproval={false}
-    />
-  ) : null;
+  const activeDrafts = (openRevisions ?? []).filter(isDraftRevision);
+  // Drafts are named as in the revision dropdown: title, else their position.
+  const draftLabel = (revision: Revision) =>
+    revision.title ||
+    `Revision ${
+      (allRevisions ?? []).filter(
+        (r) => new Date(r.dateCreated) <= new Date(revision.dateCreated),
+      ).length
+    }`;
+  const singleOption = !effectiveCanAutoPublish && activeDrafts.length === 0;
+
+  // Keep the destination valid as permissions and drafts change.
+  useEffect(() => {
+    if (singleOption && draftMode !== "new") {
+      setSelectedDraftId(null);
+      setDraftMode("new");
+    } else if (draftMode === "publish" && !effectiveCanAutoPublish) {
+      setSelectedDraftId(null);
+      setDraftMode("new");
+    }
+  }, [singleOption, draftMode, effectiveCanAutoPublish]);
+
+  const selectedDraftRevision =
+    draftMode === "existing" && selectedDraftId
+      ? ([...(allRevisions ?? []), ...(openRevisions ?? [])].find(
+          (r) => r.id === selectedDraftId,
+        ) ?? null)
+      : null;
+
+  const destination: SaveDestination = {
+    mode: draftMode,
+    drafts: activeDrafts.map((r) => ({ id: r.id, label: draftLabel(r) })),
+    selectedDraftId: draftMode === "existing" ? selectedDraftId : null,
+    selectedDraftLabel: selectedDraftRevision
+      ? draftLabel(selectedDraftRevision)
+      : null,
+    canAutoPublish: effectiveCanAutoPublish,
+    approvalRequired: effectiveApprovalRequired,
+    metadataOnly: metadataOnlyRevisionFlow,
+    singleOption,
+    choose: (mode, draftId = null) => {
+      setDraftMode(mode);
+      setSelectedDraftId(draftId);
+    },
+  };
 
   const save = async (body: Record<string, unknown>) => {
     const changed: Record<string, unknown> = {};
@@ -211,5 +252,5 @@ export function useSdkConnectionRevisionFlow({
     await mutate();
   };
 
-  return { revisionAware, draftSelector, save };
+  return { revisionAware, destination, save };
 }

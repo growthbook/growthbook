@@ -1,4 +1,5 @@
 import { ReactNode, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import isEqual from "lodash/isEqual";
 import { PiCaretUp } from "react-icons/pi";
 import {
@@ -52,6 +53,7 @@ import {
   SdkConnectionRevisionProps,
   useSdkConnectionRevisionFlow,
 } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
+import SDKConnectionSaveButton from "@/components/Features/SDKConnections/edit-modals/SDKConnectionSaveButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -242,11 +244,15 @@ export default function SDKConnectionSetup({
   connection,
   mutate,
   canUpdate,
+  saveBarSlot = null,
   ...revisionProps
 }: {
   connection: SDKConnectionInterface;
   mutate: () => Promise<unknown> | void;
   canUpdate: boolean;
+  // Where the save bar goes, like the experiment page's layout footer; inline
+  // when there is none.
+  saveBarSlot?: HTMLElement | null;
 } & SdkConnectionRevisionProps) {
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
@@ -258,12 +264,15 @@ export default function SDKConnectionSetup({
   const onChange = (patch: Partial<FormValue>) =>
     setValue((v) => ({ ...v, ...patch }));
 
-  const { draftSelector, save } = useSdkConnectionRevisionFlow({
+  const { revisionAware, destination, save } = useSdkConnectionRevisionFlow({
     connection,
     mutate,
     proposedScope: { projects: value.projects, environment: value.environment },
     ...revisionProps,
   });
+
+  const renderBar = (bar: ReactNode) =>
+    saveBarSlot ? createPortal(bar, saveBarSlot) : bar;
 
   const disabled = !canUpdate;
   const managedByVercel = connection.managedBy?.type === "vercel";
@@ -494,76 +503,79 @@ export default function SDKConnectionSetup({
         )}
       </Section>
 
-      {canUpdate && changed.length > 0 && (
-        <Box
-          style={{
-            position: "sticky",
-            bottom: 0,
-            zIndex: 5,
-            background: "var(--color-panel-solid)",
-            borderTop: "1px solid var(--gray-a5)",
-            boxShadow: "0 -4px 12px var(--black-a2)",
-          }}
-          mx="-4"
-          pl="4"
-          // Clears the floating help button in the corner.
-          pr="9"
-          py="3"
-        >
-          {showChanges && (
-            <Flex direction="column" gap="1" mb="3">
-              {changed.map((k) => (
-                <Grid key={k} columns="220px minmax(0, 1fr)" gap="3">
-                  <Text size="sm" weight="medium">
-                    {FIELD_LABELS[k] ?? k}
-                  </Text>
-                  <Text size="sm" color="text-mid">
-                    {display(before[k])} → {display(after[k])}
-                  </Text>
-                </Grid>
-              ))}
-            </Flex>
-          )}
-          <Flex align="center" justify="between" gap="3" wrap="wrap">
-            <Button
-              variant="ghost"
-              color="gray"
-              size="sm"
-              icon={
-                <PiCaretUp
-                  style={{
-                    transform: showChanges ? "rotate(180deg)" : undefined,
-                  }}
-                />
-              }
-              iconPosition="right"
-              onClick={() => setShowChanges((v) => !v)}
-            >
-              {changed.length} staged change{changed.length === 1 ? "" : "s"}
-            </Button>
-            <Flex align="center" gap="3" wrap="wrap" justify="end">
-              <Box style={{ maxWidth: 520 }}>{draftSelector}</Box>
+      {canUpdate &&
+        changed.length > 0 &&
+        renderBar(
+          <Box
+            // The experiment page's save bar.
+            style={{
+              background: "var(--color-panel-solid)",
+              borderTop: "1px solid var(--gray-a5)",
+              boxShadow:
+                "0 -1px 2px rgba(0, 0, 0, 0.1), 0 -4px 4px rgba(0, 0, 0, 0.025)",
+              paddingLeft: 15,
+            }}
+            // Clears the floating help button in the corner.
+            pr="9"
+            py="2"
+          >
+            {showChanges && (
+              <Flex direction="column" gap="1" mb="3">
+                {changed.map((k) => (
+                  <Grid key={k} columns="220px minmax(0, 1fr)" gap="3">
+                    <Text size="sm" weight="medium">
+                      {FIELD_LABELS[k] ?? k}
+                    </Text>
+                    <Text size="sm" color="text-mid">
+                      {display(before[k])} → {display(after[k])}
+                    </Text>
+                  </Grid>
+                ))}
+              </Flex>
+            )}
+            <Flex align="center" justify="between" gap="3" wrap="wrap">
               <Button
                 variant="ghost"
-                onClick={() => {
-                  setValue(initial);
-                  setShowChanges(false);
-                  setLanguageError(null);
-                  setEnvironmentError(null);
-                }}
+                color="gray"
+                size="sm"
+                icon={
+                  <PiCaretUp
+                    style={{
+                      transform: showChanges ? "rotate(180deg)" : undefined,
+                    }}
+                  />
+                }
+                iconPosition="right"
+                onClick={() => setShowChanges((v) => !v)}
               >
-                Discard changes
+                {changed.length} staged change{changed.length === 1 ? "" : "s"}
               </Button>
-              <Button onClick={submit}>Save</Button>
+              <Flex align="center" gap="3" wrap="wrap" justify="end">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setValue(initial);
+                    setShowChanges(false);
+                    setLanguageError(null);
+                    setEnvironmentError(null);
+                  }}
+                >
+                  Discard changes
+                </Button>
+                <SDKConnectionSaveButton
+                  destination={destination}
+                  revisionAware={revisionAware}
+                  onSave={submit}
+                />
+              </Flex>
             </Flex>
-          </Flex>
-          {(languageError || environmentError) && (
-            <HelperText status="error" size="sm" mt="2">
-              {languageError ?? environmentError}
-            </HelperText>
-          )}
-        </Box>
-      )}
+            {(languageError || environmentError) && (
+              <HelperText status="error" size="sm" mt="2">
+                {languageError ?? environmentError}
+              </HelperText>
+            )}
+          </Box>,
+        )}
     </Flex>
   );
 }
