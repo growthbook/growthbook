@@ -201,11 +201,11 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0(encoding@0.1.13)
       '@datadog/native-metrics':
-        specifier: ^3.1.2
-        version: 3.1.2
+        specifier: ^4.0.0
+        version: 4.0.0
       '@datadog/pprof':
-        specifier: ^5.15.1
-        version: 5.15.1
+        specifier: ^5.20.0
+        version: 5.20.0
       '@dqbd/tiktoken':
         specifier: ^1.0.21
         version: 1.0.21
@@ -2688,17 +2688,9 @@ packages:
   '@datadog/native-iast-taint-tracking@4.2.1':
     resolution: {integrity: sha512-KRLu3aTXvyAusouAZGTw2w1Xo67cRTw93yG4C9vTMpIgN9FXiqhlcvtNHvUzaA/KRrwtNwbaUELubOtk/kxOFg==}
 
-  '@datadog/native-metrics@3.1.2':
-    resolution: {integrity: sha512-7AEWt0ZLr/ogR/9if1DmFBDTg3y67xM+gdhXUXKs+UQMxK0lnjrOHgN7fkpEmUG1uL+EkX2BDE3ENDlQ23J7OQ==}
-    engines: {node: '>=16'}
-
   '@datadog/native-metrics@4.0.0':
     resolution: {integrity: sha512-rS6Qc8WAbOgbrtDYdqK15gi2xbuIEyfuquUH05g+2DOdiNAswNAGrlIuSdJZQF/qoJzjcFvxb9kCHu8BjiPfQQ==}
     engines: {node: '>=18'}
-
-  '@datadog/pprof@5.15.1':
-    resolution: {integrity: sha512-4mI750tX6okNROS4YKvGQjyAQ+VqfzDqzysCytOJhL2E2ktK/q4M0PtC7j70tiirGb/fO9fjma3IMNSRLYX+xQ==}
-    engines: {node: '>=16'}
 
   '@datadog/pprof@5.20.0':
     resolution: {integrity: sha512-el72sY8ipZsA6dPFqNhXtXbA0e189U+eyYUWl2bBz4+qEIheIgmpLzDrF2F7gxu/Cn87pLLYnj+oNcySKBdylQ==}
@@ -11847,9 +11839,6 @@ packages:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
 
-  pprof-format@2.2.1:
-    resolution: {integrity: sha512-p4tVN7iK19ccDqQv8heyobzUmbHyds4N2FI6aBMcXz6y99MglTWDxIyhFkNaLeEXs6IFUEzT0zya0icbSLLY0g==}
-
   pprof-format@2.3.2:
     resolution: {integrity: sha512-fcMM+sgKMOveSurz7i0BMHfy1hHNnI9+VWjd4kdclqQjSTuiHWaP69DGwvkw3zcLkM/F76LhVIKvPyrxmp6iiw==}
 
@@ -16147,29 +16136,16 @@ snapshots:
       node-gyp-build: 3.9.0
     optional: true
 
-  '@datadog/native-metrics@3.1.2':
-    dependencies:
-      node-addon-api: 6.1.0
-      node-gyp-build: 3.9.0
-
   '@datadog/native-metrics@4.0.0':
     dependencies:
       node-addon-api: 6.1.0
       node-gyp-build: 3.9.0
-    optional: true
-
-  '@datadog/pprof@5.15.1':
-    dependencies:
-      node-gyp-build: 4.8.4
-      pprof-format: 2.2.1
-      source-map: 0.7.4
 
   '@datadog/pprof@5.20.0':
     dependencies:
       node-gyp-build: 4.8.4
       pprof-format: 2.3.2
       source-map: 0.8.0
-    optional: true
 
   '@datadog/wasm-js-rewriter@5.0.4':
     dependencies:
@@ -27255,10 +27231,7 @@ snapshots:
     dependencies:
       xtend: 4.0.2
 
-  pprof-format@2.2.1: {}
-
-  pprof-format@2.3.2:
-    optional: true
+  pprof-format@2.3.2: {}
 
   prebuild-install@7.1.3:
     dependencies:
@@ -28533,8 +28506,7 @@ snapshots:
 
   source-map@0.7.4: {}
 
-  source-map@0.8.0:
-    optional: true
+  source-map@0.8.0: {}
 
   space-separated-tokens@1.1.5: {}
 
