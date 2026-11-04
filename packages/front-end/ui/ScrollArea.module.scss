@@ -46,6 +46,11 @@
   position: relative;
 }
 
+.deep .shadow {
+  --shadow-color: var(--gray-a4);
+  --shadow-size: 12px;
+}
+
 .fillsWrapper {
   height: 100%;
 }
@@ -71,7 +76,7 @@
     bottom: -6px;
     height: 6px;
     pointer-events: none;
-    background: linear-gradient(to bottom, var(--gray-a2), transparent);
+    background: linear-gradient(to bottom, var(--gray-a2), 30%, transparent);
   }
 
   // Over its own bottom border too, so pinned cells stacked in a column
@@ -84,12 +89,35 @@
     right: -6px;
     width: 6px;
     pointer-events: none;
-    background: linear-gradient(to right, var(--gray-a2), transparent);
+    background: linear-gradient(to right, var(--gray-a2), 30%, transparent);
   }
 }
 
-// A narrow shadow over an edge with more past it, as beside a pinned column.
+// Held over the area's end from beside it, the shadow its bottom edge would
+// have, cast above itself; positioned, as anything pinned is.
+.shadowed[data-under-pinned~="bottom"] ~ .pinnedBottom::before {
+  --shadow-color: var(--gray-a2);
+  --shadow-size: 6px;
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--shadow-size);
+  pointer-events: none;
+  background: linear-gradient(to top, var(--shadow-color), 30%, transparent);
+}
+
+.deep[data-under-pinned~="bottom"] ~ .pinnedBottom::before {
+  --shadow-color: var(--gray-a4);
+  --shadow-size: 12px;
+}
+
+// A narrow shadow over an edge with more past it, as beside a pinned column;
+// most of it in the first third, so it reads as an edge, not a band.
 .shadow {
+  --shadow-color: var(--gray-a2);
+  --shadow-size: 6px;
   position: absolute;
   z-index: 1;
   pointer-events: none;
@@ -98,33 +126,43 @@
   &[data-edge="bottom"] {
     left: 0;
     right: 0;
-    height: 6px;
+    height: var(--shadow-size);
   }
 
   &[data-edge="left"],
   &[data-edge="right"] {
     top: 0;
     bottom: 0;
-    width: 6px;
+    width: var(--shadow-size);
   }
 
   &[data-edge="top"] {
     top: 0;
-    background: linear-gradient(to bottom, var(--gray-a2), transparent);
+    background: linear-gradient(
+      to bottom,
+      var(--shadow-color),
+      30%,
+      transparent
+    );
   }
 
   &[data-edge="bottom"] {
     bottom: 0;
-    background: linear-gradient(to top, var(--gray-a2), transparent);
+    background: linear-gradient(to top, var(--shadow-color), 30%, transparent);
   }
 
   &[data-edge="left"] {
     left: 0;
-    background: linear-gradient(to right, var(--gray-a2), transparent);
+    background: linear-gradient(
+      to right,
+      var(--shadow-color),
+      30%,
+      transparent
+    );
   }
 
   &[data-edge="right"] {
     right: 0;
-    background: linear-gradient(to left, var(--gray-a2), transparent);
+    background: linear-gradient(to left, var(--shadow-color), 30%, transparent);
   }
 }

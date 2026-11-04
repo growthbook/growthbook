@@ -27,6 +27,13 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 const DETAILS_PANEL_TABS = ["details", "comments"] as const;
 export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
 
+const TAB_FILLS_RAIL = {
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  minHeight: 0,
+} as const;
+
 // Whether a page's details panel shows, how wide, and on which of its tabs. On
 // the page's home tab the open state is remembered; off it the panel starts
 // closed, and opening it there lasts until the tab changes. When narrow, it
@@ -173,33 +180,29 @@ export default function DetailsPanel({
           </TabsTrigger>
         </TabsList>
       </Flex>
-      {/* Held to the rail's height, so the comments scroll above a composer
-          pinned under them. */}
-      <ScrollArea fill fillMinHeight="300px" style={{ flex: 1, minHeight: 0 }}>
-        <TabsContent value="details">
+      {/* Each held to the rail's height. The comments scroll on their own,
+          outside any scroll area, so their composer can stick to the window. */}
+      <TabsContent value="details" style={TAB_FILLS_RAIL}>
+        <ScrollArea
+          fill
+          fillMinHeight="300px"
+          style={{ flex: 1, minHeight: 0 }}
+        >
           <Flex px="5" pt="4" pb="8" direction="column" gap="4">
             {children}
           </Flex>
-        </TabsContent>
-        <TabsContent
-          value="comments"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
-          <DiscussionThread
-            compact
-            fillHeight
-            type={discussion.type}
-            id={discussion.id}
-            allowNewComments={discussion.allowNewComments}
-            projects={discussion.projects}
-          />
-        </TabsContent>
-      </ScrollArea>
+        </ScrollArea>
+      </TabsContent>
+      <TabsContent value="comments" style={TAB_FILLS_RAIL}>
+        <DiscussionThread
+          compact
+          fillHeight
+          type={discussion.type}
+          id={discussion.id}
+          allowNewComments={discussion.allowNewComments}
+          projects={discussion.projects}
+        />
+      </TabsContent>
     </Tabs>
   );
 }

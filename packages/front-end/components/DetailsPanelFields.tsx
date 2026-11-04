@@ -18,10 +18,10 @@ import Tooltip from "@/ui/Tooltip";
 
 // Rows the details panels share, each with the quick-edit button it reveals.
 
-export function EmptyValue() {
+export function EmptyValue({ label = "None" }: { label?: string }) {
   return (
     <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
-      None
+      {label}
     </Text>
   );
 }
