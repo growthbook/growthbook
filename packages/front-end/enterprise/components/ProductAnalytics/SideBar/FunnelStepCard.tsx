@@ -9,7 +9,6 @@ import {
   PiPencilSimple,
   PiPlus,
   PiUserFill,
-  PiX,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import {
@@ -19,6 +18,7 @@ import {
   FunnelStep,
 } from "shared/validators";
 import { RowFilter } from "shared/types/fact-table";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -204,6 +204,10 @@ export default function FunnelStepCard({
     [step, factTable, isInherited, index, steps],
   );
 
+  const maxStepsReason = canAddStep
+    ? undefined
+    : `Funnels are limited to ${MAX_FUNNEL_STEPS} steps.`;
+
   const funnelUnit =
     draftExploreState.dataset.type === "funnel"
       ? draftExploreState.dataset.unit
@@ -247,6 +251,7 @@ export default function FunnelStepCard({
           <Box
             {...dragHandleProps}
             title="Drag to reorder"
+            aria-label={`Drag to reorder ${step.name}`}
             style={{ flexShrink: 0, cursor: "grab", display: "flex" }}
           >
             <PiDotsSixVertical size={14} color="var(--gray-a9)" />
@@ -309,27 +314,20 @@ export default function FunnelStepCard({
           >
             {isCollapsed ? <PiCaretDown size={14} /> : <PiCaretUp size={14} />}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={steps.length === 1}
-            onClick={() => onDelete(index)}
-            title="Delete step"
-          >
-            <PiX size={14} />
-          </Button>
           <DropdownMenu
             menuPlacement="end"
             trigger={<MoreMenuTrigger label="Step actions" size="sm" />}
           >
             <DropdownMenuItem
               disabled={!canAddStep}
+              tooltip={maxStepsReason}
               onClick={() => onInsert(index)}
             >
               Insert step above
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={!canAddStep}
+              tooltip={maxStepsReason}
               onClick={() => onInsert(index + 1)}
             >
               Insert step below
@@ -346,6 +344,14 @@ export default function FunnelStepCard({
               onClick={() => onMove(index, index + 1)}
             >
               Move down
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              color="red"
+              disabled={steps.length === 1}
+              onClick={() => onDelete(index)}
+            >
+              Delete step
             </DropdownMenuItem>
           </DropdownMenu>
         </Flex>

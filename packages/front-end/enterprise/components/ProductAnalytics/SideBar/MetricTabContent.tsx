@@ -19,6 +19,7 @@ import {
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
@@ -86,9 +87,9 @@ export default function MetricTabContent() {
 
   const mixTooltip = (locked: Exclude<MetricMixClass, "unknown">) =>
     locked === "ratio"
-      ? "Ratio metrics can't be combined with other metric types."
+      ? "Ratio metrics can't be combined with other metrics."
       : locked === "quantile"
-        ? "Quantile metrics can't be combined with other metric types."
+        ? "Quantile metrics can't be combined with other metrics."
         : "Only the same metric type can be combined in one chart.";
 
   return (
@@ -182,19 +183,13 @@ export default function MetricTabContent() {
           </ValueCard>
         );
       })}
-      <Tooltip
-        body={
-          exclusiveClass === "ratio"
-            ? "Ratio metrics can't be combined with other metrics."
-            : "Quantile metrics can't be combined with other metrics."
-        }
-        shouldDisplay={exclusiveClass !== null}
-        tipPosition="top"
+      <UITooltip
+        enabled={exclusiveClass !== null}
+        content={exclusiveClass ? mixTooltip(exclusiveClass) : ""}
       >
         <Button
           size="md"
           variant="outline"
-          style={{ width: "100%" }}
           disabled={exclusiveClass !== null}
           onClick={() => addValueToDataset("metric")}
         >
@@ -203,7 +198,7 @@ export default function MetricTabContent() {
             Add metric
           </Flex>
         </Button>
-      </Tooltip>
+      </UITooltip>
     </Flex>
   );
 }

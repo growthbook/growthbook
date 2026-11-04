@@ -18,10 +18,8 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { PiFunnelBold, PiPlus } from "react-icons/pi";
 import { ExplorationConfig, FunnelDataset } from "shared/validators";
 import { isFactFunnelMetric } from "shared/experiments";
@@ -32,6 +30,7 @@ import {
 } from "shared/funnels";
 import { isProjectListValidForProject } from "shared/util";
 import Button from "@/ui/Button";
+import useSortableItem from "@/hooks/useSortableItem";
 import Text from "@/ui/Text";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -51,17 +50,10 @@ function SortableFunnelStepCard({
   id,
   ...props
 }: { id: string } & Omit<FunnelStepCardProps, "dragHandleProps">) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id });
+  const { setNodeRef, style, handle } = useSortableItem(id);
   return (
-    <Box
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-    >
-      <FunnelStepCard
-        {...props}
-        dragHandleProps={{ ...attributes, ...listeners }}
-      />
+    <Box ref={setNodeRef} style={style}>
+      <FunnelStepCard {...props} dragHandleProps={handle} />
     </Box>
   );
 }
