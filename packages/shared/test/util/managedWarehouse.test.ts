@@ -20,10 +20,47 @@ import {
   isManagedWarehouseUnavailable,
   isManagedWarehouseNoEventsGuidanceMessage,
   isManagedWarehousePendingQueryError,
+  formatQueryExecutionErrorForApi,
+  MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE,
   MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE,
   MANAGED_WAREHOUSE_PENDING_ERROR_CODE,
   MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL,
+  ManagedWarehouseOutOfMemoryError,
+  ManagedWarehousePendingError,
 } from "../../src/util/managedWarehouse";
+
+describe("formatQueryExecutionErrorForApi", () => {
+  it("uses the message from plain driver error objects", () => {
+    expect(
+      formatQueryExecutionErrorForApi({ message: "Trino syntax error" }),
+    ).toBe("Trino syntax error");
+  });
+
+  it("stringifies non-string message values", () => {
+    expect(formatQueryExecutionErrorForApi({ message: 123 })).toBe("123");
+  });
+
+  it("preserves Error messages and managed warehouse error codes", () => {
+    expect(formatQueryExecutionErrorForApi(new Error("Query failed"))).toBe(
+      "Query failed",
+    );
+    expect(
+      formatQueryExecutionErrorForApi(new ManagedWarehousePendingError()),
+    ).toBe(MANAGED_WAREHOUSE_PENDING_ERROR_CODE);
+    expect(
+      formatQueryExecutionErrorForApi(new ManagedWarehouseOutOfMemoryError()),
+    ).toBe(MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE);
+  });
+
+  it("falls back to stringifying values without a message", () => {
+    expect(formatQueryExecutionErrorForApi("Query failed")).toBe(
+      "Query failed",
+    );
+    expect(formatQueryExecutionErrorForApi({ code: "QUERY_FAILED" })).toBe(
+      "[object Object]",
+    );
+  });
+});
 
 describe("isManagedWarehouse", () => {
   it("is true only for the growthbook_clickhouse datasource type", () => {
