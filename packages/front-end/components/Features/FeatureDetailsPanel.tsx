@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { HoldoutInterface } from "shared/validators";
@@ -15,11 +16,16 @@ import {
   TagsField,
 } from "@/components/DetailsPanelFields";
 import QuickEditButton from "@/components/Experiment/TabbedPage/QuickEditButton";
+import ExpandableText, {
+  ExpandableTextBody,
+} from "@/components/ExpandableText";
+import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
 import EditFeatureInfoModal, {
   FeatureInfoSection,
   SECTION_HEADERS,
 } from "@/components/Features/EditFeatureInfoModal";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
+import Markdown from "@/components/Markdown/Markdown";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -53,6 +59,7 @@ export default function FeatureDetailsPanel({
     null,
   );
   const [customFieldId, setCustomFieldId] = useState<string | null>(null);
+  const [editingDescription, setEditingDescription] = useState(false);
   const editSection = (
     section: FeatureInfoSection,
     fieldId: string | null = null,
@@ -86,6 +93,15 @@ export default function FeatureDetailsPanel({
           setVersion={setVersion}
         />
       ) : null}
+      {editingDescription ? (
+        <EditFeatureDescriptionModal
+          close={() => setEditingDescription(false)}
+          feature={feature}
+          revisionList={revisionList}
+          mutate={mutate}
+          setVersion={setVersion}
+        />
+      ) : null}
       <DetailsPanel
         tab={tab}
         setTab={setTab}
@@ -97,6 +113,31 @@ export default function FeatureDetailsPanel({
         }}
       >
         <PanelSection title="General">
+          <Metadata
+            size="sm"
+            stacked
+            label="Description"
+            action={pencil("Edit description", () =>
+              setEditingDescription(true),
+            )}
+            value={
+              feature.description ? (
+                <Box width="100%">
+                  {/* The row edits wherever it's clicked; only its "… expand"
+                      opens the rest. */}
+                  <ExpandableText expandOnClick={false}>
+                    <ExpandableTextBody>
+                      <Text as="div" size="sm" color="text-mid">
+                        <Markdown>{feature.description}</Markdown>
+                      </Text>
+                    </ExpandableTextBody>
+                  </ExpandableText>
+                </Box>
+              ) : (
+                <EmptyValue />
+              )
+            }
+          />
           <OwnerField owner={feature.owner} action={fieldAction("owner")} />
           <ProjectField
             project={feature.project}

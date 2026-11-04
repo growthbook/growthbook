@@ -24,7 +24,6 @@ import {
   isRevisionEditLockedBySchedule,
 } from "shared/enterprise";
 import { BiHide, BiShow } from "react-icons/bi";
-import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -61,9 +60,6 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Markdown from "@/components/Markdown/Markdown";
-import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
@@ -192,17 +188,12 @@ export default function FeaturesOverview({
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
   const [showInvalidPrereqs, setShowInvalidPrereqs] = useState(false);
-  const [descriptionExpanded, setDescriptionExpanded] = useLocalStorage(
-    `feature-description-expanded`,
-    false,
-  );
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
-  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
     envId?: string;
     desiredState?: boolean;
@@ -721,61 +712,6 @@ export default function FeaturesOverview({
             )}
           </Callout>
         )}
-
-        <Frame mt="2" mb="4" px="0" py="0" style={{ overflow: "hidden" }}>
-          <Collapsible
-            open={descriptionExpanded}
-            handleTriggerClick={() =>
-              setDescriptionExpanded(!descriptionExpanded)
-            }
-            transitionTime={100}
-            trigger={
-              <Flex
-                align="center"
-                justify="between"
-                px="6"
-                py="2"
-                style={{ cursor: "pointer", userSelect: "none" }}
-              >
-                <Heading as="h4" size="sm" mb="0">
-                  Description
-                </Heading>
-                <Flex align="center" gap="2">
-                  {canEditDrafts && !isReadOnly && (
-                    <Button
-                      variant="ghost"
-                      size="md"
-                      onClick={async (e) => {
-                        e?.stopPropagation();
-                        setShowDescriptionModal(true);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                  <PiCaretRightBold
-                    className="chevron-right"
-                    style={{ flexShrink: 0 }}
-                  />
-                </Flex>
-              </Flex>
-            }
-          >
-            <Box px="6" pb="4">
-              <Box className="mh-350px" style={{ overflowY: "auto" }}>
-                {feature.description ? (
-                  <Markdown className="card-text">
-                    {feature.description}
-                  </Markdown>
-                ) : (
-                  <Box as="div" className="font-italic text-muted">
-                    Add context about this feature for your team
-                  </Box>
-                )}
-              </Box>
-            </Box>
-          </Collapsible>
-        </Frame>
 
         <Box mt="3">
           <CustomMarkdown page={"feature"} variables={variables} />
@@ -1330,16 +1266,6 @@ export default function FeaturesOverview({
         )}
 
         {/* Modals */}
-
-        {showDescriptionModal && (
-          <EditFeatureDescriptionModal
-            close={() => setShowDescriptionModal(false)}
-            feature={feature}
-            revisionList={revisionList || []}
-            mutate={mutate}
-            setVersion={setVersion}
-          />
-        )}
 
         {edit && (
           <EditDefaultValueModal
