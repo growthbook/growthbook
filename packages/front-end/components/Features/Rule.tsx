@@ -1733,7 +1733,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   condition={rule.condition || ""}
                   savedGroups={rule.savedGroups}
                   prerequisites={rule.prerequisites}
-                  maxLength={500}
                   prefix={<Text weight="medium">IF</Text>}
                 />
               ) : rule.type !== "experiment-ref" &&

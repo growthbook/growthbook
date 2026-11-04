@@ -248,7 +248,6 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                       condition={holdoutExperiment.phases[0].condition || ""}
                       savedGroups={holdoutExperiment.phases[0].savedGroups}
                       prerequisites={holdoutExperiment.phases[0].prerequisites}
-                      maxLength={500}
                     />
                   </Box>
                 </Flex>

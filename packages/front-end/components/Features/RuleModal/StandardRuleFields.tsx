@@ -569,7 +569,6 @@ export default function StandardRuleFields({
               condition={form.watch("condition") || ""}
               savedGroups={form.watch("savedGroups")}
               prerequisites={form.watch("prerequisites")}
-              maxLength={500}
               prefix={<Text weight="medium">IF</Text>}
             />
           ) : (
