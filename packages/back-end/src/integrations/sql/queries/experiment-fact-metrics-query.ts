@@ -202,6 +202,9 @@ export function getExperimentFactMetricsQuery(
       to: settings.endDate,
       forcedBaseIdType: userIdType,
       experimentId: settings.experimentId,
+      tableNamePrefix: isClusterLevelQuery
+        ? "__cluster_identities_"
+        : undefined,
     },
   );
 

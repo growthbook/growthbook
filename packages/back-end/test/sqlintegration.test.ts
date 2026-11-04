@@ -2868,6 +2868,105 @@ describe("cluster experiment ratio analysis - bigquery", () => {
       ),
     ).toThrow("cannot share a metric source cache");
   });
+
+  it("namespaces inline cluster-level identity joins so they don't collide with the units query", () => {
+    // Reproduces the duplicate-CTE collision: a cluster-level metric whose fact
+    // table is keyed on device_id (joined region_id -> device_id for the outer
+    // query) plus a device_id segment (joined user_id -> device_id inside the
+    // inlined sub-unit units query). Both sets previously emitted
+    // `__identities_device_id` in the same WITH, which the warehouse rejects.
+    const deviceFactTable = factTableFactory.build({
+      id: "device_events",
+      name: "Device Events",
+      sql: "*",
+      userIdTypes: ["device_id"],
+    });
+    const localFactTableMap = new Map([[deviceFactTable.id, deviceFactTable]]);
+
+    // @ts-expect-error -- context not needed for test
+    const integration = new BigQuery("", {
+      type: "bigquery",
+      settings: {
+        queries: {
+          exposure: [clusterExposureQuery],
+          identityJoins: [
+            {
+              ids: ["region_id", "device_id"],
+              query: "SELECT region_id, device_id FROM region_devices",
+            },
+            {
+              ids: ["user_id", "device_id"],
+              query: "SELECT user_id, device_id FROM user_devices",
+            },
+          ],
+        },
+      },
+    });
+
+    const metric = factMetricFactory.build({
+      id: "fact_device_mean",
+      metricType: "mean",
+      numerator: {
+        factTableId: "device_events",
+        column: "amount",
+        aggregation: "sum",
+      },
+      regressionAdjustmentEnabled: false,
+    });
+
+    const segment: SegmentInterface = {
+      id: "seg_device",
+      organization: "org",
+      owner: "",
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      name: "device segment",
+      description: "",
+      userIdType: "device_id",
+      type: "SQL",
+      sql: "SELECT device_id, date FROM subscribers",
+    };
+
+    const sql = getExperimentFactMetricsQuery(
+      bigQueryDialect,
+      integration.datasource,
+      {
+        settings: {
+          ...baseSettings,
+          clusterLevelMetricIds: ["fact_device_mean"],
+        },
+        unitsSource: "exposureQuery",
+        unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+          query: clusterExposureQuery.query,
+          identifierType: "region_id",
+        }),
+        activationMetric: null,
+        dimensions: [],
+        segment,
+        metrics: [metric],
+        factTableMap: localFactTableMap,
+      },
+    );
+    const normalized = sql.replace(/\s+/g, " ").trim();
+
+    const declCount = (name: string) =>
+      (normalized.match(new RegExp(`${name} as \\(`, "g")) || []).length;
+
+    // The outer (cluster-keyed) set is namespaced; the inlined sub-unit units set
+    // keeps the default prefix. Each identity CTE is declared exactly once, and
+    // `__cluster_identities_device_id` does not match the `__identities_` regex.
+    expect(declCount("__cluster_identities_device_id")).toBe(1);
+    expect(declCount("__identities_device_id")).toBe(1);
+
+    // The two join sets resolve from different base ids.
+    expect(normalized).toMatch(
+      /__cluster_identities_device_id as \( SELECT region_id, device_id/,
+    );
+    expect(normalized).toMatch(
+      /__identities_device_id as \( SELECT user_id, device_id/,
+    );
+  });
 });
 
 describe("event tracker date limits", () => {
