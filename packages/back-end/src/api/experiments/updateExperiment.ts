@@ -345,6 +345,7 @@ export const updateExperiment = createApiRequestHandler(
       goalMetrics: payload.metrics ?? experiment.goalMetrics,
       secondaryMetrics: payload.secondaryMetrics ?? experiment.secondaryMetrics,
       guardrailMetrics: payload.guardrailMetrics ?? experiment.guardrailMetrics,
+      activationMetric: payload.activationMetric ?? experiment.activationMetric,
     },
     previous: {
       isClusterExperiment: experiment.isClusterExperiment,
@@ -355,6 +356,7 @@ export const updateExperiment = createApiRequestHandler(
       goalMetrics: experiment.goalMetrics,
       secondaryMetrics: experiment.secondaryMetrics,
       guardrailMetrics: experiment.guardrailMetrics,
+      activationMetric: experiment.activationMetric,
     },
     metricMap: map,
     metricGroups,

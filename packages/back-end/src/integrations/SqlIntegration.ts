@@ -57,6 +57,8 @@ import {
   ExperimentAggregateUnitsQueryParams,
   ContextualBanditSrmQueryParams,
   ContextualBanditSrmQueryResponse,
+  InterleavingMetricQueryParams,
+  InterleavingMetricQueryResponse,
   ExperimentDimension,
   ExternalIdCallback,
   DimensionSlicesQueryResponse,
@@ -183,6 +185,7 @@ import {
   MULTIPLE_CLUSTER_SENTINEL,
 } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
+import { getInterleavingMetricQuery as getInterleavingMetricQueryFromSql } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
@@ -311,6 +314,16 @@ function getFunnelPassthroughColumns({
 }
 
 const MAX_LOG_ERROR_LENGTH = 100;
+
+// Parse a single numeric column from a raw query row, omitting absent ones
+function parseFloatField(
+  row: Record<string, unknown>,
+  field: string,
+): Record<string, number> {
+  return row[field] !== undefined
+    ? { [field]: parseFloat(row[field] as string) || 0 }
+    : {};
+}
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
@@ -725,16 +738,6 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
 
-    // Helper function to parse a single float field
-    const parseFloatField = (
-      row: Record<string, unknown>,
-      field: string,
-    ): Record<string, number> => {
-      return row[field] !== undefined
-        ? { [field]: parseFloat(row[field] as string) || 0 }
-        : {};
-    };
-
     // Helper function to parse non-float fields (cap values)
     const parseNonFloatField = (
       row: Record<string, unknown>,
@@ -867,6 +870,27 @@ export default abstract class SqlIntegration
         };
       }),
       statistics: statistics,
+    };
+  }
+
+  async runInterleavingMetricQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<InterleavingMetricQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) =>
+        Object.keys(row).reduce<Record<string, number>>(
+          (out, field) => Object.assign(out, parseFloatField(row, field)),
+          {},
+        ),
+      ),
+      statistics,
     };
   }
 
@@ -1158,6 +1182,10 @@ export default abstract class SqlIntegration
 
   getContextualBanditSrmQuery(params: ContextualBanditSrmQueryParams): string {
     return getContextualBanditSrmQueryFromSql(this.getSqlDialect(), params);
+  }
+
+  getInterleavingMetricQuery(params: InterleavingMetricQueryParams): string {
+    return getInterleavingMetricQueryFromSql(this.getSqlDialect(), params);
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
@@ -1906,6 +1934,12 @@ export default abstract class SqlIntegration
       effectiveBaseIdType,
     } = this.parseExperimentParams(params);
 
+    // A segment keyed on the cluster column joins through the exposure rows
+    // directly, so it needs no identity join table.
+    const segmentIdType = segment ? segment.userIdType || "user_id" : null;
+    const segmentIsClusterKeyed =
+      segmentIdType !== null && segmentIdType === clusterIdColumn;
+
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
@@ -1913,7 +1947,7 @@ export default abstract class SqlIntegration
         objects: [
           [effectiveBaseIdType],
           // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-          segment ? [segment.userIdType || "user_id"] : [],
+          segmentIdType && !segmentIsClusterKeyed ? [segmentIdType] : [],
         ],
         from: settings.startDate,
         to: settings.endDate,
@@ -1921,6 +1955,9 @@ export default abstract class SqlIntegration
         experimentId: settings.experimentId,
       },
     );
+    const segmentJoinIdType = segmentIsClusterKeyed
+      ? clusterIdColumn
+      : baseIdType;
 
     const newExpIdentifierCol = `e.${getExposureQueryIdentifierColumn(
       exposureQuery,
@@ -1976,7 +2013,7 @@ export default abstract class SqlIntegration
             ? `, __segment as (${getSegmentCTE(
                 this.getSqlDialect(),
                 segment,
-                baseIdType,
+                segmentJoinIdType,
                 idJoinMap,
                 factTableMap,
                 {
@@ -2051,7 +2088,7 @@ export default abstract class SqlIntegration
             FROM __filteredNewExposures e
             ${
               segment
-                ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})
+                ? `JOIN __segment s ON (s.${segmentJoinIdType} = e.${segmentJoinIdType})
             WHERE s.date <= ${this.getSqlDialect().castUserDateCol("e.timestamp")}`
                 : ""
             }

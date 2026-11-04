@@ -4832,6 +4832,7 @@ export function assertClusterExperimentMetricsSupported({
   goalMetrics,
   secondaryMetrics,
   guardrailMetrics,
+  activationMetric,
   metricMap,
   metricGroups,
   clusterIdentifier,
@@ -4842,6 +4843,7 @@ export function assertClusterExperimentMetricsSupported({
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
+  activationMetric?: string | null;
   metricMap: Map<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
   clusterIdentifier?: string | null;
@@ -4849,6 +4851,12 @@ export function assertClusterExperimentMetricsSupported({
   factTableMap: FactTableMap;
   datasource: DataSourceInterface;
 }): void {
+  if (activationMetric) {
+    throw new Error(
+      "Activation metrics aren't supported for cluster experiments.",
+    );
+  }
+
   const metricIds = getAllMetricIdsFromExperiment(
     { goalMetrics, secondaryMetrics, guardrailMetrics },
     false,
@@ -4881,6 +4889,7 @@ export type ClusterExperimentConfigFields = {
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
+  activationMetric?: string | null;
 };
 
 function clusterMetricListChanged(a?: string[], b?: string[]): boolean {
@@ -4900,6 +4909,8 @@ function clusterConfigRequiresRevalidation(
       (previous.clusterSubUnitIdentifier ?? null) ||
     (current.exposureQueryId ?? null) !== (previous.exposureQueryId ?? null) ||
     (currentIdentifier ?? null) !== (previousIdentifier ?? null) ||
+    (current.activationMetric ?? null) !==
+      (previous.activationMetric ?? null) ||
     clusterMetricListChanged(current.goalMetrics, previous.goalMetrics) ||
     clusterMetricListChanged(
       current.secondaryMetrics,
@@ -4988,6 +4999,7 @@ export async function assertValidClusterExperimentConfig({
     goalMetrics: current.goalMetrics,
     secondaryMetrics: current.secondaryMetrics,
     guardrailMetrics: current.guardrailMetrics,
+    activationMetric: current.activationMetric,
     metricMap: resolvedMetricMap,
     metricGroups: resolvedMetricGroups,
     clusterIdentifier,

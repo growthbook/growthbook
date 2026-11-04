@@ -38,7 +38,10 @@ import Button from "@/components/Button";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
-import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
+import {
+  getAutoSliceUpdateFrequencyHours,
+  getAutoSliceUpdateFrequencyText,
+} from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -697,24 +700,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         body={
                           <Flex direction="column">
                             {(() => {
-                              const autoUpdateFrequencyHours =
-                                getAutoSliceUpdateFrequencyHours();
-                              const autoUpdateFrequencyDays =
-                                Math.round(
-                                  (autoUpdateFrequencyHours / 24) * 10,
-                                ) / 10;
                               const autoUpdateFrequencyText =
-                                autoUpdateFrequencyDays >= 1
-                                  ? `${autoUpdateFrequencyDays} ${
-                                      autoUpdateFrequencyDays === 1
-                                        ? "day"
-                                        : "days"
-                                    }`
-                                  : `${autoUpdateFrequencyHours} ${
-                                      autoUpdateFrequencyHours === 1
-                                        ? "hour"
-                                        : "hours"
-                                    }`;
+                                getAutoSliceUpdateFrequencyText();
                               return (
                                 <>
                                   {factTable.autoSliceUpdatesEnabled ? (
@@ -774,8 +761,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                         column values.
                                       </Text>
                                       <Text as="p">
-                                        <strong>Disabled</strong> — enable in
-                                        Fact Table settings.
+                                        <strong>Disabled</strong> — Fact Table
+                                        editors can choose &quot;Turn on Auto
+                                        Slice updates&quot; from the page&apos;s
+                                        menu.
                                       </Text>
                                     </>
                                   )}

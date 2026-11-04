@@ -1007,6 +1007,7 @@ export async function findSnapshotById(
   context: Context,
   id: string,
 ): Promise<ExperimentSnapshotInterface | null> {
+  if (id && typeof id !== "string") return null;
   const doc = await ExperimentSnapshotModel.findOne({
     organization: context.org.id,
     id,

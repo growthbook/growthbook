@@ -1444,6 +1444,7 @@ export async function postExperiments(
         goalMetrics: obj.goalMetrics,
         secondaryMetrics: obj.secondaryMetrics,
         guardrailMetrics: obj.guardrailMetrics,
+        activationMetric: obj.activationMetric,
       },
     });
 

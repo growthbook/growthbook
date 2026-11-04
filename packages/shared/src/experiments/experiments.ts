@@ -1491,28 +1491,18 @@ export function getClusterMetricAnalysisLevel(
     datasourceSettings?: DataSourceSettings;
   },
 ): ClusterMetricAnalysisLevel | null {
-  if (
-    !getNonRollupAggregation(metric) &&
-    isFactMetricJoinable(
-      metric,
-      clusterSubUnitIdentifier,
-      getFactTable,
-      datasourceSettings,
-    )
-  ) {
-    return "subunit";
-  }
-  if (
-    clusterIdentifier &&
-    isFactMetricJoinable(
-      metric,
-      clusterIdentifier,
-      getFactTable,
-      datasourceSettings,
-    )
-  ) {
-    return "cluster";
-  }
+  const canRollUp = !getNonRollupAggregation(metric);
+  // Without datasource settings, joinability means the fact table declares the
+  // id type directly.
+  const direct = (idType: string) =>
+    isFactMetricJoinable(metric, idType, getFactTable);
+  const viaJoins = (idType: string) =>
+    isFactMetricJoinable(metric, idType, getFactTable, datasourceSettings);
+
+  if (canRollUp && direct(clusterSubUnitIdentifier)) return "subunit";
+  if (clusterIdentifier && direct(clusterIdentifier)) return "cluster";
+  if (canRollUp && viaJoins(clusterSubUnitIdentifier)) return "subunit";
+  if (clusterIdentifier && viaJoins(clusterIdentifier)) return "cluster";
   return null;
 }
 
@@ -2054,6 +2044,28 @@ export function getMetricLink(id: string): string {
   return `/metric/${id}`;
 }
 
+/** The CUPED lookback a metric gets when an experiment doesn't override it. */
+export function getDefaultRegressionAdjustmentDays(
+  metric: Pick<
+    ExperimentMetricDefinition,
+    "regressionAdjustmentOverride" | "regressionAdjustmentDays"
+  > | null,
+  organizationSettings?: Partial<OrganizationSettings>,
+): number {
+  if (metric?.regressionAdjustmentOverride) {
+    return (
+      metric.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS
+    );
+  }
+  if (organizationSettings?.regressionAdjustmentEnabled) {
+    return (
+      organizationSettings.regressionAdjustmentDays ??
+      DEFAULT_REGRESSION_ADJUSTMENT_DAYS
+    );
+  }
+  return DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+}
+
 export function getMetricSnapshotSettings<
   T extends ExperimentMetricDefinition,
 >({
@@ -2078,15 +2090,15 @@ export function getMetricSnapshotSettings<
   // start with default RA settings
   let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = false;
-  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+  let regressionAdjustmentDays = getDefaultRegressionAdjustmentDays(
+    metric,
+    organizationSettings,
+  );
   let regressionAdjustmentReason = "";
 
   // get RA settings from organization
   if (organizationSettings?.regressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = true;
-    regressionAdjustmentDays =
-      organizationSettings?.regressionAdjustmentDays ??
-      regressionAdjustmentDays;
   }
   if (experimentRegressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = true;
@@ -2095,8 +2107,6 @@ export function getMetricSnapshotSettings<
   // get RA settings from metric
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays =
-      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       regressionAdjustmentAvailable = false;
       regressionAdjustmentReason = "disabled in metric settings";
@@ -2316,27 +2326,39 @@ export function shouldHighlight({
   stats,
   hasEnoughData,
   belowMinChange,
+  hasData,
 }: {
   metric: { id: string };
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   hasEnoughData: boolean;
   belowMinChange: boolean;
+  // Defaults to non-zero metric values. Denominator-sized rows pass their own,
+  // since a value of 0 is a real result there.
+  hasData?: boolean;
 }): boolean {
   return !!(
     metric &&
-    baseline?.value &&
-    stats?.value &&
+    (hasData ?? !!(baseline?.value && stats?.value)) &&
     hasEnoughData &&
     !belowMinChange
   );
 }
 
+export type SampleSizeSource = "denominator";
+
 export function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: ExperimentMetricDefinition,
+  sampleSizeFrom?: SampleSizeSource,
 ): { baselineValue?: number; variationValue?: number } {
+  if (sampleSizeFrom === "denominator") {
+    return {
+      baselineValue: baseline?.denominator,
+      variationValue: stats?.denominator,
+    };
+  }
   return quantileMetricType(metric)
     ? {
         baselineValue: baseline?.stats?.count,
@@ -2350,11 +2372,13 @@ export function hasEnoughData(
   stats: SnapshotMetric,
   metric: ExperimentMetricDefinition,
   metricDefaults: MetricDefaults,
+  sampleSizeFrom?: SampleSizeSource,
 ): boolean {
   const { baselineValue, variationValue } = getMetricSampleSize(
     baseline,
     stats,
     metric,
+    sampleSizeFrom,
   );
   if (!baselineValue || !variationValue) return false;
 
@@ -2430,6 +2454,7 @@ export function getMetricResultStatus({
   pValueThreshold,
   statsEngine,
   differenceType,
+  sampleSizeFrom,
 }: {
   metric: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
@@ -2440,13 +2465,20 @@ export function getMetricResultStatus({
   pValueThreshold: number;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
+  sampleSizeFrom?: SampleSizeSource;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
       ? "winning"
       : "losing";
 
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  const enoughData = hasEnoughData(
+    baseline,
+    stats,
+    metric,
+    metricDefaults,
+    sampleSizeFrom,
+  );
   const belowMinChange = isBelowMinChange(
     baseline,
     stats,
@@ -2454,12 +2486,21 @@ export function getMetricResultStatus({
     metricDefaults,
     differenceType,
   );
+  const sampleSize = getMetricSampleSize(
+    baseline,
+    stats,
+    metric,
+    sampleSizeFrom,
+  );
   const _shouldHighlight = shouldHighlight({
     metric,
     baseline,
     stats,
     hasEnoughData: enoughData,
     belowMinChange,
+    hasData: sampleSizeFrom
+      ? !!sampleSize.baselineValue && !!sampleSize.variationValue
+      : undefined,
   });
 
   let significant: boolean;

@@ -206,6 +206,9 @@ export function getExperimentFactMetricsQuery(
       to: settings.endDate,
       forcedBaseIdType: userIdType,
       experimentId: settings.experimentId,
+      tableNamePrefix: isClusterLevelQuery
+        ? "__cluster_identities_"
+        : undefined,
     },
   );
 
@@ -506,7 +509,7 @@ export function getExperimentFactMetricsQuery(
           ? params.unitsSql
           : ""
     }
-    ${isClusterLevelQuery ? "__distinctSubUnits" : "__distinctUsers"} AS (
+    ${isClusterLevelQuery ? "__clusterSubUnitRows" : "__distinctUsers"} AS (
       SELECT
         ${baseIdType}
         ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
@@ -571,7 +574,7 @@ export function getExperimentFactMetricsQuery(
         , MIN(${alias}_preexposure_start) AS ${alias}_preexposure_start`,
           )
           .join("")}
-      FROM __distinctSubUnits
+      FROM __clusterSubUnitRows
       GROUP BY
         ${baseIdType}
     )`
