@@ -2,6 +2,7 @@ import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricIdsFromExperiment,
+  getClusterSubUnit,
   isFactMetricId,
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
@@ -296,6 +297,7 @@ export async function updateExperimentAnalysisTimeSeries({
           ),
           factMetrics,
           factTableMap,
+          experimentSnapshot.settings,
         ),
         singleDataPoint: {
           date: experimentSnapshot.dateCreated,
@@ -537,17 +539,39 @@ export function getMetricSettingsHash(
   metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
   factTableMap?: Map<string, FactTableInterface>,
+  clusterSettings?: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
 ): string {
+  // A fact table's identifiers decide whether a metric is analyzed per
+  // sub-unit or per cluster, which changes what its values mean. Only cluster
+  // experiments record it, so other hashes are unchanged.
   const definitionMetricId = getDefinitionMetricId(metricId);
+  const clusterLevelMetricIds = clusterSettings?.clusterLevelMetricIds ?? [];
+  const clusterLevel =
+    clusterSettings && getClusterSubUnit(clusterSettings) !== null
+      ? {
+          clusterAnalysisLevel:
+            clusterLevelMetricIds.includes(metricId) ||
+            clusterLevelMetricIds.includes(definitionMetricId)
+              ? "cluster"
+              : "subunit",
+        }
+      : {};
   const factMetric = factMetrics?.find(
     (metric) => metric.id === definitionMetricId,
   );
   if (!factMetric) {
-    return hashObject(metricSettings ?? { id: metricId });
+    return hashObject({
+      ...(metricSettings ?? { id: metricId }),
+      ...clusterLevel,
+    });
   }
   return hashObject({
     ...metricSettings,
     ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+    ...clusterLevel,
   });
 }
 
