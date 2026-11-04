@@ -8,6 +8,7 @@ import {
 } from "react-icons/pi";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import useBottomBarClearance from "@/hooks/useBottomBarClearance";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -69,6 +70,7 @@ export default function UnsavedChangesBar() {
     save,
     discard,
   } = useSettingsForm();
+  const barRef = useBottomBarClearance<HTMLDivElement>();
 
   useEffect(() => {
     if (!savedCount) return;
@@ -96,6 +98,7 @@ export default function UnsavedChangesBar() {
         <>
           <div className={styles.unsavedBarSpacer} />
           <Box
+            ref={barRef}
             className={styles.unsavedBar}
             role="region"
             aria-label="Unsaved changes"
