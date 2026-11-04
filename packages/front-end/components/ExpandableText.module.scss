@@ -13,21 +13,20 @@
   mask-repeat: no-repeat;
 }
 
-.more {
+// Twice the class, to outrank a click row's own placing of the buttons in it.
+.more.more {
   position: absolute;
   right: 0;
   bottom: 0;
 }
 
-// The whole comment opens it, so the link answers to a hover anywhere on it.
-.comment {
-  outline: none;
-
+// The whole text opens it, so the link answers to a hover anywhere on it.
+.expandsOnClick {
   &:has(.more) {
     cursor: pointer;
   }
 
-  // Tints the card's surface, drawn by its ::before, under the text.
+  // In a card, tints its surface, drawn by its ::before, under the text.
   &:has(.more):hover :global(.rt-Card)::before {
     background-image: linear-gradient(var(--gray-a1), var(--gray-a1));
   }

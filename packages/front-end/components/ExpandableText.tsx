@@ -9,11 +9,11 @@ import {
 } from "react";
 import { Box } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import styles from "./ExpandableComment.module.scss";
+import styles from "./ExpandableText.module.scss";
 
 const MAX_LINES = 8;
 
-// What keeps its own clicks inside a comment.
+// What keeps its own clicks inside the text.
 const CONTROLS =
   "a, button, input, textarea, select, [contenteditable='true'], [role='menuitem']";
 
@@ -46,39 +46,53 @@ function useClampHeight(ref: RefObject<HTMLElement>): number | null {
   return height;
 }
 
-// A comment whose body is cut off opens when clicked anywhere but a control,
-// and closes again once focus leaves it.
-export default function ExpandableComment({
+/**
+ * Text that's cut off opens from its "… expand" link, or with `expandOnClick`
+ * from a click anywhere on it but a control. It closes again on a click
+ * anywhere else, after that click has landed, so the click isn't moved.
+ */
+export default function ExpandableText({
+  expandOnClick = true,
   children,
 }: {
+  // Off where a click on it already does something, like a row that edits.
+  expandOnClick?: boolean;
   children: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const close = (e: MouseEvent) => {
+      // Not a click inside it, nor one ending a selection let go past it.
+      if (
+        (e.target instanceof Node && ref.current?.contains(e.target)) ||
+        !window.getSelection()?.isCollapsed
+      ) {
+        return;
+      }
+      setExpanded(false);
+    };
+    document.addEventListener("click", close, true);
+    return () => document.removeEventListener("click", close, true);
+  }, [expanded]);
+
   return (
     <Expansion.Provider value={{ expanded, expand: () => setExpanded(true) }}>
       <div
-        tabIndex={-1}
-        className={styles.comment}
+        ref={ref}
+        className={expandOnClick ? styles.expandsOnClick : undefined}
         onClick={(e) => {
           // A click that ends a text selection isn't one.
           if (
+            !expandOnClick ||
             (e.target instanceof Element && e.target.closest(CONTROLS)) ||
             !window.getSelection()?.isCollapsed
           ) {
             return;
           }
           setExpanded(true);
-        }}
-        onBlur={(e) => {
-          // Not when the window itself loses focus.
-          if (
-            !document.hasFocus() ||
-            (e.relatedTarget instanceof Node &&
-              e.currentTarget.contains(e.relatedTarget))
-          ) {
-            return;
-          }
-          setExpanded(false);
         }}
       >
         {children}
@@ -87,8 +101,8 @@ export default function ExpandableComment({
   );
 }
 
-// The comment's body, past MAX_LINES cut off with a link to the rest.
-export function ExpandableCommentBody({ children }: { children: ReactNode }) {
+// The text itself, past MAX_LINES cut off with a link to the rest.
+export function ExpandableTextBody({ children }: { children: ReactNode }) {
   const content = useRef<HTMLDivElement>(null);
   const clampHeight = useClampHeight(content);
   const { expanded, expand } = useContext(Expansion);
@@ -112,8 +126,8 @@ export function ExpandableCommentBody({ children }: { children: ReactNode }) {
         <div ref={content}>{children}</div>
       </Box>
       {clamped ? (
-        <Link className={styles.more} onClick={expand}>
-          … more
+        <Link size="sm" className={styles.more} onClick={expand}>
+          … expand
         </Link>
       ) : null}
     </Box>

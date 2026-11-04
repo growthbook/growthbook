@@ -21,9 +21,7 @@ import {
 } from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
 import CommentCard from "./Comments/CommentCard";
-import ExpandableComment, {
-  ExpandableCommentBody,
-} from "./Comments/ExpandableComment";
+import ExpandableText, { ExpandableTextBody } from "./ExpandableText";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
 
@@ -88,7 +86,7 @@ const DiscussionThread: FC<{
             <Flex key={i} align="start">
               {/* Held to the thread's width, so a wide code block scrolls. */}
               <Box flexGrow="1" minWidth="0">
-                <ExpandableComment>
+                <ExpandableText>
                   <CommentCard
                     compact={compact}
                     user={eventUser}
@@ -156,16 +154,16 @@ const DiscussionThread: FC<{
                         />
                       ) : (
                         <Text as="div" size={compact ? "sm" : "md"}>
-                          <ExpandableCommentBody>
+                          <ExpandableTextBody>
                             <Markdown className="speech-bubble">
                               {comment.content || ""}
                             </Markdown>
-                          </ExpandableCommentBody>
+                          </ExpandableTextBody>
                         </Text>
                       )
                     }
                   />
-                </ExpandableComment>
+                </ExpandableText>
               </Box>
             </Flex>
           );
@@ -208,6 +206,17 @@ const DiscussionThread: FC<{
           px={fillHeight ? "5" : undefined}
           pb={fillHeight ? "5" : undefined}
           flexShrink={fillHeight ? "0" : undefined}
+          // Held to the window's bottom, over the thread's end, while a rail
+          // still runs past it before sticking.
+          style={
+            fillHeight
+              ? {
+                  position: "sticky",
+                  bottom: 0,
+                  background: "var(--color-panel-solid)",
+                }
+              : undefined
+          }
         >
           {showTitle ? (
             <Heading as="h4" size="sm" mb="3">
