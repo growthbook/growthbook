@@ -199,6 +199,15 @@ export function onVisible() {
     if (!channel) return;
     if (channel.state !== "idle") return;
     enableChannel(channel);
+    // enableChannel evicts the channel if the reconnect failed
+    if (streams.get(channel.key) !== channel) return;
+    // The new EventSource sends no Last-Event-ID, so changes published while the
+    // stream was paused are never replayed. Catch up with a single refetch.
+    const instances = subscribedInstances.get(channel.key);
+    instances &&
+      instances.forEach((instance) => {
+        fetchFeatures(instance);
+      });
   });
 }
 
