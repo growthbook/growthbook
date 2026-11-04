@@ -3,10 +3,12 @@ import { SavedGroupTargeting, FeaturePrerequisite } from "shared/types/feature";
 import { hasTargetingConfigured } from "shared/experiments";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ExpandableText, {
-  CLAMPED_LINES,
   ExpandableTextBody,
   useTextExpanded,
 } from "@/components/ExpandableText";
+
+// More than a comment shows, since its rows run taller than lines of text.
+const CONDITION_LINES = 12;
 
 interface TruncatedConditionDisplayProps {
   condition?: string;
@@ -28,7 +30,7 @@ export default function TruncatedConditionDisplay(
 
   return (
     <ExpandableText>
-      <ExpandableTextBody linkBelow>
+      <ExpandableTextBody lines={CONDITION_LINES} linkBelow>
         <ClampedConditionDisplay {...props} />
       </ExpandableTextBody>
     </ExpandableText>
@@ -44,7 +46,7 @@ function ClampedConditionDisplay(
   return (
     <ConditionDisplay
       {...props}
-      rowLimit={expanded ? undefined : CLAMPED_LINES + 1}
+      rowLimit={expanded ? undefined : CONDITION_LINES + 1}
     />
   );
 }

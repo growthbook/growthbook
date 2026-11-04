@@ -12,8 +12,8 @@ import clsx from "clsx";
 import Link from "@/ui/Link";
 import styles from "./ExpandableText.module.scss";
 
-// How many lines show while it's cut off.
-export const CLAMPED_LINES = 8;
+// How many lines show while it's cut off, unless it says otherwise.
+const CLAMPED_LINES = 8;
 
 // What keeps its own clicks inside the text.
 const CONTROLS =
@@ -21,9 +21,12 @@ const CONTROLS =
 
 const Expansion = createContext({ expanded: false, expand: () => {} });
 
-// The height of its first CLAMPED_LINES lines as it resizes, or null when it has
-// no more than that.
-function useClampHeight(ref: RefObject<HTMLElement>): number | null {
+// The height of its first `lines` lines as it resizes, or null when it has no
+// more than that.
+function useClampHeight(
+  ref: RefObject<HTMLElement>,
+  lines: number,
+): number | null {
   const [height, setHeight] = useState<number | null>(null);
   useEffect(() => {
     const el = ref.current;
@@ -35,13 +38,13 @@ function useClampHeight(ref: RefObject<HTMLElement>): number | null {
       // Clamped by lines for a moment, so the cut falls between two whatever
       // their heights; drawn that way, it would add its own ellipsis.
       const style = el.style.cssText;
-      el.style.cssText += `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${CLAMPED_LINES}; overflow: hidden;`;
+      el.style.cssText += `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lines}; overflow: hidden;`;
       let clamped = el.offsetHeight;
       el.style.cssText = style;
       // Laid out in rows rather than lines of text (flex, grid), it isn't
       // clamped by lines, so it's cut within as many lines' height, under the
       // lowest thing that still fits whole: between two rows.
-      const limit = CLAMPED_LINES * parseFloat(getComputedStyle(el).lineHeight);
+      const limit = lines * parseFloat(getComputedStyle(el).lineHeight);
       if (clamped >= full - 1 && full > limit) {
         const top = el.getBoundingClientRect().top;
         clamped = 0;
@@ -57,7 +60,7 @@ function useClampHeight(ref: RefObject<HTMLElement>): number | null {
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [ref]);
+  }, [ref, lines]);
   return height;
 }
 
@@ -118,24 +121,27 @@ export default function ExpandableText({
 
 /**
  * Whether the text is open, for what's costly to build in full while only its
- * first lines show: past CLAMPED_LINES, it can wait to build the rest.
+ * first lines show: past them, it can wait to build the rest.
  */
 export function useTextExpanded() {
   return useContext(Expansion).expanded;
 }
 
-// The text itself, past CLAMPED_LINES cut off with a link to the rest.
+// The text itself, past its first lines cut off with a link to the rest.
 export function ExpandableTextBody({
+  lines = CLAMPED_LINES,
   linkBelow = false,
   children,
 }: {
+  // How many lines show while it's cut off.
+  lines?: number;
   // The link on its own line under the text, at its start, where the lines
   // end short (as rows do) and one at the end would be missed.
   linkBelow?: boolean;
   children: ReactNode;
 }) {
   const content = useRef<HTMLDivElement>(null);
-  const clampHeight = useClampHeight(content);
+  const clampHeight = useClampHeight(content, lines);
   const { expanded, expand } = useContext(Expansion);
   const clamped = clampHeight !== null && !expanded;
 
