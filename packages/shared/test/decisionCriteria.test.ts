@@ -2004,6 +2004,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     guardrailMetrics = [],
     analysisSummary,
     status = "running",
+    isClusterExperiment,
   }: {
     stopAt?: Date;
     dateStarted?: Date;
@@ -2012,6 +2013,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     guardrailMetrics?: string[];
     analysisSummary?: ExperimentDataForStatus["analysisSummary"];
     status?: ExperimentDataForStatus["status"];
+    isClusterExperiment?: boolean;
   } = {}): ExperimentDataForStatus {
     return {
       type: "standard",
@@ -2028,6 +2030,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       datasource: "ds_1",
       ...(stopAt ? { statusUpdateSchedule: { stopAt } } : {}),
       ...(analysisSummary ? { analysisSummary } : {}),
+      ...(isClusterExperiment ? { isClusterExperiment } : {}),
     } as unknown as ExperimentDataForStatus;
   }
 
@@ -2291,6 +2294,61 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       result?.status === "unhealthy" &&
         !!result.unhealthyData.multipleExposures,
     ).not.toBe(true);
+  });
+
+  it("flags SRM from cluster counts when the sub-unit traffic total is missing", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.0001,
+            multipleExposures: 0,
+            totalUsers: 0,
+            srmTotalUnits: 1_000,
+            clusterAssignment: { totalClusters: 1_000, mixedClusters: 0 },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: { srm: true },
+      tooltip: "SRM",
+    });
+  });
+
+  it("never checks a cluster experiment's SRM or multiple exposures on sub-unit counts", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        isClusterExperiment: true,
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.0001,
+            multipleExposures: 500,
+            // Sub-unit totals only: the cluster SRM count and the sub-unit
+            // multiple exposures check are both missing.
+            totalUsers: 10_000,
+            srmTotalUnits: null,
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(
+      result?.status === "unhealthy" ? result.unhealthyData : {},
+    ).not.toHaveProperty("srm");
+    expect(
+      result?.status === "unhealthy" ? result.unhealthyData : {},
+    ).not.toHaveProperty("multipleExposures");
   });
 
   it("uses the scheduled end date for days-left even when power reports a different estimate", () => {

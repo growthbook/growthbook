@@ -468,6 +468,7 @@ export type ExperimentDataForStatusStringDates = Omit<
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
     | "statusUpdateSchedule"
+    | "isClusterExperiment"
   >,
   "type"
 > & {
@@ -492,6 +493,7 @@ export type ExperimentDataForStatus = Omit<
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
     | "statusUpdateSchedule"
+    | "isClusterExperiment"
   >,
   "type"
 > & {

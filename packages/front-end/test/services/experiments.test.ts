@@ -4,6 +4,7 @@ import type { MetricInterface } from "shared/types/metric";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   convertExperimentToTemplate,
+  getClusterSubUnitsLabel,
   getClusterUnitsLabel,
   getIneligibleClusterMetrics,
   getUnitDisplayName,
@@ -56,6 +57,25 @@ describe("getClusterUnitsLabel", () => {
   it("returns nothing without a sub-unit", () => {
     expect(
       getClusterUnitsLabel({ ...cluster, clusterSubUnitIdentifier: undefined }),
+    ).toBeUndefined();
+  });
+});
+
+describe("getClusterSubUnitsLabel", () => {
+  const cluster = {
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+    exposureQueryIdentifierType: "region_id",
+    clusterLevelMetricIds: ["fact_region_spend"],
+  };
+
+  it("labels a sub-unit metric with the sub-unit identifier", () => {
+    expect(getClusterSubUnitsLabel(cluster, "fact_orders")).toBe("User Ids");
+  });
+
+  it("returns nothing for a metric analyzed per cluster", () => {
+    expect(
+      getClusterSubUnitsLabel(cluster, "fact_region_spend"),
     ).toBeUndefined();
   });
 });
