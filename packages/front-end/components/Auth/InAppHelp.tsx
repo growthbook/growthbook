@@ -19,7 +19,7 @@ import styles from "./InAppHelp.module.scss";
 const PYLON_CLEARANCE_PX = 76;
 
 const LAUNCHER_SIZE_PX = 56;
-const LAUNCHER_BOTTOM_PX = 10;
+const LAUNCHER_BOTTOM_PX = 40;
 
 export default function InAppHelp() {
   const router = useRouter();
