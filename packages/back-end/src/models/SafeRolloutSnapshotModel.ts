@@ -37,6 +37,15 @@ const BaseClass = MakeModelClass({
         dateCreated: -1,
       },
     },
+    // Backs the cross-org stalled-snapshot reaper scan in expireOldQueries,
+    // which runs every minute: status equality, then the dateCreated window
+    // and sort. Mirrors the interleavingsnapshots index.
+    {
+      fields: {
+        status: 1,
+        dateCreated: -1,
+      },
+    },
   ],
 });
 

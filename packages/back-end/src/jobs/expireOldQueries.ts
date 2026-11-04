@@ -125,13 +125,6 @@ const RAW_SNAPSHOT_FAMILIES = [
   CONTEXTUAL_BANDIT_SNAPSHOTS,
   INTERLEAVING_SNAPSHOTS,
 ];
-// Safe rollout snapshots are reaped lazily by addSafeRolloutSnapshotJob when
-// the next scheduled snapshot is due, with copy that says a new one is starting.
-// TODO: Follow-up PR to move safe rollout reaping here.
-const STALLED_REAPER_FAMILIES = [
-  CONTEXTUAL_BANDIT_SNAPSHOTS,
-  INTERLEAVING_SNAPSHOTS,
-];
 
 // Only look back 24 hours to keep scans bounded; older docs should not still be running anyway.
 function oneDayAgo(): Date {
@@ -282,7 +275,7 @@ const expireOldQueries = async () => {
     logger.error(e, "Failed to reap stalled experiment snapshots");
   }
 
-  for (const family of STALLED_REAPER_FAMILIES) {
+  for (const family of RAW_SNAPSHOT_FAMILIES) {
     try {
       await errorStalledSnapshots(family);
     } catch (e) {
@@ -777,10 +770,11 @@ async function findRunningAggregatedFactTableRunsByQueryId(
     .toArray();
 }
 
-// In-flight runs old enough to be considered stalled. Mirrors dangerousFindStalledRunningSnapshotsFromAllOrgs.
+// In-flight runs old enough to be considered stalled. Mirrors findStalledRunningRawSnapshots.
 async function dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
+  excludeIds: string[],
 ): Promise<AggregatedFactTableRunInterface[]> {
   return getCollection<AggregatedFactTableRunInterface>(
     AGGREGATED_FACT_TABLE_RUN_COLLECTION,
@@ -788,7 +782,9 @@ async function dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
     .find({
       finishedAt: null,
       dateCreated: { $gt: oneDayAgo(), $lt: stalledBefore },
+      ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
     })
+    .sort({ dateCreated: 1 })
     .limit(limit)
     .toArray();
 }
@@ -844,14 +840,21 @@ async function finalizeStuckAggregatedFactTableRun(
 // never finalized.
 async function reapStalledAggregatedFactTableRuns() {
   const now = Date.now();
-  const stalledBefore = new Date(now - STALLED_SNAPSHOT_THRESHOLD_MS);
-  const candidates =
-    await dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
-      stalledBefore,
-      STALLED_SNAPSHOT_REAP_LIMIT,
-    );
+  // Same window as the snapshot reapers: classifyStalledSnapshot does its own
+  // age reasoning, and the short window is what lets a dead runner's stale
+  // heartbeats be caught before the run is a full hour old.
+  const stalledBefore = new Date(now - QUEUED_HEARTBEAT_STALE_MS);
+  const candidates = stalledSnapshotCandidates(
+    "aggregated fact table run",
+    (limit, seen) =>
+      dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
+        stalledBefore,
+        limit,
+        seen,
+      ),
+  );
 
-  for (const run of candidates) {
+  for await (const run of candidates) {
     const evaluated = await evaluateStalledCandidate(run, now);
     if (!evaluated) continue;
     const { verdict, queryIds, queued, queries } = evaluated;
