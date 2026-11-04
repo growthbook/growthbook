@@ -12,9 +12,8 @@ function getProviderStatus(err: unknown): number | undefined {
   return typeof cause.statusCode === "number" ? cause.statusCode : undefined;
 }
 
-// Provider failures an admin can fix get a specific message; anything else
-// stays generic so internal details don't leak into the chat. The fix may be in
-// settings or env vars, and the reader may not be an admin, so don't name one.
+// Anything else stays generic so internal details don't leak into the chat.
+// The fix may be in settings or env vars, so the copy doesn't say where.
 export function getPublicAIErrorMessage(err: unknown): string {
   const status = getProviderStatus(err);
   if (status === 401 || status === 403) {

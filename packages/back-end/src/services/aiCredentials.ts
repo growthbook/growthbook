@@ -66,8 +66,7 @@ function getEnvKey(provider: AIProvider): string {
   }
 }
 
-// A gateway or proxy to send a provider's requests to instead of its public
-// API. Self-hosted only; "" means the provider's own API.
+// Self-hosted only; "" means the provider's own API.
 export function getEnvBaseUrl(provider: AIProvider): string {
   if (IS_CLOUD) return "";
   const raw = {
@@ -92,7 +91,6 @@ export function getEnvBaseUrl(provider: AIProvider): string {
   }
 }
 
-// Options shared by every AI SDK provider factory.
 export function getAIClientOptions(
   provider: AIProvider,
   apiKey: string,
@@ -210,7 +208,6 @@ export function missingAIKeyMessage(provider: AIProvider): string {
   return `No ${label} API key is configured. Add one under Settings → AI & Prompts, or set the ${envVar} environment variable.`;
 }
 
-// Each path is appended to the provider's base URL.
 const VERIFY_ENDPOINTS: Record<
   AIProvider,
   { path: string; headers: (key: string) => Record<string, string> }

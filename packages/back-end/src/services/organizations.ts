@@ -518,7 +518,6 @@ export function getAllowedAIModel<T extends string>(
   customModels: readonly AICustomModel[] = [],
 ): T | undefined {
   if (!model) return undefined;
-  // A custom model only counts while the org still defines it.
   if (parseCustomModelKey(model) && !findCustomModel(model, customModels)) {
     return undefined;
   }
