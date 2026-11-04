@@ -1,101 +1,129 @@
 ---
 title: Cluster Experiments
-description: "Run cluster experiments in GrowthBook: randomize at a group level such as organization or school, then analyze outcomes at the user level."
+description: "Run cluster randomized experiments in GrowthBook: randomize a group such as an organization or region, then analyze metrics on the users inside it."
 ---
 
-Cluster experiments are crucial when you need to **randomize at a group level** but **analyze at an individual level**. For example:
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
-- A B2B software company might want to randomize at the business level so that everyone
-  at the company gets the same experience, but analyze individual user behavior to measure impact.
-- An education technology company might randomize at the school district level due to geographic
-  constraints, but analyze outcomes at the student level.
+<CommercialFeature feature="cluster-experiments" />
 
-In these cases, a cluster of units nests another set of units.
+A cluster experiment **randomizes a group** (the cluster) but **analyzes a smaller unit inside it** (the subunit). For example:
+
+- A B2B software company randomizes by organization, so everyone at a company gets the same experience, but measures the behavior of each user.
+- An education technology company randomizes by school district for operational reasons, but measures outcomes per student.
+- A marketplace randomizes by region to limit interference between buyers and sellers, but measures conversion per user.
+
+In each case, a cluster of units nests another set of units.
 
 <Frame>
   <img src="/static/images/cluster-experiments/cluster-diagram.png" alt="Diagram illustrating cluster-level assignment and user-level analysis in a cluster experiment. Organizations are grouped into treatment (purple) and control (teal) clusters. Each organization (e.g., Organization A, B, C, D) nests multiple users (e.g., User A1, A2, A3). Arrows show the hierarchical relationship between clusters (organizations) and individual users, with assignment occurring at the cluster level and analysis performed at the user level." width="800" />
 </Frame>
 
-To provide a concrete example, we will use Organizations that nest Users where your goal is to randomize at the Organization level but
-analyze User level behavior.
+Users in the same cluster tend to behave alike and all get the same variation, so they are not independent observations. If you analyze them as if they were randomized one by one, confidence intervals come out too narrow and you see more false positives than you should. Turning on **Cluster experiment** tells GrowthBook how the experiment was randomized so it can analyze it correctly.
 
-## How to run a Cluster Experiment
+The examples on this page randomize by `organization_id` and analyze by `user_id`.
 
-Running a cluster experiment at the organization level while analyzing at the user level is possible in GrowthBook using Fact Tables and the robust statistics engine. Here’s how:
+## When to use it
 
-### 0. Prerequisites
+Use a cluster experiment when:
 
-Before setting up your cluster experiment, ensure you have the following:
+- Every subunit in a cluster must get the same variation (for example, a pricing or permissions change that has to be consistent across a company).
+- Your metrics are defined per subunit (per user, per student) and you want results in those terms.
+- You can run the experiment on enough clusters. GrowthBook warns when any variation has fewer than 20 clusters.
 
-- `organization_id` must be set up as an Identifier Type on your **Data Source** page.
-- If GrowthBook is handling randomization, create an Attribute `organization_id`.
+If you randomize and analyze on the same unit, you don't need a cluster experiment.
 
-### 1. Set up a Fact Table with both identifier types
+## Prerequisites
 
-You need a version of your user-level metrics that has the distinct count of users as a custom denominator.
+- A **Pro** plan or higher.
+- A SQL data source with experiment assignment queries.
+- An [Identifier Type](/app/datasources#identifier-types) for the cluster (`organization_id`) and one for the subunit (`user_id`).
+- An [Experiment Assignment Query](/app/datasources#experiment-assignment-queries) that returns **both** columns, with each one mapped to its identifier type. For example:
 
-To do this, create a [Fact Table](/app/metrics#fact-tables) that has both `organization_id` and `user_id` as columns,
-along with whatever other columns you need to create your metrics of interest. You can also use multiple fact tables with this
-configuration if you prefer.
+  ```sql
+  SELECT
+    organization_id,
+    user_id,
+    timestamp,
+    experiment_id,
+    variation_id
+  FROM experiment_viewed
+  ```
 
-<Warning>
-**Avoid multiple organizations per user**
+- Each `user_id` belongs to exactly one `organization_id`.
+- Your SDK assigns variations by the cluster. If GrowthBook handles randomization, create an `organization_id` attribute and use it as the experiment's assignment attribute, so everyone in an organization gets the same variation.
 
-There must be a one-to-many relationship between `organization_id` and `user_id`. Avoid users belonging to multiple organizations, as this can introduce bias.
+## How to set up a cluster experiment
 
-</Warning>
-
-<Frame>
-  <img src="/static/images/cluster-experiments/cluster-fact-table.png" alt="Fact Table example with organization and user ids, along with timestamp, event, and value columns" width="800" />
-</Frame>
-
-The screenshot above shows:
-
-- `user_id` and `organization_id` identifiers.
-- An `event` column that represents the event you are interested in measuring.
-- A numeric `value` column that represents the value of the event.
-
-<Info>
-**Ensure every user has at least one event**
-
-Every `user_id` exposed to the experiment should have at least 1 event logged to ensure inclusion in the metric denominator.
-
-</Info>
-
-### 2. Set up your Metrics
-
-Using this Fact Table, create **Ratio Metrics** that all have the `COUNT DISTINCT` of `user_id` as their denominators.
-
-In the following example, we have a User Revenue metric:
-
-- The numerator is sum the value of all purchases across all users.
-- The denominator is the `COUNT DISTINCT` number of `user_id`.
-
-Note that we are not filtering the denominator to just users who made a purchase—instead, our denominator includes all users that had any event in this period.
+1. Open the experiment and go to the **Setup** tab.
+2. Under **Analysis Plan**, click the **Data Source** row to open the **Data Source** settings.
+3. Set **Identifier Type** to the cluster identifier (`organization_id`), and pick an **Experiment Assignment Table** that also returns your subunit identifier.
+4. Check **Cluster experiment**.
+5. Under **Subunit identifier type**, pick the subunit to analyze (`user_id`).
+6. Click **Confirm**.
 
 <Frame>
-  <img src="/static/images/cluster-experiments/cluster-metric.png" alt="An example ratio fact metric with the sum of purchase values in the numerator and the distinct count of user ids in the denominator." width="800" />
+  <img src="/static/images/cluster-experiments/cluster-experiment-setting.png" alt="The experiment's Data Source settings with Identifier Type set to organization_id, the Organization assignments table selected, Cluster experiment checked, and Subunit identifier type set to user_id." width="500" />
 </Frame>
 
-You can also create proportion-style ratio metrics:
+The **Cluster experiment** checkbox appears only when the selected assignment query declares an identifier type other than the one you randomize on. You can also change this setting later in the experiment's **Analysis Settings**. If you turn it on or off, or change the subunit, after the experiment has started, GrowthBook warns you, because it changes how results are analyzed. Make sure the setting still matches how traffic was actually randomized.
 
-- The numerator is a `COUNT DISTINCT` number of `user_id` that did some particular event.
-- The denominator is a `COUNT DISTINCT` of `user_id` that logged any event.
+The REST API supports the same setting through the `isClusterExperiment` and `clusterSubUnitIdentifier` fields on experiments.
 
-These metrics are aggregated by each variation, and our statistics engine uses the [Delta Method](/statistics/details#ratio-metrics) to appropriately account for the fact that you are randomizing at a different level than you are analyzing.
+### Choosing metrics
 
-### 3. Create your Experiment at the Organization level
+Cluster experiments support [Fact Metrics](/app/metrics#fact-tables) of type proportion, retention, mean, and ratio. You don't need to create separate cluster-level versions of your metrics. GrowthBook decides how to analyze each metric from the identifiers its fact table exposes:
 
-All that is left to do is create your experiment where you randomize at the `organization_id` level. The following screenshot shows an example of that.
+- **Subunit metrics.** If the fact table has the subunit identifier (directly or through an [identifier join](/app/datasources#identifier-join-tables)), the metric is analyzed per subunit and rolled up to the cluster, as described in [Methodology](#methodology). This needs the metric's aggregations to be sum, count distinct, or max.
+- **Cluster metrics.** If the fact table only has the cluster identifier, or the metric can't be rolled up, the metric is analyzed with the cluster as the unit, like a standard experiment randomized on `organization_id`.
 
-<Frame>
-  <img src="/static/images/cluster-experiments/cluster-hash.png" alt="Setting organization_id as the hash attribute." width="800" />
-</Frame>
+The metric picker groups your metrics by the identifier they are analyzed on, and shows metrics a cluster experiment can't use as disabled, with the reason.
 
-Be sure you pick the Experiment Assignment Table that has your `organization_id` mapping. If you do not have one, you may need to set it up in your Data Source to ensure that GrowthBook knows the mapping between `organization_id` and experiment and variation assignments.
+## Methodology
 
-<Frame>
-  <img src="/static/images/cluster-experiments/cluster-query.png" alt="Configuring the Experiment Assignment Table" width="800" />
-</Frame>
+### Rolling up subunits to clusters
 
-Add the metrics you created and analyze as usual!
+For subunit metrics, GrowthBook:
+
+1. Computes each subunit's metric value, applying any [capping](/app/metrics#capped-value) at the subunit level.
+2. Sums those values to the cluster, giving one row per cluster per variation.
+   - For mean, proportion, and retention metrics, the numerator is the sum of subunit values and the denominator is the number of subunits in the cluster that were exposed to the experiment.
+   - For ratio metrics, the numerator and denominator are each summed across the cluster's subunits.
+3. Analyzes the cluster totals as a [ratio metric](/statistics/details#ratio-metrics), with the cluster as the unit of analysis.
+
+The estimate for each variation is still the per-subunit value (for example, revenue per user): the total across all exposed subunits divided by the number of subunits, or by the total denominator for ratio metrics. Because the variance is computed from cluster totals using the delta method, it accounts for correlation between subunits in the same cluster. This is a cluster-robust variance estimate, so confidence intervals, p-values, and chance to win reflect the number of clusters you randomized, not just the number of users.
+
+[CUPED](/statistics/cuped) works with cluster experiments. Pre-exposure covariates are rolled up to the cluster the same way as the metric.
+
+### What counts as a unit
+
+Results count clusters, not subunits, so unit counts and the Sample Ratio Mismatch (SRM) check use the number of clusters in each variation. The **Health** tab's traffic chart can switch between cluster and subunit counts.
+
+Dimension breakdowns are computed in their own query for each dimension, so each slice keeps a cluster-robust variance.
+
+### Data quality checks
+
+Before analysis, GrowthBook removes data that would break the cluster design:
+
+- **Mixed assignment.** If a cluster's subunits saw different variations, or any of its subunits saw more than one variation, the whole cluster is removed from results.
+- **Subunits in several clusters.** If a subunit appears in more than one cluster, it is removed from results.
+
+The **Health** tab shows how much was removed in the **Cluster Assignment Check** and **Cluster Mapping Check**. They warn when the share of affected clusters or subunits reaches the **Cluster experiment warning** threshold (1% by default), which you can change in your organization's experiment settings under **Health Checks**. A high share usually means your SDK isn't assigning by the cluster, or that the cluster isn't a true grouping of the subunit.
+
+The results page also shows reliability warnings when:
+
+- A variation has fewer than 20 clusters. With this few, one unusual cluster can swing the result.
+- A single cluster holds 20% or more of the subunits, so that one cluster can drive most of the result.
+
+## Limitations
+
+- Supported metrics are fact metrics of type proportion, retention, mean, and ratio. Quantile, funnel, daily participation, and legacy (non-fact) metrics aren't supported.
+- Activation metrics aren't supported.
+- Post-stratification isn't applied to cluster experiments. CUPED regression adjustment is.
+- Scaled impact isn't shown for subunit metrics.
+- Bandits and holdouts can't be cluster experiments.
+- Cluster experiments need a SQL data source with experiment assignment queries.
+
+## Previous approach
+
+Before cluster experiments were built in, you could approximate them with ratio metrics that used a distinct count of users as the denominator. Experiments set up that way keep working. See [Previous approach (workaround before first-class support)](/experimentation-analysis/cluster-experiments-legacy) for details.
