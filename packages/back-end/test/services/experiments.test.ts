@@ -2492,13 +2492,17 @@ describe("assertClusterExperimentMetricsSupported activation metric", () => {
       datasource,
     });
 
+  // Activation metrics are fully locked for cluster experiments, so both the
+  // cluster-level and sub-unit fact tables are rejected.
   it("rejects an activation metric that only exposes the cluster identifier", () => {
     expect(() => run("ft_cluster_only")).toThrow(
-      /Activation metric .* must expose the sub-unit identifier "user_id"/,
+      /Activation metrics aren't supported for cluster experiments/,
     );
   });
 
-  it("allows an activation metric that exposes the sub-unit identifier", () => {
-    expect(() => run("ft_subunit")).not.toThrow();
+  it("rejects an activation metric even when it exposes the sub-unit identifier", () => {
+    expect(() => run("ft_subunit")).toThrow(
+      /Activation metrics aren't supported for cluster experiments/,
+    );
   });
 });

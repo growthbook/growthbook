@@ -4867,21 +4867,11 @@ export function assertClusterExperimentMetricsSupported({
     }
   }
 
-  if (activationMetric && clusterSubUnitIdentifier) {
+  if (activationMetric) {
     const metric = metricMap.get(activationMetric);
-    if (metric) {
-      const eligibility = getEligibility(metric);
-      if (!eligibility.allowed) {
-        throw new Error(
-          `Activation metric "${metric.name || activationMetric}" cannot be used in a cluster experiment. ${eligibility.reason}`,
-        );
-      }
-      if (eligibility.level === "cluster") {
-        throw new Error(
-          `Activation metric "${metric.name || activationMetric}" must expose the sub-unit identifier "${clusterSubUnitIdentifier}", because activation is evaluated per sub-unit in cluster experiments.`,
-        );
-      }
-    }
+    throw new Error(
+      `Activation metric "${metric?.name || activationMetric}" cannot be used in a cluster experiment. Activation metrics aren't supported for cluster experiments.`,
+    );
   }
 }
 

@@ -461,6 +461,7 @@ export default function AnalysisPlanAdvanced({
               onChange={(metric) => stage({ activationMetric: metric })}
               disabled={disabled}
               incrementalRefresh={incrementalRefresh}
+              isClusterExperiment={experiment.isClusterExperiment}
             />
             {properties?.experimentSegments && datasourceSegments.length > 0 ? (
               <SetupFieldRow
