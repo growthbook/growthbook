@@ -2,8 +2,10 @@ import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
   getEnabledHoldoutEnvironments,
+  getHoldoutLinkBlocker,
   getHoldoutStage,
   holdoutSizeToCoverage,
+  isHoldoutAvailableForProject,
   isHoldoutStageTransitionAllowed,
   MAX_HOLDOUT_SIZE,
 } from "../../src/util/holdouts";
@@ -183,5 +185,61 @@ describe("holdout stage transitions", () => {
       "running",
       "analysis-period",
     ]);
+  });
+});
+
+describe("getHoldoutLinkBlocker", () => {
+  const draft = {
+    holdoutId: "",
+    project: "prj_a",
+    status: "draft" as const,
+    linkedFeatures: [],
+    hasURLRedirects: false,
+    hasVisualChangesets: false,
+  };
+  const blocker = (
+    featureHoldoutId: string | null,
+    experiment: Partial<typeof draft>,
+    featureHoldoutProjects: string[] | null = null,
+  ) =>
+    getHoldoutLinkBlocker({
+      featureId: "flag",
+      featureHoldoutId,
+      featureHoldoutProjects,
+      experiment: { ...draft, ...experiment },
+    })?.reason ?? null;
+
+  it("needs the flag in the experiment's own holdout", () => {
+    expect(blocker("ho_1", { holdoutId: "ho_1" })).toBeNull();
+    expect(blocker("ho_2", { holdoutId: "ho_1" })).toBe("different-holdout");
+    expect(blocker(null, { holdoutId: "ho_1" })).toBe("not-in-holdout");
+    expect(blocker(null, {})).toBeNull();
+  });
+
+  it("lets a flag's holdout take in only a draft with nothing else linked, in its projects", () => {
+    expect(blocker("ho_1", {})).toBeNull();
+    expect(blocker("ho_1", { linkedFeatures: ["flag"] })).toBeNull();
+    expect(blocker("ho_1", { status: "running" })).toBe("not-draft");
+    expect(blocker("ho_1", { linkedFeatures: ["other"] })).toBe(
+      "has-linked-changes",
+    );
+    expect(blocker("ho_1", { hasURLRedirects: true })).toBe(
+      "has-linked-changes",
+    );
+    expect(blocker("ho_1", {}, ["prj_b"])).toBe("holdout-unavailable");
+    expect(blocker("ho_1", {}, ["prj_a"])).toBeNull();
+  });
+});
+
+describe("isHoldoutAvailableForProject", () => {
+  it("is open to every project without any, else only to its own", () => {
+    expect(isHoldoutAvailableForProject({ projects: [] }, undefined)).toBe(
+      true,
+    );
+    expect(isHoldoutAvailableForProject({ projects: ["a"] }, "a")).toBe(true);
+    expect(isHoldoutAvailableForProject({ projects: ["a"] }, "b")).toBe(false);
+    expect(isHoldoutAvailableForProject({ projects: ["a"] }, undefined)).toBe(
+      false,
+    );
   });
 });

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiOptionalAssignmentQueryResponseFields } from "./assignment-query-field";
-import { namedSchema } from "./openapi-helpers";
+import { namedSchema, retiredRiskInput } from "./openapi-helpers";
 import {
   apiExperimentResultsValidator,
   attributionModel,
@@ -21,6 +21,12 @@ const idParams = z
   })
   .strict();
 
+// Older clients may still send the retired risk thresholds.
+const apiReportMetricOverride = metricOverride.extend({
+  winRisk: retiredRiskInput(),
+  loseRisk: retiredRiskInput(),
+});
+
 const reportAnalysisSettingsSchema = z
   .object({
     statsEngine: z.enum(["bayesian", "frequentist"]).optional(),
@@ -29,8 +35,8 @@ const reportAnalysisSettingsSchema = z
     guardrailMetrics: z.array(z.string()).optional(),
     activationMetric: z.string().optional(),
     metricOverrides: z
-      .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .array(apiReportMetricOverride)
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)
@@ -286,8 +292,8 @@ const postReportBody = z
       .describe("Lookback window when `attributionModel` is `lookbackOverride`")
       .optional(),
     metricOverrides: z
-      .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .array(apiReportMetricOverride)
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)
@@ -405,8 +411,8 @@ const putReportSettingsBody = z
       .optional(),
     activationMetric: z.string().describe("Activation metric ID").optional(),
     metricOverrides: z
-      .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .array(apiReportMetricOverride)
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)

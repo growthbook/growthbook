@@ -202,6 +202,12 @@ export const bigQueryDialect: SqlDialect = {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? bigQueryDialect.castToFloat(raw) : raw;
   },
+  // JSON_QUERY_ARRAY accepts a JSON or JSON-formatted STRING column
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `CROSS JOIN UNNEST(JSON_QUERY_ARRAY(${jsonColumn})) AS ${itemAlias}`,
+    fieldText: (itemAlias, field) => `JSON_VALUE(${itemAlias}, '$.${field}')`,
+  },
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
   arrayAggSorted: (col: string) =>
     `ARRAY_AGG(${col} IGNORE NULLS ORDER BY ${col})`,

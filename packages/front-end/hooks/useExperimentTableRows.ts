@@ -5,33 +5,25 @@ import {
 } from "shared/types/report";
 import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
-import {
-  FactMetricInterface,
-  FactTableDefinition,
-} from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   ExperimentSortBy,
   funnelStepMetricId,
   isFactFunnelMetric,
-  createCustomSliceDataForMetric,
-  createAutoSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
-  dedupeSliceMetrics,
+  getSliceDataForMetric,
   SliceDataForMetric,
-  isFactMetric,
   generateSliceString,
   generateSelectAllSliceString,
   isMetricGroupId,
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
-  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
-import { CustomMetricSlice } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 // Special metric selector IDs that should be filtered out of customMetricOrder
@@ -512,42 +504,6 @@ export function generateRowsForMetricGroup({
   });
 }
 
-// All auto and custom slices for a fact metric (deduped). Used to build slice
-// child rows in both the overall and dimension breakdown tables.
-export function getSliceDataForMetric({
-  metric,
-  metricName,
-  customMetricSlices,
-  getFactTableById,
-}: {
-  metric: ExperimentMetricDefinition;
-  metricName: string;
-  customMetricSlices?: CustomMetricSlice[];
-  getFactTableById: (id: string) => FactTableDefinition | null;
-}): SliceDataForMetric[] {
-  // TODO(funnel-metrics): Add support for slices on funnel metrics
-  if (!isFactMetric(metric) || isFactFunnelMetric(metric)) return [];
-  const factTable = getFactTableById(
-    getFactMetricPrimaryFactTableId(metric as FactMetricInterface),
-  );
-
-  const standardSliceData = createAutoSliceDataForMetric({
-    parentMetric: metric,
-    factTable,
-    includeOther: true,
-  });
-
-  const customSliceData = createCustomSliceDataForMetric({
-    metricId: metric.id,
-    metricName,
-    customMetricSlices: customMetricSlices || [],
-    factTable,
-  });
-
-  // Dedupe (auto and custom slices sometimes overlap)
-  return dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
-}
-
 export function getSliceRowLabel(slice: SliceDataForMetric): string {
   return slice.sliceLevels
     .map((dl) => {
@@ -616,17 +572,21 @@ export function generateRowsForMetric({
         metric,
         metricName: newMetric?.name || "",
         customMetricSlices,
-        getFactTableById,
+        getFactTable: getFactTableById,
       })
     : [];
 
   numSlices = sliceData.length;
 
+  // A funnel expands into its steps in a results table and slices each step in
+  // the drilldown, so it has no slices a slice filter could match here.
+  const hasDisplayableSlices = numSlices > 0 && !isFactFunnelMetric(metric);
+
   // If slice filter is active and metric has no slices, don't show parent row (unless "overall" filter is set)
   if (
     sliceTagsFilter &&
     sliceTagsFilter.length > 0 &&
-    numSlices === 0 &&
+    !hasDisplayableSlices &&
     !sliceTagsFilter.includes("overall")
   ) {
     return [];
@@ -636,7 +596,7 @@ export function generateRowsForMetric({
   const isLabelOnly =
     sliceTagsFilter &&
     sliceTagsFilter.length > 0 &&
-    numSlices > 0 &&
+    hasDisplayableSlices &&
     !sliceTagsFilter.includes("overall");
 
   const funnelSteps = isFactFunnelMetric(metric)
@@ -793,6 +753,7 @@ export function generateRowsForMetric({
   }
 
   if (funnelSteps.length) {
+    // Two-level hierarchy: parent → steps (no slices)
     parentRow.numChildren = funnelSteps.length;
     funnelSteps.forEach((step, stepIndex) => {
       const stepMetricId = funnelStepMetricId(metricId, stepIndex);

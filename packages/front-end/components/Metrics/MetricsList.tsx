@@ -171,7 +171,7 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
 
 export interface MetricTableItem {
   id: string;
-  managedBy: "" | "api" | "config" | "admin";
+  managedBy: "" | "api" | "config" | "admin" | "dbt";
   name: string;
   description?: string;
   type: string;
@@ -195,7 +195,6 @@ export interface MetricTableItem {
 
 export function useCombinedMetrics({
   setMetricModalProps,
-  enableRowActions,
   onDuplicateFactMetric,
   onEditFactMetric,
   afterArchive,
@@ -204,9 +203,6 @@ export function useCombinedMetrics({
   // the modal state) - not a stand-in for "does this caller want row
   // actions" anymore now that fact metrics navigate instead of using it.
   setMetricModalProps?: (props: MetricModalState) => void;
-  // The real "did this caller opt into row actions" signal, explicit rather
-  // than inferred from setMetricModalProps's presence.
-  enableRowActions?: boolean;
   // Open the caller's fact metric flow (useFactMetricFlow).
   onDuplicateFactMetric?: (metric: FactMetricInterface) => void;
   onEditFactMetric?: (metric: FactMetricInterface) => void;
@@ -321,7 +317,7 @@ export function useCombinedMetrics({
       let canEdit = permissionsUtil.canUpdateFactMetric(m, {});
       let canDelete = permissionsUtil.canDeleteFactMetric(m);
 
-      if (m.managedBy && ["admin", "api"].includes(m.managedBy)) {
+      if (m.managedBy && ["admin", "api", "dbt"].includes(m.managedBy)) {
         canEdit = false;
         canDelete = false;
       }
@@ -363,13 +359,11 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && enableRowActions && onDuplicateFactMetric
+          canDuplicate && onDuplicateFactMetric
             ? () => onDuplicateFactMetric(m)
             : undefined,
         onEdit:
-          canEdit && enableRowActions && onEditFactMetric
-            ? () => onEditFactMetric(m)
-            : undefined,
+          canEdit && onEditFactMetric ? () => onEditFactMetric(m) : undefined,
         onDelete: canDelete
           ? async () => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -415,7 +409,6 @@ const MetricsList = (): React.ReactElement => {
   const factMetricFlow = useFactMetricFlow("blank-state");
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
-    enableRowActions: true,
     onDuplicateFactMetric: (m) => factMetricFlow.open({ duplicate: m }),
     onEditFactMetric: (m) => factMetricFlow.edit(m),
   });

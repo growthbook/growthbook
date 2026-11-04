@@ -71,6 +71,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
             identifierType: exposureQuery
               ? getDimensionSlicesIdentifierType(exposureQuery)
               : "",
+            columnMapping: exposureQuery?.columnMapping,
           },
           dimensions: dimensions,
           lookbackDays: params.lookbackDays,

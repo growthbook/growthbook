@@ -4,7 +4,11 @@ import type {
   FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
-import { describePopulationStep } from "@/components/Populations/populationUtils";
+import {
+  describePopulationStep,
+  getPopulationMemberCounts,
+  getPopulationPreviewConfig,
+} from "@/components/Populations/populationUtils";
 
 function column(
   name: string,
@@ -28,13 +32,6 @@ function step(factTableId: string): PopulationStep {
   return {
     source: { type: "factTable", factTableId },
     rowFilters: [],
-    windowSettings: {
-      type: "",
-      delayValue: 0,
-      delayUnit: "days",
-      windowValue: 0,
-      windowUnit: "days",
-    },
   };
 }
 
@@ -74,12 +71,6 @@ describe("describePopulationStep", () => {
     operator: ">",
     values: ["100"],
   };
-  const lastWeek: PopulationStep["windowSettings"] = {
-    ...step("ftb_events").windowSettings,
-    type: "lookback",
-    windowValue: 1,
-    windowUnit: "weeks",
-  };
 
   const getStepDescription = (
     overrides: Partial<PopulationStep>,
@@ -108,7 +99,7 @@ describe("describePopulationStep", () => {
     ]);
   });
 
-  it("omits the trailing segment when there are no filters or windows", () => {
+  it("omits the trailing segment when there are no filters", () => {
     expect(
       describePopulationStep({
         step: step("ftb_events"),
@@ -128,7 +119,7 @@ describe("describePopulationStep", () => {
     ).toEqual(["Has ", "ftb_events"]);
   });
 
-  it("describes a step with no filters or windows", () => {
+  it("describes a step with no filters", () => {
     expect(getStepDescription({})).toBe("Has Events");
   });
 
@@ -173,25 +164,6 @@ describe("describePopulationStep", () => {
     ).toBe("Has Events matching total amount >100 per user_id");
   });
 
-  it("describes a step with a lookback window", () => {
-    expect(getStepDescription({ windowSettings: lastWeek })).toBe(
-      "Has Events in the last 1 week",
-    );
-  });
-
-  it("describes a step with row filters, an aggregate filter, and a lookback window", () => {
-    expect(
-      getStepDescription({
-        rowFilters: [country],
-        aggregateFilterColumn: "$$count",
-        aggregateFilter: ">=3",
-        windowSettings: lastWeek,
-      }),
-    ).toBe(
-      "Has Events matching country = US and count >=3 per user_id in the last 1 week",
-    );
-  });
-
   it("uses saved filter names", () => {
     expect(
       getStepDescription({
@@ -225,5 +197,82 @@ describe("describePopulationStep", () => {
     ).toBe(
       "Has ftb_events matching country = US and total amount >100 per user_id",
     );
+  });
+});
+
+describe("getPopulationPreviewConfig", () => {
+  it("carries each step's filters and the chosen unit into the query", () => {
+    const region: RowFilter = {
+      column: "region",
+      operator: "=",
+      values: ["EU"],
+    };
+    const dateRange = {
+      predefined: "customDateRange" as const,
+      startDate: "2026-10-23",
+      endDate: "2026-10-29",
+    };
+    const config = getPopulationPreviewConfig(
+      {
+        datasource: "ds_main",
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [region],
+            aggregateFilter: ">=3",
+            aggregateFilterColumn: "$$count",
+          },
+        ],
+      },
+      "anonymous_id",
+      dateRange,
+    );
+
+    expect(config.datasource).toBe("ds_main");
+    expect(config.dateRange).toBe(dateRange);
+    expect(config.dimensions).toEqual([
+      { dimensionType: "date", column: "date", dateGranularity: "day" },
+    ]);
+    expect(config.dataset.values).toEqual([
+      {
+        type: "population",
+        name: "Members",
+        unit: "anonymous_id",
+        source: { type: "factTable", factTableId: "ftb_events" },
+        rowFilters: [region],
+        aggregateFilter: ">=3",
+        aggregateFilterColumn: "$$count",
+      },
+    ]);
+  });
+});
+
+describe("getPopulationMemberCounts", () => {
+  it("orders daily counts, fills empty days, and totals the full range", () => {
+    expect(
+      getPopulationMemberCounts({
+        dateStart: "2026-09-01T00:00:00Z",
+        dateEnd: "2026-09-03T12:00:00Z",
+        result: {
+          rows: [
+            {
+              dimensions: ["2026-09-03"],
+              values: [{ metricId: "count", numerator: 12, denominator: null }],
+            },
+            {
+              dimensions: ["2026-09-01"],
+              values: [{ metricId: "count", numerator: 8, denominator: null }],
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      dailyValues: [
+        { day: "2026-09-01", value: 8 },
+        { day: "2026-09-02", value: 0 },
+        { day: "2026-09-03", value: 12 },
+      ],
+      total: 20,
+    });
   });
 });

@@ -1,0 +1,88 @@
+@import "../styles/hover-highlight";
+
+// Rows from 0fr to 1fr animate to the content's own height, whatever it is.
+.collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 200ms ease;
+
+  // Hidden once shut, so its contents leave the tab order.
+  &.closed {
+    grid-template-rows: 0fr;
+    visibility: hidden;
+    transition:
+      grid-template-rows 200ms ease,
+      visibility 0s 200ms;
+  }
+
+  // Still a transition, so the end of one is still signalled.
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &.closed {
+      transition-duration: 1ms;
+      transition-delay: 0s;
+    }
+  }
+}
+
+.inner {
+  min-height: 0;
+  overflow: hidden;
+
+  // Settled open, it stops clipping, so hover tints and focus rings show.
+  &.unclipped {
+    overflow: visible;
+  }
+}
+
+.trigger {
+  @include hover-highlight($bleed-y: 6px);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.toggle {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  cursor: pointer;
+
+  // The whole row toggles, but for its action.
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+    border-radius: var(--radius-1);
+  }
+}
+
+.action {
+  position: relative;
+  z-index: 1;
+  display: flex;
+
+  // With no caret at the end, the action takes it.
+  &.atEnd {
+    margin-left: auto;
+  }
+}
+
+.caret {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--color-text-low);
+
+  &.atEnd {
+    margin-left: auto;
+  }
+}

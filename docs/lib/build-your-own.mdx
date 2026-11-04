@@ -4,7 +4,7 @@ description: Spec for library authors building a GrowthBook SDK in an unsupporte
 sidebarTitle: Build Your Own
 ---
 
-**Latest spec version: 0.11.2 [View Changelog](#changelog)**
+**Latest spec version: 0.12.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -308,6 +308,10 @@ return null;
 
 **Note**: It's important to use the exact hashing algorithms outlined here so all SDKs behave identically.
 
+Hash the string's UTF-16 code units, like JavaScript's `charCodeAt`, not its UTF-8 bytes. Each step XORs in a whole code unit, and characters outside the Basic Multilingual Plane, such as emoji, are two code units. ASCII strings hash the same either way.
+
+Only strings and numbers can be hash values. An empty string, `0`, and any other type count as missing. Format numbers like JavaScript before hashing, so `1.0` hashes as `"1"`.
+
 ### inRange(n: float, range: BucketRange): boolean
 
 Determines if a number `n` is within the provided range.
@@ -441,6 +445,27 @@ The return value will be a JSON-encoded string. If an error occurs, you can thro
 In addition to the helper functions above, there are a number of methods related to evaluating targeting conditions.
 
 The public methods are `evalCondition`, `pruneCondition`, and `reducePayload`, and everything else is a private helper function.
+
+### Type rules
+
+Conditions never convert between types. When an operator compares the attribute with a condition value, both must have the same type: string, number, boolean, null, array or object. Some operators compare something else: `$size` compares an array's length, and membership operators compare individual items.
+
+- When the types differ, the positive operator returns `false` and its negation returns `true`. For valid, supported conditions, `$ne`, `$nin`, `$not`, `$vne` and `$notInGroup` are the exact opposite of `$eq`, `$in`, the inner condition, `$veq` and `$inGroup`.
+- A missing attribute is `null`. It never counts as `0`, `""`, `false` or a version.
+- `$gt`, `$gte`, `$lt` and `$lte` compare two numbers or two strings. Strings compare as text, so `"10" < "9"` is `true`. Booleans have no order, so these operators return `false` for them.
+- Version operators compare two strings or two numbers.
+- `$regex` and `$regexi` match strings only.
+- `$elemMatch`, `$size`, `$all` and `$alli` return `false` for an attribute that isn't an array.
+- `$in`, `$nin` and saved group lists use strict membership, so `5` is not in `["5"]`.
+- `$exists` and `$type` work on any type.
+
+`cases.json` is the reference for edge cases.
+
+Regular expressions follow JavaScript's `RegExp` without the `u` flag. Native regex engines differ in Unicode case folding and in syntax such as lookbehind, so `cases.json` only covers patterns they all agree on.
+
+Integers and floats are both numbers. In languages where booleans are numbers, such as Python, check for booleans first.
+
+In debug mode, the JS SDK logs each type mismatch with the attribute path, the operator, and both values. This helps customers find attributes sent with the wrong type.
 
 ### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
@@ -623,7 +648,7 @@ function reducePayload(
   };
 
   // Reduces a rule or an auto experiment
-  const prune = (item) => {
+  const prune = (item, isRule) => {
     const result = item.condition ? pruneCondition(attributes, item.condition) : null;
     item = { ...item };
     if (result === true) delete item.condition;
@@ -632,8 +657,9 @@ function reducePayload(
       // experiment's condition, and a rule's parentConditions are checked
       // before it
       item.condition = { $not: {} };
-      // Never returned
-      if ("force" in item) item.force = null;
+      // A force rule that never passes never returns its value. An auto
+      // experiment's forced variation still applies to a sticky bucketed user.
+      if (isRule && "force" in item) item.force = null;
     } else if (result) item.condition = result;
     return item;
   };
@@ -657,7 +683,7 @@ function reducePayload(
     const scoped = inProjects(feature.metadata);
     const rules = feature.rules
       ?.filter((rule) => !scoped || ruleInProjects(rule.metadata))
-      .map(prune);
+      .map((rule) => prune(rule, true));
     // Stored before its parents are added, so a prerequisite cycle ends
     features[id] = rules ? { ...feature, rules } : feature;
     rules?.forEach(addParents);
@@ -668,7 +694,7 @@ function reducePayload(
   }
   const experiments = payload.experiments
     .filter((e) => matches(e.metadata))
-    .map(prune);
+    .map((e) => prune(e, false));
   experiments.forEach(addParents);
 
   // The contextual bandits that kept rules and experiments use. A context
@@ -676,11 +702,16 @@ function reducePayload(
   const contextualBandits = {};
   const rules = Object.values(features).flatMap((f) => f.rules ?? []);
   for (const { contextualBanditRef: ref } of [...rules, ...experiments]) {
-    const bandit = payload.contextualBandits?.[ref];
-    if (!bandit || contextualBandits[ref]) continue;
+    if (!ref || !(ref in (payload.contextualBandits ?? {})) || ref in contextualBandits) continue;
+    const bandit = payload.contextualBandits[ref];
+    // Evaluation tolerates a definition that isn't an object, so it stays
+    if (!bandit || typeof bandit !== "object" || Array.isArray(bandit)) {
+      contextualBandits[ref] = bandit;
+      continue;
+    }
     contextualBandits[ref] = {
       ...bandit,
-      contexts: bandit.contexts.flatMap((context) => {
+      contexts: (bandit.contexts ?? []).flatMap((context) => {
         const result = pruneCondition(attributes, context.condition ?? {});
         if (result === false) return [];
         return [{ ...context, condition: result === true ? {} : result }];
@@ -688,26 +719,101 @@ function reducePayload(
     };
   }
 
+  const allGroups = payload.savedGroups ?? {};
+  const reduced = [features, experiments, contextualBandits];
+  // A list's values are attribute values, never references to other groups
+  const canReference = (entry) =>
+    entry && typeof entry === "object" && !Array.isArray(entry) && entry.type !== "list";
+
+  // Groups that keep their condition as written: those evaluated against
+  // something other than the user (each item in $elemMatch, or the parent's
+  // value in a prerequisite), and every group those reference, directly or not
+  const asWritten = new Set();
+  const seen = new Set();
+  const mark = (value, user) => {
+    if (typeof value === "string") {
+      if (!(value in allGroups) || asWritten.has(value)) return;
+      if (user && seen.has(value)) return;
+      (user ? seen : asWritten).add(value);
+      if (canReference(allGroups[value])) mark(allGroups[value], user);
+    } else if (value && typeof value === "object") {
+      for (const [key, v] of Object.entries(value)) {
+        mark(v, user && key !== "$elemMatch" && key !== "parentConditions");
+      }
+    }
+  };
+
+  // A group on a reference cycle of any length, including one that references
+  // itself, also keeps its condition as written: its result depends on which
+  // group evaluation entered the cycle from. Tarjan's algorithm finds them in
+  // one pass over the ids each group's contents mention, rather than walking
+  // the references again for every group.
+  const refsOf = (id) => {
+    const ids = new Set();
+    const collect = (value) => {
+      if (typeof value === "string") {
+        if (value in allGroups) ids.add(value);
+      } else if (value && typeof value === "object") {
+        Object.values(value).forEach(collect);
+      }
+    };
+    if (canReference(allGroups[id])) collect(allGroups[id]);
+    return ids;
+  };
+  const onCycle = new Set();
+  const order = new Map();
+  const stack = [];
+  const visit = (id) => {
+    const own = order.size;
+    order.set(id, own);
+    stack.push(id);
+    let low = own;
+    for (const next of refsOf(id)) {
+      if (next === id) onCycle.add(id);
+      if (!order.has(next)) low = Math.min(low, visit(next));
+      else if (stack.includes(next)) low = Math.min(low, order.get(next));
+    }
+    if (low === own) {
+      const component = stack.splice(stack.indexOf(id));
+      if (component.length > 1) component.forEach((g) => onCycle.add(g));
+    }
+    return low;
+  };
+  for (const id of Object.keys(allGroups)) if (!order.has(id)) visit(id);
+
   // Keep each saved group whose id appears as a string anywhere. This also
   // keeps groups that an operator this SDK doesn't support refers to.
   const savedGroups = {};
   const keep = (value) => {
     if (typeof value === "string") {
-      const entry = payload.savedGroups[value];
+      const entry = allGroups[value];
       if (!entry || savedGroups[value]) return;
-      // A condition group is reduced, with its own id counted as visited
+      // Other condition groups are reduced, with their own id counted as visited
       const result =
-        entry.type === "condition" ? pruneCondition(attributes, entry.condition) : null;
+        entry.type === "condition" && !asWritten.has(value) && !onCycle.has(value)
+          ? pruneCondition(attributes, entry.condition)
+          : null;
       savedGroups[value] =
         result && typeof result === "object" ? { ...entry, condition: result } : entry;
-      keep(savedGroups[value]);
+      if (canReference(entry)) keep(savedGroups[value]);
     } else if (value && typeof value === "object") {
       Object.values(value).forEach(keep);
     }
   };
-  keep([features, experiments, contextualBandits]);
+  // Nothing to find without saved groups, so the payload isn't walked
+  if (Object.keys(allGroups).length) {
+    mark(reduced, true);
+    keep(reduced);
+  }
 
-  return { ...payload, features, experiments, savedGroups, contextualBandits };
+  return {
+    ...payload,
+    features,
+    experiments,
+    savedGroups,
+    // Left out, not set to undefined, when the payload has none
+    ...(payload.contextualBandits ? { contextualBandits } : {}),
+  };
 }
 ```
 
@@ -884,6 +990,8 @@ There are basic comparison operators in the form `attributeValue {op} conditionV
 - `$gte` &gt;=
 - `$regex` ~ (regex match)
 
+These follow the [type rules](#type-rules). For example, `$lt` returns `false` unless both values are numbers or both are strings.
+
 There are 3 operators where conditionValue is an array. All of these should return `false` if `conditionValue` is not an array for whatever reason.
 
 - `$in`
@@ -915,7 +1023,7 @@ There are 3 other operators:
 
 For `$inGroup` and `$notInGroup`, a saved group of a type this SDK doesn't support returns `null`.
 
-There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details.
+There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details. If the two values aren't both strings or both numbers, `$vne` returns `true` and the others return `false`.
 
 If operator doesn't match any of these, return `null` and potentially log the error for debug purposes.
 
@@ -1563,3 +1671,14 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
 - **v0.11.2** 2026-10-26
   - New `run` test cases for users whose hash lands exactly on a bucket range end, across equal and uneven weights and hash versions 1 and 2. Compute each range end as `start + coverage * weight` by rounding the product to a double first, then the sum. An SDK that fuses the two into one multiply-add (for example, Go on arm64) rounds once, gets a slightly different end, and fails these cases
   - New `hash` test cases that pin these users' hashes to the range ends
+- **v0.11.3** 2026-10-26
+  - `reducePayload` keeps a condition saved group as written when `$elemMatch` or a prerequisite (`parentConditions`) references it, since those evaluate it against each item or the parent's value rather than the user, and keeps condition groups on a reference cycle as written
+  - `reducePayload` keeps an auto experiment's `force` when its condition never passes, since a sticky bucket skips the condition. Only a force rule's value is cleared
+  - `reducePayload` keeps a contextual bandit definition that isn't an object as it is, instead of throwing
+  - A list saved group's values are attribute values, so `reducePayload` never treats them as references to other groups
+  - `reducePayload` leaves out `contextualBandits` when the payload has none, instead of returning it as undefined
+  - New `reducePayload` test cases for these, including groups referenced through another group, longer cycles and a group that references itself
+- **v0.12.0** 2026-10-29
+  - `hash` uses UTF-16 code units, like JavaScript's `charCodeAt`, instead of UTF-8 bytes. This changes bucketing only for values and seeds with non-ASCII characters
+  - Only strings and numbers can be hash values. `true`, arrays and objects count as missing, like `""`, `0`, `false` and `null`. Numbers are formatted like JavaScript, so `1.0` hashes as `"1"`
+  - New `hash` and `run` test cases for these, plus `evalCondition` cases for missing attributes under `$nin`, `$eq null` and `$type`, a path through an array index and an empty `$nor`, and `feature` cases for the values `"off"` and `[]` and an experiment rule with neither its hash attribute nor its fallback attribute set

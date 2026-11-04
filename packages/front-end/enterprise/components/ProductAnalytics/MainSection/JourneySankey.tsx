@@ -7,7 +7,7 @@ import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { JOURNEY_OTHER, JOURNEY_TERMINALS } from "shared/journeys";
 import type { JourneyHeightScale } from "shared/validators";
 import { formatNumber, formatPercent } from "@/services/metrics";
-import { CHART_COLORS } from "@/enterprise/components/ProductAnalytics/chart-theme";
+import { CHART_COLORS } from "@/components/DataViz/chart-theme";
 import {
   type JourneyColumn,
   type JourneyEdge,

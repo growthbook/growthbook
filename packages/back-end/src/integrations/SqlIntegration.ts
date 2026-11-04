@@ -1,5 +1,11 @@
 import { getValidDate } from "shared/dates";
-import { parseIntWithDefault } from "shared/util";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  parseIntWithDefault,
+} from "shared/util";
 import { format as formatDate, subDays } from "date-fns";
 import {
   ExperimentMetricInterface,
@@ -49,6 +55,8 @@ import {
   ExperimentAggregateUnitsQueryParams,
   ContextualBanditSrmQueryParams,
   ContextualBanditSrmQueryResponse,
+  InterleavingMetricQueryParams,
+  InterleavingMetricQueryResponse,
   ExperimentDimension,
   ExternalIdCallback,
   DimensionSlicesQueryResponse,
@@ -168,6 +176,7 @@ import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/dr
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
 import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
+import { getInterleavingMetricQuery as getInterleavingMetricQueryFromSql } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
@@ -295,6 +304,16 @@ function getFunnelPassthroughColumns({
 }
 
 const MAX_LOG_ERROR_LENGTH = 100;
+
+// Parse a single numeric column from a raw query row, omitting absent ones
+function parseFloatField(
+  row: Record<string, unknown>,
+  field: string,
+): Record<string, number> {
+  return row[field] !== undefined
+    ? { [field]: parseFloat(row[field] as string) || 0 }
+    : {};
+}
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
@@ -709,16 +728,6 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
 
-    // Helper function to parse a single float field
-    const parseFloatField = (
-      row: Record<string, unknown>,
-      field: string,
-    ): Record<string, number> => {
-      return row[field] !== undefined
-        ? { [field]: parseFloat(row[field] as string) || 0 }
-        : {};
-    };
-
     // Helper function to parse non-float fields (cap values)
     const parseNonFloatField = (
       row: Record<string, unknown>,
@@ -827,6 +836,27 @@ export default abstract class SqlIntegration
         };
       }),
       statistics: statistics,
+    };
+  }
+
+  async runInterleavingMetricQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<InterleavingMetricQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) =>
+        Object.keys(row).reduce<Record<string, number>>(
+          (out, field) => Object.assign(out, parseFloatField(row, field)),
+          {},
+        ),
+      ),
+      statistics,
     };
   }
 
@@ -1108,6 +1138,10 @@ export default abstract class SqlIntegration
 
   getContextualBanditSrmQuery(params: ContextualBanditSrmQueryParams): string {
     return getContextualBanditSrmQueryFromSql(this.getSqlDialect(), params);
+  }
+
+  getInterleavingMetricQuery(params: InterleavingMetricQueryParams): string {
+    return getInterleavingMetricQueryFromSql(this.getSqlDialect(), params);
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
@@ -1846,6 +1880,20 @@ export default abstract class SqlIntegration
       },
     );
 
+    const newExpIdentifierCol = `e.${getExposureQueryIdentifierColumn(
+      exposureQuery,
+      baseIdType,
+    )}`;
+    const newExpVariationCol = `e.${getExposureQueryVariationIdColumn(
+      exposureQuery,
+    )}`;
+    const newExpTimestampCol = `e.${getExposureQueryTimestampColumn(
+      exposureQuery,
+    )}`;
+    const newExpExperimentIdCol = `e.${getExposureQueryExperimentIdColumn(
+      exposureQuery,
+    )}`;
+
     // TODO(incremental-refresh): activation metric
     if (activationMetric) {
       throw new Error(
@@ -1913,10 +1961,10 @@ export default abstract class SqlIntegration
           )}
         )
         , __filteredNewExposures AS (
-          SELECT 
-            ${this.getSqlDialect().castToString(`e.${baseIdType}`)} AS ${baseIdType}
-            , ${this.getSqlDialect().castToString(`e.variation_id`)} AS variation
-            , e.timestamp AS timestamp
+          SELECT
+            ${this.getSqlDialect().castToString(newExpIdentifierCol)} AS ${baseIdType}
+            , ${this.getSqlDialect().castToString(newExpVariationCol)} AS variation
+            , ${newExpTimestampCol} AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map(
@@ -1926,13 +1974,13 @@ export default abstract class SqlIntegration
               .join("\n")}
           FROM __newExposures e
           WHERE
-            e.experiment_id = '${settings.experimentId}'
+            ${newExpExperimentIdCol} = '${settings.experimentId}'
             ${
               lastMaxTimestampBinds && params.lastMaxTimestamp
-                ? `AND ${afterWatermark(this.getSqlDialect(), "e.timestamp", params.lastMaxTimestamp, params.lastMaxTimestampRaw)}`
-                : `AND e.timestamp >= ${toTimestampWithMs(settings.startDate)}`
+                ? `AND ${afterWatermark(this.getSqlDialect(), newExpTimestampCol, params.lastMaxTimestamp, params.lastMaxTimestampRaw)}`
+                : `AND ${newExpTimestampCol} >= ${toTimestampWithMs(settings.startDate)}`
             }
-            ${endDate ? `AND e.timestamp <= ${toTimestampWithMs(endDate)}` : ""}
+            ${endDate ? `AND ${newExpTimestampCol} <= ${toTimestampWithMs(endDate)}` : ""}
             ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
         )
         , __jointExposures AS (
@@ -2352,11 +2400,11 @@ export default abstract class SqlIntegration
       isRatioMetric(metric) &&
       metric.denominator?.factTableId === params.factTableId;
 
-    // A conversion window extends the scan past the phase end date, which for
-    // a running phase is the snapshot time, so it would admit rows stamped in
-    // the future. Those must not become the watermark (see
-    // InsertAggregatedFactTableDataQueryParams.windowEndDate), so never scan
-    // past the refresh's own clock.
+    // A conversion window extends the scan past the phase end date. For a
+    // running phase that would admit rows stamped in the future, or past a
+    // lagged analysis end date, and they must not become the watermark (see
+    // InsertAggregatedFactTableDataQueryParams.windowEndDate). The caller caps
+    // the scan (getIncrementalMetricScanEnd).
     const metricEnd =
       source.metricEnd > params.incrementalRefreshStartTime
         ? params.incrementalRefreshStartTime

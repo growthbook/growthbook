@@ -11,7 +11,6 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
@@ -80,6 +79,7 @@ const ProjectPage: FC = () => {
     null,
   );
   const [saveMsg, setSaveMsg] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
@@ -446,38 +446,34 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
-                <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
-                  <div
-                    className="container-fluid pagecontents d-flex"
-                    // Keep the Save button clear of the help widget
-                    style={{ paddingRight: "80px" }}
+                <Flex
+                  justify="end"
+                  align="center"
+                  gap="4"
+                  // Clears the help launcher, which publishes its footprint (see InAppHelp).
+                  style={{
+                    paddingRight: "var(--help-launcher-clearance, 0px)",
+                  }}
+                >
+                  {saveError && <Callout status="error">{saveError}</Callout>}
+                  {saveMsg && (
+                    <TempMessage
+                      close={() => {
+                        setSaveMsg(false);
+                      }}
+                    >
+                      Settings saved
+                    </TempMessage>
+                  )}
+                  <RadixButton
+                    size="lg"
+                    disabled={!ctaEnabled}
+                    onClick={saveSettings}
+                    setError={setSaveError}
                   >
-                    <div className="flex-grow-1 mr-4">
-                      {saveMsg && (
-                        <TempMessage
-                          className="mb-0 py-2"
-                          close={() => {
-                            setSaveMsg(false);
-                          }}
-                        >
-                          Settings saved
-                        </TempMessage>
-                      )}
-                    </div>
-                    <div>
-                      <Button
-                        color={"primary"}
-                        disabled={!ctaEnabled}
-                        onClick={async () => {
-                          if (!ctaEnabled) return;
-                          await saveSettings();
-                        }}
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                    Save
+                  </RadixButton>
+                </Flex>
               </TabsContent>
               <TabsContent value="approvals">
                 <ProjectApprovalSettings project={pid} projectName={p.name} />

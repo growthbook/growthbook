@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import SelectOwner from "./SelectOwner";
 
 const EditOwnerModal: FC<{
@@ -21,7 +22,7 @@ const EditOwnerModal: FC<{
       header="Edit Owner"
       open={true}
       close={cancel}
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         await save(data.owner);
         mutate();
       })}

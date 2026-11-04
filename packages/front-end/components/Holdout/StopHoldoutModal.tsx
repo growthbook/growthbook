@@ -1,7 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -19,20 +17,16 @@ export default function StopHoldoutModal({
   close,
   mutate,
 }: Props) {
-  const [startError, setStartError] = useState<string | null>(null);
   const { apiCall } = useAuth();
 
+  // A refusal throws, so the modal stays open and shows it.
   const submit = async () => {
-    try {
-      await apiCall(`/holdout/${holdout.id}/edit-status`, {
-        method: "POST",
-        body: JSON.stringify({
-          status: "stopped",
-        }),
-      });
-    } catch (error) {
-      setStartError(error);
-    }
+    await apiCall(`/holdout/${holdout.id}/edit-status`, {
+      method: "POST",
+      body: JSON.stringify({
+        status: "stopped",
+      }),
+    });
 
     track("Stop Holdout", {
       previousStatus: experiment.status,
@@ -58,12 +52,6 @@ export default function StopHoldoutModal({
           Stopping this holdout will release all holdout users and will expose
           them to the same feature values as the general population.
         </div>
-
-        {startError && (
-          <Callout status="error" mt="3">
-            {startError}
-          </Callout>
-        )}
       </div>
     </ModalStandard>
   );

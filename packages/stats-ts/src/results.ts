@@ -6,6 +6,16 @@ export interface EffectMomentsResult {
   post_stratification_applied: boolean;
 }
 
+// Interleaving results are persisted, so their shape is owned by the Zod
+// validator in shared and inferred here; re-exported because stats-ts is
+// where consumers expect result types.
+import type {
+  InterleavingTestMethod,
+  InterleavingTestResult,
+} from "shared/validators";
+
+export type { InterleavingTestMethod, InterleavingTestResult };
+
 export interface Uplift {
   dist: string;
   mean: number;
@@ -21,6 +31,15 @@ export interface TestResult {
   errorMessage: string | null;
 }
 
+export type PValueErrorMessage =
+  | "NUMERICAL_PVALUE_NOT_CONVERGED"
+  | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
+
+export interface FrequentistTestResult extends TestResult {
+  pValue: number | null;
+  pValueErrorMessage: PValueErrorMessage | null;
+}
+
 export type RiskType = "absolute" | "relative";
 
 export interface BayesianTestResult extends TestResult {
@@ -28,10 +47,6 @@ export interface BayesianTestResult extends TestResult {
   risk: number[];
   riskType: RiskType;
 }
-
-export type PValueErrorMessage =
-  | "NUMERICAL_PVALUE_NOT_CONVERGED"
-  | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
 
 export interface PValueResult {
   p_value?: number | null;
@@ -146,11 +161,6 @@ export interface PowerResponse {
   priorLiftVariance: number | null;
   upperBoundAchieved: boolean | null;
   scalingFactor: number | null;
-}
-
-export interface FrequentistTestResult extends TestResult {
-  pValue: number | null;
-  pValueErrorMessage: PValueErrorMessage | null;
 }
 
 export interface BayesianVariationResponseIndividual

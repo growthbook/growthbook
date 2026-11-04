@@ -568,6 +568,30 @@ export const putSavedGroupRevisionValuesValidator = {
   responseSchema: revisionResponse,
 };
 
+export const putSavedGroupRevisionUploadVersionValidator = {
+  method: "put" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/upload-version",
+  confirmation: ["savedGroup.draft"] as const,
+  operationId: "putSavedGroupRevisionUploadVersion",
+  summary: "Set the upload a remote saved group draft revision uses",
+  description:
+    'Stages which upload the group uses. Only valid for `remote` saved groups, and the upload must be valid. Pass `version: "new"` to auto-create a draft.',
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParams,
+  bodySchema: z
+    .object({
+      ...newDraftMetadataFields,
+      currentUploadVersion: z
+        .number()
+        .int()
+        .positive()
+        .describe("The version of the upload the group uses"),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
 export const putSavedGroupRevisionArchiveValidator = {
   method: "put" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/archive",

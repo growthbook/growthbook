@@ -7,6 +7,7 @@ import {
   isRoleValid,
 } from "shared/permissions";
 import { stringToBoolean } from "shared/util";
+import escapeRegExp from "lodash/escapeRegExp";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getCollection,
@@ -169,7 +170,7 @@ export class TeamModel extends BaseClass {
 
   public async findByName(name: string) {
     return this._findOne({
-      name: { $regex: name, $options: "i" },
+      name: { $regex: escapeRegExp(name), $options: "i" },
     });
   }
 

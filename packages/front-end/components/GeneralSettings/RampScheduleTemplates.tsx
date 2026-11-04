@@ -26,7 +26,6 @@ import type { FeatureInterface } from "shared/types/feature";
 import { RampScheduleTemplateInterface } from "shared/validators";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import Heading from "@/ui/Heading";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -36,7 +35,6 @@ import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Frame from "@/ui/Frame";
 import Table, {
   TableHeader,
   TableBody,
@@ -60,6 +58,7 @@ import RampScheduleSection, {
   isMonitoredTemplate,
   type RampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
+import { SettingsGroup } from "./SettingsGroup";
 
 // Minimal generic feature used when editing templates (no real feature context).
 const GENERIC_FEATURE: Pick<FeatureInterface, "id" | "valueType" | "project"> =
@@ -491,11 +490,17 @@ export default function RampScheduleTemplates() {
   };
 
   return (
-    <Frame>
-      <Flex justify="between" align="center" mb="3">
-        <Heading as="h3" size="sm">
+    <SettingsGroup
+      id="ff-ramp"
+      title={
+        <PremiumTooltip commercialFeature="ramp-schedules">
           Ramp Schedule Templates
-        </Heading>
+        </PremiumTooltip>
+      }
+      description="Reusable rollout schedules for flag rules."
+      keywords="ramp schedule templates rollout gradual"
+    >
+      <Flex justify="end" align="center">
         <PremiumTooltip commercialFeature="ramp-schedules">
           <Button
             variant="outline"
@@ -580,6 +585,6 @@ export default function RampScheduleTemplates() {
           }}
         />
       )}
-    </Frame>
+    </SettingsGroup>
   );
 }

@@ -11,7 +11,7 @@ import {
 export const postOrganization = createApiRequestHandler(
   postOrganizationValidator,
 )(async (req) => {
-  const user = await validateIsSuperUserRequest(req);
+  const user = await validateIsSuperUserRequest(req, "create");
 
   const { name, externalId } = req.body;
 

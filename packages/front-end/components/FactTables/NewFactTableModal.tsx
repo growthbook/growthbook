@@ -1,77 +1,58 @@
-import {
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { isEqual } from "lodash";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowLeft,
-  PiCalendarBold,
   PiCaretDown,
   PiCaretUp,
-  PiClockBold,
-  PiColumnsBold,
-  PiFunnelBold,
   PiMagnifyingGlass,
   PiPlus,
-  PiUserBold,
   PiX,
 } from "react-icons/pi";
 import {
   CreateFactTableProps,
-  DetectedFactTableColumn,
-  FactFilterTestResults,
+  DetectedColumn,
   FactTableInterface,
   FactTableType,
-  RowFilter,
+  UpdateFactTableProps,
 } from "shared/types/fact-table";
+import { isProjectListValidForProject } from "shared/util";
 import {
-  Column,
-  InformationSchemaTablesInterface,
-} from "shared/types/integrations";
-import { mapDatabaseTypeToEnum } from "shared/enterprise";
-import { getDataSourceSqlDialect } from "shared/dialects";
-import { buildRowFilterWhereClause } from "shared/experiments";
+  getFactTableIdColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
+import { usesEventName } from "@/components/Metrics/MetricForm";
 import {
   getNewExperimentDatasourceDefaults,
   getInitialFactTableQuery,
 } from "@/services/datasources";
-import NewFactTableSqlStep, {
-  FactTableSqlMode,
-  SAMPLE_ROW_LIMIT,
-} from "@/components/FactTables/NewFactTableSqlStep";
-import {
-  columnTypesToColumnSource,
-  isRowFilterComplete,
-} from "@/components/FactTables/rowFilterUtils";
+import SourceStep from "@/components/SchemaBrowser/SourceStep";
+import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
+import ColumnMappingRow, {
+  ColumnKindIcon,
+  validColumn,
+} from "@/components/SchemaBrowser/ColumnMappingRow";
 import SelectField from "@/components/Forms/SelectField";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  GA4_EVENTS_TEMPLATE,
   getColumnMappingError,
-  getDefaultPartitionColumn,
   getDefaultTimestampColumn,
   getNewFactTableProjects,
-  getPartitionFormats,
-  getPickerTableColumns,
-  getPickerTableName,
-  getPickerTableSql,
-  isGA4EventsTable,
+  findEventTypeColumn,
+  getRemappedUserIdColumns,
+  rematchColumn,
+  rematchUserIdColumns,
   isIdentifierCandidate,
-  isPseudoColumn,
   isTimestampCandidate,
 } from "@/services/factTables";
-import { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 import track from "@/services/track";
-import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
@@ -84,19 +65,8 @@ import { Select, SelectItem } from "@/ui/Select";
 import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Link from "@/ui/Link";
-
-const normalizeIdentifier = (name: string) =>
-  name.replace(/[^a-z]/gi, "").toLowerCase();
-
-const INLINE_FILTER_CANDIDATES = [
-  "event_name",
-  "eventName",
-  "event_type",
-  "eventType",
-  "event",
-  "se_action",
-];
 
 const TABLE_TYPES: {
   value: FactTableType;
@@ -123,98 +93,6 @@ const TABLE_TYPES: {
 ];
 
 const MANY_COLUMNS = 50;
-
-const validColumn = (options: DetectedFactTableColumn[], column: string) =>
-  options.some((c) => c.column === column) ? column : "";
-
-function MappingRow({
-  icon,
-  label,
-  value,
-  options,
-  setValue,
-  onRemove,
-  append,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  options: DetectedFactTableColumn[];
-  setValue: (column: string) => void;
-  onRemove?: () => void;
-  append?: ReactNode;
-}) {
-  const [adding, setAdding] = useState(false);
-  const selected = validColumn(options, value);
-
-  return (
-    <TableRow align="center">
-      <TableCell style={{ width: "40%" }}>
-        <Flex align="center" gap="2">
-          {icon}
-          <Text size="sm" weight="medium">
-            {label}
-          </Text>
-        </Flex>
-      </TableCell>
-      {selected || adding || !onRemove ? (
-        <>
-          <TableCell>
-            <Flex align="center" gap="2">
-              <Box flexGrow="1" minWidth="0">
-                <Select
-                  size="sm"
-                  mb="0"
-                  autoFocus={adding}
-                  value={selected || undefined}
-                  setValue={setValue}
-                  placeholder="Select a column..."
-                >
-                  {options.map((c) => (
-                    <SelectItem key={c.column} value={c.column}>
-                      {c.column}
-                    </SelectItem>
-                  ))}
-                </Select>
-              </Box>
-              {selected ? append : null}
-            </Flex>
-          </TableCell>
-          <TableCell style={{ width: "40px" }}>
-            {onRemove ? (
-              <Flex align="center">
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  color="gray"
-                  size="1"
-                  onClick={() => {
-                    setAdding(false);
-                    onRemove();
-                  }}
-                  aria-label={`Remove ${label}`}
-                >
-                  <PiX />
-                </IconButton>
-              </Flex>
-            ) : null}
-          </TableCell>
-        </>
-      ) : (
-        <TableCell colSpan={2}>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<PiPlus />}
-            onClick={() => setAdding(true)}
-          >
-            Add column
-          </Button>
-        </TableCell>
-      )}
-    </TableRow>
-  );
-}
 
 function AdditionalColumnsRow({
   value,
@@ -246,7 +124,7 @@ function AdditionalColumnsRow({
     <TableRow align="start">
       <TableCell>
         <Flex align="center" gap="2" height="24px">
-          <PiColumnsBold />
+          <ColumnKindIcon kind="columns" />
           <Text size="sm" weight="medium">
             Additional columns
           </Text>
@@ -414,114 +292,135 @@ function AdditionalColumnsRow({
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
+// Only event streams have an event column here; other types can still prompt
+// on a column from the column editor.
+function getSavedMapping(factTable: FactTableInterface | undefined): {
+  timestampColumn: string;
+  userIdColumns: Record<string, string>;
+  inlineFilterColumn: string;
+  tableType: FactTableType;
+} {
+  if (!factTable) {
+    return {
+      timestampColumn: "",
+      userIdColumns: {},
+      inlineFilterColumn: "",
+      tableType: "event",
+    };
+  }
+  const inlineFilterColumn =
+    factTable.columns.find(
+      (c) => c.alwaysInlineFilter && !c.deleted && !c.isVirtual,
+    )?.column ?? "";
+  const tableType =
+    factTable.tableType ?? (inlineFilterColumn ? "event" : "other");
+  return {
+    timestampColumn: getFactTableTimestampColumn(factTable),
+    userIdColumns: Object.fromEntries(
+      factTable.userIdTypes.map((t) => [t, getFactTableIdColumn(factTable, t)]),
+    ),
+    inlineFilterColumn: tableType === "event" ? inlineFilterColumn : "",
+    tableType,
+  };
+}
+
 export default function NewFactTableModal({
   close,
   datasourceId: initialDatasourceId,
   lockDatasource = false,
+  existing,
+  duplicate = false,
+  editSql = false,
+  onCreate,
 }: {
   close: () => void;
   datasourceId?: string;
   lockDatasource?: boolean;
+  // Edits this Fact Table, or creates a copy of it with `duplicate`
+  existing?: FactTableInterface;
+  duplicate?: boolean;
+  // Opens an edit on the SQL instead of the mapping
+  editSql?: boolean;
+  // Replaces opening the new Fact Table's page
+  onCreate?: (factTable: FactTableInterface) => void;
 }) {
   const router = useRouter();
-  const growthbook = useGrowthBook();
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature } = useUser();
   const { datasources, project, getDatasourceById, mutateDefinitions } =
     useDefinitions();
 
-  const [step, setStep] = useState(0);
+  const isEdit = !!existing && !duplicate;
+  // The page's "Edit SQL" link opened a separate modal that sent no events
+  // before, so its edits are told apart from the "Edit" menu's
+  const editProps = isEdit
+    ? { source: editSql ? "edit-sql" : "edit-menu" }
+    : undefined;
+  useEffect(() => {
+    track(
+      isEdit
+        ? "Viewed Edit Fact Table Modal"
+        : "Viewed Create Fact Table Modal",
+      editProps,
+    );
+    // Once per open
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Seeded once, since the page keeps refreshing `existing` in the background
+  const [saved] = useState(() => getSavedMapping(existing));
+  // Stand in for a test run, so a saved Fact Table starts on the mapping
+  const [savedColumns] = useState<DetectedColumn[] | null>(() => {
+    const columns = (existing?.columns ?? [])
+      .filter((c) => !c.deleted && !c.isVirtual)
+      .map(({ column, datatype, jsonFields }) => ({
+        column,
+        datatype,
+        ...(jsonFields ? { jsonFields } : {}),
+      }));
+    return columns.length ? columns : null;
+  });
+
+  const [step, setStep] = useState(savedColumns && !editSql ? 1 : 0);
   const [datasourceId, setDatasourceId] = useState(
     () =>
+      existing?.datasource ||
       initialDatasourceId ||
       getNewExperimentDatasourceDefaults({ datasources, settings, project })
         .datasource,
   );
-  const [sql, setSql] = useState("");
-  const [preferredMode, setMode] = useState<FactTableSqlMode>("table");
-  const [selectedTable, setSelectedTable] = useState<SchemaBrowserTable | null>(
-    null,
-  );
-  const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
+  const [sql, setSql] = useState(existing?.sql ?? "");
   const [removedColumns, setRemovedColumns] = useState<string[]>([]);
-  // Null until the user picks one; an empty column means no partition filter
-  const [partitionChoice, setPartitionChoice] = useState<{
-    column: string;
-    format: string;
-  } | null>(null);
 
-  const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
-    null,
+  const [name, setName] = useState(existing?.name ?? "");
+  const [eventName, setEventName] = useState(existing?.eventName ?? "");
+  const [timestampColumn, setTimestampColumn] = useState(saved.timestampColumn);
+  const [userIdColumns, setUserIdColumns] = useState(saved.userIdColumns);
+  const [inlineFilterColumn, setInlineFilterColumn] = useState(
+    saved.inlineFilterColumn,
   );
-  const [detectedSql, setDetectedSql] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [timestampColumn, setTimestampColumn] = useState("");
-  const [userIdColumns, setUserIdColumns] = useState<Record<string, string>>(
-    {},
-  );
-  const [inlineFilterColumn, setInlineFilterColumn] = useState("");
-  const [tableType, setTableType] = useState<FactTableType>("event");
+  const [tableType, setTableType] = useState(saved.tableType);
 
   const validateSql = useRef<(() => Promise<void>) | null>(null);
 
   // Keyed off a ref so a background definitions refresh can't wipe user edits.
-  const seededDatasource = useRef<string | null>(null);
+  const seededDatasource = useRef(existing?.datasource ?? null);
   useEffect(() => {
     if (seededDatasource.current === datasourceId) return;
     const datasource = getDatasourceById(datasourceId);
     if (!datasource) return;
     seededDatasource.current = datasourceId;
     setSql(getInitialFactTableQuery(datasource).sql);
-    setSelectedTable(null);
-    setRowFilters([]);
     setRemovedColumns([]);
   }, [datasourceId, getDatasourceById]);
 
   const datasource = getDatasourceById(datasourceId);
-  const tableModeAvailable = growthbook.isOn("fact-table-table-mode");
-  const mode = tableModeAvailable ? preferredMode : "sql";
-
-  const [unlistedColumns, setUnlistedColumns] = useState<{
-    columns?: Column[];
-    error?: string;
-  } | null>(null);
-
-  const selectTable = (table: SchemaBrowserTable) => {
-    // Unlisted tables share an empty id
-    if (table.path === selectedTable?.path) return;
-    if (
-      !name ||
-      (selectedTable && name === getPickerTableName(selectedTable))
-    ) {
-      setName(getPickerTableName(table));
-    }
-    setSelectedTable(table);
-    setUnlistedColumns(null);
-    setRowFilters([]);
-    setRemovedColumns([]);
-    setPartitionChoice(null);
-    // Otherwise the previous table's mappings carry over
-    setDetected(null);
-    setTimestampColumn("");
-    setUserIdColumns({});
-    setInlineFilterColumn("");
-  };
+  const validDatasources = datasources
+    .filter((d) => isProjectListValidForProject(d.projects, project))
+    .filter((d) => d.properties?.queryLanguage === "sql");
   const identifierTypes = (datasource?.settings?.userIdTypes || []).map(
     (t) => t.userIdType,
-  );
-
-  const timestampOptions = (detected || []).filter(isTimestampCandidate);
-  const identifierOptions = (detected || []).filter(isIdentifierCandidate);
-  // An event type is a low-cardinality string many rows share. A column named
-  // like an id holds a value per row, so offering it would build a metric
-  // filter whose dropdown lists every id in the table.
-  const inlineFilterOptions = (detected || []).filter(
-    (c) =>
-      c.datatype === "string" &&
-      !/id$/i.test(c.column) &&
-      c.column !== timestampColumn &&
-      !Object.values(userIdColumns).includes(c.column),
   );
 
   const removeIdentifier = (idType: string) =>
@@ -531,300 +430,104 @@ export default function NewFactTableModal({
       return next;
     });
 
-  const handleColumnsDetected = useCallback(
-    (columns: DetectedFactTableColumn[], ranSql: string | null) => {
-      setDetectedSql(ranSql);
-      setDetected(columns);
-
-      // Only re-detect when the SQL returns a different set of columns.
-      // Better types for the same columns leave the configuration alone.
-      if (
-        detected &&
-        detected.length === columns.length &&
-        detected.every((c, i) => c.column === columns[i].column)
-      ) {
-        return;
-      }
-
-      const exists = (column: string) =>
-        columns.some((c) => c.column === column);
-
-      const idTypes = (datasource?.settings?.userIdTypes || []).map(
-        (t) => t.userIdType,
-      );
-
-      // A mapping the user picked survives as long as its column does; only
-      // the ones that no longer resolve are detected again.
-      setTimestampColumn((prev) =>
-        exists(prev) ? prev : getDefaultTimestampColumn(columns),
-      );
-      setUserIdColumns((prev) =>
-        Object.fromEntries(
-          idTypes.flatMap((idType) => {
-            const current = prev[idType];
-            if (current && exists(current)) return [[idType, current]];
-            const match = columns.find(
-              (c) =>
-                normalizeIdentifier(c.column) === normalizeIdentifier(idType),
-            );
-            return match ? [[idType, match.column]] : [];
-          }),
-        ),
-      );
-      if (exists(inlineFilterColumn)) return;
-      // Case-insensitive: Snowflake's information schema reports EVENT_NAME
-      const eventTypeColumn =
-        INLINE_FILTER_CANDIDATES.map((candidate) =>
-          columns.find(
-            (c) =>
-              c.datatype === "string" &&
-              c.column.toLowerCase() === candidate.toLowerCase(),
-          ),
-        ).find(Boolean)?.column ?? "";
-      setInlineFilterColumn(eventTypeColumn);
-      setTableType(eventTypeColumn ? "event" : "model");
-    },
-    [detected, datasource, inlineFilterColumn],
-  );
-
-  const {
-    data: tableData,
-    error: tableDataError,
-    isValidating: validatingTableData,
-    mutate: mutateTableData,
-  } = useApi<{
-    table: InformationSchemaTablesInterface;
-  }>(`/datasource/${datasourceId}/schema/table/${selectedTable?.id}`, {
-    shouldRun: () => !!selectedTable?.id,
-  });
-
-  // A table the information schema doesn't list gets its columns from a
-  // LIMIT 0 query instead
-  const unlistedPath =
-    selectedTable && !selectedTable.id ? selectedTable.path : null;
-  const [unlistedAttempt, setUnlistedAttempt] = useState(0);
-  useEffect(() => {
-    if (!unlistedPath) return;
-    let cancelled = false;
-    apiCall<{ error?: string; columns?: DetectedFactTableColumn[] }>(
-      "/query/test",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          query: `SELECT * FROM ${unlistedPath}`,
-          datasourceId,
-          limit: 0,
-          detectColumns: true,
-        }),
-      },
-    )
-      .then((res) => ({
-        error: res.error,
-        // Detected types are already enum values, which map to themselves
-        columns: res.columns?.map((c) => ({
-          columnName: c.column,
-          dataType: c.datatype,
-        })),
-      }))
-      .catch((e) => ({ error: e.message, columns: undefined }))
-      .then((result) => {
-        if (!cancelled) setUnlistedColumns(result);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [unlistedPath, datasourceId, apiCall, unlistedAttempt]);
-
-  const tableColumns = unlistedPath
-    ? (unlistedColumns?.columns ?? null)
-    : (tableData?.table.columns ?? null);
-  // Hidden while SWR retries, so the retry shows as loading
-  const tableColumnsError = unlistedPath
-    ? (unlistedColumns?.error ?? null)
-    : validatingTableData
-      ? null
-      : (tableDataError?.message ?? null);
-  // Either way it's a warehouse query, which can take a few seconds
-  const loadingColumns =
-    mode === "table" && !!selectedTable && !tableColumns && !tableColumnsError;
-  const retryColumns = () => {
-    if (unlistedPath) {
-      setUnlistedColumns(null);
-      setUnlistedAttempt((n) => n + 1);
-    } else {
-      mutateTableData();
-    }
-  };
-  // Re-reads the columns from the warehouse instead of the cached copy.
-  // Unlisted tables aren't cached, and a table still loading has no copy yet.
-  const refreshColumns = async () => {
-    if (!selectedTable) return;
-    if (unlistedPath || !tableData) return retryColumns();
-    const res = await apiCall<{ table: InformationSchemaTablesInterface }>(
-      `/datasource/${datasourceId}/schema/table/${selectedTable.id}`,
-      { method: "PUT" },
+  // Better types for the same columns leave the configuration alone, so this
+  // only runs when the columns themselves change
+  const remapColumns = (columns: DetectedColumn[]) => {
+    setTimestampColumn((prev) =>
+      rematchColumn(prev, columns, () => getDefaultTimestampColumn(columns)),
     );
-    await mutateTableData({ table: res.table }, false);
+    setUserIdColumns((prev) =>
+      rematchUserIdColumns(prev, identifierTypes, columns),
+    );
+    // A saved Fact Table keeps its type and event column
+    if (existing || columns.some((c) => c.column === inlineFilterColumn)) {
+      return;
+    }
+    const eventTypeColumn = findEventTypeColumn(columns);
+    setInlineFilterColumn(eventTypeColumn);
+    setTableType(eventTypeColumn ? "event" : "model");
   };
 
-  const columnTypes = useMemo(
-    () =>
-      Object.fromEntries(
-        (tableColumns ?? []).map((c) => [
-          c.columnName,
-          mapDatabaseTypeToEnum(c.dataType),
-        ]),
-      ),
-    [tableColumns],
-  );
-  // Complex types can't be compared with a literal, so filters leave them out
-  const columnSource = useMemo(
-    () =>
-      tableColumns
-        ? columnTypesToColumnSource(
-            Object.fromEntries(
-              Object.entries(columnTypes).filter(([, t]) => t !== "other"),
-            ),
-          )
-        : null,
-    [tableColumns, columnTypes],
-  );
+  // Saved mappings stay options by name, as the server only type-checks a
+  // changed one: older Fact Tables didn't check column types, and an
+  // identifier can be a field inside a JSON column. The SQL step checks these
+  // same options.
+  const savedIdColumns = [...new Set(Object.values(saved.userIdColumns))];
+  const getTimestampOptions = (columns: DetectedColumn[]) =>
+    columns.filter(
+      (c) => isTimestampCandidate(c) || c.column === saved.timestampColumn,
+    );
+  const getIdentifierOptions = (columns: DetectedColumn[]) => [
+    ...columns.filter(
+      (c) => isIdentifierCandidate(c) || savedIdColumns.includes(c.column),
+    ),
+    ...savedIdColumns.flatMap((column) => {
+      const [root, field] = column.split(".");
+      const json = field
+        ? columns.find((c) => c.column === root && c.datatype === "json")
+        : undefined;
+      return json
+        ? [{ column, datatype: json.jsonFields?.[field]?.datatype ?? "" }]
+        : [];
+    }),
+  ];
 
-  // Pseudo-columns still feed the partition filter and row filters
-  const datasourceType = datasource?.type;
-  const outputColumns = useMemo(
-    () =>
-      tableColumns?.filter((c) => !isPseudoColumn(c, datasourceType)) ?? null,
-    [tableColumns, datasourceType],
-  );
-
-  // Table mode reads columns from the information schema instead of querying
-  const pickerColumns = useMemo(
-    () =>
-      selectedTable && outputColumns
-        ? getPickerTableColumns(selectedTable, outputColumns)
-        : null,
-    [selectedTable, outputColumns],
-  );
-  useEffect(() => {
-    if (mode === "table" && pickerColumns) {
-      handleColumnsDetected(pickerColumns, null);
-    }
-  }, [mode, pickerColumns, handleColumnsDetected]);
-
-  const columnNames = (outputColumns ?? []).map((c) => c.columnName);
-  const mappedColumns = [
-    timestampColumn,
-    tableType === "event" ? inlineFilterColumn : "",
-    ...Object.values(userIdColumns),
-  ].filter(Boolean);
-  const otherColumns = columnNames.filter((c) => !mappedColumns.includes(c));
-  const additionalColumns = otherColumns.filter(
-    (c) => !removedColumns.includes(c),
-  );
-  const sqlColumns =
-    additionalColumns.length === otherColumns.length
-      ? []
-      : columnNames.filter(
-          (c) => mappedColumns.includes(c) || additionalColumns.includes(c),
-        );
-
-  const dialect = datasource ? getDataSourceSqlDialect(datasource.type) : null;
-  const compileRowFilters = (filters: RowFilter[]) => {
-    if (!filters.length) return "";
-    if (!dialect) {
-      throw new Error("Row filters are not supported on this Data Source");
-    }
-    const now = new Date();
-    return buildRowFilterWhereClause({
-      rowFilters: filters,
-      factTable: {
-        columns: Object.entries(columnTypes).map(([column, datatype]) => ({
-          column,
-          datatype,
-          name: column,
-          description: "",
-          numberFormat: "",
-          deleted: false,
-          dateCreated: now,
-          dateUpdated: now,
-        })),
-        filters: [],
-        userIdTypes: [],
-      },
-      dialect,
-    });
-  };
-
-  // Null while the filters are incomplete or invalid
-  let rowFilterWhere: string | null = null;
-  let rowFilterError: string | null = null;
-  if (rowFilters.every(isRowFilterComplete)) {
-    try {
-      rowFilterWhere = compileRowFilters(rowFilters);
-    } catch (e) {
-      rowFilterError = e.message;
-    }
-  }
-
-  // Pseudo-columns can be picked too: they work in a WHERE
-  const partitionOptions = Object.entries(columnTypes)
-    .filter(([, datatype]) => datatype !== "boolean")
-    .map(([column, datatype]) => ({ column, datatype }));
-  const partitionColumn =
-    partitionChoice?.column ??
-    getDefaultPartitionColumn(tableColumns ?? [], datasourceType);
-  const partitionType = columnTypes[partitionColumn] ?? "";
-  const partitionFormats = getPartitionFormats(partitionType);
-  const partitionFormat =
-    partitionChoice && partitionFormats.includes(partitionChoice.format)
-      ? partitionChoice.format
-      : (partitionFormats[0] ?? "");
-
-  const buildTableSql = (where: string) =>
-    selectedTable
-      ? getPickerTableSql(selectedTable, {
-          partition: {
-            column: partitionColumn,
-            datatype: partitionType,
-            format: partitionFormat,
-          },
-          datasourceType: datasource?.type,
-          identifierQuote: dialect?.identifierQuote,
-          columns: sqlColumns,
-          rowFilterWhere: where,
-        })
-      : "";
-  const tableSql = buildTableSql(rowFilterWhere ?? "");
-
-  const testRowFilters = async (filters: RowFilter[]) => {
-    const where = compileRowFilters(filters);
-    const res = await apiCall<FactFilterTestResults>("/query/test", {
-      method: "POST",
-      body: JSON.stringify({
-        query: buildTableSql(where),
-        datasourceId,
-        limit: SAMPLE_ROW_LIMIT,
+  const source = useSourceTable({
+    datasource,
+    // A saved Fact Table keeps only its SQL, so edits stay in SQL mode
+    tableModeAvailable: !existing,
+    templates: [GA4_EVENTS_TEMPLATE],
+    queryType: "factTableTest",
+    sql,
+    setSql,
+    initialColumns: savedColumns,
+    getColumnMappingError: (columns, fromTable) =>
+      getColumnMappingError(columns, fromTable, {
+        timestampOptions: getTimestampOptions(columns),
+        identifierOptions: getIdentifierOptions(columns),
       }),
-    });
-    return { ...res, where };
-  };
-  const factTableSql = mode === "table" ? tableSql : sql;
+    columnSelection: {
+      mapped: [
+        timestampColumn,
+        tableType === "event" ? inlineFilterColumn : "",
+        ...Object.values(userIdColumns),
+      ].filter(Boolean),
+      removed: removedColumns,
+    },
+    onSelectTable: (tableName) => {
+      if (!name || name === source.tableName) setName(tableName);
+      setRemovedColumns([]);
+      // Otherwise the previous table's mappings carry over
+      setTimestampColumn("");
+      setUserIdColumns({});
+      setInlineFilterColumn("");
+    },
+    onColumnsChanged: remapColumns,
+  });
+  const {
+    mode,
+    selectedTable,
+    detected,
+    sqlColumns,
+    otherColumns,
+    additionalColumns,
+    partition,
+  } = source;
+  const factTableSql = source.querySql;
 
-  const changeMode = (next: FactTableSqlMode) => {
-    if (next === "sql" && selectedTable) setSql(tableSql);
-    setMode(next);
-  };
-
-  const hasFreshResults = detectedSql === factTableSql && !!detected?.length;
-  const columnError =
-    mode === "table"
-      ? pickerColumns
-        ? getColumnMappingError(pickerColumns, true)
-        : null
-      : hasFreshResults && detected
-        ? getColumnMappingError(detected)
-        : null;
+  const timestampOptions = getTimestampOptions(detected || []);
+  const identifierOptions = getIdentifierOptions(detected || []);
+  // An event type is a low-cardinality string many rows share. A column named
+  // like an id holds a value per row, so offering it would build a metric
+  // filter whose dropdown lists every id in the table.
+  const inlineFilterOptions = (detected || []).filter(
+    (c) =>
+      c.column === saved.inlineFilterColumn ||
+      (c.datatype === "string" &&
+        !/id$/i.test(c.column) &&
+        c.column !== timestampColumn &&
+        !Object.values(userIdColumns).includes(c.column)),
+  );
 
   const missingMapping = !validColumn(timestampOptions, timestampColumn)
     ? "Select a timestamp column"
@@ -842,11 +545,6 @@ export default function NewFactTableModal({
     const timestamp = validColumn(timestampOptions, timestampColumn);
     if (!timestamp) throw new Error("Select a timestamp column");
 
-    const inlineFilter =
-      tableType === "event"
-        ? validColumn(inlineFilterOptions, inlineFilterColumn)
-        : "";
-
     const userIdTypes = identifierTypes.filter((t) =>
       validColumn(identifierOptions, userIdColumns[t] || ""),
     );
@@ -854,24 +552,79 @@ export default function NewFactTableModal({
       throw new Error("Select at least one identifier column");
     }
 
-    // Only remapped types need to be stored; an identifier whose column matches
-    // its own name resolves without a mapping.
-    const remapped = Object.fromEntries(
-      userIdTypes
-        .filter((t) => userIdColumns[t] !== t)
-        .map((t) => [t, userIdColumns[t]]),
-    );
+    const remapped = getRemappedUserIdColumns(userIdTypes, userIdColumns);
+
+    const inlineFilter =
+      tableType === "event"
+        ? validColumn(inlineFilterOptions, inlineFilterColumn)
+        : "";
+
+    if (existing && !duplicate) {
+      // Other types leave prompted columns to the column editor. The server
+      // detects a column it hasn't stored yet before updating it.
+      const columnUpdates: NonNullable<UpdateFactTableProps["columnUpdates"]> =
+        {};
+      if (tableType === "event" && inlineFilter !== saved.inlineFilterColumn) {
+        if (saved.inlineFilterColumn) {
+          columnUpdates[saved.inlineFilterColumn] = {
+            alwaysInlineFilter: false,
+          };
+        }
+        if (inlineFilter) {
+          columnUpdates[inlineFilter] = { alwaysInlineFilter: true };
+        }
+      }
+      // A changed mapping re-detects columns, and older Fact Tables store
+      // identity mappings that `remapped` leaves out
+      const mappingChanged = !isEqual(
+        Object.fromEntries(userIdTypes.map((t) => [t, userIdColumns[t]])),
+        saved.userIdColumns,
+      );
+      const changes: UpdateFactTableProps = {
+        name,
+        sql: factTableSql,
+        tableType,
+        ...(mappingChanged ? { userIdTypes, userIdColumns: remapped } : {}),
+        // The server only type-checks a changed timestamp, which an older Fact
+        // Table's untyped one wouldn't pass
+        ...(timestamp !== saved.timestampColumn
+          ? { timestampColumn: timestamp }
+          : {}),
+        ...(usesEventName(factTableSql)
+          ? { eventName: eventName || name }
+          : {}),
+        ...(Object.keys(columnUpdates).length ? { columnUpdates } : {}),
+      };
+      await apiCall(`/fact-tables/${existing.id}`, {
+        method: "PUT",
+        body: JSON.stringify(changes),
+      });
+      track("Edit Fact Table", editProps);
+      await mutateDefinitions();
+      return;
+    }
 
     const columns =
       mode === "table" && sqlColumns.length
         ? detected.filter((c) => sqlColumns.includes(c.column))
         : detected;
 
+    // A copy keeps the daily aggregation job, where the server would allow it
+    const aggregated = existing?.aggregatedFactTableSettings;
+    const aggregatedIdTypes = (aggregated?.idTypes ?? []).filter((t) =>
+      userIdTypes.includes(t),
+    );
+    const copyAggregated =
+      !!aggregated &&
+      aggregatedIdTypes.length > 0 &&
+      hasCommercialFeature("pipeline-mode") &&
+      permissionsUtil.canUpdateDataSourceSettings(datasource);
+
     const body: CreateFactTableProps = {
       name,
-      description: "",
+      description: existing?.description ?? "",
       owner: "",
-      tags: [],
+      tags: existing?.tags ?? [],
       projects: getNewFactTableProjects({
         datasource,
         project,
@@ -879,7 +632,8 @@ export default function NewFactTableModal({
       }),
       datasource: datasourceId,
       sql: factTableSql,
-      eventName: name,
+      eventName: eventName || name,
+      managedBy: existing?.managedBy,
       tableType,
       userIdTypes,
       ...(Object.keys(remapped).length ? { userIdColumns: remapped } : {}),
@@ -892,6 +646,14 @@ export default function NewFactTableModal({
       })),
       // A background refresh re-detects types and loads inline filter values
       columnRefreshPending: true,
+      ...(copyAggregated
+        ? {
+            aggregatedFactTableSettings: {
+              ...aggregated,
+              idTypes: aggregatedIdTypes,
+            },
+          }
+        : {}),
     };
 
     const { factTable, error: apiError } = await apiCall<{
@@ -905,7 +667,8 @@ export default function NewFactTableModal({
 
     track("Create Fact Table");
     await mutateDefinitions();
-    router.push(`/fact-tables/${factTable.id}`);
+    if (onCreate) onCreate(factTable);
+    else router.push(`/fact-tables/${factTable.id}`);
   }
 
   const nameField = (
@@ -928,16 +691,16 @@ export default function NewFactTableModal({
   const mappingTable = (additionalRow?: ReactNode) => (
     <Table size="sm" variant="surface" layout="fixed" mb="2">
       <TableBody>
-        <MappingRow
-          icon={<PiClockBold />}
+        <ColumnMappingRow
+          kind="timestamp"
           label="Timestamp"
           value={timestampColumn}
           options={timestampOptions}
           setValue={setTimestampColumn}
         />
         {tableType === "event" ? (
-          <MappingRow
-            icon={<PiFunnelBold />}
+          <ColumnMappingRow
+            kind="event"
             label="Event name"
             value={inlineFilterColumn}
             options={inlineFilterOptions}
@@ -946,9 +709,9 @@ export default function NewFactTableModal({
           />
         ) : null}
         {identifierTypes.map((idType) => (
-          <MappingRow
+          <ColumnMappingRow
             key={idType}
-            icon={<PiUserBold />}
+            kind="identifier"
             label={idType}
             value={userIdColumns[idType] || ""}
             options={identifierOptions}
@@ -967,41 +730,38 @@ export default function NewFactTableModal({
     </Table>
   );
 
-  const isGA4 = !!selectedTable && isGA4EventsTable(selectedTable);
+  const isGA4 = source.template === GA4_EVENTS_TEMPLATE;
 
   return (
     <PagedModal
-      trackingEventModalType="new-fact-table"
-      header="New Fact Table"
+      trackingEventModalType={isEdit ? "edit-fact-table" : "new-fact-table"}
+      header={
+        isEdit
+          ? "Edit Fact Table"
+          : duplicate
+            ? "Duplicate Fact Table"
+            : "New Fact Table"
+      }
       step={step}
       setStep={setStep}
       submit={submit}
       close={close}
-      cta="Create Fact Table"
+      cta={isEdit ? "Save" : "Create Fact Table"}
       size={step === 0 && mode === "sql" ? "max" : "md"}
       disabledMessage={
         (step > 0
           ? missingMapping
-          : loadingColumns
+          : source.loadingColumns
             ? "Loading columns..."
             : null) ?? undefined
       }
-      ctaEnabled={
-        step > 0
-          ? !missingMapping
-          : !columnError &&
-            (mode === "sql" || (!!pickerColumns && rowFilterWhere !== null))
-      }
+      ctaEnabled={step > 0 ? !missingMapping : source.canContinue}
       overflowAuto={false}
       autoFocusSelector=""
       hideNav
       bodyClassName="p-0"
       backButton
-      onBackFirstStep={
-        mode === "sql" && tableModeAvailable
-          ? () => changeMode("table")
-          : undefined
-      }
+      onBackFirstStep={source.backToTableMode}
     >
       <Page
         display="Write SQL"
@@ -1017,31 +777,34 @@ export default function NewFactTableModal({
               : { maxHeight: BODY_HEIGHT, overflowY: "auto" }
           }
         >
-          <NewFactTableSqlStep
+          <SourceStep
             key={mode}
-            datasourceId={datasourceId}
-            setDatasourceId={setDatasourceId}
-            lockDatasource={lockDatasource}
-            sql={factTableSql}
-            setSql={setSql}
-            detected={detected}
-            hasFreshResults={hasFreshResults}
-            onColumnsDetected={handleColumnsDetected}
+            source={source}
             validateRef={validateSql}
-            mode={mode}
-            setMode={changeMode}
-            columnError={columnError}
-            selectedTable={selectedTable}
-            onSelectTable={selectTable}
-            tableColumnsError={tableColumnsError}
-            loadingColumns={loadingColumns}
-            retryColumns={retryColumns}
-            refreshColumns={refreshColumns}
-            rowFilters={rowFilters}
-            setRowFilters={setRowFilters}
-            columnSource={columnSource}
-            testRowFilters={testRowFilters}
-            rowFilterError={rowFilterError}
+            placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
+            templateVariables={{ eventName: eventName || name }}
+            datasourceHeader={
+              // The server doesn't take a new Data Source on update
+              <Tooltip
+                body="A saved Fact Table's Data Source can't be changed. Duplicate it to use another one."
+                shouldDisplay={isEdit}
+              >
+                <Select
+                  aria-label="Data Source"
+                  value={datasourceId}
+                  setValue={setDatasourceId}
+                  disabled={lockDatasource || isEdit}
+                  placeholder="Select..."
+                  mb="0"
+                >
+                  {validDatasources.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </Tooltip>
+            }
           />
         </Box>
       </Page>
@@ -1087,7 +850,7 @@ export default function NewFactTableModal({
                         </Box>
                       );
                     }}
-                    size="small"
+                    size="md"
                     sort={false}
                     isSearchable={false}
                   />
@@ -1101,46 +864,34 @@ export default function NewFactTableModal({
                   {mappingTable(
                     isGA4 ? null : (
                       <>
-                        <MappingRow
-                          icon={<PiCalendarBold />}
-                          label="Date partition"
-                          value={partitionColumn}
-                          options={partitionOptions}
-                          setValue={(column) =>
-                            setPartitionChoice({
-                              column,
-                              format: partitionFormat,
-                            })
-                          }
-                          onRemove={() =>
-                            setPartitionChoice({
-                              column: "",
-                              format: partitionFormat,
-                            })
-                          }
-                          append={
-                            partitionFormats.length ? (
-                              <Select
-                                size="sm"
-                                mb="0"
-                                aria-label="Partition format"
-                                value={partitionFormat}
-                                setValue={(format) =>
-                                  setPartitionChoice({
-                                    column: partitionColumn,
-                                    format,
-                                  })
-                                }
-                              >
-                                {partitionFormats.map((f) => (
-                                  <SelectItem key={f} value={f}>
-                                    {f.toUpperCase()}
-                                  </SelectItem>
-                                ))}
-                              </Select>
-                            ) : null
-                          }
-                        />
+                        {partition.available ? (
+                          <ColumnMappingRow
+                            kind="partition"
+                            label="Date partition"
+                            tooltip="Only reads partitions from each query's start date on, to limit data scanned"
+                            value={partition.column}
+                            options={partition.options}
+                            setValue={partition.setColumn}
+                            onRemove={() => partition.setColumn("")}
+                            append={
+                              partition.formats.length ? (
+                                <Select
+                                  size="sm"
+                                  mb="0"
+                                  aria-label="Partition format"
+                                  value={partition.format}
+                                  setValue={partition.setFormat}
+                                >
+                                  {partition.formats.map((f) => (
+                                    <SelectItem key={f} value={f}>
+                                      {f.toUpperCase()}
+                                    </SelectItem>
+                                  ))}
+                                </Select>
+                              ) : null
+                            }
+                          />
+                        ) : null}
                         <AdditionalColumnsRow
                           value={additionalColumns}
                           setValue={(kept) =>
@@ -1149,7 +900,7 @@ export default function NewFactTableModal({
                             )
                           }
                           options={otherColumns}
-                          columnTypes={columnTypes}
+                          columnTypes={source.columnTypes}
                         />
                       </>
                     ),
@@ -1176,7 +927,18 @@ export default function NewFactTableModal({
                   expandable
                   collapsedLines={3}
                   filename={
-                    <Link onClick={() => setStep(0)}>
+                    <Link
+                      onClick={() => {
+                        // Matches the old create modal's SQL button; editing
+                        // never sent it
+                        if (!isEdit) {
+                          track("Edit Fact Table SQL", {
+                            type: datasource?.settings?.schemaFormat,
+                          });
+                        }
+                        setStep(0);
+                      }}
+                    >
                       <Flex align="center" gap="1">
                         <PiArrowLeft /> Edit SQL
                       </Flex>
@@ -1184,6 +946,15 @@ export default function NewFactTableModal({
                   }
                 />
                 {nameField}
+                {usesEventName(factTableSql) ? (
+                  <TextField
+                    label="Event name in database"
+                    helpText="Fills {{eventName}} in your SQL. Leave blank to use the Fact Table name."
+                    value={eventName}
+                    placeholder={name}
+                    onChange={(e) => setEventName(e.target.value)}
+                  />
+                ) : null}
 
                 <Box pt="2">
                   <Text as="div" weight="semibold" mb="2">

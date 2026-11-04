@@ -48,6 +48,18 @@ export const eventForwarderAccessTestConfigSchema = z.discriminatedUnion(
   ],
 );
 
+export const eventForwarderDetectRegionBodySchema = z.object({
+  type: z.enum(["bigquery", "snowflake", "databricks"]),
+  params: datasourceParamsSchema,
+  projects: z.array(z.string()).optional(),
+  location: z.string(),
+  zerobusEndpoint: z.string().optional(),
+});
+
+export type EventForwarderDetectRegionBody = z.infer<
+  typeof eventForwarderDetectRegionBodySchema
+>;
+
 export const eventForwarderAccessTestCreateBodySchema = z.object({
   type: z.enum(["bigquery", "snowflake", "databricks"]),
   params: datasourceParamsSchema,

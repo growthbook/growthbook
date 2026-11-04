@@ -196,6 +196,13 @@ function readableConnections(
     );
 }
 
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountSDKConnectionsByOrganization(
+  organization: string,
+): Promise<number> {
+  return SDKConnectionModel.countDocuments({ organization });
+}
+
 // Not filtered by the caller's project read access: used as a referential
 // integrity check before an environment is removed.
 export async function countSDKConnectionsByEnvironment(
@@ -234,6 +241,7 @@ export async function findSDKConnectionsByIds(
 
 // Not org-scoped — authenticated callers must scope to their own org.
 export async function findSDKConnectionByKey(key: string) {
+  if (key && typeof key !== "string") return null;
   const doc = await SDKConnectionModel.findOne({ key });
   return doc ? toInterface(doc) : null;
 }
@@ -551,6 +559,7 @@ export async function deleteSDKConnectionModel(
 }
 
 export async function markSDKConnectionUsed(key: string) {
+  if (key && typeof key !== "string") return;
   await SDKConnectionModel.updateOne(
     { key },
     {

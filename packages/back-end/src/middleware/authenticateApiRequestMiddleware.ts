@@ -4,8 +4,10 @@ import {
   getRoleDisplayName,
   getRolePermissions,
   hasPermission,
+  hasSuperAdminPermission,
   isApiKeyOnlyRole,
 } from "shared/permissions";
+import { SuperAdmin } from "shared/validators";
 import {
   EventUserLoggedIn,
   EventUserRequestedBy,
@@ -123,8 +125,12 @@ function authenticateWithJwt(
       };
 
       req.apiKey = "";
-      req.user = authReq.currentUser
-        ? (await getUserById(authReq.currentUser.id)) || undefined
+      const dbUser = authReq.currentUser
+        ? await getUserById(authReq.currentUser.id)
+        : null;
+      // processJWT may have demoted super admin for this login; the stored value must not restore it
+      req.user = dbUser
+        ? { ...dbUser, superAdmin: authReq.superAdmin ?? false }
         : undefined;
       req.organization = context.org;
       req.eventAudit = eventAudit;
@@ -293,9 +299,9 @@ function authenticateWithApiKey(
             "OAuth access tokens can only access the organization they were issued for",
           );
         }
-        if (!req.user?.superAdmin) {
+        if (!hasSuperAdminPermission(req.user?.superAdmin, "impersonate")) {
           throw new Error(
-            "Only super admins can use the x-organization header",
+            "Only super admins with the impersonate permission can use the x-organization header",
           );
         } else {
           asOrg = xOrganizationHeader;
@@ -325,7 +331,10 @@ function authenticateWithApiKey(
         );
       }
 
-      if (org.suspended && !req.user?.superAdmin) {
+      if (
+        org.suspended &&
+        !hasSuperAdminPermission(req.user?.superAdmin, "impersonate")
+      ) {
         return res.status(403).json({
           message:
             "This account has been suspended. Please contact support@growthbook.io for assistance.",
@@ -336,7 +345,7 @@ function authenticateWithApiKey(
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned
       if (
         userId &&
-        !req.user?.superAdmin &&
+        !hasSuperAdminPermission(req.user?.superAdmin, "impersonate") &&
         !isApiKeyForUserInOrganization(apiKeyDoc, org)
       ) {
         throw new Error("Could not find user attached to this API key");
@@ -443,7 +452,7 @@ function doesUserHavePermission(
   permission: Permission,
   apiKeyDoc: ApiKeyInterface,
   teams: TeamInterface[],
-  superAdmin: boolean | undefined,
+  superAdmin: SuperAdmin | undefined,
   restrictedProjects: string[],
   project?: string,
   envs?: string[],
@@ -477,7 +486,7 @@ type VerifyApiKeyPermissionOptions = {
   project?: string;
   environments?: string[];
   teams: TeamInterface[];
-  superAdmin: boolean | undefined;
+  superAdmin: SuperAdmin | undefined;
   restrictedProjects?: string[];
   keyPermissions?: UserPermissions;
 };
