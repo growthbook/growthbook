@@ -286,6 +286,7 @@ export interface OrganizationSettings {
   regressionAdjustmentDays?: number;
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
+  noDataAlertGracePeriodHours?: number;
   aiEnabled?: boolean;
   aiAskDataEnabled?: boolean;
   /** Inline suggestions in the AI Assistant composer. Unset means on. */

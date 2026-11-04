@@ -67,6 +67,7 @@ describe("getSafeRolloutResultStatus with errored guardrails", () => {
     experimentMinLengthDays: 7,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    noDataAlertGracePeriodHours: 0,
   };
 
   function makeSafeRollout(
@@ -1465,6 +1466,7 @@ describe("getContextualBanditResultStatus", () => {
     experimentMinLengthDays: 3,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    noDataAlertGracePeriodHours: 0,
   };
 
   it("flags SRM when the p-value is below the threshold", () => {
@@ -1987,6 +1989,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
     experimentMinLengthDays: 7,
+    noDataAlertGracePeriodHours: 0,
   };
 
   const daysAgo = (n: number): Date =>
@@ -2282,6 +2285,71 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       erroredMetrics: ["metric-1"],
     });
   });
+
+  it("shows no-data immediately when grace period is 0 and totalUsers is 0", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        dateStarted: hoursFromNow(-1),
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toMatchObject({ status: "no-data" });
+  });
+
+  it("suppresses no-data while within the configured grace period", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        dateStarted: hoursFromNow(-1),
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+          },
+        },
+      }),
+      healthSettings: {
+        ...baseHealthSettings,
+        noDataAlertGracePeriodHours: 24,
+      },
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result?.status).not.toBe("no-data");
+  });
+
+  it("shows no-data once the phase is older than the grace period", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        dateStarted: hoursFromNow(-25),
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: { srm: 1, multipleExposures: 0, totalUsers: 0 },
+        },
+      }),
+      healthSettings: {
+        ...baseHealthSettings,
+        noDataAlertGracePeriodHours: 24,
+      },
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toMatchObject({ status: "no-data" });
+  });
 });
 
 describe("getStatusIndicatorData for contextual Bandits", () => {
@@ -2290,6 +2358,7 @@ describe("getStatusIndicatorData for contextual Bandits", () => {
     experimentMinLengthDays: 3,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    noDataAlertGracePeriodHours: 0,
   };
 
   function cbStatus(

@@ -30,6 +30,7 @@ import {
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
@@ -289,6 +290,9 @@ export function getHealthSettings(
     multipleExposureMinPercent:
       settings?.multipleExposureMinPercent ??
       DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+    noDataAlertGracePeriodHours:
+      settings?.noDataAlertGracePeriodHours ??
+      DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
   };
 }
 
@@ -587,8 +591,9 @@ export function getExperimentResultStatus({
     daysBetween(lastPhase.dateStarted, new Date()) <
       healthSettings.experimentMinLengthDays;
 
-  const withinFirstDay = lastPhase?.dateStarted
-    ? daysBetween(lastPhase.dateStarted, new Date()) < 1
+  const withinNoDataGracePeriod = lastPhase?.dateStarted
+    ? hoursBetween(lastPhase.dateStarted, new Date()) <
+      healthSettings.noDataAlertGracePeriodHours
     : false;
 
   const isLowPowered =
@@ -702,8 +707,8 @@ export function getExperimentResultStatus({
     };
   }
 
-  // 2. Show no data if no data is present
-  if (healthSummary?.totalUsers === 0 && !withinFirstDay) {
+  // 2. Show no data if no data is present (after the configurable grace period)
+  if (healthSummary?.totalUsers === 0 && !withinNoDataGracePeriod) {
     return {
       status: "no-data",
     };

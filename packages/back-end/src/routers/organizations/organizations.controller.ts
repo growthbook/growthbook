@@ -24,6 +24,8 @@ import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import {
   AgreementType,
   ConfirmRule,
+  MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
+  noDataAlertGracePeriodHoursValidator,
   updateSdkWebhookValidator,
 } from "shared/validators";
 import { entityTypes } from "shared/constants";
@@ -1850,6 +1852,17 @@ export async function putOrganization(
     ) {
       throw new Error(
         "Top values lookback value must be an integer between 1 and 365",
+      );
+    }
+
+    if (
+      settings?.noDataAlertGracePeriodHours !== undefined &&
+      !noDataAlertGracePeriodHoursValidator.safeParse(
+        settings.noDataAlertGracePeriodHours,
+      ).success
+    ) {
+      throw new Error(
+        `No data grace period must be between 0 and ${MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS} hours`,
       );
     }
 

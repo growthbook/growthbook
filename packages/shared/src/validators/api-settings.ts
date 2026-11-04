@@ -2,6 +2,14 @@ import { z } from "zod";
 
 import { namedSchema, retiredRiskDefault } from "./openapi-helpers";
 
+export const MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS = 168;
+
+export const noDataAlertGracePeriodHoursValidator = z
+  .number()
+  .finite()
+  .min(0)
+  .max(MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS);
+
 // Approval rules are project-scoped: a rule with no `projects` is the
 // all-projects rule, and a project override inherits any field it omits.
 const requireReviewRuleFields = {
@@ -116,6 +124,10 @@ export const apiSettingsValidator = namedSchema(
         })
         .nullable(),
       multipleExposureMinPercent: z.coerce.number(),
+      noDataAlertGracePeriodHours: z.coerce
+        .number()
+        .pipe(noDataAlertGracePeriodHoursValidator)
+        .optional(),
       defaultRole: z.object({
         role: z.string().optional(),
         limitAccessByEnvironment: z.boolean().optional(),

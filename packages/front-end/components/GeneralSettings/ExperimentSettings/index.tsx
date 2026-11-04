@@ -2,6 +2,7 @@ import cronstrue from "cronstrue";
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
+import { MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS } from "shared/validators";
 import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
@@ -495,6 +496,33 @@ export default function ExperimentSettings() {
                 valueAsNumber: true,
                 min: 0,
                 max: 100,
+              })}
+            />
+          </Box>
+        </SettingsField>
+
+        <SettingsField
+          name="noDataAlertGracePeriodHours"
+          htmlFor="settings-noDataAlertGracePeriodHours"
+          label="No data grace period"
+          help="Wait this long after a phase starts before showing the No Data status or sending no-data alerts."
+        >
+          <Box width="150px">
+            <Field
+              id="settings-noDataAlertGracePeriodHours"
+              size="md"
+              type="number"
+              step="1"
+              min="0"
+              max={MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS}
+              append="hours"
+              containerClassName="mb-0"
+              disabled={hasFileConfig()}
+              placeholder={defaultFor("noDataAlertGracePeriodHours")}
+              {...form.register("noDataAlertGracePeriodHours", {
+                valueAsNumber: true,
+                min: 0,
+                max: MAX_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
               })}
             />
           </Box>

@@ -78228,6 +78228,10 @@ components:
             - type: 'null'
         multipleExposureMinPercent:
           type: number
+        noDataAlertGracePeriodHours:
+          type: number
+          minimum: 0
+          maximum: 168
         defaultRole:
           type: object
           properties:

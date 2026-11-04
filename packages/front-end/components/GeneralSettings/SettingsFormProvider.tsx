@@ -25,6 +25,7 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_SRM_THRESHOLD,
+  DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
@@ -220,6 +221,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 1,
+      noDataAlertGracePeriodHours: DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
       confidenceLevel: 95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
@@ -508,6 +510,12 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
         multipleExposureMinPercent:
           (value.multipleExposureMinPercent ?? 0.01) / 100,
+        // A cleared number input yields NaN — fall back to the default
+        noDataAlertGracePeriodHours: Number.isFinite(
+          value.noDataAlertGracePeriodHours,
+        )
+          ? value.noDataAlertGracePeriodHours
+          : DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
         preferredEnvironment: value.preferredEnvironment || null,
         // A cleared number input yields NaN — normalize to 0 (cap disabled)
         maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
