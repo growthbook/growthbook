@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import isEqual from "lodash/isEqual";
 import { PiCaretUp } from "react-icons/pi";
 import {
+  SavedGroupFormat,
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
@@ -12,6 +13,8 @@ import {
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
+import { Popover } from "@/ui/Popover";
+import { StagedChange } from "@/components/Experiment/TabbedPage/StagedChanges";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -47,6 +50,7 @@ import {
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
   CATEGORY_TITLES,
+  SAVED_GROUP_FORMAT_LABELS,
   SETTING_TITLES,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 import {
@@ -105,38 +109,82 @@ const ROW_FIELDS: Record<string, string[]> = {
   proxy: ["proxyEnabled", "proxyHost"],
 };
 
+// Each setting as the page labels it.
 const FIELD_LABELS: Record<string, string> = {
   name: "Name",
   languages: "SDK",
   sdkVersion: "SDK version",
   environment: "Environment",
   projects: "Projects",
-  includeReferencedPrerequisites: "Prerequisite Feature Flags",
+  includeReferencedPrerequisites: SETTING_TITLES.prerequisites,
   encryptPayload: "Encrypt payload",
   hashSecureAttributes: "Hash secure attributes",
-  remoteEvalEnabled: "Remote evaluation",
-  includeVisualExperiments: "Visual Editor experiments",
-  includeRedirectExperiments: "URL Redirect experiments",
-  includeExperimentNames: "Experiment names",
-  savedGroupFormat: "Saved Groups by reference",
-  includeProjectIdInMetadata: "Project IDs",
-  includeCustomFieldsInMetadata: "Custom fields",
+  remoteEvalEnabled: "Use remote evaluation",
+  includeVisualExperiments: SETTING_TITLES.visualEditor,
+  includeRedirectExperiments: SETTING_TITLES.urlRedirect,
+  includeExperimentNames: SETTING_TITLES.hideNames,
+  savedGroupFormat: SETTING_TITLES.savedGroupReferences,
+  includeProjectIdInMetadata: SETTING_TITLES.projectIds,
+  includeCustomFieldsInMetadata: SETTING_TITLES.customFields,
   allowedCustomFieldsInMetadata: "Allowed custom fields",
-  includeTagsInMetadata: "Tags",
-  includeExperimentScheduleInMetadata: "Experiment schedule dates",
-  includeRuleIds: "Rule IDs",
-  includeDraftExperimentRefs: "Draft Experiment rules",
-  includeDraftExperiments: "Draft Visual Editor and URL Redirect experiments",
-  proxyEnabled: "GrowthBook Proxy",
-  proxyHost: "Proxy host",
+  includeTagsInMetadata: SETTING_TITLES.tags,
+  includeExperimentScheduleInMetadata: SETTING_TITLES.scheduleDates,
+  includeRuleIds: SETTING_TITLES.ruleIds,
+  includeDraftExperimentRefs: SETTING_TITLES.draftRules,
+  includeDraftExperiments: SETTING_TITLES.draftExperiments,
+  proxyEnabled: SETTING_TITLES.useProxy,
+  proxyHost: SETTING_TITLES.proxyHost,
 };
 
+// Values the page shows differently from how they're saved.
+const FIELD_DISPLAY: Record<string, (value: unknown) => unknown> = {
+  // Shown as "Hide names from payload", the opposite of what's saved.
+  includeExperimentNames: (v) => !v,
+  savedGroupFormat: (v) =>
+    SAVED_GROUP_FORMAT_LABELS[v as SavedGroupFormat] ?? v,
+};
+const shownValue = (key: string, value: unknown) =>
+  FIELD_DISPLAY[key] ? FIELD_DISPLAY[key](value) : value;
+
+// A saved value as the page shows it, for the staged changes diff.
 function display(value: unknown): string {
   if (typeof value === "boolean") return value ? "On" : "Off";
   if (Array.isArray(value)) return value.length ? value.join(", ") : "None";
   if ((value ?? "") === "") return "None";
   return String(value);
 }
+
+// A row's values as lines of "Setting: value", or the bare value for one.
+function displayStaged(value: unknown): string {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return Object.entries(value)
+      .map(([label, v]) => `${label}: ${display(v)}`)
+      .join("\n");
+  }
+  return display(value);
+}
+
+// Each row's label on the page, which names its staged change.
+const ROW_LABELS: Record<string, string> = {
+  name: "Name",
+  sdk: "SDK",
+  version: "SDK version",
+  environment: "Environment",
+  projects: "Projects",
+  prerequisites: "Prerequisites",
+  security: CATEGORY_TITLES.payloadSecurity,
+  experiments: CATEGORY_TITLES.experiments,
+  savedGroups: SETTING_TITLES.savedGroupReferences,
+  metadata: CATEGORY_TITLES.payloadMetadata,
+  observability: CATEGORY_TITLES.observability,
+  proxy: CATEGORY_TITLES.proxy,
+};
+
+// The form fields a row's Discard puts back, beyond the saved fields it shows.
+const ROW_FORM_EXTRAS: Record<string, string[]> = {
+  sdk: ["sdkVersion"],
+  security: ["delivery"],
+};
 
 function Row({
   label,
@@ -319,6 +367,34 @@ export default function SDKConnectionSetup({
   );
   const isEdited = (row: string) =>
     ROW_FIELDS[row].some((k) => changed.includes(k));
+
+  // One staged change per edited row, like the experiment page's list.
+  const staged = Object.keys(ROW_FIELDS)
+    .filter(isEdited)
+    .map((row) => {
+      const keys = ROW_FIELDS[row].filter((k) => changed.includes(k));
+      const pickValues = (body: Record<string, unknown>) =>
+        // A row of several settings names the one that changed.
+        ROW_FIELDS[row].length === 1
+          ? shownValue(keys[0], body[keys[0]])
+          : Object.fromEntries(
+              keys.map((k) => [FIELD_LABELS[k] ?? k, shownValue(k, body[k])]),
+            );
+      return {
+        row,
+        label: ROW_LABELS[row] ?? row,
+        review: { before: pickValues(before), after: pickValues(after) },
+      };
+    });
+  const discardRow = (row: string) => {
+    const keys = [...ROW_FIELDS[row], ...(ROW_FORM_EXTRAS[row] ?? [])].filter(
+      (k) => k in initial,
+    ) as (keyof FormValue)[];
+    setValue((v) => ({
+      ...v,
+      ...Object.fromEntries(keys.map((k) => [k, initial[k]])),
+    }));
+  };
 
   const currentCaps = getConnectionSDKCapabilities(
     { languages: value.languages, sdkVersion: value.sdkVersion },
@@ -519,37 +595,47 @@ export default function SDKConnectionSetup({
             pr="9"
             py="2"
           >
-            {showChanges && (
-              <Flex direction="column" gap="1" mb="3">
-                {changed.map((k) => (
-                  <Grid key={k} columns="220px minmax(0, 1fr)" gap="3">
-                    <Text size="sm" weight="medium">
-                      {FIELD_LABELS[k] ?? k}
-                    </Text>
-                    <Text size="sm" color="text-mid">
-                      {display(before[k])} → {display(after[k])}
-                    </Text>
-                  </Grid>
-                ))}
-              </Flex>
-            )}
             <Flex align="center" justify="between" gap="3" wrap="wrap">
-              <Button
-                variant="ghost"
-                color="gray"
-                size="sm"
-                icon={
-                  <PiCaretUp
-                    style={{
-                      transform: showChanges ? "rotate(180deg)" : undefined,
-                    }}
-                  />
+              <Popover
+                open={showChanges}
+                onOpenChange={setShowChanges}
+                side="top"
+                align="start"
+                sideOffset={8}
+                contentStyle={{
+                  width: 640,
+                  maxWidth: "90vw",
+                  padding: "12px 16px",
+                }}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    color="gray"
+                    size="sm"
+                    icon={<PiCaretUp />}
+                    iconPosition="right"
+                  >
+                    {staged.length} staged{" "}
+                    {staged.length === 1 ? "change" : "changes"}
+                  </Button>
                 }
-                iconPosition="right"
-                onClick={() => setShowChanges((v) => !v)}
-              >
-                {changed.length} staged change{changed.length === 1 ? "" : "s"}
-              </Button>
+                content={
+                  <Flex direction="column" gap="2">
+                    {staged.map((c) => (
+                      <StagedChange
+                        key={c.row}
+                        label={c.label}
+                        review={c.review}
+                        discard={() => discardRow(c.row)}
+                        keepMine={null}
+                        incompatible={false}
+                        saving={false}
+                        format={displayStaged}
+                      />
+                    ))}
+                  </Flex>
+                }
+              />
               <Flex align="center" gap="3" wrap="wrap" justify="end">
                 <Button
                   variant="ghost"
