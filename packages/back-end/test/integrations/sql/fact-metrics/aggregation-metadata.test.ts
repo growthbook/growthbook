@@ -1,4 +1,8 @@
-import { bigQueryDialect } from "shared/dialects";
+import {
+  bigQueryDialect,
+  postgresDialect,
+  snowflakeDialect,
+} from "shared/dialects";
 import type { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { getMetricSourceTableSchema } from "back-end/src/integrations/sql/fact-metrics/metric-source-table-schema";
@@ -104,4 +108,32 @@ describe("cache table schemas for metrics with a user-level aggregate filter", (
       }).get(valueColumn),
     ).toBe("INT64");
   });
+
+  it.each([
+    { name: "Snowflake", dialect: snowflakeDialect },
+    { name: "Postgres", dialect: postgresDialect },
+  ])(
+    "uses DOUBLE for a numeric filter column and INTEGER for $$count on $name",
+    ({ dialect }) => {
+      const numeric = buildMetricWithUserFilter("proportion", "amount");
+      const count = buildMetricWithUserFilter("proportion", "$$count");
+      const col = (m: FactMetricInterface) =>
+        `${encodeMetricIdForColumnName(m.id)}_value`;
+
+      const schema = getMetricSourceTableSchema(dialect, "user_id", FT_ID, [
+        numeric,
+        count,
+      ]);
+      expect(schema.get(col(numeric))).toBe("DOUBLE");
+      expect(schema.get(col(count))).toBe("INTEGER");
+
+      const aggregated = getAggregatedFactTableSchema(dialect, {
+        idType: "user_id",
+        factTableId: FT_ID,
+        metrics: [numeric, count],
+      });
+      expect(aggregated.get(col(numeric))).toBe("DOUBLE");
+      expect(aggregated.get(col(count))).toBe("INTEGER");
+    },
+  );
 });
