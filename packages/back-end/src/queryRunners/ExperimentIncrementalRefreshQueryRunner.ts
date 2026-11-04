@@ -1532,6 +1532,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           clusterHealth.clusterSubUnitMapping;
         result.health.subUnitMultipleExposures =
           clusterHealth.subUnitMultipleExposures;
+        // The traffic query drops any cluster containing a multi-exposed
+        // sub-unit, so its count is always 0 here; use the pre-filter count.
+        if (!clusterHealth.subUnitMultipleExposures.error) {
+          result.multipleExposures =
+            clusterHealth.subUnitMultipleExposures.multipleExposedSubUnits;
+        }
       }
 
       // TODO(incremental-refresh): ensure power calculations work
