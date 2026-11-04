@@ -1495,77 +1495,80 @@ export default function ExperimentHeader({
                   style={{ flex: 1, minWidth: 0 }}
                 >
                   <TabsList size="lg">
-                    <Flex align="center" className="flex-1" minWidth="0">
-                      <TabsTrigger value="overview">Setup</TabsTrigger>
-                      <TabsTrigger value="results">Results</TabsTrigger>
-                      {isBandit ? (
-                        <TabsTrigger value="explore">Explore</TabsTrigger>
-                      ) : null}
-                      {!isBandit && !isHoldout && (
-                        <TabsTrigger value="dashboards">Dashboard</TabsTrigger>
-                      )}
-                      {disableHealthTab ? (
-                        <DisabledHealthTabTooltip
-                          reason={
-                            !experiment.datasource
-                              ? "NO_DATASOURCE"
-                              : dataSource
-                                ? "UNSUPPORTED_DATASOURCE"
-                                : datasourceMissing
-                                  ? "DELETED_DATASOURCE"
-                                  : "RESTRICTED_DATASOURCE"
-                          }
-                        >
-                          <TabsTrigger disabled value="health">
-                            Health
-                          </TabsTrigger>
-                        </DisabledHealthTabTooltip>
-                      ) : (
-                        <TabsTrigger
-                          value="health"
-                          onClick={() => {
-                            track("Open health tab", { source: "tab-click" });
-                          }}
-                        >
+                    <TabsTrigger value="overview">Setup</TabsTrigger>
+                    <TabsTrigger value="results">Results</TabsTrigger>
+                    {isBandit ? (
+                      <TabsTrigger value="explore">Explore</TabsTrigger>
+                    ) : null}
+                    {!isBandit && !isHoldout && (
+                      <TabsTrigger value="dashboards">Dashboard</TabsTrigger>
+                    )}
+                    {disableHealthTab ? (
+                      <DisabledHealthTabTooltip
+                        reason={
+                          !experiment.datasource
+                            ? "NO_DATASOURCE"
+                            : dataSource
+                              ? "UNSUPPORTED_DATASOURCE"
+                              : datasourceMissing
+                                ? "DELETED_DATASOURCE"
+                                : "RESTRICTED_DATASOURCE"
+                        }
+                      >
+                        <TabsTrigger disabled value="health">
                           Health
-                          {healthNotificationCount > 0 ? (
-                            <Avatar size="sm" ml="2" color="red">
-                              {healthNotificationCount}
-                            </Avatar>
-                          ) : null}
                         </TabsTrigger>
-                      )}
-                      <div className="flex-1" />
-                      {/* One date item at a time: the phases, or the dates. */}
-                      {hasMultiplePhases ? (
-                        <Text size="md">
-                          <PhaseSelector
-                            phase={phase}
-                            phases={experiment.phases}
-                            isBandit={experiment.type === "multi-armed-bandit"}
-                            isHoldout={experiment.type === "holdout"}
-                            holdout={holdout}
-                            details={phaseDetails}
-                          />
-                        </Text>
-                      ) : (
-                        // Short of room, it ends in an ellipsis; its tooltip
-                        // has every date.
-                        <Box
-                          ref={datesBox}
-                          minWidth="0"
-                          style={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {datesLine(true)}
-                        </Box>
-                      )}
-                    </Flex>
+                      </DisabledHealthTabTooltip>
+                    ) : (
+                      <TabsTrigger
+                        value="health"
+                        onClick={() => {
+                          track("Open health tab", { source: "tab-click" });
+                        }}
+                      >
+                        Health
+                        {healthNotificationCount > 0 ? (
+                          <Avatar size="sm" ml="2" color="red">
+                            {healthNotificationCount}
+                          </Avatar>
+                        ) : null}
+                      </TabsTrigger>
+                    )}
                   </TabsList>
                 </Tabs>
+                {/* Beside the tab list, not in it: the list folds tabs that
+                    don't fit into its More menu. One date item at a time: the
+                    phases, or the dates. */}
+                {hasMultiplePhases ? (
+                  <Box flexShrink="0" ml="4">
+                    <Text size="md">
+                      <PhaseSelector
+                        phase={phase}
+                        phases={experiment.phases}
+                        isBandit={experiment.type === "multi-armed-bandit"}
+                        isHoldout={experiment.type === "holdout"}
+                        holdout={holdout}
+                        details={phaseDetails}
+                      />
+                    </Text>
+                  </Box>
+                ) : (
+                  // Short of room, it ends in an ellipsis, leaving the tabs
+                  // most of the row; its tooltip has every date.
+                  <Box
+                    ref={datesBox}
+                    ml="4"
+                    minWidth="0"
+                    style={{
+                      maxWidth: "40%",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {datesLine(true)}
+                  </Box>
+                )}
                 <DetailsPanelToggle
                   open={detailsOpen}
                   setOpen={setDetailsOpen}
