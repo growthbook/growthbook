@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type {
   ExplorationConfig,
@@ -683,6 +683,24 @@ export function journeyDisplayLookaheadDepth(
   return depth;
 }
 
+/**
+ * Carries the requested per-value `showAs` onto a cached metric config. The
+ * cache match ignores it (see `omitRenderOnlyValueFields`), so the cached
+ * values line up with the requested ones index for index.
+ */
+function withRequestedValueShowAs<C extends ExplorationConfig>(
+  cached: C,
+  requested: ExplorationConfig,
+): C {
+  if (cached.type !== "metric" || requested.type !== "metric") return cached;
+  const values = cached.dataset.values.map((value, i) => {
+    const showAs = requested.dataset.values[i]?.showAs;
+    return showAs === undefined ? omit(value, "showAs") : { ...value, showAs };
+  });
+  // `cached.type` narrows the dataset but not the generic `C` itself.
+  return { ...cached, dataset: { ...cached.dataset, values } } as C;
+}
+
 /** Overlay the requested path and collapse cached lookahead to the display frontier. */
 export function toClientJourneyExploration(
   exploration: ProductAnalyticsExploration,
@@ -691,13 +709,16 @@ export function toClientJourneyExploration(
   if (exploration.config.type !== "journey" || requested.type !== "journey") {
     return {
       ...exploration,
-      config: {
-        ...exploration.config,
-        chartType: requested.chartType,
-        showAs: requested.showAs,
-        chartSettings: requested.chartSettings,
-        dateRange: requested.dateRange,
-      },
+      config: withRequestedValueShowAs(
+        {
+          ...exploration.config,
+          chartType: requested.chartType,
+          showAs: requested.showAs,
+          chartSettings: requested.chartSettings,
+          dateRange: requested.dateRange,
+        },
+        requested,
+      ),
     };
   }
   const cachedDataset = exploration.config.dataset;

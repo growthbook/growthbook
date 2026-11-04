@@ -23,8 +23,7 @@ import {
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
+  getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
   formatDateByGranularity,
@@ -519,13 +518,7 @@ export default function useExplorationTableData(
   }, [exploration, submittedExploreState]);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 

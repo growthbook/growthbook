@@ -53,7 +53,8 @@ import {
   hasTimeAxis,
   sanitizeDimensions,
   getRelevantFactTableIds,
-  clearInapplicableShowAs,
+  normalizeShowAs,
+  omitRenderOnlyValueFields,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
@@ -67,13 +68,11 @@ export {
   getMetricMixClass,
   getMaxDimensions,
   getValidDateGranularities,
-  getEffectiveShowAs,
-  clearInapplicableShowAs,
+  getShowAsByIndex,
   getEffectiveMetricValue,
-  getSharedUnit,
+  getRenderedMetricValue,
+  getExplorationRenderOpts,
   getDefaultValueAxisName,
-  showAsAppliesTo,
-  getIsRatioByIndex,
   buildExplorationColumns,
   getExplorationCellValue,
   computeDimensionTotals,
@@ -752,8 +751,8 @@ export function validateDimensions(
 /**
  * Composes the normalization pipeline applied to every draft config the
  * Explorer produces or receives (a fresh mount, a manual edit, or definitions
- * resolving after initial render): backfill missing units, strip an
- * inapplicable `showAs`, and — once the full (jsonFields-complete) fact
+ * resolving after initial render): backfill missing units, normalize
+ * per-value `showAs`, and — once the full (jsonFields-complete) fact
  * tables the dimensions depend on have loaded — sanitize the dimension list.
  * Before that data is ready (e.g. at initial mount, where the full-fact-table
  * resolver doesn't exist yet), pass `fullFactTablesLoadedFor: () => false` so
@@ -781,7 +780,7 @@ export function normalizeExplorerDraft(
     getFactMetricById,
   );
   const showAsNormalized = normalizeTimelessSqlConfig(
-    clearInapplicableShowAs(withUnits, getFactMetricById),
+    normalizeShowAs(withUnits, getFactMetricById),
   );
   const ready = fullFactTablesLoadedFor(
     getRelevantFactTableIds(showAsNormalized.dataset, getFactMetricById),
@@ -958,13 +957,13 @@ function cleanChartSettings(
 
 /** Dataset fields the inferred value-axis label depends on. */
 function getValueAxisLabelSource(config: ExplorerDraftConfig) {
-  const { dataset, showAs } = config;
+  const { dataset } = config;
   if (!datasetHasValues(dataset)) {
-    return { type: dataset.type, showAs };
+    return { type: dataset.type };
   }
+  // Includes each value's `showAs`, which drives the "Total" / "Per unit" title.
   return {
     type: dataset.type,
-    showAs,
     values: dataset.values.map((v) => omit(v, ["name", "rowFilters"])),
   };
 }
@@ -1291,7 +1290,9 @@ export function toFetchKey(
       ...(base.dataset.type === "sql"
         ? omit(base.dataset, "hiddenColumns")
         : base.dataset),
-      values: base.dataset.values.map((value) => omit(value, "name")),
+      values: base.dataset.values.map((value) =>
+        omit(omitRenderOnlyValueFields(value), "name"),
+      ),
     },
   };
 }

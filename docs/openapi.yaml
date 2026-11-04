@@ -42457,6 +42457,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -42537,6 +42541,19 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            showAs:
+                                              description: >-
+                                                How a mean metric renders: `total` sums
+                                                the numerator, `per_unit` divides it by
+                                                the unit count. Ignored for other metric
+                                                types. Omit to use the default
+                                                (`per_unit` for `max` and `count
+                                                distinct` aggregations, otherwise
+                                                `total`).
+                                              type: string
+                                              enum:
+                                                - total
+                                                - per_unit
                                           required:
                                             - name
                                             - rowFilters
@@ -42864,6 +42881,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -43269,6 +43290,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -43691,6 +43716,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -44113,6 +44142,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -45840,6 +45873,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -45920,6 +45957,19 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            showAs:
+                                              description: >-
+                                                How a mean metric renders: `total` sums
+                                                the numerator, `per_unit` divides it by
+                                                the unit count. Ignored for other metric
+                                                types. Omit to use the default
+                                                (`per_unit` for `max` and `count
+                                                distinct` aggregations, otherwise
+                                                `total`).
+                                              type: string
+                                              enum:
+                                                - total
+                                                - per_unit
                                           required:
                                             - name
                                             - rowFilters
@@ -46239,6 +46289,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -46636,6 +46690,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -47050,6 +47108,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -47464,6 +47526,10 @@ paths:
                                       - predefined
                                     additionalProperties: false
                                   showAs:
+                                    description: >-
+                                      Deprecated: use `showAs` on each metric
+                                      value.
+                                    deprecated: true
                                     type: string
                                     enum:
                                       - total
@@ -49420,6 +49486,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -49500,6 +49568,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -49818,6 +49899,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -50215,6 +50298,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -50629,6 +50714,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -51043,6 +51130,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53010,6 +53099,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53090,6 +53181,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -53408,6 +53512,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -53805,6 +53911,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -54219,6 +54327,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -54633,6 +54743,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -59077,6 +59189,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -59157,6 +59271,17 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          showAs:
+                            description: >-
+                              How a mean metric renders: `total` sums the
+                              numerator, `per_unit` divides it by the unit
+                              count. Ignored for other metric types. Omit to use
+                              the default (`per_unit` for `max` and `count
+                              distinct` aggregations, otherwise `total`).
+                            type: string
+                            enum:
+                              - total
+                              - per_unit
                         required:
                           - name
                           - rowFilters
@@ -59525,6 +59650,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -59605,6 +59732,19 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        showAs:
+                                          description: >-
+                                            How a mean metric renders: `total` sums
+                                            the numerator, `per_unit` divides it by
+                                            the unit count. Ignored for other metric
+                                            types. Omit to use the default
+                                            (`per_unit` for `max` and `count
+                                            distinct` aggregations, otherwise
+                                            `total`).
+                                          type: string
+                                          enum:
+                                            - total
+                                            - per_unit
                                       required:
                                         - name
                                         - rowFilters
@@ -59862,6 +60002,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -60311,6 +60453,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -60647,6 +60791,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -61113,6 +61259,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -61466,6 +61614,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -61935,6 +62085,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -62291,6 +62443,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -62753,6 +62907,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -63102,6 +63258,8 @@ paths:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -63586,6 +63744,8 @@ paths:
                                   - predefined
                                 additionalProperties: false
                               showAs:
+                                description: 'Deprecated: use `showAs` on each metric value.'
+                                deprecated: true
                                 type: string
                                 enum:
                                   - total
@@ -81950,6 +82110,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -82030,6 +82192,18 @@ components:
                                   anyOf:
                                     - type: string
                                     - type: 'null'
+                                showAs:
+                                  description: >-
+                                    How a mean metric renders: `total` sums the
+                                    numerator, `per_unit` divides it by the unit
+                                    count. Ignored for other metric types. Omit
+                                    to use the default (`per_unit` for `max` and
+                                    `count distinct` aggregations, otherwise
+                                    `total`).
+                                  type: string
+                                  enum:
+                                    - total
+                                    - per_unit
                               required:
                                 - name
                                 - rowFilters
@@ -82353,6 +82527,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -82756,6 +82932,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -83176,6 +83354,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -83599,6 +83779,8 @@ components:
                           - predefined
                         additionalProperties: false
                       showAs:
+                        description: 'Deprecated: use `showAs` on each metric value.'
+                        deprecated: true
                         type: string
                         enum:
                           - total
@@ -85594,6 +85776,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -85674,6 +85858,17 @@ components:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          showAs:
+                            description: >-
+                              How a mean metric renders: `total` sums the
+                              numerator, `per_unit` divides it by the unit
+                              count. Ignored for other metric types. Omit to use
+                              the default (`per_unit` for `max` and `count
+                              distinct` aggregations, otherwise `total`).
+                            type: string
+                            enum:
+                              - total
+                              - per_unit
                         required:
                           - name
                           - rowFilters
@@ -85878,6 +86073,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -86163,6 +86360,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -86465,6 +86664,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -86770,6 +86971,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total
@@ -87068,6 +87271,8 @@ components:
                     - predefined
                   additionalProperties: false
                 showAs:
+                  description: 'Deprecated: use `showAs` on each metric value.'
+                  deprecated: true
                   type: string
                   enum:
                     - total

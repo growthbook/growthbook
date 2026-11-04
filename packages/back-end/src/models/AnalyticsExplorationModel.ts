@@ -10,6 +10,7 @@ import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   hasTimestampColumn,
+  omitRenderOnlyValueFields,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
@@ -255,7 +256,9 @@ export class AnalyticsExplorationModel extends BaseClass {
           ? [md5("journey")]
           : config.chartType === "rawTable"
             ? []
-            : dataset.values.map((value) => md5(JSON.stringify(value)));
+            : dataset.values.map((value) =>
+                md5(JSON.stringify(omitRenderOnlyValueFields(value))),
+              );
 
     return {
       generalSettingsHash,

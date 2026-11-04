@@ -29,9 +29,12 @@ type RowFilter = z.infer<typeof rowFilterValidator>;
 export default function ValueCard({
   index,
   children,
+  footer,
 }: {
   index: number;
   children: React.ReactNode;
+  /** Rendered below the filter controls. */
+  footer?: React.ReactNode;
 }) {
   const { draftExploreState, updateValueInDataset, deleteValueFromDataset } =
     useExplorerContext();
@@ -281,6 +284,7 @@ export default function ValueCard({
               </ExplorerRowFilterInput>
             </Box>
           )}
+          {footer && <Box mt="3">{footer}</Box>}
         </Box>
       </Collapsible>
     </Box>

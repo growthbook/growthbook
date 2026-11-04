@@ -15,9 +15,8 @@ import type {
 } from "shared/validators";
 import {
   formatDateByGranularity,
-  getEffectiveMetricValue,
-  getEffectiveShowAs,
-  getIsRatioByIndex,
+  getExplorationRenderOpts,
+  getRenderedMetricValue,
   type RenderOpts,
   type ResolvedGranularity,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -386,14 +385,7 @@ export function buildComparisonOverlaySeriesMaps(
         }
         const cell = row.values?.[mi];
         if (!cell) continue;
-        bump(
-          seriesKey,
-          x,
-          getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[mi] ?? false,
-          }),
-        );
+        bump(seriesKey, x, getRenderedMetricValue(cell, renderOpts, mi));
       }
       continue;
     }
@@ -414,14 +406,7 @@ export function buildComparisonOverlaySeriesMaps(
       }
       const cell = row.values?.[0];
       if (!cell) continue;
-      bump(
-        seriesKey,
-        x,
-        getEffectiveMetricValue(cell, {
-          showAs: renderOpts.showAs,
-          isRatio: renderOpts.isRatioByIndex[0] ?? false,
-        }),
-      );
+      bump(seriesKey, x, getRenderedMetricValue(cell, renderOpts, 0));
       continue;
     }
 
@@ -434,14 +419,7 @@ export function buildComparisonOverlaySeriesMaps(
     }
     const cell = row.values?.[0];
     if (!cell) continue;
-    bump(
-      seriesKey,
-      x,
-      getEffectiveMetricValue(cell, {
-        showAs: renderOpts.showAs,
-        isRatio: renderOpts.isRatioByIndex[0] ?? false,
-      }),
-    );
+    bump(seriesKey, x, getRenderedMetricValue(cell, renderOpts, 0));
   }
 
   return { uniqueXValues, dataMap, seriesMeta };
@@ -914,24 +892,25 @@ export function computeBigNumberComparisonTrendForMetricIndex(
     return null;
   }
 
-  const renderOpts: RenderOpts = {
-    showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
-  };
+  const renderOpts = getExplorationRenderOpts(
+    submittedExploreState,
+    getFactMetricById,
+  );
 
   const currCell = exploration.result.rows[0]?.values?.[metricIndex];
   const prevCell = comparisonExploration.result.rows[0]?.values?.[metricIndex];
   if (!currCell || !prevCell) return null;
 
-  const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
-  const currentValue = getEffectiveMetricValue(currCell, {
-    showAs: renderOpts.showAs,
-    isRatio,
-  });
-  const previousValue = getEffectiveMetricValue(prevCell, {
-    showAs: renderOpts.showAs,
-    isRatio,
-  });
+  const currentValue = getRenderedMetricValue(
+    currCell,
+    renderOpts,
+    metricIndex,
+  );
+  const previousValue = getRenderedMetricValue(
+    prevCell,
+    renderOpts,
+    metricIndex,
+  );
 
   if (previousValue === 0) {
     return { currentValue, previousValue, pctChange: 0 };

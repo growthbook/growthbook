@@ -18,10 +18,9 @@ import {
 } from "shared/enterprise";
 import {
   shouldChartSectionShow,
-  getEffectiveMetricValue,
   computeDimensionTotals,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
+  getExplorationRenderOpts,
+  getRenderedMetricValue,
   getDefaultValueAxisName,
   formatDateByGranularity,
   type ResolvedGranularity,
@@ -195,13 +194,7 @@ export default function ExplorerChart({
   useEffect(() => () => resizeObserverRef.current?.disconnect(), []);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 
@@ -258,22 +251,14 @@ export default function ExplorerChart({
     return valuesMeta.map((v, metricIndex) => {
       const cell = row?.values?.[metricIndex];
       const value = cell
-        ? getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[metricIndex] ?? false,
-          })
+        ? getRenderedMetricValue(cell, renderOpts, metricIndex)
         : 0;
       return {
         value,
         label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
       };
     });
-  }, [
-    exploration?.result?.rows,
-    submittedExploreState,
-    renderOpts.showAs,
-    renderOpts.isRatioByIndex,
-  ]);
+  }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
 
   // Compare is on and the previous-period query finished, but returned no rows
   // (e.g. a grouped breakdown with no prior data that densification can't fill).

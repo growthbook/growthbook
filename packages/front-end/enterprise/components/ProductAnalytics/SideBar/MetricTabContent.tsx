@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { omit } from "lodash";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
@@ -14,12 +15,14 @@ import {
   generateUniqueValueName,
   getLockedMixClass,
   getMetricMixClass,
+  getShowAsByIndex,
   MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
+import ShowAsInput from "./ShowAsInput";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
 
@@ -34,6 +37,7 @@ export default function MetricTabContent() {
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
+  const showAsByIndex = getShowAsByIndex(draftExploreState, getFactMetricById);
 
   // Build the base grouped options list for this datasource. All metrics are
   // always shown; compat is enforced per-slot via isOptionDisabled so users
@@ -94,8 +98,23 @@ export default function MetricTabContent() {
       {values.map((v, idx) => {
         const lockedClass = getLockedClassForSlot(idx);
         const disabledTooltip = lockedClass ? mixTooltip(lockedClass) : "";
+        const showAs = showAsByIndex[idx] ?? null;
         return (
-          <ValueCard key={idx} index={idx}>
+          <ValueCard
+            key={idx}
+            index={idx}
+            footer={
+              showAs !== null && (
+                <ShowAsInput
+                  value={showAs}
+                  unit={v.unit}
+                  setValue={(next) =>
+                    updateValueInDataset(idx, { ...v, showAs: next })
+                  }
+                />
+              )
+            }
+          >
             <Flex direction="column">
               <SelectField
                 size="legacy"
@@ -119,8 +138,9 @@ export default function MetricTabContent() {
                     unit = newFactTable?.userIdTypes[0] ?? null;
                   }
 
+                  // A new metric starts from its own inferred showAs.
                   const updates = {
-                    ...v,
+                    ...omit(v, "showAs"),
                     metricId: val,
                     unit,
                     name: newMetric?.name
