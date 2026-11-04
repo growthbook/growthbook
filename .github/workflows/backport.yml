@@ -20,6 +20,11 @@ permissions:
   contents: write
   pull-requests: write
 
+# Runs on one line share its release branch and draft release, so queue them.
+concurrency:
+  group: backport-${{ inputs.line }}
+  cancel-in-progress: false
+
 jobs:
   backport:
     runs-on: ubuntu-latest
@@ -104,8 +109,13 @@ jobs:
           next="v$LINE.$((${tag##*.} + 1))"
           picks=$(git log --reverse --grep='^(cherry picked from' --format='- %s' "origin/release/$LINE..$BRANCH")
           if gh release view "$next" >/dev/null 2>&1; then
-            # Another backport is waiting on the same draft; add to it.
-            { gh release view "$next" --json body --jq .body; echo "$picks"; } > "$RUNNER_TEMP/notes.md"
+            # Another backport is waiting on the same draft; add to it, under the security heading if this is one.
+            body=$(gh release view "$next" --json body --jq .body)
+            if [ "$SECURITY" = true ] && ! grep -q '^## Security Patch Release' <<< "$body"; then
+              body=$(awk 'NR == 1 && /^<!--/ { print; print "## Security Patch Release\n"; next }
+                NR == 1 { print "## Security Patch Release\n" } { print }' <<< "$body")
+            fi
+            { echo "$body"; echo "$picks"; } > "$RUNNER_TEMP/notes.md"
             gh release edit "$next" --notes-file "$RUNNER_TEMP/notes.md"
           else
             {
