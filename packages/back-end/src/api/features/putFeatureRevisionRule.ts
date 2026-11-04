@@ -158,7 +158,8 @@ export function applyPatch(
       patch.value ?? (existing as ForceRule | RolloutRule).value;
 
     // coverage < 1 → rollout (requires hashAttribute); else → force.
-    const isRollout = effectiveCoverage !== undefined && effectiveCoverage < 1;
+    // null/undefined coverage means full force (Mongo may store absent as null).
+    const isRollout = effectiveCoverage != null && effectiveCoverage < 1;
 
     if (isRollout) {
       if (!effectiveHashAttr) {
@@ -189,7 +190,7 @@ export function applyPatch(
         ...commonUpdates,
         type: "force",
         value: effectiveValue ?? "",
-        ...(effectiveCoverage !== undefined && {
+        ...(effectiveCoverage != null && {
           coverage: effectiveCoverage,
         }),
         ...(effectiveHashAttr !== undefined && {
@@ -198,6 +199,9 @@ export function applyPatch(
         ...(patch.seed !== undefined && { seed: patch.seed }),
         ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
+      if (effectiveCoverage == null) {
+        delete (updated as { coverage?: number }).coverage;
+      }
       return updated;
     }
   }

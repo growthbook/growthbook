@@ -54,4 +54,15 @@ describe("applyPatch — force/rollout seed stamping", () => {
     stamp(converted);
     expect(seedOf(converted)).toBe("custom");
   });
+
+  it("treats null stored coverage as full force (not a rollout)", () => {
+    const withNullCoverage = {
+      ...force,
+      coverage: null,
+    } as unknown as FeatureRule;
+
+    const updated = applyPatch(withNullCoverage, patch({ enabled: true }));
+    expect(updated.type).toBe("force");
+    expect((updated as { coverage?: number | null }).coverage).toBeUndefined();
+  });
 });

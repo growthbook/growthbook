@@ -692,6 +692,28 @@ describe("getStartPatchForRule", () => {
         enabled: true,
       } as FeatureRule),
     ).not.toHaveProperty("hashAttribute");
+    expect(
+      getStartPatchForRule({
+        id: "r2",
+        type: "force",
+        value: "true",
+        enabled: true,
+      } as FeatureRule),
+    ).not.toHaveProperty("coverage");
+  });
+
+  it("scheduled start on a force rule does not write null coverage", () => {
+    const force = {
+      id: "r1",
+      type: "force",
+      value: "true",
+      enabled: true,
+    } as FeatureRule;
+    const startPatch = getStartPatchForRule(force);
+    expect(startPatch).not.toHaveProperty("coverage");
+    const afterStart = applyPatchToRule(force, startPatch);
+    expect(afterStart.type).toBe("force");
+    expect((afterStart as { coverage?: number }).coverage).toBeUndefined();
   });
 
   it("captures explicit null clears for absent rule fields", () => {
