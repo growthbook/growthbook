@@ -1,5 +1,8 @@
 import { selectableImplementationTypes } from "../constants";
-import type { ImplementationType } from "../validators/experiments";
+import type {
+  ExperimentType,
+  ImplementationType,
+} from "../validators/experiments";
 
 export type ImplementationLinkages = {
   linkedFeatures?: string[] | null;
@@ -76,8 +79,12 @@ export function storedImplementationType(
 }
 
 // Nothing is served from its setup: marked "none", or an older experiment with
-// no type and nothing linked.
-export function isAnalysisOnly(exp: ImplementationLinkages): boolean {
+// no type and nothing linked. A holdout serves through its own rules, whatever
+// is linked.
+export function isAnalysisOnly(
+  exp: ImplementationLinkages & { type?: ExperimentType },
+): boolean {
+  if (exp.type === "holdout") return false;
   const type = getImplementationType(exp);
   return !type || type === "none";
 }

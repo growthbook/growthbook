@@ -4,6 +4,7 @@ import {
   deriveImplementationType,
   getImplementationType,
   hasImplementationLinkages,
+  isAnalysisOnly,
   storedImplementationType,
 } from "../src/util/implementation-type";
 import { canEditDeliveryInPlace } from "../src/util";
@@ -168,6 +169,18 @@ describe("implementationTypeAfterUnlink", () => {
       }),
     ).toBe("multi");
     expect(implementationTypeAfterUnlink({})).toBeUndefined();
+  });
+});
+
+describe("isAnalysisOnly", () => {
+  it("is analysis only when marked none or unset with nothing linked", () => {
+    expect(isAnalysisOnly({ implementationType: "none" })).toBe(true);
+    expect(isAnalysisOnly({ linkedFeatures: [] })).toBe(true);
+    expect(isAnalysisOnly({ linkedFeatures: ["flag"] })).toBe(false);
+  });
+
+  it("never counts a holdout, which serves through its own rules", () => {
+    expect(isAnalysisOnly({ type: "holdout", linkedFeatures: [] })).toBe(false);
   });
 });
 
