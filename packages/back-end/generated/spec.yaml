@@ -78455,6 +78455,8 @@ components:
           enum:
             - hours
             - days
+        banditPeriodWeighting:
+          type: boolean
         experimentMinLengthDays:
           type: number
         experimentMaxLengthDays:

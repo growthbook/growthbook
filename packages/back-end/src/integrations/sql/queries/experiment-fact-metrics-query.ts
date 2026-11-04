@@ -43,7 +43,10 @@ import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
-import { appendContextualBanditTargetingAttributeCols } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
+import {
+  appendContextualBanditTargetingAttributeCols,
+  CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN,
+} from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
 import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 
@@ -109,12 +112,17 @@ export function getExperimentFactMetricsQuery(
   }
 
   const banditDates = getBanditDates(settings.banditSettings);
+  const cbPeriodWeighting =
+    !!settings.banditSettings?.contextualBandit &&
+    !!settings.banditSettings?.periodWeighting &&
+    (settings.banditSettings?.targetingAttributeColumns?.length ?? 0) > 0;
+  const useBanditPeriods = !!banditDates?.length || cbPeriodWeighting;
   const hasFunnelMetrics = metricsWithIndices.some((m) =>
     isFactFunnelMetric(m.metric),
   );
   // The bandit statistics CTE has no funnel handling; the UI blocks the
   // combination, this is the backstop.
-  if (hasFunnelMetrics && banditDates?.length) {
+  if (hasFunnelMetrics && useBanditPeriods) {
     throw new Error("Funnel metrics are not supported in Bandit experiments");
   }
   // Funnel steps can only be windowed against each other once every candidate
@@ -184,17 +192,17 @@ export function getExperimentFactMetricsQuery(
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
   );
+  appendContextualBanditTargetingAttributeCols(dimensionCols, settings);
+
   // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
   // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
   // column specified. See `BANDIT_DIMENSION` in gbstats.py.
-  if (banditDates?.length && dimensionCols.length === 0) {
+  if (useBanditPeriods && dimensionCols.length === 0) {
     dimensionCols.push({
       alias: "dimension",
       value: dialect.castToString("'All'"),
     });
   }
-
-  appendContextualBanditTargetingAttributeCols(dimensionCols, settings);
 
   const computeOnActivatedUsersOnly =
     activationMetric !== null &&
@@ -459,7 +467,13 @@ export function getExperimentFactMetricsQuery(
         , variation
         , ${timestampColumn} AS timestamp
         , ${dialect.dateTrunc("first_exposure_timestamp", "day")} AS first_exposure_date
-        ${banditDates?.length ? getBanditCaseWhen(dialect, banditDates) : ""}
+        ${
+          banditDates?.length
+            ? getBanditCaseWhen(dialect, banditDates)
+            : cbPeriodWeighting
+              ? `, ${CONTEXTUAL_BANDIT_UNIT_BANDIT_VERSION_COLUMN} AS bandit_period`
+              : ""
+        }
     ${raMetricSettings
       .map(
         ({ alias, hours, minDelay }) => `
@@ -538,7 +552,7 @@ export function getExperimentFactMetricsQuery(
             ${dimensionCols
               .map((c) => `, umj.${c.alias} AS ${c.alias}`)
               .join("")}
-            ${banditDates?.length ? `, umj.bandit_period` : ""}
+            ${useBanditPeriods ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
               // Funnel resolution anchors exposure-relative windows on this;
@@ -567,7 +581,7 @@ export function getExperimentFactMetricsQuery(
           GROUP BY
             umj.variation
             ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
-            ${banditDates?.length ? `, umj.bandit_period` : ""}
+            ${useBanditPeriods ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
         `;
 
@@ -679,7 +693,7 @@ export function getExperimentFactMetricsQuery(
               : ""
           }
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
-          ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
+          ${useBanditPeriods ? `, d.bandit_period AS bandit_period` : ""}
           , d.${baseIdType} AS ${baseIdType}
           ${metricData
             .map(
@@ -842,7 +856,7 @@ export function getExperimentFactMetricsQuery(
         : ""
     }
     ${
-      banditDates?.length
+      useBanditPeriods
         ? getBanditStatisticsFactMetricCTE(dialect, {
             baseIdType,
             metricData,

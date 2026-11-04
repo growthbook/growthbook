@@ -14,6 +14,7 @@ import type {
   FeatureRule,
 } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 import {
   ContextualBanditEventInterface,
   ContextualBanditInterface,
@@ -22,6 +23,7 @@ import {
   ContextualBanditSnapshotSettings,
   ContextualBanditVariation,
   getEffectiveContextualAttributes,
+  queryHasContextualBanditVersionColumn,
   LeafWeight,
   Variation,
   VariationWeightPair,
@@ -1677,6 +1679,7 @@ export async function runContextualBanditSnapshot(
     updatedCb,
     cbQuery,
     context.org.settings?.attributeSchema,
+    context.org.settings?.banditPeriodWeighting === true,
   );
 
   const droppedContextualAttributes = updatedCb.contextualAttributes.filter(
@@ -2018,6 +2021,7 @@ export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   cbQuery: ContextualBanditQueryInterface,
   attributeSchema: SDKAttributeSchema | undefined,
+  periodWeighting = false,
 ): ContextualBanditSnapshotSettings {
   // Only active arms are analyzed; pending/deactivated hold no weight.
   const activeVariations = getActiveVariations(cb.variations ?? []);
@@ -2073,6 +2077,7 @@ export function buildContextualBanditSnapshotSettings(
     endDate: cb.dateStopped ?? null,
     reweight: true,
     banditWeightsSeed: 0,
+    periodWeighting: periodWeighting && !!cb.periodWeightingEligible,
 
     // TODO(holdout-v1.5): thread `holdoutPercent` + seed so SQL can split train_id=0/1 and stats can compute holdout-vs-bandit lift.
   };
@@ -2081,6 +2086,7 @@ export function buildContextualBanditSnapshotSettings(
 /** Translates `ContextualBanditSnapshotSettings` into the `ExperimentSnapshotSettings` shape used by `SqlIntegration.getSnapshotMetricQuery`. */
 export function buildSnapshotSettingsForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
+  identifierQuote: SqlIdentifierQuote,
 ): ExperimentSnapshotSettings {
   const decisionMetric = cbSnapshotSettings.decisionMetric;
   return {
@@ -2117,6 +2123,12 @@ export function buildSnapshotSettingsForCb(
       seed: cbSnapshotSettings.banditWeightsSeed,
       currentWeights: cbSnapshotSettings.variations.map((v) => v.weight),
       historicalWeights: [],
+      periodWeighting:
+        cbSnapshotSettings.periodWeighting !== false &&
+        queryHasContextualBanditVersionColumn(
+          cbSnapshotSettings.query,
+          identifierQuote,
+        ),
     },
   };
 }
