@@ -1,5 +1,5 @@
 import { BANDIT_SRM_DIMENSION_NAME } from "shared/constants";
-import { getUserIdTypes } from "shared/experiments";
+import { getClusterSubUnit, getUserIdTypes } from "shared/experiments";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentAggregateUnitsQueryParams } from "shared/types/integrations";
@@ -42,23 +42,28 @@ export function getExperimentAggregateUnitsQuery(
 
   const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 
-  const { baseIdType, idJoinSQL } = getIdentitiesCTE(
-    dialect,
-    datasource.settings,
-    {
-      objects: [
-        [exposureQuery.identifierType],
-        !useUnitsTable && activationMetric
-          ? getUserIdTypes(activationMetric, factTableMap)
-          : [],
-        !useUnitsTable && segment ? [segment.userIdType || "user_id"] : [],
-      ],
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: exposureQuery.identifierType,
-      experimentId: settings.experimentId,
-    },
-  );
+  // Units are counted per assignment-query identifier (the cluster column in a
+  // cluster experiment), but the inlined units query is keyed on the sub-unit,
+  // so its identity joins are built from that base, as the units query does.
+  const baseIdType = exposureQuery.identifierType;
+  const unitsBaseIdType =
+    getClusterSubUnit(unitsSettings) ?? exposureQuery.identifierType;
+  const segmentIdType = segment ? segment.userIdType || "user_id" : null;
+  const { idJoinSQL } = getIdentitiesCTE(dialect, datasource.settings, {
+    objects: [
+      [unitsBaseIdType],
+      !useUnitsTable && activationMetric
+        ? getUserIdTypes(activationMetric, factTableMap)
+        : [],
+      !useUnitsTable && segmentIdType && segmentIdType !== baseIdType
+        ? [segmentIdType]
+        : [],
+    ],
+    from: settings.startDate,
+    to: settings.endDate,
+    forcedBaseIdType: unitsBaseIdType,
+    experimentId: settings.experimentId,
+  });
 
   return format(
     `-- Traffic Query for Health Tab

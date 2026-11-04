@@ -2869,6 +2869,39 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     ).toThrow("cannot share a metric source cache");
   });
 
+  it("builds the traffic query's identity joins from the sub-unit base", () => {
+    const userSegment: SegmentInterface = {
+      id: "seg_user",
+      organization: "org",
+      owner: "",
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      name: "user segment",
+      description: "",
+      userIdType: "user_id",
+      type: "SQL",
+      sql: "SELECT user_id, date FROM subscribers",
+    };
+    // No region_id -> user_id identity join is configured, and none is needed:
+    // the inlined units query is keyed on user_id, like the segment.
+    const sql = datasourceIntegration.getExperimentAggregateUnitsQuery({
+      settings: baseSettings,
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+        query: clusterExposureQuery.query,
+        identifierType: "region_id",
+      }),
+      activationMetric: null,
+      dimensions: [],
+      segment: userSegment,
+      factTableMap,
+      useUnitsTable: false,
+    });
+    expect(sql.replace(/\s+/g, " ")).toMatch(
+      /__distinctUnits AS \( SELECT region_id/,
+    );
+  });
+
   it("namespaces inline cluster-level identity joins so they don't collide with the units query", () => {
     // Reproduces the duplicate-CTE collision: a cluster-level metric whose fact
     // table is keyed on device_id (joined region_id -> device_id for the outer
