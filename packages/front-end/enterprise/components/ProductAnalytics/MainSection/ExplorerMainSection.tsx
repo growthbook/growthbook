@@ -14,8 +14,10 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   explorerMainPresentation,
+  hasSmallPopulation,
   hasSubmittablePayload,
   isTableChartType,
+  SMALL_POPULATION_SIZE,
   isTimelessSqlExploration,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
@@ -119,6 +121,11 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
       id="main-section-visuals"
     >
       <Toolbar />
+      {!loading && hasSmallPopulation(exploration?.result?.rows ?? []) && (
+        <Callout status="info" size="sm">
+          {`Some rates are based on fewer than ${SMALL_POPULATION_SIZE} Population members, so they can change a lot between periods. A longer date grouping gives steadier rates.`}
+        </Callout>
+      )}
       {compareEnabled && comparisonError && !loading && (
         <Callout status="warning" size="sm">
           {`The comparison period could not be loaded, so only the current period is shown: ${comparisonError}`}

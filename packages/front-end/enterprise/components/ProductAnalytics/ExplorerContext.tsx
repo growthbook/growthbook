@@ -29,6 +29,7 @@ import {
   getComparisonAlignmentStrategy,
   resolveLegacyExplorerComparisonMode,
   hasTimestampColumn,
+  getMetricPopulationViolations,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isFactFunnelMetric } from "shared/experiments";
@@ -88,6 +89,8 @@ export interface ExplorerContextValue {
   needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
+  /** Why the dataset's population can't run with this config; empty when it can. */
+  populationViolations: string[];
   managedWarehouseUnavailable: boolean;
   trackingSource: string | undefined;
 
@@ -202,6 +205,8 @@ export function ExplorerProvider({
     getFactMetricById,
     datasources,
     getDatasourceById,
+    factMetrics,
+    factTables,
   } = useDefinitions();
   const isPassivePreview = mode === "passive-preview";
 
@@ -447,9 +452,32 @@ export function ExplorerProvider({
     comparisonMode,
   ]);
 
+  // The server's own check, so the Run button and the API reject the same configs.
+  const populationViolations = useMemo(() => {
+    const { dataset, dimensions, datasource } = cleanedDraftExploreState;
+    // No metrics yet already blocks the run, so skip the server's "at least
+    // one metric" violation rather than flagging a fresh population.
+    if (
+      dataset.type !== "metric" ||
+      !dataset.population ||
+      !dataset.values.length
+    ) {
+      return [];
+    }
+    return getMetricPopulationViolations({
+      population: dataset.population,
+      values: dataset.values,
+      dimensions,
+      datasource,
+      metricMap: new Map(factMetrics.map((m) => [m.id, m])),
+      factTableMap: new Map(factTables.map((f) => [f.id, f])),
+    });
+  }, [cleanedDraftExploreState, factMetrics, factTables]);
+
   const isSubmittable = useMemo(() => {
     return (
       queryEnabled &&
+      populationViolations.length === 0 &&
       isSubmittableConfig(cleanedDraftExploreState, getFactTableById) &&
       // Block submission while alwaysInlineFilter columns are seeded but empty.
       // cleanConfigForSubmission would otherwise strip the placeholder filter
@@ -461,6 +489,7 @@ export function ExplorerProvider({
     draftExploreState,
     getFactTableById,
     queryEnabled,
+    populationViolations,
   ]);
 
   const doSubmit = useCallback(
@@ -1298,6 +1327,7 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       isSubmittable,
+      populationViolations,
       managedWarehouseUnavailable,
       clearAllDatasets,
       query,
@@ -1341,6 +1371,7 @@ export function ExplorerProvider({
       handleSubmit,
       isStale,
       isSubmittable,
+      populationViolations,
       loading,
       polling,
       managedWarehouseUnavailable,

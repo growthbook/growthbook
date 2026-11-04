@@ -86,6 +86,7 @@ export default function ExplorerSideBar({
     loading,
     handleSubmit,
     isSubmittable,
+    populationViolations,
     isStale,
     error,
   } = useExplorerContext();
@@ -185,7 +186,9 @@ export default function ExplorerSideBar({
     hasInputs && !isSubmittable
       ? emptyStaticDimension
         ? "Select at least one value for the pinned dimension before updating."
-        : "Configure a valid exploration before updating."
+        : populationViolations.length
+          ? "Fix the Population issues before updating."
+          : "Configure a valid exploration before updating."
       : undefined;
 
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(

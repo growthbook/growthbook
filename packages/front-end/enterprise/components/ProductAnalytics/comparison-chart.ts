@@ -15,9 +15,8 @@ import type {
 } from "shared/validators";
 import {
   formatDateByGranularity,
-  getEffectiveMetricValue,
-  getEffectiveShowAs,
-  getIsRatioByIndex,
+  getExplorationRenderOpts,
+  getRowMetricValue,
   type RenderOpts,
   type ResolvedGranularity,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -384,16 +383,9 @@ export function buildComparisonOverlaySeriesMaps(
             name: metricNameForDatasetValue(config, mi),
           };
         }
-        const cell = row.values?.[mi];
-        if (!cell) continue;
-        bump(
-          seriesKey,
-          x,
-          getEffectiveMetricValue(cell, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[mi] ?? false,
-          }),
-        );
+        const value = getRowMetricValue(row, mi, renderOpts);
+        if (value === null) continue;
+        bump(seriesKey, x, value);
       }
       continue;
     }
@@ -412,16 +404,9 @@ export function buildComparisonOverlaySeriesMaps(
           name: group || metricNameForDatasetValue(config, 0),
         };
       }
-      const cell = row.values?.[0];
-      if (!cell) continue;
-      bump(
-        seriesKey,
-        x,
-        getEffectiveMetricValue(cell, {
-          showAs: renderOpts.showAs,
-          isRatio: renderOpts.isRatioByIndex[0] ?? false,
-        }),
-      );
+      const value = getRowMetricValue(row, 0, renderOpts);
+      if (value === null) continue;
+      bump(seriesKey, x, value);
       continue;
     }
 
@@ -432,16 +417,9 @@ export function buildComparisonOverlaySeriesMaps(
         name: metricNameForDatasetValue(config, 0),
       };
     }
-    const cell = row.values?.[0];
-    if (!cell) continue;
-    bump(
-      seriesKey,
-      x,
-      getEffectiveMetricValue(cell, {
-        showAs: renderOpts.showAs,
-        isRatio: renderOpts.isRatioByIndex[0] ?? false,
-      }),
-    );
+    const value = getRowMetricValue(row, 0, renderOpts);
+    if (value === null) continue;
+    bump(seriesKey, x, value);
   }
 
   return { uniqueXValues, dataMap, seriesMeta };
@@ -914,24 +892,22 @@ export function computeBigNumberComparisonTrendForMetricIndex(
     return null;
   }
 
-  const renderOpts: RenderOpts = {
-    showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
-  };
+  const renderOpts: RenderOpts = getExplorationRenderOpts(
+    submittedExploreState,
+    getFactMetricById,
+  );
 
-  const currCell = exploration.result.rows[0]?.values?.[metricIndex];
-  const prevCell = comparisonExploration.result.rows[0]?.values?.[metricIndex];
-  if (!currCell || !prevCell) return null;
-
-  const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
-  const currentValue = getEffectiveMetricValue(currCell, {
-    showAs: renderOpts.showAs,
-    isRatio,
-  });
-  const previousValue = getEffectiveMetricValue(prevCell, {
-    showAs: renderOpts.showAs,
-    isRatio,
-  });
+  const currentValue = getRowMetricValue(
+    exploration.result.rows[0] ?? {},
+    metricIndex,
+    renderOpts,
+  );
+  const previousValue = getRowMetricValue(
+    comparisonExploration.result.rows[0] ?? {},
+    metricIndex,
+    renderOpts,
+  );
+  if (currentValue === null || previousValue === null) return null;
 
   if (previousValue === 0) {
     return { currentValue, previousValue, pctChange: 0 };

@@ -23,8 +23,7 @@ import {
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
-  getIsRatioByIndex,
-  getEffectiveShowAs,
+  getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
   formatDateByGranularity,
@@ -50,6 +49,7 @@ function formatCellForTable(
       dimensions?: { dimensionType?: string }[];
     } | null;
     hasNoDimensions: boolean;
+    showsPopulationRates: boolean;
   },
 ): unknown {
   if (col.kind === "dimension") {
@@ -70,7 +70,20 @@ function formatCellForTable(
     return raw;
   }
   if (raw == null) return "";
-  if (col.sub === "numerator" || col.sub === "denominator") return raw;
+  if (
+    col.kind === "population" ||
+    col.sub === "numerator" ||
+    col.sub === "denominator"
+  ) {
+    return raw;
+  }
+  if (
+    col.sub === "value" &&
+    context.showsPopulationRates &&
+    typeof raw === "number"
+  ) {
+    return formatPct(raw);
+  }
   return typeof raw === "number" ? raw.toFixed(2) : raw;
 }
 
@@ -519,13 +532,7 @@ export default function useExplorationTableData(
   }, [exploration, submittedExploreState]);
 
   const renderOpts: RenderOpts = useMemo(
-    () => ({
-      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
-      isRatioByIndex: getIsRatioByIndex(
-        submittedExploreState,
-        getFactMetricById,
-      ),
-    }),
+    () => getExplorationRenderOpts(submittedExploreState, getFactMetricById),
     [submittedExploreState, getFactMetricById],
   );
 
@@ -560,7 +567,7 @@ export default function useExplorationTableData(
       columns.forEach((col, i) => {
         if (col.kind === "dimension") {
           keys.push(col.key);
-        } else if (col.sub === "single") {
+        } else if (col.kind === "metric" && col.sub === "single") {
           keys.push(`${col.key}__curr`, `${col.key}__prev`);
         }
         // Insert the previous-date column immediately after the current date
@@ -580,8 +587,7 @@ export default function useExplorationTableData(
     if (!tableCompareActive) return undefined;
     const meta: Record<string, ExplorationTableCompareColumnMeta> = {};
     for (const col of columns) {
-      if (col.kind === "dimension") continue;
-      if (col.sub !== "single") continue;
+      if (col.kind !== "metric" || col.sub !== "single") continue;
       const prevKey = `${col.key}__prev`;
       const currKey = `${col.key}__curr`;
       const trendKey = `${col.key}__trend`;
@@ -606,7 +612,7 @@ export default function useExplorationTableData(
       columns.forEach((col, i) => {
         if (col.kind === "dimension") {
           labels.push(col.label);
-        } else if (col.sub === "single") {
+        } else if (col.kind === "metric" && col.sub === "single") {
           const metricName =
             (submittedExploreState.dataset?.type !== "funnel" &&
             submittedExploreState.dataset?.type !== "journey"
@@ -646,7 +652,7 @@ export default function useExplorationTableData(
       columns.forEach((col, i) => {
         if (col.kind === "dimension") {
           row1.push({ label: col.label, rowSpan: 2 });
-        } else if (col.sub === "single") {
+        } else if (col.kind === "metric" && col.sub === "single") {
           const metricName =
             (submittedExploreState.dataset?.type !== "funnel" &&
             submittedExploreState.dataset?.type !== "journey"
@@ -667,7 +673,7 @@ export default function useExplorationTableData(
     const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
     const row2Labels: string[] = [];
     for (const col of columns) {
-      if (col.kind === "dimension") {
+      if (col.kind === "dimension" || col.kind === "population") {
         row1.push({ label: col.label, rowSpan: 2 });
         continue;
       }
@@ -680,21 +686,28 @@ export default function useExplorationTableData(
         (ds && ds.type !== "funnel" && ds.type !== "journey"
           ? ds.values?.[col.metricIndex]?.name
           : undefined) ?? col.label;
+      const byPopulation = renderOpts.showsPopulationRates;
       if (col.sub === "numerator") {
-        row1.push({ label: metricName, colSpan: 3 });
+        // Population rates have Count and Rate; members are in their own column.
+        row1.push({ label: metricName, colSpan: byPopulation ? 2 : 3 });
       }
       row2Labels.push(
         col.sub === "numerator"
-          ? "Numerator"
+          ? byPopulation
+            ? "Count in Population"
+            : "Numerator"
           : col.sub === "denominator"
             ? "Denominator"
-            : "Value",
+            : byPopulation
+              ? "% of Population"
+              : "Value",
       );
     }
     return { row1, row2Labels };
   }, [
     hasAnyRatio,
     columns,
+    renderOpts,
     submittedExploreState,
     compareHeadings,
     firstDimensionIsDate,
@@ -727,6 +740,7 @@ export default function useExplorationTableData(
       resolvedGranularity,
       submittedExploreState,
       hasNoDimensions,
+      showsPopulationRates: renderOpts.showsPopulationRates,
     };
 
     if (tableCompareActive && comparisonExploration?.result?.rows) {
@@ -770,7 +784,7 @@ export default function useExplorationTableData(
             ] as const);
             continue;
           }
-          if (col.sub === "single") {
+          if (col.kind === "metric" && col.sub === "single") {
             const rawCurr = getExplorationCellValue(row, col, renderOpts);
             const rawPrev = cmpRow
               ? getExplorationCellValue(cmpRow, col, renderOpts)

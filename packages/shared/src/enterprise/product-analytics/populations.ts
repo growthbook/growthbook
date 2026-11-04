@@ -3,11 +3,13 @@ import type {
   MetricDataset,
   ProductAnalyticsDimension,
 } from "shared/validators";
-import { getPopulationRuleViolations } from "shared/populations";
+import {
+  getPopulationRuleViolations,
+  PopulationRuleFactTable,
+} from "shared/populations";
 import type {
   FactMetricInterface,
   FactMetricType,
-  FactTableInterface,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
 
@@ -15,8 +17,8 @@ import type {
 // are rejected.
 const POPULATION_METRIC_TYPES = new Set<FactMetricType>(["proportion"]);
 
-function isSupportedWithPopulation(
-  metric: FactMetricInterface,
+export function isSupportedWithPopulation(
+  metric: Pick<FactMetricInterface, "metricType">,
 ): metric is StandardFactMetricInterface {
   return POPULATION_METRIC_TYPES.has(metric.metricType);
 }
@@ -36,7 +38,7 @@ export function getMetricPopulationViolations({
   dimensions: ProductAnalyticsDimension[];
   datasource: string;
   metricMap: Map<string, FactMetricInterface>;
-  factTableMap: Map<string, FactTableInterface>;
+  factTableMap: Map<string, PopulationRuleFactTable>;
 }): string[] {
   const violations: string[] = [];
   if (values.some((value) => value.draftMetric)) {

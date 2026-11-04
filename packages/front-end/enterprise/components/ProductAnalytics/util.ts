@@ -19,6 +19,9 @@ import type {
   JourneyStepGroup,
   ExplorationDateRange,
   ProductAnalyticsChartSettings,
+  ApiPopulation,
+  ExplorationPopulation,
+  PopulationStep,
 } from "shared/validators";
 import {
   explorationConfigValidator,
@@ -54,6 +57,10 @@ import {
   sanitizeDimensions,
   getRelevantFactTableIds,
   clearInapplicableShowAs,
+  isSupportedWithPopulation,
+  getDateGranularity,
+  getDefaultValueAxisName as getShowAsValueAxisName,
+  getShowsPopulationRates,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
@@ -71,16 +78,37 @@ export {
   clearInapplicableShowAs,
   getEffectiveMetricValue,
   getSharedUnit,
-  getDefaultValueAxisName,
   showAsAppliesTo,
   getIsRatioByIndex,
   buildExplorationColumns,
   getExplorationCellValue,
   computeDimensionTotals,
   sortExplorationRows,
+  getExplorationRenderOpts,
+  getRowMetricValue,
 } from "shared/enterprise";
 export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
+
+/** Value-axis title when no custom `valueAxisLabel` is set, shared by the chart and its settings. */
+export function getDefaultValueAxisName(
+  config: ExplorationConfig,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (!getShowsPopulationRates(config)) {
+    return getShowAsValueAxisName(config, getFactMetricById);
+  }
+  // Membership is decided per bucket, so name the bucket the rate is out of.
+  const dateDimension = config.dimensions.find(
+    (d) => d.dimensionType === "date",
+  );
+  return dateDimension
+    ? `% of each ${getDateGranularity(
+        dateDimension.dateGranularity,
+        calculateProductAnalyticsDateRange(config.dateRange),
+      )}'s members`
+    : "% of members in this date range";
+}
 
 /** Explorer UI state: exploration config plus optional compare period (not on public API config). */
 export type ExplorerDraftConfig = ExplorationConfig & {
@@ -1810,3 +1838,117 @@ export const comparisonModeQueryParser = createParser<ComparisonMode | null>({
   },
   serialize: (value) => value ?? "",
 });
+
+/** The exploration population built from a saved Population's single step. */
+export function toExplorationPopulation(
+  population: Pick<ApiPopulation, "steps">,
+  unit: string,
+): ExplorationPopulation | null {
+  const step = population.steps[0];
+  if (!step) return null;
+  return {
+    source: step.source,
+    rowFilters: step.rowFilters,
+    aggregateFilter: step.aggregateFilter,
+    aggregateFilterColumn: step.aggregateFilterColumn,
+    unit,
+  };
+}
+
+function hasSameConditions(
+  a: Pick<
+    PopulationStep,
+    "source" | "rowFilters" | "aggregateFilter" | "aggregateFilterColumn"
+  >,
+  b: Pick<
+    PopulationStep,
+    "source" | "rowFilters" | "aggregateFilter" | "aggregateFilterColumn"
+  >,
+): boolean {
+  return (
+    a.source.factTableId === b.source.factTableId &&
+    (a.aggregateFilter ?? null) === (b.aggregateFilter ?? null) &&
+    (a.aggregateFilterColumn ?? null) === (b.aggregateFilterColumn ?? null) &&
+    a.rowFilters.length === b.rowFilters.length &&
+    a.rowFilters.every((f) => b.rowFilters.some((g) => isEqual(f, g)))
+  );
+}
+
+/**
+ * Explorations store a Population's conditions, not its id, so the selected
+ * Population is the one whose conditions still match. Returns null once the
+ * Population is edited or deleted.
+ */
+export function findMatchingPopulation<
+  T extends Pick<ApiPopulation, "datasource" | "userIdTypes" | "steps">,
+>(
+  population: ExplorationPopulation,
+  populations: T[],
+  datasource: string,
+): T | null {
+  return (
+    populations.find(
+      (p) =>
+        p.datasource === datasource &&
+        p.steps.length === 1 &&
+        p.userIdTypes.includes(population.unit) &&
+        hasSameConditions(p.steps[0], population),
+    ) ?? null
+  );
+}
+
+/** Why a metric can't be combined with a population on `factTableId`. */
+export function getMetricPopulationConflict(
+  metric: FactMetricInterface,
+  factTableId: string,
+): "metricType" | "factTable" | null {
+  if (!isSupportedWithPopulation(metric)) return "metricType";
+  if (metric.numerator.factTableId !== factTableId) return "factTable";
+  return null;
+}
+
+/**
+ * True when every Population member counts for the metric: it has no filters
+ * of its own, so its rate is always 100%.
+ */
+export function countsEveryPopulationMember(
+  metric: FactMetricInterface,
+  value: Pick<MetricValue, "rowFilters">,
+): boolean {
+  if (!isSupportedWithPopulation(metric)) return false;
+  return (
+    !metric.numerator.rowFilters?.length &&
+    !metric.numerator.aggregateFilter &&
+    !value.rowFilters?.length
+  );
+}
+
+// A fixed cutoff until the explorer shows confidence intervals.
+export const SMALL_POPULATION_SIZE = 100;
+
+/** True when any row's rate is based on fewer than SMALL_POPULATION_SIZE members. */
+export function hasSmallPopulation(
+  rows: { populationCount?: number }[],
+): boolean {
+  return rows.some(
+    (r) =>
+      r.populationCount !== undefined &&
+      r.populationCount < SMALL_POPULATION_SIZE,
+  );
+}
+
+// Population values are rates, which must not be added together.
+const UNSTACKED_CHART_TYPES: Partial<
+  Record<ExplorationConfig["chartType"], ExplorationConfig["chartType"]>
+> = {
+  area: "line",
+  stackedBar: "bar",
+  stackedHorizontalBar: "horizontalBar",
+};
+
+/** The closest chart type that doesn't stack values, or null if it already doesn't. */
+export function getUnstackedChartType(
+  chartType: ExplorationConfig["chartType"],
+): ExplorationConfig["chartType"] | null {
+  return UNSTACKED_CHART_TYPES[chartType] ?? null;
+}
