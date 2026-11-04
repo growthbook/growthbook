@@ -5,6 +5,7 @@ import {
   StartQueryExecutionCommandInput,
 } from "@aws-sdk/client-athena";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { QueryStatistics } from "shared/types/query";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { parseEnvInt, parseOptionalInt } from "shared/util";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
@@ -179,6 +180,7 @@ export async function runAthenaQuery(
   }
 
   let timeWaitingForFailure = 0;
+  let statistics: QueryStatistics | undefined;
   const waitAndCheck = (delay: number) => {
     return new Promise<false | ResultSet>((resolve, reject) => {
       setTimeout(() => {
@@ -188,6 +190,11 @@ export async function runAthenaQuery(
             const State = resp.QueryExecution?.Status?.State;
             const StateChangeReason =
               resp.QueryExecution?.Status?.StateChangeReason;
+            // Keep Athena's error type so failures can be grouped by code
+            const failure = (message: string) =>
+              Object.assign(new Error(message), {
+                code: resp.QueryExecution?.Status?.AthenaError?.ErrorType,
+              });
 
             if (State === "RUNNING" || State === "QUEUED") {
               if (timeWaitingForFailure > 0) {
@@ -215,16 +222,23 @@ export async function runAthenaQuery(
                   logger.debug(
                     `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`,
                   );
-                  reject(new Error(StateChangeReason));
+                  reject(failure(StateChangeReason));
                 } else {
                   resolve(false);
                 }
               } else {
-                reject(new Error(StateChangeReason || "Query failed"));
+                reject(failure(StateChangeReason || "Query failed"));
               }
             } else if (State === "CANCELLED") {
               reject(new Error("Query was cancelled"));
             } else {
+              const stats = resp.QueryExecution?.Statistics;
+              statistics = stats && {
+                executionDurationMs: stats.EngineExecutionTimeInMillis,
+                bytesProcessed: stats.DataScannedInBytes,
+                warehouseCachedResult:
+                  stats.ResultReuseInformation?.ReusedPreviousResult,
+              };
               athena
                 .getQueryResults({ QueryExecutionId })
                 .then(({ ResultSet }) => {
@@ -278,6 +292,7 @@ export async function runAthenaQuery(
               ...(dataType && { dataType }),
             };
           }),
+        statistics,
       };
     }
   }

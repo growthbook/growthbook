@@ -310,6 +310,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     // Legacy dimension descriptor has no `precomputed` flag.
@@ -322,6 +323,33 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
     expect(result.settings.experimentId).toBe("experiment-key");
     // Variation id is the current internal id.
     expect(result.results[0].metrics[0].variations[0].variationId).toBe("0");
+  });
+
+  it("describes the experiment's current assignment query, not the snapshot's", () => {
+    const snapshot = makeSnapshot();
+    snapshot.settings = {
+      ...snapshot.settings,
+      exposureQueryId: "eq_old",
+      exposureQueryIdentifierType: "user_id",
+    };
+    const experiment = {
+      ...makeExperiment(),
+      exposureQueryId: "eq_new",
+      exposureQueryIdentifierType: "anonymous_id",
+    };
+
+    const { settings } = toSnapshotApiInterface(
+      experiment,
+      snapshot,
+      new Map(),
+      [],
+    );
+
+    expect(settings.assignmentQuery).toEqual({
+      id: "eq_new",
+      identifierType: "anonymous_id",
+    });
+    expect(settings.assignmentQueryId).toBe("eq_new");
   });
 
   it("emits 0 (not null) for missing statistics to preserve its contract", () => {
@@ -339,6 +367,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
     const analysis = result.results[0].metrics[0].variations[0].analyses[0];
 
@@ -365,6 +394,7 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(
@@ -383,6 +413,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(result.id).toBe("snp_1:dimension:precomputed%3Acountry");
@@ -415,6 +446,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       experiment,
       snapshot,
       makeMetricMap({ met_1: "Revenue" }),
+      [],
     );
 
     expect(result.settings.experimentId).toBe("exp_1");
@@ -443,6 +475,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(result.settings.goals[0].effectiveSettings).toEqual({
@@ -471,6 +504,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(result.settings.goals[0]).toEqual({ metricId: "met_1" });
@@ -503,6 +537,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       experiment,
       snapshot,
       new Map(),
+      [],
     );
 
     const variations = result.results[0].metrics[0].variations;
@@ -543,6 +578,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     const [removed, kept] = result.results[0].metrics[0].variations;
@@ -582,6 +618,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     // One item per dimension, each with a unique id.
@@ -611,6 +648,7 @@ describe("toExperimentSnapshotBulkResultsApiInterface", () => {
       makeExperiment(),
       snapshot,
       new Map(),
+      [],
     );
 
     expect(result.dateStart).toBe(

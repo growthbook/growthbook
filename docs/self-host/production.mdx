@@ -1,7 +1,6 @@
 ---
 title: Production
 description: "Harden a self-hosted GrowthBook install for production: HTTPS, secrets, backups, and resource limits."
-slug: production
 ---
 
 When properly configured, a self-hosted GrowthBook deployment can scale to billions of requests per month.
@@ -43,6 +42,8 @@ If you are using GrowthBook to serve feature flags to client-side apps, you will
 1. Use a [**GrowthBook Proxy**](/self-host/proxy) server. This way, your main GrowthBook instance can remain on a private subnet and only the Proxy needs to be exposed to the internet. The Proxy has a very small attack surface compared to the full GrowthBook app.
 2. Use a [**CDN**](/self-host/cdn). If you go this route, it's very important to only allow requests to the `/api/features/*` endpoint in your CDN. If you allow access to other endpoints (e.g. `/auth/*` or other API routes) you lose many of the benefits of a Firewall or VPN and may even end up leaking sensitive information.
 3. Use **SDK Webhooks** to send your feature payload to a publicly accessible place (e.g. a public S3 bucket). This switches GrowthBook from a "pull" model to a "push" model and you no longer need to allow any incoming requests from users at all.
+
+GrowthBook also makes outbound requests to URLs that users configure, such as event webhooks. To stop those requests from reaching internal services, route them through an egress proxy that blocks private addresses with the [`WEBHOOK_PROXY`](/self-host/env#outbound-request-proxy) environment variable.
 
 ### Authentication and Permissions
 
@@ -142,4 +143,4 @@ To enable, you must set the environment variable `TRACING_PROVIDER=opentelemetry
 
 The standard [OTEL\_\* Environment Variables](https://opentelemetry.io/docs/concepts/sdk-configuration/) are supported, such as `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
-In addition to this, make sure to configure the **EXPRESS_TRUST_PROXY_OPTS** environment variable. It supports boolean (true/false), string values, and integer values for trusting the _n_<sup>th</sup> hop from the front-facing proxy server as the client. Leavy empty or specify `false` to use Express' default behavior. If you are running GrowthBook behind a proxy or load balancer, this is required to track the correct user IP for audit log events. Read more about this setting in [Express' documentation](https://expressjs.com/en/5x/api.html#trust.proxy.options.table).
+In addition to this, make sure to configure the **EXPRESS_TRUST_PROXY_OPTS** environment variable. It supports boolean (true/false), string values, and integer values for trusting the _n_<sup>th</sup> hop from the front-facing proxy server as the client. Leave empty or specify `false` to use Express' default behavior. If you are running GrowthBook behind a proxy or load balancer, this is required to track the correct user IP for audit log events. Read more about this setting in [Express' documentation](https://expressjs.com/en/5x/api.html#trust.proxy.options.table).

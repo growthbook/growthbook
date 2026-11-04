@@ -1,5 +1,7 @@
 import Agenda, { Job } from "agenda";
+import { isEqual } from "lodash";
 import { isPermissionError } from "shared/util";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -7,12 +9,16 @@ import {
   getExperimentsWithScheduledStatusUpdate,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
-  applyScheduledExperimentStop,
+  armedStartBypassStands,
+  assertScheduledStartNotHardBlocked,
+  executeExperimentStart,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
+import {
+  assertCanRunExperimentInAffectedEnvironments,
   getScheduledStatusContext,
-} from "back-end/src/services/experimentScheduling";
-import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
+} from "back-end/src/services/experiments";
 import {
   isTerminalPublishError,
   TerminalPublishError,
@@ -39,9 +45,11 @@ const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 // instead of retrying.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
-// Only the exact update a job processed may be cleared or marked failed; the
-// same action re-staged by someone else runs on their authority, not ours.
-type StagedUpdate = { type: string; date: Date; scheduledBy?: string };
+// Only the exact update a job processed may be cleared or marked failed, not
+// the same action re-staged meanwhile, by someone else or with fresh pins.
+type StagedUpdate = NonNullable<
+  ExperimentInterface["nextScheduledStatusUpdate"]
+>;
 const sameStagedUpdate = (
   a: StagedUpdate | null | undefined,
   b: StagedUpdate,
@@ -49,7 +57,10 @@ const sameStagedUpdate = (
   !!a &&
   a.type === b.type &&
   a.date.getTime() === b.date.getTime() &&
-  (a.scheduledBy ?? null) === (b.scheduledBy ?? null);
+  (a.scheduledBy ?? null) === (b.scheduledBy ?? null) &&
+  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null) &&
+  !!a.bypassApproval === !!b.bypassApproval &&
+  isEqual(a.pinnedDrafts ?? null, b.pinnedDrafts ?? null);
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {
@@ -133,18 +144,20 @@ export const updateSingleExperimentStatus = async (
   try {
     logger.info("Start updating status for experiment " + experiment.id);
 
-    // As with a scheduled publish, the change runs as whoever staged it, checked
-    // now: no run permission means the job does not lend it.
-    const scheduler = await getScheduledStatusContext(context, experiment);
-    if (!scheduler) {
-      throw new Error("scheduling user could not be resolved");
+    // The fire runs as the armer, so the draft publish is judged as it stands
+    // now; nobody to run as, or no run permission left, and the job lends nothing.
+    const armer = await getScheduledStatusContext(context, experiment);
+    if (!armer) {
+      throw new Error(
+        "the user or API key that armed this change could not be resolved",
+      );
     }
     try {
-      await assertCanRunExperimentInAffectedEnvironments(scheduler, experiment);
+      await assertCanRunExperimentInAffectedEnvironments(armer, experiment);
     } catch (e) {
       if (isPermissionError(e)) {
         throw new TerminalPublishError(
-          `The user who scheduled this ${scheduled.type} may not run the experiment in its environments`,
+          `Whoever armed this ${scheduled.type} may not run the experiment in its environments`,
         );
       }
       throw e;
@@ -164,15 +177,23 @@ export const updateSingleExperimentStatus = async (
           return;
         }
 
-        const experimentBefore = experiment;
-        const { updated } = await executeExperimentStart(scheduler, experiment);
-        await scheduler.auditLog({
+        const bypass = await armedStartBypassStands(armer, experiment);
+        // Transient, not terminal: retried to the cap, then given up with a notice.
+        await assertScheduledStartNotHardBlocked(armer, experiment, bypass);
+
+        const { updated } = await executeExperimentStart(
+          armer,
+          experiment,
+          bypass,
+        );
+        await armer.auditLog({
           event: "experiment.status",
-          entity: {
-            object: "experiment",
-            id: experimentBefore.id,
-          },
-          details: auditDetailsUpdate(experimentBefore, updated),
+          entity: { object: "experiment", id: experiment.id },
+          details: auditDetailsUpdate(
+            experiment,
+            updated,
+            bypass ? { bypassLockdown: true } : {},
+          ),
         });
         await notifyScheduledStatusUpdateApplied({
           context,
@@ -198,7 +219,7 @@ export const updateSingleExperimentStatus = async (
 
         // A stop refreshes the SDK payload as a side effect.
         const outcome = await applyScheduledExperimentStop({
-          context: scheduler,
+          context: armer,
           experiment,
           metricGroups,
         });
@@ -230,15 +251,11 @@ export const updateSingleExperimentStatus = async (
             recommendedVariationId: outcome.recommendedVariationId ?? undefined,
           });
         } else {
-          // The scheduled stop actually changed the experiment (status flipped
-          // to stopped, plus winner/results/releasedVariationId). Record it on
-          // the scheduler like the start above; kept-running changes nothing.
-          await scheduler.auditLog({
+          // Kept-running changes nothing; a stop flips status, results and
+          // the released variation.
+          await armer.auditLog({
             event: "experiment.status",
-            entity: {
-              object: "experiment",
-              id: experiment.id,
-            },
+            entity: { object: "experiment", id: experiment.id },
             details: auditDetailsUpdate(experiment, latest),
           });
           await notifyScheduledStatusUpdateApplied({
@@ -302,11 +319,22 @@ export const updateSingleExperimentStatus = async (
       await updateExperiment({
         context,
         experiment: latest,
-        changes: {
-          nextScheduledStatusUpdate: willRetry
-            ? { ...scheduled, failedAttempts: attempts }
-            : null,
-        },
+        changes: willRetry
+          ? {
+              nextScheduledStatusUpdate: {
+                ...scheduled,
+                failedAttempts: attempts,
+                lastError: reason,
+              },
+            }
+          : {
+              nextScheduledStatusUpdate: null,
+              scheduledStatusUpdateFailure: {
+                type: scheduled.type,
+                date: new Date(),
+                reason,
+              },
+            },
       });
     } catch (inner) {
       logger.error(

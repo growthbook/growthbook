@@ -12,6 +12,7 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentMetricQueryParams } from "shared/types/integrations";
 import type { MetricInterface } from "shared/types/metric";
 import type { SqlDialect } from "shared/types/sql";
+import { getSnapshotCutoffDate } from "shared/util";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
@@ -69,7 +70,7 @@ export function getSnapshotMetricQuery(
     activationMetric,
   );
 
-  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  const userIdType = params.unitsSettings.exposureQuery.identifierType;
   if (!userIdType) {
     throw new Error("Unable to determine user id type from exposureQuery");
   }
@@ -183,6 +184,7 @@ export function getSnapshotMetricQuery(
     orderedMetrics,
     settings.endDate,
     overrideConversionWindows,
+    getSnapshotCutoffDate(settings),
   );
 
   const idTypeObjects = [

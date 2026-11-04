@@ -20,7 +20,6 @@ import {
   ManagedWarehouseOutOfMemoryError,
   ManagedWarehousePendingError,
 } from "shared/util";
-import { SqlDialect } from "shared/types/sql";
 import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
@@ -28,7 +27,6 @@ import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseC
 import { logger } from "back-end/src/util/logger";
 import { metrics } from "back-end/src/util/metrics";
 import SqlIntegration from "./SqlIntegration";
-import { clickHouseDialect } from "./dialects/clickhouse";
 
 // Matches ClickHouse DateTime/DateTime64 column types with no explicit
 // timezone argument (e.g. "DateTime", "DateTime64(3)", "Nullable(DateTime64(3))").
@@ -83,9 +81,6 @@ export default class ClickHouse extends SqlIntegration {
       this.params.url = this.params.host;
       delete this.params.host;
     }
-  }
-  getSqlDialect(): SqlDialect {
-    return clickHouseDialect;
   }
 
   async testConnection(): Promise<boolean> {
@@ -156,7 +151,8 @@ export default class ClickHouse extends SqlIntegration {
         }),
         statistics: data.statistics
           ? {
-              executionDurationMs: data.statistics.elapsed,
+              // ClickHouse reports elapsed in seconds
+              executionDurationMs: data.statistics.elapsed * 1000,
               rowsProcessed: data.statistics.rows_read,
               bytesProcessed: data.statistics.bytes_read,
             }
@@ -166,7 +162,11 @@ export default class ClickHouse extends SqlIntegration {
       // QueryRunner only logs failures at debug level (suppressed in prod), so this is
       // the only place Managed Warehouse failure rate/detail is visible in prod logs.
       if (isManagedWarehouse(this.datasource)) {
-        const code = e instanceof ClickHouseError ? e.code : "unknown";
+        // Network failures (ECONNRESET etc.) aren't ClickHouseErrors but carry a Node errno code.
+        const code =
+          e instanceof ClickHouseError
+            ? e.code
+            : (e as NodeJS.ErrnoException)?.code || "unknown";
         try {
           logger.error(
             {

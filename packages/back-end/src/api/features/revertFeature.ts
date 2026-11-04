@@ -48,6 +48,11 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  confirmationLink,
+  landingActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -365,6 +370,17 @@ export async function revertFeatureCore(
       : [];
 
   await assertRevertLandingGuards(context, feature, changes, revision);
+  await requireConfirmation(context, {
+    actions: landingActions(
+      "feature",
+      changes.archived === true && !feature.archived,
+    ),
+    bypassing: bypassedGates,
+    project: feature.project,
+    summary: `Revert ${feature.id} to revision ${version}`,
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

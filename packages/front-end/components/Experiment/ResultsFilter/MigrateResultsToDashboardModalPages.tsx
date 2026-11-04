@@ -180,7 +180,7 @@ export function SelectDashboardAndBlockPage({
       .join(", ");
   }, [metricsFilter, getExperimentMetricById, getMetricGroupById]);
   const metricFiltersTagsDisplay = useMemo(() => {
-    // commma-separated list of metric tags
+    // comma-separated list of metric tags
     return metricTagFilter.join(", ");
   }, [metricTagFilter]);
 

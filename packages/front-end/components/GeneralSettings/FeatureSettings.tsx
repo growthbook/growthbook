@@ -1,23 +1,48 @@
-import { isEqual } from "lodash";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import isEqual from "lodash/isEqual";
 import { useFormContext } from "react-hook-form";
-import { FaExclamationCircle } from "react-icons/fa";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useEnvironments, FEATURE_RULES_ALL_ENVS } from "@/services/features";
 import Checkbox from "@/ui/Checkbox";
-import Button from "@/ui/Button";
-import { GBInfo } from "@/components/Icons";
+import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
 import Frame from "@/ui/Frame";
-import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
+import { GBInfo } from "@/components/Icons";
+import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
+import { parseBranches } from "./settingsSections";
+
+// Keeps the typed text (e.g. a trailing comma) and re-syncs only when the array changes elsewhere.
+function BranchesField() {
+  const form = useFormContext();
+  const branches: string[] = form.watch("codeRefsBranchesToFilter") ?? [];
+  const [text, setText] = useState(branches.join(", "));
+  if (!isEqual(parseBranches(text), branches)) setText(branches.join(", "));
+  return (
+    <Field
+      id="settings-branches"
+      size="md"
+      type="text"
+      containerClassName="mb-0"
+      placeholder="main, qa, dev"
+      value={text}
+      onChange={(e) => {
+        setText(e.currentTarget.value);
+        form.setValue(
+          "codeRefsBranchesToFilter",
+          parseBranches(e.currentTarget.value),
+        );
+      }}
+    />
+  );
+}
 
 export default function FeatureSettings() {
-  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
-    useState<string>("");
-
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
@@ -28,251 +53,153 @@ export default function FeatureSettings() {
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
-  useEffect(() => {
-    if (!form) return;
-
-    const branches = codeRefsBranchesToFilterStr
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    if (isEqual(branches, form.watch("codeRefsBranchesToFilter"))) return;
-
-    form.setValue(
-      "codeRefsBranchesToFilter",
-      codeRefsBranchesToFilterStr
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
-  }, [form, codeRefsBranchesToFilterStr]);
-
   return (
-    <Frame>
-      <Flex gap="4">
-        <Box width="220px" flexShrink="0">
-          <Heading size="4" as="h4">
-            Feature Flag Settings
-          </Heading>
-        </Box>
-
-        <Flex align="start" direction="column" flexGrow="1" pt="6">
-          <Box mb="5" width="100%">
-            <Callout status="info">
-              Approval flow settings have moved to the{" "}
-              <a href="#approval-flow">Approval Flows tab</a>.
-            </Callout>
-          </Box>
-          <Box mb="4" width="100%">
-            <Field
-              size="legacy"
-              label={
-                <PremiumTooltip
-                  commercialFeature="hash-secure-attributes"
-                  body={
-                    <>
-                      <p>
-                        Feature targeting conditions referencing{" "}
-                        <code>secureString</code> attributes will be anonymized
-                        via SHA-256 hashing. When evaluating Feature Flags in a
-                        public or insecure environment (such as a browser),
-                        hashing provides an additional layer of security through
-                        obfuscation. This allows you to target users based on
-                        sensitive attributes.
-                      </p>
-                      <p>
-                        You must enable this feature in your SDK Connection for
-                        it to take effect.
-                      </p>
-                      <p>
-                        You may add a cryptographic salt string (a random string
-                        of your choosing) to the hashing algorithm, which helps
-                        defend against hash lookup vulnerabilities.
-                      </p>
-                      <p className="mb-0 text-warning-orange small">
-                        <FaExclamationCircle /> When using an insecure
-                        environment, do not rely exclusively on hashing as a
-                        means of securing highly sensitive data. Hashing is an
-                        obfuscation technique that makes it very difficult, but
-                        not impossible, to extract sensitive data.
-                      </p>
-                    </>
-                  }
-                >
-                  <Text size="3" className="font-weight-semibold">
-                    Salt string for secure attributes
-                  </Text>{" "}
-                  <GBInfo />
-                </PremiumTooltip>
+    <>
+      <SettingsGroup
+        id="ff-keys"
+        title="Keys & Naming"
+        description="Naming rules shown when creating a flag."
+        keywords="feature key example regex naming validation salt secure attributes hash"
+      >
+        <SettingsField
+          name="secureAttributeSalt"
+          htmlFor="settings-secureAttributeSalt"
+          label={
+            <PremiumTooltip
+              commercialFeature="hash-secure-attributes"
+              body={
+                <>
+                  <p>
+                    Feature targeting conditions referencing{" "}
+                    <code>secureString</code> attributes will be anonymized via
+                    SHA-256 hashing. When evaluating Feature Flags in a public
+                    or insecure environment (such as a browser), hashing
+                    provides an additional layer of security through
+                    obfuscation. This allows you to target users based on
+                    sensitive attributes.
+                  </p>
+                  <p>
+                    You must enable this feature in your SDK Connection for it
+                    to take effect.
+                  </p>
+                  <p>
+                    You may add a cryptographic salt string (a random string of
+                    your choosing) to the hashing algorithm, which helps defend
+                    against hash lookup vulnerabilities.
+                  </p>
+                  <HelperText status="warning">
+                    When using an insecure environment, do not rely exclusively
+                    on hashing as a means of securing highly sensitive data.
+                    Hashing is an obfuscation technique that makes it very
+                    difficult, but not impossible, to extract sensitive data.
+                  </HelperText>
+                </>
               }
-              disabled={!hasSecureAttributesFeature}
-              type="string"
-              {...form.register("secureAttributeSalt")}
-            />
-          </Box>
-          <Box mb="6" width="100%">
-            <Text as="label" htmlFor="featureKeyExample" mb="2">
-              <Text size="3" className="font-weight-semibold">
-                Feature key example
-              </Text>
-            </Text>
-            <Text as="p" mb="2" size="2">
-              When creating a new feature, this example will be shown. Only
-              letters, numbers, and the characters _, -, ., :, and | allowed. No
-              spaces.
-            </Text>
-            <Field
-              size="legacy"
-              id="featureKeyExample"
-              {...form.register("featureKeyExample")}
-              placeholder="my-feature"
-            />
-          </Box>
-          <Box mb="6" width="100%">
-            <Text
-              as="label"
-              htmlFor="featureRegexValidator"
-              size="3"
-              className="font-weight-semibold"
             >
-              Feature key regex validator
-            </Text>
-            <Text as="p" mb="2" size="2">
-              When using the create feature modal, this will validate the
-              feature key against this regex. This will not block API feature
-              creation, and is used to enforce naming conventions at some
-              companies.
-            </Text>
-            <Field
-              size="legacy"
-              id="featureRegexValidator"
-              {...form.register("featureRegexValidator")}
-              placeholder=""
-            />
-          </Box>
+              Salt for secure attributes <GBInfo />
+            </PremiumTooltip>
+          }
+          help="Used to hash secure attribute values before they're sent to SDKs."
+        >
+          <Field
+            id="settings-secureAttributeSalt"
+            size="md"
+            containerClassName="mb-0"
+            disabled={!hasSecureAttributesFeature}
+            type="string"
+            {...form.register("secureAttributeSalt")}
+          />
+        </SettingsField>
 
-          {/* Require project for features */}
-          {hasCommercialFeature("require-project-for-features-setting") && (
-            <Box mb="6" width="100%">
-              <Checkbox
-                id="toggle-requireProjectForFeatures"
-                label="Require Project for all new Feature Flags"
-                description="If enabled, users will be required to select a Project when creating a Feature Flag."
-                value={!!form.watch("requireProjectForFeatures")}
-                setValue={(value) =>
-                  form.setValue("requireProjectForFeatures", value, {
-                    shouldDirty: true,
-                  })
-                }
-              />
-            </Box>
-          )}
+        <SettingsField
+          name="featureKeyExample"
+          htmlFor="featureKeyExample"
+          label="Feature key example"
+          help="Shown when creating a flag. Letters, numbers, and _ - . : | only. No spaces."
+        >
+          <Field
+            size="md"
+            id="featureKeyExample"
+            containerClassName="mb-0"
+            {...form.register("featureKeyExample")}
+            placeholder="my-feature"
+          />
+        </SettingsField>
 
-          <Box mb="6" width="100%">
+        <SettingsField
+          name="featureRegexValidator"
+          htmlFor="featureRegexValidator"
+          label="Feature key format (regex)"
+          help="Checked when creating a flag in the app. Doesn't block flags created through the API."
+        >
+          <Field
+            size="md"
+            id="featureRegexValidator"
+            containerClassName="mb-0"
+            {...form.register("featureRegexValidator")}
+            placeholder=""
+          />
+        </SettingsField>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="ff-defaults"
+        title="Defaults for New Feature Flags"
+        description="Applied when someone creates a flag or rule."
+        keywords="require project environment rules json sparse patch preferred environment"
+      >
+        {hasCommercialFeature("require-project-for-features-setting") && (
+          <UnsavedMark name="requireProjectForFeatures">
             <Checkbox
-              id="toggle-defaultFeatureRulesInAllEnvs"
-              label="Create rules in all environments by default"
-              description="If enabled, new Feature Flag rules will be created in all environments by default."
-              value={!!form.watch("defaultFeatureRulesInAllEnvs")}
+              id="toggle-requireProjectForFeatures"
+              label="Require a Project for new Feature Flags"
+              description="Users must pick a Project when creating a flag."
+              value={!!form.watch("requireProjectForFeatures")}
               setValue={(value) =>
-                form.setValue("defaultFeatureRulesInAllEnvs", value, {
+                form.setValue("requireProjectForFeatures", value, {
                   shouldDirty: true,
                 })
               }
             />
-          </Box>
+          </UnsavedMark>
+        )}
 
-          <Box mb="6" width="100%">
-            <Checkbox
-              id="toggle-sparseJSONRulesByDefault"
-              label="Default JSON rules to sparse patch mode"
-              description="New rules on object-valued JSON flags open in sparse mode, where you edit only the keys that differ from the default."
-              value={!!form.watch("sparseJSONRulesByDefault")}
-              setValue={(value) =>
-                form.setValue("sparseJSONRulesByDefault", value, {
-                  shouldDirty: true,
-                })
-              }
-            />
-          </Box>
+        <UnsavedMark name="requireScopedFeatureRules">
+          <Checkbox
+            id="toggle-requireScopedFeatureRules"
+            label="Require rules to target specific environments or Projects"
+            description="Rules for All Environments and All Projects need an extra confirmation."
+            value={!!form.watch("requireScopedFeatureRules")}
+            setValue={(value) =>
+              form.setValue("requireScopedFeatureRules", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
 
-          <Box mb="6" width="100%">
-            <Checkbox
-              id="toggle-configsExtensibleByDefault"
-              label="Allow Configs to be extended by default"
-              description="New base Configs permit child Configs and Feature Flag rules to add keys beyond the declared schema. Each Config can override this from its own settings."
-              value={!!form.watch("configsExtensibleByDefault")}
-              setValue={(value) =>
-                form.setValue("configsExtensibleByDefault", value, {
-                  shouldDirty: true,
-                })
-              }
-            />
-          </Box>
+        <UnsavedMark name="sparseJSONRulesByDefault">
+          <Checkbox
+            id="toggle-sparseJSONRulesByDefault"
+            label="Default JSON rules to sparse patch mode"
+            description="New rules on JSON flags only edit the keys that differ from the default value."
+            value={!!form.watch("sparseJSONRulesByDefault")}
+            setValue={(value) =>
+              form.setValue("sparseJSONRulesByDefault", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
 
-          <Box mb="6" width="100%">
-            <Checkbox
-              id="toggle-configExperimentGuardDefault"
-              label="Guard Configs used by running experiments by default"
-              description="New Configs enable the experiment guard: publishing a change served to a running experiment soft-blocks until acknowledged. Each Config can override this from its own settings."
-              value={!!form.watch("configExperimentGuardDefault")}
-              setValue={(value) =>
-                form.setValue("configExperimentGuardDefault", value, {
-                  shouldDirty: true,
-                })
-              }
-            />
-          </Box>
-
-          <Box mb="6" width="100%">
-            <Checkbox
-              id="toggle-blockPublishOnSchemaError"
-              label="Block publishing on JSON schema errors"
-              description={`When publishing a revision, re-check Feature Flag and Config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
-              value={form.watch("blockPublishOnSchemaError") ?? true}
-              setValue={(value) =>
-                form.setValue("blockPublishOnSchemaError", value, {
-                  shouldDirty: true,
-                })
-              }
-            />
-          </Box>
-
-          <Box mb="6" width="100%">
-            {/* TODO(UI): move to a neutral org-level "Revisions" section once
-                saved groups & others enforce this cap (it's not feature-only). */}
-            <Checkbox
-              id="toggle-maxConcurrentDrafts"
-              label="Cap number of drafts allowed per Feature Flag"
-              description="A soft limit to reduce clutter. Users are warned and asked to confirm before creating drafts past the cap; REST API calls can override it. Automated processes are exempt."
-              value={(form.watch("maxConcurrentDrafts") ?? 0) !== 0}
-              setValue={(value) =>
-                form.setValue("maxConcurrentDrafts", value ? 3 : 0, {
-                  shouldDirty: true,
-                })
-              }
-            />
-            {(form.watch("maxConcurrentDrafts") ?? 0) !== 0 && (
-              <Box ml="5" mt="2" width="150px">
-                <Field
-                  type="number"
-                  append="drafts"
-                  step="1"
-                  min="1"
-                  {...form.register("maxConcurrentDrafts", {
-                    valueAsNumber: true,
-                  })}
-                />
-              </Box>
-            )}
-          </Box>
-
-          <Box mb="5">
+        <SettingsField
+          name="preferredEnvironment"
+          htmlFor="preferredEnvironment"
+          label="Environment shown on flag pages"
+        >
+          <Box width="320px" maxWidth="100%">
             <SelectField
-              size="legacy"
               id="preferredEnvironment"
-              label="Preferred environment for Feature Flag pages"
-              labelClassName="font-weight-semibold"
               value={form.watch("preferredEnvironment") || ""}
               isClearable
               options={[
@@ -299,148 +226,212 @@ export default function FeatureSettings() {
               sort={false}
             />
           </Box>
+        </SettingsField>
+      </SettingsGroup>
 
-          {/* Code References */}
-          <Box mb="6" width="100%">
-            <Box className="appbox p-3">
-              <Heading size="3" className="font-weight-semibold" mb="4">
-                Code References
-              </Heading>
-              <Checkbox
-                id="toggle-codeReferences"
-                label="Enable code references"
-                description="Displays code references for Feature Flags in the GrowthBook UI."
-                value={!!form.watch("codeReferencesEnabled")}
-                setValue={(value) =>
-                  form.setValue("codeReferencesEnabled", value)
-                }
-                disabled={!hasCodeReferencesFeature}
+      <SettingsGroup
+        id="ff-configs"
+        title="Configs"
+        description="Defaults for new base Configs. Each Config can override these."
+        keywords="configs schema extend experiment guard"
+      >
+        <UnsavedMark name="configsExtensibleByDefault">
+          <Checkbox
+            id="toggle-configsExtensibleByDefault"
+            label="Allow Configs to be extended"
+            description="Child Configs and flag rules can add keys beyond the declared schema."
+            value={!!form.watch("configsExtensibleByDefault")}
+            setValue={(value) =>
+              form.setValue("configsExtensibleByDefault", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
+        <UnsavedMark name="configExperimentGuardDefault">
+          <Checkbox
+            id="toggle-configExperimentGuardDefault"
+            label="Guard Configs used by running experiments"
+            description="Publishing a change served to a running experiment is blocked until someone acknowledges it."
+            value={!!form.watch("configExperimentGuardDefault")}
+            setValue={(value) =>
+              form.setValue("configExperimentGuardDefault", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="ff-publishing"
+        title="Publishing"
+        description="Checks applied when a revision is published."
+        keywords="publish json schema validation drafts cap revision limit"
+      >
+        <UnsavedMark name="blockPublishOnSchemaError">
+          <Checkbox
+            id="toggle-blockPublishOnSchemaError"
+            label="Block publishing on JSON schema errors"
+            description="Re-validate flag and Config values on publish. When off, errors show as a warning that can be bypassed. API edits are always validated unless skipSchemaValidation is true."
+            value={form.watch("blockPublishOnSchemaError") ?? true}
+            setValue={(value) =>
+              form.setValue("blockPublishOnSchemaError", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
+        <Box>
+          {/* TODO(UI): move to a neutral org-level "Revisions" section once
+              saved groups & others enforce this cap (it's not feature-only). */}
+          <UnsavedMark name="maxConcurrentDrafts">
+            <Checkbox
+              id="toggle-maxConcurrentDrafts"
+              label="Cap drafts per flag"
+              description="Warn and ask for confirmation before creating drafts past the cap. API calls and automated processes are exempt."
+              value={(form.watch("maxConcurrentDrafts") ?? 0) !== 0}
+              setValue={(value) =>
+                form.setValue("maxConcurrentDrafts", value ? 3 : 0, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </UnsavedMark>
+          {(form.watch("maxConcurrentDrafts") ?? 0) !== 0 && (
+            <Box ml="5" mt="2" width="150px">
+              <Field
+                type="number"
+                append="drafts"
+                step="1"
+                min="1"
+                containerClassName="mb-0"
+                {...form.register("maxConcurrentDrafts", {
+                  valueAsNumber: true,
+                })}
               />
-
-              {form.watch("codeReferencesEnabled") && (
-                <Box ml="5" mt="2">
-                  <Box mb="3">
-                    <Text as="p" mb="3" className="font-weight-semibold">
-                      Code References Setup
-                    </Text>
-                    <Box className="appbox" p="4" mb="3">
-                      <Flex justify="between">
-                        <Box>
-                          <Heading
-                            as="h4"
-                            className="font-weight-semibold"
-                            size="3"
-                            mb="3"
-                          >
-                            For GitHub Users
-                          </Heading>
-                          <Text as="p" mb="0">
-                            Use our all-in-one GitHub Action to integrate
-                            GrowthBook into your CI workflow.
-                          </Text>
-                        </Box>
-                        <div className="col-sm-3 text-right">
-                          <a
-                            href="https://github.com/marketplace/actions/growthbook-code-references"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <Button variant="ghost">Setup</Button>
-                          </a>
-                        </div>
-                      </Flex>
-                    </Box>
-
-                    <Box className="appbox" p="4" mb="3">
-                      <Flex justify="between">
-                        <Box>
-                          <Heading
-                            as="h4"
-                            className="font-weight-semibold"
-                            size="3"
-                            mb="3"
-                          >
-                            For Non-GitHub Users
-                          </Heading>
-                          <Text as="p" mb="0">
-                            Use our CLI utility that takes in a list of feature
-                            keys and scans your codebase to provide a JSON
-                            output of code references, which you can supply to
-                            our code references{" "}
-                            <a
-                              href="https://docs.growthbook.io/api#tag/code-references"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              REST API endpoint
-                            </a>
-                            .
-                          </Text>
-                        </Box>
-                        <Box>
-                          <Text wrap="nowrap">
-                            <a
-                              href="https://github.com/growthbook/gb-find-code-refs"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              CLI Utility
-                            </a>{" "}
-                            |{" "}
-                            <a
-                              href="https://hub.docker.com/r/growthbook/gb-find-code-refs"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Docker Image
-                            </a>
-                          </Text>
-                        </Box>
-                      </Flex>
-                    </Box>
-                  </Box>
-                  <Box mb="5">
-                    <Field
-                      size="legacy"
-                      label="Only show code refs from the following branches (comma-separated)"
-                      type="text"
-                      placeholder="main, qa, dev"
-                      value={codeRefsBranchesToFilterStr}
-                      onChange={(v) =>
-                        setCodeRefsBranchesToFilterStr(v.currentTarget.value)
-                      }
-                    />
-                  </Box>
-
-                  <Box mb="5">
-                    <SelectField
-                      size="legacy"
-                      label="Platform (to allow direct linking)"
-                      labelClassName="font-weight-semibold"
-                      containerClassName="mb-0"
-                      value={form.watch("codeRefsPlatformUrl") || ""}
-                      isClearable
-                      options={[
-                        {
-                          label: "GitHub",
-                          value: "https://github.com",
-                        },
-                        {
-                          label: "GitLab",
-                          value: "https://gitlab.com",
-                        },
-                      ]}
-                      onChange={(v: string) =>
-                        form.setValue("codeRefsPlatformUrl", v || "")
-                      }
-                    />
-                  </Box>
-                </Box>
-              )}
             </Box>
-          </Box>
-        </Flex>
-      </Flex>
-    </Frame>
+          )}
+        </Box>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="configure-code-refs"
+        title="Code References"
+        description="Show where each flag is used in your codebase."
+        keywords="code references github gitlab bitbucket branches ci action cli"
+      >
+        <UnsavedMark name="codeReferencesEnabled">
+          <Checkbox
+            id="toggle-codeReferences"
+            label="Enable code references"
+            description="Show code references on flag pages."
+            value={!!form.watch("codeReferencesEnabled")}
+            setValue={(value) => form.setValue("codeReferencesEnabled", value)}
+            disabled={!hasCodeReferencesFeature}
+          />
+        </UnsavedMark>
+
+        {form.watch("codeReferencesEnabled") && (
+          <>
+            <SettingsField label="Setup">
+              <Flex direction="column" gap="2">
+                <Frame asChild mb="0" p="3">
+                  <Flex justify="between" align="start" gap="3">
+                    <Box>
+                      <Text as="p" weight="semibold" mb="1">
+                        GitHub
+                      </Text>
+                      <Text as="p" size="sm" color="text-mid">
+                        Add the GitHub Action to your CI workflow.
+                      </Text>
+                    </Box>
+                    <LinkButton
+                      variant="ghost"
+                      href="https://github.com/marketplace/actions/growthbook-code-references"
+                      external
+                    >
+                      Set up
+                    </LinkButton>
+                  </Flex>
+                </Frame>
+                <Frame asChild mb="0" p="3">
+                  <Flex justify="between" align="start" gap="3">
+                    <Box>
+                      <Text as="p" weight="semibold" mb="1">
+                        Other code hosts
+                      </Text>
+                      <Text as="p" size="sm" color="text-mid">
+                        Run the CLI to scan your codebase and send the results
+                        to the{" "}
+                        <Link
+                          href="https://docs.growthbook.io/api#tag/code-references"
+                          external
+                        >
+                          code references REST endpoint
+                        </Link>
+                        .
+                      </Text>
+                    </Box>
+                    <Flex gap="2" wrap="nowrap">
+                      <Link
+                        href="https://github.com/growthbook/gb-find-code-refs"
+                        external
+                      >
+                        CLI utility
+                      </Link>
+                      <Link
+                        href="https://hub.docker.com/r/growthbook/gb-find-code-refs"
+                        external
+                      >
+                        Docker image
+                      </Link>
+                    </Flex>
+                  </Flex>
+                </Frame>
+              </Flex>
+            </SettingsField>
+
+            <SettingsField
+              name="codeRefsBranchesToFilter"
+              htmlFor="settings-branches"
+              label="Branches"
+              help="Only show references from these branches. Comma-separated."
+            >
+              <BranchesField />
+            </SettingsField>
+
+            <SettingsField
+              name="codeRefsPlatformUrl"
+              htmlFor="settings-codeRefsPlatformUrl"
+              label="Code host"
+              help="Used to link directly to the source."
+            >
+              <Box width="320px" maxWidth="100%">
+                <SelectField
+                  id="settings-codeRefsPlatformUrl"
+                  containerClassName="mb-0"
+                  value={form.watch("codeRefsPlatformUrl") || ""}
+                  isClearable
+                  options={[
+                    {
+                      label: "GitHub",
+                      value: "https://github.com",
+                    },
+                    {
+                      label: "GitLab",
+                      value: "https://gitlab.com",
+                    },
+                  ]}
+                  onChange={(v: string) =>
+                    form.setValue("codeRefsPlatformUrl", v || "")
+                  }
+                />
+              </Box>
+            </SettingsField>
+          </>
+        )}
+      </SettingsGroup>
+    </>
   );
 }

@@ -4,7 +4,6 @@ import {
   validateFactMetricCapping,
   validateCappingSettingsOrdering,
   validateCappingSettingsIgnoreZerosConsistency,
-  validateCappingSettingsMetricTypeCompatibility,
   validateCappingSettingsValueEntered,
 } from "../../src/validators/fact-table";
 import {
@@ -61,97 +60,59 @@ describe("top-level lower capping settings", () => {
   });
 });
 
-describe("validateCappingSettingsMetricTypeCompatibility", () => {
-  const percentileUpper = { type: "percentile" as const, value: 0.99 };
-  const percentileLower = { type: "percentile" as const, value: 0.01 };
-  const absoluteUpper = { type: "absolute" as const, value: 15.78923 };
-  const absoluteLower = { type: "absolute" as const, value: 10.19583 };
-
-  it("allows percentile capping on both tails for ratio metrics", () => {
-    expect(() =>
-      validateCappingSettingsMetricTypeCompatibility(
-        "ratio",
-        percentileUpper,
-        percentileLower,
-      ),
-    ).not.toThrow();
-  });
-
-  it("allows uncapped ratio metrics", () => {
-    expect(() =>
-      validateCappingSettingsMetricTypeCompatibility(
-        "ratio",
-        { type: "", value: 0 },
-        null,
-      ),
-    ).not.toThrow();
-  });
-
-  it("rejects an absolute upper cap on a ratio metric", () => {
-    expect(() =>
-      validateCappingSettingsMetricTypeCompatibility(
-        "ratio",
-        absoluteUpper,
-        null,
-      ),
-    ).toThrow(/Ratio metrics support only percentile capping/);
-  });
-
-  it("rejects an absolute lower cap on a ratio metric", () => {
-    // Regression: this is the shape found on fact__2CdFPYWVC8mgxjSBDWqhCL.
-    expect(() =>
-      validateCappingSettingsMetricTypeCompatibility(
-        "ratio",
-        percentileUpper,
-        absoluteLower,
-      ),
-    ).toThrow(/Ratio metrics support only percentile capping/);
-  });
-
-  it.each([0, -10])(
-    "rejects an absolute lower floor of %s on a ratio metric",
-    (value) => {
+describe("ratio capping", () => {
+  it.each([
+    { upper: { type: "absolute", value: 100 }, lower: null },
+    { upper: { type: "", value: 0 }, lower: { type: "absolute", value: 0 } },
+    {
+      upper: { type: "absolute", value: 100 },
+      lower: { type: "absolute", value: -10 },
+    },
+    {
+      upper: { type: "percentile", value: 0.99 },
+      lower: { type: "absolute", value: 0 },
+    },
+    {
+      upper: { type: "absolute", value: 100 },
+      lower: { type: "percentile", value: 0.05 },
+    },
+    {
+      upper: { type: "percentile", value: 0.99 },
+      lower: { type: "percentile", value: 0.05 },
+    },
+  ] as const)(
+    "accepts ratio caps on create, bulk import, and update: %j",
+    ({ upper, lower }) => {
+      const metric = {
+        metricType: "ratio" as const,
+        cappingSettings: upper,
+        lowerCappingSettings: lower,
+      };
+      expect(() => validateFactMetricCapping(metric)).not.toThrow();
       expect(() =>
-        validateCappingSettingsMetricTypeCompatibility(
-          "ratio",
-          percentileUpper,
-          { type: "absolute", value },
-        ),
-      ).toThrow(/Ratio metrics support only percentile capping/);
+        validateFactMetricCapping(metric, {
+          ...metric,
+          cappingSettings: { type: "", value: 0 },
+          lowerCappingSettings: null,
+        }),
+      ).not.toThrow();
+      const body = {
+        ...metric,
+        name: "Revenue per order",
+        numerator: { factTableId: "ft_events", column: "revenue" },
+        denominator: { factTableId: "ft_events", column: "$$count" },
+        cappingSettings: { ...upper, type: upper.type || "none" },
+      };
+      expect(postFactMetricValidator.bodySchema.parse(body)).toMatchObject(
+        body,
+      );
+      expect(
+        postBulkImportFactsValidator.bodySchema.parse({
+          factMetrics: [{ id: "fact__ratio", data: body }],
+        }).factMetrics?.[0].data,
+      ).toMatchObject(body);
     },
   );
-
-  it("rejects absolute caps on both tails of a ratio metric", () => {
-    expect(() =>
-      validateCappingSettingsMetricTypeCompatibility(
-        "ratio",
-        absoluteUpper,
-        absoluteLower,
-      ),
-    ).toThrow(/Ratio metrics support only percentile capping/);
-  });
-
-  it("allows absolute capping for non-ratio metric types", () => {
-    for (const metricType of ["mean", "proportion", "retention"]) {
-      expect(() =>
-        validateCappingSettingsMetricTypeCompatibility(
-          metricType,
-          absoluteUpper,
-          absoluteLower,
-        ),
-      ).not.toThrow();
-    }
-  });
-
-  it("treats 'none'/empty tail types as not absolute", () => {
-    expect(() =>
-      validateCappingSettingsMetricTypeCompatibility(
-        "ratio",
-        { type: "none", value: 0 },
-        { type: "", value: 0 },
-      ),
-    ).not.toThrow();
-  });
 });
 
 describe("validateCappingSettingsIgnoreZerosConsistency", () => {
@@ -538,13 +499,13 @@ describe("capping writes", () => {
     },
   );
 
-  it("applies ratio absolute restrictions only on creation", () => {
+  it("preserves and edits existing absolute ratio caps", () => {
     const ratio = {
       ...metric,
       metricType: "ratio" as const,
       lowerCappingSettings: { type: "absolute" as const, value: 0 },
     };
-    expect(() => validateFactMetricCapping(ratio)).toThrow(/Ratio metrics/);
+    expect(() => validateFactMetricCapping(ratio)).not.toThrow();
     expect(() => validateFactMetricCapping(ratio, ratio)).not.toThrow();
     expect(() =>
       validateFactMetricCapping(

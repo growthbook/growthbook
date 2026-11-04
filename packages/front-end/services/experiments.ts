@@ -16,15 +16,19 @@ import {
 import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { ago, getValidDate } from "shared/dates";
-import { getTempRolloutStaleReason, pValueFormatter } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  getTempRolloutStaleReason,
+  pValueFormatter,
+} from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
   FactTableDefinition,
-  FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
@@ -49,6 +53,7 @@ import {
   parseFunnelStepMetricId,
   parseSliceMetricId,
   parseSliceQueryString,
+  SampleSizeSource,
   SliceDataForMetric,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -215,7 +220,7 @@ export type ExperimentTableRow = {
   // Child row presentation (generic parent/child)
   numChildren?: number;
   isChildRow?: boolean;
-  childRowType?: "slice" | "funnelStep";
+  childRowType?: "slice" | "funnelStep" | "funnelSlice";
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;
@@ -238,6 +243,19 @@ export type ExperimentTableRow = {
   labelOnly?: boolean;
 };
 
+/**
+ * A funnel expands into its steps in a results table; its slices are per-step
+ * and shown in the metric drilldown's Slices tab instead. The rows are still
+ * generated for the drilldown, so every table drops them on the way in.
+ */
+export function excludeFunnelSliceRows(
+  rows: ExperimentTableRow[],
+): ExperimentTableRow[] {
+  return rows.filter(
+    (row) => !(row.isSliceRow && isFactFunnelMetric(row.metric)),
+  );
+}
+
 export function useDomain(
   variations: ExperimentReportVariation[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
@@ -247,6 +265,7 @@ export function useDomain(
   // rather than inferring a finite extent from it, so the domain is "0 +
   // padding around the real bound" instead of "[ci, ci]".
   oneSided = false,
+  sampleSizeFrom?: SampleSizeSource,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -289,7 +308,15 @@ export function useDomain(
       // Skip if missing or bad data
       const stats = row.variations[v.index];
       if (!stats) return;
-      if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
+      if (
+        !hasEnoughData(
+          baseline,
+          stats,
+          row.metric,
+          metricDefaults,
+          sampleSizeFrom,
+        )
+      ) {
         return;
       }
       if (
@@ -394,14 +421,6 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
       newMetric.windowSettings.delayUnit = "hours";
       newMetric.windowSettings.delayValue = metricOverride.delayHours;
       overrideFields.push("delayHours");
-    }
-    if (!isNil(metricOverride?.winRisk)) {
-      newMetric.winRisk = metricOverride.winRisk;
-      overrideFields.push("winRisk");
-    }
-    if (!isNil(metricOverride?.loseRisk)) {
-      newMetric.loseRisk = metricOverride.loseRisk;
-      overrideFields.push("loseRisk");
     }
     if (!isNil(metricOverride?.regressionAdjustmentOverride)) {
       // only apply RA fields if doing an override
@@ -721,6 +740,7 @@ export function getRowResults({
   phaseStartDate,
   isLatestPhase,
   experimentStatus,
+  sampleSizeFrom,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -737,6 +757,7 @@ export function getRowResults({
   phaseStartDate: Date;
   isLatestPhase: boolean;
   experimentStatus?: ExperimentStatus;
+  sampleSizeFrom?: SampleSizeSource;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -753,18 +774,32 @@ export function getRowResults({
 
   const hasScaledImpact =
     !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
-  const hasData = !!stats?.value && !!baseline?.value;
-  const metricSampleSize = getMetricSampleSize(baseline, stats, metric);
+  const metricSampleSize = getMetricSampleSize(
+    baseline,
+    stats,
+    metric,
+    sampleSizeFrom,
+  );
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  // Rows sized by denominator also report presence by it: a win count of 0 is a
+  // real result, not missing data.
+  const baselinePresence = sampleSizeFrom ? baselineSampleSize : baseline.value;
+  const variationPresence = sampleSizeFrom ? variationSampleSize : stats.value;
+  const hasData = !!variationPresence && !!baselinePresence;
+  const enoughData = hasEnoughData(
+    baseline,
+    stats,
+    metric,
+    metricDefaults,
+    sampleSizeFrom,
+  );
 
-  const reason: EnoughDataMeta["reason"] =
-    baseline.value === 0
-      ? "baselineZero"
-      : stats.value === 0
-        ? "variationZero"
-        : "notEnoughData";
+  const reason: EnoughDataMeta["reason"] = !baselinePresence
+    ? "baselineZero"
+    : !variationPresence
+      ? "variationZero"
+      : "notEnoughData";
 
   const enoughDataMeta: EnoughDataMeta = (() => {
     switch (reason) {
@@ -860,6 +895,7 @@ export function getRowResults({
     pValueThreshold,
     statsEngine,
     differenceType,
+    sampleSizeFrom,
   });
 
   let significantReason = "";
@@ -1009,6 +1045,7 @@ export function convertTemplateToExperimentRule({
 
 export function convertExperimentToTemplate(
   experiment: ExperimentInterfaceStringDates,
+  exposureQuery: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
 ): Partial<ExperimentTemplateInterface> {
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const template = {
@@ -1022,6 +1059,11 @@ export function convertExperimentToTemplate(
     tags: experiment.tags,
     datasource: experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
+    /** Store what the experiment analyzes on, even a legacy default. */
+    exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    ),
     hashAttribute: experiment.hashAttribute,
     fallbackAttribute: experiment.fallbackAttribute,
     disableStickyBucketing: experiment.disableStickyBucketing,
@@ -1381,62 +1423,55 @@ export function getAvailableSliceTags({
 
   allMetricIds.forEach((metricId) => {
     const metric = getExperimentMetricById(metricId);
+    if (!metric || !isFactMetric(metric)) return;
+    // A funnel's slices are shown per step in the metric drilldown, not as
+    // rows in these tables, so they contribute no tags to filter on.
+    if (isFactFunnelMetric(metric)) return;
 
-    if (metric && isFactMetric(metric)) {
-      const factMetric = metric as FactMetricInterface;
-      const factTableId = factMetric.numerator?.factTableId;
+    const autoSliceData = createAutoSliceDataForMetric({
+      parentMetric: metric,
+      getFactTable: getFactTableById,
+      includeOther: true,
+    });
 
-      if (factTableId) {
-        const factTable = getFactTableById(factTableId);
-
-        if (factTable) {
-          const autoSliceData = createAutoSliceDataForMetric({
-            parentMetric: metric,
-            factTable,
-            includeOther: true,
-          });
-
-          // Extract tags from slice data
-          autoSliceData.forEach((slice: SliceDataForMetric) => {
-            // Generate single dimension tags
-            slice.sliceLevels.forEach((sliceLevel) => {
-              const value = sliceLevel.levels[0] || "";
-              const tag = generateSliceString({ [sliceLevel.column]: value });
-              const datatypes = sliceLevel.datatype
-                ? { [sliceLevel.column]: sliceLevel.datatype }
-                : {};
-              sliceTagsMap.set(tag, { datatypes });
-              // Track column for "select all" generation
-              columnSet.add(sliceLevel.column);
-              if (sliceLevel.datatype) {
-                columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
-              }
-            });
-
-            // Generate combined tag for multi-dimensional slices
-            if (slice.sliceLevels.length > 1) {
-              const slices: Record<string, string> = {};
-              slice.sliceLevels.forEach((sl) => {
-                slices[sl.column] = sl.levels[0] || "";
-              });
-              const comboTag = generateSliceString(slices);
-              // Parse the tag to get datatypes using parseSliceQueryString
-              const sliceLevels = parseSliceQueryString(comboTag, factTableMap);
-              const datatypes: Record<string, FactTableColumnType> = {};
-              sliceLevels.forEach((sl) => {
-                datatypes[sl.column] = sl.datatype;
-                // Track column for "select all" generation
-                columnSet.add(sl.column);
-                if (sl.datatype) {
-                  columnDatatypeMap.set(sl.column, sl.datatype);
-                }
-              });
-              sliceTagsMap.set(comboTag, { datatypes });
-            }
-          });
+    // Extract tags from slice data
+    autoSliceData.forEach((slice: SliceDataForMetric) => {
+      // Generate single dimension tags
+      slice.sliceLevels.forEach((sliceLevel) => {
+        const value = sliceLevel.levels[0] || "";
+        const tag = generateSliceString({ [sliceLevel.column]: value });
+        const datatypes = sliceLevel.datatype
+          ? { [sliceLevel.column]: sliceLevel.datatype }
+          : {};
+        sliceTagsMap.set(tag, { datatypes });
+        // Track column for "select all" generation
+        columnSet.add(sliceLevel.column);
+        if (sliceLevel.datatype) {
+          columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
         }
+      });
+
+      // Generate combined tag for multi-dimensional slices
+      if (slice.sliceLevels.length > 1) {
+        const slices: Record<string, string> = {};
+        slice.sliceLevels.forEach((sl) => {
+          slices[sl.column] = sl.levels[0] || "";
+        });
+        const comboTag = generateSliceString(slices);
+        // Parse the tag to get datatypes using parseSliceQueryString
+        const sliceLevels = parseSliceQueryString(comboTag, factTableMap);
+        const datatypes: Record<string, FactTableColumnType> = {};
+        sliceLevels.forEach((sl) => {
+          datatypes[sl.column] = sl.datatype;
+          // Track column for "select all" generation
+          columnSet.add(sl.column);
+          if (sl.datatype) {
+            columnDatatypeMap.set(sl.column, sl.datatype);
+          }
+        });
+        sliceTagsMap.set(comboTag, { datatypes });
       }
-    }
+    });
   });
 
   // Generate "select all" tags for each column (format: dim:column, no equals sign)

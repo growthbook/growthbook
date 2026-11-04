@@ -6,6 +6,7 @@ import {
   QueryPointer,
   QueryStatus,
   QueryRunnerFailureCause,
+  QueryMetadata,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
@@ -35,6 +36,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentUpdateExecutionLogger,
   ExperimentUpdateTimingPhase,
+  SnapshotRunnerRole,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 
 export type QueryMap = Map<string, QueryInterface>;
@@ -63,6 +65,9 @@ export type RowsType = Record<
 // eslint-disable-next-line
 export type ProcessedRowsType = Record<string, any>;
 
+// Not stored on the query doc; merged into the run metadata in executeQuery
+type InMemoryQueryMetadata = Pick<QueryMetadata, "factTableIds">;
+
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   displayTitle?: string;
@@ -79,6 +84,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   onFailure?: () => void;
   queryType: QueryType;
   runAtEnd?: boolean;
+  metadata?: InMemoryQueryMetadata;
 };
 
 const FINISH_EVENT = "finish";
@@ -239,6 +245,7 @@ export abstract class QueryRunner<
       process?: (rows: RowsType) => ProcessedRowsType;
       onSuccess?: (rows: RowsType) => void | Promise<void>;
       onFailure: () => void;
+      metadata?: InMemoryQueryMetadata;
     };
   } = {};
   /** Blocks refresh until startAnalysis has persisted the query DAG. */
@@ -253,6 +260,8 @@ export abstract class QueryRunner<
   /** Serializes refresh passes so two cannot analyze or mutate model at once. */
   private refreshChain: Promise<void> = Promise.resolve();
   private finishedQueryMapCache: QueryMap = new Map();
+  // Snapshot runners report this as who concluded the snapshot.
+  protected concludedBy: SnapshotRunnerRole = "runner";
   protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
@@ -677,6 +686,23 @@ export abstract class QueryRunner<
     return newModel;
   }
 
+  /**
+   * Recovers a snapshot so it goes to a terminal state.
+   * Returns true if the snapshot was finalized successfully.
+   */
+  public async finalizeFromPersistedResults(): Promise<boolean> {
+    this.concludedBy = "recovery";
+    // Direct assignment: setStatus("running") arms heartbeat and watchdog
+    // timers, which a one-shot job must not.
+    this.status = "running";
+    await this.refreshQueryStatuses();
+    return this.finishedWithoutError();
+  }
+
+  private finishedWithoutError(): boolean {
+    return this.status === "finished" && !this.error;
+  }
+
   private setStatus(
     status: RunnerStatus,
     error: string = "",
@@ -1046,6 +1072,7 @@ export abstract class QueryRunner<
       process,
       onFailure,
       onSuccess,
+      metadata,
     }: {
       run: (
         query: string,
@@ -1055,6 +1082,7 @@ export abstract class QueryRunner<
       process?: (rows: Rows) => ProcessedRows;
       onFailure: () => void;
       onSuccess?: (rows: Rows) => void | Promise<void>;
+      metadata?: InMemoryQueryMetadata;
     },
   ): Promise<void> {
     // Update heartbeat for the query once every 30 seconds
@@ -1122,6 +1150,7 @@ export abstract class QueryRunner<
     };
 
     run(doc.query, setExternalId, {
+      ...metadata,
       queryType: doc.queryType || "unknown",
       queryId: doc.id,
     })
@@ -1177,6 +1206,7 @@ export abstract class QueryRunner<
       onFailure: specifiedOnFailureCallback,
       onSuccess,
       queryType,
+      metadata,
     } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
@@ -1283,9 +1313,10 @@ export abstract class QueryRunner<
       onSuccess: onSuccess as
         | ((rows: RowsType) => void | Promise<void>)
         | undefined,
+      metadata,
     };
     if (readyToRun) {
-      this.executeQuery(doc, { run, process, onFailure, onSuccess });
+      this.executeQuery(doc, { run, process, onFailure, onSuccess, metadata });
     } else if (dependenciesComplete && !runAtEnd) {
       this.runCallbacks[doc.id] = runCallbacksEntry;
       this.queueQueryExecution(doc);

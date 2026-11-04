@@ -5,6 +5,7 @@ import {
   JsonPatchOperation,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { revisionActor, eventUserToApiEventUser } from "shared/validators";
 import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
@@ -25,6 +26,7 @@ function reviewsToApi(reviews: Review[] | undefined) {
     // Whether a later cycle reset superseded this verdict (no longer active).
     stale: !!r.stale,
     ...(r.comment ? { comment: r.comment } : {}),
+    ...(r.user ? { user: eventUserToApiEventUser(r.user) } : {}),
     dateCreated: toIsoString(r.dateCreated),
   }));
 }
@@ -36,6 +38,7 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
     userId: e.userId,
     action: e.action,
     ...((e.description ?? null) !== null ? { description: e.description } : {}),
+    ...(e.user ? { user: eventUserToApiEventUser(e.user) } : {}),
     dateCreated: toIsoString(e.dateCreated),
     ...(e.proposedChangesSnapshot
       ? { proposedChangesSnapshot: e.proposedChangesSnapshot }
@@ -46,6 +49,17 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
   }));
 }
 
+// Who resolved the revision: the actor on the entry that merged or discarded it.
+function resolutionActor(revision: Revision) {
+  const resolution = revision.resolution;
+  const entry = [...revision.activityLog]
+    .reverse()
+    .find(
+      (e) => e.action === resolution?.action && e.userId === resolution.userId,
+    );
+  return entry?.user ?? revisionActor(revision, resolution?.userId ?? "");
+}
+
 export function revisionEnvelopeToApi(revision: Revision) {
   return {
     id: revision.id,
@@ -53,6 +67,11 @@ export function revisionEnvelopeToApi(revision: Revision) {
     ...(revision.title ? { title: revision.title } : {}),
     status: revision.status,
     authorId: revision.authorId,
+    ...(revision.authorId && {
+      author: eventUserToApiEventUser(
+        revisionActor(revision, revision.authorId),
+      ),
+    }),
     ...(revision.contributors && revision.contributors.length > 0
       ? { contributors: revision.contributors }
       : {}),
@@ -65,6 +84,9 @@ export function revisionEnvelopeToApi(revision: Revision) {
           resolution: {
             action: revision.resolution.action,
             userId: revision.resolution.userId,
+            ...(revision.resolution.userId && {
+              user: eventUserToApiEventUser(resolutionActor(revision)),
+            }),
             dateCreated: toIsoString(revision.resolution.dateCreated),
           },
         }

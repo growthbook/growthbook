@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { HUMAN_OVERRIDE_NOTE } from "./shared";
 import { namedSchema } from "./openapi-helpers";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // Releases — the REST namespace for coordinated multi-entity publishing. The
 // bare `POST /releases` slot stays free for a future full Release entity.
@@ -116,6 +118,20 @@ const publishRevisionsBypassedGate = z.object({
 export const postReleasePublishRevisionsValidator = {
   method: "post" as const,
   path: "/releases/publish-revisions",
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    "savedGroup.publish",
+    "savedGroup.archive",
+    "constant.publish",
+    "constant.archive",
+    "config.publish",
+    "config.archive",
+    "rampSchedule.start",
+    "rampSchedule.edit",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postReleasePublishRevisions",
   summary: "Atomically publish revisions across multiple entities",
   description:
@@ -141,19 +157,19 @@ export const postReleasePublishRevisionsValidator = {
         .boolean()
         .optional()
         .describe(
-          "Set to true to acknowledge warnings from experiment guards, schema changes, or archives. It can also force-publish an out-of-date draft when the caller has Bypass draft approvals access for that resource.",
+          `Set to true to acknowledge warnings from experiment guards, schema changes, or archives. It can also force-publish an out-of-date draft when the caller has Bypass draft approvals access for that resource. ${HUMAN_OVERRIDE_NOTE}`,
         ),
       skipSchemaValidation: z
         .boolean()
         .optional()
         .describe(
-          "Set to true to publish despite schema or invariant failures. Validation still runs and the response still reports each failure. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project.",
+          `Set to true to publish despite schema or invariant failures. Validation still runs and the response still reports each failure. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. ${HUMAN_OVERRIDE_NOTE}`,
         ),
       skipHooks: z
         .boolean()
         .optional()
         .describe(
-          "Set to true to publish despite Custom Hook rejections. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project.",
+          `Set to true to publish despite Custom Hook rejections. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. ${HUMAN_OVERRIDE_NOTE}`,
         ),
       comment: z
         .string()

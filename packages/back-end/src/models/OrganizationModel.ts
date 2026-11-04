@@ -1,5 +1,6 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
+import escapeRegExp from "lodash/escapeRegExp";
 import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
@@ -282,10 +283,12 @@ export async function findAllOrganizations(
   page: number,
   search: string,
   limit: number = 50,
+  filter: FilterQuery<OrganizationInterface> = {},
+  sort: "newest" | "members" = "newest",
 ) {
-  const regex = new RegExp(search, "i");
+  const regex = new RegExp(escapeRegExp(search), "i");
 
-  const query = search
+  const searchQuery = search
     ? {
         $or: [
           { name: regex },
@@ -296,20 +299,54 @@ export async function findAllOrganizations(
         ],
       }
     : {};
+  const hasFilter = Object.keys(filter).length > 0;
+  const query = hasFilter ? { $and: [searchQuery, filter] } : searchQuery;
 
-  const docs = await OrganizationModel.find(query)
-    .sort({ _id: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
+  const docs =
+    sort === "members"
+      ? await findPageByMemberCount(query, page, limit)
+      : await OrganizationModel.find(query)
+          .sort({ _id: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit);
 
-  const total = await (search
+  const total = await (search || hasFilter
     ? OrganizationModel.find(query).countDocuments()
     : OrganizationModel.find().estimatedDocumentCount());
 
   return { organizations: docs.map(toInterface), total };
 }
 
+// Ranks on IDs and member counts only, so member arrays stay out of the sort
+async function findPageByMemberCount(
+  query: FilterQuery<OrganizationInterface>,
+  page: number,
+  limit: number,
+) {
+  const ranked = await getCollection(COLLECTION)
+    .aggregate<{ id: string }>([
+      { $match: query },
+      {
+        $project: {
+          id: 1,
+          memberCount: { $size: { $ifNull: ["$members", []] } },
+        },
+      },
+      { $sort: { memberCount: -1, _id: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ])
+    .toArray();
+  const ids = ranked.map((d) => d.id);
+  const docs = await getCollection(COLLECTION)
+    .find({ id: { $in: ids } })
+    .toArray();
+  return ids.flatMap((id) => docs.filter((d) => d.id === id));
+}
+
 export async function findOrganizationById(id: string) {
+  // Global collection: an object here would act as a query operator
+  if (id && typeof id !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
 }
@@ -527,6 +564,7 @@ export async function findOrganizationsByMemberIds(userId: string[]) {
 }
 
 export async function findOrganizationByInviteKey(key: string) {
+  if (key && typeof key !== "string") return null;
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
     disabled: { $ne: true },
@@ -688,15 +726,25 @@ export async function editCustomRole(
 }
 
 function usingRole(member: MemberRoleWithProjects, role: string): boolean {
+  // Stored data can predate validation, so treat a non-array list as empty.
+  const asArray = <T>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : []);
   return (
     member.role === role ||
-    (member.projectRoles || []).some((pr) => pr.role === role)
+    asArray(member.additionalRoles).some((r) => r.role === role) ||
+    asArray(member.projectRoles).some(
+      (pr) =>
+        pr.role === role ||
+        asArray(pr.additionalRoles).some((r) => r.role === role),
+    )
   );
 }
 
 export async function removeCustomRole(context: ReqContext, id: string) {
   // Make sure the id isn't the org's default
-  if (context.org.settings?.defaultRole?.role === id) {
+  if (
+    context.org.settings?.defaultRole &&
+    usingRole(context.org.settings.defaultRole, id)
+  ) {
     throw new Error(
       "Cannot delete role. This role is set as the organization's default role.",
     );
@@ -718,9 +766,10 @@ export async function removeCustomRole(context: ReqContext, id: string) {
   if (context.teams.some((team) => usingRole(team, id))) {
     throw new Error("Role is currently being used by at least one team");
   }
+  // PATs are invisible to admins; a deleted role just fails closed for them.
   if (
     (await context.models.apiKeys.dangerousGetAllApiKeysInOrg()).some(
-      (key) => key.role === id,
+      (key) => !key.userId && key.role === id,
     )
   ) {
     throw new Error("Role is currently being used by at least one API key");

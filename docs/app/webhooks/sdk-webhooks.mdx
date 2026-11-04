@@ -2,7 +2,6 @@
 title: SDK Webhooks
 description: Fire a webhook whenever a single SDK Connection payload changes so you can refresh caches or rebuild clients.
 sidebarTitle: SDK Webhooks
-slug: /app/webhooks/sdk-webhooks
 ---
 
 import CloudEgressIP from '/snippets/partials/_cloud-egress-ip.mdx';
@@ -117,6 +116,8 @@ app.listen(port, () => {
 If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
 
 Webhooks are retried up to 2 additional times with an exponential back-off between attempts.
+
+Each request waits up to 30 seconds for a response by default. You can set a different timeout (in seconds) per webhook. The maximum is 2 minutes on GrowthBook Cloud and configurable with `MAX_WEBHOOK_TIMEOUT_SECONDS` when self-hosting.
 
 You can view the status of your webhooks in the GrowthBook app under **SDK Connections**.
 

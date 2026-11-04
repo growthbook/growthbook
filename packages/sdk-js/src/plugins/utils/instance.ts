@@ -11,7 +11,6 @@ export type AnyGrowthBook =
 
 // Duck-typed rather than instanceof so a CDN bundle and an npm copy of the
 // SDK recognize each other's instances
-
 export function isFullGrowthBook(gb: AnyGrowthBook): gb is GrowthBook {
   return "getAttributes" in gb && "onDestroy" in gb;
 }

@@ -1,0 +1,113 @@
+.nav {
+  position: fixed;
+  top: calc(56px + var(--settings-nav-inset));
+  bottom: var(--settings-nav-inset);
+  left: calc(var(--settings-sidebar-width) + var(--settings-nav-inset));
+  width: var(--settings-nav-width);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 999;
+  font-size: 13px;
+
+  // Below this, pages beside it get too narrow; the sidebar lists the pages instead.
+  @media (max-width: 1399px) {
+    display: none;
+  }
+}
+
+// Lines the title up with the page titles beside it.
+.header {
+  padding: var(--space-4) var(--space-3);
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--slate-a5);
+  border-radius: 3px;
+  // Bootstrap gives kbd a dark fill.
+  background: transparent;
+  color: var(--gray-11);
+}
+
+.resultText {
+  padding: 0 14px 8px;
+  font-size: 12px;
+  color: var(--gray-11);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  // The bottom leaves room for General's fixed save bar, so the last items scroll clear of it.
+  padding: 4px 12px var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.groupLabel {
+  padding: 0 8px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-10);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-high);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--gray-a2);
+    color: var(--color-text-high);
+    text-decoration: none;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--violet-9);
+    outline-offset: -2px;
+  }
+}
+
+.active,
+.active:hover {
+  background: var(--gray-a3);
+  color: var(--color-text-high);
+  font-weight: 600;
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.empty {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--gray-11);
+}

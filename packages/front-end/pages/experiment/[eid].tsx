@@ -8,24 +8,18 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "shared/types/idea";
-import { includeExperimentInPayload } from "shared/util";
+import { canEditDeliveryInPlace } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
-import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
-import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
-import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
-import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
-import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
+import { useStagedTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
@@ -39,19 +33,11 @@ const ExperimentPage = (): ReactElement => {
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
-  const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [tagsModalOpen, setTagsModalOpen] = useState(false);
-  const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
-  const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
-  const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
-  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
-    string | null
+  const [targetingModal, setTargetingModal] = useState<
+    null | "targeting" | "namespace"
   >(null);
-  const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
-  const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
@@ -63,7 +49,9 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects: URLRedirectInterface[];
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
+    datasourceMissing?: boolean;
   }>(`/experiment/${eid}`);
+  const targeting = useStagedTargeting(data?.experiment);
 
   const { getDecisionCriteria, getRunningExperimentResultStatus } =
     useRunningExperimentStatus();
@@ -74,8 +62,6 @@ const ExperimentPage = (): ReactElement => {
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
-  const { apiCall } = useAuth();
-
   const { experimentToHoldoutsMap } = useHoldouts();
 
   useEffect(() => {
@@ -83,13 +69,14 @@ const ExperimentPage = (): ReactElement => {
       router.replace(window.location.href.replace("experiment/", "bandit/"));
     }
     if (data?.experiment?.type === "holdout") {
-      const holdoutId = experimentToHoldoutsMap.get(data?.experiment?.id)?.id;
-      let url = window.location.href.replace(
+      const holdoutId = experimentToHoldoutsMap.get(data.experiment.id)?.id;
+      // Wait for the holdouts list, or this redirects to /holdout/undefined.
+      if (!holdoutId) return;
+      const base = window.location.href.replace(
         /(.*)\/experiment\/.*/,
         "$1/holdout/",
       );
-      url += holdoutId;
-      router.replace(url);
+      router.replace(base + holdoutId);
     }
   }, [data, experimentToHoldoutsMap, router]);
 
@@ -114,7 +101,8 @@ const ExperimentPage = (): ReactElement => {
   const canEditExperiment =
     permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
 
-  let canRunExperiment = !experiment.archived;
+  // The server asks for both: edit rights, and run rights where it serves.
+  let canRunExperiment = canEditExperiment;
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
@@ -125,47 +113,21 @@ const ExperimentPage = (): ReactElement => {
     ? () => setMetricsModalOpen(true)
     : null;
   const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
-  const editVariations = canRunExperiment
-    ? () => setVariationsModalOpen(true)
-    : null;
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
-  const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
-  const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canRunExperiment
-    ? (i: number | null) => setEditPhaseId(i)
-    : null;
   const editTargeting = canRunExperiment
-    ? () => setTargetingModalOpen(true)
-    : null;
-  const editTraffic = canRunExperiment
-    ? (variationId?: string) => {
-        setTrafficFocusVariation(variationId ?? null);
-        setTrafficModalOpen(true);
-      }
-    : null;
-  const addVariation = canRunExperiment
-    ? () => {
-        setTrafficFocusVariation(null);
-        setAddVariationOnOpen(true);
-        setTrafficModalOpen(true);
-      }
+    ? () => setTargetingModal("targeting")
     : null;
   const editNamespace = canRunExperiment
-    ? () => setNamespaceModalOpen(true)
+    ? () => setTargetingModal("namespace")
     : null;
   const editSchedule = canEditExperiment
     ? () => setEditScheduleModalOpen(true)
     : null;
 
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !includeExperimentInPayload(
-      experiment,
-      linkedFeatures.map((f) => f.feature),
-    );
+  const safeToEdit = canEditDeliveryInPlace(experiment);
 
   return (
     <>
@@ -173,25 +135,6 @@ const ExperimentPage = (): ReactElement => {
         <EditMetricsForm
           experiment={experiment}
           cancel={() => setMetricsModalOpen(false)}
-          mutate={mutate}
-          source="eid"
-        />
-      )}
-      {stopModalOpen && (
-        <StopExperimentForm
-          close={() => setStopModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          runningExperimentStatus={runningExperimentStatus}
-          decisionCriteria={decisionCriteria}
-          source="eid"
-        />
-      )}
-      {variationsModalOpen && (
-        <EditVariationsForm
-          experiment={experiment}
-          cancel={() => setVariationsModalOpen(false)}
-          onlySafeToEditVariationMetadata={!safeToEdit}
           mutate={mutate}
           source="eid"
         />
@@ -208,39 +151,6 @@ const ExperimentPage = (): ReactElement => {
           duplicate={true}
         />
       )}
-      {tagsModalOpen && (
-        <EditTagsForm
-          tags={experiment.tags}
-          save={async (tags) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setTagsModalOpen(false)}
-          mutate={mutate}
-          source="eid"
-        />
-      )}
-      {phaseModalOpen && (
-        <NewPhaseForm
-          close={() => setPhaseModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          source="eid"
-        />
-      )}
-      {editPhaseId !== null && (
-        <EditPhaseModal
-          close={() => setEditPhaseId(null)}
-          experiment={experiment}
-          mutate={mutate}
-          i={editPhaseId}
-          editTargeting={editTargeting}
-          source="eid"
-        />
-      )}
       {editPhasesOpen && (
         <EditPhasesModal
           close={() => setEditPhasesOpen(false)}
@@ -251,38 +161,16 @@ const ExperimentPage = (): ReactElement => {
           source="eid"
         />
       )}
-      {targetingModalOpen && (
+      {targetingModal && (
         <EditTargetingModal
-          close={() => setTargetingModalOpen(false)}
+          section={targetingModal}
+          close={() => setTargetingModal(null)}
           mutate={mutate}
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
-          // source="eid"
-        />
-      )}
-      {trafficModalOpen && (
-        <EditTrafficModal
-          close={() => {
-            setTrafficModalOpen(false);
-            setTrafficFocusVariation(null);
-            setAddVariationOnOpen(false);
-          }}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          safeToEdit={safeToEdit}
-          focusVariationId={trafficFocusVariation}
-          addVariationOnOpen={addVariationOnOpen}
-        />
-      )}
-      {namespaceModalOpen && (
-        <EditNamespaceModal
-          close={() => setNamespaceModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          safeToEdit={safeToEdit}
+          stageChanges={targeting.stage}
+          draft={targeting.value}
         />
       )}
       {editScheduleModalOpen && (
@@ -307,27 +195,34 @@ const ExperimentPage = (): ReactElement => {
       <SnapshotProvider experiment={experiment}>
         <TabbedPage
           experiment={experiment}
+          datasourceMissing={!!data?.datasourceMissing}
           linkedFeatures={linkedFeatures}
           mutate={mutate}
           visualChangesets={visualChangesets}
           urlRedirects={urlRedirects}
           editMetrics={editMetrics}
           editResult={editResult}
-          editVariations={editVariations}
           duplicate={duplicate}
-          editTags={editTags}
-          newPhase={newPhase}
           editPhases={editPhases}
-          editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
-          editTraffic={editTraffic}
-          addVariation={addVariation}
+          targetingDraft={targeting}
+          canAddVariation={canRunExperiment}
           editNamespace={editNamespace}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
           editSchedule={editSchedule}
         />
+        {stopModalOpen && (
+          <StopExperimentForm
+            close={() => setStopModalOpen(false)}
+            mutate={mutate}
+            experiment={experiment}
+            runningExperimentStatus={runningExperimentStatus}
+            decisionCriteria={decisionCriteria}
+            source="eid"
+          />
+        )}
       </SnapshotProvider>
     </>
   );

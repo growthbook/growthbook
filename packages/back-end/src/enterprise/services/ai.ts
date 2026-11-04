@@ -28,7 +28,6 @@ import {
   AIProvider,
   anthropicStructuredOutputMode,
   DEFAULT_MAX_OUTPUT_TOKENS,
-  getMaxOutputTokens,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
@@ -58,6 +57,13 @@ import {
 } from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
 import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
+import {
+  addCompletionUsage,
+  addUsd,
+  completionUsageFromSdk,
+  estimateAICompletionUsd,
+  estimateAIStepsUsd,
+} from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const usesOwnAIKey = (
@@ -146,22 +152,36 @@ export const getAIProviderClass = async (
 // the handful of models it recognises and falls back to a forced call of a
 // synthetic json tool for the rest — which the newest models (Opus 5.5)
 // reject with a 400, and which also forbids parallel tool calls.
-function getProviderOptions(model: AIModel): {
+// `lowEffort` keeps reasoning models from spending a small output budget on
+// thinking before they write: Claude 5.x thinks by default and can burn a
+// 30-token cap entirely on it. Low is the floor every current model accepts.
+function getProviderOptions(
+  model: AIModel,
+  { lowEffort = false }: { lowEffort?: boolean } = {},
+): {
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
 } {
-  if (getProviderFromModel(model) === "openai") {
+  const provider = getProviderFromModel(model);
+  if (provider === "openai") {
     return {
       providerOptions: {
         openai: {
           store: false,
           include: ["reasoning.encrypted_content"],
+          ...(lowEffort ? { reasoningEffort: "low" } : {}),
         } satisfies OpenAIResponsesProviderOptions,
       },
     };
   }
-  const structuredOutputMode = anthropicStructuredOutputMode(model);
-  if (structuredOutputMode) {
-    return { providerOptions: { anthropic: { structuredOutputMode } } };
+  if (provider === "anthropic") {
+    const structuredOutputMode = anthropicStructuredOutputMode(model);
+    const anthropic = {
+      ...(structuredOutputMode ? { structuredOutputMode } : {}),
+      ...(lowEffort ? { effort: "low" } : {}),
+    };
+    return Object.keys(anthropic).length
+      ? { providerOptions: { anthropic } }
+      : {};
   }
   return {};
 }
@@ -403,6 +423,10 @@ export const simpleCompletion = async ({
   returnType = "text",
   jsonSchema,
   overrideModel,
+  resolvedModel,
+  maxOutputTokens,
+  lowEffort,
+  abortSignal,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -413,13 +437,26 @@ export const simpleCompletion = async ({
   returnType?: "text" | "json";
   jsonSchema?: ZodObject<ZodRawShape>;
   overrideModel?: AIModel;
+  /**
+   * A model getAISettingsForOrg already resolved. Skips the override
+   * entitlement check, which would drop a managed model on Cloud.
+   */
+  resolvedModel?: AIModel;
+  /** Hard stop on the reply; latency-sensitive callers keep it small. */
+  maxOutputTokens?: number;
+  /** Least reasoning the model allows, so a small budget goes to the reply. */
+  lowEffort?: boolean;
+  /** Cancels the model call, e.g. when the client went away. */
+  abortSignal?: AbortSignal;
 }) => {
   const { defaultAIModel, keySource } = await getAISettingsForOrg(
     context,
     true,
   );
 
-  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const model =
+    resolvedModel ??
+    resolveTextAIModel(overrideModel, defaultAIModel, keySource);
   const ownKey = usesOwnAIKey(keySource, model);
 
   const aiProvider = await getAIProviderClass(context, model);
@@ -439,69 +476,139 @@ export const simpleCompletion = async ({
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
-    ...getProviderOptions(model),
+    ...getProviderOptions(model, { lowEffort }),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
+    ...((maxOutputTokens ?? null) !== null ? { maxOutputTokens } : {}),
+    ...(abortSignal ? { abortSignal } : {}),
   };
 
+  const recordUsage = usageRecorder({
+    context,
+    model,
+    ownKey,
+    type,
+    isDefaultPrompt,
+    temperature: effectiveTemperature,
+  });
+
   let numTokensUsed: number | undefined;
-  let inputTokensUsed: number | undefined;
-  let outputTokensUsed: number | undefined;
+  let sdkUsage: Parameters<typeof completionUsageFromSdk>[0];
   let result: string;
 
-  if (returnType === "json" && jsonSchema) {
-    const objectResponse = await generateText({
-      ...generateOptions,
-      output: Output.object({
-        schema: jsonSchema,
-      }),
+  try {
+    if (returnType === "json" && jsonSchema) {
+      const objectResponse = await generateText({
+        ...generateOptions,
+        output: Output.object({
+          schema: jsonSchema,
+        }),
+      });
+      numTokensUsed = objectResponse.usage?.totalTokens;
+      result = JSON.stringify(objectResponse.output);
+      sdkUsage = objectResponse.usage;
+    } else {
+      const textResponse = await generateText(generateOptions);
+      numTokensUsed = textResponse.usage?.totalTokens;
+      result = textResponse.text;
+      sdkUsage = textResponse.usage;
+    }
+  } catch (e) {
+    if (!abortSignal?.aborted) throw e;
+    // The provider still processed the prompt, and nothing reports how far
+    // the reply got. Count the prompt as a lower bound, as streaming does
+    // for a cut-off step, so cancelled calls still show up and meter.
+    const usage = { inputTokens: numTokensFromMessages(messages, model) };
+    await recordUsage({
+      usage,
+      totalTokens: usage.inputTokens,
+      spendUsd: estimateAICompletionUsd(model, usage),
+      outcome: "aborted",
     });
-    numTokensUsed = objectResponse.usage?.totalTokens;
-    result = JSON.stringify(objectResponse.output);
-    inputTokensUsed = objectResponse.usage?.inputTokens;
-    outputTokensUsed = objectResponse.usage?.outputTokens;
-  } else {
-    const textResponse = await generateText(generateOptions);
-    numTokensUsed = textResponse.usage?.totalTokens;
-    result = textResponse.text;
-    inputTokensUsed = textResponse.usage?.inputTokens;
-    outputTokensUsed = textResponse.usage?.outputTokens;
+    throw e;
   }
 
-  if (IS_CLOUD) {
-    if (!ownKey) {
-      if (!numTokensUsed) {
-        numTokensUsed = numTokensFromMessages(messages, model);
+  const usage = completionUsageFromSdk(sdkUsage);
+  await recordUsage({
+    usage,
+    totalTokens:
+      numTokensUsed ||
+      (IS_CLOUD && !ownKey ? numTokensFromMessages(messages, model) : 0),
+    spendUsd: estimateAICompletionUsd(model, usage),
+    outcome: "success",
+  });
+
+  return result;
+};
+
+// One record per AI call for analytics, the managed-key cap and the Cloud
+// usage log. Accounting failures never turn a finished AI response into a 500.
+export function usageRecorder({
+  context,
+  model,
+  ownKey,
+  type,
+  isDefaultPrompt,
+  temperature,
+}: {
+  context: ReqContext | ApiReqContext;
+  model: AIModel;
+  ownKey: boolean;
+  type: AIPromptType;
+  isDefaultPrompt: boolean;
+  temperature?: number;
+}) {
+  return async ({
+    usage,
+    totalTokens,
+    spendUsd,
+    outcome,
+  }: {
+    usage?: ReturnType<typeof completionUsageFromSdk>;
+    totalTokens?: number;
+    spendUsd?: number;
+    outcome: AIUsageOutcome;
+  }) => {
+    const buckets = usage ?? {};
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type,
+      model,
+      provider: getProviderFromModel(model),
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
+      numCacheReadTokens: buckets.cacheReadTokens,
+      numCacheWriteTokens: buckets.cacheWriteTokens,
+      spendUsd,
+      usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome,
+    });
+
+    if (!IS_CLOUD) return;
+
+    const numTokensUsed = totalTokens ?? 0;
+    if (numTokensUsed && !ownKey) {
+      try {
+        await updateTokenUsage({ numTokensUsed, organization: context.org });
+      } catch (e) {
+        logger.error(e, "could not meter AI token usage");
       }
-      await updateTokenUsage({ numTokensUsed, organization: context.org });
     }
 
     logCloudAIUsage({
       organization: context.org.id,
       type,
       model,
-      numPromptTokensUsed: inputTokensUsed,
-      numCompletionTokensUsed: outputTokensUsed,
-      temperature: effectiveTemperature,
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
+      temperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
-  }
-
-  trackAIUsage({
-    organizationId: context.org.id,
-    userId: context.userId,
-    type,
-    model,
-    provider: getProviderFromModel(model),
-    numPromptTokensUsed: inputTokensUsed,
-    numCompletionTokensUsed: outputTokensUsed,
-    usedDefaultPrompt: isDefaultPrompt,
-    usedOwnKey: ownKey,
-  });
-
-  return result;
-};
+  };
+}
 
 export const streamingChatCompletion = async ({
   context,
@@ -544,57 +651,19 @@ export const streamingChatCompletion = async ({
     ? temperature
     : undefined;
 
-  const recordUsage = async ({
-    inputTokens,
-    outputTokens,
-    totalTokens,
-    outcome,
-  }: {
-    inputTokens?: number;
-    outputTokens?: number;
-    totalTokens?: number;
-    outcome: AIUsageOutcome;
-  }) => {
-    trackAIUsage({
-      organizationId: context.org.id,
-      userId: context.userId,
-      type,
-      model,
-      provider: getProviderFromModel(model),
-      numPromptTokensUsed: inputTokens,
-      numCompletionTokensUsed: outputTokens,
-      usedDefaultPrompt: isDefaultPrompt,
-      usedOwnKey: ownKey,
-      outcome,
-    });
-
-    if (!IS_CLOUD) return;
-
-    const numTokensUsed = totalTokens ?? 0;
-    if (numTokensUsed && !ownKey) {
-      try {
-        await updateTokenUsage({ numTokensUsed, organization: context.org });
-      } catch (e) {
-        // Accounting failures must not turn a completed AI response into a 500.
-        logger.error(e, "streamingChatCompletion: could not meter token usage");
-      }
-    }
-
-    logCloudAIUsage({
-      organization: context.org.id,
-      type,
-      model,
-      numPromptTokensUsed: inputTokens,
-      numCompletionTokensUsed: outputTokens,
-      temperature: effectiveTemperature,
-      usedDefaultPrompt: isDefaultPrompt,
-    });
-  };
+  const recordUsage = usageRecorder({
+    context,
+    model,
+    ownKey,
+    type,
+    isDefaultPrompt,
+    temperature: effectiveTemperature,
+  });
 
   type TerminalUsage = {
-    inputTokens?: number;
-    outputTokens?: number;
+    usage?: ReturnType<typeof completionUsageFromSdk>;
     totalTokens?: number;
+    spendUsd?: number;
     outcome: AIUsageOutcome;
   };
   let terminalUsage: TerminalUsage | undefined;
@@ -611,7 +680,7 @@ export const streamingChatCompletion = async ({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     messages: [systemMessage, ...messages],
     ...getProviderOptions(model),
-    maxOutputTokens: getMaxOutputTokens(model),
+    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
@@ -639,27 +708,36 @@ export const streamingChatCompletion = async ({
         }
       : {}),
     ...(abortSignal ? { abortSignal } : {}),
-    onFinish: ({ totalUsage }) => {
+    onFinish: ({ totalUsage, steps }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
       if (terminalUsage?.outcome !== "aborted") {
         terminalUsage = {
-          inputTokens: totalUsage.inputTokens,
-          outputTokens: totalUsage.outputTokens,
+          usage: completionUsageFromSdk(totalUsage),
           totalTokens: totalUsage.totalTokens,
+          spendUsd: estimateAIStepsUsd(model, steps),
           outcome: streamErrored ? "error" : "success",
         };
       }
     },
     onAbort: ({ steps }) => {
+      // Only finished steps report usage. The step cut off by the abort is
+      // still billed by the provider but isn't counted, so aborted spend is a
+      // lower bound.
       const usage = steps.reduce(
-        (acc, step) => ({
-          inputTokens: acc.inputTokens + (step.usage?.inputTokens ?? 0),
-          outputTokens: acc.outputTokens + (step.usage?.outputTokens ?? 0),
-          totalTokens: acc.totalTokens + (step.usage?.totalTokens ?? 0),
-        }),
-        { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        (acc, step) =>
+          addCompletionUsage(acc, completionUsageFromSdk(step.usage)),
+        completionUsageFromSdk(undefined),
       );
-      terminalUsage = { ...usage, outcome: "aborted" };
+      const totalTokens = steps.reduce(
+        (sum, step) => sum + (step.usage?.totalTokens ?? 0),
+        0,
+      );
+      terminalUsage = {
+        usage,
+        totalTokens,
+        spendUsd: estimateAIStepsUsd(model, steps),
+        outcome: "aborted",
+      };
     },
     onError: ({ error }) => {
       logger.error(error, "streamingChatCompletion: stream error");
@@ -853,6 +931,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // Outcome fields only: a result's payload can be another experiment's content.
   let toolTrace: Array<{ tool: string; input: string; out: string }> = [];
   let lastFinishReason: string | undefined;
+  // Every step of the current attempt. Generation errors only carry the last
+  // step's usage (or none), so failed attempts are priced from this instead.
+  let attemptSteps: Array<{ usage?: LanguageModelUsage }> = [];
   const remainingSteps = Math.max(1, maxSteps - stepsAlreadyUsed);
   const brief = (v: unknown, n: number) => {
     try {
@@ -871,6 +952,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     toolsCalled = [];
     toolTrace = [];
     lastFinishReason = undefined;
+    attemptSteps = [];
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
@@ -898,6 +980,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         : {}),
       onStepFinish: (step) => {
         stepsUsed++;
+        attemptSteps.push({ usage: step.usage });
         lastFinishReason = step.finishReason;
         for (const call of step.toolCalls ?? [])
           toolsCalled.push(call.toolName);
@@ -994,6 +1077,17 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     NoObjectGeneratedError.isInstance(e) ? (e.usage?.totalTokens ?? 0) : 0;
 
   let retriedTokens = 0;
+  // Undefined once any attempt can't be priced.
+  let retriedSpendUsd: number | undefined = 0;
+  const recordFailedAttempt = (
+    e: NoObjectGeneratedError | NoOutputGeneratedError,
+  ) => {
+    retriedTokens += failureTokens(e);
+    retriedSpendUsd = addUsd(
+      retriedSpendUsd,
+      estimateAIStepsUsd(model, attemptSteps),
+    );
+  };
   const recordFailedAttempts = async () => {
     if (IS_CLOUD && !ownKey && retriedTokens > 0) {
       await updateTokenUsage({
@@ -1008,6 +1102,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       model,
       provider: getProviderFromModel(model),
       numRetriedTokensUsed: retriedTokens,
+      spendUsd: retriedSpendUsd,
       usedDefaultPrompt: isDefaultPrompt,
       usedOwnKey: ownKey,
       outcome: "error",
@@ -1019,7 +1114,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     response = await generateOnce();
   } catch (err) {
     if (!isGenerationFailure(err)) throw err;
-    retriedTokens += failureTokens(err);
+    recordFailedAttempt(err);
     // Don't stack retries when the caller is already a retry path.
     if (!retryOnNoObject) {
       await recordFailedAttempts();
@@ -1037,7 +1132,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         await recordFailedAttempts();
         throw retryErr;
       }
-      retriedTokens += failureTokens(retryErr);
+      recordFailedAttempt(retryErr);
       const retryDiag = noOutputDiag(retryErr);
       logger.warn(
         { type, model, ...retryDiag },
@@ -1063,15 +1158,24 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
+  const usage = completionUsageFromSdk(response.usage);
+  const spendUsd = addUsd(
+    estimateAIStepsUsd(model, attemptSteps),
+    retriedSpendUsd,
+  );
+
   trackAIUsage({
     organizationId: context.org.id,
     userId: context.userId,
     type,
     model,
     provider: getProviderFromModel(model),
-    numPromptTokensUsed: response.usage?.inputTokens,
-    numCompletionTokensUsed: response.usage?.outputTokens,
+    numPromptTokensUsed: usage.inputTokens,
+    numCompletionTokensUsed: usage.outputTokens,
     numRetriedTokensUsed: retriedTokens,
+    numCacheReadTokens: usage.cacheReadTokens,
+    numCacheWriteTokens: usage.cacheWriteTokens,
+    spendUsd,
     usedDefaultPrompt: isDefaultPrompt,
     usedOwnKey: ownKey,
   });

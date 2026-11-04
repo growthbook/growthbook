@@ -1,6 +1,6 @@
 import { isBypassApprovalPermission } from "shared/permissions";
 import type { Permission } from "shared/types/organization";
-import { bypassViaValues } from "shared/validators";
+import { bypassViaValues, CustomHookErrorDetail } from "shared/validators";
 import {
   canUseRestApiBypassSetting,
   type ReviewBypassRequest,
@@ -30,10 +30,13 @@ import { getErrorMessage } from "back-end/src/util/errors";
 //    the entity's bypass-approval permission.
 //  - "skipHooks": custom validation-hook rejections — also bypass-approval only,
 //    but its own flag (a hook failure isn't a schema error).
+//  - "skipChecklist": an experiment start's incomplete launch checklist item —
+//    anyone can acknowledge it.
 export type PublishGateOverride =
   | "ignoreWarnings"
   | "skipSchemaValidation"
-  | "skipHooks";
+  | "skipHooks"
+  | "skipChecklist";
 
 /** The non-flag way past a gate, expressed as a callable REST route. */
 export type PublishGateResolution = {
@@ -73,6 +76,7 @@ export type PublishOverrideFlags = {
   ignoreWarnings?: boolean;
   skipSchemaValidation?: boolean;
   skipHooks?: boolean;
+  skipChecklist?: boolean;
 };
 
 // The override class for a schema-family failure (JSON-schema conformance,
@@ -136,6 +140,9 @@ export function gateOr5xx<G extends PublishGate>(
 /** Bypass source derived from the runtime schema to prevent type drift. */
 export type BypassVia = (typeof bypassViaValues)[number];
 
+// A bypassed gate in full, messages included.
+export type SkippedGate = PublishGate & { via: BypassVia };
+
 export type BypassedGate = {
   type: string;
   outcome: "bypassed";
@@ -167,6 +174,15 @@ const LOCKDOWN_GATE_TYPES: ReadonlySet<string> = new Set([
   "publish-locking-sibling",
 ]);
 
+// A hook's rejection as its author wrote it, or why it failed to run.
+export const hookErrorText = (e: CustomHookErrorDetail) =>
+  [
+    e.rejected ? e.message : `${e.hookName} failed: ${e.stack ?? e.message}`,
+    e.log,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
 /**
  * Custom validation-hook results as publish gates — the one mapping shared by
  * every entity family, so the skipHooks/ignoreWarnings classification and copy
@@ -174,7 +190,7 @@ const LOCKDOWN_GATE_TYPES: ReadonlySet<string> = new Set([
  */
 export function hookResultsToGates(
   results: {
-    hardErrors: string[];
+    hardErrors: CustomHookErrorDetail[];
     warnings: string[];
   },
   bypassPermission: Permission,
@@ -186,7 +202,7 @@ export function hookResultsToGates(
       severity: "blocker",
       messages: [
         "A custom validation hook rejected this publish:",
-        ...results.hardErrors,
+        ...results.hardErrors.map(hookErrorText),
       ],
       override: "skipHooks",
       requiresPermission: bypassPermission,
@@ -217,6 +233,8 @@ export function hookResultsToGates(
 export type PublishGateClearance = {
   /** The request asked to force past warnings (body `ignoreWarnings`). */
   ignoreWarnings: boolean;
+  /** An experiment start asked to skip its incomplete checklist items. */
+  skipChecklist?: boolean;
   // The caller may skip validation-class gates (schema errors, invariants,
   // schema-break, hook failures) — i.e. they passed `skipSchemaValidation` AND
   // hold the entity family's bypass-approval permission. Already resolves flag+permission
@@ -313,15 +331,18 @@ export function classifyPublishGate(
 
   const flags: PublishOverrideFlags = {
     ignoreWarnings: clearance.ignoreWarnings,
+    skipChecklist: clearance.skipChecklist,
   };
   // Any family's bypass-approval atom clears a stale base — the gate names the
   // one for its own entity, and the clearance already resolved whether the
   // caller holds it.
   const hasPermission = (permission: string) =>
     isBypassApprovalPermission(permission) && clearance.canForceMergeStaleBase;
-  if (unclearedGates([gate], flags, hasPermission).length === 0) {
-    // Only ignoreWarnings-override gates are flag-clearable here.
-    return { outcome: "bypassed", via: "ignoreWarnings" };
+  if (
+    gate.override &&
+    unclearedGates([gate], flags, hasPermission).length === 0
+  ) {
+    return { outcome: "bypassed", via: gate.override };
   }
 
   if (gate.type === "config-locked") return { outcome: "blocking" };
@@ -370,9 +391,14 @@ export function classifyPublishGate(
 export function evaluatePublishGates(
   gates: PublishGate[],
   clearance: PublishGateClearance,
-): { blocking: PublishGate[]; bypassed: BypassedGate[] } {
+): {
+  blocking: PublishGate[];
+  bypassed: BypassedGate[];
+  skipped: SkippedGate[];
+} {
   const blocking: PublishGate[] = [];
   const bypassed: BypassedGate[] = [];
+  const skipped: SkippedGate[] = [];
   for (const gate of gates) {
     const disposition = classifyPublishGate(gate, clearance);
     if (disposition.outcome === "blocking") {
@@ -383,13 +409,14 @@ export function evaluatePublishGates(
         outcome: "bypassed",
         via: disposition.via,
       });
+      skipped.push({ ...gate, via: disposition.via });
     }
   }
-  return { blocking, bypassed };
+  return { blocking, bypassed, skipped };
 }
 
-function formatGateLine(gate: PublishGate): string {
-  const summary = gate.messages[0] ?? "";
+export function formatGateLine(gate: PublishGate): string {
+  const summary = gate.messages.join(" ");
   if (!gate.override) return `- [${gate.type}] ${summary}`;
   const permissionNote = gate.requiresPermission
     ? `, requires the ${gate.requiresPermission} permission`
@@ -414,8 +441,8 @@ export function resolveEntityPublishGates({
   bypassApprovalPermission: boolean;
   canForceMergeStaleBase: boolean;
   entityType: "feature" | "config" | "constant" | "saved-group";
-}): { bypassed: BypassedGate[] } {
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
+}): { bypassed: BypassedGate[]; skipped: SkippedGate[] } {
+  const { blocking, bypassed, skipped } = evaluatePublishGates(gates, {
     ignoreWarnings: req.context.ignoreWarnings,
     // Per-FAMILY, like bulk: ORing families would let a Constants bypass
     // clear Config schema gates.
@@ -426,7 +453,7 @@ export function resolveEntityPublishGates({
     canForceMergeStaleBase,
   });
   if (blocking.length) throw new PublishBlockedError(blocking);
-  return { bypassed };
+  return { bypassed, skipped };
 }
 
 export class PublishBlockedError extends Error {

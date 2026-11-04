@@ -2,7 +2,6 @@
 title: Quick Start Guide
 description: Create a GrowthBook account or self-hosted instance, add an SDK Connection, and evaluate your first feature flag.
 sidebarTitle: Quickstart
-slug: quick-start
 ---
 
 This guide walks you through the basics of a full integration of GrowthBook for both feature flagging and experimentation.
@@ -27,6 +26,11 @@ Press `Cmd+K` (Mac) or `Ctrl+K` (Windows and Linux) anywhere in GrowthBook to op
   <Step title="Integrate the GrowthBook SDK">
     As part of the initial setup, you should have created an initial SDK Connection. If not, you can do so now by going to **SDK Configuration** &rarr; **SDK Connections**. Then, click **Add SDK Connection**.  Follow the directions based on your application's language and platform.
     The [full SDK docs](/lib) are also available if you want to dive deeper.
+
+    <Tip>
+    If you selected **Engineering** as your role during signup and use a coding agent, run `npx @growthbook/wizard` from your project directory. The [Setup Wizard](/integrations/ai-agents/wizard) creates an SDK Connection and helps your agent install and connect the SDK.
+    </Tip>
+
   </Step>
 
   <Step title="Create a feature flag">
@@ -54,7 +58,7 @@ Press `Cmd+K` (Mac) or `Ctrl+K` (Windows and Linux) anywhere in GrowthBook to op
 
     It really is that simple to get started! For next steps, we recommend reading our [Feature Flag Basics](/features/basics) page, which goes into more depth.
 
-    Feature flags are the foundation for powerful experimentation. In the next section, we show you how to use them to run no-code experimentation using our Visual Editor. Need more advanced options? Dive into our [complete guide for code-based experimentation](/features/feature-flag-experiments).
+    Feature flags are the foundation for powerful experimentation. In the next section, we show you how to use them to run no-code experimentation using our AI Visual Editor. Need more advanced options? Dive into our [complete guide for code-based experimentation](/features/feature-flag-experiments).
 
   </Step>
 </Steps>

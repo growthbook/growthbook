@@ -2,14 +2,13 @@
 title: "A/B Test Images: Upload, AI Generation, Library"
 description: Replace, upload, or AI-generate images for A/B test variations in GrowthBook. Reuse images across experiments with the shared image library.
 sidebarTitle: Images
-slug: /app/visual/images
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
 <CommercialFeature feature="visual-editor" />
 
-Images are some of the highest-impact A/B tests you can run — hero photography, product imagery, illustration style. The [Visual Editor](/app/visual) gives you three ways to swap an image in a variation:
+Images are some of the highest-impact A/B tests you can run — hero photography, product imagery, illustration style. The [AI Visual Editor](/app/visual) gives you three ways to swap an image in a variation:
 
 1. **Upload** — drop in a file from your machine.
 2. **AI generation** — describe the image and let a configured AI model produce it, optionally using the existing image as a reference.
@@ -19,7 +18,7 @@ All three paths land in the same `<img>` (or `<picture>`) replacement and are ma
 
 ## Replacing an image
 
-Open the [Visual Editor](/app/visual/install-and-connect) and target the page you want to edit. Select the `<img>` element you want to replace.
+Open the [AI Visual Editor](/app/visual/install-and-connect) and target the page you want to edit. Select the `<img>` element you want to replace.
 
 In Manual mode, the property panel shows an **Image** group with three tabs: **Upload**, **AI**, and **Library**.
 
@@ -35,7 +34,7 @@ Supported formats are PNG, JPEG, WebP, and GIF. There's no hard size limit, but 
 
 Modern image markup often wraps an `<img>` in a `<picture>` element with multiple `<source>` candidates and a `srcset` attribute for responsive resolution selection. If you just replace the `src`, the browser will keep picking the original from `srcset` and your variation won't show up.
 
-The Visual Editor handles this automatically:
+The AI Visual Editor handles this automatically:
 
 - The `srcset` attribute on the target `<img>` is removed.
 - Any `<source srcset>` siblings inside a parent `<picture>` are removed.

@@ -4,7 +4,6 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
-import Code from "@/components/SyntaxHighlighting/Code";
 import Callout from "@/ui/Callout";
 
 export default function ProxyTestButton({
@@ -48,20 +47,6 @@ export default function ProxyTestButton({
                 <div className="mb-2">
                   Status Code: <code>{proxyTestResult.status}</code>
                 </div>
-              )}
-              {proxyTestResult.body && (
-                <Code
-                  language={
-                    proxyTestResult.body.trim().substring(0, 1) === "<"
-                      ? "html"
-                      : proxyTestResult.body.trim().substring(0, 1) === "{"
-                        ? "json"
-                        : "none"
-                  }
-                  code={proxyTestResult.body}
-                  filename="response.body"
-                  expandable={true}
-                />
               )}
               <Callout status="error">Error: {proxyTestResult.error}</Callout>
             </div>

@@ -23,6 +23,7 @@ import {
   PiX,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import { EventUser, eventUserLabel, revisionActor } from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -51,6 +52,7 @@ import {
   RevisionDiffConfig,
 } from "@/components/Revision/useRevisionDiff";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import { buildPerEntryDiffSnapshots } from "@/components/Revision/revisionActivityDiff";
 import styles from "./CompareRevisionsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "compare-revisions";
@@ -201,6 +203,7 @@ type ActivityTimelineItem =
       type: "review";
       id: string;
       userId: string;
+      user?: EventUser;
       createdAt: Date;
       decision: Review["decision"];
       comment: string | null;
@@ -209,6 +212,7 @@ type ActivityTimelineItem =
       type: "activity";
       id: string;
       userId: string;
+      user?: EventUser;
       createdAt: Date;
       action: ActivityLogEntry["action"];
       description: string | null;
@@ -225,6 +229,7 @@ function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
       type: "review" as const,
       id: r.id,
       userId: r.userId,
+      user: r.user,
       createdAt: new Date(r.dateCreated),
       decision: r.decision,
       comment: r.comment ?? null,
@@ -240,6 +245,7 @@ function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
         type: "activity" as const,
         id: a.id,
         userId: a.userId,
+        user: a.user,
         createdAt: new Date(a.dateCreated),
         action: a.action,
         description: a.description ?? null,
@@ -249,63 +255,6 @@ function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
   ];
   items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   return items;
-}
-
-// Reconstruct the state on either side of a single activity-log entry by
-// replaying the per-entry snapshots in chronological order. Returns `null`
-// for entries that didn't change content (e.g. merged/discarded/reopened,
-// or any entry from a revision created before per-entry snapshots were
-// persisted).
-function buildPerEntryDiffSnapshots<T extends Record<string, unknown>>(
-  revision: Revision,
-  activityId: string,
-): {
-  baseSnapshot: T;
-  proposedSnapshot: T;
-} | null {
-  const contentEntries = revision.activityLog
-    .filter((e) => Array.isArray(e.proposedChangesSnapshot))
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-    );
-  const targetIdx = contentEntries.findIndex((e) => e.id === activityId);
-  if (targetIdx === -1) return null;
-
-  // Initial baseline = first content entry's targetSnapshot if captured
-  // ("created" entry stores this), else fall back to the revision's current
-  // `target.snapshot` (best-effort for revisions created before this field
-  // existed and which haven't been rebased).
-  let runningBaseline: T =
-    (contentEntries[0]?.targetSnapshot as unknown as T | undefined) ??
-    (revision.target.snapshot as unknown as T);
-  let runningProposed: JsonPatchOperation[] = [];
-
-  for (let i = 0; i <= targetIdx; i++) {
-    const entry = contentEntries[i];
-    if (i === targetIdx) {
-      const beforeSnapshot = applyTopLevelPatchOps(
-        runningBaseline,
-        runningProposed,
-      ) as T;
-      const afterBaseline =
-        (entry.targetSnapshot ?? null) !== null
-          ? (entry.targetSnapshot as unknown as T)
-          : runningBaseline;
-      const afterSnapshot = applyTopLevelPatchOps(
-        afterBaseline,
-        (entry.proposedChangesSnapshot ?? []) as JsonPatchOperation[],
-      ) as T;
-      return { baseSnapshot: beforeSnapshot, proposedSnapshot: afterSnapshot };
-    }
-    if ((entry.targetSnapshot ?? null) !== null) {
-      runningBaseline = entry.targetSnapshot as unknown as T;
-    }
-    runningProposed = (entry.proposedChangesSnapshot ??
-      []) as JsonPatchOperation[];
-  }
-  return null;
 }
 
 function activityLabel(item: ActivityTimelineItem): string {
@@ -327,7 +276,7 @@ function activityLabel(item: ActivityTimelineItem): string {
     case "updated":
       return "Revision updated";
     case "merged":
-      return "Merged";
+      return "Published";
     case "discarded":
       return "Discarded";
     case "reopened":
@@ -593,6 +542,13 @@ export default function CompareRevisionsModal<
   }, [allRevisions]);
 
   const { getUserDisplay } = useUser();
+  // Legacy entries only carry a user id.
+  const actorLabel = (item: { userId: string; user?: EventUser }) =>
+    item.user
+      ? eventUserLabel(item.user, {
+          nameFor: (id) => getUserDisplay(id, false),
+        })
+      : getUserDisplay(item.userId) || item.userId;
 
   // Compute selected revisions sorted by creation date
   const selectedSorted = useMemo(() => {
@@ -1492,7 +1448,7 @@ export default function CompareRevisionsModal<
                           <Text size="sm" color="text-low">
                             {datetime(minRev.dateUpdated)}
                             {minRev.authorId
-                              ? ` · ${getUserDisplay(minRev.authorId) || minRev.authorId}`
+                              ? ` · ${actorLabel({ userId: minRev.authorId, user: revisionActor(minRev, minRev.authorId) })}`
                               : ""}
                           </Text>
                         ) : null}
@@ -1593,11 +1549,8 @@ export default function CompareRevisionsModal<
                                   </div>
                                   <Text size="sm" color="text-low">
                                     {datetime(item.createdAt)}
-                                    {item.userId
-                                      ? ` · ${
-                                          getUserDisplay(item.userId) ||
-                                          item.userId
-                                        }`
+                                    {item.userId || item.user
+                                      ? ` · ${actorLabel(item)}`
                                       : ""}
                                   </Text>
                                 </Flex>
@@ -1635,7 +1588,7 @@ export default function CompareRevisionsModal<
               );
               const rev = revisionById.get(activeActivity.revisionId);
               if (!item) return null;
-              const userDisplay = getUserDisplay(item.userId) || item.userId;
+              const userDisplay = actorLabel(item);
               return (
                 <>
                   <Box

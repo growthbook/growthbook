@@ -10,8 +10,7 @@ import {
   useState,
 } from "react";
 import Collapsible from "react-collapsible";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { PiTable } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiTable } from "react-icons/pi";
 import clsx from "clsx";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
@@ -52,7 +51,11 @@ export default function SchemaBrowser({
 }: Props) {
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
-  const { data, mutate } = useApi<{
+  const {
+    data,
+    error: fetchError,
+    mutate,
+  } = useApi<{
     informationSchema: InformationSchemaInterfaceWithPaths;
   }>(`/datasource/${datasource.id}/schema`, {
     shouldRun: () => !managedWarehousePending,
@@ -245,7 +248,13 @@ export default function SchemaBrowser({
     );
   }
 
-  if (!data) return <LoadingSpinner />;
+  if (!data) {
+    return fetchError ? (
+      <Callout status="error">{fetchError.message}</Callout>
+    ) : (
+      <LoadingSpinner />
+    );
+  }
 
   return (
     <div className="d-flex flex-column h-100">
@@ -267,8 +276,7 @@ export default function SchemaBrowser({
             tableFilter={tableFilter}
             onTableFilterChange={setTableFilter}
           >
-            {informationSchema?.databases.length &&
-            !informationSchema?.error &&
+            {!informationSchema?.error &&
             informationSchema?.status === "COMPLETE" ? (
               <div
                 className="p-1"
@@ -313,18 +321,18 @@ export default function SchemaBrowser({
                                     datasource.type,
                                   ) ? (
                                     <>
-                                      <FaAngleRight />
+                                      <PiCaretRight />
                                       {`${database.databaseName}.${schema.schemaName}`}
                                     </>
                                   ) : datasource.type ===
                                     "growthbook_clickhouse" ? (
                                     <>
-                                      <FaAngleRight />
+                                      <PiCaretRight />
                                       Tables
                                     </>
                                   ) : (
                                     <>
-                                      <FaAngleRight />
+                                      <PiCaretRight />
                                       {`${schema.schemaName}`}
                                     </>
                                   )
@@ -334,18 +342,18 @@ export default function SchemaBrowser({
                                     datasource.type,
                                   ) ? (
                                     <>
-                                      <FaAngleDown />
+                                      <PiCaretDown />
                                       {`${database.databaseName}.${schema.schemaName}`}
                                     </>
                                   ) : datasource.type ===
                                     "growthbook_clickhouse" ? (
                                     <>
-                                      <FaAngleRight />
+                                      <PiCaretDown />
                                       Tables
                                     </>
                                   ) : (
                                     <>
-                                      <FaAngleDown />
+                                      <PiCaretDown />
                                       {`${schema.schemaName}`}
                                     </>
                                   )

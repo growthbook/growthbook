@@ -251,7 +251,7 @@ describe("Build base user permissions", () => {
         members: [
           {
             ...testOrg.members[0],
-            role: "admin",
+            role: "gbDefault_projectAdmin",
             limitAccessByEnvironment: true,
             environments: ["development"],
             projectRoles: [
@@ -271,8 +271,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["development"],
         limitAccessByEnvironment: false,
-        permissions: roleToPermissionMap("admin", testOrg),
-        envGrants: expectedEnvGrants("admin", testOrg, ["development"], false),
+        permissions: roleToPermissionMap("gbDefault_projectAdmin", testOrg),
+        envGrants: expectedEnvGrants(
+          "gbDefault_projectAdmin",
+          testOrg,
+          ["development"],
+          false,
+        ),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
@@ -1049,7 +1054,7 @@ describe("Build base user permissions", () => {
         dateCreated: new Date(),
         dateUpdated: new Date(),
         createdBy: "Demo User",
-        role: "admin",
+        role: "gbDefault_projectAdmin",
         limitAccessByEnvironment: true,
         environments: ["development"],
         projectRoles: [
@@ -1096,8 +1101,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["development"],
         limitAccessByEnvironment: false,
-        permissions: roleToPermissionMap("admin", testOrg),
-        envGrants: expectedEnvGrants("admin", testOrg, ["development"], false),
+        permissions: roleToPermissionMap("gbDefault_projectAdmin", testOrg),
+        envGrants: expectedEnvGrants(
+          "gbDefault_projectAdmin",
+          testOrg,
+          ["development"],
+          false,
+        ),
       },
       projects: {
         prj_test: {
@@ -1967,7 +1977,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     },
   };
 
-  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an empty projects array, if they have atleast 1 project level role that grants them access", async () => {
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an empty projects array, if they have at least 1 project level role that grants them access", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2002,7 +2012,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ]);
   });
 
-  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects, if they have atleast 1 project level role that grants them access", async () => {
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects, if they have at least 1 project level role that grants them access", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2036,7 +2046,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     expect(filteredMetrics.length).toEqual(1);
   });
 
-  it("User with global noaccess role should not be able to see metrics in 'All Projects' aka - an undefined projects, if they don't have atleast 1 project level role that grants them access", async () => {
+  it("User with global noaccess role should not be able to see metrics in 'All Projects' aka - an undefined projects, if they don't have at least 1 project level role that grants them access", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2060,7 +2070,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     expect(filteredMetrics.length).toEqual(0);
   });
 
-  it("User with global noaccess role shouldn't be able to see metrics if the metrics are exlusively in projects they don't have a specific role that grants them read access for", async () => {
+  it("User with global noaccess role shouldn't be able to see metrics if the metrics are exclusively in projects they don't have a specific role that grants them read access for", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2084,7 +2094,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     expect(filteredMetrics).toEqual([]);
   });
 
-  it("User with global noaccess role should be able to see metrics if the user as readData permission for atleast one of the metrics projects", async () => {
+  it("User with global noaccess role should be able to see metrics if the user as readData permission for at least one of the metrics projects", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("noaccess", testOrg),
@@ -2874,6 +2884,195 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
     });
 
     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass population checks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    customRoles: [
+      {
+        id: "populationsOnly",
+        description: "",
+        policies: ["ReadData", "PopulationsFullAccess"],
+      },
+      {
+        id: "readDataOnly",
+        description: "",
+        policies: ["ReadData"],
+      },
+    ],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function permissionsFor(
+    globalRole: string,
+    projectRoles: Record<string, string> = {},
+  ) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(globalRole, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: Object.fromEntries(
+        Object.entries(projectRoles).map(([project, role]) => [
+          project,
+          {
+            permissions: roleToPermissionMap(role, testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ]),
+      ),
+    });
+  }
+
+  function canManageAllProjects(permissions: Permissions) {
+    return {
+      create: permissions.canCreatePopulation({ projects: [] }),
+      update: permissions.canUpdatePopulation({ projects: [] }, {}),
+      delete: permissions.canDeletePopulation({ projects: [] }),
+    };
+  }
+
+  it.each([
+    "noaccess",
+    "readonly",
+    "collaborator",
+    "visualEditor",
+    "engineer",
+    "readDataOnly",
+  ])("denies the global %s role", (role) => {
+    expect(canManageAllProjects(permissionsFor(role))).toEqual({
+      create: false,
+      update: false,
+      delete: false,
+    });
+  });
+
+  it.each([
+    "analyst",
+    "experimenter",
+    "gbDefault_projectAdmin",
+    "admin",
+    "populationsOnly",
+  ])("allows the global %s role", (role) => {
+    expect(canManageAllProjects(permissionsFor(role))).toEqual({
+      create: true,
+      update: true,
+      delete: true,
+    });
+  });
+
+  describe("with access in a single Project", () => {
+    const permissions = permissionsFor("readonly", { ABC123: "analyst" });
+
+    it("allows creating and deleting only in that Project", () => {
+      expect(permissions.canCreatePopulation({ projects: ["ABC123"] })).toBe(
+        true,
+      );
+      expect(permissions.canDeletePopulation({ projects: ["ABC123"] })).toBe(
+        true,
+      );
+      expect(permissions.canCreatePopulation({ projects: ["DEF456"] })).toBe(
+        false,
+      );
+      expect(permissions.canDeletePopulation({ projects: ["DEF456"] })).toBe(
+        false,
+      );
+    });
+
+    it("denies Populations in all Projects", () => {
+      expect(permissions.canCreatePopulation({ projects: [] })).toBe(false);
+      expect(permissions.canDeletePopulation({ projects: [] })).toBe(false);
+    });
+
+    it("requires access in every Project a Population is in", () => {
+      expect(
+        permissions.canCreatePopulation({ projects: ["ABC123", "DEF456"] }),
+      ).toBe(false);
+      expect(
+        permissions.canDeletePopulation({ projects: ["ABC123", "DEF456"] }),
+      ).toBe(false);
+    });
+
+    it("allows updates that keep the Population in that Project", () => {
+      expect(
+        permissions.canUpdatePopulation({ projects: ["ABC123"] }, {}),
+      ).toBe(true);
+      expect(
+        permissions.canUpdatePopulation(
+          { projects: ["ABC123"] },
+          { projects: ["ABC123"] },
+        ),
+      ).toBe(true);
+    });
+
+    it.each([
+      { change: "moving it to another Project", projects: ["DEF456"] },
+      { change: "adding another Project", projects: ["ABC123", "DEF456"] },
+      { change: "moving it to all Projects", projects: [] },
+    ])("denies $change", ({ projects }) => {
+      expect(
+        permissions.canUpdatePopulation({ projects: ["ABC123"] }, { projects }),
+      ).toBe(false);
+    });
+
+    it("denies updating a Population in a Project without access", () => {
+      expect(
+        permissions.canUpdatePopulation({ projects: ["DEF456"] }, {}),
+      ).toBe(false);
+      expect(
+        permissions.canUpdatePopulation(
+          { projects: ["DEF456"] },
+          { projects: ["ABC123"] },
+        ),
+      ).toBe(false);
+    });
+  });
+
+  it("allows Populations in several Projects with access in each", () => {
+    const permissions = permissionsFor("readonly", {
+      ABC123: "analyst",
+      DEF456: "experimenter",
+    });
+    const both = { projects: ["ABC123", "DEF456"] };
+
+    expect(permissions.canCreatePopulation(both)).toBe(true);
+    expect(permissions.canDeletePopulation(both)).toBe(true);
+    expect(
+      permissions.canUpdatePopulation({ projects: ["ABC123"] }, both),
+    ).toBe(true);
+    expect(
+      permissions.canUpdatePopulation(both, { projects: ["DEF456"] }),
+    ).toBe(true);
+  });
+
+  it("lets a Project role remove a global grant", () => {
+    const permissions = permissionsFor("analyst", { ABC123: "readonly" });
+
+    expect(permissions.canCreatePopulation({ projects: [] })).toBe(true);
+    expect(permissions.canCreatePopulation({ projects: ["DEF456"] })).toBe(
+      true,
+    );
+    expect(permissions.canCreatePopulation({ projects: ["ABC123"] })).toBe(
+      false,
+    );
+    expect(
+      permissions.canUpdatePopulation(
+        { projects: ["DEF456"] },
+        { projects: ["DEF456", "ABC123"] },
+      ),
+    ).toBe(false);
   });
 });
 
@@ -5364,7 +5563,7 @@ describe("PermissionsUtilClass.canAddComment check", () => {
       false,
     );
   });
-  // This is a test specific to the putUpload endpoint - the user needs to have addComment permission either globally, or in atleast 1 project in order to be able to upload images
+  // This is a test specific to the putUpload endpoint - the user needs to have addComment permission either globally, or in at least 1 project in order to be able to upload images
   it("canAddComment returns true for user with global noaccess role and 1 project level experimenter role", () => {
     const permissions = new Permissions({
       global: {
@@ -5736,7 +5935,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     ).toEqual(true);
   });
 
-  it("User with anaylst role able to reviewFeatureDrafts", async () => {
+  it("User with analyst role able to reviewFeatureDrafts", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("analyst", testOrg),
@@ -5751,7 +5950,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     ).toEqual(false);
   });
 
-  it("User with global readonly role, but experimenter role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
+  it("User with global readonly role, but experimenter role on project 'abc123', should be able to review features in project 'abc123'", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("readonly", testOrg),
@@ -5775,7 +5974,7 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
     ).toEqual(true);
   });
 
-  it("User with global experimenter role, but readonly role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
+  it("User with global experimenter role, but readonly role on project 'abc123', should be able to review features in project 'abc123'", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("experimenter", testOrg),
@@ -6384,7 +6583,7 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
     expect(permissions.canRunTestQueries(sampleDataSource)).toEqual(false);
   });
 
-  it("canRunTestQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project", () => {
+  it("canRunTestQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for at least 1 project", () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("collaborator", testOrg),
@@ -6468,7 +6667,7 @@ describe("PermissionsUtilClass.canEditFeatureDrafts", () => {
     expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(true);
   });
 
-  it("User with anaylst role is not able to manage feature drafts", async () => {
+  it("User with analyst role is not able to manage feature drafts", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("analyst", testOrg),

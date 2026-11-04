@@ -42,6 +42,32 @@ export function lookupTerms(
 export const FINAL_TOOL_CALL_NOTICE =
   "You have one tool call left. After it, reply with the final structured output built from what you already have — complete every part you can, and say what you could not resolve rather than looking further.";
 
+// A tool call whose arguments failed to parse keeps the raw text as its input.
+// Anthropic rejects a tool_use whose input isn't an object, so replaying that
+// call fails the next step instead of letting the model see the error and retry.
+export function withObjectToolInputs(messages: ModelMessage[]): ModelMessage[] {
+  let changed = false;
+  const out = messages.map((message) => {
+    if (message.role !== "assistant" || typeof message.content === "string") {
+      return message;
+    }
+    let partChanged = false;
+    const content = message.content.map((part) => {
+      if (part.type !== "tool-call") return part;
+      const { input } = part;
+      if (input && typeof input === "object" && !Array.isArray(input)) {
+        return part;
+      }
+      partChanged = true;
+      return { ...part, input: {} };
+    });
+    if (!partChanged) return message;
+    changed = true;
+    return { ...message, content };
+  });
+  return changed ? out : messages;
+}
+
 export interface PrepareToolStepInput {
   model: AIModel;
   stepNumber: number;
@@ -60,19 +86,21 @@ export function prepareToolStep({
   activeTools?: [];
   messages?: ModelMessage[];
 } {
+  const safeMessages = withObjectToolInputs(messages);
+  const sanitized = safeMessages === messages ? {} : { messages: safeMessages };
   const last = Math.max(0, remainingSteps - 1);
   if (stepNumber >= last) {
     return getProviderFromModel(model) === "anthropic"
-      ? { activeTools: [] }
-      : { toolChoice: "none" };
+      ? { ...sanitized, activeTools: [] }
+      : { ...sanitized, toolChoice: "none" };
   }
   if (stepNumber === last - 1) {
     return {
       messages: [
-        ...messages,
+        ...safeMessages,
         { role: "user", content: FINAL_TOOL_CALL_NOTICE },
       ],
     };
   }
-  return {};
+  return sanitized;
 }

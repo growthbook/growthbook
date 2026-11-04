@@ -2,7 +2,11 @@ import {
   ANY_REVIEW_FOOTPRINT,
   featureReviewCandidateProjects,
 } from "shared/util";
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  canCommentOnRevisionEntity,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
+import { eventUserIdentity } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionLogInterface,
@@ -68,7 +72,8 @@ export class FeatureRevisionLogModel extends BaseClass {
     // needed, then drops the entry silently when they differ (a reviewer's
     // changes-requested cancels a pending schedule, which is publish-class). Any
     // authority over the flag suffices; environments are unbound because the
-    // record isn't environment-specific.
+    // record isn't environment-specific. Actions an author may take with none of
+    // these (discard, reopen, recall, undo review) record without this check.
     const permissions = this.context.permissions;
     return (
       permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||
@@ -88,9 +93,18 @@ export class FeatureRevisionLogModel extends BaseClass {
   // Owner check shared by update / delete. Action membership is checked by
   // the specific protected method to allow different edit vs delete policies.
   private isOwnedEntry(doc: FeatureRevisionLogInterface): boolean {
-    const docUserId = doc.user && "id" in doc.user ? doc.user.id : null;
-    if (!docUserId) return false;
-    return this.context.userId === docUserId;
+    const authorId = eventUserIdentity(doc.user ?? null);
+    if (!authorId || authorId !== this.context.actorId) return false;
+    // An assuming key keeps its own comments only where it could post them.
+    const { feature } = this.getForeignRefs(doc);
+    return this.context.authorRightsAllow((keyContext) =>
+      canCommentOnRevisionEntity(
+        keyContext.permissions,
+        "feature",
+        null,
+        feature ?? {},
+      ),
+    );
   }
 
   protected canUpdate(existing: FeatureRevisionLogInterface): boolean {

@@ -1,6 +1,10 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { expandMetricGroups, withScheduledBy } from "shared/experiments";
+import {
+  expandMetricGroups,
+  snapshotColumnVariationIds,
+  withScheduledBy,
+} from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
   ExperimentType,
@@ -18,9 +22,6 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
@@ -62,13 +63,12 @@ async function getTiebreakerLiftMap(
 
   const metric = await getExperimentMetricById(context, metricId);
 
-  // Key by the snapshot's own variation ids (index-aligned with the analysis
-  // results); experiment.variations may have been reordered since.
-  const snapshotVariationIds = snapshot.settings.variations.map((v) => v.id);
-
   return buildTiebreakerLiftMap({
     variations: dimension.variations,
-    snapshotVariationIds,
+    variationIds: snapshotColumnVariationIds(
+      experiment,
+      snapshot.settings.variations,
+    ),
     metricId,
     inverse: metric?.inverse,
   });
@@ -595,26 +595,9 @@ export async function setExperimentSchedule({
     statusUpdateSchedule: schedule,
     // Running experiments stage the stop now; drafts stage nothing here. Either
     // way any previously-staged action is reset to match the new schedule.
-    nextScheduledStatusUpdate: withScheduledBy(
-      stagedStop,
-      context.userId || undefined,
-    ),
+    nextScheduledStatusUpdate: withScheduledBy(stagedStop, context.armer),
   };
 
   const updated = await updateExperiment({ context, experiment, changes });
   return { experiment: updated, warnings };
-}
-
-// The context a staged status change runs as: whoever staged it, else the
-// owner (as a scheduled publish falls back to the draft's author).
-export async function getScheduledStatusContext(
-  context: Context,
-  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate" | "owner">,
-): Promise<ReqContext | ApiReqContext | null> {
-  const userId =
-    experiment.nextScheduledStatusUpdate?.scheduledBy || experiment.owner;
-  if (!userId) return null;
-  return getContextForUserIdInOrg(context.org, userId, {
-    applyProjectRestrictions: false,
-  });
 }

@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import { putReportSettingsValidator } from "shared/validators";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getValidDate } from "shared/dates";
@@ -10,6 +11,7 @@ import {
 } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const putReportSettings = createApiRequestHandler(
@@ -77,7 +79,9 @@ export const putReportSettings = createApiRequestHandler(
   if (activationMetric !== undefined)
     newSettings.activationMetric = activationMetric;
   if (metricOverrides !== undefined)
-    newSettings.metricOverrides = metricOverrides;
+    newSettings.metricOverrides = metricOverrides.map((o) =>
+      omit(o, ["winRisk", "loseRisk"]),
+    );
   if (customMetricSlices !== undefined)
     newSettings.customMetricSlices = customMetricSlices;
   if (dimension !== undefined) newSettings.dimension = dimension;
@@ -162,7 +166,7 @@ export const putReportSettings = createApiRequestHandler(
     ? await findSnapshotById(req.context, updatedReport.snapshot)
     : null;
   const apiReport = await resolveOwnerEmail(
-    toReportApiInterface(updatedReport, snapshot),
+    await toReportApiInterface(req.context, updatedReport, snapshot),
     req.context,
   );
 
@@ -171,7 +175,12 @@ export const putReportSettings = createApiRequestHandler(
       req.context,
       experiment,
     );
-    const results = toSnapshotApiInterface(experiment, snapshot, metricsById);
+    const results = toSnapshotApiInterface(
+      experiment,
+      snapshot,
+      metricsById,
+      await getExposureQueriesForDatasource(req.context, experiment.datasource),
+    );
     return { report: { ...apiReport, results } };
   }
 

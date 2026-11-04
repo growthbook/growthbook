@@ -1,0 +1,83 @@
+// As wide as the value, up to its container; min-width lets a flex row shrink it.
+.copyable {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+
+// Nested to outrank the popover anchor's `all: unset`. It bleeds into the
+// margins so the padding doesn't move the text, as ClickToReveal's frame does.
+.copyable .value {
+  display: block;
+  box-sizing: border-box;
+  max-width: calc(100% + 8px);
+  margin: -2px -4px;
+  padding: 2px 4px;
+  border-radius: var(--radius-2);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--gray-a3);
+  }
+
+  // The popover trigger resets the browser outline, so the ring is drawn here.
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
+}
+
+.code,
+.fullValue {
+  font-family: var(--code-font-family);
+  font-size: 0.875em;
+  color: var(--text-color-main);
+}
+
+.code {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+// Fades out where the value runs past its space, like a revealed key.
+.overflowing {
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+
+.fullValue {
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--color-text-low);
+}
+
+.copyable .value.framed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  max-width: 100%;
+  background-color: var(--slate-2);
+  border: 1px solid var(--slate-5);
+  border-radius: 4px;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--slate-3);
+  }
+
+  .code {
+    font-size: 1em;
+  }
+
+  svg {
+    flex-shrink: 0;
+    color: var(--gray-11);
+  }
+}

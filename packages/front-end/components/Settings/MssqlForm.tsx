@@ -4,6 +4,7 @@ import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
+import GeneratedPasswordNote from "./GeneratedPasswordNote";
 import HostWarning from "./HostWarning";
 
 const MssqlForm: FC<{
@@ -13,11 +14,21 @@ const MssqlForm: FC<{
   setParams: (params: {
     [key: string]: string | boolean | number | Record<string, unknown>;
   }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+  generatedPassword?: boolean;
+  showAllowlist?: boolean;
+}> = ({
+  params,
+  existing,
+  onParamChange,
+  setParams,
+  generatedPassword,
+  showAllowlist,
+}) => {
   return (
     <>
       <HostWarning
         host={params.server ?? ""}
+        showAllowlist={showAllowlist}
         setHost={(host) => {
           setParams({
             server: host,
@@ -36,7 +47,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Port</label>
           <input
             type="number"
@@ -47,7 +58,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Database</label>
           <input
             type="text"
@@ -58,7 +69,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>User</label>
           <input
             type="text"
@@ -69,7 +80,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Password</label>
           <input
             type="text"
@@ -80,8 +91,9 @@ const MssqlForm: FC<{
             onChange={onParamChange}
             placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
+          <GeneratedPasswordNote show={generatedPassword} />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Request Timeout</label>
           <input
             type="number"
@@ -96,7 +108,7 @@ const MssqlForm: FC<{
             connection default is 15 seconds. Set to 0 to disable timeout.
           </div>
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Default Schema</label>
           <input
             type="text"

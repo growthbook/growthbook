@@ -9,7 +9,6 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { SqlDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
@@ -27,6 +26,7 @@ import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { toOptionalNumber } from "back-end/src/util/integration";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
@@ -34,7 +34,6 @@ import {
 } from "back-end/src/services/bigquery";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import SqlIntegration from "./SqlIntegration";
-import { bigQueryDialect } from "./dialects/bigquery";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -45,9 +44,6 @@ export default class BigQuery extends SqlIntegration {
   }
   isWritingTablesSupported(): boolean {
     return true;
-  }
-  getSqlDialect(): SqlDialect {
-    return bigQueryDialect;
   }
 
   private getClient() {
@@ -150,20 +146,26 @@ export default class BigQuery extends SqlIntegration {
 
     const rowsInserted =
       metadata?.statistics?.query?.statementType === "INSERT"
-        ? Number(metadata?.statistics?.query?.numDmlAffectedRows)
+        ? toOptionalNumber(metadata?.statistics?.query?.numDmlAffectedRows)
         : undefined;
+    const partitionsScanned = toOptionalNumber(
+      metadata?.statistics?.query?.totalPartitionsProcessed,
+    );
     const statistics = {
-      executionDurationMs: Number(
+      executionDurationMs: toOptionalNumber(
         metadata?.statistics?.finalExecutionDurationMs,
       ),
-      totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
-      bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
-      bytesBilled: Number(metadata?.statistics?.query?.totalBytesBilled),
+      totalSlotMs: toOptionalNumber(metadata?.statistics?.totalSlotMs),
+      bytesProcessed: toOptionalNumber(
+        metadata?.statistics?.totalBytesProcessed,
+      ),
+      bytesBilled: toOptionalNumber(
+        metadata?.statistics?.query?.totalBytesBilled,
+      ),
       warehouseCachedResult: metadata?.statistics?.query?.cacheHit,
       partitionsUsed:
-        metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
-          ? metadata.statistics.query.totalPartitionsProcessed > 0
-          : undefined,
+        partitionsScanned !== undefined ? partitionsScanned > 0 : undefined,
+      partitionsScanned,
       ...(rowsInserted !== undefined && { rowsInserted }),
     };
 
@@ -214,6 +216,9 @@ export default class BigQuery extends SqlIntegration {
       schema,
       database,
     );
+  }
+  getPartitionColumnCondition(): string {
+    return "is_partitioning_column = 'YES'";
   }
 
   async listDatasets(): Promise<string[]> {

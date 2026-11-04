@@ -291,15 +291,13 @@ const baseFactMetric: Omit<
   dateCreated: new Date(),
   dateUpdated: new Date(),
 
-  winRisk: 0,
-  loseRisk: 0,
   maxPercentChange: 0,
   minPercentChange: 0,
   minSampleSize: 0,
 
   inverse: false,
 
-  // defaults that can be overriden in fact-metrics.json
+  // defaults that can be overridden in fact-metrics.json
   denominator: null,
 
   quantileSettings: null,

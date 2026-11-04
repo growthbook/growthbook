@@ -7,6 +7,7 @@ const eventForwarderSinkTypeValidator = z.enum([
   "databricks",
 ]);
 const eventForwarderStatusValidator = z.enum([
+  "unconfigured",
   "pending",
   "ready",
   "paused",
@@ -34,14 +35,6 @@ export const eventForwarderConfigValidator = baseSchema
     lastProvisioningError: z.string().optional(),
     /** Set after the first delayed warehouse sync is queued on initial connector ready. */
     initialWarehouseSyncQueued: z.boolean().optional(),
-    /** Written by the license server on behalf of the event-forwarder consumer (databricks). */
-    consumerStatus: z
-      .object({
-        phase: z.enum(["ready", "error"]),
-        message: z.string().optional(),
-        lastWriteAt: z.date().optional(),
-      })
-      .optional(),
   })
   .strict();
 

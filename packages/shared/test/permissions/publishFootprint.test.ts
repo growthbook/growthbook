@@ -2,6 +2,7 @@ import {
   featurePublishFootprint,
   rampActionFootprint,
   holdoutEnvsForChange,
+  interleavingEnvsForChange,
   revertFootprint,
   servingEnvironments,
   HOLDOUT_ENVS_UNRESOLVED,
@@ -264,6 +265,53 @@ describe("holdoutEnvsForChange", () => {
       resolve,
     });
     expect(envs).toEqual([]);
+  });
+});
+
+describe("interleavingEnvsForChange", () => {
+  const draft = { environmentSettings: { dev: { enabled: false } } };
+  const live = {
+    environmentSettings: {
+      dev: { enabled: true },
+      production: { enabled: false },
+    },
+  };
+
+  it("counts only the environments it serves", () => {
+    expect(
+      interleavingEnvsForChange({ existing: live, environmentIds: ENVS }),
+    ).toEqual(["dev"]);
+  });
+
+  it("unions before and after, so turning one off still needs authority there", () => {
+    const envs = interleavingEnvsForChange({
+      existing: live,
+      updated: {
+        environmentSettings: {
+          dev: { enabled: false },
+          production: { enabled: true },
+        },
+      },
+      environmentIds: ENVS,
+    });
+    expect(envs.sort()).toEqual(["dev", "production"]);
+  });
+
+  it("has no footprint when it serves nowhere", () => {
+    expect(
+      interleavingEnvsForChange({ existing: draft, environmentIds: ENVS }),
+    ).toEqual([]);
+  });
+
+  // A stale setting for a deleted environment must not demand authority over an
+  // environment the org no longer has.
+  it("restricts to the environments allowed", () => {
+    expect(
+      interleavingEnvsForChange({
+        existing: { environmentSettings: { retired: { enabled: true } } },
+        environmentIds: ENVS,
+      }),
+    ).toEqual([]);
   });
 });
 

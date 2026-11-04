@@ -7,7 +7,7 @@ import {
   apiSearchLearningsResponse,
   apiUpdateLearningBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 // Add filter query params to the default list endpoint.
 export const apiListLearningsValidator = {
@@ -19,6 +19,7 @@ export const apiListLearningsValidator = {
 export const searchLearningsEndpoint = {
   pathFragment: "/search",
   verb: "post" as const,
+  confirmation: [],
   operationId: "searchLearnings",
   validator: {
     paramsSchema: z.never(),
@@ -39,6 +40,11 @@ export const learningApiSpec = {
     updateBody: apiUpdateLearningBody,
   },
   includeDefaultCrud: true,
+  confirmation: {
+    create: ["other.write"],
+    update: ["other.write"],
+    delete: ["other.write"],
+  },
   crudValidatorOverrides: {
     list: apiListLearningsValidator,
   },

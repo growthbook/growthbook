@@ -320,7 +320,6 @@ export default function FieldDefForm({
         value={valueText}
         setValue={onValueChange}
         valueType={valueType}
-        useCodeInput={valueIsJson}
         showFullscreenButton={valueIsJson}
         codeInputDefaultHeight={FIVE_LINES_HEIGHT}
         constantContext={constantContext}

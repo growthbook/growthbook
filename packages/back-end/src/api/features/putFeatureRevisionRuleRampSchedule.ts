@@ -208,14 +208,20 @@ export async function setRuleRampSchedule(
       );
     }
 
-    const action = normalizeInlineRampSchedule(
-      scheduleInput as Parameters<typeof normalizeInlineRampSchedule>[0],
+    const action = await normalizeInlineRampSchedule(
+      context,
+      scheduleInput as Parameters<typeof normalizeInlineRampSchedule>[1],
       canonicalRuleId,
       feature,
-      // startActions merged from `startState` are the rule's current state
-      // (its `force`, if sent, was checked above); caller-sent startActions
-      // without a startState are their own input and are checked.
-      { validateStartActions: !startStateProvided },
+      {
+        /**
+         * startActions merged from `startState` are the rule's current state
+         * (its `force`, if sent, was checked above); caller-sent startActions
+         * without a startState are their own input and are checked.
+         */
+        validateStartActions: !startStateProvided,
+        previousMonitoringConfig: existingLiveSchedule?.monitoringConfig,
+      },
     );
 
     // Replace any existing pending ramp action for this rule. Filter tolerant

@@ -80,7 +80,7 @@ import {
   apiCreateMyResourceBody,
   apiUpdateMyResourceBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const myResourceApiSpec = {
   modelSingular: "myResource",
@@ -149,6 +149,20 @@ export class MyResourceModel extends BaseClass {
   }
 }
 ```
+
+#### Calling the endpoints from the front-end
+
+The front-end can't import `src/api/specs/`. For a resource the front-end calls, declare the spec in `shared/validators` as `as const satisfies OpenApiModelSpec` (import the type from `shared/api-model`). `as const` keeps the response keys literal. Then export one endpoint per route from a `shared/api-endpoints` module:
+
+```typescript
+export const getMyResource = crudEndpoint(myResourceApiSpec, "get");
+export const archiveMyResource = customEndpoint(
+  myResourceApiSpec,
+  archiveMyResourceEndpoint,
+);
+```
+
+`crudEndpoint` only accepts actions the spec enables, and `pnpm generate-openapi` fails on any endpoint the back-end doesn't mount. `contextualBanditApiSpec` is a working example.
 
 #### Overriding standard CRUD handlers
 
@@ -299,6 +313,17 @@ src/api/
     getExperiments.ts
     ...
 ```
+
+### Confirmation Holds on Writes
+
+An API key can require a person to confirm some writes before they run. A held write answers `202` with a confirmation to poll. Every non-GET REST endpoint takes part, so each new write needs a classification:
+
+- **Declare its actions.** Set `confirmation: [...]` on the route validator (or per CRUD action on a model spec, or on a custom endpoint) using the most specific actions from `CONFIRM_ACTIONS` in `shared/src/validators/confirmations.ts`. An undeclared write holds as `<model>.other` (or `other.write`), which is safe but coarse.
+- **Pick by effect.** A write that changes what SDKs serve, deletes, or skips a check gets that action (`<model>.publish`, `experiment.start`, `override.*`, …). Use `<model>.create` or `<model>.draft` only when the write can't reach users. When unsure, pick the live action: under-declaring lets a write skip confirmation.
+- **`[]` is only for POSTs that read or compute** (search, preview, dry run).
+- **Armed drafts are covered for you.** On draft-revision routes, the route-level hold adds what landing does when a request arms a draft (on approval or on a schedule), and everything a landing can do when it edits a draft that's already armed. Don't add those actions to each draft route's `confirmation`. As a backstop, the draft writers (`updateRevision` and the revision engine's content edits) disarm an armed draft when a key whose rules would hold its publish edits it unconfirmed, so a path that misses its hold can't publish without a person.
+- **Decide in the handler when the action depends on the change** (archive vs publish, live vs draft): set `confirmationInHandler: true` and call `requireConfirmation` before the first write. Still list every action it can ask for in `confirmation`, so the spec and the key editor stay complete.
+- **New fields on live experiments:** payload fields belong in `PAYLOAD_AFFECTING_EXPERIMENT_FIELDS`, and phase fields in `PHASE_FIELD_ACTIONS` (`back-end/src/services/confirmations.ts`), which won't compile until a new phase field is placed.
 
 ### Resolving `ownerEmail` on API Responses
 

@@ -26,6 +26,7 @@ export type ContextualBanditStatsSettings = {
   contextualAttributes: string[];
   maxLeaves: number;
   minUsersPerLeaf: number;
+  priorSampleSize: number;
 };
 
 /** Mirrors gbstats `ContextualBanditResult` (per-context responses + optional tree leaf_map). */
@@ -185,6 +186,7 @@ function buildContextualBanditWeightsInput(
     attributes: settings.contextualAttributes,
     maxLeaves: settings.maxLeaves,
     minUsersPerLeaf: settings.minUsersPerLeaf,
+    priorSampleSize: settings.priorSampleSize,
     metricSettings,
     analysisWeights: analysisForEngine.weights,
     observations,

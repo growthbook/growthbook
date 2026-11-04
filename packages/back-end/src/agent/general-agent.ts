@@ -81,6 +81,9 @@ How to end a turn:
 - End with ONE short plain-text markdown message. Keep it to 1–4 sentences (or
   a short bulleted list), reference specific numbers from the API responses,
   and don't restate the question, recap steps, or paste raw JSON.
+- If that message ends with a list of options for the user to choose from,
+  append "(recommended)" to the one you would pick; the composer offers it as
+  a ready reply.
 `.trim();
 
 const AGENT_SKILLS_GUIDANCE = `
@@ -105,6 +108,10 @@ How to use skills:
   2. \`loadSkill('<domain>/references/<leaf>')\` — follow that leaf's detailed
      \`callApi\` workflow.
 - **Standalone domains** have no children — one \`loadSkill\` is enough.
+- A loaded skill may point to other files in its folder, such as
+  \`examples/payload.json\`. Load one with \`loadSkill('<domain>/<path>')\` when
+  the skill tells you to. A script loads as text only: read what it does and
+  carry that out with \`callApi\` instead.
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
@@ -276,9 +283,12 @@ keys, experiment names) over internal IDs in your replies. Use internal
 IDs only for API calls or when constructing URLs.
 `.trim();
 
-export function buildAgentSystemPrompt(sections: string[]): string {
+export function buildAgentSystemPrompt(
+  ctx: ReqContext,
+  sections: string[],
+): string {
   const preamble = sections.join("\n\n");
-  const domains = listDomainSkills();
+  const domains = listDomainSkills(ctx.org);
   if (!domains.length) {
     return preamble;
   }
@@ -299,8 +309,8 @@ export function buildAgentSystemPrompt(sections: string[]): string {
   ].join("\n");
 }
 
-function buildGeneralAgentSystemPrompt(): string {
-  return buildAgentSystemPrompt([
+function buildGeneralAgentSystemPrompt(ctx: ReqContext): string {
+  return buildAgentSystemPrompt(ctx, [
     AGENT_API_GUIDANCE,
     WEB_ASK_USER_GUIDANCE.tool,
     `${AGENT_END_TURN_GUIDANCE}\n${WEB_ASK_USER_GUIDANCE.endTurn}`,
@@ -506,7 +516,7 @@ const loadSkillInputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Top-level skill name from 'Available skills', or a qualified <domain>/references/<workflow> path from a loaded domain router.",
+      "Top-level skill name from 'Available skills', a qualified <domain>/references/<workflow> path from a loaded domain router, or a <domain>/<path> file a loaded skill points to.",
     ),
 });
 
@@ -519,8 +529,11 @@ const LOAD_SKILL_DESCRIPTION =
   "name doesn't match — in which case retry with a valid name.";
 
 /** Built here so a model-issued load and a slash-command-seeded one are identical. */
-function loadSkillResult(name: string): SkillLoadResult | undefined {
-  const skill = readSkill(name);
+function loadSkillResult(
+  ctx: ReqContext,
+  name: string,
+): SkillLoadResult | undefined {
+  const skill = readSkill(ctx.org, name);
   if (!skill) return undefined;
   return {
     status: "ok",
@@ -549,6 +562,12 @@ const askUserOptionSchema = z.object({
     .max(300)
     .optional()
     .describe("Optional sub-line shown under the label for extra context."),
+  recommended: z
+    .boolean()
+    .optional()
+    .describe(
+      "Mark the one option you would pick if the user shrugged; the composer offers it as a ready reply. At most one.",
+    ),
 });
 
 const askUserInputSchema = z.object({
@@ -562,7 +581,7 @@ const askUserInputSchema = z.object({
     .min(2)
     .max(8)
     .describe(
-      "Two to eight options the user can pick from. Order them by likelihood.",
+      "Two to eight options the user can pick from. Order them by likelihood and mark the likeliest one `recommended`.",
     ),
   allowMultiple: z
     .boolean()
@@ -640,12 +659,12 @@ export function buildCoreAgentTools(
       description: LOAD_SKILL_DESCRIPTION,
       inputSchema: loadSkillInputSchema,
       execute: async (input) => {
-        const result = loadSkillResult(input.name);
+        const result = loadSkillResult(ctx, input.name);
         if (!result) {
           return {
             status: "not_found" as const,
             message: `No skill named "${input.name}". Pick one from availableSkills and retry.`,
-            availableSkills: listDomainSkills().map((s) => s.name),
+            availableSkills: listDomainSkills(ctx.org).map((s) => s.name),
           };
         }
         return result;
@@ -777,7 +796,7 @@ export const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   ...sharedAgentSettings,
   agentType: "general",
   injectDatasourceHint: true,
-  buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
+  buildSystemPrompt: async (ctx) => buildGeneralAgentSystemPrompt(ctx),
   buildTools: (ctx, buffer, ...[, emit]) => ({
     ...buildCoreAgentTools(ctx, buffer, emit),
     askUser: aiTool({

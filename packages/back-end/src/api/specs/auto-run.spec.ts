@@ -5,11 +5,12 @@ import {
   apiUpdateAutoRunBody,
   apiAppendAutoRunArtifactBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const appendAutoRunArtifactEndpoint = {
   pathFragment: "/:id/artifacts",
   verb: "post" as const,
+  confirmation: ["other.write"] as const,
   operationId: "appendAutoRunArtifact",
   validator: {
     bodySchema: apiAppendAutoRunArtifactBody,
@@ -31,6 +32,7 @@ export const autoRunApiSpec = {
   },
   includeDefaultCrud: false,
   crudActions: ["create", "get", "update", "list"],
+  confirmation: { create: ["other.write"], update: ["other.write"] },
   customEndpoints: [appendAutoRunArtifactEndpoint],
 } satisfies OpenApiModelSpec;
 

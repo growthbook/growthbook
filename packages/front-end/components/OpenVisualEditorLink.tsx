@@ -5,7 +5,7 @@ import { getApiHost, getAppOrigin } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
-import RadixButton from "@/ui/Button";
+import RadixButton, { Size as ButtonSize } from "@/ui/Button";
 import Link from "@/ui/Link";
 import Modal from "./Modal";
 import Button from "./Button";
@@ -81,12 +81,14 @@ export async function openVisualEditor({
   browser,
   deviceType,
   bypassChecks = false,
+  beforeLeave,
 }: {
-  vc: VisualChangesetInterface;
+  vc: Pick<VisualChangesetInterface, "id" | "editorUrl">;
   apiCall: AuthContextValue["apiCall"];
   browser: string;
   deviceType: string;
   bypassChecks?: boolean;
+  beforeLeave?: () => void;
 }): Promise<null | OpenVisualEditorResponse> {
   let url = vc.editorUrl.trim();
   if (!url) {
@@ -182,24 +184,29 @@ export async function openVisualEditor({
     status: "success",
     type: browser + " - " + deviceType,
   });
+  beforeLeave?.();
   window.location.href = url;
   return null;
 }
 
 const OpenVisualEditorLink: FC<{
-  visualChangeset: VisualChangesetInterface;
+  visualChangeset: Pick<VisualChangesetInterface, "id" | "editorUrl">;
   openSettings?: () => void;
   useRadix?: boolean;
   useLink?: boolean;
+  size?: ButtonSize;
   button?: string | JSX.Element;
+  beforeLeave?: () => void;
 }> = ({
   visualChangeset,
   openSettings,
   useRadix = true,
   useLink,
+  size = "md",
+  beforeLeave,
   button = (
     <>
-      Open Visual Editor
+      Open AI Visual Editor
       <PiArrowSquareOut
         className="ml-1"
         style={{ position: "relative", top: "-2px" }}
@@ -223,6 +230,7 @@ const OpenVisualEditorLink: FC<{
       apiCall,
       browser,
       deviceType,
+      beforeLeave,
     });
     if (!res) {
       // Stay in a loading state until window redirects
@@ -255,7 +263,7 @@ const OpenVisualEditorLink: FC<{
           {button}
         </Link>
       ) : useRadix ? (
-        <RadixButton variant="ghost" onClick={onOpen}>
+        <RadixButton variant="ghost" size={size} onClick={onOpen}>
           {button}
         </RadixButton>
       ) : (
@@ -268,16 +276,16 @@ const OpenVisualEditorLink: FC<{
         <Modal
           trackingEventModalType=""
           open
-          header="Visual Editor Target URL"
+          header="AI Visual Editor Target URL"
           close={() => setShowEditorUrlDialog(false)}
           closeCta="Close"
           cta="Open settings"
           submit={openSettings}
         >
           You&apos;ll need to define the{" "}
-          <strong>Visual Editor Target URL</strong> in your experiment&apos;s
+          <strong>AI Visual Editor Target URL</strong> in your experiment&apos;s
           settings first. This will configure which web page will be opened when
-          you click on the &quot;Open Visual Editor&quot; button.
+          you click on the &quot;Open AI Visual Editor&quot; button.
         </Modal>
       )}
 
@@ -285,7 +293,7 @@ const OpenVisualEditorLink: FC<{
         <Modal
           trackingEventModalType=""
           open
-          header="GrowthBook Visual Editor Extension"
+          header="GrowthBook AI Visual Editor Extension"
           close={() => setShowExtensionDialog(false)}
           closeCta="Close"
           cta="View extension"
@@ -295,8 +303,8 @@ const OpenVisualEditorLink: FC<{
         >
           {browser === "chrome" ? (
             <>
-              You&apos;ll need to install the GrowthBook Visual Editor browser
-              extension to use the Visual Editor.{" "}
+              You&apos;ll need to install the GrowthBook AI Visual Editor
+              browser extension to use the AI Visual Editor.{" "}
               <a
                 href="#"
                 onClick={(e) => {
@@ -307,6 +315,7 @@ const OpenVisualEditorLink: FC<{
                     browser,
                     deviceType,
                     bypassChecks: true,
+                    beforeLeave,
                   });
                 }}
               >
@@ -316,7 +325,7 @@ const OpenVisualEditorLink: FC<{
             </>
           ) : (
             <>
-              The Visual Editor extension is currently available for Chrome.
+              The AI Visual Editor extension is currently available for Chrome.
               We&apos;re working on bringing it to other browsers.
             </>
           )}

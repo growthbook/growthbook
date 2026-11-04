@@ -275,6 +275,9 @@ export default function ReportResults({
                 // metricFilter={metricFilter}
                 // setMetricFilter={setMetricFilter}
                 ssrPolyfills={ssrPolyfills}
+                customMetricSlices={
+                  report.experimentAnalysisSettings.customMetricSlices
+                }
               />
             ) : showCompactResults ? (
               <CompactResults

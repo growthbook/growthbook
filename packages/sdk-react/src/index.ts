@@ -56,6 +56,27 @@ export type {
   WidenPrimitives,
   GrowthBookPayload,
   InitSyncOptions,
+  Options,
+  UserContext,
+  TrackingUserContext,
+  FeatureUsageCallback,
+  EventLogger,
+  EventProperties,
+  Plugin,
+  SavedGroupsValues,
+  SavedGroupReference,
+  SavedGroupCondition,
+  ContextualBanditDefinitions,
+  ContextualBanditDefinition,
+  CBContext,
+  CookieAttributes,
+  JsCookiesCompat,
+  IORedisCompat,
+  RequestCompat,
+  ResponseCompat,
+  RemoteSavedGroup,
+  SavedGroupResolver,
+  RedisSetClient,
 } from "@growthbook/growthbook";
 
 export {
@@ -64,6 +85,8 @@ export {
   BrowserCookieStickyBucketService,
   ExpressCookieStickyBucketService,
   RedisStickyBucketService,
+  redisResolver,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
 } from "@growthbook/growthbook";
 
 export type {

@@ -1,29 +1,85 @@
 import { forwardRef, useEffect, useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { FaArrowsAlt } from "react-icons/fa";
+import { Box, Flex, Grid } from "@radix-ui/themes";
+import { RiDraggable } from "react-icons/ri";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import {
   ExperimentValue,
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
 import {
+  capTypedPercent,
   decimalToPercent,
   distributeWeights,
   floatRound,
   rebalance,
+  VARIATION_WEIGHT_DECIMALS,
 } from "@/services/utils";
-import {
-  getVariationColor,
-  getVariationDefaultName,
-} from "@/services/features";
+import { getVariationDefaultName } from "@/services/features";
 import Field from "@/components/Forms/Field";
+import VariationNumber from "@/ui/VariationNumber";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
+import Text from "@/ui/Text";
+import useSortableItem from "@/hooks/useSortableItem";
+import TruncatedText from "@/ui/TruncatedText";
 import FeatureValueField from "./FeatureValueField";
+import { reorderVariations } from "./SortableVariationsList";
 import styles from "./VariationsInput.module.scss";
+
+// The column template the header row and every variation row share.
+export function gridColumns({
+  hideVariationIds,
+  hideValueField,
+  valueWidth = null,
+  showDescription,
+  hideSplit,
+  isJson,
+  showDragHandle,
+}: {
+  hideVariationIds?: boolean;
+  hideValueField?: boolean;
+  // A fixed width for plain-text values, the same in every row.
+  valueWidth?: string | null;
+  showDescription?: boolean;
+  hideSplit?: boolean;
+  isJson?: boolean;
+  showDragHandle?: boolean;
+}): string {
+  return [
+    showDragHandle ? "16px" : undefined,
+    // Alone, the numbers are headed "Key": room for that word.
+    hideVariationIds ? undefined : hideValueField ? "32px" : "16px",
+    hideValueField
+      ? undefined
+      : isJson
+        ? "minmax(300px, 2fr)"
+        : (valueWidth ?? "minmax(120px, 1fr)"),
+    "minmax(160px, 1fr)",
+    showDescription ? "minmax(140px, 1fr)" : undefined,
+    hideSplit ? undefined : "100px",
+    // Room for the header's absolutely positioned Advanced switch.
+    "48px",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+// A feature rule forces values; everywhere else the column holds variation keys.
+export function valueColumnIsKey({
+  valueAsId,
+  hideVariationIds,
+}: {
+  valueAsId: boolean;
+  hideVariationIds?: boolean;
+}): boolean {
+  return valueAsId || !hideVariationIds;
+}
 
 export type SortableVariation = ExperimentValue & {
   id: string;
@@ -37,29 +93,30 @@ interface SortableProps {
   valueType?: FeatureValueType;
   hideVariationIds?: boolean;
   hideValueField?: boolean;
+  valueWidth?: string | null;
   setVariations?: (value: ExperimentValue[]) => void;
   setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
   hideSplit: boolean;
   valueAsId: boolean;
+  // Renumber keys to their new positions on reorder, as a drag does.
+  renumberKeysOnReorder?: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
+  showDragHandle?: boolean;
   dragging?: boolean;
-  className?: string;
   onlySafeToEditVariationMetadata?: boolean;
-  // Auto-focus this variation's Name field on mount.
-  autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
   // feature default) in the value editor.
   sparse?: boolean;
 }
 
 type VariationProps = SortableProps &
-  React.HTMLAttributes<HTMLTableRowElement> & {
+  React.HTMLAttributes<HTMLDivElement> & {
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
+export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
   (
     {
       i,
@@ -67,19 +124,20 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       variation,
       handle,
       valueAsId,
+      renumberKeysOnReorder = false,
       setVariations,
       valueType,
       hideVariationIds,
       hideValueField,
+      valueWidth = null,
       onlySafeToEditVariationMetadata,
       customSplit,
       hideSplit,
       setWeight,
       feature,
       showDescription,
+      showDragHandle,
       dragging,
-      className = "",
-      autoFocusName,
       sparse,
       ...props
     },
@@ -90,7 +148,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     const weightPercent = floatRound(weight * 100, 2);
     const [val, setVal] = useState<number>(weightPercent);
     useEffect(() => {
-      if (val !== weight) {
+      if (val !== weightPercent) {
         setVal(weightPercent);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,236 +161,224 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
-        // The weight needs updating
         if (w !== weights[j]) {
           setWeight(j, w);
         }
       });
     };
 
+    const valueIsKey = valueColumnIsKey({ valueAsId, hideVariationIds });
+    const update = (patch: Partial<SortableVariation>) => {
+      const newVariations = [...variations];
+      newVariations[i] = { ...variation, ...patch };
+      setVariations?.(newVariations);
+    };
+
+    const move = (to: number) =>
+      setVariations?.(
+        reorderVariations(variations, i, to, renumberKeysOnReorder),
+      );
+
     return (
-      <tr
+      <Box
         ref={ref}
         {...props}
         key={`${variation.id}__${i}`}
-        className={`${className} ${styles.tr} ${dragging && styles.dragging}`}
+        px="2"
+        py="3"
+        style={{
+          borderBottom:
+            i < variations.length - 1 ? "1px solid var(--slate-4)" : undefined,
+          opacity: dragging ? 0.5 : undefined,
+          // The sortable transform arrives on props; keep it winning.
+          ...props.style,
+        }}
       >
-        {!hideVariationIds && (
-          <td
-            style={{ width: 45 }}
-            className="position-relative pl-3 pr-0"
-            key={`${variation.id}__${i}__0`}
-          >
-            <div
-              className={styles.colorMarker}
+        <Grid
+          columns={gridColumns({
+            hideVariationIds,
+            hideValueField,
+            valueWidth,
+            showDescription,
+            hideSplit,
+            isJson: valueType === "json",
+            showDragHandle,
+          })}
+          gapX="4"
+          gapY="2"
+          align="center"
+        >
+          {showDragHandle && (
+            <Box
+              {...handle}
+              title="Drag and drop to re-order variations"
               style={{
-                backgroundColor: getVariationColor(i, true),
+                cursor: "grab",
+                display: "flex",
+                color: "var(--color-text-low)",
               }}
-            />
-            <span style={{ position: "relative", top: 6 }}>{i}</span>
-          </td>
-        )}
-        {!hideValueField && (
-          <td
-            key={`${variation.id}__${i}__1`}
-            style={valueType === "json" ? { minWidth: 300 } : undefined}
-          >
-            {setVariations ? (
-              <FeatureValueField
-                id={`value_${i}`}
-                value={variation.value}
-                placeholder={valueAsId ? i + "" : ""}
-                setValue={(value) => {
-                  const newVariations = [...variations];
-                  newVariations[i] = {
-                    ...variation,
-                    value,
-                  };
-                  setVariations(newVariations);
-                }}
-                valueType={valueType}
-                feature={feature}
-                renderJSONInline={false}
-                useCodeInput={true}
-                showFullscreenButton={true}
-                codeInputDefaultHeight={FIVE_LINES_HEIGHT}
-                sparse={sparse}
-              />
+            >
+              <RiDraggable size={16} />
+            </Box>
+          )}
+
+          {!hideVariationIds && (
+            <Flex justify="center">
+              <VariationNumber number={i} />
+            </Flex>
+          )}
+
+          {!hideValueField &&
+            (setVariations && !onlySafeToEditVariationMetadata ? (
+              valueIsKey ? (
+                <Field
+                  size="md"
+                  id={`value_${i}`}
+                  value={variation.value}
+                  placeholder={valueAsId ? i + "" : ""}
+                  onChange={(e) => update({ value: e.target.value })}
+                />
+              ) : (
+                <div className={styles.tightValueCell}>
+                  <FeatureValueField
+                    size="md"
+                    id={`value_${i}`}
+                    value={variation.value}
+                    placeholder={valueAsId ? i + "" : ""}
+                    setValue={(value) => update({ value })}
+                    valueType={valueType}
+                    feature={feature}
+                    renderJSONInline={false}
+                    showFullscreenButton={true}
+                    codeInputDefaultHeight={FIVE_LINES_HEIGHT}
+                    sparse={sparse}
+                  />
+                </div>
+              )
             ) : (
-              <>{variation.value}</>
-            )}
-          </td>
-        )}
-        <td key={`${variation.id}__${i}__2`}>
+              <TruncatedText text={variation.value} />
+            ))}
+
           {setVariations ? (
             <Field
-              size="legacy"
-              autoFocus={autoFocusName}
+              size="md"
               placeholder={`${getVariationDefaultName(
                 variation,
                 valueType ?? "string",
               )}`}
               value={variation.name || ""}
-              onChange={(e) => {
-                const newVariations = [...variations];
-                newVariations[i] = {
-                  ...variation,
-                  name: e.target.value,
-                };
-                setVariations(newVariations);
-              }}
+              onChange={(e) => update({ name: e.target.value })}
             />
           ) : (
-            <strong style={{ position: "relative", top: 6 }}>
-              {variation.name || ""}
-            </strong>
+            <TruncatedText text={variation.name || ""} />
           )}
-        </td>
-        {showDescription && (
-          <td key={`${variation.id}__${i}__3`}>
-            {setVariations ? (
-              <Field
-                size="legacy"
-                value={variation.description || ""}
-                onChange={(e) => {
-                  const newVariations = [...variations];
-                  newVariations[i] = {
-                    ...variation,
-                    description: e.target.value,
-                  };
-                  setVariations(newVariations);
-                }}
-                textarea
-                minRows={1}
-              />
+
+          {showDescription &&
+            (setVariations ? (
+              <div>
+                <Field
+                  size="md"
+                  value={variation.description || ""}
+                  onChange={(e) => update({ description: e.target.value })}
+                  textarea
+                  minRows={1}
+                />
+              </div>
             ) : (
-              <span style={{ position: "relative", top: 6 }}>
-                {variation.description || ""}
-              </span>
-            )}
-          </td>
-        )}
-        <td
-          key={`${variation.id}__${i}__4`}
-          style={{ width: !hideSplit ? 180 : "auto" }}
-        >
-          <div
-            className={
-              hideSplit
-                ? "d-flex align-items-center justify-content-end flex-nowrap"
-                : "row align-items-center flex-nowrap"
-            }
-          >
-            {!hideSplit && (
-              <>
-                {customSplit ? (
-                  <div className="col d-flex flex-row">
-                    <div
-                      className={`position-relative ${styles.percentInputWrap}`}
-                    >
-                      <Field
-                        size="legacy"
-                        id={`${variation.id}__${i}__3__input`}
-                        style={{ width: 95 }}
-                        value={val}
-                        onChange={(e) => {
-                          setVal(parseFloat(e.target.value));
-                        }}
-                        onBlur={() => {
-                          const decimal = (val >= 0 ? val : 0) / 100;
-                          rebalanceAndUpdate(i, decimal);
-                        }}
-                        type="number"
-                        min={0}
-                        max={100}
-                        step="any"
-                        className={styles.percentInput}
-                        disabled={!setWeight}
-                      />
-                      <span>%</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="col d-flex flex-row">
-                    <span style={{ position: "relative", top: 6 }}>
-                      {decimalToPercent(weights[i])}%
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-            {variations.length > 1 &&
-              setVariations &&
-              !onlySafeToEditVariationMetadata && (
-                <div
-                  {...handle}
-                  title="Drag and drop to re-order rules"
-                  className="mr-2"
-                  style={{
-                    cursor: "grab",
-                    lineHeight: 0,
-                    position: "relative",
-                    top: hideSplit ? 0 : 4,
+              <span>{variation.description || ""}</span>
+            ))}
+
+          {!hideSplit &&
+            (customSplit ? (
+              <Box position="relative" className={styles.percentInputWrapMd}>
+                <Field
+                  size="md"
+                  id={`${variation.id}__${i}__3__input`}
+                  value={val}
+                  onChange={(e) =>
+                    setVal(
+                      parseFloat(
+                        capTypedPercent(
+                          e.target.value,
+                          VARIATION_WEIGHT_DECIMALS,
+                        ),
+                      ),
+                    )
+                  }
+                  onBlur={() => {
+                    const decimal = floatRound(
+                      (val >= 0 ? val : 0) / 100,
+                      VARIATION_WEIGHT_DECIMALS + 2,
+                    );
+                    rebalanceAndUpdate(i, decimal);
+                  }}
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="any"
+                  disabled={!setWeight}
+                />
+                <Text as="span">%</Text>
+              </Box>
+            ) : (
+              <span>{decimalToPercent(weights[i])}%</span>
+            ))}
+
+          <Flex align="center" justify="end" gap="2">
+            {setVariations && !onlySafeToEditVariationMetadata ? (
+              <DropdownMenu
+                trigger={
+                  <MoreMenuTrigger
+                    label="Variation actions"
+                    style={{ margin: 0 }}
+                  />
+                }
+                menuPlacement="end"
+                variant="soft"
+              >
+                {/* Weights follow their variation, so a reorder never rebalances. */}
+                <DropdownMenuItem
+                  disabled={i === 0}
+                  onClick={() => move(i - 1)}
+                >
+                  <PiCaretUp /> Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={i === variations.length - 1}
+                  onClick={() => move(i + 1)}
+                >
+                  <PiCaretDown /> Move down
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={variations.length <= 2}
+                  color={variations.length > 2 ? "red" : undefined}
+                  tooltip={
+                    variations.length <= 2
+                      ? "Experiments must have at least two variations"
+                      : undefined
+                  }
+                  onClick={() => {
+                    const newValues = [...variations];
+                    newValues.splice(i, 1);
+
+                    const newWeights = distributeWeights(
+                      newValues.map((v) => v.weight),
+                      customSplit,
+                    );
+                    newValues.forEach((v, j) => {
+                      v.weight = newWeights[j] || 0;
+                    });
+                    setVariations(newValues);
                   }}
                 >
-                  <FaArrowsAlt />
-                </div>
-              )}
-            {setVariations && !onlySafeToEditVariationMetadata && (
-              <div
-                style={{
-                  lineHeight: 0,
-                  position: "relative",
-                  top: hideSplit ? 0 : 4,
-                }}
-              >
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                      style={{ margin: 0 }}
-                    >
-                      <BsThreeDotsVertical size={18} />
-                    </IconButton>
-                  }
-                  menuPlacement="end"
-                  variant="soft"
-                >
-                  <DropdownMenuItem
-                    disabled={variations.length <= 2}
-                    color={variations.length > 2 ? "red" : undefined}
-                    tooltip={
-                      variations.length <= 2
-                        ? "Experiments must have at least two variations"
-                        : undefined
-                    }
-                    onClick={() => {
-                      const newValues = [...variations];
-                      newValues.splice(i, 1);
-
-                      const newWeights = distributeWeights(
-                        newValues.map((v) => v.weight),
-                        customSplit,
-                      );
-
-                      newValues.forEach((v, j) => {
-                        v.weight = newWeights[j] || 0;
-                      });
-                      setVariations(newValues);
-                    }}
-                  >
-                    Remove
-                  </DropdownMenuItem>
-                </DropdownMenu>
-              </div>
-            )}
-          </div>
-        </td>
-      </tr>
+                  Remove
+                </DropdownMenuItem>
+              </DropdownMenu>
+            ) : null}
+          </Flex>
+        </Grid>
+      </Box>
     );
   },
 );
@@ -340,21 +386,17 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 VariationRow.displayName = "VariationRow";
 
 export function SortableFeatureVariationRow(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: props.variation.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(
+    props.variation.id,
+  );
 
   return (
     <VariationRow
       {...props}
       ref={setNodeRef}
       style={style}
-      dragging={active?.id === props?.variation?.id}
-      handle={{ ...attributes, ...listeners }}
+      dragging={isDragging}
+      handle={handle}
     />
   );
 }

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -14,15 +20,17 @@ import {
   PiX,
 } from "react-icons/pi";
 import { useSWRConfig } from "swr";
-import type { AIChatMessage } from "shared/ai-chat";
+import { getMessageText, type AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { suggestedReplyFromOptions } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
+import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
-import { useAISettings } from "@/hooks/useOrgSettings";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -69,6 +77,7 @@ import {
   type MessageTurn,
   groupMessagesByTurn,
   classifyTurn,
+  interactionContextTextId,
   assistantText,
   getUserText,
 } from "./agentMessageUtils";
@@ -77,6 +86,9 @@ import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
 
+// Scoped per org and user below: conversation ids are unique across the whole
+// collection but only readable by their owner, so a stale id from another org
+// or account would make the next send collide on insert.
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
 const CALL_API_LABEL = "Calling GrowthBook API…";
@@ -102,6 +114,7 @@ const STARTER_PROMPTS = [
   { prompt: "Help me create a Feature Flag", Icon: PiFlag },
   { prompt: "Help me create an experiment", Icon: PiFlask },
 ];
+const STARTER_PROMPT_TEXTS = STARTER_PROMPTS.map((p) => p.prompt);
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
@@ -204,12 +217,14 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
+  const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
   const stepsExpandedRef = useRef(false);
   const router = useRouter();
   const { defaultAIModel } = useAISettings();
+  const { aiAutocompleteEnabled = true } = useOrgSettings();
   // Read latest pathname inside the callback (not at render) so the URL
   // captured matches where the user is when they hit send, not where they
   // were when the panel rendered.
@@ -372,7 +387,7 @@ export default function AgentPanel({
     getCancelEndpoint: (cid) => `/agent/chat/${cid}/cancel`,
     onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
-    conversationStorageKey: STORAGE_KEY,
+    conversationStorageKey: `${STORAGE_KEY}:${organization.id}:${userId}`,
     onMessageComplete: (info) => {
       track("AI Assistant Response Completed", {
         model: defaultAIModel,
@@ -398,6 +413,28 @@ export default function AgentPanel({
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
 
+  // An empty draft offers the assistant's likeliest option word for word, no
+  // model call: a pending askUser prompt's recommended (else first) option,
+  // or the "(recommended)" item when the last message ended on a plain list.
+  const suggestedReply = useMemo(() => {
+    if (loading) return undefined;
+    if (askPrompt && !askPrompt.resolved) {
+      const pick =
+        askPrompt.options.find((o) => o.recommended) ?? askPrompt.options[0];
+      return pick
+        ? { key: `ask-${askPrompt.seq}`, text: pick.label }
+        : undefined;
+    }
+    const last = messages[messages.length - 1];
+    if (last?.role !== "assistant" || last.isError) return undefined;
+    // No options: an empty text still carries the key, so the composer can
+    // ask the model for a reply to this message.
+    return {
+      key: last.id,
+      text: suggestedReplyFromOptions(getMessageText(last)) ?? "",
+    };
+  }, [askPrompt, messages, loading]);
+
   // Panel stays mounted while closed; listeners need the container to exist.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
     messages,
@@ -410,14 +447,20 @@ export default function AgentPanel({
   const { ref: activeTurnRef, minHeight: activeTurnMinHeight } =
     useRatchetedMinHeight(loading);
 
+  const contextTextId = interactionContextTextId(
+    activeTurnItems,
+    (askPrompt !== null && !askPrompt.resolved) ||
+      (confirmPrompt !== null && !confirmPrompt.resolved),
+  );
   const { collapsedItems, visibleItems, fadingTextIds } =
     useCollapsibleActiveTurnItems(activeTurnItems, displayedTextMap, {
       fadeSupersededText: true,
       isPinned: (item) =>
-        item.kind === "tool-status" &&
-        item.status === "done" &&
-        !!item.toolResultData &&
-        chartDataFromRecord(item.toolResultData) !== null,
+        item.id === contextTextId ||
+        (item.kind === "tool-status" &&
+          item.status === "done" &&
+          !!item.toolResultData &&
+          chartDataFromRecord(item.toolResultData) !== null),
     });
 
   // Focus the composer after a short delay so any layout transition settles
@@ -589,6 +632,12 @@ export default function AgentPanel({
             }
           : null;
   const persistedTurns = groupMessagesByTurn(messages);
+  // A confirm/cancel decision resumes the last turn without a user bubble, so
+  // its live steps belong in that turn's drawer rather than a second one.
+  const continuesLastTurn =
+    (loading || activeTurnItems.length > 0) &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role !== "user";
   const confirmationPending =
     confirmPrompt !== null && (!confirmPrompt.resolved || loading);
   const interactionPending =
@@ -790,11 +839,16 @@ export default function AgentPanel({
               awaitingInteraction={
                 interactionPending && idx === persistedTurns.length - 1
               }
+              liveSteps={
+                continuesLastTurn && idx === persistedTurns.length - 1
+                  ? collapsedActiveSteps
+                  : undefined
+              }
             />
           ))}
 
           {(loading ||
-            collapsedActiveSteps.length > 0 ||
+            (!continuesLastTurn && collapsedActiveSteps.length > 0) ||
             visibleItems.length > 0 ||
             activeStatus) && (
             <Flex
@@ -803,7 +857,7 @@ export default function AgentPanel({
               gap="3"
               style={{ minHeight: activeTurnMinHeight }}
             >
-              {collapsedActiveSteps.length > 0 && (
+              {!continuesLastTurn && collapsedActiveSteps.length > 0 && (
                 <CollapsedSteps
                   count={collapsedActiveSteps.length}
                   items={collapsedActiveSteps}
@@ -827,7 +881,9 @@ export default function AgentPanel({
                   <div
                     key={key}
                     className={`${aiChatStyles.activeTurnItemWrapper}${
-                      item.kind === "text" && fadingTextIds.has(item.id)
+                      item.kind === "text" &&
+                      fadingTextIds.has(item.id) &&
+                      item.id !== contextTextId
                         ? ` ${aiChatStyles.collapsingItem}`
                         : ""
                     }`}
@@ -871,6 +927,12 @@ export default function AgentPanel({
         mentionItems={mentionItems}
         mentionItemsReady={mentionItemsReady}
         skillItems={skillItems}
+        autocomplete={aiAutocompleteEnabled}
+        suggestedReply={suggestedReply}
+        quickSuggestions={
+          messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
+        }
+        conversationId={conversationId}
         value={input}
         onChange={setInput}
         onSend={handleSend}
@@ -999,7 +1061,8 @@ function ActiveTurnItemRow({
 /**
  * Renders a single persisted turn: user bubble (if any), the collapsed
  * "Completed N steps" drawer for intermediate work, then the assistant's
- * visible reply (the last plain-text message).
+ * visible reply (the last plain-text message). `liveSteps` are the active
+ * turn's collapsed steps when it is resuming this turn; they join its drawer.
  */
 function PersistedTurn({
   turn,
@@ -1010,6 +1073,7 @@ function PersistedTurn({
   stepsExpanded,
   onStepsToggle,
   awaitingInteraction,
+  liveSteps,
 }: {
   turn: MessageTurn;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
@@ -1023,12 +1087,22 @@ function PersistedTurn({
   stepsExpanded: boolean;
   onStepsToggle?: (expanded: boolean) => void;
   awaitingInteraction: boolean;
+  liveSteps?: CollapsedStepItem[];
 }) {
-  const { preWork, replyContent, replyMessageId, replyIsError } = classifyTurn(
-    turn.rest,
+  const {
+    preWork,
+    replyContent,
+    replyMessageId,
+    replyIsError,
+    replyAwaitsUser,
+  } = classifyTurn(turn.rest, {
     awaitingInteraction,
-  );
-  const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
+    continuing: liveSteps !== undefined,
+  });
+  const steps = [
+    ...preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef),
+    ...(liveSteps ?? []),
+  ];
   const charts = preWork.flatMap((msg) => {
     if (msg.role !== "tool") return [];
     return msg.content.flatMap((part, i) => {
@@ -1100,7 +1174,7 @@ function PersistedTurn({
         </AssistantBubble>
       )}
 
-      {hasReply && !replyIsError && replyMessageId && (
+      {hasReply && !replyIsError && !replyAwaitsUser && replyMessageId && (
         <AIChatFeedback
           messageId={replyMessageId}
           value={feedbackMap[replyMessageId] ?? { rating: null, comment: "" }}

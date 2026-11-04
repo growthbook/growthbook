@@ -5,11 +5,11 @@ import {
   experimentHealthAction,
   featureRulePatch,
   paginationQueryFields,
-  rampMonitoringConfig,
+  apiRampMonitoringConfigInput,
   rampStartPatch,
   stepHoldConditions,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 // --- Create body schemas ---
 
@@ -128,7 +128,7 @@ const createBodySchema = z
       .describe(
         "When mode is 'locked', blocks all feature edits while the ramp is actively running (not after completion or between end and cutoff).",
       ),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfigInput.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     templateId: z
       .string()
@@ -205,7 +205,7 @@ const updateBodySchema = z.object({
   endActions: z.array(putBodyAction).optional(),
   startDate: z.string().datetime().optional().nullable(),
   cutoffDate: z.string().datetime().optional().nullable(),
-  monitoringConfig: rampMonitoringConfig.nullish(),
+  monitoringConfig: apiRampMonitoringConfigInput.nullish(),
   experimentHealthAction: experimentHealthAction.optional(),
   lockdownConfig: z
     .object({ mode: z.enum(["none", "locked"]) })
@@ -255,6 +255,10 @@ export const rampScheduleApiSpec = {
       'Updates the name, steps, endActions, startDate, or cutoffDate of a ramp schedule.\n\nOnly allowed when the schedule is in `pending`, `ready`, or `paused` status.\n\nChanging `steps`, `startActions`, `endActions`, `startDate`, or `cutoffDate` on a\nschedule that is attached to a rule skips the revision review flow, so when the\norganization requires review anywhere it is limited to credentials that may\nbypass approval. Otherwise stage a new plan on a draft revision and publish it.\n\n**targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`\n(or pass `"t1"`) in each action. If the schedule has exactly one active target, the server\nwill resolve it automatically. For schedules with multiple targets, provide the explicit\ntarget UUID from `targets[].id`.\n\n**Coverage on monitored steps**: See the create endpoint description for details\non how `coverage` is interpreted for monitored steps (total enrollment, not\nvariation-1 exposure).\n',
     delete:
       "Permanently deletes a ramp schedule. This does not undo any rule patches that\nwere already applied by completed steps.\n",
+  },
+  confirmation: {
+    update: ["rampSchedule.edit"],
+    delete: ["rampSchedule.delete"],
   },
   tag: "ramp-schedules",
   navDisplayName: "Ramp Schedules",

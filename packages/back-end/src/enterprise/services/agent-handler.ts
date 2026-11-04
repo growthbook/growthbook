@@ -106,7 +106,7 @@ export interface AgentConfig<TParams = unknown> {
    * Slash-command resolver. Seeded calls use the same shape as a real
    * `loadSkill` result. Unset (PA chat) makes any `skill` on the body a no-op.
    */
-  resolveSkill?: (name: string) => SkillLoadResult | undefined;
+  resolveSkill?: (ctx: ReqContext, name: string) => SkillLoadResult | undefined;
 
   /**
    * Annotate @-mentions with `stale` when they're out of scope for this turn.
@@ -463,7 +463,8 @@ async function executeAgentTurn<TParams>({
       mentions,
       skills,
     );
-    if (config.resolveSkill) {
+    const { resolveSkill } = config;
+    if (resolveSkill) {
       const seeded = new Set<string>();
       for (const name of skills) {
         // A leaf picked from the `/` menu arrives without the domain router the
@@ -473,7 +474,7 @@ async function executeAgentTurn<TParams>({
         for (const target of domain === name ? [name] : [domain, name]) {
           if (seeded.has(target)) continue;
           seeded.add(target);
-          seedSkillLoad(buffer, emit, target, config.resolveSkill);
+          seedSkillLoad(buffer, emit, target, (n) => resolveSkill(context, n));
         }
       }
     }

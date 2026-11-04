@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { TestQueryRow } from "shared/types/integrations";
 import { TemplateVariables } from "shared/types/sql";
+import type { TestQueryType } from "shared/types/query";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiPlayFill, PiWarningFill } from "react-icons/pi";
@@ -21,7 +22,11 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { formatSql, canFormatSql } from "@/services/sqlFormatter";
+import {
+  formatSql,
+  canFormatSql,
+  getFormatSqlShortcutLabel,
+} from "@/services/sqlFormatter";
 import {
   Panel,
   PanelGroup,
@@ -62,12 +67,29 @@ export interface Props {
       | "Identity Join"
       | "Experiment Assignment Query"
       | "Contextual Bandit Assignment Query"
+      | "Interleaving Exposure Query"
       | "Metric"
       | "Segment"
       | "Feature Usage Query";
     objectName?: string;
   };
 }
+
+// Each editor's test runs get their own query type in the query log
+const TEST_QUERY_TYPES: Record<
+  Props["sqlObjectInfo"]["objectType"],
+  TestQueryType
+> = {
+  Dimension: "dimensionTest",
+  "Fact Table": "factTableTest",
+  "Identity Join": "identityJoinTest",
+  "Experiment Assignment Query": "exposureQueryTest",
+  "Contextual Bandit Assignment Query": "contextualBanditQueryTest",
+  "Interleaving Exposure Query": "interleavingExposureQueryTest",
+  Metric: "metricTest",
+  Segment: "segmentTest",
+  "Feature Usage Query": "featureUsageQueryTest",
+};
 
 export default function EditSqlModal({
   value,
@@ -141,6 +163,7 @@ export default function EditSqlModal({
           timestampColumn:
             timestampColumn ??
             (requiredColumns.has("timestamp") ? "timestamp" : undefined),
+          queryType: TEST_QUERY_TYPES[modalInfo.objectType],
         }),
       });
 
@@ -162,6 +185,7 @@ export default function EditSqlModal({
       validateResponseOverride,
       apply5RowLimit,
       timestampColumn,
+      modalInfo.objectType,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
     ],
@@ -190,8 +214,10 @@ export default function EditSqlModal({
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
 
-  const handleFormatClick = () => {
-    const result = formatSql(form.watch("sql"), datasource?.type);
+  const handleFormat = () => {
+    const sql = form.watch("sql");
+    if (!sql || !canFormat) return;
+    const result = formatSql(sql, datasource?.type);
     if (result.error) {
       setFormatError(result.error);
     } else if (result.formattedSql) {
@@ -298,14 +324,18 @@ export default function EditSqlModal({
                           />
                         </Tooltip>
                         {canFormat ? (
-                          <RadixButton
-                            size="md"
-                            variant="ghost"
-                            onClick={handleFormatClick}
-                            disabled={!form.watch("sql")}
+                          <Tooltip
+                            body={`Format SQL (${getFormatSqlShortcutLabel()})`}
                           >
-                            Format
-                          </RadixButton>
+                            <RadixButton
+                              size="md"
+                              variant="ghost"
+                              onClick={handleFormat}
+                              disabled={!form.watch("sql")}
+                            >
+                              Format
+                            </RadixButton>
+                          </Tooltip>
                         ) : null}
                         <Tooltip
                           body="You do not have permission to run test queries"
@@ -445,6 +475,7 @@ export default function EditSqlModal({
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={handleTestQuery}
+                      onFormatShortcut={handleFormat}
                       completions={autoCompletions}
                     />
                   </Box>

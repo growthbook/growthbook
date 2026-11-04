@@ -20,19 +20,21 @@ import {
   parseSliceMetricId,
   SliceLevelsData,
   getEffectiveLookbackOverride,
-  getLatestPhaseVariations,
   getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
   parseDimensionId,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
+import {
+  assertExposureQueryDeclaresIdentifierType,
+  resolveAnalysisIdentifierType,
+  isDefined,
+} from "shared/util";
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
 import {
   LegacyExperimentReportArgs,
-  ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
   ExperimentReportSSRData,
@@ -40,7 +42,6 @@ import {
 import {
   ExperimentDecisionFrameworkSettings,
   ExperimentInterface,
-  ExperimentPhase,
   MetricOverride,
 } from "shared/types/experiment";
 import {
@@ -88,88 +89,6 @@ import {
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
-
-export function getReportVariations(
-  experiment: ExperimentInterface,
-  phase: ExperimentPhase,
-): ExperimentReportVariation[] {
-  return getLatestPhaseVariations(experiment).map((v, i) => {
-    return {
-      id: v.key || v.index + "",
-      index: v.index,
-      name: v.name,
-      weight: phase?.variationWeights?.[i] || 0,
-    };
-  });
-}
-
-export function getMetricSnapshotSettingsFromSnapshot(
-  snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-): MetricSnapshotSettings[] {
-  return snapshotSettings.metricSettings.map((m) => {
-    return {
-      metric: m.id,
-      properPrior: m.computedSettings?.properPrior || false,
-      properPriorMean: m.computedSettings?.properPriorMean || 0,
-      properPriorStdDev:
-        m.computedSettings?.properPriorStdDev || DEFAULT_PROPER_PRIOR_STDDEV,
-      regressionAdjustmentReason:
-        m.computedSettings?.regressionAdjustmentReason || "",
-      regressionAdjustmentDays:
-        m.computedSettings?.regressionAdjustmentDays ||
-        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-      regressionAdjustmentEnabled:
-        (analysisSettings.regressionAdjusted &&
-          m.computedSettings?.regressionAdjustmentEnabled) ||
-        false,
-      regressionAdjustmentAvailable:
-        m.computedSettings?.regressionAdjustmentAvailable ?? true,
-    };
-  });
-}
-
-export function reportArgsFromSnapshot(
-  experiment: ExperimentInterface,
-  snapshot: ExperimentSnapshotInterface,
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-): LegacyExperimentReportArgs {
-  const phase = experiment.phases[snapshot.phase];
-  if (!phase) {
-    throw new Error("Unknown experiment phase");
-  }
-  return {
-    trackingKey: snapshot.settings.experimentId || experiment.trackingKey,
-    datasource: snapshot.settings.datasourceId || experiment.datasource,
-    exposureQueryId: experiment.exposureQueryId,
-    startDate: snapshot.settings.startDate,
-    endDate: snapshot.settings.endDate,
-    dimension: snapshot.dimension || undefined,
-    variations: getReportVariations(experiment, phase),
-    coverage: snapshot.settings.coverage,
-    segment: snapshot.settings.segment,
-    goalMetrics: experiment.goalMetrics,
-    secondaryMetrics: experiment.secondaryMetrics,
-    metricOverrides: experiment.metricOverrides,
-    guardrailMetrics: experiment.guardrailMetrics,
-    activationMetric: snapshot.settings.activationMetric || undefined,
-    queryFilter: snapshot.settings.queryFilter,
-    skipPartialData: snapshot.settings.skipPartialData,
-    attributionModel: snapshot.settings.attributionModel,
-    statsEngine: analysisSettings.statsEngine,
-    regressionAdjustmentEnabled: analysisSettings.regressionAdjusted,
-    settingsForSnapshotMetrics: getMetricSnapshotSettingsFromSnapshot(
-      snapshot.settings,
-      analysisSettings,
-    ),
-    defaultMetricPriorSettings: snapshot.settings.defaultMetricPriorSettings,
-    sequentialTestingEnabled: analysisSettings.sequentialTesting,
-    sequentialTestingTuningParameter:
-      analysisSettings.sequentialTestingTuningParameter,
-    pValueThreshold: analysisSettings.pValueThreshold,
-    decisionFrameworkSettings: experiment.decisionFrameworkSettings,
-  };
-}
 
 export function getAnalysisSettingsFromReportArgs(
   args: LegacyExperimentReportArgs,
@@ -256,6 +175,7 @@ export function getSnapshotSettingsFromReportArgs(
     endDate: args.endDate || new Date(),
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
+    exposureQueryIdentifierType: args.exposureQueryIdentifierType,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -343,26 +263,38 @@ function generateWindowSettings(
     };
   }
 
+  // Overrides store each length in hours; metrics store a value and a unit.
+  // Take both halves of a length from the same source.
+  const delayHours = overrides?.delayHours ?? null;
+  const windowHours = overrides?.windowHours ?? null;
+  const { delayValue, delayUnit } =
+    delayHours !== null
+      ? { delayValue: delayHours, delayUnit: "hours" as const }
+      : {
+          delayValue:
+            metric.windowSettings.delayValue ??
+            DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+          delayUnit: metric.windowSettings.delayUnit ?? "hours",
+        };
+  const { windowValue, windowUnit } =
+    windowHours !== null
+      ? { windowValue: windowHours, windowUnit: "hours" as const }
+      : {
+          // Some legacy metrics without a window store no windowValue.
+          windowValue:
+            metric.windowSettings.windowValue ?? DEFAULT_METRIC_WINDOW_HOURS,
+          windowUnit: metric.windowSettings.windowUnit,
+        };
+
   return {
-    delayValue:
-      overrides?.delayHours ??
-      metric.windowSettings.delayValue ??
-      DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-    delayUnit: overrides?.delayHours
-      ? "hours"
-      : (metric.windowSettings.delayUnit ?? "hours"),
+    delayValue,
+    delayUnit,
     type:
       overrides?.windowType ??
       metric.windowSettings.type ??
       DEFAULT_METRIC_WINDOW,
-    windowUnit:
-      overrides?.windowHours || overrides?.windowType
-        ? "hours"
-        : metric.windowSettings.windowUnit,
-    windowValue:
-      overrides?.windowHours ??
-      metric.windowSettings.windowValue ??
-      DEFAULT_METRIC_WINDOW_HOURS,
+    windowUnit,
+    windowValue,
   };
 }
 
@@ -675,6 +607,18 @@ export function getReportSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === report.experimentAnalysisSettings.exposureQueryId,
   );
+  // Refused before the snapshot is inserted so a failed refresh leaves none
+  // behind. A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      report.experimentAnalysisSettings.exposureQueryIdentifierType,
+    );
+  }
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    report.experimentAnalysisSettings.exposureQueryIdentifierType,
+  );
 
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(
@@ -685,7 +629,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -697,7 +641,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -709,7 +653,7 @@ export function getReportSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -800,6 +744,7 @@ export function getReportSnapshotSettings({
     regressionAdjustmentEnabled: !!analysisSettings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({
       id: v.key || i + "",

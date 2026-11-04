@@ -62,6 +62,7 @@ function datasetTypeToBlockType(
     case "funnel":
       return "funnel-exploration";
     case "journey":
+    case "population":
       return null;
     default: {
       const exhaustive: never = type;

@@ -8,31 +8,55 @@ export const SAVED_GROUP_ERROR_CYCLE = "__sgCycle__";
 export const SAVED_GROUP_ERROR_INVALID = "__sgInvalid__";
 export const SAVED_GROUP_ERROR_UNKNOWN = "__sgUnknown__";
 
-/** True if a condition contains any of the error markers. */
-export function conditionHasSavedGroupErrors(
+// How deep we follow a chain of groups that reference other groups.
+export const MAX_SAVED_GROUP_DEPTH = 10;
+
+const SAVED_GROUP_ERROR_MESSAGES: Record<string, (groupId: string) => string> =
+  {
+    [SAVED_GROUP_ERROR_INVALID]: (groupId) =>
+      `Saved Group "${groupId}" has no attribute key or an invalid condition`,
+    [SAVED_GROUP_ERROR_UNKNOWN]: (groupId) =>
+      `Saved Group "${groupId}" does not exist`,
+    [SAVED_GROUP_ERROR_MAX_DEPTH]: () =>
+      `Saved Groups are nested more than ${MAX_SAVED_GROUP_DEPTH} levels deep`,
+    [SAVED_GROUP_ERROR_CYCLE]: (groupId) =>
+      `Saved Group "${groupId}" is nested inside itself`,
+  };
+
+/**
+ * Why a condition with error markers cannot be used, naming the first Saved
+ * Group at fault. Null when it has none.
+ */
+export function describeSavedGroupError(
   condition: unknown,
   ignoreCycleErrors: boolean = false,
-) {
-  if (!condition) return false;
+): string | null {
+  if (!condition) return null;
 
   const src =
     typeof condition === "object"
       ? JSON.stringify(condition)
       : String(condition);
 
-  const errorMarkers = [
-    SAVED_GROUP_ERROR_INVALID,
-    ...(ignoreCycleErrors
-      ? []
-      : [
-          SAVED_GROUP_ERROR_UNKNOWN,
-          SAVED_GROUP_ERROR_MAX_DEPTH,
-          SAVED_GROUP_ERROR_CYCLE,
-        ]),
-  ];
+  const errorMarkers = ignoreCycleErrors
+    ? [SAVED_GROUP_ERROR_INVALID]
+    : Object.keys(SAVED_GROUP_ERROR_MESSAGES);
 
-  if (errorMarkers.length === 0) return false;
+  const match = src.match(
+    new RegExp(
+      `"(${errorMarkers.join("|")})"\\s*:\\s*("(?:[^"\\\\]|\\\\.)*")?`,
+    ),
+  );
+  if (!match) return null;
+  return SAVED_GROUP_ERROR_MESSAGES[match[1]](
+    match[2] ? JSON.parse(match[2]) : "",
+  );
+}
 
-  const regex = new RegExp(`"(${errorMarkers.join("|")})"\\s*:`);
-  return !!src.match(regex);
+/** True if a condition contains any of the error markers. */
+export function conditionHasSavedGroupErrors(
+  condition: unknown,
+  ignoreCycleErrors: boolean = false,
+) {
+  return describeSavedGroupError(condition, ignoreCycleErrors) !== null;
 }

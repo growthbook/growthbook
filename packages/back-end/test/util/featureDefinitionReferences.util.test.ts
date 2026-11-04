@@ -1,7 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
-import { MAX_SAVED_GROUP_DEPTH } from "shared/sdk-versioning";
 import {
   getSafeRolloutIdsForFeatureDefinitions,
   getSavedGroupIdsForFeatureDefinitions,
@@ -132,6 +131,26 @@ describe("getSavedGroupIdsForFeatureDefinitions", () => {
       ],
     });
     expect([...ids].sort()).toEqual(["grp_old", "grp_phase", "grp_prereq"]);
+  });
+
+  it("collects interleaving targeting and prerequisites", () => {
+    const ids = getSavedGroupIdsForFeatureDefinitions({
+      features: [feature({})],
+      interleavings: [
+        {
+          condition: '{"$savedGroups":["grp_cond"]}',
+          savedGroups: [{ match: "any", ids: ["grp_targeting"] }],
+          prerequisites: [
+            { id: "parent", condition: '{"$savedGroups":["grp_prereq"]}' },
+          ],
+        },
+      ],
+    });
+    expect([...ids].sort()).toEqual([
+      "grp_cond",
+      "grp_prereq",
+      "grp_targeting",
+    ]);
   });
 
   it("finds $savedGroups wherever nested expansion can reach it", () => {
@@ -268,6 +287,32 @@ describe("loadSavedGroupsWithNested", () => {
     expect(calls).toEqual([["grp_top"], ["grp_list", "grp_mid"], ["grp_leaf"]]);
   });
 
+  it("loads the source of a derived group, directly or through a condition group", async () => {
+    const { calls, loadByIds } = store([
+      {
+        id: "grp_cond",
+        type: "condition",
+        condition: '{"$savedGroups":["grp_b:parent_id"]}',
+      },
+      // Remote groups are neither lists nor conditions with references
+      { id: "grp_a", type: "condition" },
+      { id: "grp_b", type: "condition" },
+    ]);
+    const loaded = await loadSavedGroupsWithNested(
+      ["grp_a:parent_id", "grp_cond"],
+      loadByIds,
+    );
+    expect(loaded.map((g) => g.id).sort()).toEqual([
+      "grp_a",
+      "grp_b",
+      "grp_cond",
+    ]);
+    expect(calls).toEqual([
+      ["grp_a", "grp_a:parent_id", "grp_cond"],
+      ["grp_b", "grp_b:parent_id"],
+    ]);
+  });
+
   it("makes no query for an empty id set and tolerates ids that do not exist", async () => {
     const empty = store([]);
     expect(await loadSavedGroupsWithNested([], empty.loadByIds)).toEqual([]);
@@ -300,7 +345,7 @@ describe("loadSavedGroupsWithNested", () => {
     expect(calls).toEqual([["grp_a"], ["grp_b"]]);
   });
 
-  it("follows a chain two levels past the depth nested expansion stops at, and no further", async () => {
+  it("follows a chain to its end, one query per level, and stops at an id nothing stores", async () => {
     const chain: Group[] = Array.from({ length: 40 }, (_, i) => ({
       id: `grp_${i}`,
       type: "condition" as const,
@@ -308,10 +353,9 @@ describe("loadSavedGroupsWithNested", () => {
     }));
     const { calls, loadByIds } = store(chain);
     const loaded = await loadSavedGroupsWithNested(["grp_0"], loadByIds);
-    expect(calls).toHaveLength(MAX_SAVED_GROUP_DEPTH + 2);
-    expect(loaded.map((g) => g.id)).toEqual(
-      chain.slice(0, MAX_SAVED_GROUP_DEPTH + 2).map((g) => g.id),
-    );
+    expect(loaded.map((g) => g.id)).toEqual(chain.map((g) => g.id));
+    expect(calls).toHaveLength(41);
+    expect(calls[40]).toEqual(["grp_40"]);
   });
 
   it("follows any group that is not an ID list, as nested expansion does", async () => {

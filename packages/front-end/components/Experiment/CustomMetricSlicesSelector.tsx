@@ -1,12 +1,7 @@
-import React, { useState, useMemo } from "react";
-import { FaTimes, FaPlusCircle } from "react-icons/fa";
-import {
-  PiPencilSimpleFill,
-  PiX,
-  PiStackBold,
-  PiArrowSquareOut,
-} from "react-icons/pi";
-import { Text, Flex, IconButton } from "@radix-ui/themes";
+import React, { ReactNode, useState, useMemo } from "react";
+import clsx from "clsx";
+import { PiPlus, PiX, PiStackBold, PiArrowSquareOut } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   isFactMetric,
   expandMetricGroups,
@@ -15,13 +10,21 @@ import {
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { CustomMetricSlice } from "shared/validators";
-import Badge from "@/ui/Badge";
+import { StylesConfig } from "react-select";
+import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import QuickEditButton, {
+  editsOnClick,
+  revealedByQuickEdit,
+  revealsQuickEdit,
+} from "@/components/Experiment/TabbedPage/QuickEditButton";
 
 type MetricWithStringColumns = FactMetricInterface & {
   stringColumns: Array<{
@@ -41,6 +44,9 @@ export interface CustomMetricSlicesSelectorProps {
   customMetricSlices: CustomMetricSlice[];
   setCustomMetricSlices: (slices: CustomMetricSlice[]) => void;
   className?: string;
+  // As a labelled setup row, rather than a block with its own label.
+  asRow?: boolean;
+  disabled?: boolean;
 }
 
 export default function CustomMetricSlicesSelector({
@@ -50,6 +56,8 @@ export default function CustomMetricSlicesSelector({
   customMetricSlices,
   setCustomMetricSlices,
   className = "my-4",
+  asRow = false,
+  disabled = false,
 }: CustomMetricSlicesSelectorProps) {
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
@@ -243,44 +251,65 @@ export default function CustomMetricSlicesSelector({
   return (
     <>
       {metricsWithStringColumns.length > 0 ? (
-        <div className={className}>
-          <label className="font-weight-bold mb-1">Custom Metric Slices</label>
+        <SlicesRow asRow={asRow}>
+          <div className={asRow ? undefined : className}>
+            {asRow ? null : (
+              <label className="font-weight-bold mb-1">
+                Custom Metric Slices
+              </label>
+            )}
 
-          <Text
-            as="p"
-            className="mb-2"
-            style={{ color: "var(--color-text-mid)" }}
-          >
-            Define custom slices to analyze across all experiment metrics.{" "}
-            <DocLink useRadix={false} docSection="customSlices">
-              Learn More <PiArrowSquareOut />
-            </DocLink>
-          </Text>
+            {disabled && !customMetricSlices.length ? (
+              <Text color="text-mid">None</Text>
+            ) : (
+              <Text as="p" mb="2" color="text-mid">
+                Define custom slices to analyze across all experiment metrics.{" "}
+                <DocLink useRadix={false} docSection="customSlices">
+                  Learn more <PiArrowSquareOut />
+                </DocLink>
+              </Text>
+            )}
 
-          {customMetricSlices.map((levels, levelsIndex) => {
-            const isEditing =
-              editState === "editing" && editingIndex === levelsIndex;
+            {customMetricSlices.map((levels, levelsIndex) => {
+              const isEditing =
+                editState === "editing" && editingIndex === levelsIndex;
 
-            return (
-              <div key={levelsIndex} className="appbox px-2 py-1 mb-2">
-                {isEditing ? (
-                  <EditingInterface
-                    editingSliceLevels={editingSliceLevels}
-                    addingSlice={addingSlice}
-                    setAddingSlice={setAddingSlice}
-                    setEditingSliceLevels={setEditingSliceLevels}
-                    updateSliceLevel={updateSliceLevel}
-                    removeSliceLevel={removeSliceLevel}
-                    saveEditing={saveEditing}
-                    cancelEditing={cancelEditing}
-                    metricsWithSlices={metricsWithStringColumns}
-                  />
-                ) : (
-                  <div className="d-flex align-items-center">
-                    <div className="flex-grow-1">
-                      <Flex gap="2" align="center">
+              return (
+                <div key={levelsIndex} className="mb-2">
+                  {isEditing ? (
+                    <EditingInterface
+                      editingSliceLevels={editingSliceLevels}
+                      addingSlice={addingSlice}
+                      setAddingSlice={setAddingSlice}
+                      setEditingSliceLevels={setEditingSliceLevels}
+                      updateSliceLevel={updateSliceLevel}
+                      removeSliceLevel={removeSliceLevel}
+                      saveEditing={saveEditing}
+                      cancelEditing={cancelEditing}
+                      metricsWithSlices={metricsWithStringColumns}
+                    />
+                  ) : (
+                    <Flex
+                      align="center"
+                      gap="3"
+                      className={
+                        disabled
+                          ? undefined
+                          : clsx(revealsQuickEdit, editsOnClick)
+                      }
+                      // Framed as a field only where it opens for editing.
+                      style={
+                        disabled
+                          ? undefined
+                          : {
+                              ...MULTI_SELECT_FRAME,
+                              minHeight: 36,
+                              padding: "2px 2px 2px 8px",
+                            }
+                      }
+                    >
+                      <Flex gap="2" align="center" wrap="wrap" flexGrow="1">
                         {levels.slices.map((combo, comboIndex) => {
-                          // Find the column datatype
                           const columnMetadata = metricsWithStringColumns
                             .flatMap((metric) => metric.stringColumns || [])
                             .find((col) => col.column === combo.column);
@@ -289,94 +318,160 @@ export default function CustomMetricSlicesSelector({
 
                           return (
                             <React.Fragment key={comboIndex}>
-                              {comboIndex > 0 && <Text size="1">AND</Text>}
-                              <Badge
-                                label={
-                                  <Text style={{ color: "var(--slate-12)" }}>
-                                    {combo.column} ={" "}
-                                    {isBoolean ? (
-                                      <span
-                                        style={{
-                                          textTransform: "uppercase",
-                                          fontWeight: 600,
-                                          fontSize: "10px",
-                                        }}
-                                      >
-                                        {combo.levels[0]}
-                                      </span>
-                                    ) : (
-                                      combo.levels[0]
-                                    )}
-                                  </Text>
-                                }
-                                color="gray"
-                              />
+                              {comboIndex > 0 && <Text size="sm">AND</Text>}
+                              <Flex
+                                align="center"
+                                px="2"
+                                style={{
+                                  height: 24,
+                                  background:
+                                    "var(--form-multivalue-background-color)",
+                                  borderRadius: "var(--radius-1)",
+                                }}
+                              >
+                                <Text
+                                  size="sm"
+                                  weight="medium"
+                                  color="text-high"
+                                >
+                                  {combo.column} ={" "}
+                                  {isBoolean ? (
+                                    <span
+                                      style={{
+                                        textTransform: "uppercase",
+                                        fontWeight: 600,
+                                        fontSize: "10px",
+                                      }}
+                                    >
+                                      {combo.levels[0]}
+                                    </span>
+                                  ) : (
+                                    combo.levels[0]
+                                  )}
+                                </Text>
+                              </Flex>
                             </React.Fragment>
                           );
                         })}
                       </Flex>
-                    </div>
-                    <div
-                      className="d-flex align-items-center"
-                      style={{ gap: "0.5rem" }}
-                    >
-                      <IconButton
-                        variant="ghost"
-                        size="1"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          startEditing(levelsIndex);
-                        }}
-                        mr="1"
-                      >
-                        <PiPencilSimpleFill />
-                      </IconButton>
-                      <IconButton
-                        color="red"
-                        variant="ghost"
-                        size="1"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          removeMetricSliceLevels(levelsIndex);
-                        }}
-                      >
-                        <PiX />
-                      </IconButton>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      {disabled ? null : (
+                        // Spaced as a field's own indicators are.
+                        <Flex align="center" gap="1px">
+                          <QuickEditButton
+                            label="Edit custom slice"
+                            onClick={() => startEditing(levelsIndex)}
+                            labelTooltip={false}
+                            fillsRow
+                          />
+                          <span className={revealedByQuickEdit}>
+                            <button
+                              type="button"
+                              className="gb-field-indicator"
+                              aria-label="Remove custom slice"
+                              onClick={() =>
+                                removeMetricSliceLevels(levelsIndex)
+                              }
+                            >
+                              <PiX />
+                            </button>
+                          </span>
+                        </Flex>
+                      )}
+                    </Flex>
+                  )}
+                </div>
+              );
+            })}
 
-          {editState === null ? (
-            <a
-              role="button"
-              className="d-inline-block link-purple font-weight-bold mt-1"
-              onClick={() => startEditing(-1)}
-            >
-              <FaPlusCircle className="mr-1" />
-              Add custom slice
-            </a>
-          ) : editState === "adding" ? (
-            // Adding new entry
-            <div className="appbox px-2 py-1 mb-2">
-              <EditingInterface
-                editingSliceLevels={editingSliceLevels}
-                addingSlice={addingSlice}
-                setAddingSlice={setAddingSlice}
-                setEditingSliceLevels={setEditingSliceLevels}
-                updateSliceLevel={updateSliceLevel}
-                removeSliceLevel={removeSliceLevel}
-                saveEditing={saveEditing}
-                cancelEditing={cancelEditing}
-                metricsWithSlices={metricsWithStringColumns}
-              />
-            </div>
-          ) : null}
-        </div>
+            {disabled ? null : editState === null ? (
+              <Box mt="1">
+                <Link onClick={() => startEditing(-1)}>
+                  <PiPlus /> Add custom slice
+                </Link>
+              </Box>
+            ) : editState === "adding" ? (
+              // Adding new entry
+              <div className="mb-2">
+                <EditingInterface
+                  editingSliceLevels={editingSliceLevels}
+                  addingSlice={addingSlice}
+                  setAddingSlice={setAddingSlice}
+                  setEditingSliceLevels={setEditingSliceLevels}
+                  updateSliceLevel={updateSliceLevel}
+                  removeSliceLevel={removeSliceLevel}
+                  saveEditing={saveEditing}
+                  cancelEditing={cancelEditing}
+                  metricsWithSlices={metricsWithStringColumns}
+                />
+              </div>
+            ) : null}
+          </div>
+        </SlicesRow>
       ) : null}
     </>
+  );
+}
+
+function SlicesRow({
+  asRow,
+  children,
+}: {
+  asRow: boolean;
+  children: React.ReactNode;
+}) {
+  return asRow ? (
+    <SetupFieldRow label="Custom slices" content="text">
+      {children}
+    </SetupFieldRow>
+  ) : (
+    <>{children}</>
+  );
+}
+
+// A multi-select field's frame, around values that read as its values do.
+const MULTI_SELECT_FRAME = {
+  border: "1px solid var(--gray-a7)",
+  borderRadius: "var(--radius-2)",
+  background: "var(--color-surface)",
+};
+
+// A menu as wide as its options, not the narrower field it opens from.
+const FIT_MENU: StylesConfig<SingleValue, boolean> = {
+  menu: (base) => ({ ...base, width: "max-content", minWidth: "100%" }),
+};
+
+// As wide as its value, up to a limit, so focusing or opening it doesn't
+// reflow the row; only a new value does.
+function FitToValue({
+  text,
+  input = false,
+  children,
+}: {
+  text: string;
+  // A text input, with no dropdown arrow to leave room for.
+  input?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Box style={{ display: "inline-grid", minWidth: 72, maxWidth: 220 }}>
+      <Box
+        aria-hidden
+        style={{
+          gridArea: "1 / 1",
+          height: 0,
+          overflow: "hidden",
+          visibility: "hidden",
+          whiteSpace: "nowrap",
+          fontSize: "var(--font-size-2)",
+          paddingInline: input ? "12px" : "10px 40px",
+        }}
+      >
+        {text}
+      </Box>
+      <Box style={{ gridArea: "1 / 1", width: 0, minWidth: "100%" }}>
+        {children}
+      </Box>
+    </Box>
   );
 }
 
@@ -478,62 +573,51 @@ function SliceSelector({
 
   return addingSlice ? (
     sortedSlices.length > 0 ? (
-      <div className="border rounded d-flex align-items-center bg-white">
-        <SelectField
-          size="legacy"
-          value=""
-          onChange={(value) => {
-            if (value) {
-              // Look up datatype from metricsWithSlices
-              const columnMetadata = metricsWithSlices
-                .flatMap((metric) => metric.stringColumns || [])
-                .find((col) => col.column === value);
+      <SelectField
+        size="sm"
+        value=""
+        onChange={(value) => {
+          if (value) {
+            // Look up datatype from metricsWithSlices
+            const columnMetadata = metricsWithSlices
+              .flatMap((metric) => metric.stringColumns || [])
+              .find((col) => col.column === value);
 
-              const newSliceLevel: SliceLevelsData = {
-                column: value,
-                levels: [""], // Start with empty level
-                datatype: (columnMetadata?.datatype === "boolean"
-                  ? "boolean"
-                  : "string") as "string" | "boolean",
-              };
-              setEditingSliceLevels([...editingSliceLevels, newSliceLevel]);
-              setAddingSlice(false);
-            }
-          }}
-          style={{ minWidth: "150px" }}
-          options={sortedSlices.map((col) => ({
-            label: col.name || col.column || "",
-            value: col.column || "",
-          }))}
-          formatOptionLabel={(option) => (
-            <Flex align="center" gap="1">
-              {autoSliceColumnMap.has(option.value) ? (
-                <Text color="purple" size="1">
-                  <PiStackBold />
-                </Text>
-              ) : (
-                <div style={{ width: 13 }} />
-              )}
-              <Text>{option.label}</Text>
-            </Flex>
-          )}
-          placeholder="column"
-          className="mb-0"
-          autoFocus
-        />
-      </div>
+            const newSliceLevel: SliceLevelsData = {
+              column: value,
+              levels: [""], // Start with empty level
+              datatype: (columnMetadata?.datatype === "boolean"
+                ? "boolean"
+                : "string") as "string" | "boolean",
+            };
+            setEditingSliceLevels([...editingSliceLevels, newSliceLevel]);
+            setAddingSlice(false);
+          }
+        }}
+        style={{ width: 160 }}
+        options={sortedSlices.map((col) => ({
+          label: col.name || col.column || "",
+          value: col.column || "",
+        }))}
+        formatOptionLabel={(option) => (
+          <Flex align="center" gap="1">
+            {autoSliceColumnMap.has(option.value) ? (
+              <PiStackBold size={12} style={{ color: "var(--violet-11)" }} />
+            ) : (
+              <div style={{ width: 13 }} />
+            )}
+            <Text>{option.label}</Text>
+          </Flex>
+        )}
+        placeholder="Column"
+        className="mb-0"
+        autoFocus
+      />
     ) : null
   ) : shouldShowAndButton ? (
-    <a
-      role="button"
-      onClick={(e) => {
-        e.preventDefault();
-        setAddingSlice(true);
-      }}
-      className="link-purple mx-1"
-    >
-      + AND
-    </a>
+    <Link onClick={() => setAddingSlice(true)}>
+      <PiPlus /> AND
+    </Link>
   ) : null;
 }
 
@@ -564,11 +648,12 @@ function EditingInterface({
   metricsWithSlices: MetricWithStringColumns[];
 }) {
   return (
-    <div className="d-flex align-items-top" style={{ gap: "3rem" }}>
-      <div
-        className="flex-grow-1 d-flex flex-wrap align-items-center"
-        style={{ gap: "0.5rem", minHeight: "40px" }}
-      >
+    <Flex
+      direction="column"
+      gap="3"
+      style={{ ...MULTI_SELECT_FRAME, padding: "8px" }}
+    >
+      <Flex align="center" gap="3" wrap="wrap">
         {editingSliceLevels.map((sliceLevel, levelIndex) => {
           const sliceMap = new Map<
             string,
@@ -622,58 +707,34 @@ function EditingInterface({
 
           if (!sliceColumn) return null;
 
-          if (sliceColumn.datatype === "boolean") {
-            const booleanOptions = [
-              { label: "TRUE", value: "true" },
-              { label: "FALSE", value: "false" },
-              { label: "NULL", value: "null" },
-            ];
-
-            return (
-              <div
-                key={levelIndex}
-                className="border rounded d-flex align-items-center bg-white"
-              >
-                <span className="px-2 font-weight-medium">
-                  {sliceColumn?.name || sliceLevel.column}:
-                </span>
+          const name = sliceColumn.name || sliceLevel.column;
+          const availableLevels = Array.from(sliceColumn.levels).sort();
+          const value = sliceLevel.levels[0] || "";
+          const valueInput =
+            sliceColumn.datatype === "boolean" ? (
+              <FitToValue text={value.toUpperCase() || "Select..."}>
                 <SelectField
-                  size="legacy"
+                  size="sm"
                   value={sliceLevel.levels[0] || ""}
                   onChange={(value) =>
                     updateSliceLevel(levelIndex, "level", value)
                   }
-                  options={booleanOptions}
+                  options={[
+                    { label: "TRUE", value: "true" },
+                    { label: "FALSE", value: "false" },
+                    { label: "NULL", value: "null" },
+                  ]}
                   className="mb-0"
-                  style={{ minWidth: "120px" }}
                   placeholder="Select..."
                   autoFocus={!sliceLevel.levels[0]}
                   sort={false}
+                  containerStyles={FIT_MENU}
                 />
-                <button
-                  type="button"
-                  className="btn btn-link p-0 ml-1 text-muted"
-                  onClick={() => removeSliceLevel(levelIndex)}
-                >
-                  <FaTimes />
-                </button>
-              </div>
-            );
-          }
-
-          const availableLevels = Array.from(sliceColumn.levels).sort();
-
-          return (
-            <div
-              key={levelIndex}
-              className="border rounded d-flex align-items-center bg-white"
-            >
-              <span className="px-2 font-weight-medium">
-                {sliceColumn?.name || sliceLevel.column}:
-              </span>
-              {availableLevels.length > 0 ? (
+              </FitToValue>
+            ) : availableLevels.length > 0 ? (
+              <FitToValue text={value}>
                 <SelectField
-                  size="legacy"
+                  size="sm"
                   value={sliceLevel.levels[0] || ""}
                   onChange={(value) =>
                     updateSliceLevel(levelIndex, "level", value)
@@ -683,33 +744,66 @@ function EditingInterface({
                     value: level,
                   }))}
                   className="mb-0"
-                  style={{ minWidth: "120px" }}
                   createable
                   placeholder=""
                   autoFocus={!sliceLevel.levels[0]}
                   sort={false}
+                  containerStyles={FIT_MENU}
                 />
-              ) : (
+              </FitToValue>
+            ) : (
+              <FitToValue text={value || "Column value..."} input>
                 <Field
-                  size="legacy"
+                  size="sm"
                   value={sliceLevel.levels[0] || ""}
                   onChange={(e) =>
                     updateSliceLevel(levelIndex, "level", e.target.value)
                   }
-                  className="mb-0"
-                  style={{ width: "130px" }}
+                  containerClassName="mb-0"
                   placeholder="Column value..."
                   autoFocus={!sliceLevel.levels[0]}
                 />
-              )}
-              <button
-                type="button"
-                className="btn btn-link p-0 ml-1 text-muted"
-                onClick={() => removeSliceLevel(levelIndex)}
+              </FitToValue>
+            );
+
+          // AND wraps with its chip, so a line never ends on it.
+          return (
+            <Flex key={levelIndex} align="center" gap="3">
+              {levelIndex > 0 ? <Text size="sm">AND</Text> : null}
+              <Flex
+                align="center"
+                py="1"
+                pl="2"
+                pr="0"
+                style={{
+                  background: "var(--form-multivalue-background-color)",
+                  borderRadius: "var(--radius-2)",
+                }}
               >
-                <FaTimes />
-              </button>
-            </div>
+                <Text weight="medium" mr="2">
+                  {name}
+                </Text>
+                {valueInput}
+                <button
+                  type="button"
+                  aria-label={`Remove ${name}`}
+                  className="gb-multi-select__multi-value__remove"
+                  onClick={() => removeSliceLevel(levelIndex)}
+                  style={{
+                    alignSelf: "stretch",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 4px",
+                    border: 0,
+                    borderRadius: 2,
+                    background: "none",
+                    color: "var(--slate-12)",
+                  }}
+                >
+                  <PiX size={14} />
+                </button>
+              </Flex>
+            </Flex>
           );
         })}
 
@@ -720,9 +814,12 @@ function EditingInterface({
           setEditingSliceLevels={setEditingSliceLevels}
           metricsWithSlices={metricsWithSlices}
         />
-      </div>
+      </Flex>
 
-      <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
+      <Flex justify="end" align="center" gap="3">
+        <Button size="sm" variant="ghost" onClick={cancelEditing}>
+          Cancel
+        </Button>
         <Button
           size="sm"
           onClick={saveEditing}
@@ -732,19 +829,10 @@ function EditingInterface({
               (level) => !level.levels[0] || level.levels[0].trim() === "",
             )
           }
-          mr="1"
         >
           Done
         </Button>
-        <IconButton
-          color="red"
-          variant="ghost"
-          size="1"
-          onClick={cancelEditing}
-        >
-          <PiX />
-        </IconButton>
-      </div>
-    </div>
+      </Flex>
+    </Flex>
   );
 }

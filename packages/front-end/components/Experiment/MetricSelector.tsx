@@ -1,5 +1,8 @@
 import { FC } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  isProjectListValidForProject,
+} from "shared/util";
 import {
   getFactMetricFactTableIds,
   isBinomialMetric,
@@ -10,6 +13,11 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
+import {
+  ARCHIVED_METRIC_REASON,
+  ArchivedLabel,
+  getArchivedFactMetricReason,
+} from "@/components/Experiment/MetricsSelector";
 
 export type MetricOption = {
   id: string;
@@ -28,6 +36,7 @@ const MetricSelector: FC<
   Omit<SelectFieldProps, "options"> & {
     datasource?: string;
     exposureQueryId?: string;
+    exposureQueryIdentifierType?: string;
     project?: string;
     projects?: string[]; // will only filter if project is not set
     includeFacts?: boolean;
@@ -42,6 +51,7 @@ const MetricSelector: FC<
 > = ({
   datasource,
   exposureQueryId,
+  exposureQueryIdentifierType,
   project,
   projects,
   includeFacts,
@@ -55,20 +65,50 @@ const MetricSelector: FC<
   onPaste,
   ...selectProps
 }) => {
-  const { metrics, factMetrics, getFactTableById, getDatasourceById } =
-    useDefinitions();
+  const {
+    metrics,
+    _metricsIncludingArchived,
+    factMetrics,
+    _factMetricsIncludingArchived,
+    getFactTableById,
+    getDatasourceById,
+  } = useDefinitions();
+
+  // Keep an archived selection as an option so it still displays.
+  const selectedId = selectProps.value;
+  const selectionIsArchived =
+    !!selectedId &&
+    !metrics.some((m) => m.id === selectedId) &&
+    !factMetrics.some((m) => m.id === selectedId);
+  const selectedArchivedMetric = selectionIsArchived
+    ? _metricsIncludingArchived.find((m) => m.id === selectedId)
+    : undefined;
+  const selectedArchivedFactMetric = selectionIsArchived
+    ? _factMetricsIncludingArchived.find((m) => m.id === selectedId)
+    : undefined;
+  const archivedReason = selectedArchivedFactMetric
+    ? getArchivedFactMetricReason(selectedArchivedFactMetric, getFactTableById)
+    : selectedArchivedMetric
+      ? ARCHIVED_METRIC_REASON
+      : undefined;
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
   const datasourceSettings = datasource
     ? getDatasourceById(datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId,
-  )?.userIdType;
+  );
+  const userIdType = exposureQuery
+    ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    : undefined;
 
   const options: MetricOption[] = [
-    ...metrics.map((m) => ({
+    ...[
+      ...metrics,
+      ...(selectedArchivedMetric ? [selectedArchivedMetric] : []),
+    ].map((m) => ({
       id: m.id,
       name: m.name,
       datasource: m.datasource || "",
@@ -88,7 +128,10 @@ const MetricSelector: FC<
       isConversionWindowMetric: m?.windowSettings?.type === "conversion",
     })),
     ...(includeFacts
-      ? factMetrics.map((m) => ({
+      ? [
+          ...factMetrics,
+          ...(selectedArchivedFactMetric ? [selectedArchivedFactMetric] : []),
+        ].map((m) => ({
           id: m.id,
           name: m.name,
           datasource: m.datasource,
@@ -149,7 +192,16 @@ const MetricSelector: FC<
         };
       })}
       formatOptionLabel={({ value, label }) => {
-        return value ? <MetricName id={value} /> : label;
+        if (!value) return label;
+        return (
+          <ArchivedLabel
+            archived={!!archivedReason && value === selectedId}
+            alignRight
+            tooltip={archivedReason}
+          >
+            <MetricName id={value} />
+          </ArchivedLabel>
+        );
       }}
       onPaste={onPaste}
     />

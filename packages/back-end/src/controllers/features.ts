@@ -26,7 +26,6 @@ import {
   checkIfRevisionNeedsReview,
   draftRevertedFromVersion,
   evaluatePublishGovernance,
-  featureMetadataEnvelope,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -48,11 +47,12 @@ import {
   mergeRevision,
   namespacesToMap,
   normalizeTargetingInUpdates,
-  normalizeTargetingProjects,
-  pruneOrphanedRampActions,
-  reconcileMergeBaselines,
   computeFeatureHealth,
   FeatureHealthStateEntry,
+  rebasedRevisionChanges,
+  getFeaturePageDefaultVersion,
+  naiveFlattenV1Rules,
+  getMalformedPrereqConditionError,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
@@ -67,7 +67,7 @@ import {
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
-  HoldoutInterface,
+  eventUserIdentity,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -92,10 +92,7 @@ import {
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
-import {
-  EventUserForResponseLocals,
-  EventUserLoggedIn,
-} from "shared/types/events/event-types";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -110,11 +107,10 @@ import {
   InlineRampScheduleUpdate,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
-import { getFeatureValuesForDriftRepair } from "back-end/src/util/featureValues";
+import type { GroupMap } from "shared/types/saved-group";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
-  assertCanCreateFeatureInState,
   assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
   canDiscardFeatureDraft,
@@ -132,18 +128,18 @@ import {
   getContextFromReq,
   getEnvironmentIdsFromOrg,
   getEnvironments,
+  getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
-import { CasConflictError } from "back-end/src/models/BaseModel";
-import { LandingConflictError } from "back-end/src/revisions/landingSequence";
 import {
   addLinkedExperiment,
-  createFeature,
   deleteFeature,
   editFeatureRule,
   getAllFeatures,
+  getAllFeaturesForGraph,
   getAllFeaturesWithoutEditorFields,
   getFeature,
   getFeaturesByIds,
+  getFeaturesWithPrerequisitesOn,
   getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
   getFeatureEnvStatus,
@@ -152,24 +148,23 @@ import {
   prevalidatePublishRevision,
   publishRevision,
   setDefaultValue,
-  updateFeature,
   getFeatureJsonSchemasByIds,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import { generateId } from "back-end/src/util/uuid";
+import { mergeSyncRules } from "back-end/src/util/flattenRules";
 import {
   addIdsToFlatRules,
-  addIdsToRules,
   inheritStoredRolloutSeeds,
   assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
-  generateRuleId,
   getFeatureDefinitions,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
+  getSavedGroupMapForFeatureRevision,
   getLiveAndBaseRevisionsForFeature,
   getFeatureReviewFootprint,
   getFeatureReviewApproverProjects,
@@ -240,9 +235,9 @@ import {
   getRevision,
   getRevisionsByVersions,
   getFeaturePageRevisions,
+  getOpenDraftRules,
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
-  normalizeRulesInputToV2,
   prevalidateRevisionUpdate,
   ReviewSubmittedType,
   submitReviewAndComments,
@@ -263,6 +258,7 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import { yieldEventLoop } from "back-end/src/util/yield";
+import { sendJsonWithSlicedList } from "back-end/src/util/slicedJson";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   CACHE_CONTROL_MAX_AGE,
@@ -290,23 +286,34 @@ import {
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRepair";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
-import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import {
+  assertCanPublishPendingFeatureDrafts,
+  assertValidExperimentPhases,
+  getChangesToStartExperiment,
+} from "back-end/src/services/experiments";
 import {
   approveScheduledExperimentStart,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
+  linkFeatureToExperiment,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 import {
+  MAX_IDS_QUERY_LENGTH,
+  parseIdsQuery,
+} from "back-end/src/util/validation";
+import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
+  assertArmDoesNotLaunchExperiments,
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
   maybeAutoPublishFeatureRevision,
@@ -317,7 +324,6 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
 import {
   getStartPatchForRule,
   normalizeRampPlanForceValues,
@@ -336,6 +342,16 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import {
+  insertNewFeature,
+  NewFeatureInput,
+  prepareNewFeature,
+} from "back-end/src/services/featureCreate";
+import {
+  getSavedGroupIdsForFeatureDefinitions,
+  loadSavedGroupsWithNested,
+} from "back-end/src/util/featureDefinitionReferences.util";
+import { loadStaleGraph } from "back-end/src/services/featureStaleGraph";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -545,12 +561,20 @@ export type SDKPayloadParams = Pick<
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
+  // Reject a foreign key before side effects run.
+  expectedOrganization?: string,
 ): Promise<SDKPayloadParams> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
     if (!connection) {
-      throw new UnrecoverableApiError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API key");
+    }
+    if (
+      expectedOrganization &&
+      connection.organization !== expectedOrganization
+    ) {
+      throw new UnrecoverableApiError("Invalid API key");
     }
 
     // If this is the first time the SDK Connection is being used, mark it as successfully connected
@@ -603,7 +627,10 @@ export async function getPayloadParamsFromApiKey(
       encryptionKey,
     } = await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
-      throw new UnrecoverableApiError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API key");
+    }
+    if (expectedOrganization && organization !== expectedOrganization) {
+      throw new UnrecoverableApiError("Invalid API key");
     }
     if (secret) {
       throw new UnrecoverableApiError(
@@ -842,7 +869,14 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     // todo: don't use link. investigate why clicking through returns the stub only.
     const payload = await evaluateFeatures({
-      payload: defs,
+      // proxy-eval types dateUpdated as a string. The cached payload already
+      // has a string at runtime, despite the Date type
+      payload: {
+        ...defs,
+        dateUpdated: defs.dateUpdated
+          ? new Date(defs.dateUpdated).toISOString()
+          : undefined,
+      },
       attributes,
       forcedVariations,
       forcedFeatures,
@@ -862,205 +896,15 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 }
 
 export async function postFeatures(
-  req: AuthRequest<Partial<FeatureInterface> & { duplicateOf?: string }>,
+  req: AuthRequest<NewFeatureInput>,
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
-  const {
-    id,
-    environmentSettings,
-    holdout,
-    customFields,
-    jsonSchema,
-    duplicateOf,
-    ...otherProps
-  } = req.body;
-
-  if (
-    !context.permissions.canCreateFeature(
-      req.body,
-      Array.from(
-        getEnabledEnvironments(
-          req.body as FeatureInterface,
-          getEnvironmentIdsFromOrg(context.org),
-        ),
-      ),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (!id) {
-    throw new Error("Must specify feature key");
-  }
-
-  if (org.settings?.featureRegexValidator) {
-    const regex = new RegExp(org.settings.featureRegexValidator);
-    if (!regex.test(id)) {
-      throw new Error(
-        `Feature key must match the regex validator. '${org.settings.featureRegexValidator}' Example: '${org.settings.featureKeyExample}'`,
-      );
-    }
-  }
-
-  if (!environmentSettings) {
-    throw new Error("Feature missing initial environment toggle settings");
-  }
-
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
-    );
-  }
-
-  if (org.settings?.requireProjectForFeatures && !otherProps.project) {
-    throw new Error("Must specify a project for new features");
-  }
-  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-  if (otherProps.project) {
-    await context.models.projects.ensureProjectsExist([otherProps.project]);
-  }
-  // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
-  // The linkage write itself deliberately bypasses read scope, so this is the
-  // only place the id is authorized.
-  await assertValidHoldout(
-    holdout?.id ? holdout : null,
-    context,
-    otherProps.project ?? "",
-  );
-
-  await validateCustomFieldsForSection({
-    customFieldValues: customFields,
-    customFieldsModel: context.models.customFields,
-    section: "feature",
-    project: otherProps.project || undefined,
-  });
-
-  const existing = await getFeature(context, id);
-  if (existing) {
-    throw new Error(
-      "This feature key already exists. Feature keys must be unique.",
-    );
-  }
-
-  const initialJsonSchema = getInitialFeatureJsonSchema(jsonSchema);
-
-  const feature: FeatureInterface = {
-    defaultValue: "",
-    valueType: "boolean",
-    owner: userId,
-    description: "",
-    project: "",
-    environmentSettings: {},
-    rules: [],
-    customFields,
-    ...otherProps,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
-    id,
-    archived: false,
-    version: 1,
-    holdout: holdout?.id ? holdout : undefined,
-    jsonSchema: initialJsonSchema,
-  };
-  Object.assign(feature, normalizeTargetingProjects(feature));
-
-  const allEnvironments = getEnvironments(org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentIds = environments.map((e) => e.id);
-
-  // construct environmentSettings, scrub environments if not allowed in project
-  feature.environmentSettings = Object.fromEntries(
-    Object.entries(environmentSettings).filter(([env]) =>
-      environmentIds.includes(env),
-    ),
-  );
-
-  await assertCanCreateFeatureInState({ context, feature, environmentIds });
-  // After the gate so an unreadable id cannot be probed for existence.
-  if (feature.targetingProjects?.length) {
-    await context.models.projects.ensureProjectIdsExist(
-      feature.targetingProjects,
-    );
-  }
-
-  addIdsToRules(feature.environmentSettings, feature.id);
-
-  // Accept v1-shape (env-nested rules) or v2-shape (top-level `rules`) bodies,
-  // but never both — mixing silently concats into feature.rules and can
-  // corrupt rule ids. buildFeatureUpdate strips stray envSettings[env].rules
-  // on write.
-  const inboundEnvRules = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([env, settings]) => [
-      env,
-      ((settings as unknown as { rules?: FeatureRule[] }).rules ??
-        []) as FeatureRule[],
-    ]),
-  );
-  const hasTopLevelRules = Array.isArray(otherProps.rules)
-    ? otherProps.rules.length > 0
-    : false;
-  const hasPerEnvRules = Object.values(inboundEnvRules).some(
-    (r) => Array.isArray(r) && r.length > 0,
-  );
-  if (hasTopLevelRules && hasPerEnvRules) {
-    throw new Error(
-      "Feature create received both top-level `rules` and `environmentSettings[env].rules`. " +
-        "Use one shape or the other — the v1 per-env shape is for v1 clients; the v2 flat `rules` array is for v2 clients.",
-    );
-  }
-  // v1-shape (per-env) input is normalized through `normalizeRulesInputToV2`
-  // so content-identical rules across envs merge into a single v2 rule with
-  // `environments: [...envs]` (or `allEnvironments: true` when applicable),
-  // matching the read-path JIT migration. The naive shared `naiveFlattenV1Rules`
-  // would split the same rule id across envs, forcing `ensureUniqueRuleIds`
-  // to suffix and breaking v1 round-trip semantics.
-  const flattenedInbound = normalizeRulesInputToV2(inboundEnvRules, {
-    orgEnvs: getEnvironments(org),
-    featureProject: feature.project,
-  });
-  if (flattenedInbound.length > 0) {
-    feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
-  }
-
-  // Inbound v2 rules (e.g. from FeatureFromExperimentModal) often arrive with
-  // `id: ""`; stamp ids so they're addressable by later update/delete ops.
-  addIdsToFlatRules(feature.rules, feature.id);
-  // A duplicate echoes its source's rules; only what the copy changes is
-  // re-checked.
-  const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
-  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
-  await assertValidPrerequisiteParents(context, feature, source ?? undefined);
-  assertFeatureValuesValid(context, feature, {
-    defaultValue: feature.defaultValue,
-    rules: feature.rules,
-  });
-
-  await createFeature(context, feature);
-  await context.models.watch.upsertWatch({
-    userId,
-    item: feature.id,
-    type: "features",
-  });
-
-  await req.audit({
-    event: "feature.create",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsCreate(feature),
-  });
-
-  if (holdout && holdout.id) {
-    await context.models.holdout.addFeatureToHoldout(holdout.id, id);
-  }
-
+  const feature = await prepareNewFeature(context, req.body);
+  await insertNewFeature(context, feature, req.audit);
   res.status(200).json({
     status: 200,
     feature,
@@ -1144,58 +988,23 @@ export async function postFeatureRebase(
     context.permissions.throwPermissionError();
   }
 
-  const newRules: FeatureRule[] =
-    mergeResult.result.rules ?? feature.rules ?? [];
-  const newEnvironmentsEnabled: Record<string, boolean> = {};
-  environmentIds.forEach((env) => {
-    newEnvironmentsEnabled[env] =
-      mergeResult.result.environmentsEnabled?.[env] ??
-      feature.environmentSettings?.[env]?.enabled ??
-      false;
+  const { changes: rebaseChanges, logValue } = rebasedRevisionChanges({
+    feature,
+    revision,
+    liveVersion: live.version,
+    result: mergeResult.result,
+    environmentIds,
   });
-
-  // Build complete metadata snapshot: start from live feature, overlay any
-  // metadata fields the merge result explicitly changed.
-  const featureMetadataSnapshot: RevisionMetadata =
-    featureMetadataEnvelope(feature);
-  const newMetadata: RevisionMetadata = mergeResult.result.metadata
-    ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
-    : featureMetadataSnapshot;
-
-  // The merge can drop a rule that a pending ramp action targets (e.g. live
-  // deleted it). Prune those orphaned actions rather than carrying dead
-  // intent forward; the prune is recorded in the rebase log entry below.
-  const { kept: keptRampActions, pruned: prunedRampActions } =
-    pruneOrphanedRampActions(revision.rampActions, newRules);
-
   await updateRevision(
     context,
     feature,
     revision,
-    {
-      baseVersion: live.version,
-      defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
-      rules: newRules,
-      environmentsEnabled: newEnvironmentsEnabled,
-      prerequisites:
-        mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
-      archived: mergeResult.result.archived ?? feature.archived ?? false,
-      metadata: newMetadata,
-      holdout:
-        "holdout" in mergeResult.result
-          ? mergeResult.result.holdout
-          : (feature.holdout ?? null),
-      ...(prunedRampActions.length > 0 ? { rampActions: keptRampActions } : {}),
-    },
+    rebaseChanges,
     {
       user: res.locals.eventAudit,
       action: "rebase",
       subject: `on top of revision #${live.version}`,
-      value: JSON.stringify(
-        prunedRampActions.length > 0
-          ? { ...mergeResult.result, prunedRampActions }
-          : mergeResult.result,
-      ),
+      value: logValue,
     },
     // Rebase is permitted while a "lock edits" schedule is active.
     { bypassScheduleLock: true, rebase: { live, merged: mergeResult.result } },
@@ -1229,7 +1038,7 @@ export async function postFeatureRebase(
     feature,
     finalRevision,
     "revision.rebased",
-    { baseVersion: live.version },
+    {},
   );
 
   // A clean rebase (no review reset) keeps an approved+armed draft approved;
@@ -1289,6 +1098,7 @@ export async function postFeatureScheduledPublish(
   if (!allowed) {
     context.permissions.throwPermissionError();
   }
+  if (date) await assertArmDoesNotLaunchExperiments(context, feature, revision);
 
   // Committing a schedule on a draft is the no-approval path (fires without a
   // review cycle), so only allow it when the change doesn't require review (or
@@ -1391,7 +1201,7 @@ export async function postFeatureRequestReview(
     context.permissions.throwPermissionError();
   }
   if (revision.status !== "draft") {
-    throw new Error("Can only request review if is a draft");
+    throw new Error("Can only request review if it is a draft");
   }
   const enableAutoPublish =
     !!autoPublishOnApproval &&
@@ -1403,6 +1213,9 @@ export async function postFeatureRequestReview(
     !(await canScheduleFeaturePublish(context, feature, revision))
   ) {
     context.permissions.throwPermissionError();
+  }
+  if (enableAutoPublish || scheduledDate !== null) {
+    await assertArmDoesNotLaunchExperiments(context, feature, revision);
   }
 
   await markRevisionAsReviewRequested(
@@ -1546,15 +1359,16 @@ export async function postFeatureReviewOrComment(
       context.permissions.throwPermissionError();
     }
   }
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-
   // Verdicts may stand alone, but a plain comment must have a body.
   if (review === "Comment" && !comment?.trim()) {
     throw new Error("Comment cannot be empty");
   }
 
-  if (createdByUser?.id === context.userId && review !== "Comment") {
-    throw Error("cannot submit a review for your self");
+  if (
+    eventUserIdentity(revision.createdBy) === context.actorId &&
+    review !== "Comment"
+  ) {
+    throw Error("cannot submit a review for yourself");
   }
 
   // Block contributors from self-approving when the org setting is enabled.
@@ -1615,12 +1429,6 @@ export async function postFeatureReviewOrComment(
   });
   const finalRevision = updatedRevision ?? revision;
 
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     context,
     feature,
@@ -1628,7 +1436,6 @@ export async function postFeatureReviewOrComment(
     finalRevision,
     review,
     comment,
-    reviewer,
   );
 
   if (review === "Approved") {
@@ -1694,8 +1501,7 @@ export async function postFeatureApproveAndPublish(
     context.permissions.throwPermissionError();
   }
 
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
-  if (createdByUser?.id === context.userId) {
+  if (eventUserIdentity(revision.createdBy) === context.actorId) {
     throw Error("Cannot approve a draft you created");
   }
 
@@ -1936,12 +1742,6 @@ export async function postFeatureApproveAndPublish(
   });
   const finalApproved = approvedRevision ?? revision;
 
-  const auditUser = context.auditUser;
-  const reviewer =
-    auditUser && auditUser.type !== "system"
-      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
-      : {};
-
   await dispatchRevisionReviewEvent(
     context,
     feature,
@@ -1949,7 +1749,6 @@ export async function postFeatureApproveAndPublish(
     finalApproved,
     "Approved",
     comment,
-    reviewer,
   );
 
   if (armedApproval) {
@@ -2015,6 +1814,9 @@ export async function postFeatureToggleAutoPublish(
     : await canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
   if (!mayToggle) {
     context.permissions.throwPermissionError();
+  }
+  if (enabled) {
+    await assertArmDoesNotLaunchExperiments(context, feature, revision);
   }
 
   await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);
@@ -2188,111 +1990,6 @@ export async function deleteFeatureRevisionLogEntry(
     version: parseInt(version),
   });
   res.status(200).json({ status: 200 });
-}
-
-// Detect drift between the live revision (source of truth) and the persisted
-// `feature.rules` / `feature.defaultValue`. If found, repair in place by
-// re-writing through `updateFeature` — which scrubs legacy
-// `environmentSettings.{env}.rules` so the JIT read-time migration stops
-// re-flattening them and shadowing the v2 top-level rules.
-//
-// Idempotent and converges in one round-trip. Mutates `feature` so callers in
-// the same request see the repaired state without re-reading.
-async function repairFeatureDriftIfNeeded(
-  context: ReqContext,
-  feature: FeatureInterface,
-  live: FeatureRevisionInterface | undefined,
-  environmentIds: string[],
-  { throwOnFailure = false }: { throwOnFailure?: boolean } = {},
-): Promise<void> {
-  if (!live) return;
-
-  const repairValues = getFeatureValuesForDriftRepair(feature, live);
-  const liveRulesFlat: FeatureRule[] = repairValues.rules ?? [];
-  const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
-  const defaultValueDrift = repairValues.defaultValue !== feature.defaultValue;
-  const driftedEnvs = environmentIds.filter(
-    (env) =>
-      !isEqual(
-        getRulesForEnvironment(featureRulesFlat, env),
-        getRulesForEnvironment(liveRulesFlat, env),
-      ),
-  );
-
-  if (!defaultValueDrift && driftedEnvs.length === 0) return;
-
-  logger.warn(
-    {
-      featureId: feature.id,
-      orgId: context.org.id,
-      defaultValueDrift,
-      driftedEnvs,
-    },
-    "Repairing feature drift against live revision",
-  );
-
-  try {
-    const original = { ...feature };
-    const repaired = await updateFeature(
-      context,
-      feature,
-      {
-        ...(defaultValueDrift
-          ? { defaultValue: repairValues.defaultValue }
-          : {}),
-        rules: liveRulesFlat,
-      },
-      { preserveStoredValues: true, casOnDateUpdated: feature.dateUpdated },
-    );
-    Object.assign(feature, repaired);
-
-    // Record the repair in the audit history so automated rewrites are
-    // visible and searchable (`context.autoRepair` in details). Non-fatal:
-    // an audit write failure must not abort a publish/revert whose repair
-    // succeeded.
-    try {
-      await context.auditLog({
-        event: "feature.update",
-        entity: {
-          object: "feature",
-          id: feature.id,
-        },
-        details: auditDetailsUpdate(original, repaired, {
-          autoRepair: true,
-          note: "Automatic drift repair: feature did not match its live revision and was rewritten from it",
-          liveRevisionVersion: live.version,
-          defaultValueDrift,
-          driftedEnvs,
-        }),
-      });
-    } catch (auditError) {
-      logger.error(
-        { err: auditError, featureId: feature.id, orgId: context.org.id },
-        "Failed to write audit entry for feature drift repair",
-      );
-    }
-  } catch (e) {
-    // A rival landed since our read; it holds the truth now, so there is
-    // nothing to repair. Writers retry like any lost landing; readers move on.
-    if (e instanceof CasConflictError) {
-      if (throwOnFailure) throw new LandingConflictError("feature", feature.id);
-      return;
-    }
-    logger.error(
-      { err: e, featureId: feature.id, orgId: context.org.id },
-      "Failed to repair feature drift",
-    );
-    // Write callers (publish, revert) MUST abort if the repair fails —
-    // otherwise the subsequent diff runs against the stale `feature.rules`
-    // and the operation silently no-ops or produces an incorrect merge
-    // (the exact failure this helper exists to prevent). Read callers
-    // (e.g. getFeatureById) tolerate the stale response.
-    if (throwOnFailure) {
-      throw new Error(
-        "Could not reconcile feature with its live revision. Please retry.",
-      );
-    }
-  }
 }
 
 export async function postFeaturePublish(
@@ -2577,6 +2274,7 @@ export async function postFeaturePublish(
       ) {
         context.permissions.throwPermissionError();
       }
+      await assertCanPublishPendingFeatureDrafts(context, experiment);
     }
 
     // Pre-flight: check for merge conflicts in OTHER pending feature drafts
@@ -2635,6 +2333,12 @@ export async function postFeaturePublish(
   }
 
   for (const { experiment, changes } of experimentsToUpdate) {
+    // Also checked on the write; here so a refused start publishes nothing.
+    assertValidExperimentPhases(
+      changes.phases ?? experiment.phases,
+      experiment.phases,
+      true,
+    );
     await validateExperimentChange({ context, experiment, changes });
   }
 
@@ -3535,16 +3239,17 @@ export async function postFeatureRule(
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
   let validatedSafeRolloutFields: Awaited<
-    ReturnType<typeof validateCreateSafeRolloutFields>
+    ReturnType<typeof validateSafeRolloutFields>
   > | null = null;
   if (rule.type === "safe-rollout") {
     if (!context.hasPremiumFeature("safe-rollout")) {
       throw new Error(`Safe Rollout rules is a premium feature.`);
     }
 
-    validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+    validatedSafeRolloutFields = await validateSafeRolloutFields(
       omit(safeRolloutFields, "rampUpSchedule"),
       context,
+      { project: feature.project ?? "" },
     );
 
     rule.status = "running";
@@ -3786,7 +3491,8 @@ export async function postFeatureSync(
       FeatureInterface,
       "organization" | "version" | "dateCreated" | "dateUpdated"
     >,
-    { id: string }
+    { id: string },
+    { mirror?: string }
   >,
   res: Response<
     { status: 200; feature: FeatureInterface },
@@ -3816,10 +3522,32 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
+  const mirror = req.query.mirror === "true";
+
+  const environmentsEnabled: Record<string, boolean> = {};
+  const envEnabledIn = data.environmentSettings as
+    | Record<string, { enabled?: boolean }>
+    | undefined;
+  for (const env of environments) {
+    const enabled = envEnabledIn?.[env]?.enabled;
+    if (
+      mirror &&
+      typeof enabled === "boolean" &&
+      enabled !== !!feature.environmentSettings?.[env]?.enabled
+    ) {
+      environmentsEnabled[env] = enabled;
+    }
+  }
+
   if (
     !context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environments)),
+      Array.from(
+        new Set([
+          ...getEnabledEnvironments(feature, environments),
+          ...Object.keys(environmentsEnabled),
+        ]),
+      ),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -3847,68 +3575,33 @@ export async function postFeatureSync(
     metadata.tags = data.tags;
   }
 
-  // The Sync endpoint accepts per-env rule arrays under
-  // `environmentSettings[env].rules`. Produce a flat array with unique ids by
-  // narrowing live rules to the envs the caller did NOT override, then
-  // appending the caller's inbound rules stamped per env. A naive per-env
-  // fan-out would duplicate `allEnvironments: true` rules across envs.
   const liveFeatureRules: FeatureRule[] = feature.rules ?? [];
   const envSettingsIn = data.environmentSettings as
     | Record<string, { rules?: FeatureRule[] }>
     | undefined;
-  const inboundEnvs = new Set<string>(
-    environments.filter((e) => envSettingsIn?.[e]?.rules !== undefined),
-  );
-
-  const buildNextFlatRules = (): FeatureRule[] => {
-    const result: FeatureRule[] = [];
-
-    for (const r of liveFeatureRules) {
-      // Env subset of this rule NOT replaced by an inbound per-env override.
-      let remainingEnvs: string[];
-      if (r.allEnvironments) {
-        remainingEnvs = environments.filter((e) => !inboundEnvs.has(e));
-        if (remainingEnvs.length === 0) continue;
-        if (remainingEnvs.length === environments.length) {
-          result.push(r);
-          continue;
-        }
-      } else {
-        remainingEnvs = (r.environments ?? []).filter(
-          (e) => !inboundEnvs.has(e),
-        );
-        if (remainingEnvs.length === 0) continue;
-      }
-      result.push({
-        ...r,
-        allEnvironments: false,
-        environments: remainingEnvs,
-      });
-    }
-
-    // Append inbound rules for overridden envs, each stamped to a single env.
-    environments.forEach((env) => {
-      const inbound = envSettingsIn?.[env]?.rules;
-      if (inbound === undefined) return;
-      inbound.forEach((r) =>
-        result.push({
-          ...r,
-          allEnvironments: false,
-          environments: [env],
-        } as FeatureRule),
-      );
-    });
-
-    return result;
-  };
-  const nextFlatRules = buildNextFlatRules();
+  const flatRulesIn =
+    mirror && Array.isArray(data.rules) ? data.rules : undefined;
+  if (flatRulesIn) {
+    inheritStoredRolloutSeeds(flatRulesIn, liveFeatureRules);
+    addIdsToFlatRules(flatRulesIn, feature.id);
+  }
+  const { rules: nextFlatRules, replacedAll } = mergeSyncRules({
+    liveRules: liveFeatureRules,
+    environments,
+    envSettings: envSettingsIn,
+    rules: flatRulesIn,
+    knownEnvironments: Object.keys(data.environmentSettings ?? {}),
+  });
   const changes: Partial<FeatureRevisionInterface> = {
     rules: nextFlatRules,
     defaultValue: data.defaultValue ?? feature.defaultValue,
     ...(Object.keys(metadata).length ? { metadata } : {}),
+    ...(Object.keys(environmentsEnabled).length ? { environmentsEnabled } : {}),
   };
 
-  let needsNewRevision = Object.keys(metadata).length > 0;
+  let needsNewRevision =
+    Object.keys(metadata).length > 0 ||
+    Object.keys(environmentsEnabled).length > 0;
 
   if (
     data.defaultValue != null &&
@@ -3917,7 +3610,9 @@ export async function postFeatureSync(
     needsNewRevision = true;
   }
 
-  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? []);
+  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? [], {
+    copiesRules: true,
+  });
   await assertValidPrerequisiteParents(
     context,
     { ...feature, rules: nextFlatRules },
@@ -3946,6 +3641,9 @@ export async function postFeatureSync(
     ) {
       needsNewRevision = true;
     }
+  }
+  if (replacedAll && !isEqual(nextFlatRules, liveFeatureRules)) {
+    needsNewRevision = true;
   }
 
   // Lands like every other dashboard route: draft, review check, then the
@@ -4013,32 +3711,12 @@ export async function postFeatureExperimentRefRule(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
   const { id } = req.params;
   const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
-
-  if (
-    rule.type !== "experiment-ref" ||
-    !rule.experimentId ||
-    !rule.variations ||
-    !rule.variations.length
-  ) {
-    throw new Error("Invalid experiment rule");
-  }
-
-  if (!environments.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags",
-    );
-  }
 
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
-  }
-
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
   }
 
   const experiment = await getExperimentById(context, rule.experimentId);
@@ -4046,198 +3724,21 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Invalid experiment selected");
   }
 
-  // allEnvironments:true strips any stale environments[]; false passes the
-  // explicit list through. Legacy callers that send neither default to every
-  // applicable org env.
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
-
-  await assertValidRuleWrite(
+  const { version, published } = await linkFeatureToExperiment({
     context,
-    withStagedSchema(
-      feature,
-      await stagedRevision(context, feature, draftVersion),
-    ),
-    scopedRule,
-  );
-  const ruleEnvFootprint = scopedRule.allEnvironments
-    ? environments
-    : (scopedRule.environments ?? []);
-
-  // Landing authority only when this call lands. Staging the rule into a draft
-  // is authoring, already gated above; the draft reaches no one until published.
-  if (
-    autoPublish &&
-    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Experiment/MAB-served values must satisfy the backing Config's schema +
-  // invariants, the same as a REST publish. No-op unless the feature is
-  // config-backed JSON.
-  await assertConfigBackedFeatureValuesValid(context, feature, {
-    rules: [scopedRule],
-  });
-
-  // autoPublish always starts from live so the merge stays clean.
-  const targetVersion = autoPublish
-    ? feature.version
-    : forceNewDraft
-      ? feature.version
-      : (draftVersion ?? feature.version);
-
-  const revision = await getDraftRevision(context, feature, targetVersion);
-
-  // If posting to a different revision, use the holdout from that revision
-  // to check compatibility
-  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
-
-  await resolveHoldoutExperimentToLink({
-    context,
+    experiment,
     feature,
-    experiment,
-    effectiveHoldout,
+    rule,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
   });
-
-  // One-way: any rule-footprint env that's currently off flips on. We never
-  // turn envs off here.
-  const baseEnvEnabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      environments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const envToggles: Record<string, boolean> = {};
-  for (const envId of ruleEnvFootprint) {
-    if (!environments.includes(envId)) continue;
-    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-  }
-
-  const existingRules = cloneDeep(revision.rules ?? []);
-  const nextRules = [...existingRules, scopedRule];
-
-  const combinedChanges: Partial<FeatureRevisionInterface> = {
-    rules: nextRules,
-  };
-  if (Object.keys(envToggles).length > 0) {
-    combinedChanges.environmentsEnabled = {
-      ...(revision.environmentsEnabled ?? {}),
-      ...envToggles,
-    };
-  }
-  // Title fresh drafts only — don't clobber a user's title on an existing draft.
-  const bundlingIntoExistingDraft =
-    !!draftVersion && !forceNewDraft && !autoPublish;
-  if (!bundlingIntoExistingDraft && !revision.title) {
-    combinedChanges.title =
-      experiment.type === "multi-armed-bandit"
-        ? "Publish bandit"
-        : "Publish experiment";
-  }
-
-  const auditSubject = scopedRule.allEnvironments
-    ? "to all environments"
-    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-  const updatedRevision =
-    (await updateRevision(context, feature, revision, combinedChanges, {
-      user: res.locals.eventAudit,
-      action: "add experiment rule",
-      subject: auditSubject,
-      value: JSON.stringify(scopedRule),
-    })) ?? revision;
-  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
-    environments: ruleEnvFootprint,
-  });
-
-  let published = false;
-  if (autoPublish) {
-    await assertCanAutoPublish(context, feature, updatedRevision);
-    const { live, base } = await getLiveAndBaseRevisionsForFeature({
-      context,
-      feature,
-      revision: updatedRevision,
-    });
-    const orgEnvIds = environments;
-    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-      feature,
-      live,
-      base,
-    );
-    const mergeResult = autoMerge(
-      mergeLive,
-      mergeBase,
-      updatedRevision,
-      orgEnvIds,
-      {},
-    );
-    if (!mergeResult.success) {
-      throw new Error(
-        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
-      );
-    }
-    const updatedFeature = await publishRevision({
-      context,
-      feature,
-      revision: updatedRevision,
-      result: mergeResult.result,
-      comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-        feature,
-        "feature",
-      ),
-    });
-    await req.audit({
-      event: "feature.publish",
-      entity: { object: "feature", id: feature.id },
-      details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: updatedRevision.version,
-        comment: `Add experiment rule for "${experiment.name}"`,
-      }),
-    });
-    published = true;
-  } else {
-    // Queue the draft for auto-publish on `status -> running`.
-    await addPendingFeatureDraftToExperiment(
-      context,
-      rule.experimentId,
-      feature.id,
-      updatedRevision.version,
-    );
-  }
-
-  if (!feature.linkedExperiments?.includes(experiment.id)) {
-    await addLinkedExperiment(feature, experiment.id);
-  }
-  await addLinkedFeatureToExperiment(
-    context,
-    rule.experimentId,
-    feature.id,
-    experiment,
-  );
 
   res.status(200).json({
     status: 200,
-    version: updatedRevision.version,
+    version,
     published,
   });
 }
@@ -5804,7 +5305,7 @@ export async function putFeature(
 
   // FIXME: We skip validation because project is updated in a different place than where
   // we define custom fields, and that would prevent the user from doing either update.
-  // Ideally we validate custom fields everytime, but we need to update our UI to support that.
+  // Ideally we validate custom fields every time, but we need to update our UI to support that.
   if (
     shouldValidateCustomFieldsOnUpdate({
       existingCustomFieldValues: feature.customFields,
@@ -6180,8 +5681,13 @@ export async function postFeatureEvaluate(
   }
   const date = evalDate ? new Date(evalDate) : new Date();
 
-  const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getAllPayloadExperiments(context);
+  const groupMap = await getSavedGroupMapForFeatureRevision(
+    context,
+    feature,
+    revision,
+    experimentMap,
+  );
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const safeRolloutMap =
@@ -6372,10 +5878,7 @@ export async function postFeatureArchive(
       model: "feature",
       entity: feature,
       revision: {
-        authorId:
-          targetDraft.createdBy && "id" in targetDraft.createdBy
-            ? targetDraft.createdBy.id
-            : undefined,
+        authorId: eventUserIdentity(targetDraft.createdBy) ?? undefined,
         contributors: targetDraft.contributors,
       },
       userId: context.userId,
@@ -6480,20 +5983,48 @@ export async function getFeatures(
   }
   const includeArchived = !!req.query.includeArchived;
 
+  // Every feature in the organization can take a while to load and encode,
+  // so stop as soon as the client gives up
+  const disconnected = new AbortController();
+  res.on("close", () => disconnected.abort());
+
   const features = await getAllFeatures(context, {
     projects: project ? [project] : undefined,
     includeArchived,
+    signal: disconnected.signal,
   });
+  if (disconnected.signal.aborted) return;
 
   const hasArchived = includeArchived
     ? features.some((f) => f.archived)
     : await hasArchivedFeatures(context, project);
+  if (disconnected.signal.aborted) return;
 
-  res.status(200).json({
-    status: 200,
+  await sendJsonWithSlicedList(
+    res,
+    { status: 200, hasArchived },
+    "features",
     features,
-    hasArchived,
+    disconnected.signal,
+  );
+}
+
+// Code references are only shown on the flag's Stats tab, so they load there
+// rather than with the flag.
+export async function getFeatureCodeRefs(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const feature = await getFeature(context, req.params.id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  const codeRefs = await getAllCodeRefsForFeature({
+    feature: feature.id,
+    organization: context.org,
   });
+  res.status(200).json({ status: 200, codeRefs });
 }
 
 export async function getFeatureRevisions(
@@ -6602,46 +6133,31 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const minimalRevisions = await getMinimalRevisions(context, org.id, id);
+  const [minimalRevisions, rampScheduleDocs, holdout] = await Promise.all([
+    getMinimalRevisions(context, org.id, id),
+    context.models.rampSchedules.getAllByFeatureId(feature.id),
+    feature.holdout ? context.models.holdout.getById(feature.holdout.id) : null,
+  ]);
 
+  // Full revisions only for what the page shows first: live, a requested
+  // version, and the version it opens on, decided the way the page decides it.
+  const parsedVersion = req.query.v ? parseInt(req.query.v) : NaN;
+  const requestedVersion = Number.isNaN(parsedVersion) ? null : parsedVersion;
+  const openingVersion = getFeaturePageDefaultVersion({
+    revisionList: minimalRevisions,
+    liveVersion: feature.version,
+    requestedVersion,
+    userId: context.userId || null,
+  });
   let fullRevisions = await getFeaturePageRevisions(
     context,
     org.id,
     id,
     feature,
+    [feature.version, openingVersion, requestedVersion].filter(
+      (v): v is number => v !== null,
+    ),
   );
-
-  // The above only fetches the most recent revisions
-  // If we're requesting a specific version that's older than that, fetch it directly
-  if (req.query.v) {
-    const version = parseInt(req.query.v);
-    if (!fullRevisions.some((r) => r.version === version)) {
-      const revision = await getRevision({
-        context,
-        organization: org.id,
-        featureId: id,
-        feature,
-        version,
-      });
-      if (revision) {
-        fullRevisions.push(revision);
-      }
-    }
-  }
-
-  // Make sure we always select the live version, even if it's not one of the most recent revisions
-  if (!fullRevisions.some((r) => r.version === feature.version)) {
-    const revision = await getRevision({
-      context,
-      organization: org.id,
-      featureId: id,
-      feature,
-      version: feature.version,
-    });
-    if (revision) {
-      fullRevisions.push(revision);
-    }
-  }
 
   // Historically, we haven't properly cleared revision history when deleting a feature
   // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history
@@ -6680,12 +6196,21 @@ export async function getFeatureById(
     }
   }
 
-  // Get all linked experiments and  saferollouts
+  // Get all linked experiments and safe rollouts, including those only in
+  // drafts the page didn't load in full
+  const openDraftRules = await getOpenDraftRules(
+    org.id,
+    id,
+    fullRevisions.map((r) => r.version),
+  );
   const experimentIds = new Set<string>();
   const trackingKeys = new Set<string>();
   let hasSafeRollout = false;
-  fullRevisions.forEach((revision) => {
-    (revision.rules ?? []).forEach((rule) => {
+  [
+    ...fullRevisions.map((r) => r.rules ?? []),
+    ...openDraftRules.map(naiveFlattenV1Rules),
+  ].forEach((rules) => {
+    rules.forEach((rule) => {
       if (rule?.type === "experiment-ref") {
         experimentIds.add(rule.experimentId);
       }
@@ -6712,12 +6237,10 @@ export async function getFeatureById(
       experimentsMap.set(exp.id, exp);
     });
   }
-  // find active ramp schedules for this feature (before safe rollouts so we
-  // can check for ramp-linked safe rollout IDs).
+  // Ramp schedules come before safe rollouts so we can check for ramp-linked
+  // safe rollout IDs.
   const now = Date.now();
-  const rampSchedules = (
-    await context.models.rampSchedules.getAllByFeatureId(feature.id)
-  ).map((rs) =>
+  const rampSchedules = rampScheduleDocs.map((rs) =>
     rs.startedAt ? { ...rs, elapsedMs: now - rs.startedAt.getTime() } : rs,
   );
 
@@ -6746,18 +6269,6 @@ export async function getFeatureById(
   const live = fullRevisions.find((r) => r.version === feature.version);
   await repairFeatureDriftIfNeeded(context, feature, live, environments);
 
-  // find code references
-  const codeRefs = await getAllCodeRefsForFeature({
-    feature: feature.id,
-    organization: org,
-  });
-
-  // find holdout
-  let holdout: HoldoutInterface | null = null;
-  if (feature.holdout) {
-    holdout = await context.models.holdout.getById(feature.holdout.id);
-  }
-
   res.status(200).json({
     status: 200,
     feature,
@@ -6765,7 +6276,6 @@ export async function getFeatureById(
     revisions: fullRevisions,
     experiments: [...experimentsMap.values()],
     safeRollouts: [...safeRolloutMap.values()],
-    codeRefs,
     holdout,
     rampSchedules,
   });
@@ -7794,6 +7304,7 @@ function evalDeterministicPrereqValueBackend(
   value: any,
   condition: string,
 ): "pass" | "fail" {
+  if (getMalformedPrereqConditionError(condition)) return "fail";
   try {
     const conditionObj = JSON.parse(condition || "{}");
     // Empty condition means "is truthy"
@@ -7852,7 +7363,7 @@ export async function getFeatureMetaInfo(
   const features = await getFeatureMetaInfoById(context, {
     includeDefaultValue: defaultValue === "1",
     project: project || undefined,
-    ids: ids ? ids.split(",").filter(Boolean) : undefined,
+    ids: parseIdsQuery(ids),
   });
 
   res.status(200).json({ status: 200, features });
@@ -7869,9 +7380,7 @@ export async function getFeatureDraftStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
   const features = await getActiveDraftStates(context.org.id, featureIds);
   res.status(200).json({ status: 200, features });
 }
@@ -7885,22 +7394,33 @@ export async function getFeaturesHealth(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
 
   const [
-    allFeatures,
-    allExperiments,
+    { features: allFeatures, experiments: allExperiments },
+    requestedFeatures,
     draftRevisions,
     allRampSchedules,
     safeRollouts,
     jsonSchemas,
   ] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context),
-    getAllExperimentsForStaleGraph(context),
+    // The health signals validate the requested features' values, so those
+    // load in full.
+    featureIds
+      ? loadStaleGraph(context, featureIds)
+      : Promise.all([
+          getAllFeaturesWithoutEditorFields(context),
+          getAllExperimentsForStaleGraph(context),
+        ]).then(([features, experiments]) => ({ features, experiments })),
+    featureIds
+      ? getAllFeaturesWithoutEditorFields(context, {
+          ids: featureIds,
+          includeArchived: true,
+        })
+      : null,
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
+      featureIds,
     }),
     featureIds
       ? context.models.rampSchedules.getAllByFeatureIds(featureIds)
@@ -7931,10 +7451,22 @@ export async function getFeaturesHealth(
     }
   }
 
-  const targetIds = featureIds ? new Set(featureIds) : null;
-  const targetFeatures = targetIds
-    ? allFeatures.filter((f) => targetIds.has(f.id))
-    : allFeatures;
+  const targetFeatures = requestedFeatures ?? allFeatures;
+  // Whether a referenced group exists is checked org-wide: a group the viewer
+  // cannot read is not a broken reference.
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const groupMap: GroupMap = new Map(
+    (
+      await loadSavedGroupsWithNested(
+        getSavedGroupIdsForFeatureDefinitions({
+          features: targetFeatures,
+          // experiment-ref rules are served with their experiment's targeting
+          experiments: allExperiments,
+        }),
+        (ids) => scanContext.models.savedGroups.getAllWithoutValues(ids),
+      )
+    ).map((group) => [group.id, group]),
+  );
   const knownExperimentIds = await getExistingExperimentIds(context, [
     ...new Set(
       targetFeatures.flatMap((f) =>
@@ -7961,14 +7493,10 @@ export async function getFeaturesHealth(
     await yieldEventLoop(i);
     const feature = targetFeatures[i];
 
-    const applicableEnvIds = getEnvironments(context.org)
-      .filter(
-        (env) =>
-          !feature.project ||
-          !env.projects?.length ||
-          env.projects.includes(feature.project as string),
-      )
-      .map((env) => env.id);
+    const applicableEnvIds = getApplicableEnvIds(
+      getEnvironments(context.org),
+      feature,
+    );
 
     const staleResult = isFeatureStale({
       feature,
@@ -7992,6 +7520,7 @@ export async function getFeaturesHealth(
         safeRollouts: safeRolloutsByFeature.get(feature.id) ?? [],
         healthSettings,
         knownExperimentIds,
+        groupMap,
       }),
     };
   }
@@ -8010,9 +7539,9 @@ export async function getFeaturesStatus(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids, {
+    max: MAX_IDS_QUERY_LENGTH,
+  });
 
   const raw = await getFeatureEnvStatus(context, featureIds);
 
@@ -8044,9 +7573,7 @@ export async function getFeaturesDependents(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : [];
+  const featureIds = parseIdsQuery(req.query.ids) ?? [];
 
   if (!featureIds.length) {
     return res.status(200).json({ status: 200, dependents: {} });
@@ -8054,9 +7581,16 @@ export async function getFeaturesDependents(
 
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
+  // Dependents are one hop: only the features and experiments whose
+  // prerequisites name a requested flag can be one.
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context, { includeArchived: true }),
-    getAllExperimentsForStaleGraph(context, { includeArchived: true }),
+    getFeaturesWithPrerequisitesOn(context, featureIds, {
+      includeArchived: true,
+    }),
+    getAllExperimentsForStaleGraph(context, {
+      includeArchived: true,
+      prerequisiteIds: featureIds,
+    }),
   ]);
 
   const {
@@ -8308,7 +7842,9 @@ export async function getFeatureDependencyIndex(
   >,
 ) {
   const context = getContextFromReq(req);
-  const allFeatures = await getAllFeatures(context, { includeArchived: true });
+  const allFeatures = await getAllFeaturesForGraph(context, {
+    includeArchived: true,
+  });
 
   const prereqIds = new Set<string>();
   for (let i = 0; i < allFeatures.length; i++) {
@@ -8337,9 +7873,9 @@ export async function getFeatureRampStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids, {
+    max: MAX_IDS_QUERY_LENGTH,
+  });
 
   const NON_TERMINAL_STATUSES = [
     "pending",

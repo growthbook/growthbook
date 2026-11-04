@@ -1,0 +1,29 @@
+Requires `@growthbook/growthbook` v1.7.0 or later.
+
+```js
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBookClient({
+  clientKey: "YOUR_CLIENT_KEY",
+  plugins: [
+    growthbookTrackingPlugin({
+      ingestorHost: "https://us-east-1.gb-ingest.com",
+    }),
+  ],
+});
+```
+
+Log custom events with `logEvent`, passing the user context:
+
+```js
+gb.logEvent("Sign Up", { accountPlan: "pro" }, userContext);
+```
+
+User-scoped instances (for example `req.growthbook` from the [Express middleware](/lib/node#express-middleware)) don't need the user context:
+
+```js
+req.growthbook.logEvent("Sign Up", { accountPlan: "pro" });
+```
+
+Set `enableFeatureUsageEvents: false` (v1.8.0+) to stop sending feature usage events.

@@ -31,6 +31,12 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
+import {
+  confirmationLink,
+  gateNotices,
+  landingActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -91,7 +97,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // that were bypassed. The approval and stale-base checks below stay in place
   // as the enforcement backstop; the adapter-collected guard gates are enforced
   // solely here.
-  const gates: PublishGate[] = collectRevisionGovernanceGates({
+  const gates: PublishGate[] = await collectRevisionGovernanceGates({
     context: req.context,
     adapter,
     targetType: "constant",
@@ -106,7 +112,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
       desiredState,
     )) ?? []),
   );
-  const { bypassed } = resolveEntityPublishGates({
+  const { bypassed, skipped } = resolveEntityPublishGates({
     entityType: "constant",
     req,
     gates,
@@ -201,6 +207,19 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // Experiment/lock/schema-break guards were enforced above via the adapter's
   // collectPublishGates + evaluatePublishGates (the collector also records any
   // synchronous override in the logs), so no separate assert runs here.
+
+  await requireConfirmation(req.context, {
+    actions: landingActions(
+      "constant",
+      desiredState.archived === true && !constant.archived,
+    ),
+    bypassing: bypassed,
+    notices: gateNotices(skipped),
+    project: constant.project,
+    summary: `Publish revision ${revision.version} of ${constant.key}`,
+    links: [confirmationLink("constant", constant.key)],
+    pin: revision.dateUpdated,
+  });
 
   // Keep no-op publishes on the shared gated path.
   const merged = await publishRevision(

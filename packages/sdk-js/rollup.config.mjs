@@ -22,10 +22,13 @@ const terserSettings = terser({
       // are GrowthBook hooks that npm-installed plugins call on CDN instances
       reserved: [
         "_cssText",
-        "_subscribeFeatureUsage",
-        "_subscribeCustomEvents",
-        "_subscribePayloadUpdates",
+        "_experimentsDisabled",
+        "_hasEventConsumer",
         "_registerSessionReplay",
+        "_subscribeCustomEvents",
+        "_subscribeExperimentViewed",
+        "_subscribeFeatureUsage",
+        "_subscribePayloadUpdates",
         "_unregisterSessionReplay",
       ],
     },

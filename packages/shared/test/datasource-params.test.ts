@@ -137,6 +137,48 @@ describe("mergeDataSourceParams", () => {
 
     expect(merged).toEqual({ host: "db.example.com", pass: "hunter2" });
   });
+
+  it("strips stored credentials when a snowflake datasource switches to workload identity", () => {
+    const merged = mergeDataSourceParams(
+      "snowflake",
+      {
+        account: "xy12345",
+        username: "GB_USER",
+        password: "hunter2",
+        privateKey: "-----BEGIN PRIVATE KEY-----",
+        privateKeyPassword: "passphrase",
+        authMethod: "key-pair",
+      },
+      {
+        authMethod: "workload-identity",
+        workloadIdentityProvider: "AWS",
+        password: "",
+        privateKey: "",
+        privateKeyPassword: "",
+      },
+    );
+
+    expect(merged).toEqual({
+      account: "xy12345",
+      username: "GB_USER",
+      authMethod: "workload-identity",
+      workloadIdentityProvider: "AWS",
+    });
+  });
+
+  it("keeps snowflake keep-existing semantics for non-workload-identity updates", () => {
+    const merged = mergeDataSourceParams(
+      "snowflake",
+      { account: "xy12345", username: "GB_USER", password: "hunter2" },
+      { username: "GB_USER2", password: "" },
+    );
+
+    expect(merged).toEqual({
+      account: "xy12345",
+      username: "GB_USER2",
+      password: "hunter2",
+    });
+  });
 });
 
 describe("secretParamKeys", () => {

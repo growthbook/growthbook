@@ -56,8 +56,21 @@ describe.each([
           id: snapshot.id,
           failureCause,
           updates: expect.objectContaining({ status: "error" }),
+          conclusion: { concludedBy: "runner" },
         }),
       );
     },
   );
+
+  it("reports a recovery as the snapshot's conclusion once it finalizes", async () => {
+    const runner = new Runner(context, snapshot, {
+      datasource: {},
+    } as SourceIntegrationInterface);
+    await runner.finalizeFromPersistedResults();
+    await runner.updateModel({ status: "failed", queries: [], error: "boom" });
+
+    expect(updateSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ conclusion: { concludedBy: "recovery" } }),
+    );
+  });
 });

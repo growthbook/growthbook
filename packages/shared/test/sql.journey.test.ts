@@ -177,6 +177,19 @@ describe("journey row bound", () => {
   });
 });
 
+// Warehouses that inline CTEs (ClickHouse, BigQuery) re-run a CTE for every
+// read, so a CTE read twice re-runs everything above it, fact table scan
+// included.
+function cteReads(sql: string): Record<string, number> {
+  const names = [...sql.matchAll(/\b(__journey_\w+) AS \(/g)].map((m) => m[1]);
+  return Object.fromEntries(
+    names.map((name) => [
+      name,
+      (sql.match(new RegExp(`\\b${name}\\b`, "g")) ?? []).length - 1,
+    ]),
+  );
+}
+
 describe("buildJourneySql", () => {
   it("applies dataset filters on the raw scan", () => {
     const config = baseJourneyConfig();
@@ -196,15 +209,32 @@ describe("buildJourneySql", () => {
     if (config.dataset.type !== "journey") throw new Error("expected journey");
     config.dataset.optionsPerStep = [5, 8];
     const { sql } = buildJourneySql(config, factTableMap, helpers);
-    expect(sql).toMatch(/WHERE rn <= 5/);
-    expect(sql).toMatch(/WHERE rn <= 8/);
+    expect(sql).toMatch(/WHEN r1 <= 5 THEN/);
+    expect(sql).toMatch(/WHEN r2 <= 8 THEN/);
   });
-  it("tests top-N membership with a join flag, not a NULL check", () => {
-    // ClickHouse join_use_nulls=0 makes `t.value IS NOT NULL` always true.
-    const { sql } = buildJourneySql(baseJourneyConfig(), factTableMap, helpers);
-    expect(sql).toContain("1 AS matched");
-    expect(sql).toContain("WHEN t.matched = 1 THEN");
-    expect(sql).not.toContain("t.value IS NOT NULL");
+  it("reads each step once, so the fact table SQL runs once", () => {
+    const config = baseJourneyConfig({
+      dimensions: [
+        { dimensionType: "static", column: "country", values: ["US", "CA"] },
+      ],
+    });
+    if (config.dataset.type !== "journey") throw new Error("expected journey");
+    config.dataset.lookaheadDepth = 4;
+    const reads = cteReads(buildJourneySql(config, factTableMap, helpers).sql);
+    expect(Object.entries(reads).filter(([, n]) => n !== 1)).toEqual([]);
+  });
+  it("reads the anchored journeys once per output branch with pinned steps", () => {
+    const config = baseJourneyConfig();
+    if (config.dataset.type !== "journey") throw new Error("expected journey");
+    config.dataset.path = [{ value: "add_to_cart" }, { value: "checkout" }];
+    const reads = cteReads(buildJourneySql(config, factTableMap, helpers).sql);
+    // The path branch plus one per pinned step
+    expect(reads.__journey_anchored).toBe(3);
+    expect(
+      Object.entries(reads).filter(
+        ([name, n]) => name !== "__journey_anchored" && n !== 1,
+      ),
+    ).toEqual([]);
   });
 
   it("emits committed prefix rows as trailing-null step columns", () => {
@@ -298,14 +328,14 @@ describe("buildJourneySql", () => {
       ) ?? [];
     expect(aggregatingSelects).toHaveLength(2); // path + one committed step
     for (const branch of aggregatingSelects) {
-      expect(branch).not.toContain("__journey_top_dim");
+      expect(branch).not.toContain("r_dim");
       expect(branch).not.toContain("CASE");
     }
 
     // The CASE lives upstream instead, once per aggregation source.
     expect(sql).toContain("__journey_path_bucketed");
     expect(sql.slice(0, sql.indexOf("__journey_path_bucketed AS"))).toContain(
-      "__journey_top_dim",
+      "__journey_dim_ranked",
     );
   });
 
@@ -316,12 +346,13 @@ describe("buildJourneySql", () => {
       ],
     });
     const { sql } = buildJourneySql(config, factTableMap, helpers);
-    // Every ROW_NUMBER that picks a top-N set needs a tie-break column.
-    const rowNumbers = sql.match(/ROW_NUMBER\(\) OVER \([\s\S]*?\)/g) ?? [];
-    expect(rowNumbers.length).toBeGreaterThan(0);
-    for (const expr of rowNumbers) {
-      if (!expr.includes("c DESC")) continue;
-      expect(expr).toMatch(/c DESC,/);
+    // Every ranking that picks a top-N set by count needs a tie-break column.
+    const rankings =
+      sql.match(/(?:ROW_NUMBER|dense_rank)\(\) OVER \([\s\S]*?\)/g) ?? [];
+    expect(rankings.some((expr) => expr.includes("DESC"))).toBe(true);
+    for (const expr of rankings) {
+      if (!expr.includes("DESC")) continue;
+      expect(expr).toMatch(/DESC,/);
     }
   });
 

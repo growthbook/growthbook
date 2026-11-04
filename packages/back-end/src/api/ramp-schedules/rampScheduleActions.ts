@@ -3,12 +3,13 @@ import { v4 as uuidv4 } from "uuid";
 import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
   apiRampScheduleInterface,
+  apiRampMonitoringConfigInput,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
-  rampMonitoringConfig,
   lockdownConfigSchema,
   stepHoldConditions,
   isAwaitingStartApproval,
   readOnlyEcho,
+  HUMAN_OVERRIDE_NOTE,
 } from "shared/validators";
 import type { RampScheduleInterface } from "shared/validators";
 import {
@@ -45,13 +46,14 @@ import {
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import {
   assertRampPlanChangeAllowed,
   assertRampScheduleReplanAllowed,
   changesRampPlan,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
@@ -77,6 +79,7 @@ export const startRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/start",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "startRampSchedule",
   summary: "Start a ramp schedule",
   description:
@@ -118,7 +121,7 @@ export const startRampSchedule = createApiRequestHandler({
       return startSchedule(req.context, fresh, heartbeat);
     },
   );
-  return { rampSchedule: rampScheduleToApiInterface(current) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, current) };
 });
 
 export const pauseRampSchedule = createApiRequestHandler({
@@ -127,6 +130,7 @@ export const pauseRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/pause",
+  confirmation: ["rampSchedule.pause"] as const,
   operationId: "pauseRampSchedule",
   summary: "Pause a ramp schedule",
   description:
@@ -157,7 +161,7 @@ export const pauseRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const resumeRampSchedule = createApiRequestHandler({
@@ -166,6 +170,7 @@ export const resumeRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/resume",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "resumeRampSchedule",
   summary: "Resume a paused ramp schedule",
   description:
@@ -196,7 +201,7 @@ export const resumeRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const jumpRampSchedule = createApiRequestHandler({
@@ -211,6 +216,7 @@ export const jumpRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/jump",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "jumpRampSchedule",
   summary: "Jump to a specific step",
   description:
@@ -246,7 +252,7 @@ export const jumpRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const completeRampSchedule = createApiRequestHandler({
@@ -255,6 +261,7 @@ export const completeRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/complete",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "completeRampSchedule",
   summary: "Complete a ramp schedule immediately",
   description:
@@ -306,7 +313,7 @@ export const completeRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(completed) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, completed) };
 });
 
 export const approveStepRampSchedule = createApiRequestHandler({
@@ -315,6 +322,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/approve-step",
+  confirmation: ["rampSchedule.approve"] as const,
   operationId: "approveStepRampSchedule",
   summary: "Approve the pending approval gate",
   description:
@@ -400,7 +408,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
     ),
   });
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 const rollbackBodySchema = z
@@ -415,6 +423,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/rollback",
+  confirmation: ["rampSchedule.progression"] as const,
   operationId: "rollbackRampSchedule",
   summary: "Roll back a ramp schedule",
   description:
@@ -447,7 +456,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const restartRampSchedule = createApiRequestHandler({
@@ -456,6 +465,7 @@ export const restartRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/restart",
+  confirmation: ["rampSchedule.start"] as const,
   operationId: "restartRampSchedule",
   summary: "Restart a terminal ramp schedule",
   description:
@@ -485,7 +495,7 @@ export const restartRampSchedule = createApiRequestHandler({
       return restartSchedule(req.context, fresh, heartbeat);
     },
   );
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const addTargetRampSchedule = createApiRequestHandler({
@@ -504,6 +514,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/add-target",
+  confirmation: ["rampSchedule.other"] as const,
   operationId: "addTargetRampSchedule",
   summary: "Add a target rule to a ramp schedule",
   description:
@@ -653,7 +664,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const ejectTargetRampSchedule = createApiRequestHandler({
@@ -684,6 +695,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
     .or(z.object({ deleted: z.boolean(), rampScheduleId: z.string() })),
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/eject-target",
+  confirmation: ["rampSchedule.other"] as const,
   operationId: "ejectTargetRampSchedule",
   summary: "Remove a target rule from a ramp schedule",
   description:
@@ -745,7 +757,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
         { targets: remaining },
       );
 
-      return { rampSchedule: rampScheduleToApiInterface(updated) };
+      return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
     },
   );
 });
@@ -759,13 +771,14 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         .boolean()
         .optional()
         .describe(
-          "Bypass a pending approval gate on the current step. Requires admin-level (`FlagsBypassApprovals`) permission. When omitted or `false`, a 409 is returned if the step has an unsatisfied `holdConditions.requiresApproval` gate.",
+          `Bypass a pending approval gate on the current step. Requires admin-level (\`FlagsBypassApprovals\`) permission. When omitted or \`false\`, a 409 is returned if the step has an unsatisfied \`holdConditions.requiresApproval\` gate. ${HUMAN_OVERRIDE_NOTE}`,
         ),
     })
     .optional(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/advance",
+  confirmation: ["rampSchedule.approve"] as const,
   operationId: "apiAdvanceRampSchedule",
   summary: "Advance to the next step, overriding any holds",
   description:
@@ -866,7 +879,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   current =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
 
-  return { rampSchedule: rampScheduleToApiInterface(current) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, current) };
 });
 
 const healthSummaryMetricSchema = z.object({
@@ -1309,6 +1322,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/set-monitoring-mode",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "setMonitoringModeRampSchedule",
   summary: "Set ramp monitoring mode",
   description:
@@ -1326,7 +1340,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
     (fresh) =>
       setRampMonitoringMode(req.context, fresh, req.body.monitoringMode),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const setAutoUpdateRampSchedule = createApiRequestHandler({
@@ -1341,6 +1355,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/set-auto-update",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "setAutoUpdateRampSchedule",
   summary: "Toggle automatic monitoring updates",
   description:
@@ -1362,17 +1377,18 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
         req.body.enabled ? "auto" : "manual",
       ),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: rampMonitoringConfig.describe(
-    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQueryId` cannot be changed while a monitoring experiment is active — stop the schedule first.",
+  bodySchema: apiRampMonitoringConfigInput.describe(
+    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQuery` cannot be changed while a monitoring experiment is active — stop the schedule first.",
   ),
   responseSchema: apiRampScheduleInterface,
   method: "put" as const,
   path: "/ramp-schedules/:id/monitoring",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleMonitoring",
   summary: "Update ramp monitoring configuration",
   description:
@@ -1387,9 +1403,18 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => updateRampMonitoringConfig(req.context, fresh, req.body),
+    async (fresh) =>
+      updateRampMonitoringConfig(
+        req.context,
+        fresh,
+        await resolveApiMonitoringConfig(
+          req.context,
+          req.body,
+          fresh.monitoringConfig,
+        ),
+      ),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const updateLockdownConfigRampSchedule = createApiRequestHandler({
@@ -1398,6 +1423,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
   responseSchema: apiRampScheduleInterface,
   method: "put" as const,
   path: "/ramp-schedules/:id/lockdown",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleLockdown",
   summary: "Update ramp lockdown configuration",
   description:
@@ -1414,7 +1440,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
     schedule.id,
     (fresh) => updateRampLockdownConfig(req.context, fresh, req.body),
   );
-  return rampScheduleToApiInterface(updated);
+  return rampScheduleToApiInterface(req.context, updated);
 });
 
 export const putStepSchema = z
@@ -1464,6 +1490,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   }),
   method: "put" as const,
   path: "/ramp-schedules/:id/steps",
+  confirmation: ["rampSchedule.edit"] as const,
   operationId: "updateRampScheduleSteps",
   summary: "Update ramp schedule steps",
   description:
@@ -1508,7 +1535,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
     },
   );
 
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });
 
 export const refreshMonitoringRampSchedule = createApiRequestHandler({
@@ -1519,6 +1546,7 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
   }),
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/refresh-monitoring",
+  confirmation: [],
   operationId: "refreshMonitoringRampSchedule",
   summary: "Trigger a manual monitoring update",
   description:
@@ -1627,5 +1655,5 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
 
   const updated =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
-  return { rampSchedule: rampScheduleToApiInterface(updated) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, updated) };
 });

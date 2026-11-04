@@ -3,6 +3,9 @@ import {
   cancellableFetch,
   getAuthProxyForUrl,
   getHttpOptions,
+  getWebhookTimeoutMs,
+  trimTrailingSlashes,
+  validateWebhookTimeoutSeconds,
 } from "back-end/src/util/http.util";
 
 // proxy-agent is stubbed in jest.config.js, so assert on the agent's presence, not its class.
@@ -11,6 +14,7 @@ let mockUseProxy = false;
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
   WEBHOOK_PROXY: "http://smokescreen.test:4750",
+  MAX_WEBHOOK_TIMEOUT_SECONDS: 120,
   get USE_PROXY() {
     return mockUseProxy;
   },
@@ -90,5 +94,44 @@ describe("getAuthProxyForUrl", () => {
     "https://10.0.0.5/keys",
   ])("keeps the proxy for %s", (url) => {
     expect(getAuthProxyForUrl(url)).toBe("http://smokescreen.test:4750");
+  });
+});
+
+describe("webhook timeouts", () => {
+  it("defaults to 30s and clamps to MAX_WEBHOOK_TIMEOUT_SECONDS", () => {
+    expect(getWebhookTimeoutMs(undefined)).toBe(30000);
+    expect(getWebhookTimeoutMs(null)).toBe(30000);
+    expect(getWebhookTimeoutMs(5)).toBe(5000);
+    expect(getWebhookTimeoutMs(500)).toBe(120000);
+  });
+
+  it("rejects timeouts above the max on save", () => {
+    expect(() => validateWebhookTimeoutSeconds(undefined)).not.toThrow();
+    expect(() => validateWebhookTimeoutSeconds(120)).not.toThrow();
+    expect(() => validateWebhookTimeoutSeconds(121)).toThrow("120 seconds");
+  });
+});
+
+describe("trimTrailingSlashes", () => {
+  it("removes all trailing slashes and nothing else", () => {
+    expect(trimTrailingSlashes("https://api.example.com")).toBe(
+      "https://api.example.com",
+    );
+    expect(trimTrailingSlashes("https://api.example.com/")).toBe(
+      "https://api.example.com",
+    );
+    expect(trimTrailingSlashes("https://api.example.com/v1///")).toBe(
+      "https://api.example.com/v1",
+    );
+    expect(trimTrailingSlashes("a//b/")).toBe("a//b");
+    expect(trimTrailingSlashes("///")).toBe("");
+    expect(trimTrailingSlashes("")).toBe("");
+  });
+
+  it("is linear on long runs of slashes", () => {
+    const input = "/".repeat(500000) + "x" + "/".repeat(500000);
+    const start = performance.now();
+    expect(trimTrailingSlashes(input)).toBe("/".repeat(500000) + "x");
+    expect(performance.now() - start).toBeLessThan(500);
   });
 });

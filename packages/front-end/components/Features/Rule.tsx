@@ -3,9 +3,14 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement, useMemo, useState } from "react";
+import React, {
+  forwardRef,
+  ReactElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -57,6 +62,7 @@ import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import ContextualBanditRefSummary, {
   isContextualBanditRefRuleSkipped,
 } from "@/components/ContextualBandit/ContextualBanditRefSummary";
@@ -112,6 +118,7 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
+import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 
@@ -234,6 +241,8 @@ interface SortableProps {
   // view each names the environments it covers (hard = "will not reach", soft =
   // "may not reach", unreachable = the rule(s) consuming it).
   conflictBanners?: ConflictBanner[];
+  // Deleted saved groups a rule reaches; a rule with any gets a warning
+  getMissingSavedGroupIds?: (rule: FeatureRule) => string[];
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
@@ -243,6 +252,7 @@ interface SortableProps {
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   hideInactive?: boolean;
+  showRuleIds?: boolean;
   isDraft: boolean;
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
@@ -332,6 +342,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       handle,
       unreachable,
       conflictBanners,
+      getMissingSavedGroupIds,
       version,
       setVersion,
       locked,
@@ -339,6 +350,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       experimentsMap,
       safeRolloutsMap,
       hideInactive,
+      showRuleIds = false,
       isDraft,
       holdout,
       revisionList,
@@ -553,6 +565,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       conflictBanners,
       rampSchedule,
       rampPendingDetach: !!hasPendingDetach,
+      missingSavedGroupIds: getMissingSavedGroupIds?.(rule) ?? [],
     });
 
     if (hideInactive && isInactive) {
@@ -912,73 +925,81 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             gap="8"
             style={{ maxWidth: "100%" }}
           >
-            <Flex
-              align="center"
-              gap="2"
-              style={{ flex: "0 1 auto", flexWrap: "wrap" }}
-            >
-              <Heading as="h4" size="md" weight="medium" mb="0">
-                {linkedExperiment ? (
-                  <>
-                    {linkedExperiment.type === "multi-armed-bandit"
-                      ? "Bandit"
-                      : "Experiment"}
-                    :{" "}
-                    <Link
-                      href={`/${
-                        linkedExperiment.type === "multi-armed-bandit"
-                          ? "bandit"
-                          : "experiment"
-                      }/${linkedExperiment.id}`}
-                      style={{ marginRight: "var(--space-2)" }}
-                    >
-                      {linkedExperiment.name}
-                    </Link>
-                    {linkedExperiment && (
+            <Box style={{ flex: "0 1 auto", minWidth: 0 }}>
+              <Flex align="center" gap="2" wrap="wrap">
+                <Heading as="h4" size="md" weight="medium" mb="0">
+                  {linkedExperiment ? (
+                    <>
+                      {linkedExperiment.type === "multi-armed-bandit"
+                        ? "Bandit"
+                        : "Experiment"}
+                      :{" "}
+                      <Link
+                        href={`/${
+                          linkedExperiment.type === "multi-armed-bandit"
+                            ? "bandit"
+                            : "experiment"
+                        }/${linkedExperiment.id}`}
+                        style={{ marginRight: "var(--space-2)" }}
+                      >
+                        {linkedExperiment.name}
+                      </Link>
+                      {linkedExperiment && (
+                        <span style={{ verticalAlign: "1px" }}>
+                          <ExperimentStatusIndicator
+                            experimentData={linkedExperiment}
+                          />
+                        </span>
+                      )}
+                    </>
+                  ) : rule.type === "contextual-bandit-ref" &&
+                    linkedContextualBandit ? (
+                    <>
+                      Contextual Bandit:{" "}
+                      <Link
+                        href={`/contextual-bandit/${linkedContextualBandit.id}`}
+                        style={{ marginRight: "var(--space-2)" }}
+                      >
+                        {linkedContextualBandit.name}
+                      </Link>
                       <span style={{ verticalAlign: "1px" }}>
                         <ExperimentStatusIndicator
-                          experimentData={linkedExperiment}
+                          experimentData={contextualBanditStatusIndicatorData(
+                            linkedContextualBandit,
+                          )}
                         />
                       </span>
-                    )}
-                  </>
-                ) : rule.type === "contextual-bandit-ref" &&
-                  linkedContextualBandit ? (
-                  <>
-                    Contextual Bandit:{" "}
-                    <Link
-                      href={`/contextual-bandit/${linkedContextualBandit.id}`}
-                      style={{ marginRight: "var(--space-2)" }}
-                    >
-                      {linkedContextualBandit.name}
-                    </Link>
-                    <span style={{ verticalAlign: "1px" }}>
-                      <ExperimentStatusIndicator
-                        experimentData={contextualBanditStatusIndicatorData(
-                          linkedContextualBandit,
-                        )}
-                      />
-                    </span>
-                  </>
-                ) : rule.type === "safe-rollout" ? (
-                  <span>Safe Rollout</span>
-                ) : (
-                  <span>{title}</span>
+                    </>
+                  ) : rule.type === "safe-rollout" ? (
+                    <span>Safe Rollout</span>
+                  ) : (
+                    <span>{title}</span>
+                  )}
+                </Heading>
+
+                {rule.type === "safe-rollout" && (
+                  <SafeRolloutStatusBadge rule={rule} />
                 )}
-              </Heading>
 
-              {rule.type === "safe-rollout" && (
-                <SafeRolloutStatusBadge rule={rule} />
-              )}
+                {ruleTags}
 
-              {ruleTags}
-
-              {rampSchedule &&
-                safeRollout &&
-                isOnMonitoredStep(rampSchedule) && (
-                  <RampMonitoringBadges rampSchedule={rampSchedule} />
-                )}
-            </Flex>
+                {rampSchedule &&
+                  safeRollout &&
+                  isOnMonitoredStep(rampSchedule) && (
+                    <RampMonitoringBadges rampSchedule={rampSchedule} />
+                  )}
+              </Flex>
+              {showRuleIds ? (
+                <Flex align="center" gap="1" mt="1">
+                  <Text size="sm" color="text-low">
+                    Rule ID:
+                  </Text>
+                  <Text size="sm">
+                    <CopyableCode value={rule.id} muted />
+                  </Text>
+                </Flex>
+              ) : null}
+            </Box>
 
             <Flex align="center" gap="3" flexShrink="0">
               {rampSchedule &&
@@ -1736,6 +1757,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 coverage={rule.coverage ?? 1}
                 feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
+                fallbackAttribute={rule.fallbackAttribute}
                 sparse={rule.sparse}
                 environment={isAllEnvsView ? undefined : environment}
                 monitored={
@@ -1975,25 +1997,46 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
   },
 );
 
+// Rules past the first few start as a sized placeholder that keeps its
+// sortable slot, and render once they come near the viewport. A rule that has
+// rendered stays rendered.
+const EAGER_RULES = 10;
+const ESTIMATED_RULE_HEIGHT = 180;
+
 export function SortableRule(props: SortableProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: props.rule.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: active?.id === props.rule.id ? 0.3 : 1,
-    margin: -1,
-  };
-
-  return (
-    <Rule
-      {...props}
-      ref={setNodeRef}
-      style={style}
-      handle={{ ...attributes, ...listeners }}
-    />
+  const { setNodeRef, style, isDragging, handle } = useSortableItem(
+    props.rule.id,
   );
+  const [rendered, setRendered] = useState(props.i < EAGER_RULES);
+  const placeholderRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (rendered || !placeholderRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setRendered(true);
+      },
+      { rootMargin: "1000px 0px" },
+    );
+    observer.observe(placeholderRef.current);
+    return () => observer.disconnect();
+  }, [rendered]);
+
+  const ruleStyle = { ...style, opacity: isDragging ? 0.3 : 1, margin: -1 };
+
+  if (!rendered) {
+    return (
+      <div
+        ref={(el) => {
+          setNodeRef(el);
+          placeholderRef.current = el;
+        }}
+        style={{ ...ruleStyle, minHeight: ESTIMATED_RULE_HEIGHT }}
+      />
+    );
+  }
+
+  return <Rule {...props} ref={setNodeRef} style={ruleStyle} handle={handle} />;
 }
 
 function SkippedPill() {
@@ -2025,6 +2068,7 @@ export function getRuleMetaInfo({
   conflictBanners,
   rampSchedule,
   rampPendingDetach,
+  missingSavedGroupIds = [],
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -2034,6 +2078,8 @@ export function getRuleMetaInfo({
   conflictBanners?: ConflictBanner[];
   rampSchedule?: RampScheduleInterface;
   rampPendingDetach?: boolean;
+  // Saved groups this rule names that no longer exist
+  missingSavedGroupIds?: string[];
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -2216,6 +2262,18 @@ export function getRuleMetaInfo({
       allProjects={banner.allProjects}
     />
   ));
+  if (missingSavedGroupIds.length) {
+    callouts.unshift(
+      <Callout key="missing-saved-groups" status="error">
+        {missingSavedGroupIds.length === 1
+          ? "This rule targets a Saved Group that no longer exists"
+          : "This rule targets Saved Groups that no longer exist"}{" "}
+        ({missingSavedGroupIds.join(", ")}). It&apos;s served as if{" "}
+        {missingSavedGroupIds.length === 1 ? "that group were" : "they were"}{" "}
+        empty.
+      </Callout>,
+    );
+  }
 
   // The status badge is derived from the same banners as the callouts, so its
   // colour + icon always mirror the callout: orange/octagon for unreachable,

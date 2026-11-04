@@ -85,7 +85,11 @@ export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z
   .object({
-    name: z.string(),
+    name: z
+      .string()
+      .describe(
+        "Short display name, usually app and platform (e.g. `Web app`).",
+      ),
     language: z.string(),
     sdkVersion: z.string().optional(),
     environment: z.string(),
@@ -168,6 +172,7 @@ export const postSdkConnectionValidator = {
     })
     .strict(),
   summary: "Create a single sdk connection",
+  confirmation: ["sdkConnection.create"] as const,
   operationId: "postSdkConnection",
   tags: ["sdk-connections"],
   method: "post" as const,
@@ -201,6 +206,7 @@ export const putSdkConnectionValidator = {
     })
     .strict(),
   summary: "Update a single sdk connection",
+  confirmation: ["sdkConnection.edit"] as const,
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
   method: "put" as const,
@@ -217,6 +223,7 @@ export const deleteSdkConnectionValidator = {
     })
     .strict(),
   summary: "Deletes a single SDK connection",
+  confirmation: ["sdkConnection.delete"] as const,
   operationId: "deleteSdkConnection",
   tags: ["sdk-connections"],
   method: "delete" as const,

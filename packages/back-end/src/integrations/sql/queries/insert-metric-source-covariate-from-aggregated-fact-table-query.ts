@@ -27,7 +27,7 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
   params: InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
 ): string {
   // Aggregated table is keyed on the exposure id type, so no identity join.
-  const baseIdType = params.exposureQuery.userIdType;
+  const baseIdType = params.exposureQuery.identifierType;
 
   // Capping is applied later in the statistics query.
   const sortedMetrics = cloneDeep(params.metrics)

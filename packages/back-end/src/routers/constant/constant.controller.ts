@@ -29,6 +29,7 @@ import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { parseIdsQuery } from "back-end/src/util/validation";
 import {
   createOrUpdateRevision,
   buildPatchOps,
@@ -85,9 +86,7 @@ export const getConstantDraftStates = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
-  const ids = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const ids = parseIdsQuery(req.query.ids);
   const constants = await context.models.revisions.getActiveDraftStates(
     "constant",
     ids,

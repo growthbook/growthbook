@@ -17,6 +17,7 @@ import {
   addOrUpdateSnapshotMultipleAnalysis,
   updateSnapshotAnalysis,
   findSnapshotById,
+  errorSnapshotIfStillRunning,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -65,6 +66,12 @@ function getSnapshotUpdateContext() {
       dashboards: {
         findByExperiment: jest.fn().mockResolvedValue([]),
       },
+    },
+    logger: {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
     },
   } as unknown as Context;
 
@@ -784,10 +791,6 @@ describe("ExperimentSnapshotModel", () => {
           fullRefreshReason: null,
         },
         {
-          experimentId: snapshot.experiment,
-          snapshotId: snapshot.id,
-          snapshotType: "standard",
-          triggeredBy: "schedule",
           datasource: { id: "ds_1", type: "bigquery" } as never,
         },
       );
@@ -799,6 +802,7 @@ describe("ExperimentSnapshotModel", () => {
           status: "error",
           error: "Failed to run queries",
         },
+        conclusion: { concludedBy: "runner" },
         experimentUpdateExecutionLogger: executionLogger,
       });
 
@@ -811,7 +815,7 @@ describe("ExperimentSnapshotModel", () => {
           error: "Failed to run queries",
           timingsMs: expect.objectContaining({
             persistSnapshot: expect.any(Number),
-            propagateSnapshot: 0,
+            propagateSnapshot: null,
           }),
         }),
         "Experiment update completed",
@@ -841,10 +845,6 @@ describe("ExperimentSnapshotModel", () => {
           fullRefreshReason: null,
         },
         {
-          experimentId: snapshot.experiment,
-          snapshotId: snapshot.id,
-          snapshotType: "exploratory",
-          triggeredBy: "manual",
           datasource: { id: "ds_1", type: "bigquery" } as never,
         },
       );
@@ -861,6 +861,7 @@ describe("ExperimentSnapshotModel", () => {
             }),
           ],
         },
+        conclusion: { concludedBy: "runner" },
         experimentUpdateExecutionLogger: executionLogger,
       });
 
@@ -872,11 +873,186 @@ describe("ExperimentSnapshotModel", () => {
           snapshotStatus: "success",
           timingsMs: expect.objectContaining({
             persistSnapshot: expect.any(Number),
-            propagateSnapshot: 0,
+            propagateSnapshot: null,
           }),
         }),
         "Experiment update completed",
       );
+    });
+
+    function experimentUpdatedLines(context: Context) {
+      return jest
+        .mocked(context.logger.info)
+        .mock.calls.map(([fields]) => fields)
+        .filter(
+          (fields): fields is Record<string, unknown> =>
+            (fields as { event?: string }).event === "experiment_updated",
+        );
+    }
+
+    it("logs one runner line with only the snapshot age when no update logger is attached", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_no_logger");
+      snapshot.dateCreated = new Date(Date.now() - 60_000);
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: { status: "success" },
+        conclusion: { concludedBy: "runner" },
+      });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: { status: "success" },
+        conclusion: { concludedBy: "runner" },
+      });
+
+      const lines = experimentUpdatedLines(context);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toMatchObject({
+        organization: "org_1",
+        snapshotId: snapshot.id,
+        snapshotStatus: "success",
+        concludedBy: "runner",
+        reason: null,
+        datasourceType: null,
+        timingsMs: {
+          generateSql: null,
+          runQueries: null,
+          analyze: null,
+          persistSnapshot: null,
+          propagateSnapshot: null,
+          total: null,
+          snapshotAge: expect.any(Number),
+        },
+      });
+      expect(
+        (lines[0].timingsMs as { snapshotAge: number }).snapshotAge,
+      ).toBeGreaterThanOrEqual(60_000);
+    });
+
+    it("logs a recovery's conclusion with the timings its update logger took", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_recovered");
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: { status: "success" },
+        conclusion: { concludedBy: "recovery" },
+        experimentUpdateExecutionLogger: new ExperimentUpdateExecutionLogger(
+          {
+            runnerKind: "results",
+            incrementalFallbackReason: null,
+            useCache: null,
+            fullRefresh: null,
+            fullRefreshReason: null,
+          },
+          { datasource: { id: "ds_1", type: "bigquery" } as never },
+        ),
+      });
+
+      expect(experimentUpdatedLines(context)).toEqual([
+        expect.objectContaining({
+          concludedBy: "recovery",
+          datasourceType: "bigquery",
+          timingsMs: expect.objectContaining({
+            total: expect.any(Number),
+            snapshotAge: expect.any(Number),
+          }),
+        }),
+      ]);
+    });
+
+    it("warns instead of logging when an update without a conclusion ends a snapshot", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_no_conclusion");
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: { status: "error" },
+        conclusion: null,
+      });
+
+      expect(experimentUpdatedLines(context)).toEqual([]);
+    });
+
+    it("logs the reaper's conclusion once when it errors a running snapshot", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_reaped");
+      await createExperimentSnapshotModel({ data: snapshot, context });
+      const conclusion = {
+        concludedBy: "reaper",
+        reason: "recovery-declined:superseded",
+      } as const;
+
+      await expect(
+        errorSnapshotIfStillRunning(
+          context,
+          snapshot.id,
+          { error: "Snapshot stalled" },
+          "analysis",
+          conclusion,
+        ),
+      ).resolves.toBe(true);
+      await expect(
+        errorSnapshotIfStillRunning(
+          context,
+          snapshot.id,
+          { error: "Snapshot stalled" },
+          "analysis",
+          conclusion,
+        ),
+      ).resolves.toBe(false);
+
+      expect(experimentUpdatedLines(context)).toEqual([
+        expect.objectContaining({
+          snapshotId: snapshot.id,
+          snapshotStatus: "error",
+          concludedBy: "reaper",
+          reason: "recovery-declined:superseded",
+          error: "Snapshot stalled",
+        }),
+      ]);
+    });
+
+    it("keeps the runner's plan and timings when it errors its own snapshot", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_runner_shutdown");
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      await errorSnapshotIfStillRunning(
+        context,
+        snapshot.id,
+        { error: "Too many refresh failures" },
+        "unknown",
+        { concludedBy: "runner" },
+        new ExperimentUpdateExecutionLogger(
+          {
+            runnerKind: "incremental-update",
+            incrementalFallbackReason: null,
+            useCache: true,
+            fullRefresh: false,
+            fullRefreshReason: null,
+          },
+          { datasource: { id: "ds_1", type: "bigquery" } as never },
+        ),
+      );
+
+      expect(experimentUpdatedLines(context)).toEqual([
+        expect.objectContaining({
+          concludedBy: "runner",
+          datasourceType: "bigquery",
+          runnerKind: "incremental-update",
+          plannedFullRefresh: false,
+          timingsMs: expect.objectContaining({ total: expect.any(Number) }),
+        }),
+      ]);
     });
 
     it("passes populated chunked analyses to post-success side effects", async () => {

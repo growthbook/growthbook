@@ -461,7 +461,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                       },
                     })
                   }
-                  placeholder="Apply additionalfilters..."
+                  placeholder="Apply additional filters..."
                   options={
                     denominatorFactTable?.filters?.map((f) => ({
                       value: f.id,

@@ -139,7 +139,7 @@ export default function PaymentInfo() {
           trackingEventModalType=""
           close={() => setDefaultPaymentMethod(undefined)}
         >
-          Are your sure? The default payment method will be the one charged on
+          Are you sure? The default payment method will be the one charged on
           future invoices.
         </Modal>
       ) : null}

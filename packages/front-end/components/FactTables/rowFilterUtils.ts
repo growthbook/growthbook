@@ -4,12 +4,22 @@ import {
 } from "shared/experiments";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { truncateString } from "shared/util";
-import { FactTableInterface, RowFilter } from "shared/types/fact-table";
+import {
+  FactTableDefinition,
+  FactTableInterface,
+  RowFilter,
+} from "shared/types/fact-table";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
 export const numberRegex = new RegExp(NUMBER_PATTERN);
+
+export type ColumnTopValue = string | SingleValue;
+
+function toValueOption(value: ColumnTopValue): SingleValue {
+  return typeof value === "string" ? { label: value, value } : value;
+}
 
 export function emptyColumnRowFilter(): RowFilter {
   return { column: "", operator: "=", values: [""] };
@@ -225,6 +235,48 @@ export const operatorLabelMap: Record<RowFilter["operator"], string> = {
   starts_with: "starts with",
   ends_with: "ends with",
 };
+
+/**
+ * Readable text for a row filter, such as "Country = US". A missing fact table
+ * means the viewer may lack access or definitions haven't loaded, not that a
+ * saved filter was deleted, so that case (like an unnamed saved filter) shows
+ * the filter id instead.
+ */
+export function getRowFilterDescription(
+  rowFilter: RowFilter,
+  factTable: Pick<FactTableDefinition, "columns" | "filters"> | null,
+): string {
+  const values = (rowFilter.values ?? []).filter((v) => v !== "");
+
+  if (rowFilter.operator === "sql_expr") {
+    const sqlExpressionLabel = operatorLabelMap.sql_expr;
+    const sqlExpression = values[0];
+    if (!sqlExpression) return `Empty ${sqlExpressionLabel} filter`;
+
+    return `${sqlExpressionLabel}: ${sqlExpression}`;
+  }
+
+  if (rowFilter.operator === "saved_filter") {
+    const savedFilterLabel = operatorLabelMap.saved_filter;
+    const filterId = values[0];
+    if (!filterId) return `Missing ${savedFilterLabel} id`;
+
+    const idLabel = `${savedFilterLabel}: ${filterId}`;
+    if (!factTable) return idLabel;
+
+    const savedFilter = factTable.filters.find((f) => f.id === filterId);
+    if (!savedFilter) return `Deleted ${savedFilterLabel}`;
+
+    return savedFilter.name || idLabel;
+  }
+
+  const column =
+    factTable?.columns.find((c) => c.column === rowFilter.column)?.name ||
+    rowFilter.column ||
+    "";
+  const operator = operatorLabelMap[rowFilter.operator] ?? rowFilter.operator;
+  return `${column} ${operator} ${values.join(", ")}`.trim();
+}
 
 /**
  * `attributes` JSON-field names that are also exposed as a top-level column on
@@ -444,7 +496,7 @@ export interface FilterColumnSource {
   savedFilters: { id: string; name: string }[];
   getColumnInfo: (column: string | undefined) => {
     datatype: string;
-    topValues: string[];
+    topValues: ColumnTopValue[];
   };
   /** The source's event-time column, hidden from the column picker. */
   timeColumn?: string;
@@ -489,6 +541,7 @@ export function factTableToColumnSource(
     // JSON sub-fields are selectable as their own columns
     if (col.jsonFields) {
       Object.keys(col.jsonFields).forEach((field) => {
+        if (factTable.userIdTypes?.includes(`${col.column}.${field}`)) return;
         if (col.column === "attributes" && hiddenAttributeFields.has(field))
           return;
         columns.push({
@@ -560,7 +613,7 @@ export function getRowFilterInputState({
   operator: RowFilter["operator"];
   values: string[] | undefined;
   datatype: string;
-  topValues: string[] | undefined;
+  topValues: ColumnTopValue[] | undefined;
 }) {
   const operatorInputRequired =
     operator !== "sql_expr" && operator !== "saved_filter";
@@ -576,7 +629,8 @@ export function getRowFilterInputState({
     if (datatype === "date") isDateColumn = true;
 
     topValues?.forEach((v) => {
-      if (v) valueOptions.push({ label: v, value: v });
+      const option = toValueOption(v);
+      if (option.value) valueOptions.push(option);
     });
 
     // An operator that no longer suits the column (or arrived via the API)

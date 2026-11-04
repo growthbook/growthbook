@@ -1,3 +1,5 @@
+import type { SavedGroupsPayload } from "./growthbook";
+
 type OrCondition = {
   $or: ConditionInterface[];
 };
@@ -22,7 +24,7 @@ export type SavedGroupReference = {
  * attribute. The plural authoring operator `$savedGroups` never reaches an
  * SDK, so it has no type here.
  */
-type SavedGroupCondition = {
+export type SavedGroupCondition = {
   $savedGroup: SavedGroupReference;
 };
 export type Operator =
@@ -61,6 +63,21 @@ export type VarType =
   | "object"
   | "null"
   | "undefined";
+export type ConditionTypeMismatch = {
+  path: string;
+  /** `$eq` for implicit equality */
+  operator: string;
+  /** Condition value */
+  expected: unknown;
+  /** Attribute value, `null` when missing */
+  actual: unknown;
+};
+export type TypeMismatchCallback = (mismatch: ConditionTypeMismatch) => void;
+export type EvalConditionOptions = {
+  /** Required for saved group operators to match anyone */
+  savedGroups?: SavedGroupsPayload;
+  onTypeMismatch?: TypeMismatchCallback;
+};
 export type OperatorConditionValue = {
   $in?: (string | number)[];
   $ini?: (string | number)[];

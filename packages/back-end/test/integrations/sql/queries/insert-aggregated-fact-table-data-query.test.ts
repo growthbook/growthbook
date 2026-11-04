@@ -1,5 +1,5 @@
+import { bigQueryDialect } from "shared/dialects";
 import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { factTableFactory } from "../../../factories/FactTable.factory";
 import { factMetricFactory } from "../../../factories/FactMetric.factory";
 

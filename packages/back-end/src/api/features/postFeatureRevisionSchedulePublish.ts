@@ -8,10 +8,11 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { revisionRequiresReview } from "back-end/src/services/features";
 import {
+  assertArmDoesNotLaunchExperiments,
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
   parseScheduledPublishDate,
-  resolveArmedPublishUserId,
+  resolveArmedPublisherId,
 } from "./autoPublishOnApproval";
 
 const SCHEDULABLE_STATUSES = [
@@ -60,15 +61,15 @@ export async function schedulePublish(
   if (!allowed) {
     req.context.permissions.throwPermissionError();
   }
+  if (date) {
+    await assertArmDoesNotLaunchExperiments(req.context, feature, revision);
+  }
 
   // A scheduled publish runs as a resolvable dashboard user at fire time. Reject
   // arming when there is none — e.g. an API key arming a draft also authored by
   // an API key — instead of accepting a schedule the poller can never publish
   // (it would loop on "enabling user could not be resolved").
-  if (
-    date &&
-    !resolveArmedPublishUserId(revision, req.context.userId ?? null)
-  ) {
+  if (date && !resolveArmedPublisherId(revision, req.context.armerId)) {
     throw new BadRequestError(
       "Scheduled publishes must run as a user, but this request has no resolvable user actor " +
         "(e.g. an API key scheduling a draft authored by an API key). Arm the schedule from a user session.",
@@ -111,7 +112,7 @@ export async function schedulePublish(
       lockOthers: req.body.lockOthers,
       bypassApproval,
     },
-    req.context.userId || null,
+    req.context.armerId,
   );
 
   const updated = await getRevision({

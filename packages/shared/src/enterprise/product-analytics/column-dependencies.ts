@@ -9,6 +9,7 @@ import {
   metricExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   sqlExplorationConfigValidator,
+  populationExplorationConfigValidator,
 } from "../../validators/product-analytics";
 import { sqlReferencesColumn } from "../../experiments/experiments";
 
@@ -23,7 +24,8 @@ type ExplorationConfig =
   | z.infer<typeof dataSourceExplorationConfigValidator>
   | z.infer<typeof sqlExplorationConfigValidator>
   | z.infer<typeof funnelExplorationConfigValidator>
-  | z.infer<typeof journeyExplorationConfigValidator>;
+  | z.infer<typeof journeyExplorationConfigValidator>
+  | z.infer<typeof populationExplorationConfigValidator>;
 
 type Dimension = z.infer<typeof dimensionValidator>;
 
@@ -155,6 +157,26 @@ export function explorationConfigReferencesColumn(
     ) {
       return true;
     }
+
+    return config.dimensions.some((d) =>
+      dimensionReferencesColumn(d, columnName, identifierQuote, filters),
+    );
+  }
+
+  if (config.type === "population") {
+    const values = config.dataset.values.filter(
+      (value) => value.source.factTableId === factTableId,
+    );
+    if (!values.length) return false;
+
+    const valueReferences = values.some(
+      (value) =>
+        value.aggregateFilterColumn === columnName ||
+        value.rowFilters.some((f) =>
+          rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
+        ),
+    );
+    if (valueReferences) return true;
 
     return config.dimensions.some((d) =>
       dimensionReferencesColumn(d, columnName, identifierQuote, filters),

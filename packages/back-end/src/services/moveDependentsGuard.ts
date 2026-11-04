@@ -15,7 +15,7 @@ import {
   getContextForAgendaJobByOrgObject,
   getEnvironments,
 } from "back-end/src/services/organizations";
-import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
@@ -137,7 +137,7 @@ async function collectDependents(
   featureId: string,
 ): Promise<ServedDependents> {
   const [features, allExperiments] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(scanContext, {}),
+    getAllFeaturesForGraph(scanContext, {}),
     getAllExperimentsForStaleGraph(scanContext),
   ]);
   const featuresMap = new Map(features.map((f) => [f.id, f]));

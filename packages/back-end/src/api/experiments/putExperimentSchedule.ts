@@ -3,21 +3,22 @@ import {
   putExperimentScheduleValidator,
 } from "shared/validators";
 import { scheduleWriteNeedsRunPermission } from "shared/experiments";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { scheduleActions } from "shared/util";
 import { setExperimentSchedule } from "back-end/src/services/experimentScheduling";
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
+import { requireExperiment } from "./requireExperiment";
 
 export const putExperimentSchedule = createApiRequestHandler(
   putExperimentScheduleValidator,
 )(async (req) => {
-  const experiment = await getExperimentById(req.context, req.params.id);
-  if (!experiment) throw new Error("Could not find the experiment");
-  if (experiment.type === "holdout") {
-    throw new Error("Holdouts are not supported via this API");
-  }
+  const experiment = await requireExperiment(req.context, req.params.id);
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
@@ -26,6 +27,16 @@ export const putExperimentSchedule = createApiRequestHandler(
   if (scheduleWriteNeedsRunPermission(experiment, req.body)) {
     await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
   }
+
+  const scheduled = scheduleActions(req.body);
+  // Clearing a schedule cancels a start or stop that was due.
+  await requireConfirmation(req.context, {
+    actions: scheduled.length ? scheduled : ["experiment.other"],
+    project: experiment.project,
+    summary: `Schedule ${experiment.name}`,
+    links: [confirmationLink("experiment", experiment.id, experiment.name)],
+    pin: experiment.statusUpdateSchedule ?? null,
+  });
 
   // Full-replace: the body is the complete desired schedule + stop-plan state, so
   // omitted fields are passed through as cleared.

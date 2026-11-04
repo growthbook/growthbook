@@ -24,6 +24,7 @@ describe("testQueryValidity", () => {
       id: "user_id",
       name: "Logged in Users",
       userIdType: "user_id",
+      userIdTypes: ["user_id"],
       dimensions: ["country"],
       hasNameCol: true,
       query: "SELECT * FROM experiments",
@@ -41,6 +42,7 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -62,7 +64,8 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
+        null,
       );
     });
 
@@ -71,6 +74,7 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id", "anonymous_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -92,7 +96,7 @@ describe("testQueryValidity", () => {
       const result = await testQueryValidity(mockDataSourceIntegration, query);
 
       expect(result).toBe(
-        "Missing required columns in response: user_id, country, experiment_name, variation_name",
+        "Missing required columns in response: user_id, anonymous_id, country, experiment_name, variation_name",
       );
       expect(
         mockDataSourceIntegration.getTestValidityQuery,
@@ -100,7 +104,8 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
+        null,
       );
     });
 
@@ -109,6 +114,7 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -140,7 +146,8 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
+        null,
       );
     });
   });
@@ -150,6 +157,7 @@ describe("testQueryValidity", () => {
       id: "user_id",
       name: "Logged in Users",
       userIdType: "user_id",
+      userIdTypes: ["user_id"],
       dimensions: ["browserFamily"],
       hasNameCol: false,
       query: "SELECT * FROM experiments",
@@ -169,6 +177,7 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -191,6 +200,7 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -220,6 +230,7 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -323,6 +334,7 @@ describe("testQueryValidity", () => {
       id: "user_id",
       name: "Logged in Users",
       userIdType: "user_id",
+      userIdTypes: ["user_id"],
       dimensions: ["country"],
       hasNameCol: true,
       query: "SELECT * FROM experiments",
@@ -347,7 +359,8 @@ describe("testQueryValidity", () => {
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
       "SELECT * FROM experiments",
       undefined,
-      "testQuery",
+      "exposureQueryValidation",
+      null,
     );
   });
 });

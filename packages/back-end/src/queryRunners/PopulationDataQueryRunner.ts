@@ -1,6 +1,7 @@
 import { UpdateProps } from "shared/types/base-model";
 import {
   ExperimentMetricInterface,
+  getFactTableIdsForMetrics,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -102,7 +103,7 @@ export const startPopulationDataQueries = async (
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(settings, {
     query: "",
-    userIdType: params.populationSettings.userIdType,
+    identifierType: params.populationSettings.userIdType,
   });
 
   for (const m of legacyMetricSingles) {
@@ -184,6 +185,7 @@ export const startPopulationDataQueries = async (
             setExternalId,
             queryMetadata,
           ),
+        metadata: { factTableIds: getFactTableIdsForMetrics(m) },
         queryType: "populationMultiMetric",
       }),
     );

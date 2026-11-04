@@ -63,10 +63,15 @@ export function getQueryStatus(
   return { status, numFailed, failedNames };
 }
 
-type Props = {
+type CancelProps =
+  // An internal API path, POSTed to with apiCall
+  | { cancelEndpoint: string; onCancel?: never }
+  // For endpoints that need another client
+  | { onCancel: () => Promise<unknown>; cancelEndpoint?: never };
+
+type Props = CancelProps & {
   cta?: string;
   loadingText?: string;
-  cancelEndpoint: string;
   model: { queries: Queries; runStarted: string | Date | undefined | null };
   mutate: () => Promise<unknown> | unknown;
   icon?: "run" | "refresh";
@@ -75,6 +80,7 @@ type Props = {
   radixVariant?: "outline" | "solid" | "soft";
   size?: "sm" | "md";
   onSubmit?: () => void | Promise<void>;
+  setError?: (error: string | null) => void;
   disabled?: boolean;
 };
 
@@ -84,6 +90,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       cta = "Run Queries",
       loadingText = "Running",
       cancelEndpoint,
+      onCancel,
       model,
       mutate,
       icon = "run",
@@ -92,6 +99,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       radixVariant = "outline",
       size = "md",
       onSubmit,
+      setError,
       disabled,
     },
     ref: ForwardedRef<HTMLButtonElement>,
@@ -188,7 +196,9 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                     e.stopPropagation();
                     resetFilters?.();
                     try {
-                      await apiCall(cancelEndpoint, { method: "POST" });
+                      await (onCancel
+                        ? onCancel()
+                        : apiCall(cancelEndpoint, { method: "POST" }));
                     } catch (e) {
                       console.error(e);
                     }
@@ -211,6 +221,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 await resetFilters?.();
                 await onSubmit?.();
               }}
+              setError={setError}
               icon={buttonIcon}
               style={{
                 minWidth: size === "sm" ? 90 : 110,

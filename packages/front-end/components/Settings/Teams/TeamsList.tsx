@@ -10,8 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import {
   CollapsedRuleRows,
-  projectRuleRows,
-  ruleRows,
+  memberRuleRows,
 } from "@/components/Settings/Team/RoleRuleLabel";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
@@ -89,6 +88,7 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
             {teams.map((t) => {
               const teamIsExternallyManaged =
                 t.managedBy?.type || t.managedByIdp;
+              const rows = memberRuleRows(t, getProjectById, organization);
               return (
                 <TableRow
                   key={t.id}
@@ -114,16 +114,10 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                   </TableCell>
                   <TableCell>{date(t.dateUpdated)}</TableCell>
                   <TableCell>
-                    <CollapsedRuleRows rows={ruleRows(t, organization)} />
+                    <CollapsedRuleRows rows={rows.roles} />
                   </TableCell>
                   <TableCell>
-                    <CollapsedRuleRows
-                      rows={projectRuleRows(
-                        t.projectRoles ?? [],
-                        getProjectById,
-                        organization,
-                      )}
-                    />
+                    <CollapsedRuleRows rows={rows.projectRoles} />
                   </TableCell>
                   <TableCell>{t.members?.length ?? 0}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>

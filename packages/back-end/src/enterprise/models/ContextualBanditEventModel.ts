@@ -63,6 +63,16 @@ export class ContextualBanditEventModel extends BaseClass {
     return this.getById(eventId);
   }
 
+  public async getBySnapshotId(
+    snapshotId: string,
+  ): Promise<ContextualBanditEventInterface | null> {
+    const results = await this._find(
+      { snapshotId },
+      { sort: { dateCreated: -1 }, limit: 1 },
+    );
+    return results[0] ?? null;
+  }
+
   public async deleteForContextualBandit(
     contextualBandit: string,
   ): Promise<void> {

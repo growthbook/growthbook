@@ -8,6 +8,7 @@ import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 
@@ -56,7 +57,7 @@ export default function TeamModal({
       close={close}
       header={existing.id ? "Edit Team Settings" : "Create Team"}
       size={existing.id ? undefined : "xl"}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         await apiCall(existing.id ? `/teams/${existing.id}` : `/teams`, {
           method: existing.id ? "PUT" : "POST",
           body: JSON.stringify({

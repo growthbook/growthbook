@@ -1,14 +1,12 @@
 import { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
 import { NodeHandler } from "../../util";
 import {
+  MAX_SAVED_GROUP_DEPTH,
   SAVED_GROUP_ERROR_CYCLE,
   SAVED_GROUP_ERROR_INVALID,
   SAVED_GROUP_ERROR_MAX_DEPTH,
   SAVED_GROUP_ERROR_UNKNOWN,
 } from "./errors";
-
-// How deep we follow a chain of groups that reference other groups.
-export const MAX_SAVED_GROUP_DEPTH = 10;
 
 /**
  * What to do with one entry of a `$savedGroups` array.

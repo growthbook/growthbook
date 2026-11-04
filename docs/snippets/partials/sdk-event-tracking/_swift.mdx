@@ -1,0 +1,24 @@
+Requires the GrowthBook Swift SDK v1.1.15 or later.
+
+```swift
+import GrowthBook
+
+let gb: GrowthBookSDK = GrowthBookBuilder(
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "YOUR_CLIENT_KEY",
+    attributes: ["id": "user-123"],
+    trackingCallback: { _, _ in }
+)
+.addPlugin(GrowthBookTrackingPlugin(
+    config: .init(ingestorHost: "https://us-east-1.gb-ingest.com")
+))
+.initializer()
+```
+
+Custom events aren't supported yet. Send them with the [Ingestion API](/app/managed-warehouse#ingestion-api).
+
+| Option         | Description                                                   |
+| -------------- | ------------------------------------------------------------- |
+| `ingestorHost` | Ingestor for your Data Region.                                |
+| `batchSize`    | Events to queue before sending. Default `100`.                |
+| `batchTimeout` | Seconds to wait before sending a partial batch. Default `10`. |
