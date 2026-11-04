@@ -4842,13 +4842,11 @@ export function assertClusterExperimentMetricsSupported({
   factTableMap: FactTableMap;
   datasource: DataSourceInterface;
 }): void {
-  const getEligibility = (metric: ExperimentMetricInterface) =>
-    getClusterExperimentMetricEligibility(metric, {
-      clusterIdentifier,
-      clusterSubUnitIdentifier,
-      getFactTable: (factTableId) => factTableMap.get(factTableId),
-      datasourceSettings: datasource.settings,
-    });
+  if (activationMetric) {
+    throw new Error(
+      "Activation metrics aren't supported for cluster experiments.",
+    );
+  }
 
   const metricIds = getAllMetricIdsFromExperiment(
     { goalMetrics, secondaryMetrics, guardrailMetrics },
@@ -4859,19 +4857,17 @@ export function assertClusterExperimentMetricsSupported({
     const metric = metricMap.get(id);
     // Existence/datasource are validated separately; only check known metrics.
     if (!metric) continue;
-    const eligibility = getEligibility(metric);
+    const eligibility = getClusterExperimentMetricEligibility(metric, {
+      clusterIdentifier,
+      clusterSubUnitIdentifier,
+      getFactTable: (factTableId) => factTableMap.get(factTableId),
+      datasourceSettings: datasource.settings,
+    });
     if (!eligibility.allowed) {
       throw new Error(
         `Metric "${metric.name || id}" cannot be used in a cluster experiment. ${eligibility.reason}`,
       );
     }
-  }
-
-  if (activationMetric) {
-    const metric = metricMap.get(activationMetric);
-    throw new Error(
-      `Activation metric "${metric?.name || activationMetric}" cannot be used in a cluster experiment. Activation metrics aren't supported for cluster experiments.`,
-    );
   }
 }
 
