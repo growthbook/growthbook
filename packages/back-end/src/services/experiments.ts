@@ -286,6 +286,7 @@ import { getExposureQueriesForDatasource } from "./assignmentQuerySelection";
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
+  isStandaloneBreakdownSnapshot,
   runSnapshotAnalyses,
   writeSnapshotAnalyses,
 } from "./stats";
@@ -3355,6 +3356,7 @@ export async function createSnapshotAnalysis(
     analysisSettings: [analysisSettings],
     variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     metricMap: metricMap,
+    isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
   });
   analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";
@@ -3420,6 +3422,7 @@ export async function createSnapshotAnalysesBatched(
       analysisSettings: analysisSettingsList,
       variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
       metricMap,
+      isStandaloneBreakdown: isStandaloneBreakdownSnapshot(snapshot),
     });
 
     completedAnalyses = analyses.map((analysis, i) => ({
