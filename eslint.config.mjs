@@ -170,12 +170,12 @@ export default defineConfig([
       "import/no-named-as-default": "off",
       "import/no-named-as-default-member": "off",
 
-      // The Docker image prunes devDependencies, so a value import of one
-      // passes type-check, tests, and the build, then crashes in production.
-      // `import type` is exempt. Dev-only files are allowed below.
+      // The Docker image prunes dev and optional dependencies, so a value import
+      // of one passes type-check, tests, and the build, then crashes in
+      // production. `import type` is exempt. Dev-only files are allowed below.
       "import/no-extraneous-dependencies": [
         "error",
-        { devDependencies: false },
+        { devDependencies: false, optionalDependencies: false },
       ],
 
       "@typescript-eslint/prefer-ts-expect-error": "error",
