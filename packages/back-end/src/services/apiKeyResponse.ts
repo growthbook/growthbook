@@ -1,6 +1,5 @@
 import { ApiKeyInterface } from "shared/types/apikey";
 import { ApiApiKey } from "shared/validators";
-import { getUsersByIds } from "back-end/src/models/UserModel";
 import { ReqContext } from "back-end/types/request";
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -20,18 +19,26 @@ export function toApiKey(key: ApiKeyInterface, userEmail?: string): ApiApiKey {
     ...((!key.userId || key.scoped) && key.role && { role: key.role }),
     limitAccessByEnvironment: key.limitAccessByEnvironment,
     environments: key.environments,
-    ...(key.additionalRoles && { additionalRoles: key.additionalRoles }),
-    ...(key.projectRoles && {
-      projectRoles: key.projectRoles.map(
-        ({ project, role, limitAccessByEnvironment, environments, ...pr }) => ({
-          project,
-          role,
-          limitAccessByEnvironment,
-          environments,
-          ...(pr.additionalRoles && { additionalRoles: pr.additionalRoles }),
-        }),
-      ),
-    }),
+    // Always listed with a role, so the GET can be sent back to the roles PUT
+    ...((!key.userId || key.scoped) &&
+      key.role && {
+        additionalRoles: key.additionalRoles ?? [],
+        projectRoles: (key.projectRoles ?? []).map(
+          ({
+            project,
+            role,
+            limitAccessByEnvironment,
+            environments,
+            ...pr
+          }) => ({
+            project,
+            role,
+            limitAccessByEnvironment,
+            environments,
+            ...(pr.additionalRoles && { additionalRoles: pr.additionalRoles }),
+          }),
+        ),
+      }),
     ...(!key.userId && { actAs: key.actAs ?? "system" }),
     disabled: !!key.disabled,
     ...(key.disabledBy && { disabledBy: key.disabledBy }),
@@ -68,7 +75,7 @@ export async function loadApiKeys(
   ].filter((id) => memberIds.has(id));
   const emails = new Map(
     ownerIds.length
-      ? (await getUsersByIds(ownerIds)).map((u) => [u.id, u.email])
+      ? (await context.getUsersByIds(ownerIds)).map((u) => [u.id, u.email])
       : [],
   );
   return toApiKeys(keys, memberIds, emails);

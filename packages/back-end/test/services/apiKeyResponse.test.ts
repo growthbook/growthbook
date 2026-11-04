@@ -4,12 +4,7 @@ import {
   toApiKey,
   toApiKeys,
 } from "back-end/src/services/apiKeyResponse";
-import { getUsersByIds } from "back-end/src/models/UserModel";
 import { ReqContext } from "back-end/types/request";
-
-jest.mock("back-end/src/models/UserModel", () => ({
-  getUsersByIds: jest.fn(),
-}));
 
 const base: ApiKeyInterface = {
   id: "key_1",
@@ -107,6 +102,18 @@ describe("toApiKey", () => {
     });
   });
 
+  it("lists empty roles with a role, so the GET can be sent back to the PUT", () => {
+    expect(toApiKey(base)).toMatchObject({
+      role: "engineer",
+      additionalRoles: [],
+      projectRoles: [],
+    });
+    const scopedPat = toApiKey({ ...pat, scoped: true, role: "readonly" });
+    expect(scopedPat).toMatchObject({ additionalRoles: [], projectRoles: [] });
+    expect(toApiKey(pat)).not.toHaveProperty("additionalRoles");
+    expect(toApiKey(pat)).not.toHaveProperty("projectRoles");
+  });
+
   it("shows an org key's stored actAs, and system when none is stored", () => {
     expect(toApiKey(base).actAs).toBe("system");
     expect(toApiKey({ ...base, actAs: "user" }).actAs).toBe("user");
@@ -153,22 +160,22 @@ describe("toApiKeys", () => {
 });
 
 describe("loadApiKeys", () => {
-  const getUsers = getUsersByIds as jest.MockedFunction<typeof getUsersByIds>;
+  const getUsers = jest.fn(async (ids: string[]) =>
+    ids.map((id) => ({
+      id,
+      email: `${id}@example.com`,
+      name: id,
+      verified: true,
+    })),
+  );
   const context = (memberIds: string[]) =>
     ({
       org: { members: memberIds.map((id) => ({ id })) },
+      getUsersByIds: getUsers,
     }) as unknown as ReqContext;
 
   beforeEach(() => {
-    getUsers.mockReset();
-    getUsers.mockImplementation(async (ids) =>
-      ids.map((id) => ({
-        id,
-        email: `${id}@example.com`,
-        name: id,
-        verified: true,
-      })),
-    );
+    getUsers.mockClear();
   });
 
   it("looks up only current members' emails", async () => {
