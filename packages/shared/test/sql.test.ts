@@ -206,6 +206,33 @@ describe("stripTrailingSemicolon", () => {
     ["SELECT 1; /* c */ SELECT 2", "SELECT 1; /* c */ SELECT 2"],
     ["SELECT 1; -- c\nSELECT 2", "SELECT 1; -- c\nSELECT 2"],
     ["SELECT ';' AS a", "SELECT ';' AS a"],
+    // `;` and `--` inside quoted text are not a terminator or a comment
+    ["SELECT ';--' AS value", "SELECT ';--' AS value"],
+    ["SELECT ';' AS a; -- done", "SELECT ';' AS a"],
+    ["SELECT 'it''s;--' AS a;", "SELECT 'it''s;--' AS a"],
+    ['SELECT 1 AS ";--";', 'SELECT 1 AS ";--"'],
+    ["SELECT 1 AS `a;--b`", "SELECT 1 AS `a;--b`"],
+    // Backslash-escaped quotes (BigQuery, MySQL, ...)
+    ["SELECT 'it\\'s' AS a;", "SELECT 'it\\'s' AS a"],
+    ["SELECT 'it\\'s;--' AS a;", "SELECT 'it\\'s;--' AS a"],
+    ['SELECT "a\\";--" AS b;', 'SELECT "a\\";--" AS b'],
+    ["SELECT 'a\\\\' AS b;", "SELECT 'a\\\\' AS b"],
+    // Standard SQL, where a backslash is literal
+    ["SELECT 'C:\\' AS p;", "SELECT 'C:\\' AS p"],
+    [
+      "SELECT 'C:\\' AS p, ';--' AS value;",
+      "SELECT 'C:\\' AS p, ';--' AS value",
+    ],
+    [
+      "SELECT 'C:\\' AS p, ';--' AS value",
+      "SELECT 'C:\\' AS p, ';--' AS value",
+    ],
+    ["SELECT \"C:\\\" AS p, ';' AS v;", "SELECT \"C:\\\" AS p, ';' AS v"],
+    // A quote neither reading closes: quotes are ignored, as before
+    ["SELECT 'never closed;", "SELECT 'never closed"],
+    // Quotes inside comments do not start a string
+    ["SELECT 1 -- don't\n;", "SELECT 1 -- don't"],
+    ["SELECT 1; /* it's */", "SELECT 1"],
     ["SELECT 1 /* a; */", "SELECT 1 /* a; */"],
     // A comment that never closes is not trailing trivia
     ["SELECT 1; /* never closed", "SELECT 1; /* never closed"],
@@ -227,6 +254,10 @@ describe("stripTrailingSemicolon", () => {
       ";/*".repeat(100000) + "x",
       ";--\n".repeat(100000) + "x",
       ";" + " ".repeat(100000) + "x",
+      ";'x'".repeat(100000) + "x",
+      "'".repeat(100001) + ";x",
+      "'" + "\\".repeat(200000) + ";x",
+      ";'" + "\\'".repeat(100000) + "x",
     ];
 
     it.each(pathological.map((sql) => ({ label: sql.slice(0, 20), sql })))(
@@ -782,6 +813,31 @@ describe("assertSafeReadOnlySQL", () => {
     expect(() =>
       assertSafeReadOnlySQL("SELECT * INTO new_table FROM old_table"),
     ).toThrow("SELECT INTO");
+  });
+
+  it.each([
+    "SELECT *\nINTO new_table\nFROM old_table",
+    "SELECT *\r\nINTO new_table FROM old_table",
+    "SELECT 1\n\tINTO new_table",
+    "WITH a AS (SELECT 1 AS x)\nSELECT x\nINTO new_table FROM a",
+  ])("rejects SELECT INTO across lines: %j", (sql) => {
+    expect(() => assertSafeReadOnlySQL(sql)).toThrow("SELECT INTO");
+  });
+
+  it.each([
+    "SELECT 'into' AS a",
+    'SELECT "into" FROM t',
+    "SELECT into_count, count_into FROM t",
+    "SELECT 1 -- copied into the report\nFROM t",
+  ])("allows INTO in strings, identifiers and comments: %j", (sql) => {
+    expect(() => assertSafeReadOnlySQL(sql)).not.toThrow();
+  });
+
+  it("checks for SELECT INTO in linear time", () => {
+    const sql = "SELECT " + "SELECT ".repeat(14000);
+    const start = Date.now();
+    expect(() => assertSafeReadOnlySQL(sql)).not.toThrow();
+    expect(Date.now() - start).toBeLessThan(100);
   });
 
   // --- Comment-wrapped DML ---
