@@ -66,7 +66,7 @@ describe("migrateEventForwarderToInHouseConsumer", () => {
   it("moves a legacy config onto the shared topic with tables", async () => {
     const { context, update } = mockContext();
 
-    const migrated = await migrateEventForwarderToInHouseConsumer(
+    const { migrated } = await migrateEventForwarderToInHouseConsumer(
       context,
       legacyBigQueryConfig(),
       bqParams,
@@ -85,6 +85,17 @@ describe("migrateEventForwarderToInHouseConsumer", () => {
         feature_usage: "gb_feature_usage",
       },
     });
+  });
+
+  it("returns the row the CAS claimed, not the caller's copy", async () => {
+    const stored = legacyBigQueryConfig({ connectorId: "lcc-fresh" });
+    const { context } = mockContext(stored);
+    const { previous } = await migrateEventForwarderToInHouseConsumer(
+      context,
+      legacyBigQueryConfig({ connectorId: "lcc-stale" }),
+      bqParams,
+    );
+    expect(previous.connectorId).toBe("lcc-fresh");
   });
 
   it("rejects a config already on the in-house consumer", async () => {

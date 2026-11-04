@@ -699,10 +699,15 @@ export async function migrateEventForwarderToInHouseConsumer(
   context: ReqContext,
   existing: EventForwarderConfigInterface,
   datasourceParams: EventForwarderDatasourceParams,
-): Promise<EventForwarderConfigInterface> {
+): Promise<{
+  migrated: EventForwarderConfigInterface;
+  // The row the CAS actually claimed; revert and audit must use it, not `existing`
+  previous: EventForwarderConfigInterface;
+}> {
   if (isInHouseConsumerTopic(existing.topic, existing.sinkType)) {
     throw new Error("Event forwarder is already on the in-house consumer");
   }
+  let previous = existing;
   // All checks run on the freshly read row inside the CAS, guarded on the
   // fields they decide on, so a pause, credential update or second migrate
   // landing in between is seen rather than overwritten.
@@ -710,6 +715,7 @@ export async function migrateEventForwarderToInHouseConsumer(
     existing.id,
     ["topic", "status", "config"],
     (fresh) => {
+      previous = fresh;
       if (isInHouseConsumerTopic(fresh.topic, fresh.sinkType)) {
         throw new Error("Event forwarder is already on the in-house consumer");
       }
@@ -738,7 +744,7 @@ export async function migrateEventForwarderToInHouseConsumer(
   if (!migrated) {
     throw new Error("Cannot find event forwarder config");
   }
-  return migrated;
+  return { migrated, previous };
 }
 
 export async function getEventForwarderConfigDraftForDatasource(

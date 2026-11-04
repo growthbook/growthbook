@@ -2161,7 +2161,7 @@ export async function postMigrateEventForwarder(
       datasource.type,
       getSourceIntegrationObject(context, datasource).params,
     );
-    const migrated = await migrateEventForwarderToInHouseConsumer(
+    const { migrated, previous } = await migrateEventForwarderToInHouseConsumer(
       context,
       existing,
       datasourceParams,
@@ -2176,16 +2176,16 @@ export async function postMigrateEventForwarder(
       // Restore the pre-migrate row so the Confluent connector keeps serving it
       // and Migrate can be retried; lastProvisioningError keeps the cause.
       const ids = {
-        topic: existing.topic,
-        status: existing.status,
-        schemaId: existing.schemaId,
-        connectorName: existing.connectorName,
-        connectorId: existing.connectorId,
+        topic: previous.topic,
+        status: previous.status,
+        schemaId: previous.schemaId,
+        connectorName: previous.connectorName,
+        connectorId: previous.connectorId,
       };
       try {
         await context.models.eventForwarderConfigs.update(migrated, {
           ...ids,
-          config: existing.config,
+          config: previous.config,
         });
       } catch (revertError) {
         req.log.error(
@@ -2199,13 +2199,13 @@ export async function postMigrateEventForwarder(
     // driven from this entry, so a failed migrate must not appear here.
     try {
       await context.auditLog({
-        entity: { object: "eventForwarderConfig", id: existing.id, name: "" },
+        entity: { object: "eventForwarderConfig", id: previous.id, name: "" },
         event: "eventForwarderConfig.migrate",
         details: JSON.stringify({
-          datasourceId: existing.datasourceId,
-          topic: existing.topic,
-          connectorName: existing.connectorName,
-          connectorId: existing.connectorId,
+          datasourceId: previous.datasourceId,
+          topic: previous.topic,
+          connectorName: previous.connectorName,
+          connectorId: previous.connectorId,
         }),
       });
     } catch (auditError) {
