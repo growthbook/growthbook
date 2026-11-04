@@ -19,6 +19,7 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
+  getMetricPopulationViolations,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -180,6 +181,7 @@ export async function runProductAnalyticsExploration(
         "A draft preview must contain only fact__preview",
       );
     }
+
     const factMetrics = await context.models.factMetrics.getByIds(
       dataset.values
         .filter((value) => !value.draftMetric)
@@ -221,6 +223,20 @@ export async function runProductAnalyticsExploration(
       Array.from(factTableIds),
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+
+    if (dataset.population) {
+      const populationViolations = getMetricPopulationViolations({
+        population: dataset.population,
+        values: dataset.values,
+        dimensions: config.dimensions,
+        datasource: datasource.id,
+        metricMap,
+        factTableMap,
+      });
+      if (populationViolations.length) {
+        throw new BadRequestError(populationViolations.join(" "));
+      }
+    }
 
     for (const value of dataset.values) {
       if (!value.draftMetric) continue;
