@@ -1,13 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
-import ValidateValue from "@/components/Features/ValidateValue";
 import Text from "@/ui/Text";
 import { coveragePercentFormatter } from "@/services/utils";
 import { AttributeBadge } from "./AttributeBadge";
 import { PlainEntityBadge } from "./EntityBadge";
-import ConfigBackedSummary from "./ConfigBackedSummary";
-import ValueDisplay from "./ValueDisplay";
+import ForceSummary from "./ForceSummary";
 
 export default function RolloutSummary({
   value,
@@ -30,15 +27,6 @@ export default function RolloutSummary({
   environment?: string;
 }) {
   const displayCoverage = coverage;
-  const type = feature.valueType;
-  // Mirror the SDK compiler: values resolve a config ONLY when the feature is
-  // config-backed (baseConfig set) — a stray `@config:` on a plain flag is
-  // stripped at serve time, so it must not preview as backed.
-  const baseConfigKey = getFeatureBaseConfigKey(feature);
-  const configKey =
-    baseConfigKey !== null
-      ? (getConfigBackingKey(value) ?? baseConfigKey)
-      : null;
   return (
     <Box>
       <Flex direction="row" gap="2" mb="3">
@@ -94,33 +82,12 @@ export default function RolloutSummary({
           </Flex>
         </Flex>
       </Box>
-      {configKey !== null ? (
-        <ConfigBackedSummary
-          value={value}
-          configKey={configKey}
-          feature={feature}
-          sparse={sparse}
-          environment={environment}
-        />
-      ) : (
-        <>
-          <Flex gap="3">
-            <Box>
-              <Text weight="medium">SERVE</Text>
-            </Box>
-            <Box flexGrow="1">
-              <ValueDisplay
-                value={value}
-                type={type}
-                showFullscreenButton={true}
-                sparse={sparse}
-                defaultValue={feature.defaultValue}
-              />
-            </Box>
-          </Flex>
-          <ValidateValue value={value} feature={feature} />
-        </>
-      )}
+      <ForceSummary
+        value={value}
+        feature={feature}
+        sparse={sparse}
+        environment={environment}
+      />
     </Box>
   );
 }

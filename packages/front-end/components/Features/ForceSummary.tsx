@@ -70,7 +70,12 @@ export default function ForceSummary({
 
   return (
     <>
-      <Flex direction="row" gap="2" width={fullWidth ? "100%" : undefined}>
+      {/* JSON starts on its own line, under the label, as a config does. */}
+      <Flex
+        direction={feature.valueType === "json" ? "column" : "row"}
+        gap="2"
+        width={fullWidth ? "100%" : undefined}
+      >
         {label !== null && <Text weight="medium">{label}</Text>}
         <Box width="100%">
           <ValueDisplay

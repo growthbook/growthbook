@@ -13,6 +13,7 @@ import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import { EntityBadge } from "@/components/Features/EntityBadge";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
+import ForceSummary from "./ForceSummary";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -64,22 +65,10 @@ export default function SafeRolloutSummary({
 
   if (rolledBackOrReleased) {
     return (
-      <Box>
-        <Flex gap="3">
-          <Box>
-            <strong className="font-weight-semibold">SERVE</strong>
-          </Box>
-          <Box flexGrow="1">
-            <ValueDisplay
-              value={
-                rule.status === "rolled-back" ? controlValue : variationValue
-              }
-              type={type}
-              showFullscreenButton={true}
-            />
-          </Box>
-        </Flex>
-      </Box>
+      <ForceSummary
+        value={rule.status === "rolled-back" ? controlValue : variationValue}
+        feature={feature}
+      />
     );
   }
 
