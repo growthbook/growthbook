@@ -604,6 +604,7 @@ export async function planExperimentUpdate(
       goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
       secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
       guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
+      activationMetric: changes.activationMetric ?? experiment.activationMetric,
     },
     previous: {
       isClusterExperiment: experiment.isClusterExperiment,
@@ -614,6 +615,7 @@ export async function planExperimentUpdate(
       goalMetrics: experiment.goalMetrics,
       secondaryMetrics: experiment.secondaryMetrics,
       guardrailMetrics: experiment.guardrailMetrics,
+      activationMetric: experiment.activationMetric,
     },
     metricMap,
     metricGroups: allMetricGroups,

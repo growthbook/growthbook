@@ -334,6 +334,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         goalMetrics: payload.metrics,
         secondaryMetrics: payload.secondaryMetrics,
         guardrailMetrics: payload.guardrailMetrics,
+        activationMetric: payload.activationMetric,
       },
       metricMap: map,
       metricGroups,

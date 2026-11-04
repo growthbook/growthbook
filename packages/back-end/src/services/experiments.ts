@@ -4823,6 +4823,7 @@ export function assertClusterExperimentMetricsSupported({
   goalMetrics,
   secondaryMetrics,
   guardrailMetrics,
+  activationMetric,
   metricMap,
   metricGroups,
   clusterIdentifier,
@@ -4833,6 +4834,7 @@ export function assertClusterExperimentMetricsSupported({
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
+  activationMetric?: string | null;
   metricMap: Map<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
   clusterIdentifier?: string | null;
@@ -4840,6 +4842,14 @@ export function assertClusterExperimentMetricsSupported({
   factTableMap: FactTableMap;
   datasource: DataSourceInterface;
 }): void {
+  const getEligibility = (metric: ExperimentMetricInterface) =>
+    getClusterExperimentMetricEligibility(metric, {
+      clusterIdentifier,
+      clusterSubUnitIdentifier,
+      getFactTable: (factTableId) => factTableMap.get(factTableId),
+      datasourceSettings: datasource.settings,
+    });
+
   const metricIds = getAllMetricIdsFromExperiment(
     { goalMetrics, secondaryMetrics, guardrailMetrics },
     false,
@@ -4849,16 +4859,28 @@ export function assertClusterExperimentMetricsSupported({
     const metric = metricMap.get(id);
     // Existence/datasource are validated separately; only check known metrics.
     if (!metric) continue;
-    const eligibility = getClusterExperimentMetricEligibility(metric, {
-      clusterIdentifier,
-      clusterSubUnitIdentifier,
-      getFactTable: (factTableId) => factTableMap.get(factTableId),
-      datasourceSettings: datasource.settings,
-    });
+    const eligibility = getEligibility(metric);
     if (!eligibility.allowed) {
       throw new Error(
         `Metric "${metric.name || id}" cannot be used in a cluster experiment. ${eligibility.reason}`,
       );
+    }
+  }
+
+  if (activationMetric && clusterSubUnitIdentifier) {
+    const metric = metricMap.get(activationMetric);
+    if (metric) {
+      const eligibility = getEligibility(metric);
+      if (!eligibility.allowed) {
+        throw new Error(
+          `Activation metric "${metric.name || activationMetric}" cannot be used in a cluster experiment. ${eligibility.reason}`,
+        );
+      }
+      if (eligibility.level === "cluster") {
+        throw new Error(
+          `Activation metric "${metric.name || activationMetric}" must expose the sub-unit identifier "${clusterSubUnitIdentifier}", because activation is evaluated per sub-unit in cluster experiments.`,
+        );
+      }
     }
   }
 }
@@ -4872,6 +4894,7 @@ export type ClusterExperimentConfigFields = {
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
+  activationMetric?: string | null;
 };
 
 function clusterMetricListChanged(a?: string[], b?: string[]): boolean {
@@ -4891,6 +4914,8 @@ function clusterConfigRequiresRevalidation(
       (previous.clusterSubUnitIdentifier ?? null) ||
     (current.exposureQueryId ?? null) !== (previous.exposureQueryId ?? null) ||
     (currentIdentifier ?? null) !== (previousIdentifier ?? null) ||
+    (current.activationMetric ?? null) !==
+      (previous.activationMetric ?? null) ||
     clusterMetricListChanged(current.goalMetrics, previous.goalMetrics) ||
     clusterMetricListChanged(
       current.secondaryMetrics,
@@ -4979,6 +5004,7 @@ export async function assertValidClusterExperimentConfig({
     goalMetrics: current.goalMetrics,
     secondaryMetrics: current.secondaryMetrics,
     guardrailMetrics: current.guardrailMetrics,
+    activationMetric: current.activationMetric,
     metricMap: resolvedMetricMap,
     metricGroups: resolvedMetricGroups,
     clusterIdentifier,
