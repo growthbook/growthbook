@@ -241,9 +241,10 @@ const expireOldQueries = async () => {
   }
 
   for (const family of RAW_SNAPSHOT_FAMILIES) {
-    const rawSnapshots = await findRunningRawSnapshotsByQueryId(family, [
-      ...queryIds,
-    ]);
+    const rawSnapshots =
+      await dangerousFindRunningRawSnapshotsByQueryIdFromAllOrgs(family, [
+        ...queryIds,
+      ]);
     for (const snapshot of rawSnapshots) {
       logger.info(`Updating status of ${family.label} ${snapshot.id}`);
       updateQueryStatus(snapshot.queries, queryIds);
@@ -257,9 +258,10 @@ const expireOldQueries = async () => {
   // Finalize matching aggregated runs: driven only by an in-memory QueryRunner
   // (no client polling), so a dead process leaves run pointers stuck even though
   // the query docs were flipped to failed.
-  const aggregatedRuns = await findRunningAggregatedFactTableRunsByQueryId([
-    ...queryIds,
-  ]);
+  const aggregatedRuns =
+    await dangerousFindRunningAggregatedFactTableRunsByQueryIdFromAllOrgs([
+      ...queryIds,
+    ]);
   for (const run of aggregatedRuns) {
     logger.info("Updating status of aggregated fact table run " + run.id);
     updateQueryStatus(run.queries, queryIds);
@@ -656,7 +658,7 @@ export default async function (agenda: Agenda) {
   await job.save();
 }
 
-function findRunningRawSnapshotsByQueryId(
+function dangerousFindRunningRawSnapshotsByQueryIdFromAllOrgs(
   family: RawSnapshotFamily,
   ids: string[],
 ): Promise<RawSnapshot[]> {
@@ -669,7 +671,7 @@ function findRunningRawSnapshotsByQueryId(
     .toArray();
 }
 
-function findStalledRunningRawSnapshots(
+function dangerousFindStalledRunningRawSnapshotsFromAllOrgs(
   family: RawSnapshotFamily,
   stalledBefore: Date,
   limit: number,
@@ -710,7 +712,12 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
   // heartbeats be caught before the snapshot is a full hour old.
   const stalledBefore = new Date(now - QUEUED_HEARTBEAT_STALE_MS);
   const candidates = stalledSnapshotCandidates(family.label, (limit, seen) =>
-    findStalledRunningRawSnapshots(family, stalledBefore, limit, seen),
+    dangerousFindStalledRunningRawSnapshotsFromAllOrgs(
+      family,
+      stalledBefore,
+      limit,
+      seen,
+    ),
   );
 
   for await (const snapshot of candidates) {
@@ -768,7 +775,7 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
 }
 
 // In-flight runs with a still-"running" pointer to a now-failed query. Mirrors findRunningSnapshotsByQueryId.
-async function findRunningAggregatedFactTableRunsByQueryId(
+async function dangerousFindRunningAggregatedFactTableRunsByQueryIdFromAllOrgs(
   ids: string[],
 ): Promise<AggregatedFactTableRunInterface[]> {
   if (!ids.length) return [];
@@ -784,7 +791,7 @@ async function findRunningAggregatedFactTableRunsByQueryId(
     .toArray();
 }
 
-// In-flight runs old enough to be considered stalled. Mirrors findStalledRunningRawSnapshots.
+// In-flight runs old enough to be considered stalled. Mirrors dangerousFindStalledRunningRawSnapshotsFromAllOrgs.
 async function dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
