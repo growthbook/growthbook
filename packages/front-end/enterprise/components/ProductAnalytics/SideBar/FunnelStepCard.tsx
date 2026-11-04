@@ -248,14 +248,17 @@ export default function FunnelStepCard({
           className={styles.titleGroup}
           style={{ minWidth: 0, flex: 1 }}
         >
-          <Box
-            {...dragHandleProps}
-            title="Drag to reorder"
-            aria-label={`Drag to reorder ${step.name}`}
-            style={{ flexShrink: 0, cursor: "grab", display: "flex" }}
-          >
-            <PiDotsSixVertical size={14} color="var(--gray-a9)" />
-          </Box>
+          {/* Step 1 is pinned (it owns the funnel's fact table): no handle. */}
+          {dragHandleProps && (
+            <Box
+              {...dragHandleProps}
+              title="Drag to reorder"
+              aria-label={`Drag to reorder ${step.name}`}
+              style={{ flexShrink: 0, cursor: "grab", display: "flex" }}
+            >
+              <PiDotsSixVertical size={14} color="var(--gray-a9)" />
+            </Box>
+          )}
           <Box style={{ flexShrink: 0 }}>
             <Text size="sm" color="text-low">
               {index + 1}.
@@ -318,13 +321,16 @@ export default function FunnelStepCard({
             menuPlacement="end"
             trigger={<MoreMenuTrigger label="Step actions" size="sm" />}
           >
-            <DropdownMenuItem
-              disabled={!canAddStep}
-              tooltip={maxStepsReason}
-              onClick={() => onInsert(index)}
-            >
-              Insert step above
-            </DropdownMenuItem>
+            {/* Step 1 owns the funnel's fact table; nothing goes above it. */}
+            {index > 0 && (
+              <DropdownMenuItem
+                disabled={!canAddStep}
+                tooltip={maxStepsReason}
+                onClick={() => onInsert(index)}
+              >
+                Insert step above
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               disabled={!canAddStep}
               tooltip={maxStepsReason}
@@ -332,19 +338,24 @@ export default function FunnelStepCard({
             >
               Insert step below
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={index === 0}
-              onClick={() => onMove(index, index - 1)}
-            >
-              Move up
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={index === steps.length - 1}
-              onClick={() => onMove(index, index + 1)}
-            >
-              Move down
-            </DropdownMenuItem>
+            {index > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={index === 1}
+                  tooltip={index === 1 ? "Step 1 stays first." : undefined}
+                  onClick={() => onMove(index, index - 1)}
+                >
+                  Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={index === steps.length - 1}
+                  onClick={() => onMove(index, index + 1)}
+                >
+                  Move down
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               color="red"

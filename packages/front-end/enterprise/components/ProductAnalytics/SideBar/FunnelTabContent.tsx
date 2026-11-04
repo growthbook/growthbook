@@ -48,9 +48,14 @@ type FunnelStepCardProps = React.ComponentProps<typeof FunnelStepCard>;
 
 function SortableFunnelStepCard({
   id,
+  pinned,
   ...props
-}: { id: string } & Omit<FunnelStepCardProps, "dragHandleProps">) {
+}: { id: string; pinned: boolean } & Omit<
+  FunnelStepCardProps,
+  "dragHandleProps"
+>) {
   const { setNodeRef, style, handle } = useSortableItem(id);
+  if (pinned) return <FunnelStepCard {...props} />;
   return (
     <Box ref={setNodeRef} style={style}>
       <FunnelStepCard {...props} dragHandleProps={handle} />
@@ -335,9 +340,9 @@ export default function FunnelTabContent() {
   const handleInsertStep = (atIndex: number) => {
     setDraftExploreState((prev) => {
       if (prev.dataset.type !== "funnel") return prev;
-      // Inherit from the step above (or the current first step when inserting at the top).
+      // Never 0: the menu hides "Insert step above" on step 1.
       const previousFactTable =
-        prev.dataset.steps[Math.max(atIndex - 1, 0)]?.factTableId ?? "";
+        prev.dataset.steps[atIndex - 1]?.factTableId ?? "";
       // Default the new step's fact table to the previous step's — the most
       // common case. The picker is hidden on inherited steps, so the user
       // doesn't see a redundant select until they actively want to override.
@@ -375,8 +380,9 @@ export default function FunnelTabContent() {
     });
   };
 
+  // Step 1 is pinned: it owns the funnel's fact table and group-by columns.
   const handleMoveStep = (from: number, to: number) => {
-    if (from === to || to < 0 || to >= steps.length) return;
+    if (from === to || from < 1 || to < 1 || to >= steps.length) return;
     setDraftExploreState((prev) => {
       if (prev.dataset.type !== "funnel") return prev;
       return {
@@ -497,13 +503,15 @@ export default function FunnelTabContent() {
             }}
           >
             <SortableContext
-              items={uiState.map((s) => s.id)}
+              // Step 1 isn't sortable, so nothing can be dropped above it.
+              items={uiState.slice(1).map((s) => s.id)}
               strategy={verticalListSortingStrategy}
             >
               {steps.map((step, index) => (
                 <SortableFunnelStepCard
                   key={uiState[index]?.id ?? index}
                   id={uiState[index]?.id ?? String(index)}
+                  pinned={index === 0}
                   index={index}
                   step={step}
                   steps={steps}
