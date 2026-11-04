@@ -39,7 +39,7 @@ import {
   createEmptyFunnelStep,
   getFunnelUnitOptions,
   getInitialInlineFilters,
-  normalizeFirstStep,
+  normalizeFunnelStepOrder,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import FunnelStepCard from "./FunnelStepCard";
@@ -323,7 +323,7 @@ export default function FunnelTabContent() {
         ...prev,
         dataset: {
           ...prev.dataset,
-          steps: normalizeFirstStep(
+          steps: normalizeFunnelStepOrder(
             prev.dataset.steps.filter((_, i) => i !== index),
           ),
         } as FunnelDataset,
@@ -341,8 +341,9 @@ export default function FunnelTabContent() {
       // Default the new step's fact table to the previous step's — the most
       // common case. The picker is hidden on inherited steps, so the user
       // doesn't see a redundant select until they actively want to override.
+      // Default name; normalizeFunnelStepOrder renumbers it to its position.
       const newStep = createEmptyFunnelStep({
-        name: `Step ${prev.dataset.steps.length + 1}`,
+        name: `Step ${atIndex + 1}`,
         factTableId: previousFactTable,
       });
       // Mirror handleFactTableChange in FunnelStepCard: any alwaysInlineFilter
@@ -357,7 +358,7 @@ export default function FunnelTabContent() {
         ...prev,
         dataset: {
           ...prev.dataset,
-          steps: normalizeFirstStep(steps),
+          steps: normalizeFunnelStepOrder(steps),
         } as FunnelDataset,
       } as ExplorationConfig;
     });
@@ -382,7 +383,9 @@ export default function FunnelTabContent() {
         ...prev,
         dataset: {
           ...prev.dataset,
-          steps: normalizeFirstStep(arrayMove(prev.dataset.steps, from, to)),
+          steps: normalizeFunnelStepOrder(
+            arrayMove(prev.dataset.steps, from, to),
+          ),
         } as FunnelDataset,
       } as ExplorationConfig;
     });

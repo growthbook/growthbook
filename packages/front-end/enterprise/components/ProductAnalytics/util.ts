@@ -539,12 +539,27 @@ export function withDefaultSqlRawTable(
 
 /** Builds an empty funnel step. `factTableId` is optional so the "Add step"
  *  button can prefill from the previous step (the inherited default). */
-/** Step 1 hides optional/conversion window (they anchor on a prior step), so
- *  clear them on whichever step lands first after a reorder. */
-export function normalizeFirstStep(steps: FunnelStep[]): FunnelStep[] {
-  const [first, ...rest] = steps;
-  if (!first || (!first.optional && !first.conversionWindow)) return steps;
-  return [{ ...first, optional: false, conversionWindow: null }, ...rest];
+const DEFAULT_STEP_NAME = /^Step \d+$/;
+
+/**
+ * Run after inserting, moving, or deleting funnel steps:
+ * - default "Step N" names follow position; custom names are kept
+ * - step 1 hides optional/conversion window (they anchor on a prior step), so
+ *   they're cleared on whichever step lands first
+ */
+export function normalizeFunnelStepOrder(steps: FunnelStep[]): FunnelStep[] {
+  return steps.map((step, i) => {
+    const name = DEFAULT_STEP_NAME.test(step.name)
+      ? `Step ${i + 1}`
+      : step.name;
+    const clearFirst = i === 0 && (step.optional || !!step.conversionWindow);
+    if (name === step.name && !clearFirst) return step;
+    return {
+      ...step,
+      name,
+      ...(clearFirst && { optional: false, conversionWindow: null }),
+    };
+  });
 }
 
 export function createEmptyFunnelStep({

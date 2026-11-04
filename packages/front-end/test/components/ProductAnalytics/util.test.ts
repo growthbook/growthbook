@@ -14,7 +14,7 @@ import {
   createEmptyFunnelStep,
   getAvailableDimensionColumns,
   getColumnTopValues,
-  normalizeFirstStep,
+  normalizeFunnelStepOrder,
   normalizeTimelessSqlConfig,
   resolveSqlPreviewTimestamp,
   validateDimensions,
@@ -711,8 +711,24 @@ describe("resolveSqlPreviewTimestamp", () => {
   });
 });
 
-describe("normalizeFirstStep", () => {
+describe("normalizeFunnelStepOrder", () => {
   const step = (name: string) => createEmptyFunnelStep({ name });
+
+  it("renumbers default names by position and keeps custom names", () => {
+    // Inserted after step 1: [Step 1, new "Step 2", old "Step 2", custom]
+    const result = normalizeFunnelStepOrder([
+      step("Step 1"),
+      step("Step 2"),
+      step("Step 2"),
+      step("Checkout"),
+    ]);
+    expect(result.map((s) => s.name)).toEqual([
+      "Step 1",
+      "Step 2",
+      "Step 3",
+      "Checkout",
+    ]);
+  });
 
   it("clears optional and conversion window on the first step only", () => {
     const later = {
@@ -720,7 +736,7 @@ describe("normalizeFirstStep", () => {
       optional: true,
       conversionWindow: { unit: "days" as const, value: 2 },
     };
-    const result = normalizeFirstStep([{ ...later, name: "a" }, later]);
+    const result = normalizeFunnelStepOrder([{ ...later, name: "a" }, later]);
     expect(result[0]).toMatchObject({
       name: "a",
       optional: false,
@@ -729,9 +745,11 @@ describe("normalizeFirstStep", () => {
     expect(result[1]).toBe(later);
   });
 
-  it("returns the same array when nothing needs clearing", () => {
-    const steps = [step("a"), step("b")];
-    expect(normalizeFirstStep(steps)).toBe(steps);
-    expect(normalizeFirstStep([])).toEqual([]);
+  it("keeps step objects when nothing changes", () => {
+    const steps = [step("Step 1"), step("Checkout")];
+    const result = normalizeFunnelStepOrder(steps);
+    expect(result[0]).toBe(steps[0]);
+    expect(result[1]).toBe(steps[1]);
+    expect(normalizeFunnelStepOrder([])).toEqual([]);
   });
 });
