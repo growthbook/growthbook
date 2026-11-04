@@ -76,6 +76,7 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/interleavings",
         path: /^interleavings?($|\/)/,
         filter: ({ gb }) => isInterleavingEnabled(gb),
+        beta: true,
       },
       {
         name: "Holdouts",
