@@ -2699,6 +2699,11 @@ describe("cluster experiment ratio analysis - bigquery", () => {
       /FROM __clusterSubUnitRows GROUP BY region_id,\s*variation/,
     );
     expect(normalized).toMatch(/__userMetricJoin.*m\.region_id = d\.region_id/);
+    // The units side carries the cluster id as a string, so the metric side
+    // casts too, or a numeric region_id can't be compared with it.
+    expect(normalized).toMatch(
+      /cast\(max\(e\.region_id\) as string\)[\s\S]*-- Fact Table \(Region Spend Fact Table\) SELECT cast\(region_id as string\) as region_id/,
+    );
 
     // Multi-cluster sub-units (region_id = '__multiple__') are dropped before the
     // region collapse, so they never form a phantom cluster in the analysis.

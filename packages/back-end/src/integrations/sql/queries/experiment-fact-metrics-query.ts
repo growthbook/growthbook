@@ -767,6 +767,10 @@ export function getExperimentFactMetricsQuery(
           addFiltersToWhere: true,
           phase: settings.phase,
           customFields: settings.customFields,
+          // The units query outputs the cluster id as a string (it shares a
+          // column with the multiple-cluster sentinel), so cluster-level
+          // metrics cast theirs to match.
+          castIdToString: isClusterLevelQuery,
         })}
       )
       , ${userMetricJoinTable} as (
