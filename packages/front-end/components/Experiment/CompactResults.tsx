@@ -389,12 +389,16 @@ const CompactResults: FC<{
                   : undefined
               }
             />
-            <ClusterReliabilityWarning
-              snapshot={snapshot}
-              variations={variations}
-            />
           </Flex>
         </>
+      )}
+      {/* The unhealthy banner doesn't cover cluster reliability, so this stays
+          when the warnings above give way to it. */}
+      {!mainTableOnly && (
+        <ClusterReliabilityWarning
+          snapshot={snapshot}
+          variations={variations}
+        />
       )}
 
       {expandedGoals.length ? (

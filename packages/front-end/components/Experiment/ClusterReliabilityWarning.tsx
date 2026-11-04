@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Flex } from "@radix-ui/themes";
 import { getClusterReliabilityHealthData } from "shared/health";
 import {
   DEFAULT_MAX_CLUSTER_SHARE,
@@ -53,7 +54,7 @@ export default function ClusterReliabilityWarning({
   const { tooFewClusters, oversizedCluster } = health;
 
   return (
-    <>
+    <Flex direction="column" gap="2" mx="3" mt="2">
       {tooFewClusters ? (
         <Callout status="warning">
           <strong>Cluster Reliability Warning</strong>.{" "}
@@ -77,6 +78,6 @@ export default function ClusterReliabilityWarning({
           {cluster} can drive most of the result.
         </Callout>
       ) : null}
-    </>
+    </Flex>
   );
 }
