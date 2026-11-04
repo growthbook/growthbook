@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { getExposureQueryIdentifierTypes } from "shared/util";
+import { expandMetricGroups } from "shared/experiments";
 import { getValidDate } from "shared/dates";
 import {
   getUnsetAnalysisSettings,
@@ -16,6 +17,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import { ExperimentAnalysisSettingsDraft } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getOverriddenMetricIds } from "@/services/metricOverrides";
+import { useDecisionFrameworkApplies } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -38,6 +40,7 @@ import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
+import { POST_STRATIFICATION_CLUSTER_MESSAGE } from "@/components/Experiment/AssignmentQueryFields";
 import SetupFieldRow from "./SetupFieldRow";
 import { QuickEditRow } from "./QuickEditButton";
 import { useExperimentEdits } from "./ExperimentEdits";
@@ -171,6 +174,7 @@ export default function AnalysisPlanAdvanced({
   metrics,
   stage,
   manageOverrides,
+  manageOverridesBlockedReason = null,
   canEdit,
 }: {
   open: boolean;
@@ -188,12 +192,15 @@ export default function AnalysisPlanAdvanced({
   stage: (changes: ExperimentAnalysisSettingsDraft) => void;
   /** Opens the overrides editor on every metric; omitted where it can't open. */
   manageOverrides?: () => void;
+  /** Why the override editor couldn't change anything here. */
+  manageOverridesBlockedReason?: string | null;
   canEdit: boolean;
 }) {
   const {
     getDatasourceById,
     getProjectById,
     getExperimentMetricById,
+    metricGroups,
     segments,
     dimensions,
   } = useDefinitions();
@@ -313,10 +320,16 @@ export default function AnalysisPlanAdvanced({
       metrics.guardrailMetrics.length >
     0;
   const disabled = !canEdit;
+  // Only current goals' target MDEs count, since only goals can edit them.
+  const goalIds = useDecisionFrameworkApplies(experiment)
+    ? expandMetricGroups(metrics.goalMetrics, metricGroups)
+    : [];
   const overriddenNames = [
     ...getOverriddenMetricIds(
       experiment.metricOverrides,
-      experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides,
+      experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.filter(
+        (o) => goalIds.includes(o.id),
+      ),
     ),
   ].map((id) => getExperimentMetricById(id)?.name ?? id);
 
@@ -340,7 +353,7 @@ export default function AnalysisPlanAdvanced({
             </Box>
           </SetupFieldRow>
           <SetupFieldRow label="Variance reduction" content="text">
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="2" align="start">
               <Checkbox
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">
@@ -357,25 +370,41 @@ export default function AnalysisPlanAdvanced({
               {!orgSettings.disablePrecomputedDimensions ? (
                 <Checkbox
                   label={
-                    <PremiumTooltip commercialFeature="post-stratification">
-                      Post-stratification
-                    </PremiumTooltip>
+                    // Upgrading wouldn't enable it, so only the cluster reason shows.
+                    experiment.isClusterExperiment ? (
+                      "Post-stratification"
+                    ) : (
+                      <PremiumTooltip commercialFeature="post-stratification">
+                        Post-stratification
+                      </PremiumTooltip>
+                    )
                   }
                   weight="regular"
                   value={
-                    hasPostStratification && !!settled.postStratificationEnabled
+                    hasPostStratification &&
+                    !experiment.isClusterExperiment &&
+                    !!settled.postStratificationEnabled
                   }
                   setValue={(value) =>
                     stage({ postStratificationEnabled: value })
                   }
-                  disabled={disabled || !hasPostStratification}
+                  disabled={
+                    disabled ||
+                    !hasPostStratification ||
+                    !!experiment.isClusterExperiment
+                  }
+                  disabledMessage={
+                    experiment.isClusterExperiment
+                      ? POST_STRATIFICATION_CLUSTER_MESSAGE
+                      : undefined
+                  }
                 />
               ) : null}
             </Flex>
           </SetupFieldRow>
           {settled.statsEngine === "frequentist" ? (
             <SetupFieldRow label="Corrections" content="text">
-              <Flex direction="column" gap="2">
+              <Flex direction="column" gap="2" align="start">
                 <Checkbox
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">
@@ -449,6 +478,7 @@ export default function AnalysisPlanAdvanced({
               onChange={(metric) => stage({ activationMetric: metric })}
               disabled={disabled}
               incrementalRefresh={incrementalRefresh}
+              isClusterExperiment={!!experiment.isClusterExperiment}
             />
             {properties?.experimentSegments && datasourceSegments.length > 0 ? (
               <SetupFieldRow
@@ -567,6 +597,7 @@ export default function AnalysisPlanAdvanced({
                 <QuickEditRow
                   label="Edit metric overrides"
                   onEdit={manageOverrides}
+                  blockedReason={manageOverridesBlockedReason}
                 >
                   <Text
                     color={overriddenNames.length ? "text-high" : "text-mid"}

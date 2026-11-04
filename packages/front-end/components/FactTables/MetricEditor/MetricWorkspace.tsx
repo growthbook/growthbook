@@ -194,6 +194,8 @@ export default function MetricWorkspace({
   }, [error]);
   const existingId = existing?.id;
   const existingType = existing?.metricType;
+  // The page still emits the "... Fact Metric Modal" events because analytics
+  // depends on those event names.
   useEffect(() => {
     if (!isEditing) return;
     if (existingId) {

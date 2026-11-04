@@ -90,6 +90,7 @@ export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
+export const MAX_CLUSTER_SUBUNIT_DIMENSIONS = MAX_PRECOMPUTED_UNIT_DIMENSIONS;
 
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
@@ -124,6 +125,9 @@ export const USAGE_INTENTS = {
 // Health
 export const DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD = 10;
 export const DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD = 0.01;
+export const DEFAULT_CLUSTER_ISSUE_THRESHOLD = 0.01;
+export const DEFAULT_MIN_CLUSTERS_PER_VARIATION = 20;
+export const DEFAULT_MAX_CLUSTER_SHARE = 0.2;
 
 export const DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION = 8;
 export const DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION = 5;
@@ -362,7 +366,13 @@ export const entityEvents = {
   learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
   interleaving: ["create", "update", "delete", "start", "stop"],
-  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
+  eventForwarderConfig: [
+    "create",
+    "update",
+    "delete",
+    "teardownFailure",
+    "migrate",
+  ],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

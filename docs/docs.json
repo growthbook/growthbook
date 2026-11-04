@@ -76,7 +76,14 @@
                     "pages": [
                       "features/rules",
                       "features/targeting",
-                      "features/remote-saved-groups",
+                      {
+                        "group": "Remote Groups",
+                        "root": "features/remote-saved-groups",
+                        "pages": [
+                          "features/remote-saved-groups-proxy",
+                          "features/remote-saved-groups-custom"
+                        ]
+                      },
                       "features/safe-rollouts",
                       "features/ramp-schedules",
                       "features/prerequisites",
@@ -243,6 +250,15 @@
                       "bandits/contextual-via-api"
                     ]
                   },
+                  {
+                    "group": "Interleaving",
+                    "tag": "BETA",
+                    "pages": [
+                      "experimentation-analysis/interleaving",
+                      "experimentation-analysis/interleaving/setup",
+                      "experimentation-analysis/interleaving/results"
+                    ]
+                  },
                   "app/holdouts"
                 ]
               },
@@ -303,7 +319,11 @@
                   {
                     "group": "Slack",
                     "root": "integrations/slack",
-                    "pages": ["integrations/slack/legacy-webhooks"]
+                    "pages": [
+                      "integrations/slack/ai-assistant",
+                      "integrations/slack/self-hosted",
+                      "integrations/slack/legacy-webhooks"
+                    ]
                   },
                   "integrations/discord",
                   "integrations/datadog",
@@ -1052,14 +1072,30 @@
                 ]
               },
               {
+                "group": "Interleaving Exposure Queries",
+                "pages": [
+                  "api/InterleavingExposureQueries/operation/getInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/updateInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/deleteInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/listInterleavingExposureQueries",
+                  "api/InterleavingExposureQueries/operation/createInterleavingExposureQuery"
+                ]
+              },
+              {
                 "group": "Interleaving Experiments",
                 "pages": [
                   "api/Interleavings/operation/getInterleaving",
                   "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/deleteInterleaving",
                   "api/Interleavings/operation/listInterleavings",
                   "api/Interleavings/operation/createInterleaving",
                   "api/Interleavings/operation/startInterleaving",
-                  "api/Interleavings/operation/stopInterleaving"
+                  "api/Interleavings/operation/stopInterleaving",
+                  "api/Interleavings/operation/refreshInterleaving",
+                  "api/Interleavings/operation/getInterleavingResults",
+                  "api/Interleavings/operation/getInterleavingStatus",
+                  "api/Interleavings/operation/listInterleavingSnapshots",
+                  "api/Interleavings/operation/getInterleavingSnapshot"
                 ]
               },
               {
@@ -1252,6 +1288,9 @@
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
               "api/Interleaving_model",
+              "api/InterleavingExposureQuery_model",
+              "api/InterleavingSnapshot_model",
+              "api/InterleavingSnapshotStatus_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",

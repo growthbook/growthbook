@@ -21,6 +21,7 @@ import {
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ago } from "shared/dates";
 import { DetectedColumn } from "shared/types/fact-table";
+import { TemplateVariables } from "shared/types/sql";
 import {
   isManagedWarehouseUnavailable,
   parseIntWithDefault,
@@ -294,6 +295,7 @@ export default function SourceStep({
   placeholder,
   datasourceHeader,
   tableHint,
+  templateVariables,
 }: {
   source: SourceTable;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
@@ -302,6 +304,8 @@ export default function SourceStep({
   datasourceHeader?: ReactNode;
   // Shown under the picked table's filters
   tableHint?: ReactNode;
+  // Fills variables like {{eventName}} when testing SQL
+  templateVariables?: TemplateVariables;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
@@ -367,6 +371,7 @@ export default function SourceStep({
             limit,
             detectColumns: true,
             queryType,
+            templateVariables,
           }),
         });
         const results = { ...res, error: res.error || "" };
@@ -385,7 +390,14 @@ export default function SourceStep({
         setTestingQuery(false);
       }
     },
-    [apiCall, datasourceId, sql, onColumnsDetected, queryType],
+    [
+      apiCall,
+      datasourceId,
+      sql,
+      onColumnsDetected,
+      queryType,
+      templateVariables,
+    ],
   );
 
   useEffect(() => {

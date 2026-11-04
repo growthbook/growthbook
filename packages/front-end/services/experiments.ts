@@ -1,4 +1,7 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotMetric,
+} from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentReportVariation,
@@ -26,7 +29,7 @@ import {
   pValueFormatter,
 } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
-import { isNil, omit } from "lodash";
+import { isNil, omit, startCase } from "lodash";
 import {
   FactTableDefinition,
   FactTableColumnType,
@@ -34,6 +37,7 @@ import {
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
   getEqualWeights,
   getFunnelStepMetric,
   getLatestPhaseVariations,
@@ -44,6 +48,7 @@ import {
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
+  isSubUnitClusterMetric,
   isSuspiciousUplift,
   quantileMetricType,
   expandMetricGroups,
@@ -53,6 +58,7 @@ import {
   parseFunnelStepMetricId,
   parseSliceMetricId,
   parseSliceQueryString,
+  SampleSizeSource,
   SliceDataForMetric,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -264,6 +270,7 @@ export function useDomain(
   // rather than inferring a finite extent from it, so the domain is "0 +
   // padding around the real bound" instead of "[ci, ci]".
   oneSided = false,
+  sampleSizeFrom?: SampleSizeSource,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -306,7 +313,15 @@ export function useDomain(
       // Skip if missing or bad data
       const stats = row.variations[v.index];
       if (!stats) return;
-      if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
+      if (
+        !hasEnoughData(
+          baseline,
+          stats,
+          row.metric,
+          metricDefaults,
+          sampleSizeFrom,
+        )
+      ) {
         return;
       }
       if (
@@ -730,6 +745,8 @@ export function getRowResults({
   phaseStartDate,
   isLatestPhase,
   experimentStatus,
+  sampleSizeFrom,
+  clusterSettings,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -746,6 +763,11 @@ export function getRowResults({
   phaseStartDate: Date;
   isLatestPhase: boolean;
   experimentStatus?: ExperimentStatus;
+  sampleSizeFrom?: SampleSizeSource;
+  clusterSettings?: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -760,20 +782,37 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
+  // Subunit cluster metrics are analyzed as ratios, which can't be scaled.
   const hasScaledImpact =
-    !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
-  const hasData = !!stats?.value && !!baseline?.value;
-  const metricSampleSize = getMetricSampleSize(baseline, stats, metric);
+    !isRatioMetric(metric, denominator) &&
+    !quantileMetricType(metric) &&
+    !(clusterSettings && isSubUnitClusterMetric(metric, clusterSettings));
+  const metricSampleSize = getMetricSampleSize(
+    baseline,
+    stats,
+    metric,
+    sampleSizeFrom,
+  );
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  // Rows sized by denominator also report presence by it: a win count of 0 is a
+  // real result, not missing data.
+  const baselinePresence = sampleSizeFrom ? baselineSampleSize : baseline.value;
+  const variationPresence = sampleSizeFrom ? variationSampleSize : stats.value;
+  const hasData = !!variationPresence && !!baselinePresence;
+  const enoughData = hasEnoughData(
+    baseline,
+    stats,
+    metric,
+    metricDefaults,
+    sampleSizeFrom,
+  );
 
-  const reason: EnoughDataMeta["reason"] =
-    baseline.value === 0
-      ? "baselineZero"
-      : stats.value === 0
-        ? "variationZero"
-        : "notEnoughData";
+  const reason: EnoughDataMeta["reason"] = !baselinePresence
+    ? "baselineZero"
+    : !variationPresence
+      ? "variationZero"
+      : "notEnoughData";
 
   const enoughDataMeta: EnoughDataMeta = (() => {
     switch (reason) {
@@ -869,6 +908,7 @@ export function getRowResults({
     pValueThreshold,
     statsEngine,
     differenceType,
+    sampleSizeFrom,
   });
 
   let significantReason = "";
@@ -1521,4 +1561,104 @@ export function getAvailableSliceTags({
     // Fallback to ID comparison
     return a.id.localeCompare(b.id);
   });
+}
+
+// Converts an identifier type to a display name (e.g. "user_id" -> "User Ids")
+export function getUnitDisplayName(identifierType: string | undefined) {
+  return identifierType ? startCase(identifierType) + "s" : "Units";
+}
+
+/**
+ * Selected metrics a cluster experiment can't analyze. Metrics picked on their
+ * own are dropped on save; part of a group can't be, so groups are named for
+ * the user to remove.
+ */
+export function getIneligibleClusterMetrics(
+  selectedIds: string[],
+  {
+    metricGroups,
+    getExperimentMetricById,
+    ...eligibilityOptions
+  }: Parameters<typeof getClusterExperimentMetricEligibility>[1] & {
+    metricGroups: MetricGroupInterface[];
+    getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  },
+) {
+  const ineligible = {
+    droppedIds: new Set<string>(),
+    droppedNames: [] as string[],
+    groupNames: [] as string[],
+  };
+  const isEligible = (id: string) => {
+    const metric = getExperimentMetricById(id);
+    return (
+      !metric ||
+      getClusterExperimentMetricEligibility(metric, eligibilityOptions).allowed
+    );
+  };
+  new Set(selectedIds).forEach((id) => {
+    const group = metricGroups.find((mg) => mg.id === id);
+    if (group) {
+      if (
+        !getAllMetricIdsFromExperiment(
+          { goalMetrics: [id] },
+          false,
+          metricGroups,
+        ).every(isEligible)
+      ) {
+        ineligible.groupNames.push(group.name);
+      }
+    } else if (!isEligible(id)) {
+      ineligible.droppedIds.add(id);
+      ineligible.droppedNames.push(getExperimentMetricById(id)?.name ?? id);
+    }
+  });
+  return ineligible;
+}
+
+/**
+ * Cluster experiment results count clusters, not subunits, so their unit
+ * counts are labeled with the cluster identifier.
+ */
+export function getClusterUnitsLabel(
+  settings:
+    | Pick<
+        ExperimentSnapshotSettings,
+        | "isClusterExperiment"
+        | "clusterSubUnitIdentifier"
+        | "exposureQueryIdentifierType"
+      >
+    | undefined,
+): string | undefined {
+  if (
+    !settings?.isClusterExperiment ||
+    !settings.clusterSubUnitIdentifier ||
+    !settings.exposureQueryIdentifierType
+  ) {
+    return undefined;
+  }
+  return getUnitDisplayName(settings.exposureQueryIdentifierType);
+}
+
+// Subunit counts only exist for metrics rolled up from the subunit, not for
+// metrics analyzed directly per cluster.
+export function getClusterSubUnitsLabel(
+  settings:
+    | Pick<
+        ExperimentSnapshotSettings,
+        | "isClusterExperiment"
+        | "clusterSubUnitIdentifier"
+        | "exposureQueryIdentifierType"
+        | "clusterLevelMetricIds"
+      >
+    | undefined,
+  metricId: string,
+): string | undefined {
+  if (
+    !getClusterUnitsLabel(settings) ||
+    settings?.clusterLevelMetricIds?.includes(metricId)
+  ) {
+    return undefined;
+  }
+  return getUnitDisplayName(settings?.clusterSubUnitIdentifier);
 }
