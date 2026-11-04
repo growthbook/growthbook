@@ -5,6 +5,7 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiCaretUp,
+  PiDotsSixVertical,
   PiPencilSimple,
   PiPlus,
   PiUserFill,
@@ -22,7 +23,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Field from "@/components/Forms/Field";
@@ -71,6 +77,12 @@ interface Props {
   /** Delete handler lives in the parent so it can keep the per-step
    *  collapse state aligned with the underlying steps array. */
   onDelete: (index: number) => void;
+  /** Inserts a new step at this position (shifting later steps down). */
+  onInsert: (atIndex: number) => void;
+  onMove: (from: number, to: number) => void;
+  canAddStep: boolean;
+  /** dnd-kit listeners/attributes for the drag handle. */
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
   /** Intersection of user id types across all steps; step 1 shows the unit
    *  picker beside Add Filter when non-empty. */
   funnelUnitOptions: string[];
@@ -86,6 +98,10 @@ export default function FunnelStepCard({
   isCollapsed,
   onToggleCollapsed,
   onDelete,
+  onInsert,
+  onMove,
+  canAddStep,
+  dragHandleProps,
   funnelUnitOptions,
   collapsibleTransitionMs = 100,
 }: Props) {
@@ -228,6 +244,13 @@ export default function FunnelStepCard({
           className={styles.titleGroup}
           style={{ minWidth: 0, flex: 1 }}
         >
+          <Box
+            {...dragHandleProps}
+            title="Drag to reorder"
+            style={{ flexShrink: 0, cursor: "grab", display: "flex" }}
+          >
+            <PiDotsSixVertical size={14} color="var(--gray-a9)" />
+          </Box>
           <Box style={{ flexShrink: 0 }}>
             <Text size="sm" color="text-low">
               {index + 1}.
@@ -295,6 +318,36 @@ export default function FunnelStepCard({
           >
             <PiX size={14} />
           </Button>
+          <DropdownMenu
+            menuPlacement="end"
+            trigger={<MoreMenuTrigger label="Step actions" size="sm" />}
+          >
+            <DropdownMenuItem
+              disabled={!canAddStep}
+              onClick={() => onInsert(index)}
+            >
+              Insert step above
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canAddStep}
+              onClick={() => onInsert(index + 1)}
+            >
+              Insert step below
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={index === 0}
+              onClick={() => onMove(index, index - 1)}
+            >
+              Move up
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={index === steps.length - 1}
+              onClick={() => onMove(index, index + 1)}
+            >
+              Move down
+            </DropdownMenuItem>
+          </DropdownMenu>
         </Flex>
       </Flex>
       {isCollapsed && collapsedSubline && (
