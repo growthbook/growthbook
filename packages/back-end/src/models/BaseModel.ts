@@ -1343,9 +1343,9 @@ export abstract class BaseModel<
       );
     }
 
-    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
-
     await this.customValidation(newDoc, doc, options?.writeOptions);
+
+    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
     const writeResult = await this._dangerousGetCollection().updateOne(
       {

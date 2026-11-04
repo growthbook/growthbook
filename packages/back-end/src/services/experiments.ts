@@ -80,6 +80,7 @@ import {
   getLatestPhaseVariations,
   getPhaseVariations,
   areVariationWeightsValid,
+  isContextualBanditMeasurementArm,
   scheduleWriteNeedsRunPermission,
   sdkConnectionServesProject,
   withScheduledBy,
@@ -208,6 +209,7 @@ import {
   EXPERIMENT_REFRESH_FREQUENCY,
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/managedExperimentGuards";
 import { logger } from "back-end/src/util/logger";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
@@ -261,6 +263,7 @@ import {
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   InvalidTrackingKeyError,
+  UnrecoverableSnapshotError,
 } from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import { isoOrNull } from "back-end/src/services/experimentChanges/loadedBase";
@@ -667,6 +670,15 @@ export function getSnapshotSettings({
     throw new Error("Invalid snapshot phase");
   }
 
+  if (
+    isContextualBanditMeasurementArm(experiment) &&
+    !experiment.contextualBanditId
+  ) {
+    throw new UnrecoverableSnapshotError(
+      `Measurement arm "${experiment.id}" is not linked to a Contextual Bandit, so there is no assignment data to analyze. Re-create the measurement arm from its Bandit.`,
+    );
+  }
+
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
     proper: false,
@@ -950,6 +962,9 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
+    contextualBanditId: isContextualBanditMeasurementArm(experiment)
+      ? experiment.contextualBanditId
+      : undefined,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -2672,9 +2687,10 @@ export function assertVisualChangesEditable(
   context: ReqContext | ApiReqContext,
   experiment: Pick<
     ExperimentInterface,
-    "archived" | "status" | "nextScheduledStatusUpdate" | "project"
+    "archived" | "status" | "nextScheduledStatusUpdate" | "project" | "type"
   >,
 ): void {
+  assertNotMeasurementArmExperiment(experiment, "edit visual changes");
   if (experiment.archived) {
     throw new BadRequestError(
       "Unarchive the experiment to change its AI Visual Editor changes.",
@@ -3464,6 +3480,10 @@ export async function toExperimentApiInterface(
     trackingKey: experiment.trackingKey,
     name: experiment.name || "",
     type: experimentType,
+    ...(isContextualBanditMeasurementArm(experiment) &&
+    experiment.contextualBanditId
+      ? { contextualBanditId: experiment.contextualBanditId }
+      : {}),
     project: experiment.project || "",
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",

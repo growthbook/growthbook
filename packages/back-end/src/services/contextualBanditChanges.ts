@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import uniqBy from "lodash/uniqBy";
 import { ContextualBanditInterface } from "shared/validators";
+import { getActiveMeasurementArm } from "shared/experiments";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -44,6 +45,14 @@ export function contextualBanditUpdateAffectsPayload(
   updated: ContextualBanditInterface,
 ): boolean {
   if (existing.status === "draft" && updated.status === "draft") return false;
+  if (
+    !isEqual(
+      getActiveMeasurementArm(existing),
+      getActiveMeasurementArm(updated),
+    )
+  ) {
+    return true;
+  }
   return SDK_PAYLOAD_FIELDS.some(
     (field) => field in updates && !isEqual(existing[field], updated[field]),
   );

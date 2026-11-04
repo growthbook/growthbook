@@ -31,11 +31,16 @@ const running = {
   organization: ORG_ID,
   datasource: "ds_1",
   status: "running",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
   autoSnapshots: true,
+  goalMetrics: [],
+  secondaryMetrics: [],
+  guardrailMetrics: [],
   phases: [{ dateStarted: new Date(), variationWeights: [0.5, 0.5] }],
   variations: [
-    { id: "v0", key: "0", name: "Control" },
-    { id: "v1", key: "1", name: "Treatment" },
+    { id: "v0", key: "0", name: "Control", description: "", screenshots: [] },
+    { id: "v1", key: "1", name: "Treatment", description: "", screenshots: [] },
   ],
 };
 
@@ -127,6 +132,83 @@ describe("scheduled experiment updates", () => {
 
     await updateSingleExperiment(jobFor("exp_disabled"));
     expect(getDataSourceById).not.toHaveBeenCalled();
+  });
+
+  it("runs a measurement arm whether or not the org schedule enabled it", async () => {
+    await experiments().insertMany([
+      {
+        ...running,
+        id: "exp_arm",
+        type: "contextualBanditMeasurementArm",
+        autoSnapshots: false,
+        nextSnapshotAttempt: new Date(),
+      },
+      {
+        ...running,
+        id: "exp_plain",
+        autoSnapshots: false,
+        nextSnapshotAttempt: new Date(),
+      },
+    ]);
+
+    await updateSingleExperiment(jobFor("exp_plain"));
+    expect(getDataSourceById).not.toHaveBeenCalled();
+
+    await updateSingleExperiment(jobFor("exp_arm"));
+    expect(getDataSourceById).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips an archived measurement arm", async () => {
+    await experiments().insertMany([
+      {
+        ...running,
+        id: "exp_arm_archived",
+        type: "contextualBanditMeasurementArm",
+        autoSnapshots: false,
+        archived: true,
+        nextSnapshotAttempt: new Date(),
+      },
+      {
+        ...running,
+        id: "exp_arm_disabled",
+        type: "contextualBanditMeasurementArm",
+        autoSnapshots: false,
+        disableAutoSnapshots: true,
+        nextSnapshotAttempt: new Date(),
+      },
+    ]);
+
+    await updateSingleExperiment(jobFor("exp_arm_archived"));
+    await updateSingleExperiment(jobFor("exp_arm_disabled"));
+    expect(getDataSourceById).not.toHaveBeenCalled();
+  });
+
+  it("keeps a measurement arm refreshing when the org schedule is never", async () => {
+    const organizations = mongoose.connection.collection("organizations");
+    await organizations.updateOne(
+      { id: ORG_ID },
+      { $set: { "settings.updateSchedule": { type: "never" } } },
+    );
+    try {
+      await experiments().insertMany([
+        { ...running, id: "exp_arm", type: "contextualBanditMeasurementArm" },
+        { ...running, id: "exp_plain" },
+      ]);
+
+      await updateSingleExperiment(jobFor("exp_plain"));
+      expect(
+        (await experiments().findOne({ id: "exp_plain" }))?.autoSnapshots,
+      ).toBe(false);
+      expect(getDataSourceById).not.toHaveBeenCalled();
+
+      await updateSingleExperiment(jobFor("exp_arm"));
+      expect(getDataSourceById).toHaveBeenCalledTimes(1);
+    } finally {
+      await organizations.updateOne(
+        { id: ORG_ID },
+        { $unset: { "settings.updateSchedule": "" } },
+      );
+    }
   });
 
   it("skips when the latest snapshot already covers the lagged cutoff", async () => {

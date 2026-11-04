@@ -68,6 +68,39 @@ export function useContextualBandit(cbId: string | undefined) {
   };
 }
 
+const MEASUREMENT_ARM_REFRESH_WAIT_MS = 10 * 60 * 1000;
+
+export function useContextualBanditMeasurementArm(
+  cbId: string | undefined,
+  { expectRefreshAfter }: { expectRefreshAfter?: string } = {},
+) {
+  const { data, error, mutate } = useRestApi(
+    contextualBanditEndpoints.getContextualBanditMeasurementArm,
+    cbId ? { params: { id: cbId } } : null,
+    {
+      refreshInterval: (d) => {
+        const latest = d?.measurementArm?.latestSnapshot ?? null;
+        if (latest?.status === "running") return 5000;
+        if (!expectRefreshAfter) return 0;
+        const expectedAt = new Date(expectRefreshAfter).getTime();
+        const armBehind =
+          latest === null ||
+          new Date(latest.dateCreated).getTime() < expectedAt;
+        return armBehind &&
+          Date.now() - expectedAt < MEASUREMENT_ARM_REFRESH_WAIT_MS
+          ? 10000
+          : 0;
+      },
+    },
+  );
+  return {
+    loading: !!cbId && !error && !data,
+    measurementArm: data?.measurementArm ?? null,
+    error,
+    mutate,
+  };
+}
+
 /** Fetches the features linked to a CB (enriched `LinkedFeatureInfo[]`) for the Linked Features section. */
 export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
   const { data, error, mutate } = useRestApi(

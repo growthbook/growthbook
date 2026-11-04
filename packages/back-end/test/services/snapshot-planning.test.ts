@@ -296,6 +296,47 @@ function settingsHashForPhase({
   );
 }
 
+describe("getSnapshotSettings measurement arm guard", () => {
+  const baseArgs = (experiment: ExperimentInterface) => ({
+    experiment,
+    phaseIndex: 0,
+    snapshotType: "standard" as const,
+    dimension: null,
+    regressionAdjustmentEnabled: false,
+    orgPriorSettings: undefined,
+    orgDisabledPrecomputedDimensions: true,
+    settingsForSnapshotMetrics: [],
+    metricMap: new Map<string, ExperimentMetricInterface>(),
+    factTableMap: new Map() as FactTableMap,
+    metricGroups: [],
+    incrementalRefreshModel: null,
+  });
+
+  it("refuses a measurement arm that is not linked to a Bandit", () => {
+    const experiment = makeExperiment({
+      type: "contextualBanditMeasurementArm",
+    });
+    expect(() => getSnapshotSettings(baseArgs(experiment))).toThrow(
+      /not linked to a Contextual Bandit/,
+    );
+  });
+
+  it("allows a linked measurement arm", () => {
+    const experiment = makeExperiment({
+      type: "contextualBanditMeasurementArm",
+      contextualBanditId: "cb_123",
+    });
+    const settings = getSnapshotSettings(baseArgs(experiment));
+    expect(settings.contextualBanditId).toBe("cb_123");
+  });
+
+  it("leaves other experiment types alone", () => {
+    expect(() =>
+      getSnapshotSettings(baseArgs(makeExperiment({ type: "standard" }))),
+    ).not.toThrow();
+  });
+});
+
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
 ): ExperimentSnapshotAnalysisSettings {

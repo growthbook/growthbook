@@ -2,14 +2,12 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";
-import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
   conditionFromLeafClauses,
   getMetricLink,
   isActiveVariation,
-  isDeactivatedVariation,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
@@ -22,7 +20,6 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
 import VariationNumber from "@/ui/VariationNumber";
-import OutdatedBadge from "@/components/OutdatedBadge";
 import Tooltip from "@/ui/Tooltip";
 import SegmentedControl from "@/ui/SegmentedControl";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -35,11 +32,6 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
 import ContextualBanditOverviewTable from "@/components/ContextualBandit/ContextualBanditOverviewTable";
-import QueriesLastRun from "@/components/Queries/QueriesLastRun";
-import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
-import RunQueriesButton, {
-  getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 
 const numberFormatter = Intl.NumberFormat();
@@ -155,7 +147,6 @@ export default function ContextualBanditResultsTable({
   mutate: () => void;
 }) {
   const [mode, setMode] = useState<ComparisonMode>("weights");
-  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const {
     getDatasourceById,
     getExperimentMetricById,
@@ -172,7 +163,6 @@ export default function ContextualBanditResultsTable({
     results,
     latest,
     refresh,
-    cancel,
     refreshError,
     statusError,
     mutate: refetchSnapshot,
@@ -212,10 +202,6 @@ export default function ContextualBanditResultsTable({
   };
 
   const queryLatest = latest;
-  const { status } = getQueryStatus(
-    queryLatest?.queries || [],
-    queryLatest?.error,
-  );
 
   const allExpandedMetrics = useMemo(() => {
     const ids = cb.decisionMetric ? [cb.decisionMetric] : [];
@@ -283,15 +269,6 @@ export default function ContextualBanditResultsTable({
     ],
     [overallVariations, cb.variations, pendingActiveVariations],
   );
-  const isOutdated = useMemo(
-    () =>
-      pendingActiveVariations.length > 0 ||
-      overallVariations.some((v) => {
-        const current = cb.variations.find((c) => c.id === v.variationId);
-        return !current || isDeactivatedVariation(current);
-      }),
-    [overallVariations, cb.variations, pendingActiveVariations],
-  );
   const numVariations = variations.length;
   const overallVariationWeights = useMemo(
     () => [
@@ -319,9 +296,6 @@ export default function ContextualBanditResultsTable({
     () => leaves.reduce((sum, leaf) => sum + leafTotalSampleSize(leaf), 0),
     [leaves],
   );
-
-  const showQueries =
-    !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
   const isExploring = cb.stage === "explore";
   const isSnapshotRunning = latest?.status === "running";
@@ -392,56 +366,6 @@ export default function ContextualBanditResultsTable({
           label={unitDisplayName}
           value={numberFormatter.format(totalUnits)}
           style={{ whiteSpace: "nowrap" }}
-        />
-      ) : null}
-      <QueriesLastRun
-        status={status}
-        dateCreated={
-          queryLatest ? getValidDate(queryLatest.dateCreated) : undefined
-        }
-        latestQueryDate={
-          queryLatest ? getValidDate(queryLatest.dateCreated) : undefined
-        }
-        nextUpdate={
-          cb.nextSnapshotAttempt
-            ? getValidDate(cb.nextSnapshotAttempt)
-            : undefined
-        }
-        autoUpdateEnabled={cb.status === "running" && !!cb.autoSnapshots}
-        showAutoUpdateWidget={true}
-        failedString={
-          queryLatest && !queryLatest.queries.length && queryLatest.error
-            ? `Snapshot update failed: ${queryLatest.error}`
-            : undefined
-        }
-        queries={
-          showQueries ? queryLatest.queries.map((q) => q.query) : undefined
-        }
-        onViewQueries={
-          showQueries ? () => setQueriesModalOpen(true) : undefined
-        }
-      />
-      {isOutdated && hasTableData ? (
-        <OutdatedBadge
-          reasons={[
-            "The Contextual Bandit's variations have changed since the last results were computed. Update results to reflect the current variation set.",
-          ]}
-        />
-      ) : null}
-      {canRunQueries ? (
-        <RunQueriesButton
-          cta="Update results"
-          icon="refresh"
-          model={{
-            queries: queryLatest?.queries ?? [],
-            runStarted: queryLatest?.runStarted ?? null,
-          }}
-          onCancel={cancel}
-          mutate={mutate}
-          onSubmit={async () => {
-            await refresh();
-            mutate();
-          }}
         />
       ) : null}
       <ResultMoreMenu
@@ -573,15 +497,6 @@ export default function ContextualBanditResultsTable({
           />
         </>
       ) : null}
-
-      {queriesModalOpen && showQueries && (
-        <AsyncQueriesModal
-          close={() => setQueriesModalOpen(false)}
-          queries={queryLatest.queries.map((q) => q.query)}
-          savedQueries={[]}
-          error={queryLatest.error}
-        />
-      )}
     </Box>
   );
 }

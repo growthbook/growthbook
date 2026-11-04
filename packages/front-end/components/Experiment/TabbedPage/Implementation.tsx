@@ -25,6 +25,7 @@ import {
   getActivePhaseIndex,
   getLatestPhaseVariations,
   getStorableVariations,
+  isContextualBanditMeasurementArm,
 } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
@@ -330,7 +331,10 @@ export default function Implementation({
       : null;
   const stagesLinkedChanges = !disableEditing;
   const canAddAny =
-    hasVisualEditorPermission && unscheduledDraft && stagesLinkedChanges;
+    hasVisualEditorPermission &&
+    unscheduledDraft &&
+    stagesLinkedChanges &&
+    !isContextualBanditMeasurementArm(experiment);
 
   const hasLinkedChanges =
     experiment.hasVisualChangesets ||
@@ -430,6 +434,7 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const safeToEdit = canEditDeliveryInPlace(experiment);
@@ -518,7 +523,7 @@ export default function Implementation({
         <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation
         </Heading>
-        {!isHoldout ? (
+        {!isHoldout && !isMeasurementArm ? (
           <>
             <TrafficAllocationFunnel
               holdoutDraft={holdoutDraft}
@@ -572,14 +577,14 @@ export default function Implementation({
               />
             </Box>
           </>
-        ) : (
+        ) : isHoldout ? (
           <HoldoutTrafficAndTargeting
             experiment={experiment}
             editTraffic={pendingScheduledStart ? null : editTraffic}
             editTargeting={pendingScheduledStart ? null : editTargeting}
             phaseIndex={getActivePhaseIndex(experiment)}
           />
-        )}
+        ) : null}
         {isHoldout && holdout ? (
           <HoldoutEnvironments
             editEnvironments={() => setShowEditEnvironmentsModal(true)}
@@ -697,7 +702,8 @@ export default function Implementation({
         {(experiment.status !== "draft" ||
           !!experiment.nextScheduledStatusUpdate) &&
         !hasLinkedChanges &&
-        !isHoldout ? (
+        !isHoldout &&
+        !isMeasurementArm ? (
           <Callout status="info" mb="4">
             This experiment has no linked GrowthBook implementation (linked
             feature flag, AI Visual Editor changes, or URL redirect).{" "}
@@ -706,9 +712,9 @@ export default function Implementation({
               : "The implementation, traffic, and targeting may be managed by an external system."}
           </Callout>
         ) : null}
-        {/* Bandits and holdouts analyse by a decision metric and a schedule,
-            not this plan. */}
-        {!isHoldout && !isBandit ? (
+        {/* Bandits, holdouts, and measurement arms analyse by a decision
+            metric and a schedule, not this plan. */}
+        {!isHoldout && !isBandit && !isMeasurementArm ? (
           <AnalysisPlan
             experiment={experiment}
             datasourceMissing={datasourceMissing}
@@ -727,7 +733,7 @@ export default function Implementation({
             experiment={experiment}
             mutate={mutate}
             envs={envs}
-            canEdit={canEditSettings}
+            canEdit={isMeasurementArm ? canEditExperiment : canEditSettings}
             holdoutProjects={holdout?.projects}
             settingsOpen={analysisSettingsOpen}
             setSettingsOpen={setAnalysisSettingsOpen}

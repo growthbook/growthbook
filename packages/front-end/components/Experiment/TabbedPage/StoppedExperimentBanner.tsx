@@ -3,7 +3,11 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiClock, PiPencilSimple } from "react-icons/pi";
 import { date } from "shared/dates";
-import { getAllVariations } from "shared/experiments";
+import {
+  getAllVariations,
+  isContextualBanditMeasurementArm,
+  isManagedExperiment,
+} from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -45,6 +49,7 @@ export default function StoppedExperimentBanner({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const isManaged = isManagedExperiment(experiment);
 
   if (experiment.status !== "stopped") return null;
 
@@ -64,13 +69,15 @@ export default function StoppedExperimentBanner({
     />
   );
 
-  const temporaryRollout = hasLiveLinkedChanges && !isHoldout;
-  const winner = !isHoldout && !!variations[winningIndex];
+  const temporaryRollout = hasLiveLinkedChanges && !isManaged;
+  const winner = !isManaged && !!variations[winningIndex];
   const headline = isHoldout
     ? "Holdout stopped"
-    : result === "inconclusive" || result === "dnf"
-      ? RESULT_LABELS[result]
-      : "Experiment stopped";
+    : isContextualBanditMeasurementArm(experiment)
+      ? "Measurement arm stopped"
+      : result === "inconclusive" || result === "dnf"
+        ? RESULT_LABELS[result]
+        : "Experiment stopped";
   const dateEnded = experiment.phases.at(-1)?.dateEnded;
   const stoppedOn = dateEnded ? date(dateEnded) : null;
   const analysis = experiment.analysis;
@@ -120,7 +127,7 @@ export default function StoppedExperimentBanner({
             </>
           }
           hoverAction={
-            editResult && !isHoldout ? (
+            editResult && !isManaged ? (
               <Button
                 variant="ghost"
                 size="sm"

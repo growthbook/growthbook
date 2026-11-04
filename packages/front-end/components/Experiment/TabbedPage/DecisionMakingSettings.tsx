@@ -5,6 +5,7 @@ import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   isFactMetric,
+  isManagedExperiment,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -46,7 +47,7 @@ export function useDecisionFrameworkApplies(
     !!organization?.settings?.decisionFrameworkEnabled &&
     hasCommercialFeature("decision-framework") &&
     experiment.type !== "multi-armed-bandit" &&
-    experiment.type !== "holdout"
+    !isManagedExperiment(experiment)
   );
 }
 

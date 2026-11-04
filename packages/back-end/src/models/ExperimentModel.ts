@@ -10,6 +10,9 @@ import {
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
+  isContextualBanditMeasurementArm,
+  isManagedExperiment,
+  MANAGED_EXPERIMENT_TYPES,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -433,6 +436,7 @@ const experimentSchema = new mongoose.Schema({
   },
   dismissedWarnings: [String],
   holdoutId: String,
+  contextualBanditId: String,
   defaultDashboardId: String,
   customMetricSlices: [
     {
@@ -611,8 +615,10 @@ export async function getAllExperiments(
     query.type = { $in: ["standard", null] };
   } else if (type === "holdout") {
     query.type = "holdout";
+  } else if (type === "contextualBanditMeasurementArm") {
+    query.type = "contextualBanditMeasurementArm";
   } else if (!type) {
-    query.type = { $ne: "holdout" };
+    query.type = { $nin: MANAGED_EXPERIMENT_TYPES };
   }
 
   return await findExperiments(context, query, limit, sortBy);
@@ -656,7 +662,7 @@ export async function countActiveExperimentsUsingNamespace(
       {
         organization: context.org.id,
         archived: { $ne: true },
-        type: { $ne: "holdout" },
+        type: { $nin: MANAGED_EXPERIMENT_TYPES },
         "phases.namespace.name": namespaceId,
       },
       {
@@ -734,7 +740,7 @@ export async function getAllExperimentsForStaleGraph(
   if (ids && !ids.length) return [];
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
-    type: { $ne: "holdout" },
+    type: { $nin: MANAGED_EXPERIMENT_TYPES },
   };
   if (!includeArchived) {
     query.archived = { $ne: true };
@@ -941,7 +947,7 @@ export async function createExperiment({
     }),
   );
 
-  if (experimentToCreate.type !== "holdout") {
+  if (!isManagedExperiment(experimentToCreate)) {
     await runValidateExperimentHooks({
       context,
       experiment: experimentToCreate,
@@ -1270,7 +1276,7 @@ export async function* dangerousGetExperimentsForLifecycleReminders(): AsyncGene
       status: "running",
       archived: { $ne: true },
       // Holdouts have their own lifecycle notifications.
-      type: { $ne: "holdout" },
+      type: { $nin: MANAGED_EXPERIMENT_TYPES },
     })
     .project<Pick<ExperimentInterface, "id" | "organization">>({
       id: 1,
@@ -1599,7 +1605,7 @@ export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  if (experiment.type === "holdout") return;
+  if (isManagedExperiment(experiment)) return;
 
   const apiExperiment = await toExperimentEventPayload(context, experiment);
 
@@ -1638,7 +1644,7 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
-  if (current.type === "holdout") return;
+  if (isManagedExperiment(current)) return;
 
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     toExperimentEventPayload(context, previous),
@@ -2225,6 +2231,8 @@ export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
+  if (isContextualBanditMeasurementArm(experiment)) return;
+
   const apiExperiment = await toExperimentEventPayload(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments

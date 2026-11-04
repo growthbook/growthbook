@@ -906,6 +906,40 @@ describe("BaseModel", () => {
     });
   });
 
+  it("runs beforeUpdate only after customValidation passes", async () => {
+    class ValidatingModel extends TestModel {
+      public rejectUpdate = false;
+      protected async customValidation() {
+        if (this.rejectUpdate) throw new Error("invalid");
+      }
+    }
+    const model = new ValidatingModel(defaultContext);
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      readonlyField: "bla",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    model.rejectUpdate = true;
+    await expect(model.update(existing, { name: "gni" })).rejects.toThrow(
+      "invalid",
+    );
+    expect(model.beforeUpdateMock).not.toHaveBeenCalled();
+    expect(updateOneMock).not.toHaveBeenCalled();
+
+    model.rejectUpdate = false;
+    await model.update(existing, { name: "gni" });
+    expect(model.beforeUpdateMock).toHaveBeenCalledTimes(1);
+    expect(updateOneMock).toHaveBeenCalledTimes(1);
+  });
+
   it("translates explicitly-undefined update fields to $unset", async () => {
     const model = new TestModel(defaultContext);
 

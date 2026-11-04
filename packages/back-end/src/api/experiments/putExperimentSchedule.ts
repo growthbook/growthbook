@@ -13,12 +13,16 @@ import {
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 export const putExperimentSchedule = createApiRequestHandler(
   putExperimentScheduleValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(req.context, req.params.id);
+  const experiment = await requireEditableExperiment(
+    req.context,
+    req.params.id,
+    "schedule via this API",
+  );
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }

@@ -2,6 +2,7 @@ import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
 import {
   expandMetricGroups,
   getLatestPhaseVariations,
+  isContextualBanditMeasurementArm,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
@@ -581,6 +582,9 @@ export function getExperimentResultStatus({
   const healthSummary = experimentData.analysisSummary?.health;
   const resultsStatus = experimentData.analysisSummary?.resultsStatus;
   const type = experimentData.type === "holdout" ? "holdout" : "experiment";
+  const decisionFrameworkApplies =
+    healthSettings.decisionFrameworkEnabled &&
+    !isContextualBanditMeasurementArm(experimentData);
   const lastPhase = experimentData.phases[experimentData.phases.length - 1];
   const beforeMinDuration =
     lastPhase?.dateStarted &&
@@ -672,7 +676,7 @@ export function getExperimentResultStatus({
 
     if (
       isLowPowered &&
-      healthSettings.decisionFrameworkEnabled &&
+      decisionFrameworkApplies &&
       // override low powered status if shipping criteria are ready
       // or before min duration
       !decisionStatus &&
@@ -740,7 +744,7 @@ export function getExperimentResultStatus({
   }
 
   // 4. If the Decision Framework produced a clear recommendation, show it.
-  if (healthSettings.decisionFrameworkEnabled && decisionStatus) {
+  if (decisionFrameworkApplies && decisionStatus) {
     return decisionStatus;
   }
 
@@ -773,7 +777,7 @@ export function getExperimentResultStatus({
   }
 
   // 7. Otherwise fall back to the power-based days-left estimate.
-  if (healthSettings.decisionFrameworkEnabled && daysLeftStatus) {
+  if (decisionFrameworkApplies && daysLeftStatus) {
     return daysLeftStatus;
   }
 }

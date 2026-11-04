@@ -10,6 +10,7 @@ import {
 import {
   ApiCreateContextualBanditBody,
   getEligibleContextualAttributes,
+  DEFAULT_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
@@ -23,6 +24,9 @@ import {
 import { kebabCase } from "lodash";
 import { Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
+import MeasurementArmSizeField, {
+  MeasurementArmSizeValue,
+} from "@/components/ContextualBandit/MeasurementArmSizeField";
 import { useWatching } from "@/services/WatchProvider";
 import { useRestApiCall } from "@/services/restApi";
 import track from "@/services/track";
@@ -70,6 +74,7 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
   > & {
     decisionMetric?: string;
     contextualAttributes?: string[];
+    measurementArm?: MeasurementArmSizeValue;
   };
 
 export type ContextualBanditFormProps = {
@@ -147,6 +152,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   // TODO(holdout-v1.5): wire up holdout configuration UI when back-end is ready.
   const form = useForm<ContextualBanditFormValues>({
     defaultValues: {
+      measurementArm: initialValue?.measurementArm ?? {
+        enabled: true,
+        percent: DEFAULT_MEASUREMENT_ARM_PERCENT,
+      },
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
       ...getNewExperimentDatasourceDefaults({
@@ -430,6 +439,8 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       conversionWindowUnit: banditConversionWindowUnit,
 
       contextualAttributes: submitContextualAttributes,
+
+      measurementArm: data.measurementArm,
     };
 
     const res = await restApiCall(
@@ -574,6 +585,17 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                   setWeight={setVariationWeight}
                   variations={variationsForInput}
                   setVariations={setCombinedVariations}
+                />
+
+                <Separator size="4" my="5" />
+                <MeasurementArmSizeField
+                  value={
+                    form.watch("measurementArm") ?? {
+                      enabled: true,
+                      percent: DEFAULT_MEASUREMENT_ARM_PERCENT,
+                    }
+                  }
+                  onChange={(value) => form.setValue("measurementArm", value)}
                 />
               </>
             )}

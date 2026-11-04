@@ -207,6 +207,9 @@ export interface ExperimentSnapshotSettings {
   datasourceId: string;
   exposureQueryId: string;
   exposureQueryIdentifierType?: string;
+  // Set on a contextual bandit measurement arm: exposures are read through
+  // the bandit's own query instead of a datasource assignment query.
+  contextualBanditId?: string;
   startDate: Date;
   endDate: Date;
   phase?: PhaseSQLVar;

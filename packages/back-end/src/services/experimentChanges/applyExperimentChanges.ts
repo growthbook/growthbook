@@ -64,6 +64,7 @@ import {
   insertNewFeature,
   prepareNewFeature,
 } from "back-end/src/services/featureCreate";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/managedExperimentGuards";
 import {
   ExperimentUpdatePlan,
   finishExperimentUpdate,
@@ -489,6 +490,7 @@ export async function applyExperimentChanges({
   audit: (data: AuditInterfaceInput) => Promise<void>;
   eventAudit: EventUser;
 }): Promise<ExperimentChangesResult> {
+  assertNotMeasurementArmExperiment(experiment, "edit");
   // The page's edits are the experiment's, whatever each also asks of a flag.
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();

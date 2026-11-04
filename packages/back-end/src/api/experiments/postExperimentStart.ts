@@ -25,7 +25,7 @@ import {
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 function formatScheduledStartUtc(date: Date): string {
   const datePart = date.toLocaleString("en-US", {
@@ -48,7 +48,11 @@ export const postExperimentStart = createApiRequestHandler(
 )(async (req) => {
   const context = req.context as ReqContext;
 
-  const existing = await requireExperiment(context, req.params.id);
+  const existing = await requireEditableExperiment(
+    context,
+    req.params.id,
+    "start via this API",
+  );
 
   // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
   const isBandit = existing.type === "multi-armed-bandit";

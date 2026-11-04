@@ -17,6 +17,7 @@ import {
   contextualBanditIdOnlyParam,
   contextualBanditLinkedFeatureDraftVersionField,
   contextualBanditLinkedFeatureRuleFields,
+  contextualBanditMeasurementArmSummaryValidator,
   contextualBanditSnapshotResponseShape,
   leafWeightValidator,
 } from "../validators/contextual-bandit";
@@ -322,6 +323,24 @@ export const getContextualBanditStatus = {
   tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/status",
+};
+
+export const getContextualBanditMeasurementArm = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: contextualBanditIdOnlyParam,
+  responseSchema: z
+    .object({
+      measurementArm: contextualBanditMeasurementArmSummaryValidator.nullable(),
+    })
+    .strict(),
+  summary: "Get Contextual Bandit measurement arm results",
+  description:
+    "Returns the measurement arm experiment's status, latest analysis attempt, and the decision-metric comparison from its last successful analysis. `null` when the contextual bandit has no enabled measurement arm.",
+  operationId: "getContextualBanditMeasurementArm",
+  tags: ["ContextualBandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/measurement-arm",
 };
 
 export const getContextualBanditLinkedFeatures = {
