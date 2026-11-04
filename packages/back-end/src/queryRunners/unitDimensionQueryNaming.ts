@@ -1,3 +1,4 @@
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 
 // Pre-computed unit-dimension metric Queries are named with this prefix.
@@ -63,4 +64,12 @@ export function filterParentQueryMap(queryMap: QueryMap): QueryMap {
     }
   });
   return parentQueryMap;
+}
+
+// Standalone incremental breakdowns compute their dimension in their own
+// queries, under the parent's query names rather than `unitdim:` ones.
+export function isStandaloneBreakdownSnapshot(
+  snapshot: Pick<ExperimentSnapshotInterface, "runnerKind">,
+): boolean {
+  return snapshot.runnerKind === "incremental-exploratory";
 }

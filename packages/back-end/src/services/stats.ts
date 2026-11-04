@@ -51,7 +51,6 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
@@ -770,14 +769,6 @@ export async function writeSnapshotAnalyses(
   if (promises.length > 0) {
     await promiseAllChunks(promises, 10);
   }
-}
-
-// Standalone incremental breakdowns compute their dimension in their own
-// queries, under the parent's query names rather than `unitdim:` ones.
-export function isStandaloneBreakdownSnapshot(
-  snapshot: Pick<ExperimentSnapshotInterface, "runnerKind">,
-): boolean {
-  return snapshot.runnerKind === "incremental-exploratory";
 }
 
 export function selectAnalysisQueryData(

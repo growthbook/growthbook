@@ -24,11 +24,11 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
-  isStandaloneBreakdownSnapshot,
   selectAnalysisQueryData,
 } from "./stats";
 

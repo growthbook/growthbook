@@ -277,6 +277,7 @@ import {
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
+import { isStandaloneBreakdownSnapshot } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -286,7 +287,6 @@ import { getExposureQueriesForDatasource } from "./assignmentQuerySelection";
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
-  isStandaloneBreakdownSnapshot,
   runSnapshotAnalyses,
   writeSnapshotAnalyses,
 } from "./stats";
