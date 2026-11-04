@@ -7,6 +7,7 @@ from scipy.stats import norm
 import copy
 
 from gbstats.utils import (
+    check_srm,
     frequentist_diff,
     multinomial_covariance,
     truncated_normal_mean,
@@ -39,6 +40,33 @@ class TestFrequentistDiff(TestCase):
         self.assertAlmostEqual(
             frequentist_diff(-9, -4, relative=True, mean_a_unadjusted=-10), 0.5
         )
+
+
+class TestCheckSrm(TestCase):
+    # Mirrors checkSrm in packages/back-end/src/util/stats.ts, which computes
+    # the SRM shown on the health tab from the same users/weights.
+    def test_matches_backend_values(self):
+        self.assertAlmostEqual(check_srm([1000, 1200], [0.5, 0.5]), 0.000020079, 9)
+        self.assertAlmostEqual(check_srm([310, 98], [0.75, 0.25]), 0.647434186, 9)
+        self.assertAlmostEqual(
+            check_srm([500, 500, 600], [0.34, 0.33, 0.33]), 0.000592638, 9
+        )
+        self.assertEqual(check_srm([500, 500], [0.5, 0.5]), 1)
+        self.assertEqual(check_srm([0, 0, 0], [0.34, 0.33, 0.33]), 1)
+
+    def test_skips_zero_weight_variation(self):
+        # A 0% variation is left out entirely, so its users are not expected
+        # to show up in the other arms and it adds no degree of freedom.
+        self.assertAlmostEqual(
+            check_srm([1000, 1200, 900], [0.5, 0.5, 0]), 0.000020079, 9
+        )
+        self.assertAlmostEqual(
+            check_srm([10000, 10500, 0], [0.5, 0.5, 0]),
+            check_srm([10000, 10500], [0.5, 0.5]),
+        )
+
+    def test_needs_two_weighted_variations(self):
+        self.assertEqual(check_srm([1000, 900, 800], [1, 0, 0]), 1)
 
 
 class TestTruncatedNormalMean(TestCase):
