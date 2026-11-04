@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
+import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
@@ -9,8 +9,8 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
+import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import Button from "@/ui/Button";
-import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   generateUniqueValueName,
@@ -182,7 +182,18 @@ export default function MetricTabContent() {
                 }}
                 formatOptionLabel={({ value }, meta) => {
                   const metric = factMetrics.find((m) => m.id === value);
-                  const label = metric ? <MetricName metric={metric} /> : value;
+                  const name = metric ? <MetricName metric={metric} /> : value;
+                  const label =
+                    metric && meta.context === "menu" ? (
+                      <Flex align="center" gap="2">
+                        {name}
+                        <Text size="sm" color="text-low">
+                          <FactMetricTypeDisplayName metric={metric} />
+                        </Text>
+                      </Flex>
+                    ) : (
+                      name
+                    );
                   // Only attach the mix-restriction tooltip inside the open
                   // menu (not in the selected-value display) so it doesn't
                   // fire on every hover over the selected option.
@@ -206,19 +217,6 @@ export default function MetricTabContent() {
                 placeholder="Select metric..."
                 forceUndefinedValueToNull
               />
-              {selectedMetric && (
-                <Link
-                  href={`/fact-metrics/${selectedMetric.id}`}
-                  external
-                  size="sm"
-                  mt="1"
-                >
-                  <Flex align="center" gap="1">
-                    View definition
-                    <PiArrowSquareOut />
-                  </Flex>
-                </Link>
-              )}
               {population &&
               selectedMetric &&
               countsEveryPopulationMember(selectedMetric, v) ? (

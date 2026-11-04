@@ -139,7 +139,16 @@ export default function PopulationSection() {
   const isCustom = !!population && !matched && !loading;
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex
+      direction="column"
+      gap="2"
+      p="3"
+      style={{
+        border: "1px solid var(--gray-a3)",
+        borderRadius: "var(--radius-4)",
+        backgroundColor: "var(--color-panel-translucent)",
+      }}
+    >
       <Text weight="medium">Population</Text>
 
       {populationsEnabled ? (

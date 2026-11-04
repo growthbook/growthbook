@@ -7,6 +7,7 @@ import {
   PiCaretDown,
   PiCaretUp,
   PiUserFill,
+  PiArrowSquareOut,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import { rowFilterValidator } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
@@ -94,6 +96,10 @@ export default function ValueCard({
   if (!dataset || !value) return null;
 
   const displayName = name.trim();
+  const metricId =
+    draftExploreState.dataset.type === "metric"
+      ? draftExploreState.dataset.values[index].metricId
+      : null;
 
   const handleStartEdit = () => {
     setEditValue(name);
@@ -220,6 +226,17 @@ export default function ValueCard({
           )}
         </Flex>
         <Flex align="center" style={{ flexShrink: 0 }}>
+          {metricId ? (
+            <LinkButton
+              href={`/fact-metrics/${metricId}`}
+              external
+              variant="ghost"
+              size="sm"
+              title="View definition"
+            >
+              <PiArrowSquareOut size={14} />
+            </LinkButton>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"
