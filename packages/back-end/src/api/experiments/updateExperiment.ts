@@ -330,6 +330,22 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
+  // As in the app, what the experiment keeps from the old source goes with it.
+  const segment =
+    datasourceChanged && experiment.segment
+      ? await req.context.models.segments.getById(experiment.segment)
+      : null;
+  const datasourceDrops =
+    datasourceChanged && datasource
+      ? datasourceChangeDrops(experiment, {
+          metricFromSource: (id) =>
+            (map.get(id)?.datasource ??
+              metricGroups.find((g) => g.id === id)?.datasource) ===
+            datasource.id,
+          segmentFromSource: () => segment?.datasource === datasource.id,
+        })
+      : {};
+
   await assertValidClusterExperimentConfig({
     context: req.context,
     datasource,
@@ -340,10 +356,22 @@ export const updateExperiment = createApiRequestHandler(
       exposureQueryIdentifierType,
       clusterSubUnitIdentifier:
         payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
-      goalMetrics: payload.metrics ?? experiment.goalMetrics,
-      secondaryMetrics: payload.secondaryMetrics ?? experiment.secondaryMetrics,
-      guardrailMetrics: payload.guardrailMetrics ?? experiment.guardrailMetrics,
-      activationMetric: payload.activationMetric ?? experiment.activationMetric,
+      goalMetrics:
+        payload.metrics ??
+        datasourceDrops.goalMetrics ??
+        experiment.goalMetrics,
+      secondaryMetrics:
+        payload.secondaryMetrics ??
+        datasourceDrops.secondaryMetrics ??
+        experiment.secondaryMetrics,
+      guardrailMetrics:
+        payload.guardrailMetrics ??
+        datasourceDrops.guardrailMetrics ??
+        experiment.guardrailMetrics,
+      activationMetric:
+        payload.activationMetric ??
+        datasourceDrops.activationMetric ??
+        experiment.activationMetric,
     },
     previous: {
       isClusterExperiment: experiment.isClusterExperiment,
@@ -477,21 +505,8 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   const resolvedOwner = await resolveOwnerToUserId(payload.owner, req.context);
-  // As in the app, what the experiment keeps from the old source goes with it.
-  const segment =
-    datasourceChanged && experiment.segment
-      ? await req.context.models.segments.getById(experiment.segment)
-      : null;
   const changes = {
-    ...(datasourceChanged && datasource
-      ? datasourceChangeDrops(experiment, {
-          metricFromSource: (id) =>
-            (map.get(id)?.datasource ??
-              metricGroups.find((g) => g.id === id)?.datasource) ===
-            datasource.id,
-          segmentFromSource: () => segment?.datasource === datasource.id,
-        })
-      : {}),
+    ...datasourceDrops,
     ...updateExperimentApiPayloadToInterface(
       {
         ...payload,
