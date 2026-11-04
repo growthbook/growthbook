@@ -5,14 +5,10 @@ import {
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";
-import {
-  MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS,
-  MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-} from "shared/constants";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-  GrowthbookClickhouseSettings,
   SchemaFormat,
 } from "shared/types/datasource";
 import {
@@ -660,7 +656,6 @@ const LLM_TRACE_USER_ID_TYPES = ["user_id", "session_id", "trace_id"];
 function getLlmCallMetrics(
   callsFilter: string,
   errorsFilter: string,
-  { includeCost = true }: { includeCost?: boolean } = {},
 ): InitialDatasourceResources["factTables"][number]["metrics"] {
   const callsOnly = [
     { operator: "saved_filter" as const, values: [callsFilter] },
@@ -671,22 +666,18 @@ function getLlmCallMetrics(
       metricType: "mean",
       numerator: { factTableId: "", column: "$$count", rowFilters: callsOnly },
     },
-    ...(includeCost
-      ? [
-          {
-            name: "LLM cost per user",
-            metricType: "mean" as const,
-            inverse: true,
-            // The min-sample check sums metric values, and per-user cost is fractions of a cent.
-            minSampleSize: 0,
-            numerator: {
-              factTableId: "",
-              column: "total_cost",
-              rowFilters: callsOnly,
-            },
-          },
-        ]
-      : []),
+    {
+      name: "LLM cost per user",
+      metricType: "mean",
+      inverse: true,
+      // The min-sample check sums metric values, and per-user cost is fractions of a cent.
+      minSampleSize: 0,
+      numerator: {
+        factTableId: "",
+        column: "total_cost",
+        rowFilters: callsOnly,
+      },
+    },
     {
       name: "LLM error rate",
       metricType: "ratio",
@@ -1095,218 +1086,6 @@ WHERE
   };
 }
 
-// Must match LLM_MODEL_CALL_OPERATIONS in the license server's AI traces DDL,
-// which prices and sums tokens for these operations only.
-const AI_MODEL_CALL_OPERATIONS = [
-  "chat",
-  "text_completion",
-  "generate_content",
-  "embeddings",
-];
-
-function getGrowthBookTracesResources(
-  settings: GrowthbookClickhouseSettings,
-): InitialDatasourceResources {
-  // Spans carry the app's user.id, the same value the SDK hashes on, so they
-  // join to the identifier the `id` attribute folds into. Experiments keep
-  // using the Managed Warehouse's own assignment queries.
-  const idType =
-    settings.idAttributeIdentifier === "user_id" ? "user_id" : "device_id";
-  const dateClause = `Timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
-  // The rollup views aggregate all AI spans; a filter on their grouping key is
-  // pushed down into the scan, while the outer date filter alone is not.
-  const spansInRange = (key: string) =>
-    `${key} IN (SELECT ${key} FROM trace_spans WHERE SpanCategory = 'ai' AND ${dateClause})`;
-  const modelCalls = AI_MODEL_CALL_OPERATIONS.map((o) => `'${o}'`).join(", ");
-
-  return {
-    factTables: [
-      {
-        factTable: {
-          id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.spans,
-          name: "AI spans",
-          description:
-            "One row per AI span (model calls, tool calls, and agent runs) with latency and token details",
-          sql: `SELECT
-  Timestamp AS timestamp,
-  UserId AS ${idType},
-  ConversationId AS conversation_id,
-  TraceId AS trace_id,
-  SpanId AS span_id,
-  SpanName AS span_name,
-  ServiceName AS service_name,
-  Operation AS operation,
-  Provider AS provider,
-  Model AS model,
-  StatusCode AS status_code,
-  ErrorType AS error_type,
-  Duration / 1000000 AS latency_ms,
-  InputTokens AS input_tokens,
-  OutputTokens AS output_tokens,
-  InputTokens + OutputTokens AS total_tokens,
-  CacheReadTokens AS cache_read_tokens,
-  CacheWriteTokens AS cache_write_tokens
-FROM ai_spans_priced
-WHERE ${dateClause}`,
-          eventName: "",
-          userIdTypes: [idType],
-          columns: generateColumns({
-            timestamp: { datatype: "date" },
-            [idType]: { datatype: "string" },
-            conversation_id: { datatype: "string" },
-            trace_id: { datatype: "string" },
-            span_id: { datatype: "string" },
-            span_name: { datatype: "string" },
-            service_name: { datatype: "string" },
-            operation: { datatype: "string", alwaysInlineFilter: true },
-            provider: { datatype: "string" },
-            model: { datatype: "string", alwaysInlineFilter: true },
-            status_code: { datatype: "string" },
-            error_type: { datatype: "string" },
-            latency_ms: {
-              datatype: "number",
-              numberFormat: "time:milliseconds",
-            },
-            input_tokens: { datatype: "number" },
-            output_tokens: { datatype: "number" },
-            total_tokens: { datatype: "number" },
-            cache_read_tokens: { datatype: "number" },
-            cache_write_tokens: { datatype: "number" },
-          }),
-        },
-        filters: [
-          {
-            name: "Model calls",
-            description:
-              "Spans that call a model. Agent and wrapper spans repeat their children's token counts.",
-            value: `operation IN (${modelCalls})`,
-          },
-          {
-            name: "Errors",
-            description: "Spans that ended with an error",
-            value: `status_code = 'Error' OR error_type != ''`,
-          },
-          {
-            name: "Tool calls",
-            description: "Spans that run a tool",
-            value: `operation = 'execute_tool'`,
-          },
-          {
-            name: "Agent runs",
-            description: "Spans that run an agent",
-            value: `operation = 'invoke_agent'`,
-          },
-        ],
-        metrics: [
-          ...getLlmCallMetrics("Model calls", "Errors", { includeCost: false }),
-          {
-            name: "Tokens per user",
-            metricType: "mean",
-            inverse: true,
-            numerator: {
-              factTableId: "",
-              column: "total_tokens",
-              rowFilters: [
-                { operator: "saved_filter", values: ["Model calls"] },
-              ],
-            },
-          },
-        ],
-      },
-      {
-        factTable: {
-          id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.turns,
-          name: "AI turns",
-          description:
-            "One row per trace (a request to your AI feature) with its model calls, tool calls, and tokens",
-          sql: `SELECT
-  Timestamp AS timestamp,
-  UserId AS ${idType},
-  ConversationId AS conversation_id,
-  TraceId AS trace_id,
-  TurnName AS turn_name,
-  LatencyMs AS latency_ms,
-  ModelCalls AS model_calls,
-  ToolCalls AS tool_calls,
-  TotalTokens AS total_tokens,
-  Errors AS errors
-FROM ai_turns
-WHERE ${dateClause}
-  AND ${spansInRange("TraceId")}`,
-          eventName: "",
-          userIdTypes: [idType],
-          columns: generateColumns({
-            timestamp: { datatype: "date" },
-            [idType]: { datatype: "string" },
-            conversation_id: { datatype: "string" },
-            trace_id: { datatype: "string" },
-            turn_name: { datatype: "string", alwaysInlineFilter: true },
-            latency_ms: {
-              datatype: "number",
-              numberFormat: "time:milliseconds",
-            },
-            model_calls: { datatype: "number" },
-            tool_calls: { datatype: "number" },
-            total_tokens: { datatype: "number" },
-            errors: { datatype: "number" },
-          }),
-        },
-        filters: [],
-        metrics: [
-          {
-            name: "Turns per user",
-            metricType: "mean",
-            numerator: { factTableId: "", column: "$$count" },
-          },
-        ],
-      },
-      {
-        factTable: {
-          id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.conversations,
-          name: "AI conversations",
-          description:
-            "One row per conversation with its turns, model calls, tool calls, and tokens",
-          sql: `SELECT
-  Timestamp AS timestamp,
-  UserId AS ${idType},
-  ConversationId AS conversation_id,
-  LastTimestamp AS last_timestamp,
-  Turns AS turns,
-  ModelCalls AS model_calls,
-  ToolCalls AS tool_calls,
-  TotalTokens AS total_tokens,
-  Errors AS errors
-FROM ai_conversations
-WHERE ${dateClause}
-  AND ${spansInRange("ConversationId")}`,
-          eventName: "",
-          userIdTypes: [idType],
-          columns: generateColumns({
-            timestamp: { datatype: "date" },
-            [idType]: { datatype: "string" },
-            conversation_id: { datatype: "string" },
-            last_timestamp: { datatype: "date" },
-            turns: { datatype: "number" },
-            model_calls: { datatype: "number" },
-            tool_calls: { datatype: "number" },
-            total_tokens: { datatype: "number" },
-            errors: { datatype: "number" },
-          }),
-        },
-        filters: [],
-        metrics: [
-          {
-            name: "Turns per conversation",
-            metricType: "ratio",
-            numerator: { factTableId: "", column: "turns" },
-            denominator: { factTableId: "", column: "$$count" },
-          },
-        ],
-      },
-    ],
-  };
-}
-
 export function getInitialDatasourceResources({
   datasource,
   attributeSchema,
@@ -1315,9 +1094,7 @@ export function getInitialDatasourceResources({
   attributeSchema?: SDKAttributeSchema;
 }): InitialDatasourceResources {
   if (datasource.type === "growthbook_clickhouse") {
-    return datasource.settings?.schemaFormat === "growthbook_traces"
-      ? getGrowthBookTracesResources(datasource.settings)
-      : getBuiltInWarehouseResources(attributeSchema);
+    return getBuiltInWarehouseResources(attributeSchema);
   }
 
   switch (datasource.settings?.schemaFormat) {
@@ -1333,7 +1110,6 @@ export function getInitialDatasourceResources({
       return getLangfuseResources(datasource);
     case "phoenix":
       return getPhoenixResources(datasource);
-    case "growthbook_traces":
     case undefined:
     case "custom":
     case "mixpanel":
@@ -1383,9 +1159,6 @@ export function getDatasourceTemplateSettings({
   const label =
     eventSchemas.find((s) => s.value === template)?.label ?? template;
 
-  const userIdTypes = initial.userIdTypes.filter(
-    (t) => !existingTypes.has(t.userIdType),
-  );
   const exposure = initial.queries.exposure
     .map((q) => ({
       ...q,
@@ -1405,13 +1178,12 @@ export function getDatasourceTemplateSettings({
       ),
   );
 
-  if (!userIdTypes.length && !exposure.length && !identityJoins.length) {
-    return settings;
-  }
-
   return {
     ...settings,
-    userIdTypes: [...(settings.userIdTypes || []), ...userIdTypes],
+    userIdTypes: [
+      ...(settings.userIdTypes || []),
+      ...initial.userIdTypes.filter((t) => !existingTypes.has(t.userIdType)),
+    ],
     queries: {
       ...settings.queries,
       exposure: [...existingExposure, ...exposure],
@@ -1432,7 +1204,7 @@ export function getDatasourceTemplateResources({
   schemaOptions: Record<string, string>;
   existingFactTables: Pick<
     FactTableInterface,
-    "id" | "name" | "datasource" | "archived"
+    "name" | "datasource" | "archived"
   >[];
 }): InitialDatasourceResources {
   const existingNames = new Set(
@@ -1440,8 +1212,6 @@ export function getDatasourceTemplateResources({
       .filter((f) => f.datasource === datasource.id && !f.archived)
       .map((f) => f.name),
   );
-  // Fixed ids are unique per org, archived or not.
-  const existingIds = new Set(existingFactTables.map((f) => f.id));
   const resources = getInitialDatasourceResources({
     datasource: {
       ...datasource,
@@ -1454,9 +1224,7 @@ export function getDatasourceTemplateResources({
   });
   return {
     factTables: resources.factTables.filter(
-      (f) =>
-        !existingNames.has(f.factTable.name) &&
-        !(f.factTable.id && existingIds.has(f.factTable.id)),
+      (f) => !existingNames.has(f.factTable.name),
     ),
   };
 }

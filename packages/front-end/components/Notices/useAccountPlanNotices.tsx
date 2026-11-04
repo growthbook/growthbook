@@ -87,22 +87,9 @@ export default function useAccountPlanNotices(): AppNotice[] {
       severity: traces === "over" ? "error" : "warning",
       title:
         traces === "over"
-          ? "AI traces usage limit exceeded"
-          : "Approaching AI traces usage limit",
-      details: (
-        <>
-          Click to upgrade, or visit{" "}
-          <Link
-            href="https://docs.growthbook.io/integrations/llm-tracing#sending-traces-to-growthbook"
-            external
-            onClick={() =>
-              track("Clicked Read About AI Traces Limits Link in Tooltip")
-            }
-          >
-            GrowthBook Docs &gt; AI traces
-          </Link>
-        </>
-      ),
+          ? "Traces usage limit exceeded"
+          : "Approaching traces usage limit",
+      details: "Click to upgrade.",
       upgrade: {
         source:
           traces === "over"

@@ -76,7 +76,7 @@ describe("useAccountPlanNotices", () => {
       seatsInUse: 0,
     });
 
-  it("shows an error, with a generic upgrade, when AI traces usage is over", () => {
+  it("shows an error, with a generic upgrade, when traces usage is over", () => {
     traceIngest.on = true;
     tracesOver();
     canManageBilling(true);
@@ -84,17 +84,17 @@ describe("useAccountPlanNotices", () => {
     const [notice] = renderHook(() => useAccountPlanNotices()).result.current;
     expect(notice).toMatchObject({
       severity: "error",
-      title: "AI traces usage limit exceeded",
+      title: "Traces usage limit exceeded",
       upgrade: { commercialFeature: null },
     });
   });
 
-  it("hides the AI traces notice while trace ingest is off", () => {
+  it("hides the traces notice while trace ingest is off", () => {
     traceIngest.on = false;
     tracesOver();
     canManageBilling(true);
 
-    expect(titles()).not.toContain("AI traces usage limit exceeded");
+    expect(titles()).not.toContain("Traces usage limit exceeded");
     traceIngest.on = true;
   });
 

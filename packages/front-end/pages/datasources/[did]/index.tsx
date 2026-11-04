@@ -9,7 +9,7 @@ import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -163,10 +163,9 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
-  const traceIngestEnabled = useFeatureIsOn("trace-ingest");
   const canAddEventTracker =
     !!d &&
-    getAddableEventTrackers(d, traceIngestEnabled).length > 0 &&
+    getAddableEventTrackers(d).length > 0 &&
     canUpdateDataSourceSettings &&
     permissionsUtil.canCreateFactTable({ projects: d.projects || [] });
 

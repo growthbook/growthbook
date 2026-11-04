@@ -856,17 +856,6 @@ WHERE
   getFactTableSQL: () => "",
 };
 
-// Adds fact tables only: the Managed Warehouse already has the identifier
-// types and assignment queries its AI traces are joined on.
-const GrowthBookTracesSchema: SchemaInterface = {
-  experimentDimensions: [],
-  userIdTypes: [],
-  getExperimentSQL: () => "",
-  getIdentitySQL: () => [],
-  getMetricSQL: () => "",
-  getFactTableSQL: () => "",
-};
-
 function getSchemaObject(type?: SchemaFormat) {
   if (type === "ga4" || type === "firebase") {
     return GA4Schema;
@@ -876,9 +865,6 @@ function getSchemaObject(type?: SchemaFormat) {
   }
   if (type === "phoenix") {
     return PhoenixSchema;
-  }
-  if (type === "growthbook_traces") {
-    return GrowthBookTracesSchema;
   }
   if (type === "snowplow") {
     return SnowplowSchema;

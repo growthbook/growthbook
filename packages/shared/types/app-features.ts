@@ -15,8 +15,8 @@
  * for the metric editor experiment (front-end hooks/useFactMetricFlow.tsx).
  *
  * Exception: "trace-ingest" is added ahead of the flag's creation. It shows
- * the "AI trace ingest key" option when creating an org secret key and the
- * "GrowthBook AI traces" event tracker on the Managed Warehouse.
+ * the "Trace ingest key" option when creating an org secret key and the
+ * traces usage notice.
  */
 export type AppFeatures = {
   // Added ahead of the flag's creation in GrowthBook's own account

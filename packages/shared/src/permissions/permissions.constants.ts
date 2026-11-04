@@ -879,12 +879,12 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     policies: ["ReadData", "VisualEditorFullAccess"],
   },
   // API keys only (see API_KEY_ONLY_ROLE_IDS). No policies, so the key can't do
-  // anything on the REST API; the ingestor accepts it for sending AI traces.
+  // anything on the REST API; the ingestor accepts it for sending traces.
   gbDefault_traceIngest: {
     id: "gbDefault_traceIngest",
-    displayName: "AI Trace Ingest",
+    displayName: "Trace Ingest",
     description:
-      "Send AI traces to GrowthBook. No access to the GrowthBook API. For API keys only.",
+      "Send traces to GrowthBook. No access to the GrowthBook API. For API keys only.",
     policies: [],
   },
   engineer: {
@@ -1022,7 +1022,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
 };
 
-// Role for org secret keys that send AI traces (OTLP) to the ingestor. The
+// Role for org secret keys that send traces (OTLP) to the ingestor. The
 // gbDefault_ prefix can't be used by custom roles, so no org already has one.
 export const TRACE_INGEST_ROLE_ID = "gbDefault_traceIngest";
 

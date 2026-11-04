@@ -36,7 +36,7 @@ import {
 type ActAs = NonNullable<ApiKeyInterface["actAs"]>;
 
 const TRACE_INGEST_HELP =
-  "This key only sends AI traces to GrowthBook. It can't access the GrowthBook API.";
+  "This key only sends traces to GrowthBook. It can't access the GrowthBook API.";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -259,7 +259,7 @@ const ApiKeysModal: FC<{
             },
             {
               value: "traceIngest",
-              label: "AI trace ingest key",
+              label: "Trace ingest key",
               description: TRACE_INGEST_HELP,
             },
           ]}
@@ -268,7 +268,7 @@ const ApiKeysModal: FC<{
       {traceIngest && (editMode || !traceIngestFlag) && (
         <Box mt="6">
           <Text as="div" size="md" weight="semibold" mb="2">
-            AI trace ingest key
+            Trace ingest key
           </Text>
           <Text as="p" color="text-mid">
             {TRACE_INGEST_HELP}

@@ -124,7 +124,7 @@ describe("REST API auth middleware", () => {
         key: "secret_traceIngest_abc123",
         encryptSDK: false,
         role: "gbDefault_traceIngest",
-        description: "AI traces",
+        description: "Traces",
       };
       const permissions: Permission[] = [
         "readData",
@@ -404,7 +404,7 @@ describe("authenticateApiRequestMiddleware with an API key", () => {
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
       message:
-        "This API key has the AI Trace Ingest role and can't be used with the GrowthBook API.",
+        "This API key has the Trace Ingest role and can't be used with the GrowthBook API.",
     });
   });
 

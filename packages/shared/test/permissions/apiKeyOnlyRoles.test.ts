@@ -182,13 +182,13 @@ describe("apiKeyOnlyRoleProblem", () => {
     },
   ])("rejects the role with $name", ({ scope }) => {
     expect(apiKeyOnlyRoleProblem({ ...ingest, ...scope })).toBe(
-      "The AI Trace Ingest role can't have environment limits, additional roles, or project roles.",
+      "The Trace Ingest role can't have environment limits, additional roles, or project roles.",
     );
   });
 
   it("rejects the role on a personal access token", () => {
     expect(apiKeyOnlyRoleProblem({ ...ingest, userId: "u_1" })).toBe(
-      "The AI Trace Ingest role can only be used for organization API keys.",
+      "The Trace Ingest role can only be used for organization API keys.",
     );
   });
 
