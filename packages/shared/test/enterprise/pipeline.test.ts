@@ -667,6 +667,18 @@ describe("getIncrementalFullRefreshReasons", () => {
     ).toEqual(["Cluster subunit identifier changed"]);
   });
 
+  it("ignores a sub-unit left on the experiment after cluster mode is turned off", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({
+          isClusterExperiment: false,
+          clusterSubUnitIdentifier: "user_id",
+        }),
+        makeComparable({ isClusterExperiment: false }),
+      ),
+    ).toEqual([]);
+  });
+
   it("treats clusterSubUnitIdentifier empty vs undefined as equal", () => {
     expect(
       getIncrementalFullRefreshReasons(

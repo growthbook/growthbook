@@ -1,5 +1,6 @@
 import { getValidDate } from "shared/dates";
 import {
+  getClusterSubUnit,
   getExperimentOutdatedReasonLabel,
   isFactMetric,
   isExperimentOutdatedReasonField,
@@ -86,14 +87,12 @@ export function getIncrementalFullRefreshReasons(
     );
   }
   // Cluster fields reshape the units table grain (cluster vs sub-unit), so a
-  // change requires a full refresh.
+  // change requires a full refresh. A sub-unit saved while cluster mode is off
+  // isn't used, and snapshots don't record it.
   if (!!current.isClusterExperiment !== !!baseline.isClusterExperiment) {
     reasons.push(getExperimentOutdatedReasonLabel("isClusterExperiment"));
   }
-  if (
-    (current.clusterSubUnitIdentifier || null) !==
-    (baseline.clusterSubUnitIdentifier || null)
-  ) {
+  if (getClusterSubUnit(current) !== getClusterSubUnit(baseline)) {
     reasons.push(getExperimentOutdatedReasonLabel("clusterSubUnitIdentifier"));
   }
   return reasons;
