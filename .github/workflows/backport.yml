@@ -1,7 +1,7 @@
 name: Backport
 
 # Opens a PR into release/<line> with only the given main commits, for a patch release like 5.1.1.
-# Merge it, then tag the merge commit v<line>.<n>; Release builds and publishes that commit.
+# Merge it, then publish the draft release it creates; that tags the merge commit and Release builds it.
 on:
   workflow_dispatch:
     inputs:
@@ -11,6 +11,10 @@ on:
       commits:
         description: PR numbers or main commit SHAs to cherry-pick, space-separated, oldest first
         required: true
+      security:
+        description: Mark the draft release as a security patch release
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -72,3 +76,28 @@ jobs:
           } > "$RUNNER_TEMP/body.md"
           gh pr create --base "release/$LINE" --head "$BRANCH" \
             --title "Backport to $LINE: $COMMITS" --body-file "$RUNNER_TEMP/body.md"
+
+      # Publishing a draft tags its target branch's head then, so it must wait for the PR to merge.
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINE: ${{ inputs.line }}
+          SECURITY: ${{ inputs.security }}
+          BRANCH: backport/${{ inputs.line }}-${{ github.run_id }}
+        run: |
+          tag=$(git tag --list "v$LINE.*" --sort=-v:refname | head -n1)
+          next="v$LINE.$((${tag##*.} + 1))"
+          picks=$(git log --reverse --grep='^(cherry picked from' --format='- %s' "origin/release/$LINE..$BRANCH")
+          if gh release view "$next" >/dev/null 2>&1; then
+            # Another backport is waiting on the same draft; add to it.
+            { gh release view "$next" --json body --jq .body; echo "$picks"; } > "$RUNNER_TEMP/notes.md"
+            gh release edit "$next" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            {
+              echo "<!-- Publish only after the backport PRs into release/$LINE merge: publishing tags its head. -->"
+              if [ "$SECURITY" = true ]; then echo "## Security Patch Release"; echo; fi
+              echo "$picks"
+            } > "$RUNNER_TEMP/notes.md"
+            gh release create "$next" --draft --latest=false --target "release/$LINE" \
+              --title "$next" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
