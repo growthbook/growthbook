@@ -1,22 +1,22 @@
-import { FeatureInterface } from "shared/types/feature";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Environment } from "shared/types/organization";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { TagInterface } from "shared/types/tag";
-import { ProjectInterface } from "shared/types/project";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { Environment } from "shared/types/organization";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { TagInterface } from "shared/types/tag";
+import type { ProjectInterface } from "shared/types/project";
 import { cloneDeep, omit } from "lodash";
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
   CreateFactMetricProps,
   CreateFactTableProps,
 } from "shared/types/fact-table";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { ApiCallType } from "@/services/auth";
+import type { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import { transformStatsigMetricToMetric } from "@/services/importing/statsig/transformers/metricTransformer";
-import {
+import type {
   StatsigFeatureGate,
   StatsigDynamicConfig,
   StatsigExperiment,

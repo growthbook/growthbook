@@ -1,9 +1,11 @@
-import { ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { Box, IconButton } from "@radix-ui/themes";
 import { PiTextColumns } from "react-icons/pi";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
-import ColumnSettings, { ManagedColumn } from "@/ui/ColumnSettings";
+import type { ManagedColumn } from "@/ui/ColumnSettings";
+import ColumnSettings from "@/ui/ColumnSettings";
 
 export default function ColumnSettingsButton({
   columns,

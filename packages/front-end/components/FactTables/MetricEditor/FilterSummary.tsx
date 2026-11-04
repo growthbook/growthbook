@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { FactTableDefinition, RowFilter } from "shared/types/fact-table";
+import type { FactTableDefinition, RowFilter } from "shared/types/fact-table";
 import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";

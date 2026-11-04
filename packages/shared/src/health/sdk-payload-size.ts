@@ -12,7 +12,7 @@ import {
   withoutUnsupportedSavedGroupCapabilities,
 } from "shared/sdk-versioning";
 import { SDK_OPTIONAL_PAYLOAD_SETTINGS } from "shared/constants";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 
 // MongoDB's maximum document size. Used when the database doesn't report its own.
 export const DEFAULT_SDK_PAYLOAD_SIZE_LIMIT_BYTES = 16 * 1024 * 1024;

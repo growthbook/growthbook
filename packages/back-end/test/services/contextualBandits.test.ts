@@ -1,14 +1,14 @@
-import { ExposureQuery } from "shared/types/datasource";
+import type { ExposureQuery } from "shared/types/datasource";
 import type { SDKAttributeSchema } from "shared/types/organization";
-import {
+import type {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
-  contextualBanditSnapshotSettingsValidator,
 } from "shared/validators";
+import { contextualBanditSnapshotSettingsValidator } from "shared/validators";
 
 const schema = (...properties: string[]): SDKAttributeSchema =>
   properties.map((property) => ({ property })) as SDKAttributeSchema;
-import { ApiReqContext, ReqContext } from "back-end/types/api";
+import type { ApiReqContext, ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
   buildSnapshotSettingsForCb,
@@ -21,7 +21,7 @@ import {
   toContextualBanditSnapshotStatusSummary,
 } from "back-end/src/enterprise/services/contextualBandits";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
-import { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
+import type { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";

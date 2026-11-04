@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 interface ExperimentWinRateByProjectProps {

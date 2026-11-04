@@ -1,13 +1,14 @@
-import React, { FC, useCallback, useState } from "react";
+import type { FC } from "react";
+import React, { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { TagInterface } from "shared/types/tag";
+import type { TagInterface } from "shared/types/tag";
 import { isEventWebhookWildcard } from "shared/validators";
 import {
   eventWebHookEventOptions,
   notificationEventNames,
 } from "@/components/EventWebHooks/utils";
-import {
+import type {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
 } from "@/components/SlackIntegrations/slack-integrations-utils";

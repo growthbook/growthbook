@@ -1,8 +1,8 @@
 import { Promise as BluebirdPromise } from "bluebird";
 import { ensureAndReturn } from "shared/util";
 import { Permissions } from "shared/permissions";
-import { ReqContext } from "shared/types/organization";
-import { MetricInterface } from "shared/types/metric";
+import type { ReqContext } from "shared/types/organization";
+import type { MetricInterface } from "shared/types/metric";
 import { setupApp } from "back-end/test/api/api.setup";
 import { insertMetric } from "back-end/src/models/MetricModel";
 import { ExperimentModel } from "back-end/src/models/ExperimentModel";

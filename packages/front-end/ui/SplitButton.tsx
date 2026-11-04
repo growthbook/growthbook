@@ -1,5 +1,6 @@
-import { forwardRef, Fragment, ReactNode } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { ReactNode } from "react";
+import { forwardRef, Fragment } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import clsx from "clsx";
 
 export type Props = {

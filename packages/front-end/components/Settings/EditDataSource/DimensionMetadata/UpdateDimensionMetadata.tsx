@@ -1,14 +1,13 @@
-import React, { FC, useState } from "react";
-import { ExposureQuery } from "shared/types/datasource";
-import { DimensionSlicesInterface } from "shared/types/dimension";
+import type { FC } from "react";
+import React, { useState } from "react";
+import type { ExposureQuery } from "shared/types/datasource";
+import type { DimensionSlicesInterface } from "shared/types/dimension";
 import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
-import {
-  CustomDimensionMetadata,
-  DimensionSlicesRunner,
-} from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import type { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import { DimensionSlicesRunner } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type UpdateDimensionMetadataModalProps = {
   exposureQuery: Pick<

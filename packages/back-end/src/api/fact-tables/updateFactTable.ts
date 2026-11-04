@@ -1,7 +1,7 @@
 import { isEqual } from "lodash";
 import { getFactTableTimestampColumn } from "shared/experiments";
 import { updateFactTableValidator } from "shared/validators";
-import {
+import type {
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
@@ -29,8 +29,8 @@ import {
   validateVirtualColumnProps,
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 
 export async function authorizeAndPersistFactTableUpdate({
   context,

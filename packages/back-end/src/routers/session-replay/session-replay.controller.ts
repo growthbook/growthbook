@@ -1,10 +1,10 @@
-import { Response } from "express";
-import {
+import type { Response } from "express";
+import type {
   SessionReplayInterface,
   SessionReplayRrwebEvent,
 } from "shared/validators";
 import { parseIntWithDefaultCapped } from "shared/util";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
 type SessionResponse =

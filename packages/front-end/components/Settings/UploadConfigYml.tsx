@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import React, { DetailedHTMLProps, HTMLAttributes } from "react";
+import type { DetailedHTMLProps, HTMLAttributes } from "react";
+import React from "react";
 import { useDropzone } from "react-dropzone";
 import styles from "./UploadConfigYml.module.scss";
 

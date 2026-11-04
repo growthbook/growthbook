@@ -1,4 +1,4 @@
-import { Vote } from "shared/types/vote";
+import type { Vote } from "shared/types/vote";
 
 // Where the idea was submitted from
 export type IdeaSource = "web" | "slack";

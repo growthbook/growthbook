@@ -1,5 +1,5 @@
 import React from "react";
-import { SchemaFormat } from "shared/types/datasource";
+import type { SchemaFormat } from "shared/types/datasource";
 import clsx from "clsx";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import Badge from "@/ui/Badge";

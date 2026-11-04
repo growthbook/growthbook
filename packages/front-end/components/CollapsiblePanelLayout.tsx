@@ -1,10 +1,5 @@
-import {
-  PointerEvent as ReactPointerEvent,
-  ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiSidebarSimple, PiSidebarSimpleFill } from "react-icons/pi";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";

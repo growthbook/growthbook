@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { IdeaInterface } from "shared/types/idea";
+import type { IdeaInterface } from "shared/types/idea";
 
 const ideaSchema = new mongoose.Schema({
   id: String,

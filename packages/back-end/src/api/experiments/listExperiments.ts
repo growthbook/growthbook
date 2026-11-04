@@ -1,9 +1,7 @@
-import {
-  ExperimentInterfaceExcludingHoldouts,
-  listExperimentsValidator,
-} from "shared/validators";
+import type { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
+import { listExperimentsValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import {

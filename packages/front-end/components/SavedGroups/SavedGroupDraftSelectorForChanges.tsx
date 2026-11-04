@@ -1,6 +1,6 @@
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision } from "shared/enterprise";
-import { DraftMode } from "@/components/DraftSelector";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { Revision } from "shared/enterprise";
+import type { DraftMode } from "@/components/DraftSelector";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 
 export type { DraftMode };

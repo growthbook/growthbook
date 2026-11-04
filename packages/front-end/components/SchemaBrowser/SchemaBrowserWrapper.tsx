@@ -1,4 +1,4 @@
-import { InformationSchemaInterface } from "shared/types/integrations";
+import type { InformationSchemaInterface } from "shared/types/integrations";
 import { PiArrowClockwise, PiDatabase } from "react-icons/pi";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";

@@ -1,14 +1,6 @@
-import {
-  createContext,
-  FC,
-  MouseEventHandler,
-  ReactNode,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
-import ReactSelect, {
-  components,
+import type { FC, MouseEventHandler, ReactNode } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
+import type {
   CSSObjectWithLabel,
   GroupBase,
   MultiValueGenericProps,
@@ -23,12 +15,12 @@ import ReactSelect, {
   FilterOptionOption,
   ActionMeta,
 } from "react-select";
-import {
-  SortableContainer,
+import ReactSelect, { components } from "react-select";
+import type {
   SortableContainerProps,
-  SortableElement,
   SortEndHandler,
 } from "react-sortable-hoc";
+import { SortableContainer, SortableElement } from "react-sortable-hoc";
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
@@ -36,20 +28,24 @@ import clsx from "clsx";
 import { PiCaretDown, PiX } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
-import Text, { TextSizes, TextWeights } from "@/ui/Text";
+import type { TextSizes, TextWeights } from "@/ui/Text";
+import Text from "@/ui/Text";
 import { CopyIcon } from "@/ui/ActionIcons";
 import Badge from "@/ui/Badge";
-import {
-  ReactSelectProps,
+import type {
   SingleValue,
   Option,
   GroupedValue,
+} from "@/components/Forms/SelectField";
+import {
+  ReactSelectProps,
   useSelectOptions,
 } from "@/components/Forms/SelectField";
-import Field, { FieldProps } from "@/components/Forms/Field";
+import type { FieldProps } from "@/components/Forms/Field";
+import Field from "@/components/Forms/Field";
 import HelperText from "@/ui/HelperText";
-import { Size } from "@/ui/sizes";
-import { ColorOption } from "@/components/Tags/TagsInput";
+import type { Size } from "@/ui/sizes";
+import type { ColorOption } from "@/components/Tags/TagsInput";
 
 type MultiValueLabelStyle = {
   fontSize: string;

@@ -1,7 +1,7 @@
 import omit from "lodash/omit";
 import { z } from "zod";
 import mongoose from "mongoose";
-import { InformationSchemaTablesInterface } from "shared/types/integrations";
+import type { InformationSchemaTablesInterface } from "shared/types/integrations";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 

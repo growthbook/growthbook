@@ -1,6 +1,7 @@
 import { useCallback } from "react";
-import useSWR, { SWRConfiguration } from "swr";
-import { z, ZodTypeAny } from "zod";
+import type { SWRConfiguration } from "swr";
+import useSWR from "swr";
+import type { z, ZodTypeAny } from "zod";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import { useAuth, appendIgnoreWarnings } from "@/services/auth";
 

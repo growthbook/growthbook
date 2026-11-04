@@ -1,9 +1,12 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import { validateAndFixCondition } from "shared/util";
-import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
+import type {
+  FeaturePrerequisite,
+  SavedGroupTargeting,
+} from "shared/types/feature";
 import { useRestApiCall } from "@/services/restApi";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";

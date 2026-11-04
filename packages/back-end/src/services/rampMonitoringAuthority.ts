@@ -1,6 +1,6 @@
-import { RampScheduleInterface } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { RampScheduleInterface } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 // Authorize before lazy monitoring setup can write; callers recheck afterward.

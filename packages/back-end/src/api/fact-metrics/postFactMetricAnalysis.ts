@@ -1,5 +1,5 @@
 import { postFactMetricAnalysisValidator } from "shared/validators";
-import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import type { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { isFactFunnelMetric } from "shared/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";

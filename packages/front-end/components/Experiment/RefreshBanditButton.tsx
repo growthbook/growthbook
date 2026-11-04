@@ -1,8 +1,9 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import type { FC } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowClockwise, PiCaretDownFill } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";

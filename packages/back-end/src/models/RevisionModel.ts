@@ -1,13 +1,15 @@
-import {
-  isUserBlockedFromApproving,
-  revisionValidator,
-  activityLogEntryValidator,
+import type {
   Revision,
   ActivityLogEntry,
   RevisionTargetType,
   ReviewDecision,
   JsonPatchOperation,
   ScheduledPublishInput,
+} from "shared/enterprise";
+import {
+  isUserBlockedFromApproving,
+  revisionValidator,
+  activityLogEntryValidator,
   getApprovalFlowSettings,
   entityProjects,
   isRevisionEditLockedBySchedule,
@@ -18,7 +20,8 @@ import {
   statusFromStandingVerdicts,
 } from "shared/enterprise";
 import uniqid from "uniqid";
-import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
+import type { ActiveDraftStatus } from "shared/validators";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   DISARMED_BY_EDIT,
@@ -30,11 +33,10 @@ import {
   type CasAuthority,
 } from "back-end/src/models/casLoop";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
-import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
-import {
-  ArmAcknowledgments,
-  hasArmAcknowledgments,
-} from "back-end/src/services/armGuards";
+import type { Context } from "back-end/src/models/BaseModel";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
+import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
+import { hasArmAcknowledgments } from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
 import { ConflictError } from "back-end/src/util/errors";
 import {

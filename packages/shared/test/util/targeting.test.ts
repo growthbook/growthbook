@@ -10,8 +10,8 @@ import {
   getGoverningReviewProjects,
   featureRequiresReview,
 } from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
-import { OrganizationSettings } from "shared/types/organization";
+import type { FeatureInterface } from "shared/types/feature";
+import type { OrganizationSettings } from "shared/types/organization";
 
 describe("targeting scope helpers", () => {
   describe("getTargetingProjectIds", () => {

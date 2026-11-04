@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Box } from "@radix-ui/themes";
 import PageHead from "@/components/Layout/PageHead";
 import DataSourceOptionsTable from "@/components/DataSourceSetup/DataSourceOptionsTable";

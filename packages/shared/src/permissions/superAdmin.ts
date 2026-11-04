@@ -1,8 +1,5 @@
-import {
-  SUPER_ADMIN_PERMISSIONS,
-  SuperAdmin,
-  SuperAdminPermission,
-} from "../validators/users";
+import type { SuperAdmin, SuperAdminPermission } from "../validators/users";
+import { SUPER_ADMIN_PERMISSIONS } from "../validators/users";
 
 function isSuperAdminPermission(p: unknown): p is SuperAdminPermission {
   return SUPER_ADMIN_PERMISSIONS.includes(p as SuperAdminPermission);

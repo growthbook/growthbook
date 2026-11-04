@@ -1,11 +1,9 @@
 import clsx from "clsx";
+import type { ReactElement, FC, ReactNode } from "react";
 import React, {
-  ReactElement,
   useState,
   Children,
-  FC,
   isValidElement,
-  ReactNode,
   useCallback,
   useEffect,
 } from "react";
@@ -13,8 +11,9 @@ import { MdCheck } from "react-icons/md";
 import { PiArrowLeft, PiCaretRight, PiCircleDashed } from "react-icons/pi";
 import { v4 as uuidv4 } from "uuid";
 import Modal from "@/components/Modal";
-import { DocSection } from "@/components/DocLink";
-import track, { TrackEventProps } from "@/services/track";
+import type { DocSection } from "@/components/DocLink";
+import type { TrackEventProps } from "@/services/track";
+import track from "@/services/track";
 
 type Props = {
   header: string | ReactNode | null;

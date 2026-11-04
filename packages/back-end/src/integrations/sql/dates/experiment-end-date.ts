@@ -1,4 +1,4 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { getSnapshotCutoffDate } from "shared/util";
 
 export function getExperimentEndDate(

@@ -1,5 +1,5 @@
-import { ExperimentMetricDefinition } from "shared/experiments";
-import { FunnelFactMetricInterface } from "shared/types/fact-table";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import type { FunnelFactMetricInterface } from "shared/types/fact-table";
 import { getResultMetricDisplayName } from "@/services/experiments";
 
 const funnelMetric = {

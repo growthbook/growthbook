@@ -1,5 +1,5 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import {
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type {
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
 } from "shared/types/report";
@@ -10,11 +10,12 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import React, { RefObject } from "react";
+import type { RefObject } from "react";
+import React from "react";
 import { Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { SignificanceThresholds } from "shared/types/stats";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { SignificanceThresholds } from "shared/types/stats";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";

@@ -1,9 +1,9 @@
-import { ExposureQuery } from "shared/types/datasource";
-import {
+import type { ExposureQuery } from "shared/types/datasource";
+import type {
   FunnelFactMetricInterface,
   MetricFunnelStep,
 } from "shared/types/fact-table";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { bigQueryDialect } from "shared/dialects";
 import BigQuery from "back-end/src/integrations/BigQuery";

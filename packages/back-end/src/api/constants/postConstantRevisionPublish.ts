@@ -21,10 +21,8 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import {
-  resolveEntityPublishGates,
-  PublishGate,
-} from "back-end/src/revisions/publishGates";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { resolveEntityPublishGates } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   buildMergeDesiredState,

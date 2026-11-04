@@ -1,12 +1,12 @@
-import { ExperimentInterface } from "shared/types/experiment";
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   expandMetricGroups,
   snapshotColumnVariationIds,
   withScheduledBy,
 } from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
-import {
+import type {
   ExperimentType,
   ScheduledStopPlan,
   ScheduleStopAfter,
@@ -21,7 +21,7 @@ import {
 } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {

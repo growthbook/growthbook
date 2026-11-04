@@ -1,4 +1,4 @@
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceParams,
   DataSourceSettings,
@@ -6,9 +6,9 @@ import {
   SchemaFormat,
   SchemaInterface,
 } from "shared/types/datasource";
-import { MetricType } from "shared/types/metric";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { OrganizationSettings } from "shared/types/organization";
+import type { MetricType } from "shared/types/metric";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { OrganizationSettings } from "shared/types/organization";
 import {
   capitalizeFirstCharacter,
   resolveAnalysisIdentifierType,
@@ -18,11 +18,8 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import {
-  isGA4EventsTable,
-  shardFilter,
-  SourceTableTemplate,
-} from "@/services/factTables";
+import type { SourceTableTemplate } from "@/services/factTables";
+import { isGA4EventsTable, shardFilter } from "@/services/factTables";
 
 function camelToUnderscore(orig: string) {
   return orig

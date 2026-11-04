@@ -1,5 +1,5 @@
 import Cookies from "js-cookie";
-import {
+import type {
   CacheSettings,
   Options as Context,
   FeatureApiResponse,
@@ -7,17 +7,15 @@ import {
   TrackingCallback,
 } from "./types/growthbook";
 import { GrowthBook } from "./GrowthBook";
+import type { StickyBucketService } from "./sticky-bucket-service";
 import {
   BrowserCookieStickyBucketService,
   LocalStorageStickyBucketService,
-  StickyBucketService,
 } from "./sticky-bucket-service";
 import { autoAttributesPlugin } from "./plugins/auto-attributes";
 import { growthbookTrackingPlugin } from "./plugins/growthbook-tracking";
-import {
-  thirdPartyTrackingPlugin,
-  Trackers,
-} from "./plugins/third-party-tracking";
+import type { Trackers } from "./plugins/third-party-tracking";
+import { thirdPartyTrackingPlugin } from "./plugins/third-party-tracking";
 
 type WindowContext = Context & {
   uuidCookieName?: string;

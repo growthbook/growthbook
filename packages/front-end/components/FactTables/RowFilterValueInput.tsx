@@ -1,4 +1,4 @@
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";

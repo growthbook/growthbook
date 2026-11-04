@@ -1,16 +1,18 @@
 import type { Response } from "express";
-import {
+import type {
   LearningInterface,
   LearningRefreshSuggestion,
-  aiLearningRefreshValidator,
-  aiLearningSuggestionsResponseValidator,
   AiLearningSuggestion,
 } from "shared/validators";
-import { ExperimentInterface } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { ExperimentMetricInterface } from "shared/experiments";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ReqContext } from "back-end/types/request";
+import {
+  aiLearningRefreshValidator,
+  aiLearningSuggestionsResponseValidator,
+} from "shared/validators";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getLearningTextForEmbedding } from "back-end/src/models/LearningModel";
 import {

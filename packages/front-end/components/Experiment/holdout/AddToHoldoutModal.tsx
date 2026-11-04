@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Callout from "@/ui/Callout";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";

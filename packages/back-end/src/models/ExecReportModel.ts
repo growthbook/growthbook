@@ -1,5 +1,5 @@
 import { execReportValidator } from "shared/validators";
-import { ExecReportInterface } from "shared/types/exec-report";
+import type { ExecReportInterface } from "shared/types/exec-report";
 import { MakeModelClass } from "./BaseModel";
 
 // Define the date range type

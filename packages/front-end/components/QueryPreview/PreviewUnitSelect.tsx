@@ -1,4 +1,5 @@
-import { Select, SelectItem, SelectSize } from "@/ui/Select";
+import type { SelectSize } from "@/ui/Select";
+import { Select, SelectItem } from "@/ui/Select";
 import { getPreviewUnitLabel } from "@/components/QueryPreview/previewUtils";
 import styles from "./PreviewUnitSelect.module.scss";
 

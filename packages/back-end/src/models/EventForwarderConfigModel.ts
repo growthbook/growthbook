@@ -1,9 +1,7 @@
 import { hasSuperAdminPermission } from "shared/permissions";
-import {
-  EventForwarderConfigInterface,
-  eventForwarderConfigValidator,
-} from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
+import type { EventForwarderConfigInterface } from "shared/validators";
+import { eventForwarderConfigValidator } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";

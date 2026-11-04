@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { EventUser as EventUserType } from "shared/validators";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { EventUser as EventUserType } from "shared/validators";
 import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
 

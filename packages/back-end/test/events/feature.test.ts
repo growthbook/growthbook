@@ -1,4 +1,4 @@
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   logFeatureCreatedEvent,
   logFeatureUpdatedEvent,

@@ -1,7 +1,7 @@
-import { FeatureValueType, SchemaField } from "shared/types/feature";
+import type { FeatureValueType, SchemaField } from "shared/types/feature";
+import type { PresetKey } from "shared/util";
 import {
   JSON_SCHEMA_PRESETS,
-  PresetKey,
   blankField,
   normalizeField,
   presetKeyFromField,

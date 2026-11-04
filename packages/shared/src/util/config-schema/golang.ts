@@ -1,4 +1,4 @@
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import { simpleSchemaFieldToJSONSchema } from "../features";
 import { normalizeField } from "./fields";
 import {
@@ -9,7 +9,7 @@ import {
 import { matchBraces, stripSlashComments } from "./parse-utils";
 import { splitGoFieldStatements } from "./go-fields";
 import { jsonSchemaStringToFields } from "./json-schema";
-import {
+import type {
   SchemaConversionResult,
   SchemaConverter,
   SchemaProjection,

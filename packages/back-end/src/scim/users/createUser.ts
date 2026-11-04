@@ -1,13 +1,17 @@
-import { Response } from "express";
+import type { Response } from "express";
 import { cloneDeep } from "lodash";
 import { getDefaultRole, isRoleValid } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
 } from "back-end/src/services/organizations";
-import { ScimError, ScimUser, ScimUserPostRequest } from "back-end/types/scim";
+import type {
+  ScimError,
+  ScimUser,
+  ScimUserPostRequest,
+} from "back-end/types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,

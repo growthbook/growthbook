@@ -1,11 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
-import {
+import type {
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
 import useSDKConnections from "@/hooks/useSDKConnections";

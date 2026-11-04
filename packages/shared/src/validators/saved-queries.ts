@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { factTableColumnTypeValidator } from "./fact-table";
 
 const dateAggregationEnum = z.enum([

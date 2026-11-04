@@ -4,11 +4,11 @@ import {
   meanVarianceFromSums,
   ratioVarianceFromSums,
 } from "shared/util";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { PopulationDataInterface } from "shared/types/population-data";
-import { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
-import { AuthContextValue } from "@/services/auth";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { PopulationDataInterface } from "shared/types/population-data";
+import type { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import type { AuthContextValue } from "@/services/auth";
 
 export async function setMetricDataFromExperiment({
   form,

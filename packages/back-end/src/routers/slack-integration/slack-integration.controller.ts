@@ -1,4 +1,4 @@
-import {
+import type {
   SlackNotificationPreviewBody,
   SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
@@ -7,17 +7,17 @@ import {
   SlackAccountLink,
 } from "shared/validators";
 import type { Response } from "express";
-import {
+import type {
   SlackIntegrationInterface,
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
-import { NotificationEventName } from "shared/types/events/base-types";
+import type { NotificationEventName } from "shared/types/events/base-types";
 import {
   buildSlackSettingsPreview,
   sendSlackSettingsTest,
 } from "back-end/src/services/slack/slackSettingsPreview";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { assertLoginGrantsStoredSuperAdmin } from "back-end/src/services/auth";
 import {

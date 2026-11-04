@@ -4,14 +4,14 @@ import {
   isDimensionPrecomputed,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ExperimentInterface } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createSnapshotAnalysesBatched } from "back-end/src/services/experiments";

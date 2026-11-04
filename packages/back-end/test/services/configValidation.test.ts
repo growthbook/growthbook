@@ -1,12 +1,12 @@
-import { ConfigInterface } from "shared/types/config";
-import { FeatureRule } from "shared/types/feature";
+import type { ConfigInterface } from "shared/types/config";
+import type { FeatureRule } from "shared/types/feature";
 import {
   assertConfigInvariantsValid,
   assertConfigBackedFeatureValuesValid,
   assertConfigBackedDefaultHasNoOverrides,
   assertConfigValueValidForCreate,
 } from "back-end/src/services/configValidation";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 
 const noDebug = {

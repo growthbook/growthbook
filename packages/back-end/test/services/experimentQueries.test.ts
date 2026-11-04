@@ -1,12 +1,10 @@
-import {
+import type {
   FactMetricInterface,
   FunnelFactMetricInterface,
 } from "shared/types/fact-table";
-import {
-  ExperimentMetricInterface,
-  getFunnelStepMetrics,
-} from "shared/experiments";
-import { MetricForSnapshot } from "shared/types/experiment-snapshot";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import { getFunnelStepMetrics } from "shared/experiments";
+import type { MetricForSnapshot } from "shared/types/experiment-snapshot";
 import {
   chunkMetrics,
   getFactMetricGroup,

@@ -4,7 +4,7 @@ import {
 } from "shared/validators";
 import { pick, omit } from "lodash";
 import { getAllVariations } from "shared/experiments";
-import { ExperimentReportAnalysisSettings } from "shared/types/report";
+import type { ExperimentReportAnalysisSettings } from "shared/types/report";
 import { getValidDate } from "shared/dates";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";

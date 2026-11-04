@@ -1,15 +1,16 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { Box, Separator } from "@radix-ui/themes";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import type {
+  ExperimentTextFieldKey} from "@/components/Experiment/TabbedPage/ExperimentTextValue";
 import ExperimentTextValue, {
-  EXPERIMENT_TEXT_FIELDS,
-  ExperimentTextFieldKey,
+  EXPERIMENT_TEXT_FIELDS
 } from "@/components/Experiment/TabbedPage/ExperimentTextValue";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Heading from "@/ui/Heading";
 
 export default function PublicExperimentOverview({

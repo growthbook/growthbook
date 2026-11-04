@@ -1,4 +1,4 @@
-import {
+import type {
   AutoExperiment,
   AutoExperimentChangeType,
   Polyfills,
@@ -6,7 +6,7 @@ import {
   UrlTargetType,
   VariationRange,
 } from "./types/growthbook";
-import { TestedObj } from "./types/mongrule";
+import type { TestedObj } from "./types/mongrule";
 
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,

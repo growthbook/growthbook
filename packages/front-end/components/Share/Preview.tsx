@@ -1,17 +1,18 @@
-import React, { FC } from "react";
+import type { FC } from "react";
+import React from "react";
 import dynamic from "next/dynamic";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   PresentationInterface,
   PresentationCelebration,
   PresentationTransition,
 } from "shared/types/presentation";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import Callout from "@/ui/Callout";
-import { Props as PresentationProps } from "./Presentation";
+import type { Props as PresentationProps } from "./Presentation";
 const DynamicPresentation = dynamic<PresentationProps>(
   () => import("@/components/Share/Presentation"),
   {

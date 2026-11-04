@@ -1,11 +1,12 @@
-import React, { ReactNode, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ReactNode } from "react";
+import React, { useState } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isAutoSnapshotScheduled } from "shared/experiments";
-import { BanditEvent } from "shared/validators";
+import type { BanditEvent } from "shared/validators";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";

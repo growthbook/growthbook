@@ -1,4 +1,4 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { validateFeatureValue } from "shared/util";
 import { BadRequestError } from "back-end/src/util/errors";
 

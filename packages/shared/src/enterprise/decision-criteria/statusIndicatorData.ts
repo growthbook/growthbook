@@ -1,11 +1,11 @@
-import {
+import type {
   ExperimentDataForStatusStringDates,
   ExperimentHealthSettings,
   DecisionCriteriaData,
   ExperimentResultStatusData,
   ExperimentDataForStatus,
 } from "shared/types/experiment";
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getContextualBanditResultStatus,
   getExperimentResultStatus,

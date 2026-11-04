@@ -1,5 +1,6 @@
-import { ReactNode, useState } from "react";
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   getAttributeScopeProjectIds,
   getExperimentAttributeScopes,

@@ -1,23 +1,25 @@
 import { createHash, randomBytes } from "node:crypto";
 import { SLACK_BOT_SCOPES } from "shared/slack-integration";
 import { defaultSlackNotificationEvents } from "shared/notifications";
-import {
-  DEFAULT_NOTIFICATION_SETTINGS,
-  parseNotificationSettings,
+import type {
   SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
 } from "shared/validators";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  parseNotificationSettings,
+} from "shared/validators";
 import { z } from "zod";
-import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { EventWebHookInterface } from "shared/types/event-webhook";
+import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import type { EventWebHookInterface } from "shared/types/event-webhook";
 import { signState, verifySignedState } from "back-end/src/util/signedState";
 import {
   APP_ORIGIN,
   SLACK_CLIENT_ID,
   SLACK_CLIENT_SECRET,
 } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   createEventWebHook,
   deleteEventWebHookById,

@@ -1,5 +1,5 @@
 import { isEqual, pick } from "lodash";
-import {
+import type {
   Permission,
   UserPermissions,
   PermissionsObject,
@@ -11,11 +11,11 @@ import {
   UserPermission,
 } from "shared/types/organization";
 import { hasNoDuplicateProjects } from "../validators/organization";
+import type { Policy } from "./permissions.constants";
 import {
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,
   POLICY_PERMISSION_MAP,
-  Policy,
   READ_ONLY_PERMISSIONS,
   RESERVED_ROLE_IDS,
 } from "./permissions.constants";

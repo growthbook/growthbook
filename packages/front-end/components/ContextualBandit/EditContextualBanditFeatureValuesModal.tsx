@@ -1,13 +1,13 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
+import type {
   FeatureInterface,
   ContextualBanditRefRule,
 } from "shared/types/feature";
-import { LinkedFeatureInfo } from "shared/types/experiment";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import {
   naiveFlattenV1Rules,
   validateFeatureValue,

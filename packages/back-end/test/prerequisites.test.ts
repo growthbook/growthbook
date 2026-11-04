@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { evaluatePrerequisiteState } from "shared/util";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { generateFeaturesPayload } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";
 

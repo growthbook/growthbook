@@ -14,12 +14,15 @@ import {
   getExposureQueryVariationIdColumn,
   getExposureQueryVariationNameColumn,
 } from "shared/util";
-import {
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
   ExposureQueryColumnMapping,
 } from "shared/types/datasource";
-import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
+import type {
+  DetectedColumn,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";

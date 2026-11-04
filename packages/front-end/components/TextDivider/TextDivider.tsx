@@ -1,4 +1,4 @@
-import { FC, ReactNode } from "react";
+import type { FC, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 

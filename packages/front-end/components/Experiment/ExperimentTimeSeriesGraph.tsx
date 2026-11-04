@@ -1,4 +1,5 @@
-import React, { FC, useMemo } from "react";
+import type { FC } from "react";
+import React, { useMemo } from "react";
 import { format } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
@@ -10,9 +11,9 @@ import { AreaClosed, LinePath } from "@visx/shape";
 import { curveLinear } from "@visx/curve";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { datetime, getValidDate } from "shared/dates";
-import { StatsEngine } from "shared/types/stats";
+import type { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
-import { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
+import type { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import { RadixTheme } from "@/services/RadixTheme";
@@ -49,7 +50,7 @@ export interface ExperimentTimeSeriesGraphDataPoint {
   isPaddingPoint?: boolean;
 }
 
-import { GraphVariation } from "./ExperimentDateGraph";
+import type { GraphVariation } from "./ExperimentDateGraph";
 
 export interface ExperimentTimeSeriesGraphProps {
   yaxis: AxisType;

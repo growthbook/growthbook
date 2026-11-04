@@ -10,7 +10,7 @@ import {
 } from "back-end/src/models/BaseModel";
 import { ReqContextClass } from "back-end/src/services/context";
 import { encryptParams } from "back-end/src/services/datasource";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 // Legacy (non-BaseModel) collections whose write functions call
 // touchDefinitionsVersion manually. Adding a collection here asserts that YOU

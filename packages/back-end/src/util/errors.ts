@@ -1,8 +1,5 @@
-import {
-  ApiErrorCode,
-  ApiErrorDetails,
-  apiErrorRegistry,
-} from "shared/validators";
+import type { ApiErrorCode, ApiErrorDetails } from "shared/validators";
+import { apiErrorRegistry } from "shared/validators";
 import { experimentFieldLabels } from "shared/experiments";
 import { capitalizeFirstCharacter } from "shared/util";
 import type { PublishGate } from "back-end/src/revisions/publishGates";

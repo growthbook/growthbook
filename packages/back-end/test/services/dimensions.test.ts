@@ -1,8 +1,8 @@
-import {
+import type {
   ExperimentDimension,
   ExperimentDimensionWithSpecifiedSlices,
 } from "shared/types/integrations";
-import { ExposureQuery } from "shared/types/datasource";
+import type { ExposureQuery } from "shared/types/datasource";
 import {
   countDimensionLevels,
   getDimensionsWithSpecifiedSlices,

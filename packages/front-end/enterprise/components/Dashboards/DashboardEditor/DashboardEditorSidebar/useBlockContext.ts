@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BlockContext } from "./types";
+import type { BlockContext } from "./types";
 
 // Global state container for block contexts
 const BlockContextValues = new Map<string, BlockContext | null>();

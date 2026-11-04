@@ -2,7 +2,7 @@ import {
   getEventWebHookById,
   getAllEventWebHooksForEvent,
 } from "back-end/src/models/EventWebhookModel";
-import { NotificationEventHandler } from "back-end/src/events/notifiers/EventNotifier";
+import type { NotificationEventHandler } from "back-end/src/events/notifiers/EventNotifier";
 import {
   getFilterDataForNotificationEvent,
   filterEventForEnvironments,

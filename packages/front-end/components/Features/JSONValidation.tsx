@@ -1,7 +1,7 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { getValidation } from "shared/util";
 import { useState } from "react";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";

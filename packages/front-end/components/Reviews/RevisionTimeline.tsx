@@ -3,7 +3,7 @@ import {
   eventUserPersonId,
   eventUserIdentity,
 } from "shared/validators";
-import { RevisionLog } from "shared/types/feature-revision";
+import type { RevisionLog } from "shared/types/feature-revision";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiArrowCounterClockwiseFill,

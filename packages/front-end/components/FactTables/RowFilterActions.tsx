@@ -1,7 +1,7 @@
 import { Flex } from "@radix-ui/themes";
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiTable } from "react-icons/pi";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { emptyColumnRowFilter, emptySqlRowFilter } from "./rowFilterUtils";

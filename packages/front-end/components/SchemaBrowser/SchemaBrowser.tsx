@@ -1,5 +1,5 @@
-import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   Fragment,

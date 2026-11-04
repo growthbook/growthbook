@@ -1,4 +1,4 @@
-import { FC, ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
 import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";

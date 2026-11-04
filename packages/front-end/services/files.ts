@@ -1,5 +1,8 @@
-import { SignedUploadUrlResponse, UploadResponse } from "shared/types/upload";
-import { ApiCallType } from "./auth";
+import type {
+  SignedUploadUrlResponse,
+  UploadResponse,
+} from "shared/types/upload";
+import type { ApiCallType } from "./auth";
 import { getApiHost, getUploadMethod } from "./env";
 
 // The image types the upload endpoints accept.

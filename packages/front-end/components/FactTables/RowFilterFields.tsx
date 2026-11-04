@@ -1,6 +1,7 @@
-import { ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import { PiX } from "react-icons/pi";
 import SelectField from "@/components/Forms/SelectField";
 import {

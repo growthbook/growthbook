@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import prettier from "prettier";
+import type { SDKCapability } from "shared/sdk-versioning";
 import {
   getLatestSDKVersion,
   getSDKCapabilities,
   getSDKCapabilityVersion,
-  SDKCapability,
 } from "shared/sdk-versioning";
 import type { SDKLanguage } from "shared/types/sdk-connection";
 

@@ -1,14 +1,14 @@
-import { Queries } from "shared/types/query";
-import {
+import type { Queries } from "shared/types/query";
+import type {
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
 } from "shared/validators";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";
-import { ResolvedInterleavingMetric } from "back-end/src/enterprise/services/interleavingMetrics";
+import type { ResolvedInterleavingMetric } from "back-end/src/enterprise/services/interleavingMetrics";
 import { markPendingQueriesAsFailed } from "back-end/src/models/QueryModel";
 import { cancelExternalJobsForQueries } from "back-end/src/services/queryCancellation";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { ReqContext } from "back-end/types/api";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { ReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/models/QueryModel", () => ({
   ...jest.requireActual("back-end/src/models/QueryModel"),

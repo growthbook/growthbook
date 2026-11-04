@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { postAIEdit } from "back-end/src/enterprise/api/visual-editor-ai/postAIEdit";
 import { postAISuggestions } from "back-end/src/enterprise/api/visual-editor-ai/postAISuggestions";
 import { postFigmaToVariant } from "back-end/src/enterprise/api/visual-editor-ai/postFigmaToVariant";

@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowCounterClockwise, PiLock, PiUserCircle } from "react-icons/pi";
 import { LOOPBACK_HOSTS } from "shared/validators";
@@ -13,10 +14,10 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import PermissionsField, {
   useAllowedPermissions,
 } from "@/components/Settings/PermissionsField";
+import type { PermissionsValue } from "@/components/Settings/apiKeyPermissions";
 import {
   initialPermissions,
   isComplete,
-  PermissionsValue,
   rulesProblem,
   tokenFields,
 } from "@/components/Settings/apiKeyPermissions";

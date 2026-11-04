@@ -1,6 +1,6 @@
 import normal from "@stdlib/stats/base/dists/normal";
-import { OrganizationSettings } from "shared/types/organization";
-import { MetricPriorSettings } from "shared/types/fact-table";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { MetricPriorSettings } from "shared/types/fact-table";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "../constants";
 
 export interface MetricParamsBase {

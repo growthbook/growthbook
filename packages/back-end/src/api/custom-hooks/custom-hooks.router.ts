@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { listCustomHooks } from "./listCustomHooks";
 import { postCustomHook } from "./postCustomHook";
 import { getCustomHook } from "./getCustomHook";

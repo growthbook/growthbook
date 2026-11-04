@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { apiTeamValidator, teamSchema } from "shared/validators";
+import type { z } from "zod";
+import type { apiTeamValidator, teamSchema } from "shared/validators";
 
 export type TeamInterface = z.infer<typeof teamSchema>;
 

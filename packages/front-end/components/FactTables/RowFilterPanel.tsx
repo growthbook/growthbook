@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import { PiX } from "react-icons/pi";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isEqual } from "lodash";

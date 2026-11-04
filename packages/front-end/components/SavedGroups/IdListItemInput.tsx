@@ -1,4 +1,5 @@
-import { FC, useState } from "react";
+import type { FC } from "react";
+import { useState } from "react";
 import { SAVED_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";

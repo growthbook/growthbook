@@ -1,11 +1,11 @@
-import { Environment } from "shared/types/organization";
+import type { Environment } from "shared/types/organization";
 import {
   environmentAppliesToScope,
   featureHasEnvironment,
   filterEnvironmentsByFeature,
   getApplicableEnvIds,
 } from "../src/util/features";
-import { FeatureInterface } from "../types/feature";
+import type { FeatureInterface } from "../types/feature";
 
 const env = (id: string, projects?: string[]): Environment => ({
   id,

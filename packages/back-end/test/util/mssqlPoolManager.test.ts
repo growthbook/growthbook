@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { MssqlConnectionParams } from "shared/types/integrations/mssql";
+import type { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import {
   closeMssqlPool,
   findOrCreateConnection,

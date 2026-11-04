@@ -1,7 +1,7 @@
-import { FeatureInterface } from "shared/types/feature";
-import { ExperimentInterface } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ApiReqContext } from "back-end/types/api";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ApiReqContext } from "back-end/types/api";
 import { buildSDKPayloadForConnection } from "back-end/src/services/features";
 import {
   getVisualExperimentPrerequisiteDependents,

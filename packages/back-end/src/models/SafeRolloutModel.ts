@@ -1,6 +1,7 @@
 import { isEqual } from "lodash";
-import { UpdateProps } from "shared/types/base-model";
-import { SafeRolloutInterface, safeRolloutValidator } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
+import type { SafeRolloutInterface } from "shared/validators";
+import { safeRolloutValidator } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";

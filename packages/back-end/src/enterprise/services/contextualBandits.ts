@@ -14,25 +14,26 @@ import type {
   FeatureRule,
 } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
+import type {
   ContextualBanditEventInterface,
   ContextualBanditInterface,
   ContextualBanditQueryInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
   ContextualBanditVariation,
-  getEffectiveContextualAttributes,
   LeafWeight,
   Variation,
   VariationWeightPair,
   RevisionRampAction,
 } from "shared/validators";
+import { getEffectiveContextualAttributes } from "shared/validators";
 import {
   generateVariationId,
   validateFeatureValue,
   visualChangeHasContent,
   orgRequiresAnyReview,
 } from "shared/util";
+import type { WeightReconcileMode } from "shared/experiments";
 import {
   assertAtLeastTwoVariations,
   assertUniqueVariationIds,
@@ -45,13 +46,12 @@ import {
   isPendingVariation,
   nextContextualBanditVariationKey,
   reconcileVariationWeights,
-  WeightReconcileMode,
 } from "shared/experiments";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
 import type { SDKAttributeSchema } from "shared/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import {
   assertScopedRules,
   discardIfJustCreated,
@@ -59,7 +59,7 @@ import {
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
-import {
+import type {
   PendingDraftFailure,
   PendingDraftFailureReason,
 } from "back-end/src/services/experiment-feature";
@@ -94,11 +94,9 @@ import {
   scopeLinkedRefRule,
 } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import {
-  ContextualBanditResultsQueryRunner,
-  ContextualBanditSrmResult,
-} from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
-import {
+import type { ContextualBanditSrmResult } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
+import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
+import type {
   ContextualBanditResult,
   ContextualBanditStatsSettings,
 } from "./contextualBanditStats";

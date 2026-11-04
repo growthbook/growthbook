@@ -4,7 +4,7 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 
-import { SafeRolloutRule } from "shared/validators";
+import type { SafeRolloutRule } from "shared/validators";
 import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";

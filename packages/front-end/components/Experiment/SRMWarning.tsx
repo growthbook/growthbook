@@ -1,5 +1,6 @@
-import { FC, useState } from "react";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { FC } from "react";
+import { useState } from "react";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -8,7 +9,7 @@ import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import { ExperimentTab } from "./TabbedPage";
+import type { ExperimentTab } from "./TabbedPage";
 import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { InfoTip } from "./TabbedPage/SetupFieldRow";

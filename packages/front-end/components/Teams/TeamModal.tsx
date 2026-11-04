@@ -1,11 +1,12 @@
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
-import { MemberRoleWithProjects } from "shared/types/organization";
+import type { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import { Team } from "@/services/UserContext";
+import type { Team } from "@/services/UserContext";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import type { SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";

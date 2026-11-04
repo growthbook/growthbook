@@ -1,7 +1,7 @@
 import cloneDeep from "lodash/cloneDeep";
 import { deleteFeatureRevisionRuleValidator } from "shared/validators";
 import { getApplicableEnvIds, ruleAppliesToEnv } from "shared/util";
-import { RevisionChanges } from "shared/types/feature-revision";
+import type { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";

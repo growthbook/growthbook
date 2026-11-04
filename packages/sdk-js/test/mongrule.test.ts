@@ -1,6 +1,6 @@
 import { evalCondition } from "../src/mongrule";
-import { ConditionTypeMismatch } from "../src/types/mongrule";
-import { SavedGroupsPayload } from "../src/types/growthbook";
+import type { ConditionTypeMismatch } from "../src/types/mongrule";
+import type { SavedGroupsPayload } from "../src/types/growthbook";
 
 describe("Mongrule", () => {
   describe("Null", () => {

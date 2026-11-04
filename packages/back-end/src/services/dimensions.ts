@@ -1,16 +1,19 @@
-import {
+import type {
   ExperimentDimension,
   ExperimentDimensionWithSpecifiedSlices,
 } from "shared/types/integrations";
 import { resolveAnalysisIdentifierType } from "shared/util";
-import {
+import type {
   ExperimentInterface,
   IncrementalRefreshInterface,
 } from "shared/validators";
 import { MAX_PRECOMPUTED_UNIT_DIMENSIONS } from "shared/constants";
-import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
-import { ReqContext } from "back-end/types/request";
+import type {
+  DataSourceInterface,
+  ExposureQuery,
+} from "shared/types/datasource";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { ReqContext } from "back-end/types/request";
 import { findDimensionsByIds } from "back-end/src/models/DimensionModel";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";

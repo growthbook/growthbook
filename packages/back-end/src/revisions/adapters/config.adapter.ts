@@ -2,9 +2,9 @@ import {
   NO_ENVIRONMENT_BINDING,
   bypassApprovalPermission,
 } from "shared/permissions";
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
+import type { Revision } from "shared/enterprise";
 import {
-  Revision,
   configPublishFootprint,
   getConstantRevisionApprovalChange,
   getConstantRevisionChange,
@@ -24,9 +24,11 @@ import {
 } from "shared/validators";
 import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
-import {
+import type {
   ApplyChangesResult,
   EntityRevisionAdapter,
+} from "back-end/src/revisions/EntityRevisionAdapter";
+import {
   filterUpdatableChanges,
   revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
@@ -41,10 +43,8 @@ import {
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import {
-  ArmAcknowledgments,
-  buildArmAcknowledgments,
-} from "back-end/src/services/armGuards";
+import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
+import { buildArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
   captureConfigExperimentGuardAcknowledgment,
   configChangeAffectsServedValue,

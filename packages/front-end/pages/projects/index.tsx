@@ -1,6 +1,7 @@
-import React, { useState, FC } from "react";
+import type { FC } from "react";
+import React, { useState } from "react";
 import { PiDetective, PiMagnifyingGlass } from "react-icons/pi";
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import { ago } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";

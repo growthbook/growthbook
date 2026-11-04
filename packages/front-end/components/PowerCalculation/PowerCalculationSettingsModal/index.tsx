@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { useForm, UseFormReturn } from "react-hook-form";
-import {
-  config,
+import type { UseFormReturn } from "react-hook-form";
+import { useForm } from "react-hook-form";
+import type {
   FullModalPowerCalculationParams,
   PartialPowerCalculationParams,
   StatsEngineSettings,
 } from "shared/power";
-import { MetricPriorSettings } from "shared/types/fact-table";
-import { OrganizationSettings } from "shared/types/organization";
+import { config } from "shared/power";
+import type { MetricPriorSettings } from "shared/types/fact-table";
+import type { OrganizationSettings } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";

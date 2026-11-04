@@ -1,5 +1,6 @@
-import { assessApprovalCoverage, RevisionModel } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
+import type { RevisionModel } from "shared/permissions";
+import { assessApprovalCoverage } from "shared/permissions";
+import type { OrganizationInterface } from "shared/types/organization";
 
 // FeaturesFullAccess grants reviewFeatures but NOT reviewConstants/reviewConfigs.
 // FlagsReview grants all three.

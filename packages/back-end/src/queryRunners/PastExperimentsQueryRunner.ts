@@ -3,25 +3,26 @@ import {
   getExposureQueryIdentifierTypes,
   getPastExperimentQueryName,
 } from "shared/util";
-import { ExposureQuery } from "shared/types/datasource";
-import {
+import type { ExposureQuery } from "shared/types/datasource";
+import type {
   PastExperimentParams,
   PastExperimentResponseRows,
   PastExperimentResult,
 } from "shared/types/integrations";
-import {
+import type {
   PastExperiment,
   PastExperimentsInterface,
   PastExperimentsQueryRun,
 } from "shared/types/past-experiments";
-import { Queries, QueryStatus } from "shared/types/query";
+import type { Queries, QueryStatus } from "shared/types/query";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import {
   getPastExperimentsById,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import type { QueryMap } from "./QueryRunner";
+import { QueryRunner } from "./QueryRunner";
 
 export type PastExperimentsAnalysis = Required<
   Pick<PastExperimentsInterface, "experiments" | "exposureQueryRuns">

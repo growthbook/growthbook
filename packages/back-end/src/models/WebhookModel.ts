@@ -1,7 +1,7 @@
 import { omit } from "lodash";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
-import { WebhookInterface } from "shared/types/webhook";
-import { UpdateProps } from "shared/types/base-model";
+import type { WebhookInterface } from "shared/types/webhook";
+import type { UpdateProps } from "shared/types/base-model";
 import { webhookSchema } from "shared/validators";
 import {
   getCollection,

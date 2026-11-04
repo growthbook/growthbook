@@ -1,5 +1,5 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { StatsigExperiment } from "@/services/importing/statsig/types";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { StatsigExperiment } from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 
 /**

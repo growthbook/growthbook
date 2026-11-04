@@ -9,8 +9,8 @@ import {
 } from "shared/constants";
 
 import { parseEnvInt, putBaselineVariationFirst } from "shared/util";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
-  ExperimentMetricInterface,
   eligibleForUncappedMetric,
   getFunnelStepMetrics,
   isBinomialMetric,
@@ -23,13 +23,13 @@ import {
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
-import {
+import type {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
 } from "shared/types/integrations";
-import {
+import type {
   AnalysisSettingsForStatsEngine,
   BanditSettingsForStatsEngine,
   BusinessMetricTypeForStatsEngine,
@@ -40,12 +40,12 @@ import {
   MultipleExperimentMetricAnalysis,
   QueryResultsForStatsEngine,
 } from "shared/types/stats";
-import {
+import type {
   ExperimentReportResultDimension,
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "shared/types/report";
-import {
+import type {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
@@ -57,17 +57,17 @@ import {
   SnapshotVariation,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
-import { BanditResult } from "shared/types/experiment";
+import type { BanditResult } from "shared/types/experiment";
 import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
-import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   filterParentQueryMap,
   parseUnitDimQueryName,
 } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import {
   MAX_METRICS_PER_QUERY,
   MAX_ROWS_UNIT_AGGREGATE_QUERY,

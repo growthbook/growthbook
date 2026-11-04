@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

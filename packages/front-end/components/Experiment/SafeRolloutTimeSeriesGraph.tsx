@@ -1,4 +1,5 @@
-import React, { ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
+import React, { useMemo } from "react";
 import { extent } from "@visx/vendor/d3-array";
 import { Group } from "@visx/group";
 import { Line, LinePath } from "@visx/shape";
@@ -8,7 +9,7 @@ import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { curveLinear } from "@visx/curve";
 import { Flex, Text } from "@radix-ui/themes";
-import { MetricTimeSeries } from "shared/validators";
+import type { MetricTimeSeries } from "shared/validators";
 import { datetime, getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { RadixTheme } from "@/services/RadixTheme";
@@ -19,7 +20,7 @@ import {
 } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./SafeRolloutTimeSeriesGraph.module.scss";
 
 export type TimeSeriesEventMarker = {

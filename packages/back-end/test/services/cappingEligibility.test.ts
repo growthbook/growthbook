@@ -1,8 +1,8 @@
 import { getScopedSettings } from "shared/settings";
-import { ExperimentInterface } from "shared/types/experiment";
-import { OrganizationInterface } from "shared/types/organization";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { resetExperimentBanditSettings } from "back-end/src/services/experiments";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import { factMetricFactory } from "../factories/FactMetric.factory";

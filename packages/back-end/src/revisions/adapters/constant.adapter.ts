@@ -1,10 +1,10 @@
-import { ConstantInterface } from "shared/types/constant";
+import type { ConstantInterface } from "shared/types/constant";
 import {
   NO_ENVIRONMENT_BINDING,
   bypassApprovalPermission,
 } from "shared/permissions";
+import type { Revision } from "shared/enterprise";
 import {
-  Revision,
   constantPublishFootprint,
   getConstantRevisionApprovalChange,
   getConstantRevisionChange,
@@ -23,16 +23,16 @@ import {
 } from "shared/validators";
 import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
-import {
+import type {
   ApplyChangesResult,
   EntityRevisionAdapter,
+} from "back-end/src/revisions/EntityRevisionAdapter";
+import {
   filterUpdatableChanges,
   revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
-import {
-  ArmAcknowledgments,
-  buildArmAcknowledgments,
-} from "back-end/src/services/armGuards";
+import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
+import { buildArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
   captureConstantExperimentGuardAcknowledgment,
   constantChangeAffectsServedValue,

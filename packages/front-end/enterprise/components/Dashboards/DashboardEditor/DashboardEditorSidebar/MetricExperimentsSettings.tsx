@@ -1,14 +1,16 @@
-import {
+import type {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   MetricExperimentsBlockInterface,
+} from "shared/enterprise";
+import {
   isDifferenceType,
   DIFFERENCE_TYPE_OPTIONS,
   blockUsesGlobalFilter,
   globalFilterIsSet,
   withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
-import { ExplorationDateRange } from "shared/validators";
+import type { ExplorationDateRange } from "shared/validators";
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
@@ -16,8 +18,8 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
+import type { ExtraFilter } from "@/components/Search/SidebarExperimentFilters";
 import SidebarExperimentFilters, {
-  ExtraFilter,
   experimentSearchIsActive,
 } from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";

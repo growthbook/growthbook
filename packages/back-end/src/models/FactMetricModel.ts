@@ -1,4 +1,4 @@
-import { FilterQuery } from "mongoose";
+import type { FilterQuery } from "mongoose";
 import { omit } from "lodash";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -13,15 +13,15 @@ import {
   isFactFunnelMetric,
 } from "shared/experiments";
 import { getFunnelRuleViolations } from "shared/funnels";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
+import type { ApiFactMetric } from "shared/validators";
 import {
   factMetricValidator,
-  ApiFactMetric,
   validateFactMetricCapping,
   isExternallyManaged,
   externallyManagedError,
 } from "shared/validators";
-import {
+import type {
   ColumnRef,
   FactMetricInterface,
   FactMetricType,
@@ -45,7 +45,8 @@ import {
 } from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
-import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
+import type { Context } from "./BaseModel";
+import { CasConflictError, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
 

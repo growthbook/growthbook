@@ -3,8 +3,8 @@ import { useForm } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
 import { PiCaretDown, PiPlus } from "react-icons/pi";
-import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
+import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import type { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import HelperText from "@/ui/HelperText";
@@ -27,8 +27,8 @@ import SlackChannelSettings, {
 } from "./SlackChannelSettings";
 import { getSlackChannelSummary } from "./slackSetupUtils";
 import styles from "./SlackWorkspacePanel.module.scss";
+import type { SlackChannelFormValues } from "./slackChannelForm";
 import {
-  SlackChannelFormValues,
   getSlackChannelFormValues,
   acknowledgeSlackChannelSave,
 } from "./slackChannelForm";

@@ -1,4 +1,5 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import type { AncestorFieldCollision } from "shared/util";
 import {
   configPublishEnvironments,
   getConfigBaseKeys,
@@ -6,20 +7,16 @@ import {
   findBasePrecedenceInversions,
   getAncestorSchemaFieldOwners,
   classifyAncestorOwnedFields,
-  AncestorFieldCollision,
   findSiblingSchemaConflicts,
   fieldsToJsonSchema,
   storedInvariantsToApi,
   isConfigLocked,
 } from "shared/util";
-import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
-import { SimpleSchema } from "shared/types/feature";
-import {
-  ApiConfig,
-  configValidator,
-  getCyclicConstantRefs,
-} from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
+import type { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
+import type { SimpleSchema } from "shared/types/feature";
+import type { ApiConfig } from "shared/validators";
+import { configValidator, getCyclicConstantRefs } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";

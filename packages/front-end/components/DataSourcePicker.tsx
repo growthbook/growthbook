@@ -1,6 +1,6 @@
 import { ChevronDownIcon, Flex } from "@radix-ui/themes";
 import { PiCheck, PiDatabase } from "react-icons/pi";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";

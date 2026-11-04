@@ -1,4 +1,5 @@
-import { FC, useState } from "react";
+import type { FC } from "react";
+import { useState } from "react";
 import { FaTrash, FaPlus } from "react-icons/fa";
 
 const VariationDataForm: FC<{

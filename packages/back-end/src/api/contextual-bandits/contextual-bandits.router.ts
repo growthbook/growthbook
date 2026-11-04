@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getContextualBanditCurrentWeights } from "./getCurrent";
 import { listContextualBanditSnapshots } from "./listSnapshots";
 import { getContextualBanditSnapshot } from "./getSnapshot";

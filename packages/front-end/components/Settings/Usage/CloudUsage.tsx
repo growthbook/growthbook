@@ -1,11 +1,11 @@
 import { Fragment, useState } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import {
+import type {
   DailyUsage,
   DailyUsageByKey,
   UsageLimits,
 } from "shared/types/organization";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { AreaStack } from "@visx/shape";

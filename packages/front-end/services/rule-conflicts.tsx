@@ -1,14 +1,15 @@
 import { useState, type ReactElement } from "react";
 import { Flex } from "@radix-ui/themes";
-import { FeatureRule } from "shared/types/feature";
-import { SavedGroupType } from "shared/types/saved-group";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FeatureRule } from "shared/types/feature";
+import type { SavedGroupType } from "shared/types/saved-group";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { ruleProjectScope } from "shared/util";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { getRadixColor, RadixColor, RadixStatusIcon } from "@/ui/HelperText";
+import type { RadixColor } from "@/ui/HelperText";
+import { getRadixColor, RadixStatusIcon } from "@/ui/HelperText";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { isRuleInactive } from "@/services/features";
 

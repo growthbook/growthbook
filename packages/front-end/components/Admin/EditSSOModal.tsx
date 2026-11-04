@@ -3,7 +3,7 @@ import { Flex, TextArea, useThemeContext } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import stringify from "json-stringify-pretty-compact";
-import { SSOConnectionInterface } from "shared/types/sso-connection";
+import type { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
 import StringArrayField from "@/ui/StringArrayField";

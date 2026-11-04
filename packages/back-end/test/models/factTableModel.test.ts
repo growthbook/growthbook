@@ -1,10 +1,10 @@
-import {
+import type {
   ColumnInterface,
   CreateColumnProps,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   buildColumnInterface,
   mergeUpsertColumns,

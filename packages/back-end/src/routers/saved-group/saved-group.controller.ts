@@ -10,20 +10,20 @@ import {
   ID_LIST_DATATYPES,
   validateCondition,
 } from "shared/util";
-import {
+import type {
   SavedGroupInterface,
   SavedGroupWithoutValues,
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
   SavedGroupMetadata,
 } from "shared/types/saved-group";
+import type { Revision } from "shared/enterprise";
 import {
-  Revision,
   SAVED_GROUP_METADATA_FIELDS,
   getApprovalFlowSettings,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { DraftConflict } from "shared/types/draft-conflict";
+import type { DraftConflict } from "shared/types/draft-conflict";
 import {
   paginationQueryFields,
   type ApiSavedGroupUpload,
@@ -39,9 +39,9 @@ import {
   runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { validatePagination } from "back-end/src/util/handler";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { parseIdsQuery } from "back-end/src/util/validation";
 import {

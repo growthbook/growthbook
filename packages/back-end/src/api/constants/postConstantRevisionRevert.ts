@@ -1,11 +1,8 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
-import {
-  JsonPatchOperation,
-  Revision,
-  getConstantRestoreChange,
-} from "shared/enterprise";
-import { ConstantInterface } from "shared/types/constant";
+import type { JsonPatchOperation, Revision } from "shared/enterprise";
+import { getConstantRestoreChange } from "shared/enterprise";
+import type { ConstantInterface } from "shared/types/constant";
 import {
   postConstantRevisionRevertValidator,
   constantUpdatableFieldsSchema,

@@ -5,24 +5,27 @@
  * with every behavior from the original tests asserted per connection.
  */
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ExperimentInterface } from "shared/types/experiment";
-import { ContextualBanditInterface, HoldoutInterface } from "shared/validators";
-import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import {
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type {
+  ContextualBanditInterface,
+  HoldoutInterface,
+} from "shared/validators";
+import type { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type {
   OrganizationInterface,
   SDKAttributeSchema,
 } from "shared/types/organization";
-import { FeatureDefinition } from "shared/types/sdk";
-import { ConditionInterface } from "@growthbook/growthbook";
+import type { FeatureDefinition } from "shared/types/sdk";
+import type { ConditionInterface } from "@growthbook/growthbook";
 import {
   getSDKCapabilities,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
-import { SavedGroupFormat } from "shared/types/sdk-connection";
-import { ApiReqContext } from "back-end/types/api";
+import type { SavedGroupFormat } from "shared/types/sdk-connection";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   hashStrings,
   buildSDKPayloadForConnection,

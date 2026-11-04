@@ -1,4 +1,4 @@
-import {
+import type {
   DataSourceInterface,
   DataSourceParams,
   DataSourceType,
@@ -9,7 +9,7 @@ import {
   getSourceIntegrationObject,
   mergeParams,
 } from "back-end/src/services/datasource";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 // Listed independently of the app's classification table so this cannot pass by
 // agreeing with itself. Certs count as credentials.

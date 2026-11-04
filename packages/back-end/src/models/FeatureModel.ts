@@ -1,10 +1,11 @@
-import mongoose, { FilterQuery } from "mongoose";
+import type { FilterQuery } from "mongoose";
+import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import type { MergeResultChanges } from "shared/util";
 import {
-  MergeResultChanges,
   PermissionError,
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -25,7 +26,7 @@ import {
   toMonitoringSelection,
   withKeptIdentifierType,
 } from "shared/util";
-import {
+import type {
   SafeRolloutInterface,
   SafeRolloutRule,
   RampScheduleInterface,
@@ -36,11 +37,11 @@ import {
   RevisionRampUpdateAction,
   RampStartAction,
   RampStepAction,
-  resolveStartApproval,
   RampMonitoringConfig,
 } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
-import {
+import { resolveStartApproval } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
+import type {
   FeatureEnvironment,
   FeatureInterface,
   FeatureMetaInfo,
@@ -49,11 +50,11 @@ import {
   V1FeatureInterface,
   V1FeatureRule,
 } from "shared/types/feature";
-import { EventUser } from "shared/types/events/event-types";
-import { OrganizationInterface } from "shared/types/organization";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ResourceEvents } from "shared/types/events/base-types";
-import { DiffResult } from "shared/types/events/diff";
+import type { EventUser } from "shared/types/events/event-types";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ResourceEvents } from "shared/types/events/base-types";
+import type { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
 import { yieldEventLoop } from "back-end/src/util/yield";
@@ -86,14 +87,16 @@ import {
   assertConfigBackedFeatureValuesValid,
   configCheckedRuleValues,
 } from "back-end/src/services/configValidation";
+import type {
+  RampBaseStatePreImage,
+  RampBaseStateRefusal,
+} from "back-end/src/services/rampSchedule";
 import {
   appendRampEvent,
   applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
   planRampBaseStateSyncForPublish,
-  RampBaseStatePreImage,
-  RampBaseStateRefusal,
   restoreRampBaseStates,
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
@@ -115,15 +118,15 @@ import {
   upgradeFeatureRule,
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
+import type { V1RulesByEnv } from "back-end/src/util/flattenRules";
 import {
   resolveRampTargets,
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   isPlausibleFeatureRule,
-  V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
   buildInheritedChildrenByAncestor,
@@ -160,7 +163,7 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
 import {
   captureEventBuffer,
@@ -180,12 +183,8 @@ import {
   runValidateFeatureRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { settleFeatureRemovalsAfterPublish } from "back-end/src/util/featureExperimentSync";
-import {
-  createEvent,
-  hasPreviousObject,
-  CreateEventData,
-  CreateEventParams,
-} from "./EventModel";
+import type { CreateEventData, CreateEventParams } from "./EventModel";
+import { createEvent, hasPreviousObject } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
   clearPendingFeatureDraftsForRevision,

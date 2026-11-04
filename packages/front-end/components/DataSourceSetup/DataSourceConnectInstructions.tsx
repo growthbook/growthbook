@@ -1,11 +1,13 @@
-import { CSSProperties, Suspense, lazy, useMemo } from "react";
+import type { CSSProperties } from "react";
+import { Suspense, lazy, useMemo } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import cloneDeep from "lodash/cloneDeep";
 import { PiArrowSquareOut, PiCheck, PiCopy } from "react-icons/pi";
-import { DataSourceParams, DataSourceType } from "shared/types/datasource";
+import type { DataSourceParams, DataSourceType } from "shared/types/datasource";
 import type { DataRegion } from "shared/util";
 import { revealCopiedSelection } from "@/components/DataSourceSetup/revealCopiedSelection";
-import { DocLink, DocSection } from "@/components/DocLink";
+import type { DocSection } from "@/components/DocLink";
+import { DocLink } from "@/components/DocLink";
 import { getCodeTheme } from "@/components/SyntaxHighlighting/codeTheme";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -16,11 +18,11 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import type { EventForwarderDestination } from "./EventForwarderDestinationFields";
 import type { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
-import {
+import type {
   ConnectSetupKind,
-  getDataSourceSetupInstructions,
   SetupInstructionStep,
 } from "./getDataSourceSetupInstructions";
+import { getDataSourceSetupInstructions } from "./getDataSourceSetupInstructions";
 import styles from "./DataSourceConnectInstructions.module.scss";
 
 export type { ConnectSetupKind };

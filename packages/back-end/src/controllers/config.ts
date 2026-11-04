@@ -1,14 +1,17 @@
 import fs from "fs";
 import path from "path";
-import { Request, Response } from "express";
-import {
+import type { Request, Response } from "express";
+import type {
   ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
 } from "shared/types/experiment";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { ErrorResponse, ExperimentOverridesResponse } from "back-end/types/api";
+import type {
+  ErrorResponse,
+  ExperimentOverridesResponse,
+} from "back-end/types/api";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,

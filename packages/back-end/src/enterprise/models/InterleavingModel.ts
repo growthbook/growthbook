@@ -1,20 +1,22 @@
 import isEqual from "lodash/isEqual";
 import { v4 as uuidv4 } from "uuid";
-import { z } from "zod";
-import {
-  apiCreateInterleavingBody,
+import type { z } from "zod";
+import type {
   apiInterleavingLifecycleReturn,
   apiInterleavingResultsReturn,
   apiInterleavingSnapshotReturn,
   apiInterleavingSnapshotsReturn,
   apiInterleavingStatusReturn,
-  apiUpdateInterleavingBody,
   ApiInterleavingInterface,
+  InterleavingInterface,
+} from "shared/validators";
+import {
+  apiCreateInterleavingBody,
+  apiUpdateInterleavingBody,
   getInterleavingResultsEndpoint,
   getInterleavingSnapshotEndpoint,
   getInterleavingStatusEndpoint,
   INTERLEAVING_API_UPDATE_FIELDS,
-  InterleavingInterface,
   interleavingApiSpec,
   interleavingValidator,
   listInterleavingSnapshotsEndpoint,
@@ -32,7 +34,7 @@ import {
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";

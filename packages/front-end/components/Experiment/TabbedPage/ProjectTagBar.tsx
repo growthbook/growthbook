@@ -1,9 +1,9 @@
-import { ReactNode } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ReactNode } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiLockSimple, PiWarning } from "react-icons/pi";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import {
   getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,

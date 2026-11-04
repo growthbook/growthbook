@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus, PiTrash } from "react-icons/pi";
-import {
+import type {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";
@@ -11,7 +11,7 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import type { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";

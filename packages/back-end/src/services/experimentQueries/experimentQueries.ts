@@ -1,5 +1,5 @@
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
-  ExperimentMetricInterface,
   needsPercentileCapSubquery,
   isFactMetric,
   isLegacyMetric,
@@ -12,13 +12,13 @@ import {
   getFactMetricFactTableIds,
   parseFunnelStepMetricId,
 } from "shared/experiments";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { MetricInterface } from "shared/types/metric";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { OrganizationInterface } from "shared/types/organization";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { MetricInterface } from "shared/types/metric";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { OrganizationInterface } from "shared/types/organization";
 import cloneDeep from "lodash/cloneDeep";
 import { isManagedWarehouse } from "shared/util";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";

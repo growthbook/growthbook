@@ -1,4 +1,4 @@
-import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
+import type { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { postVisualChangesetsValidator } from "shared/validators";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";

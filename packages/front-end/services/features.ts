@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import {
+import type {
   Environment,
   NamespaceUsage,
   OrganizationSettings,
@@ -8,7 +8,7 @@ import {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
-import {
+import type {
   ExperimentRefRule,
   ExperimentRule,
   ExperimentValue,
@@ -20,8 +20,8 @@ import {
   ComputedFeatureInterface,
 } from "shared/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FeatureUsageRecords } from "shared/types/realtime";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   getDefaultHashAttribute,
@@ -40,8 +40,8 @@ import {
   type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type {
   HoldoutInterface,
   RevisionRampAction,
   RampScheduleInterface,
@@ -54,7 +54,7 @@ import {
   holdoutEnvsForChange,
   HOLDOUT_ENVS_UNRESOLVED,
 } from "shared/permissions";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
 import {
   getFeatureHealthSearchTokens,

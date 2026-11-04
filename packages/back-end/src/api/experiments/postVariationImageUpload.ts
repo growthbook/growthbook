@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import cloneDeep from "lodash/cloneDeep";
-import { Changeset } from "shared/types/experiment";
+import type { Changeset } from "shared/types/experiment";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { uploadFile } from "back-end/src/services/files";

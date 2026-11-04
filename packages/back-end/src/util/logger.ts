@@ -2,15 +2,15 @@ import { format } from "util";
 import { hasSuperAdminPermission } from "shared/permissions";
 import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
-import { Request } from "express";
-import { BaseLogger, Level } from "pino";
+import type { Request } from "express";
+import type { BaseLogger, Level } from "pino";
 import {
   ErrorWrapper,
   parseProcessLogBase,
   stringToBoolean,
 } from "shared/util";
-import { ApiRequestLocals } from "back-end/types/api";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ApiRequestLocals } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
 
 const redactPaths = [

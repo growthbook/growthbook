@@ -6,29 +6,31 @@ import AsyncLock from "async-lock";
 import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  accountFeatures,
+import type {
   AccountPlan,
-  accountPlans,
   CommercialFeature,
   CommercialFeaturesMap,
   LicenseData,
   LicenseInterface,
   LicenseMetaData,
   LicenseUserCodes,
-  makeOrgLimits,
-  DEFAULT_ORG_LIMITS,
   OrgLimits,
   OrgLimitsAccessor,
-  planTierFor,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
-import { EventForwarderSinkType } from "shared/types/event-forwarder";
 import {
+  accountFeatures,
+  accountPlans,
+  makeOrgLimits,
+  DEFAULT_ORG_LIMITS,
+  planTierFor,
+} from "shared/enterprise";
+import type { StripeAddress, TaxIdType } from "shared/types/subscriptions";
+import type { EventForwarderSinkType } from "shared/types/event-forwarder";
+import type {
   OrganizationInterface,
   OrgMemberInfo,
-  type SDKAttributeSchema,
+  SDKAttributeSchema,
 } from "shared/types/organization";
 import { fetch } from "back-end/src/util/http.util";
 import { LicenseServerError } from "back-end/src/util/errors";

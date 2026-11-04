@@ -1,4 +1,4 @@
-import { entityEvents, entityTypes } from "shared/constants";
+import type { entityEvents, entityTypes } from "shared/constants";
 import type { EventUserRequestedBy } from "shared/validators";
 
 export type EntityEvents = typeof entityEvents;

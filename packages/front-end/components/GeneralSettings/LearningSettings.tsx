@@ -5,7 +5,10 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiPlus } from "react-icons/pi";
 import uniqid from "uniqid";
-import { LearningStatus, LearningStatusColor } from "shared/types/organization";
+import type {
+  LearningStatus,
+  LearningStatusColor,
+} from "shared/types/organization";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";

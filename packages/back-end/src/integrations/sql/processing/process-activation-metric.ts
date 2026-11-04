@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
-import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
 export function processActivationMetric(

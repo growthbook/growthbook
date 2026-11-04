@@ -3,10 +3,10 @@ import { isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { applyTopLevelPatchOps } from "shared/enterprise";
+import type { RemoteGroupCsvOptions } from "@growthbook/remote-saved-groups-csv-parser";
 import {
   checkRemoteGroupCsvSample,
   parseRemoteGroupCsv,
-  RemoteGroupCsvOptions,
 } from "@growthbook/remote-saved-groups-csv-parser";
 import { REMOTE_SAVED_GROUP_SAMPLE_BYTES } from "shared/util";
 import type { SavedGroupInterface } from "shared/types/saved-group";
@@ -17,8 +17,8 @@ import type {
   SavedGroupUploadLoad,
   SavedGroupUploadInterface,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   copyFile,
   deleteFile,

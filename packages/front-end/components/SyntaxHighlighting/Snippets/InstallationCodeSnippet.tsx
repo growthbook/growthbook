@@ -1,11 +1,12 @@
-import { SDKLanguage } from "shared/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { DocLink } from "@/components/DocLink";
 import EventTrackerSelector from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
-import { DataRegion, getEventIngestorHost } from "@/services/dataRegions";
+import type { DataRegion } from "@/services/dataRegions";
+import { getEventIngestorHost } from "@/services/dataRegions";
 
 export default function InstallationCodeSnippet({
   language,

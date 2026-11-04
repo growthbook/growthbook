@@ -1,22 +1,19 @@
 import { CONSTANT_REF_PATTERN } from "shared/validators";
-import {
+import type {
   FeatureInterface,
   FeatureValueType,
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import {
+import type {
   ComponentProps,
   MouseEvent,
   ReactElement,
   ReactNode,
-  useEffect,
-  useId,
-  useRef,
-  useState,
 } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
-import { ConstantWithoutValue } from "shared/types/constant";
+import type { ConstantWithoutValue } from "shared/types/constant";
 import {
   getValidation,
   stripDefaultsForSparse,

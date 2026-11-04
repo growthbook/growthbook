@@ -1,10 +1,5 @@
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  MutableRefObject,
-} from "react";
+import type { MutableRefObject } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { ActiveTurnItem } from "./types";
 
 // ---------------------------------------------------------------------------

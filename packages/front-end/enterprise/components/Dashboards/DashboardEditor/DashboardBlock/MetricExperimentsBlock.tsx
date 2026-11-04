@@ -1,16 +1,16 @@
+import type { MetricExperimentsBlockInterface } from "shared/enterprise";
 import {
-  MetricExperimentsBlockInterface,
   calculateProductAnalyticsDateRange,
   getEffectiveExperimentBlock,
 } from "shared/enterprise";
-import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
+import type { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 import { useMemo } from "react";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function MetricExperimentsBlock({
   block: rawBlock,

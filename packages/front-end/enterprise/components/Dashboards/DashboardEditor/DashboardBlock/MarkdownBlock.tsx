@@ -1,6 +1,6 @@
-import { MarkdownBlockInterface } from "shared/enterprise";
+import type { MarkdownBlockInterface } from "shared/enterprise";
 import Markdown from "@/components/Markdown/Markdown";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function MarkdownBlock({
   block,

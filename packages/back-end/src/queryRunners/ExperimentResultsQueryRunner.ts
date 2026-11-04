@@ -1,9 +1,15 @@
-import type { QueryRunnerFailureCause } from "shared/types/query";
+import type {
+  QueryRunnerFailureCause,
+  ExperimentQueryMetadata,
+  Queries,
+  QueryPointer,
+  QueryStatus,
+} from "shared/types/query";
 import { analyzeExperimentPower } from "shared/enterprise";
 import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
-  ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getFactTableIdsForMetrics,
   quantileMetricType,
@@ -14,8 +20,8 @@ import {
   resolveExposureQueryForAnalysis,
   buildUnitsQuerySettingsFromSnapshot,
 } from "shared/util";
-import { SegmentInterface } from "shared/types/segment";
-import {
+import type { SegmentInterface } from "shared/types/segment";
+import type {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimensionWithSpecifiedSlices,
@@ -26,25 +32,19 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
 } from "shared/types/integrations";
-import { ExperimentReportResults } from "shared/types/report";
-import {
+import type { ExperimentReportResults } from "shared/types/report";
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import { MetricInterface } from "shared/types/metric";
-import {
-  ExperimentQueryMetadata,
-  Queries,
-  QueryPointer,
-  QueryStatus,
-} from "shared/types/query";
-import { BanditResult } from "shared/types/experiment";
+import type { MetricInterface } from "shared/types/metric";
+import type { BanditResult } from "shared/types/experiment";
 import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   errorSnapshotIfStillRunning,
   findSnapshotById,
@@ -61,18 +61,18 @@ import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
-import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
+import type SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
-import {
-  QueryRunner,
+import type {
   QueryMap,
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { QueryRunner } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 export type SnapshotResult = {

@@ -1,11 +1,5 @@
-import {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import type { ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";

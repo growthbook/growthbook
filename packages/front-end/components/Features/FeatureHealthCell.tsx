@@ -1,10 +1,10 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Flex } from "@radix-ui/themes";
-import { FeatureHealthEntry } from "shared/util";
+import type { FeatureHealthEntry } from "shared/util";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
+import type { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
 import {
   describeFeatureHealthEntry,
   entryMatchesHealthFilter,

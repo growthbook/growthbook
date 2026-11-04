@@ -1,4 +1,4 @@
-import {
+import type {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";

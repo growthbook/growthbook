@@ -1,17 +1,17 @@
-import { Request, Response } from "express";
-import { UserScopedGrowthBook } from "@growthbook/growthbook";
-import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { AuditInterface } from "shared/types/audit";
-import {
+import type { Request, Response } from "express";
+import type { UserScopedGrowthBook } from "@growthbook/growthbook";
+import type { SSOConnectionInterface } from "shared/types/sso-connection";
+import type { AuditInterface } from "shared/types/audit";
+import type {
   EnvScopedPermission,
   GlobalPermission,
   OrganizationInterface,
   ProjectScopedPermission,
 } from "shared/types/organization";
-import { TeamInterface } from "shared/types/team";
-import { UserInterface } from "shared/types/user";
-import { SuperAdmin } from "shared/validators";
-import { AppFeatures } from "shared/types/app-features";
+import type { TeamInterface } from "shared/types/team";
+import type { UserInterface } from "shared/types/user";
+import type { SuperAdmin } from "shared/validators";
+import type { AppFeatures } from "shared/types/app-features";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;

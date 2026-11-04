@@ -1,14 +1,16 @@
+import type { TextProps } from "@radix-ui/themes";
 import {
   Flex,
   Text,
   RadioCards as RadixRadioCards,
-  TextProps,
   Tooltip,
 } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, ReactElement } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { ReactElement } from "react";
+import { forwardRef } from "react";
 import Badge from "@/ui/Badge";
-import { radixSize, Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
+import { radixSize } from "@/ui/sizes";
 
 export type RadioOptions = {
   value: string;

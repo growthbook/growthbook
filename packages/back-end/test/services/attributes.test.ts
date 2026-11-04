@@ -4,7 +4,7 @@ import {
   lazyAttributeScope,
 } from "back-end/src/services/attributes";
 import { BadRequestError } from "back-end/src/util/errors";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const makeContext = (
   overrides: Partial<{

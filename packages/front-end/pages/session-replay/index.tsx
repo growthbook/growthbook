@@ -12,7 +12,7 @@ import {
   PiPlus,
   PiX,
 } from "react-icons/pi";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -22,9 +22,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FilterQueryPopover, {
-  FilterCondition,
-} from "@/components/SessionReplay/FilterQueryPopover";
+import type { FilterCondition } from "@/components/SessionReplay/FilterQueryPopover";
+import FilterQueryPopover from "@/components/SessionReplay/FilterQueryPopover";
 import type { RrwebPlayerHandle } from "@/components/SessionReplay/player";
 import Custom404 from "@/pages/404";
 

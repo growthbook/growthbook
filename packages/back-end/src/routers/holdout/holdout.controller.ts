@@ -1,22 +1,22 @@
 import type { Response } from "express";
 import isEqual from "lodash/isEqual";
 import { omit } from "lodash";
-import { UpdateProps } from "shared/types/base-model";
-import {
+import type { UpdateProps } from "shared/types/base-model";
+import type {
   CreateHoldoutInput,
   HoldoutInterface,
   HoldoutMissingLinkage,
 } from "shared/validators";
-import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { HoldoutStage } from "shared/util";
 import {
   getApplicableEnvIds,
   getEnabledHoldoutEnvironments,
-  HoldoutStage,
   PermissionError,
 } from "shared/util";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
   getEnvironments,
@@ -49,7 +49,7 @@ import { logger } from "back-end/src/util/logger";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { SoftWarningError } from "back-end/src/util/errors";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 
 /**
  * GET /holdout/:id

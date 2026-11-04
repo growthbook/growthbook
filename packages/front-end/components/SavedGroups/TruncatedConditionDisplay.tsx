@@ -1,5 +1,9 @@
-import { useState, useMemo, ReactNode } from "react";
-import { SavedGroupTargeting, FeaturePrerequisite } from "shared/types/feature";
+import type { ReactNode } from "react";
+import { useState, useMemo } from "react";
+import type {
+  SavedGroupTargeting,
+  FeaturePrerequisite,
+} from "shared/types/feature";
 import { hasTargetingConfigured } from "shared/experiments";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Link from "@/ui/Link";

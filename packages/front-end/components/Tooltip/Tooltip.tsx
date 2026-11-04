@@ -1,13 +1,5 @@
-import {
-  ReactNode,
-  FC,
-  HTMLAttributes,
-  useState,
-  useEffect,
-  CSSProperties,
-  useRef,
-  useCallback,
-} from "react";
+import type { ReactNode, FC, HTMLAttributes, CSSProperties } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";

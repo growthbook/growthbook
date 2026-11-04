@@ -1,8 +1,8 @@
 import { scaleBand, scaleTime } from "@visx/scale";
 import { Group } from "@visx/group";
 import { AxisTop } from "@visx/axis";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { StatusIndicatorData } from "shared/enterprise";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { StatusIndicatorData } from "shared/enterprise";
 import { getAllVariations } from "shared/experiments";
 import { getValidDate } from "shared/dates";
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";

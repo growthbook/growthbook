@@ -7,15 +7,15 @@ import {
   snapshotColumnVariationIds,
 } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
-import {
+import type {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
   VariationWithIndex,
 } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { Fragment, useEffect, useState } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import {
   buildTiebreakerLiftMap,
   clearLeader,

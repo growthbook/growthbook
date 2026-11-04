@@ -1,4 +1,7 @@
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import type {
+  ColumnInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import {

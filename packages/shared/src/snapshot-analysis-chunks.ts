@@ -1,11 +1,11 @@
 import uniqid from "uniqid";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   SnapshotMetric,
   SnapshotVariation,
 } from "shared/types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "shared/types/report";
+import type { ExperimentReportResultDimension } from "shared/types/report";
 
 export type AnalysisKeyType = string;
 

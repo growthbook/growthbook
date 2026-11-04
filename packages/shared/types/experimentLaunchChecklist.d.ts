@@ -1,4 +1,4 @@
-import { BuiltInChecklistItemKey } from "shared/validators";
+import type { BuiltInChecklistItemKey } from "shared/validators";
 
 export { BuiltInChecklistItemKey } from "shared/validators";
 

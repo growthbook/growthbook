@@ -1,8 +1,8 @@
-import { FactMetricInterface } from "shared/types/fact-table";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { CreateFactMetricFormProps } from "@/services/metrics";
 import {
   duplicateFactMetric,
-  CreateFactMetricFormProps,
   formatDurationMilliseconds,
   formatDurationSeconds,
   fromFactMetricFormValues,

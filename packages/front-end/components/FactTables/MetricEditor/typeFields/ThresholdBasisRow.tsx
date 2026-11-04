@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import TextField from "@/ui/TextField";
 import DataList from "@/ui/DataList";
 import ShapeSelect, {

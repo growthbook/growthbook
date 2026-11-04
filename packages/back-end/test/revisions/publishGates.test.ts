@@ -1,8 +1,10 @@
-import {
+import type {
   BypassedGate,
-  PublishBlockedError,
   PublishGate,
   PublishGateClearance,
+} from "back-end/src/revisions/publishGates";
+import {
+  PublishBlockedError,
   classifyPublishGate,
   evaluatePublishGates,
   schemaFailureGateOverride,

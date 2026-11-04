@@ -1,4 +1,5 @@
-import { GrowthBook, Context, RedisStickyBucketService } from "../../src";
+import type { Context } from "../../src";
+import { GrowthBook, RedisStickyBucketService } from "../../src";
 /* eslint-disable */
 const Redis = require("ioredis-mock");
 /* eslint-enable */

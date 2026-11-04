@@ -1,21 +1,20 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
+import type { AutoMergeResult, MatchingRule } from "shared/util";
 import {
   DRAFT_REVISION_STATUSES,
-  AutoMergeResult,
   checkIfRevisionNeedsReview,
   getEffectiveRevisionHoldout,
   getMatchingRules,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
-  MatchingRule,
   mergeResultHasChanges,
 } from "shared/util";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { EventUser } from "shared/types/events/event-types";
-import { Variation } from "shared/types/experiment";
-import {
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { EventUser } from "shared/types/events/event-types";
+import type { Variation } from "shared/types/experiment";
+import type {
   ContextualBanditInterface,
   ExperimentInterface,
   ExperimentRefRule,
@@ -25,7 +24,7 @@ import {
   FeatureRule,
 } from "shared/validators";
 import type { AuditInterfaceInput } from "shared/types/audit";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getEnvironmentIdsFromOrg,
   getEnvironments,
@@ -80,7 +79,7 @@ import {
   discardIfJustCreated,
   withStagedSchema,
 } from "back-end/src/api/features/validations";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getEnabledEnvironments } from "back-end/src/util/features";

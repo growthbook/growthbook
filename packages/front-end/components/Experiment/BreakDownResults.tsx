@@ -1,52 +1,54 @@
-import { FC, Fragment, useState } from "react";
+import type { FC } from "react";
+import { Fragment, useState } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
-import {
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import {
+import type {
   ExperimentStatus,
   ExperimentType,
   MetricOverride,
 } from "shared/types/experiment";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import {
+import type {
   ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
+} from "shared/experiments";
+import {
   formatDimensionValueForDisplay,
   isFactFunnelMetric,
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
-import { CustomMetricSlice } from "shared/validators";
+import type { CustomMetricSlice } from "shared/validators";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getDimensionDisplayName } from "@/components/Dimensions/DimensionChooser";
-import { ExperimentTableRow } from "@/services/experiments";
-import ResultsTable, {
-  RESULTS_TABLE_COLUMNS,
-} from "@/components/Experiment/ResultsTable";
-import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import type { ExperimentTableRow } from "@/services/experiments";
+import type { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
+import ResultsTable from "@/components/Experiment/ResultsTable";
+import type { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import FunnelStepSliceLink, {
   funnelMetricHasSlices,
 } from "@/components/Experiment/FunnelStepSliceLink";
 import RadixTooltip from "@/ui/Tooltip";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";

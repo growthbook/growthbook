@@ -1,6 +1,6 @@
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { SDKAttribute } from "shared/types/organization";
-import { StatsigSavedGroup } from "@/services/importing/statsig/types";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { SDKAttribute } from "shared/types/organization";
+import type { StatsigSavedGroup } from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 import { ensureAttributeExists } from "./attributeCreator";

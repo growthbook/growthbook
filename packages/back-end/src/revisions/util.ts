@@ -2,14 +2,14 @@ import { projectScopeChanged, type ProjectScoped } from "shared/permissions";
 import { applyPatch } from "fast-json-patch";
 import type { Operation } from "fast-json-patch";
 import { cloneDeep, isEqual } from "lodash";
-import {
+import type {
   JsonPatchOperation,
   Revision,
   RevisionTargetType,
-  normalizeProposedChanges,
 } from "shared/enterprise";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import { normalizeProposedChanges } from "shared/enterprise";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
 import { advanceAuthorityOnRow } from "back-end/src/revisions/revisionAuthority";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";

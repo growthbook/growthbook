@@ -1,7 +1,8 @@
-import React, { FC, useCallback, useState } from "react";
+import type { FC } from "react";
+import React, { useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ago, datetime } from "shared/dates";
-import { OAuthTokenPermissions } from "shared/validators";
+import type { OAuthTokenPermissions } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";

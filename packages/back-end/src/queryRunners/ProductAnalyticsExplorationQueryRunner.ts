@@ -1,15 +1,19 @@
-import { ProductAnalyticsExplorationParams } from "shared/types/integrations";
-import {
+import type { ProductAnalyticsExplorationParams } from "shared/types/integrations";
+import type {
   ProductAnalyticsExploration,
   ProductAnalyticsResult,
 } from "shared/validators";
-import { FactMetricInterface, FactTableMap } from "shared/types/fact-table";
-import { Queries, QueryStatus } from "shared/types/query";
+import type {
+  FactMetricInterface,
+  FactTableMap,
+} from "shared/types/fact-table";
+import type { Queries, QueryStatus } from "shared/types/query";
 import { transformProductAnalyticsRowsToResult } from "shared/enterprise";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import type { QueryMap } from "./QueryRunner";
+import { QueryRunner } from "./QueryRunner";
 
 export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
   ProductAnalyticsExploration,

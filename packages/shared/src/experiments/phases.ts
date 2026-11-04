@@ -1,4 +1,4 @@
-import { ExperimentType } from "shared/types/experiment";
+import type { ExperimentType } from "shared/types/experiment";
 
 /**
  * Index of the phase governing targeting/traffic (and the live SDK payload).

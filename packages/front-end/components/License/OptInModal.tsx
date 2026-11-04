@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
-import { AgreementType } from "shared/validators";
+import type { AgreementType } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";

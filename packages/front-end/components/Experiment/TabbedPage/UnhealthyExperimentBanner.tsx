@@ -1,8 +1,8 @@
 import { Fragment } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
   ExperimentUnhealthyData,

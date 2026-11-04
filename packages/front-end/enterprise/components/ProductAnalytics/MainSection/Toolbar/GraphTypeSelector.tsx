@@ -1,6 +1,6 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
-import { chartTypes as chartTypeValues } from "shared/validators";
+import type { chartTypes as chartTypeValues } from "shared/validators";
 import {
   PiChartBar,
   PiChartBarDuotone,

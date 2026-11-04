@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
+import type {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import {
+import type {
   ExplorationConfig,
   ExplorationDataset,
   SqlDataset,

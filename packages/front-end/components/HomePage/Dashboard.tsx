@@ -1,5 +1,5 @@
 import React from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import ExecReport from "@/components/ExecReports/ExecReport";
 import styles from "./Dashboard.module.scss";
 export interface Props {

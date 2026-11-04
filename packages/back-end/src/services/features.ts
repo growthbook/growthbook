@@ -1,21 +1,25 @@
 import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
-import { z } from "zod";
+import type { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
 import uniqWith from "lodash/uniqWith";
 import type { Request } from "express";
-import {
+import type {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
-  GrowthBook,
 } from "@growthbook/growthbook";
-import {
+import { GrowthBook } from "@growthbook/growthbook";
+import type {
   MergeResultChanges,
   NodeHandler,
   PrerequisiteStateResult,
+  TargetingScopedEntity,
+  ReviewAuthorityFootprint,
+} from "shared/util";
+import {
   buildReverseDependencyIndex,
   checkIfRevisionNeedsReview,
   entityTargetsProject,
@@ -35,7 +39,6 @@ import {
   namespacesToMap,
   recursiveWalk,
   ruleAppliesToEnv,
-  TargetingScopedEntity,
   stemRuleId,
   stripConfigExtends,
   toApiNamespace,
@@ -48,7 +51,17 @@ import {
   interleavingTargetingServes,
   interleavingVariationsList,
   parseInterleavingRankerConfig,
+  getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
+  getRevisionReviewRequirement,
+  liveRevisionFromFeature,
+  getEnvsForRampTarget,
 } from "shared/util";
+import type {
+  SavedGroupPayloadStrategy,
+  SDKCapability,
+  ConstantValueMap,
+} from "shared/sdk-versioning";
 import {
   getConnectionSDKCapabilities,
   getPayloadAllowedKeys,
@@ -60,12 +73,9 @@ import {
   parseDerivedGroupId,
   readSavedGroupReferenceId,
   savedGroupFormatFromConnection,
-  SavedGroupPayloadStrategy,
-  SDKCapability,
   buildConstantValueMap,
-  ConstantValueMap,
 } from "shared/sdk-versioning";
-import { ConstantInterface } from "shared/types/constant";
+import type { ConstantInterface } from "shared/types/constant";
 import {
   rampActionFootprint,
   featurePublishFootprint,
@@ -76,16 +86,16 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
-import {
+import type {
   GroupMap,
   SavedGroupPayloadMap,
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/types/saved-group";
 import { clone } from "lodash";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ArchetypeAttributeValues } from "shared/types/archetype";
-import {
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ArchetypeAttributeValues } from "shared/types/archetype";
+import type {
   AutoExperimentWithMetadata,
   ContextualBanditDefinitions,
   ExperimentMetadata,
@@ -93,8 +103,8 @@ import {
   FeatureMetadata,
   InterleavingDefinitions,
 } from "shared/types/sdk";
-import { ProjectInterface } from "shared/types/project";
-import {
+import type { ProjectInterface } from "shared/types/project";
+import type {
   ApiFeatureEnvironment,
   ApiFeatureEnvironmentV2,
   apiFeatureRevisionV2Validator,
@@ -105,17 +115,19 @@ import {
   ApiFeatureWithRevisionsV2,
   ContextualBanditInterface,
   EventUser,
-  eventUserLegacyLabel,
-  eventUserToApiEventUser,
   HoldoutInterface,
   InterleavingInterface,
-  resolveSavedGroupsInput,
-  eventUserIdentity,
   RevisionRampAction,
   SdkConnectionCacheAuditContext,
   RampScheduleInterface,
 } from "shared/validators";
 import {
+  eventUserLegacyLabel,
+  eventUserToApiEventUser,
+  resolveSavedGroupsInput,
+  eventUserIdentity,
+} from "shared/validators";
+import type {
   AttributeMap,
   ExperimentRefRule,
   ExperimentRule,
@@ -128,45 +140,40 @@ import {
   ForceRule,
   RolloutRule,
 } from "shared/types/feature";
-import {
+import type {
   Environment,
   OrganizationInterface,
   SDKAttribute,
   SDKAttributeSchema,
 } from "shared/types/organization";
-import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import {
+import type {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "shared/types/experiment";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type {
   SavedGroupFormat,
   SDKConnectionInterface,
 } from "shared/types/sdk-connection";
-import {
-  getReviewAuthorityFootprint,
-  governingReviewProjectsForFeature,
-  getRevisionReviewRequirement,
-  liveRevisionFromFeature,
-  type ReviewAuthorityFootprint,
-  getEnvsForRampTarget,
-} from "shared/util";
 import { measureSdkPayloadSize } from "shared/health";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
+import type { FeatureDefinitionSources } from "back-end/src/util/featureDefinitionReferences.util";
 import {
-  FeatureDefinitionSources,
   getSafeRolloutIdsForFeatureDefinitions,
   getSavedGroupIdsForFeatureDefinitions,
   loadSavedGroupsWithNested,
 } from "back-end/src/util/featureDefinitionReferences.util";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import {
   buildCbVisualAutoExperiment,
   CB_PAYLOAD_WARN_BYTES,
   CB_PAYLOAD_WARN_FRACTION,
-  CbVisualExperiment,
   filterCbVisualExperimentsByProject,
   getContextualBanditPrerequisiteDependents,
   filterServedCbVisualExperiments,
@@ -207,16 +214,17 @@ import {
   getReferenceIdsInFeatures,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
-import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
+import type { Counter, Histogram } from "back-end/src/util/metrics";
+import { metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import {
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
@@ -233,7 +241,7 @@ import {
   getSdkPayloadSizeLimitBytes,
   recordSdkPayloadSize,
 } from "back-end/src/services/sdkPayloadSize";
-import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
+import type { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,

@@ -1,5 +1,6 @@
-import { FC, useState } from "react";
-import { QueryLanguage } from "shared/types/datasource";
+import type { FC } from "react";
+import { useState } from "react";
+import type { QueryLanguage } from "shared/types/datasource";
 import QueryModal from "@/components/Experiment/QueryModal";
 
 const ViewQueryButton: FC<{

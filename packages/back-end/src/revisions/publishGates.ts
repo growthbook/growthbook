@@ -1,6 +1,6 @@
 import { isBypassApprovalPermission } from "shared/permissions";
 import type { Permission } from "shared/types/organization";
-import { bypassViaValues, CustomHookErrorDetail } from "shared/validators";
+import type { bypassViaValues, CustomHookErrorDetail } from "shared/validators";
 import {
   canUseRestApiBypassSetting,
   type ReviewBypassRequest,

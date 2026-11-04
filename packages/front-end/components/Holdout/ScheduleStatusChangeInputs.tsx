@@ -1,8 +1,8 @@
 import React from "react";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
-import { UseFormReturn } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { UseFormReturn } from "react-hook-form";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime } from "shared/dates";
 import { getHoldoutStage } from "shared/util";
 import { format } from "date-fns";

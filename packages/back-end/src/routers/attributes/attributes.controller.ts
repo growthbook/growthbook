@@ -1,7 +1,7 @@
 import type { Response } from "express";
-import { SDKAttribute } from "shared/types/organization";
+import type { SDKAttribute } from "shared/types/organization";
 import { extractConditionAttributeKeys } from "shared/util";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { parseIdsQuery } from "back-end/src/util/validation";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";

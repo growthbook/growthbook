@@ -1,4 +1,4 @@
-import {
+import type {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SavedGroupFormat,
@@ -53,10 +53,9 @@ import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import SDKLanguageSelector from "./SDKLanguageSelector";
+import type { LanguageType, LanguageFilter } from "./SDKLanguageLogo";
 import {
-  LanguageType,
   languageMapping,
-  LanguageFilter,
   getConnectionLanguageFilter,
   getPackageRepositoryName,
 } from "./SDKLanguageLogo";

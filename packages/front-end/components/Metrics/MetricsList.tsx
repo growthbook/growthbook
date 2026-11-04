@@ -4,7 +4,7 @@ import { flushSync } from "react-dom";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -36,10 +36,8 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import Tooltip from "@/ui/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import {
-  MetricModal,
-  MetricModalState,
-} from "@/components/FactTables/NewMetricModal";
+import type { MetricModalState } from "@/components/FactTables/NewMetricModal";
+import { MetricModal } from "@/components/FactTables/NewMetricModal";
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";

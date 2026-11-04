@@ -1,21 +1,21 @@
-import { z } from "zod";
+import type { z } from "zod";
 import type { Response } from "express";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { PopulationDataInterface } from "shared/types/population-data";
+import type { PopulationDataInterface } from "shared/types/population-data";
 import type { PopulationDataQuerySettings } from "shared/types/query";
-import { createPopulationDataPropsValidator } from "shared/validators";
+import type { createPopulationDataPropsValidator } from "shared/validators";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PopulationDataQueryRunner } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 
 type CreatePopulationDataProps = z.infer<
   typeof createPopulationDataPropsValidator

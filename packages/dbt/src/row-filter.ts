@@ -1,4 +1,4 @@
-import { RowFilter, RowFilterOperator } from "./types";
+import type { RowFilter, RowFilterOperator } from "./types";
 
 type Literal = { kind: "string" | "number" | "boolean"; value: string };
 function literal(raw: string): Literal | null {

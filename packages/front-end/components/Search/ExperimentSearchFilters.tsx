@@ -1,9 +1,10 @@
-import React, { FC } from "react";
+import type { FC } from "react";
+import React from "react";
 import { Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
+import type { BaseSearchFiltersProps } from "@/components/Search/SearchFilters";
 import {
-  BaseSearchFiltersProps,
   FilterDropdown,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";

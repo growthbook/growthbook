@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import { ReactNode } from "react";
-import { getLatestPhaseVariations } from "shared/experiments";
+import type { ReactNode } from "react";
+import type { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import { DropdownMenu, MoreMenuTrigger } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
-import {
+import type {
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { FactTableInterface } from "shared/types/fact-table";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { FactTableInterface } from "shared/types/fact-table";
 import {
   formatLlmTracingAddedDetail,
   getLlmTracingAddedAt,

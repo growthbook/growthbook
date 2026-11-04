@@ -3,45 +3,47 @@ import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { getActivePhase } from "shared/experiments";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import type { HoldoutStage } from "shared/util";
 import {
   DEFAULT_HOLDOUT_SIZE,
   generateVariationId,
   getEnabledHoldoutEnvironments,
   getHoldoutStage,
   holdoutSizeToCoverage,
-  HoldoutStage,
   validateCondition,
   getHoldoutLinkBlocker,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
-import {
+import type {
   ApiUpdateHoldoutBody,
   CreateHoldoutInput,
   HoldoutInterface,
   HoldoutMissingLink,
   HoldoutMissingLinkage,
   HoldoutNextScheduledStatusUpdate,
+} from "shared/validators";
+import {
   HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS,
   HOLDOUT_API_TARGETING_UPDATE_FIELDS,
   HOLDOUT_API_UPDATE_FIELDS,
 } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
-import {
+import type { UpdateProps } from "shared/types/base-model";
+import type {
   Changeset,
   ExperimentInterface,
   ExperimentPhase,
 } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
-import { DataSourceInterface } from "shared/types/datasource";
+import type { FeatureInterface } from "shared/types/feature";
+import type { DataSourceInterface } from "shared/types/datasource";
 import {
   notifyHoldoutCreated,
   notifyHoldoutStatusChanged,
 } from "back-end/src/services/holdoutNotifications";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   createExperiment,
   dangerouslyGetExperimentsByIdsBypassPermission,

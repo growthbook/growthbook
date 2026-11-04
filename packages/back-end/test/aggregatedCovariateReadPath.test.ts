@@ -1,9 +1,9 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { ExposureQuery } from "shared/types/datasource";
-import { AggregatedFactTableInterface } from "shared/validators";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExposureQuery } from "shared/types/datasource";
+import type { AggregatedFactTableInterface } from "shared/validators";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getFactTableSettingsHashForAggregatedFactTable,
   getMetricSettingsHashForAggregatedFactTable,

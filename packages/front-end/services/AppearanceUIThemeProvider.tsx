@@ -1,7 +1,6 @@
+import type { FC, PropsWithChildren } from "react";
 import {
   createContext,
-  FC,
-  PropsWithChildren,
   useCallback,
   useContext,
   useEffect,

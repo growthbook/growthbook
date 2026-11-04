@@ -1,5 +1,8 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
+import type {
+  FeatureInterface,
+  FeaturePrerequisite,
+} from "shared/types/feature";
 import { useMemo, useState } from "react";
 import {
   filterEnvironmentsByFeature,
@@ -9,10 +12,9 @@ import {
 } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { Box } from "@radix-ui/themes";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import PrerequisiteStatesTable, {
-  MinimalFeatureInfo,
-} from "@/components/Features/PrerequisiteStatesTable";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { MinimalFeatureInfo } from "@/components/Features/PrerequisiteStatesTable";
+import PrerequisiteStatesTable from "@/components/Features/PrerequisiteStatesTable";
 import { getPrerequisites, useEnvironments } from "@/services/features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import track from "@/services/track";
@@ -30,14 +32,13 @@ import Callout from "@/ui/Callout";
 import { ConflictShell } from "@/components/DraftConflicts/ConflictContext";
 import HelperText from "@/ui/HelperText";
 import Button from "@/ui/Button";
+import type { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import {
-  PrerequisiteStateResult,
   useBatchPrerequisiteStates,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
-import DraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
+import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 
 export interface Props {

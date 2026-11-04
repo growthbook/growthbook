@@ -1,4 +1,5 @@
-import React, { FC, ReactNode, useState } from "react";
+import type { FC, ReactNode } from "react";
+import React, { useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiQuestion } from "react-icons/pi";

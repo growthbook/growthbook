@@ -1,14 +1,13 @@
-import {
+import type {
   ApiCustomHook,
   CustomHookInterface,
   CustomHookType,
-  customHookValidator,
-  hookEntityType,
 } from "shared/validators";
+import { customHookValidator, hookEntityType } from "shared/validators";
 import { getConfigAncestorKeys } from "shared/util";
-import { UpdateProps } from "shared/types/base-model";
-import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
+import type { UpdateProps } from "shared/types/base-model";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
 import { MakeModelClass } from "./BaseModel";
 
 // Whether a hook applies to the entity being validated. Entity-scoped hooks

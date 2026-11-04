@@ -1,6 +1,7 @@
-import { Namespaces, NamespaceUsage } from "shared/types/organization";
+import type { Namespaces, NamespaceUsage } from "shared/types/organization";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { MouseEventHandler, useMemo, useState } from "react";
+import type { MouseEventHandler } from "react";
+import { useMemo, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { findGaps } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

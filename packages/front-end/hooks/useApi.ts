@@ -1,4 +1,5 @@
-import useSWR, { SWRConfiguration } from "swr";
+import type { SWRConfiguration } from "swr";
+import useSWR from "swr";
 import { useAuth } from "@/services/auth";
 
 export interface UseApiOptions<Response = unknown> {

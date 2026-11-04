@@ -1,6 +1,6 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";

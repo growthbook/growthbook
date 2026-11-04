@@ -1,8 +1,5 @@
-import {
-  UpdateWatchOptions,
-  WatchInterface,
-  watchSchema,
-} from "shared/validators";
+import type { UpdateWatchOptions, WatchInterface } from "shared/validators";
+import { watchSchema } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

@@ -1,7 +1,5 @@
-import {
-  OAuthAuthCodeInterface,
-  oauthAuthCodeValidator,
-} from "shared/validators";
+import type { OAuthAuthCodeInterface } from "shared/validators";
+import { oauthAuthCodeValidator } from "shared/validators";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 

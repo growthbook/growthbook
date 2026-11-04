@@ -1,4 +1,5 @@
-import React, { CSSProperties, ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
+import React from "react";
 import clsx from "clsx";
 
 export default function Badge({

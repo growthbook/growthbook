@@ -1,8 +1,8 @@
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import { bypassApprovalPermission } from "shared/permissions";
 import { isConfigLocked } from "shared/util";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import type { PublishGate } from "back-end/src/revisions/publishGates";

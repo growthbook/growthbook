@@ -1,3 +1,4 @@
+import type { RevisionModel } from "shared/permissions";
 import {
   canCommentOnRevisionEntity,
   canLandArchiveToggle,
@@ -8,13 +9,12 @@ import {
   getRolePermissions,
   holdsRevisionDestination,
   Permissions,
-  RevisionModel,
 } from "shared/permissions";
+import type { Persona } from "./permission-personas.fixture";
 import {
   buildOrg,
   OPERATION_ORACLE,
   PERSONA_IDS,
-  Persona,
 } from "./permission-personas.fixture";
 
 // Keep client-side authority predictions aligned with the endpoint oracle.

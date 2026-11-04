@@ -1,14 +1,14 @@
-import { FC, useEffect, useId, useRef, useState } from "react";
+import type { FC } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import type { ExpiresAt, MaxLifetimeDays } from "shared/api-key-expiration";
 import {
   addDays,
   allowedExpirationPresets,
   EXPIRATION_PRESET_DAYS,
-  ExpiresAt,
   getExpirationProblem,
   isExpired,
   latestEditedExpiration,
   maxExpirationDate,
-  MaxLifetimeDays,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { date, datetimeAt } from "shared/dates";

@@ -1,22 +1,22 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
   Variation,
 } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
-import { DifferenceType } from "shared/types/stats";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import {
+import type { DifferenceType } from "shared/types/stats";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type {
   HoldoutInterfaceStringDates,
   HoldoutMissingLinkage,
 } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { Box } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
@@ -62,12 +62,11 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useStartExperiment from "./useStartExperiment";
-import ExperimentDetailsPanel, {
-  DetailsPanelTab,
-} from "./ExperimentDetailsPanel";
+import type { DetailsPanelTab } from "./ExperimentDetailsPanel";
+import ExperimentDetailsPanel from "./ExperimentDetailsPanel";
+import type { HoldoutDraft } from "./ExperimentEdits";
 import {
   ExperimentEditsProvider,
-  HoldoutDraft,
   useExperimentEdits,
   useExperimentFieldEdit,
   useStagedState,
@@ -80,13 +79,9 @@ import Implementation, {
   IMPLEMENTATION_ID,
   withStagedVariations,
 } from "./Implementation";
-import { TargetingDraft } from "./TrafficAllocationFunnel";
-import {
-  AddedFlag,
-  addedFlagChanges,
-  linkEditId,
-  useAddedFlags,
-} from "./addedFlags";
+import type { TargetingDraft } from "./TrafficAllocationFunnel";
+import type { AddedFlag } from "./addedFlags";
+import { addedFlagChanges, linkEditId, useAddedFlags } from "./addedFlags";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import RunningExperimentDecisionBanner from "./RunningExperimentDecisionBanner";

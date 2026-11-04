@@ -1,16 +1,18 @@
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type {
+  LinkedChangesDraft,
+  RedirectFields,
+} from "@/components/Experiment/TabbedPage/linkedChangesDraft";
 import {
   addRedirect,
   editRedirect,
   EMPTY_LINKED_CHANGES as EMPTY,
   hasSetAsideVisualChanges,
-  LinkedChangesDraft,
   linkedChangesBody,
   newRedirectKey,
   pruneLinkedChanges,
   rebaseLinkedChanges,
-  RedirectFields,
   removeRedirect,
   removeVisual,
   shownUrlRedirects,

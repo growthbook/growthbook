@@ -1,10 +1,12 @@
 import { Box, Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
-import {
+import type {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
   DashboardInterface,
   SqlExplorationBlockInterface,
+} from "shared/enterprise";
+import {
   blockHasFieldOfType,
   isDifferenceType,
   isDashboardExperimentBlock,
@@ -15,9 +17,9 @@ import {
   DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isNumber, isString, isStringArray } from "shared/util";
-import {
+import type {
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
   MetricExplorationConfig,
@@ -36,7 +38,7 @@ import {
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { getValidDate } from "shared/dates";
-import { FormatOptionLabelMeta } from "react-select";
+import type { FormatOptionLabelMeta } from "react-select";
 import Collapsible from "react-collapsible";
 import {
   getAvailableMetricsFilters,
@@ -56,12 +58,12 @@ import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import type { SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
-import SqlExplorerModal, {
-  SqlExplorerModalInitial,
-} from "@/components/SchemaBrowser/SqlExplorerModal";
+import type { SqlExplorerModalInitial } from "@/components/SchemaBrowser/SqlExplorerModal";
+import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import {
   CUSTOM_COMBO_OPTION,
@@ -72,9 +74,11 @@ import {
   getDimensionDisplayName,
   getDimensionOptions,
 } from "@/components/Dimensions/DimensionChooser";
-import CustomDimensionFields, {
+import type {
   CustomDimensionDraft,
   CustomDimensionKind,
+} from "@/components/Dimensions/CustomDimensionFields";
+import CustomDimensionFields, {
   isCustomDimensionDraftValid,
 } from "@/components/Dimensions/CustomDimensionFields";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";

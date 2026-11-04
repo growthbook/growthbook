@@ -8,16 +8,16 @@ import {
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
+import type { MergeResultChanges } from "shared/util";
 import {
   filterEnvironmentsByFeature,
-  MergeResultChanges,
   checkIfRevisionNeedsReview,
   getRevertTargetArchived,
   getRevertTargetHoldout,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import {
   assertCanRevertArchived,

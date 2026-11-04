@@ -1,16 +1,16 @@
-import {
+import type {
   OrganizationInterface,
   UserPermissions,
 } from "shared/types/organization";
-import { TeamInterface } from "shared/types/team";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { TeamInterface } from "shared/types/team";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   actsAsUser,
   getRolePermissions,
   hasSuperAdminPermission,
   intersectUserPermissions,
 } from "shared/permissions";
-import { SuperAdmin } from "shared/validators";
+import type { SuperAdmin } from "shared/validators";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {

@@ -1,12 +1,12 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
-import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
-import {
-  ApiConstant,
-  constantValidator,
-  getCyclicConstantRefs,
-} from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
+import type {
+  ConstantInterface,
+  ConstantWithoutValue,
+} from "shared/types/constant";
+import type { ApiConstant } from "shared/validators";
+import { constantValidator, getCyclicConstantRefs } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { resolvableValueChanged } from "back-end/src/services/constants";

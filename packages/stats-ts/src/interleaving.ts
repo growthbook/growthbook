@@ -1,5 +1,5 @@
 import binomial from "@stdlib/stats/base/dists/binomial";
-import { InterleavingTestMethod, InterleavingTestResult } from "./results";
+import type { InterleavingTestMethod, InterleavingTestResult } from "./results";
 import { betaQuantile, tCdf, tQuantile } from "./utils";
 
 // ---------------------------------------------------------------------------

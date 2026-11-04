@@ -1,5 +1,5 @@
 import intersection from "lodash/intersection";
-import {
+import type {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "shared/types/events/notification-events";

@@ -1,20 +1,20 @@
-import { z } from "zod";
+import type { z } from "zod";
 import type { exposureQueryColumnMappingValidator } from "shared/validators";
-import { AthenaConnectionParams } from "./integrations/athena";
-import { BigQueryConnectionParams } from "./integrations/bigquery";
-import { ClickHouseConnectionParams } from "./integrations/clickhouse";
-import { GoogleAnalyticsParams } from "./integrations/googleanalytics";
-import { MixpanelConnectionParams } from "./integrations/mixpanel";
-import { MysqlConnectionParams } from "./integrations/mysql";
-import { PostgresConnectionParams } from "./integrations/postgres";
-import { PrestoConnectionParams } from "./integrations/presto";
-import { SnowflakeConnectionParams } from "./integrations/snowflake";
-import { DatabricksConnectionParams } from "./integrations/databricks";
-import { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
-import { MetricType } from "./metric";
-import { MssqlConnectionParams } from "./integrations/mssql";
-import { DetectedColumn, FactTableColumnType } from "./fact-table";
-import { EventForwarderConfigWithMetadata } from "./event-forwarder";
+import type { AthenaConnectionParams } from "./integrations/athena";
+import type { BigQueryConnectionParams } from "./integrations/bigquery";
+import type { ClickHouseConnectionParams } from "./integrations/clickhouse";
+import type { GoogleAnalyticsParams } from "./integrations/googleanalytics";
+import type { MixpanelConnectionParams } from "./integrations/mixpanel";
+import type { MysqlConnectionParams } from "./integrations/mysql";
+import type { PostgresConnectionParams } from "./integrations/postgres";
+import type { PrestoConnectionParams } from "./integrations/presto";
+import type { SnowflakeConnectionParams } from "./integrations/snowflake";
+import type { DatabricksConnectionParams } from "./integrations/databricks";
+import type { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
+import type { MetricType } from "./metric";
+import type { MssqlConnectionParams } from "./integrations/mssql";
+import type { DetectedColumn, FactTableColumnType } from "./fact-table";
+import type { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
   | "growthbook_clickhouse"

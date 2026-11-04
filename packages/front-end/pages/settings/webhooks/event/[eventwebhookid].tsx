@@ -1,7 +1,7 @@
 import React from "react";
-import { NextPage } from "next";
+import type { NextPage } from "next";
 import { useRouter } from "next/router";
-import { EventWebHookInterface } from "shared/types/event-webhook";
+import type { EventWebHookInterface } from "shared/types/event-webhook";
 import { Box } from "@radix-ui/themes";
 import { EventWebHookDetailContainer } from "@/components/EventWebHooks/EventWebHookDetail/EventWebHookDetail";
 import { EventWebHookLogsContainer } from "@/components/EventWebHooks/EventWebHookLogs/EventWebHookLogs";

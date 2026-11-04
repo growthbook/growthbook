@@ -1,6 +1,6 @@
 import React from "react";
 import { Box } from "@radix-ui/themes";
-import { SavedQuery } from "shared/validators";
+import type { SavedQuery } from "shared/validators";
 import Explorer from "@/enterprise/components/ProductAnalytics/Explorer";
 import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";

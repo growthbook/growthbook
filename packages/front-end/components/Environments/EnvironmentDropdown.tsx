@@ -1,7 +1,6 @@
-import { Environment } from "shared/types/organization";
-import SelectField, {
-  FormatOptionLabelType,
-} from "@/components/Forms/SelectField";
+import type { Environment } from "shared/types/organization";
+import type { FormatOptionLabelType } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 
 export default function EnvironmentDropdown({
   label,

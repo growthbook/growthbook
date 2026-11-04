@@ -1,10 +1,11 @@
 import isEqual from "lodash/isEqual";
-import { FeatureInterface } from "shared/types/feature";
-import { ConfigInterface } from "shared/types/config";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ConfigInterface } from "shared/types/config";
 import {
   getConstantReferenceKeys,
   getCyclicConstantRefs,
 } from "shared/validators";
+import type { ScopedOverrideEntry } from "shared/util";
 import {
   getConfigParentKey,
   getConfigSubtree,
@@ -13,13 +14,12 @@ import {
   getFeatureBaseConfigKey,
   parsePlainJSONObject,
   findScopedOverrideStructuralErrors,
-  ScopedOverrideEntry,
   constantRequiresReview,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
-import { ConstantSource } from "shared/sdk-versioning";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ConstantSource } from "shared/sdk-versioning";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
   getPayloadKeysForAllEnvs,
@@ -29,7 +29,8 @@ import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureMo
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { getResolvableValues, ResolvableValue } from "./resolvableValues";
+import type { ResolvableValue } from "./resolvableValues";
+import { getResolvableValues } from "./resolvableValues";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 

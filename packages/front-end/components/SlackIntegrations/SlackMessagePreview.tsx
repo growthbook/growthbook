@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";

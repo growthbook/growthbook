@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { postVisualChangesets } from "back-end/src/api/visual-changesets/postVisualChangesets";
 import { listVisualChangesets } from "back-end/src/api/visual-changesets/listVisualChangesets";
 import { getExperimentResults } from "./getExperimentResults";

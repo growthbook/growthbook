@@ -1,11 +1,5 @@
-import {
-  MutableRefObject,
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import type { MutableRefObject, ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PiArrowClockwise,
   PiArrowRight,
@@ -14,14 +8,14 @@ import {
   PiWarningFill,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
+import type {
   InformationSchemaInterfaceWithPaths,
   TestQueryRow,
 } from "shared/types/integrations";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ago } from "shared/dates";
-import { DetectedColumn } from "shared/types/fact-table";
-import { TemplateVariables } from "shared/types/sql";
+import type { DetectedColumn } from "shared/types/fact-table";
+import type { TemplateVariables } from "shared/types/sql";
 import {
   isManagedWarehouseUnavailable,
   parseIntWithDefault,
@@ -29,10 +23,10 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
+import type { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 import {
   getSchemaBrowserTables,
   getUnlistedTable,
-  SchemaBrowserTable,
 } from "@/services/schemaBrowserTables";
 import useApi from "@/hooks/useApi";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -52,10 +46,8 @@ import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
-import {
-  SAMPLE_ROW_LIMIT,
-  SourceTable,
-} from "@/components/SchemaBrowser/useSourceTable";
+import type { SourceTable } from "@/components/SchemaBrowser/useSourceTable";
+import { SAMPLE_ROW_LIMIT } from "@/components/SchemaBrowser/useSourceTable";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";

@@ -1,16 +1,17 @@
 import type { ConditionInterface } from "@growthbook/growthbook";
 import { REMOTE_GROUP_IDS_ATTRIBUTE } from "shared/constants";
-import { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
-import { SavedGroupFormat } from "shared/types/sdk-connection";
-import { NodeHandler, recursiveWalk } from "../../util";
-import { SDKCapability } from "../types";
+import type { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
+import type { SavedGroupFormat } from "shared/types/sdk-connection";
+import type { NodeHandler } from "../../util";
+import { recursiveWalk } from "../../util";
+import type { SDKCapability } from "../types";
 import {
   findAllReferencedSavedGroupIds,
   forEachSavedGroupIdInCondition,
   readSavedGroupReferenceId,
 } from "./referenced-ids";
 import { SAVED_GROUP_TYPE_CAPABILITY } from "./strategy-references-v2";
-import { SavedGroupPayloadStrategy } from "./types";
+import type { SavedGroupPayloadStrategy } from "./types";
 import {
   getDerivedGroupId,
   getDerivedRemoteGroups,

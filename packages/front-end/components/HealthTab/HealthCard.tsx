@@ -1,5 +1,6 @@
-import { ReactNode } from "react";
-import { StatusBadge, StatusBadgeHealth } from "./StatusBadge";
+import type { ReactNode } from "react";
+import type { StatusBadgeHealth } from "./StatusBadge";
+import { StatusBadge } from "./StatusBadge";
 
 export interface Props {
   id?: string;

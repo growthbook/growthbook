@@ -8,7 +8,7 @@ import {
   PiPencilSimpleFill,
   PiX,
 } from "react-icons/pi";
-import {
+import type {
   DataVizConfig,
   SavedQuery,
   QueryExecutionResult,
@@ -18,7 +18,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";

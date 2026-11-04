@@ -1,4 +1,4 @@
-import { DataSourceInterface } from "shared/types/datasource";
+import type { DataSourceInterface } from "shared/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
 import { waitForIndexes } from "back-end/src/models/BaseModel";
 import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";

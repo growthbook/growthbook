@@ -6,13 +6,15 @@ import {
   Text,
   Tooltip,
 } from "@radix-ui/themes";
-import React, { forwardRef, ReactNode } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { ReactNode } from "react";
+import React, { forwardRef } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiX } from "react-icons/pi";
 import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { radixSize } from "@/ui/sizes";
-import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
+import type { Status, Size } from "./HelperText";
+import { RadixStatusIcon, getRadixColor } from "./HelperText";
 import styles from "./Callout.module.scss";
 
 type DismissibleProps = {

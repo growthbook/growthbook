@@ -1,9 +1,9 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import Metadata from "@/ui/Metadata";

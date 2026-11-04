@@ -1,5 +1,5 @@
 import { getConfigSchemaValidator } from "shared/validators";
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import {
   resolveConfigChain,
   linearizeConfigDag,

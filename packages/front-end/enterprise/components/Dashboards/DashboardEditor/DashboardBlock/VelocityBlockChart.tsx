@@ -1,25 +1,25 @@
 import { useMemo, useState } from "react";
-import {
+import type {
   DashboardBlockInterfaceOrData,
   ExperimentsStatusBlockInterface,
-  getDateGranularity,
 } from "shared/enterprise";
+import { getDateGranularity } from "shared/enterprise";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
-import {
-  ResolvedGranularity,
-  formatDateByGranularity,
-} from "@/enterprise/components/ProductAnalytics/util";
+import type { ResolvedGranularity } from "@/enterprise/components/ProductAnalytics/util";
+import { formatDateByGranularity } from "@/enterprise/components/ProductAnalytics/util";
 import ComparisonChartLegend from "@/enterprise/components/ProductAnalytics/ComparisonChartLegend";
-import { CompareChartLegendItem } from "@/enterprise/components/ProductAnalytics/comparison-chart";
+import type { CompareChartLegendItem } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Text from "@/ui/Text";
-import {
-  VELOCITY_RESULT_KEYS,
+import type {
   VelocityBucket,
   VelocityResultKey,
+} from "./completedExperimentsData";
+import {
+  VELOCITY_RESULT_KEYS,
   bucketVelocity,
   rangeLabel,
 } from "./completedExperimentsData";

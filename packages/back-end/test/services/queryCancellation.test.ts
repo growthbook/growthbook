@@ -1,16 +1,16 @@
-import { QueryInterface } from "shared/types/query";
+import type { QueryInterface } from "shared/types/query";
 import {
   CANCEL_CONFIRMATION_DELAY_MS,
   cancelExternalJobsForQueries,
   cancelQueryAndConfirm,
 } from "back-end/src/services/queryCancellation";
-import {
+import type {
   ExternalQueryStatus,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/QueryModel", () => ({
   getQueriesByIds: jest.fn(),

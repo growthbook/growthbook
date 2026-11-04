@@ -1,15 +1,17 @@
 import uniqid from "uniqid";
 import { formatISO } from "date-fns";
-import { FilterQuery } from "mongoose";
+import type { FilterQuery } from "mongoose";
 import { isValidDataPoint } from "shared/util";
 import { getValidDate } from "shared/dates";
+import type {
+  MetricTimeSeries,
+  CreateMetricTimeSeries,
+  CreateMetricTimeSeriesSingleDataPoint,
+} from "shared/validators";
 import {
   metricTimeSeriesSchema,
   metricTimeSeriesStripSchema,
   metricTimeSeriesBaseModelSchema,
-  MetricTimeSeries,
-  CreateMetricTimeSeries,
-  CreateMetricTimeSeriesSingleDataPoint,
 } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";

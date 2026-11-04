@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { IdeaInterface } from "shared/types/idea";
+import type { FC } from "react";
+import type { IdeaInterface } from "shared/types/idea";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";

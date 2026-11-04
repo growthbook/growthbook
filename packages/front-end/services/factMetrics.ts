@@ -1,4 +1,4 @@
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 
 /**
  * Fact metrics whose numerator/denominator uses pre-aggregated sketch merge

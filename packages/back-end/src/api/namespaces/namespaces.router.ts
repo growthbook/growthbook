@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { listNamespaces } from "./listNamespaces";
 import { getNamespace } from "./getNamespace";
 import { postNamespace } from "./postNamespace";

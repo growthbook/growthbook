@@ -1,14 +1,14 @@
-import {
+import type {
   ApiAssignmentQueryRefInput,
   ApiExperimentTemplateInterface,
-  experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
+import { experimentTemplateInterface } from "shared/validators";
 import {
   flattenExposureQueryInput,
   toApiAssignmentQueryRef,
 } from "shared/util";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import {
   resolveOwnerEmail,
   resolveOwnerEmails,
@@ -22,8 +22,8 @@ import {
   resolveAssignmentQueryIdentifier,
   assertValidAssignmentQuerySelectionChange,
 } from "back-end/src/services/assignmentQuerySelection";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { MakeModelClass } from "./BaseModel";
 
 const ID_PREFIX = "tmplt__";

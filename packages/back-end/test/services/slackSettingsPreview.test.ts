@@ -1,7 +1,7 @@
 import { previewNotificationEventNames } from "shared/notifications";
 import { sendEventWebhook } from "back-end/src/events/handlers/webhooks/sendEventWebhook";
 import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   buildSlackSettingsPreview,
   sendSlackSettingsTest,

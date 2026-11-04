@@ -1,5 +1,5 @@
 import { Box } from "@radix-ui/themes";
-import { DashboardUpdateSchedule } from "shared/enterprise";
+import type { DashboardUpdateSchedule } from "shared/enterprise";
 import Field from "@/components/Forms/Field";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";

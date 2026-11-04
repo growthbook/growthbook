@@ -1,15 +1,15 @@
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   FactMetricInterface,
   FunnelFactMetricInterface,
 } from "shared/types/fact-table";
 import { funnelStepMetricId } from "shared/experiments";
-import { ExperimentInterface } from "shared/validators";
+import type { ExperimentInterface } from "shared/validators";
 import {
   getFactMetricDefinitionForHash,
   getMetricSettingsHash,

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { PiCalendarBlank, PiCaretDown } from "react-icons/pi";

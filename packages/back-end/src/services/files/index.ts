@@ -1,10 +1,11 @@
 import fs from "fs";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
-import { getDestinationConfig, UploadDestination } from "./config";
+import type { UploadDestination } from "./config";
+import { getDestinationConfig } from "./config";
 import { gcsFileStorage } from "./gcs";
 import { localFileStorage, resolveUploadPath } from "./local";
 import { s3FileStorage } from "./s3";
-import {
+import type {
   FileStorage,
   ListedFile,
   SignedUploadUrl,

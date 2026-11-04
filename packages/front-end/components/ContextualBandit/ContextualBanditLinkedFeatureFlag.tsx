@@ -1,7 +1,7 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import React, { useState } from "react";
-import { LinkedFeatureInfo } from "shared/types/experiment";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import { linkedDraftApproved } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";

@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
-import { SDKLanguage } from "shared/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
-import { SDKAttributeSchema } from "shared/types/organization";
+import type { SDKAttributeSchema } from "shared/types/organization";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";

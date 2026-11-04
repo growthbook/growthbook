@@ -1,5 +1,6 @@
-import { ConfigInterface } from "shared/types/config";
-import { CustomHookInterface, hookEntityType } from "shared/validators";
+import type { ConfigInterface } from "shared/types/config";
+import type { CustomHookInterface } from "shared/validators";
+import { hookEntityType } from "shared/validators";
 import { getConfigAncestorKeys, getConfigSubtree } from "shared/util";
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -13,8 +14,8 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
+import type { HookScope } from "@/components/CustomHooks/CustomHooksTable";
 import CustomHooksTable, {
-  HookScope,
   hookScopeColumn,
   isHookScopedTo,
 } from "@/components/CustomHooks/CustomHooksTable";

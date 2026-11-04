@@ -1,5 +1,5 @@
-import { SDKAttributeSchema } from "../../types/organization";
-import {
+import type { SDKAttributeSchema } from "../../types/organization";
+import type {
   GrowthbookClickhouseSettings,
   MaterializedColumn,
 } from "../../types/datasource";

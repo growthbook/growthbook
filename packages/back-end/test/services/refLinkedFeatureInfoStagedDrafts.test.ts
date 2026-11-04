@@ -1,10 +1,10 @@
-import {
+import type {
   ContextualBanditRefRule,
   FeatureInterface,
   FeatureRule,
 } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ReqContext } from "back-end/types/organization";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ReqContext } from "back-end/types/organization";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {

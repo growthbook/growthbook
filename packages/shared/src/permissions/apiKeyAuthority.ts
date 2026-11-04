@@ -1,5 +1,5 @@
 import { isEqual } from "lodash";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import type { Permissions } from "./permissionsClass";
 
 // Whether toggling a PAT's `disabled` needs permission over members' tokens rather than the owner's own rights.

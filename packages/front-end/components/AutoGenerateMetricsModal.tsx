@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import {
+import type {
   AutoMetricToCreate,
   AutoMetricTrackedEvent,
   InformationSchemaInterface,
 } from "shared/types/integrations";
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "shared/types/datasource";

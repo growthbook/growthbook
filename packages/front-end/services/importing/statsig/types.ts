@@ -1,9 +1,9 @@
-import { FeatureInterface } from "shared/types/feature";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { TagInterface } from "shared/types/tag";
-import { Environment } from "shared/types/organization";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import {
+import type { FeatureInterface } from "shared/types/feature";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { TagInterface } from "shared/types/tag";
+import type { Environment } from "shared/types/organization";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type {
   CreateFactMetricProps,
   CreateFactTableProps,
   FactMetricInterface,

@@ -1,4 +1,4 @@
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import {
   isValidRevertBypass,
   revertRestoresTargetSnapshot,

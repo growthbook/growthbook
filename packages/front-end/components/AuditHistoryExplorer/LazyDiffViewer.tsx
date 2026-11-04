@@ -1,23 +1,14 @@
-import {
-  memo,
-  ReactNode,
-  RefObject,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
+import type { ReactNode, RefObject } from "react";
+import { memo, useContext, useMemo, useState } from "react";
 import { diffLines } from "diff";
-import ReactDiffViewer, {
-  DiffMethod,
-  ReactDiffViewerProps,
-} from "react-diff-viewer-continued";
+import type { ReactDiffViewerProps } from "react-diff-viewer-continued";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import {
   isLongCode,
   RenderInFullContext,
 } from "@/components/SyntaxHighlighting/VirtualizedCode";
-import VirtualizedDiff, {
-  DiffLineRef,
-} from "@/components/AuditHistoryExplorer/VirtualizedDiff";
+import type { DiffLineRef } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
+import VirtualizedDiff from "@/components/AuditHistoryExplorer/VirtualizedDiff";
 import Button from "@/ui/Button";
 
 // Each changed line is a table row, and a section that adds, replaces or

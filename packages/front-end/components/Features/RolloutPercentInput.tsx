@@ -1,8 +1,9 @@
 import { Slider, Flex, Box } from "@radix-ui/themes";
-import { ReactNode, useEffect } from "react";
+import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { PiCaretRight } from "react-icons/pi";
-import { SDKAttributeSchema } from "shared/types/organization";
-import { RampScheduleInterface } from "shared/validators";
+import type { SDKAttributeSchema } from "shared/types/organization";
+import type { RampScheduleInterface } from "shared/validators";
 import Collapsible from "react-collapsible";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import Field from "@/components/Forms/Field";

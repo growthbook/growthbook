@@ -1,14 +1,11 @@
 import { HiBadgeCheck } from "react-icons/hi";
-import {
-  ExperimentMetricDefinition,
-  isFactMetric,
-  quantileMetricType,
-} from "shared/experiments";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import { isFactMetric, quantileMetricType } from "shared/experiments";
 import React from "react";
 import clsx from "clsx";
 import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";

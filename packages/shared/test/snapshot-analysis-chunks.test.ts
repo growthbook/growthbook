@@ -1,9 +1,14 @@
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
+import type {
+  AnalysisMetaEntry,
+  MetricChunkData,
+  AnalysisChunkData,
+} from "../src/snapshot-analysis-chunks";
 import {
   encodeSnapshotAnalysisChunks,
   decodeSnapshotAnalysisChunks,
@@ -11,9 +16,6 @@ import {
   buildAnalysisKey,
   migrateLegacySnapshotAnalysisChunkData,
   remapChunkDataPositionKeysToAnalysisKeys,
-  AnalysisMetaEntry,
-  MetricChunkData,
-  AnalysisChunkData,
 } from "../src/snapshot-analysis-chunks";
 import {
   experimentSnapshotAnalysisChunkValidator,

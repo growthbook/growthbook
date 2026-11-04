@@ -1,5 +1,6 @@
-import React, { FC, ReactNode, useEffect, useRef, useState } from "react";
-import {
+import type { FC, ReactNode } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import type {
   ExpandedMember,
   OrganizationInterface,
 } from "shared/types/organization";
@@ -8,8 +9,8 @@ import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import router from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
+import type { EffectiveRoleSource } from "shared/permissions";
 import {
-  EffectiveRoleSource,
   getEffectiveRolesForProject,
   getRolePermissions,
   holdsGlobalAdmin,
@@ -19,10 +20,10 @@ import { PiMagnifyingGlass } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Link from "@/ui/Link";
+import type { RuleRow } from "@/components/Settings/Team/RoleRuleLabel";
 import RoleRuleLabel, {
   CollapsedRuleRows,
   projectRuleGroup,
-  RuleRow,
   shadowedRulesCell,
 } from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";

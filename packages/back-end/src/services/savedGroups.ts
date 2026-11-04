@@ -18,14 +18,14 @@ import type {
   InterleavingInterface,
 } from "shared/validators";
 import type { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   getAllExperiments,
   getAllPayloadExperiments,
   getPayloadKeys,
   getPayloadKeysForAllEnvs,
 } from "back-end/src/models/ExperimentModel";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import {
   BadRequestError,
@@ -40,11 +40,11 @@ import {
   getAffectedSDKPayloadKeys,
   getContextualBanditVisualPayloadKeys,
 } from "back-end/src/util/features";
+import type { TargetingSource } from "back-end/src/util/featureDefinitionReferences.util";
 import {
   getSavedGroupIdsForFeatureDefinitions,
   getSavedGroupIdsInTargeting,
   loadSavedGroupsWithNested,
-  TargetingSource,
 } from "back-end/src/util/featureDefinitionReferences.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";

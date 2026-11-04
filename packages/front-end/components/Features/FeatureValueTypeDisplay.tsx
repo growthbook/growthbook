@@ -1,5 +1,5 @@
 import React from "react";
-import { FeatureValueType } from "shared/types/feature";
+import type { FeatureValueType } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";

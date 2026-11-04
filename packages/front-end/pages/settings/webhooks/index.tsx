@@ -1,4 +1,5 @@
-import React, { FC, useState } from "react";
+import type { FC } from "react";
+import React, { useState } from "react";
 import { datetime } from "shared/dates";
 import { Box, IconButton } from "@radix-ui/themes";
 import { PiArrowUpRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";

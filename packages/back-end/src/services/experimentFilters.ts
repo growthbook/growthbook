@@ -1,6 +1,6 @@
-import { ExperimentInterface } from "shared/types/experiment";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { getExperimentsUsingMetric } from "back-end/src/models/ExperimentModel";
 

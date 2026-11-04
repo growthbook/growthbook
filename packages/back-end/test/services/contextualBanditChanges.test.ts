@@ -1,6 +1,6 @@
-import { ContextualBanditInterface } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
-import { ReqContext } from "back-end/types/request";
+import type { ContextualBanditInterface } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/request";
 import {
   contextualBanditUpdateAffectsPayload,
   refreshLinkedFeaturePayloads,

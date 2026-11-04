@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 import { Permissions, roleToPermissionMap } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
-import { FactTableInterface } from "shared/types/fact-table";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { FactTableInterface } from "shared/types/fact-table";
 import {
   connectTestMongo,
   disconnectTestMongo,
 } from "back-end/test/test-helpers";
 import { getAllFactTablesForDefinitions } from "back-end/src/models/FactTableModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const org: OrganizationInterface = {
   id: "org_1",

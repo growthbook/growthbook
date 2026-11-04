@@ -1,20 +1,18 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import React, { DetailedHTMLProps, HTMLAttributes } from "react";
-import {
-  ExperimentMetricDefinition,
-  hasEnoughData,
-  isStatSig,
-} from "shared/experiments";
-import {
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { DetailedHTMLProps, HTMLAttributes } from "react";
+import React from "react";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import { hasEnoughData, isStatSig } from "shared/experiments";
+import type {
   DifferenceType,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { RowResults } from "@/services/experiments";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { RowResults } from "@/services/experiments";
 import AlignedGraph from "./AlignedGraph";
-import { StatusLabels } from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
+import type { StatusLabels } from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
 import { useResultPopover } from "./useResultPopover";
 
 interface Props

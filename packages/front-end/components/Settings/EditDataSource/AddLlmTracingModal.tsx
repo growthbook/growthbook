@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -8,12 +8,12 @@ import {
   getDatasourceTemplateResources,
   getDatasourceTemplateSettings,
 } from "@/services/initial-resources";
+import type { LlmTracingFormat } from "@/services/llmTracing";
 import {
   getLlmTracingProjectScope,
   getLlmTracingSchema,
   getLlmTracingSchemaOptionValues,
   hasLlmTracingSetup,
-  LlmTracingFormat,
 } from "@/services/llmTracing";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";

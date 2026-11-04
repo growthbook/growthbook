@@ -11,8 +11,8 @@ import {
   withStagedTargeting,
 } from "shared/permissions";
 import { updateFeatureV2Validator } from "shared/validators";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";

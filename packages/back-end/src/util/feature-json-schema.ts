@@ -1,9 +1,9 @@
-import {
+import type {
   FeatureInterface,
   FeatureValueType,
   JSONSchemaDef,
 } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { assertSchemaMatchesValueType } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { BadRequestError } from "back-end/src/util/errors";

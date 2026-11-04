@@ -1,9 +1,9 @@
 import type { Response } from "express";
 import { parseIntWithDefault, parseIntWithDefaultCapped } from "shared/util";
-import { EventInterface } from "shared/types/events/event";
+import type { EventInterface } from "shared/types/events/event";
 import * as Event from "back-end/src/models/EventModel";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
 type GetEventsRequest = AuthRequest<

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Permissions, roleToPermissionMap } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
-import { MetricInterface } from "shared/types/metric";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { MetricInterface } from "shared/types/metric";
 import {
   connectTestMongo,
   disconnectTestMongo,
@@ -14,7 +14,7 @@ import {
   FIELDS_NOT_REQUIRING_DATE_UPDATED,
 } from "back-end/src/models/MetricModel";
 import { usingFileConfig, getConfigMetrics } from "back-end/src/init/config";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/init/config");
 

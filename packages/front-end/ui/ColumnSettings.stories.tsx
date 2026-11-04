@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import ColumnSettings, { ManagedColumn } from "./ColumnSettings";
+import type { ManagedColumn } from "./ColumnSettings";
+import ColumnSettings from "./ColumnSettings";
 
 const INITIAL: ManagedColumn[] = [
   { id: "name", label: "Attribute", visible: true, alwaysVisible: true },

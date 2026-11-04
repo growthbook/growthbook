@@ -5,23 +5,23 @@ import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { hasVisualChanges, isDefined } from "shared/util";
-import {
+import type {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
-import {
+import type {
   ApiVisualChangeset,
   ContextualBanditInterface,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import type {
   ChangesetOwner,
   OwnerVariation,
 } from "back-end/src/services/changesetOwner";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 
 const visualChangesetURLPatternSchema =
   new mongoose.Schema<VisualChangesetURLPattern>(

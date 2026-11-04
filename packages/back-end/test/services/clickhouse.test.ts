@@ -1,6 +1,9 @@
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
-import { GrowthbookClickhouseDataSource } from "shared/types/datasource";
-import { SDKAttributeSchema } from "shared/types/organization";
+import type {
+  ColumnInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import type { GrowthbookClickhouseDataSource } from "shared/types/datasource";
+import type { SDKAttributeSchema } from "shared/types/organization";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   buildManagedWarehouseEventsFactTableSql,

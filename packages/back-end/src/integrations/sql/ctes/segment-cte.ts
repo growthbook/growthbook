@@ -1,6 +1,6 @@
-import { SegmentInterface } from "shared/types/segment";
+import type { SegmentInterface } from "shared/types/segment";
 import type { SQLVars, SqlDialect } from "shared/types/sql";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getFactSegmentCTE } from "back-end/src/integrations/sql/ctes/fact-segment-cte";

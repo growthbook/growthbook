@@ -1,7 +1,8 @@
 import { useRouter } from "next/router";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import React, { FC, useState } from "react";
-import { ExperimentTemplateInterface } from "shared/types/experiment";
+import type { FC } from "react";
+import React, { useState } from "react";
+import type { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   resolveAnalysisIdentifierType,
@@ -9,12 +10,13 @@ import {
 } from "shared/util";
 import { isEmpty, kebabCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { AssignmentQueryCopySource } from "@/services/datasources";
+import type { AssignmentQueryCopySource } from "@/services/datasources";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import track from "@/services/track";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import type { SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useIncrementer } from "@/hooks/useIncrementer";

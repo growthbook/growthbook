@@ -4,10 +4,10 @@ import {
   isFunnelSupportedDatasourceType,
   FUNNEL_SUPPORTED_DATASOURCE_TYPES,
 } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
-import { DataSourceType } from "shared/types/datasource";
-import { SqlDialect } from "shared/types/sql";
-import { FactTableInterface } from "shared/types/fact-table";
+import type { ExplorationConfig } from "shared/validators";
+import type { DataSourceType } from "shared/types/datasource";
+import type { SqlDialect } from "shared/types/sql";
+import type { FactTableInterface } from "shared/types/fact-table";
 
 // Compact dialect tuned for funnel SQL tests. Mirrors the minimal helpers
 // used by the metric/fact-table SQL tests; only includes the dialect

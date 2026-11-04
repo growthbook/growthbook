@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useMemo, useState, useCallback } from "react";
 import clsx from "clsx";
-import {
+import type {
   PowerCalculationParams,
   PowerCalculationResults,
   PowerCalculationSuccessResults,
@@ -26,9 +26,9 @@ import Callout from "@/ui/Callout";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
 import Frame from "@/ui/Frame";
+import type { StatsEngineSettingsWithAlpha } from "./PowerCalculationStatsEngineSettingsModal";
 import PowerCalculationStatsEngineSettingsModal, {
   alphaToChanceToWin,
-  StatsEngineSettingsWithAlpha,
 } from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { getMetricLink } from "shared/experiments";
@@ -10,7 +10,8 @@ import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
-import DataList, { DataListItem } from "@/ui/DataList";
+import type { DataListItem } from "@/ui/DataList";
+import DataList from "@/ui/DataList";
 import Badge from "@/ui/Badge";
 import { INTERLEAVING_ANALYSIS_TITLES } from "@/services/interleaving";
 import Markdown from "@/components/Markdown/Markdown";

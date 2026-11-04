@@ -10,6 +10,7 @@ import {
   resolveDatabricksEventForwarderTableNames,
   resolveSnowflakeEventForwarderTableNames,
 } from "./event-forwarder-destination";
+import type { EventForwarderQuerySinkType } from "./event-forwarder-fact-table";
 import {
   buildBigQueryEventForwarderTableReference,
   buildDatabricksEventForwarderTableReference,
@@ -17,11 +18,10 @@ import {
   buildEventForwarderPropertyValueSql,
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
-  EventForwarderQuerySinkType,
   quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
+import type { EventForwarderUserIdTypePair } from "./event-forwarder-datasource";
 import {
-  EventForwarderUserIdTypePair,
   isEventForwarderManaged,
   normalizeUserIdTypeName,
   resolveEventForwarderManagedName,

@@ -1,7 +1,8 @@
-import React, { FC, useMemo, useState } from "react";
-import { EventInterface } from "shared/types/events/event";
+import type { FC } from "react";
+import React, { useMemo, useState } from "react";
+import type { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import EventUser from "@/components/Avatar/EventUser";

@@ -1,12 +1,12 @@
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import DataList from "@/ui/DataList";
 import Callout from "@/ui/Callout";
+import type { RatioShape } from "./metricFormTranslation";
 import {
   aggregationForShape,
   columnsForShape,
   columnValueLabel,
-  RatioShape,
 } from "./metricFormTranslation";
 
 // hasCountDistinctHLL is required, not defaulted: forgetting it would

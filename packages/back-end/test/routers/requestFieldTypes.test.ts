@@ -1,12 +1,12 @@
 import express from "express";
 import request from "supertest";
-import { Collection } from "mongodb";
+import type { Collection } from "mongodb";
 import { organizationsRouter } from "back-end/src/routers/organizations/organizations.router";
 import * as organizationsController from "back-end/src/routers/organizations/organizations.controller";
 import { getSignedPublicImageToken } from "back-end/src/routers/upload/upload.controller";
 import { getExperimentByUid } from "back-end/src/models/ExperimentModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import { NotFoundError } from "back-end/src/util/errors";
 
 jest.mock("back-end/src/routers/organizations/organizations.controller");

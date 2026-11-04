@@ -1,11 +1,12 @@
-import { useState, FC, useCallback, useEffect } from "react";
+import type { FC } from "react";
+import { useState, useCallback, useEffect } from "react";
 import isEqual from "lodash/isEqual";
-import { OrganizationInterface } from "shared/types/organization";
-import {
+import type { OrganizationInterface } from "shared/types/organization";
+import type {
   EventForwarderSinkType,
   EventForwarderStatus,
 } from "shared/types/event-forwarder";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { Flex, Spinner } from "@radix-ui/themes";
 import { hasSuperAdminPermission } from "shared/permissions";
 import { useAuth } from "@/services/auth";

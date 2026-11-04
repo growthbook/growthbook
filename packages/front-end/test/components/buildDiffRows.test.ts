@@ -1,7 +1,5 @@
-import {
-  buildDiffRows,
-  DiffRow,
-} from "@/components/AuditHistoryExplorer/VirtualizedDiff";
+import type { DiffRow } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
+import { buildDiffRows } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
 
 const lines = (n: number, prefix = "line") =>
   Array.from({ length: n }, (_, i) => `${prefix} ${i + 1}`).join("\n") + "\n";

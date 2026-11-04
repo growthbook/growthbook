@@ -1,4 +1,4 @@
-import {
+import type {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
@@ -25,7 +25,8 @@ import { DocLink } from "@/components/DocLink";
 import SDKLanguageLogo, {
   languageMapping,
 } from "@/components/Features/SDKConnections/SDKLanguageLogo";
-import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
+import type { GroupedValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";

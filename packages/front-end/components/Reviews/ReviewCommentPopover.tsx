@@ -6,7 +6,8 @@ import LinkButton from "@/components/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
-import RichTextEditor, { RichTextEditorHandle } from "@/ui/RichTextEditor";
+import type { RichTextEditorHandle } from "@/ui/RichTextEditor";
+import RichTextEditor from "@/ui/RichTextEditor";
 import { useAuth } from "@/services/auth";
 
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";

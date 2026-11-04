@@ -1,11 +1,11 @@
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { OrganizationInterface } from "shared/types/organization";
+import type { MergeStrategy } from "shared/util";
 import {
   autoMerge,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
-  MergeStrategy,
   rebasedRevisionChanges,
 } from "shared/util";
 import { postFeatureRevisionRebaseValidator } from "shared/validators";

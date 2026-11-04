@@ -11,13 +11,13 @@ import {
   PiX,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import {
+import type {
   ConversionWindow,
   ExplorationConfig,
   FunnelDataset,
   FunnelStep,
 } from "shared/validators";
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";

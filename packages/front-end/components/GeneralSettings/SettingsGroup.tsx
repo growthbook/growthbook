@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";

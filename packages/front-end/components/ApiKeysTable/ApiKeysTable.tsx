@@ -1,7 +1,8 @@
-import React, { FC, ReactNode, useState } from "react";
+import type { FC, ReactNode } from "react";
+import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiClockCountdown, PiIdentificationCard, PiInfo } from "react-icons/pi";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   actsAsUser,
   canManageApiKeySecret,
@@ -10,9 +11,9 @@ import {
 import { ago, datetime, datetimeWithZone } from "shared/dates";
 import { getExpirationStatus, isExpired } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+import type { RotatedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
 import {
   RotateApiKeyModal,
-  RotatedApiKey,
   RotatedApiKeyModal,
 } from "@/components/ApiKeysTable/RotateApiKeyModal";
 import CopyableCode from "@/components/Settings/CopyableCode";

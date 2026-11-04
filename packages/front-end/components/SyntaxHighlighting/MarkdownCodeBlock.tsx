@@ -1,12 +1,5 @@
-import {
-  Children,
-  ReactElement,
-  ReactNode,
-  Suspense,
-  isValidElement,
-  lazy,
-  useMemo,
-} from "react";
+import type { ReactElement, ReactNode } from "react";
+import { Children, Suspense, isValidElement, lazy, useMemo } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { getCodeTheme } from "./codeTheme";

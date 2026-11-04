@@ -4,7 +4,7 @@ import {
   holdsAllSuperAdminPermissions,
   normalizeSuperAdmin,
 } from "../../src/permissions/superAdmin";
-import { SuperAdmin } from "../../src/validators";
+import type { SuperAdmin } from "../../src/validators";
 
 describe("hasSuperAdminPermission", () => {
   it("grants everything to legacy `true`", () => {

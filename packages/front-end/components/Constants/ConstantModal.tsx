@@ -2,9 +2,9 @@ import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
-import { ConstantWithoutValue } from "shared/types/constant";
+import type { ConstantWithoutValue } from "shared/types/constant";
 import { validateResolvableValue } from "shared/validators";
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
@@ -21,10 +21,8 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
-import {
-  useConstantDraftTarget,
-  ConstantRevisionContext,
-} from "@/components/Constants/useConstantDraftTarget";
+import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
+import { useConstantDraftTarget } from "@/components/Constants/useConstantDraftTarget";
 
 // Empty context used on the create path, where there is no revision flow.
 const EMPTY_REVISION_CTX: ConstantRevisionContext = {

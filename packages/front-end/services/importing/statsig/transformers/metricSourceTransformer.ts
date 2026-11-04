@@ -1,6 +1,6 @@
-import { CreateFactTableProps } from "shared/types/fact-table";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { StatsigMetricSource } from "@/services/importing/statsig/types";
+import type { CreateFactTableProps } from "shared/types/fact-table";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { StatsigMetricSource } from "@/services/importing/statsig/types";
 
 /**
  * Transform Statsig metric source to GrowthBook fact table

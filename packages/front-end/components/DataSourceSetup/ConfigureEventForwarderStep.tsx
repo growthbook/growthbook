@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import { useAuth } from "@/services/auth";
 import { DEFAULT_DATA_REGION } from "@/services/dataRegions";

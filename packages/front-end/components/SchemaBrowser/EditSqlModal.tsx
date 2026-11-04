@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { TestQueryRow } from "shared/types/integrations";
-import { TemplateVariables } from "shared/types/sql";
+import type { TestQueryRow } from "shared/types/integrations";
+import type { TemplateVariables } from "shared/types/sql";
 import type { TestQueryType } from "shared/types/query";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";

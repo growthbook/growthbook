@@ -1,20 +1,21 @@
-import React, { FC, useState } from "react";
+import type { FC } from "react";
+import React, { useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { date, datetime } from "shared/dates";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
-  ExperimentMetricDefinition,
   getLatestPhaseVariations,
   getMetricResultStatus,
   isSuspiciousUplift,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import {
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
+import type {
   ExperimentWithSnapshot,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   ExperimentDecisionFrameworkSettings,
   ExperimentPhaseStringDates,
   ExperimentResultsType,
@@ -26,7 +27,8 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useSignificanceThresholdsByProject from "@/hooks/useSignificanceThresholdsByProject";
-import { experimentDate, RowResults } from "@/services/experiments";
+import type { RowResults } from "@/services/experiments";
+import { experimentDate } from "@/services/experiments";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { formatNumber } from "@/services/metrics";

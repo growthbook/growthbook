@@ -1,19 +1,19 @@
 import React, { useMemo, useCallback } from "react";
 import { Flex, Box, Heading } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
-import { FactTableColumnType } from "shared/types/fact-table";
+import type { FactTableColumnType } from "shared/types/fact-table";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   parseSliceQueryString,
   isMetricGroupId,
-  ExperimentMetricDefinition,
   isSliceTagSelectAll,
   generateSelectAllSliceString,
 } from "shared/experiments";
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import clsx from "clsx";
-import { FormatOptionLabelMeta } from "react-select";
+import type { FormatOptionLabelMeta } from "react-select";
 import MultiSelectField from "@/ui/MultiSelectField";
-import { SingleValue } from "@/components/Forms/SelectField";
+import type { SingleValue } from "@/components/Forms/SelectField";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";

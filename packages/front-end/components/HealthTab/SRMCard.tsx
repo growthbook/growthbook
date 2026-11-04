@@ -1,18 +1,18 @@
-import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
-import {
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
-import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import type { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
-import { IssueValue } from "./IssueTags";
+import type { IssueValue } from "./IssueTags";
 import { SRMWarningFooter, useSrmHealth } from "./SRMCardShell";
 
 interface Props {

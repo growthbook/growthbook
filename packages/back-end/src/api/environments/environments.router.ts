@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { listEnvironments } from "./listEnvironments";
 import { putEnvironment } from "./putEnvironment";
 import { postEnvironment } from "./postEnvironment";

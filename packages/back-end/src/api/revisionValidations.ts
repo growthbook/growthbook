@@ -1,6 +1,6 @@
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { revisionStatus } from "shared/enterprise";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 
 // Entity-agnostic revision helpers for the API layer. Entity-shaped ones stay in

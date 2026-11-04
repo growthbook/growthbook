@@ -8,8 +8,8 @@ import {
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
+import type { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import {
-  ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
   postExperimentArchiveValidator,
 } from "shared/validators";
@@ -22,6 +22,7 @@ import {
   updateExperiment as updateExperimentToDb,
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
+import type { UpdateExperimentApiPayload } from "back-end/src/services/experiments";
 import {
   assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentChanges,
@@ -32,7 +33,6 @@ import {
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
-  UpdateExperimentApiPayload,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import {

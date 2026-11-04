@@ -1,4 +1,5 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { expandMetricGroups } from "shared/experiments";
@@ -12,9 +13,9 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExposureQuery } from "shared/types/datasource";
-import { ExperimentAnalysisSettingsDraft } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExposureQuery } from "shared/types/datasource";
+import type { ExperimentAnalysisSettingsDraft } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getOverriddenMetricIds } from "@/services/metricOverrides";
 import { useDecisionFrameworkApplies } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";

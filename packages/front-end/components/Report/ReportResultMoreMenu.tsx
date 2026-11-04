@@ -1,5 +1,5 @@
-import { Queries } from "shared/types/query";
-import {
+import type { Queries } from "shared/types/query";
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,

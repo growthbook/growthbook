@@ -6,7 +6,7 @@ import type {
   QueryLogInterface,
 } from "shared/types/query";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";

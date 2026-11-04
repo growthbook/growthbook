@@ -6,7 +6,7 @@ import {
   getRolePermissions,
   Permissions,
 } from "shared/permissions";
-import {
+import type {
   MemberRoleWithProjects,
   OrganizationInterface,
 } from "shared/types/organization";

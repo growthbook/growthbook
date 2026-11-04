@@ -1,11 +1,14 @@
-import { FC, useMemo, useState } from "react";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { FC } from "react";
+import { useMemo, useState } from "react";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getApiHost, getAppOrigin } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
-import { AuthContextValue, useAuth } from "@/services/auth";
-import RadixButton, { Size as ButtonSize } from "@/ui/Button";
+import type { AuthContextValue } from "@/services/auth";
+import { useAuth } from "@/services/auth";
+import type { Size as ButtonSize } from "@/ui/Button";
+import RadixButton from "@/ui/Button";
 import Link from "@/ui/Link";
 import Modal from "./Modal";
 import Button from "./Button";

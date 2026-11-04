@@ -2,7 +2,7 @@ import type { FeatureInterface } from "shared/types/feature";
 import { assertFeatureDeletable } from "back-end/src/services/features";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeaturesWithoutEditorFields: jest.fn(),

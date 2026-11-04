@@ -1,8 +1,9 @@
 import { validateCappingSettingsValueEntered } from "shared/validators";
 import isEqual from "lodash/isEqual";
-import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
+import type { FC, ReactElement } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import {
+import type {
   Condition,
   ManagedBy,
   MetricInterface,

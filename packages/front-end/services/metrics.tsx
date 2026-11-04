@@ -1,5 +1,5 @@
-import { MetricType } from "shared/types/metric";
-import {
+import type { MetricType } from "shared/types/metric";
+import type {
   ColumnInterface,
   ColumnRef,
   FactTableDefinition,
@@ -8,16 +8,16 @@ import {
   RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
-import { CreateProps } from "shared/types/base-model";
+import type { CreateProps } from "shared/types/base-model";
 import {
   getCappingTailState,
   isCappableFactMetric,
   validateCappingSettingsIgnoreZerosConsistency,
   validateCappingSettingsOrdering,
 } from "shared/validators";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   getInlineFilterPromptColumns,
-  ExperimentMetricDefinition,
   isEmptyInlineFilterPlaceholder,
 } from "shared/experiments";
 import {
@@ -31,11 +31,11 @@ import {
   DEFAULT_MIN_SAMPLE_SIZE,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import {
+import type {
   MetricDefaults,
   OrganizationSettings,
 } from "shared/types/organization";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/services/datasources";

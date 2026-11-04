@@ -1,8 +1,6 @@
+import type { MutableRefObject, ReactNode, RefObject } from "react";
 import {
   createContext,
-  MutableRefObject,
-  ReactNode,
-  RefObject,
   useCallback,
   useContext,
   useEffect,

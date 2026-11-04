@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { resolveAnalysisIdentifierType } from "shared/util";
 import { Fragment, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
@@ -10,14 +10,13 @@ import {
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import AnalysisForm, {
-  AnalysisFormFocus,
-} from "@/components/Experiment/AnalysisForm";
+import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
+import type { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import {

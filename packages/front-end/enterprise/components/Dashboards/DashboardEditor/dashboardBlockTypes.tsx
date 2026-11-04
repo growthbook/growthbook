@@ -1,5 +1,5 @@
-import { ReactElement } from "react";
-import { DashboardBlockType } from "shared/enterprise";
+import type { ReactElement } from "react";
+import type { DashboardBlockType } from "shared/enterprise";
 import {
   PiArticleMediumDuotone,
   PiChartBar,

@@ -1,11 +1,12 @@
-import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { DetailedHTMLProps, HTMLAttributes } from "react";
+import React, { useEffect } from "react";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { BsXCircle } from "react-icons/bs";
 import clsx from "clsx";
 import { MdSwapCalls } from "react-icons/md";
 import { isFactMetric } from "shared/experiments";
-import { MetricInterface } from "shared/types/metric";
-import { BanditEvent } from "shared/validators";
+import type { MetricInterface } from "shared/types/metric";
+import type { BanditEvent } from "shared/validators";
 import { RxInfoCircled } from "react-icons/rx";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -15,7 +16,7 @@ import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { GBCuped } from "@/components/Icons";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import VariationLabel from "@/ui/VariationLabel";
 
 export const TOOLTIP_WIDTH = 350;

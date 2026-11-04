@@ -1,4 +1,5 @@
-import { AgreementType, agreementValidator } from "shared/validators";
+import type { AgreementType } from "shared/validators";
+import { agreementValidator } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({

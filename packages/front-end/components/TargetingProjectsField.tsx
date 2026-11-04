@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiInfo, PiPlusBold, PiX } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

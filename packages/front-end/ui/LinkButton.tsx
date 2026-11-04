@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import Link from "next/link";
-import Button, { Props as ButtonProps } from "@/ui/Button";
+import type { Props as ButtonProps } from "@/ui/Button";
+import Button from "@/ui/Button";
 
 export type Props = {
   href: string;

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { DiscussionInterface } from "shared/types/discussion";
+import type { DiscussionInterface } from "shared/types/discussion";
 
 const discussionSchema = new mongoose.Schema({
   id: String,

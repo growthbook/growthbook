@@ -1,14 +1,17 @@
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceType,
 } from "shared/types/datasource";
-import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
-import { Column } from "shared/types/integrations";
-import { SqlIdentifierQuote } from "shared/types/sql";
+import type {
+  DetectedColumn,
+  FactTableColumnType,
+} from "shared/types/fact-table";
+import type { Column } from "shared/types/integrations";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 import { quoteIdentifier } from "shared/sql";
-import { Permissions } from "shared/permissions";
+import type { Permissions } from "shared/permissions";
 import { mapDatabaseTypeToEnum } from "shared/enterprise";
-import { SchemaBrowserTable } from "@/services/schemaBrowserTables";
+import type { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 
 /**
  * Projects a new Fact Table should be created in. Inherits the Data Source's

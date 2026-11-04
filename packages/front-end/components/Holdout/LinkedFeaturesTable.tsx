@@ -1,7 +1,7 @@
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";

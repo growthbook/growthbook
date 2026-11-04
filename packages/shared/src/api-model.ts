@@ -4,7 +4,7 @@ import type { apiBaseSchema } from "./validators/base-model";
 import type { ApiErrorCode } from "./validators/api-errors";
 import type { ConfirmAction } from "./validators/confirmations";
 import { capitalizeFirstCharacter } from "./util";
-import { HttpVerb, RequestSchemas } from "./api-spec";
+import type { HttpVerb, RequestSchemas } from "./api-spec";
 
 export const crudActions = [
   "get",

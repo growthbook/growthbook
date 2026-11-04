@@ -1,33 +1,34 @@
-import React, { useState, useCallback, useMemo, FC, ReactNode } from "react";
-import {
+import type { FC, ReactNode } from "react";
+import React, { useState, useCallback, useMemo } from "react";
+import type {
   ExperimentStatus,
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
-import {
+import type {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentTableRow } from "@/services/experiments";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { ExperimentTableRow } from "@/services/experiments";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import MetricDrilldownModal from "./MetricDrilldownModal";
-import {
-  MetricDrilldownContext,
+import type {
   MetricDrilldownContextValue,
   DrilldownOptions,
   MetricDrilldownTab,
   DrilldownDimensionInfo,
 } from "./useMetricDrilldownContext";
+import { MetricDrilldownContext } from "./useMetricDrilldownContext";
 
 // Re-export for consumers
 export { useMetricDrilldownContext } from "./useMetricDrilldownContext";

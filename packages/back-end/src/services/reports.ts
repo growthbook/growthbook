@@ -8,17 +8,19 @@ import {
   DEFAULT_TARGET_MDE,
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
 } from "shared/constants";
+import type {
+  ExperimentMetricInterface,
+  SliceLevelsData,
+} from "shared/experiments";
 import {
   isFactMetric,
   isBinomialMetric,
-  ExperimentMetricInterface,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
   generateSliceString,
   expandDerivedMetricsInMap,
   parseSliceMetricId,
-  SliceLevelsData,
   getEffectiveLookbackOverride,
   getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
@@ -33,45 +35,44 @@ import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
-import {
+import type {
   LegacyExperimentReportArgs,
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
   ExperimentReportSSRData,
 } from "shared/types/report";
-import {
+import type {
   ExperimentDecisionFrameworkSettings,
   ExperimentInterface,
   MetricOverride,
 } from "shared/types/experiment";
-import {
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { OrganizationSettings } from "shared/types/organization";
-import { MetricInterface } from "shared/types/metric";
-import {
+import type { OrganizationSettings } from "shared/types/organization";
+import type { MetricInterface } from "shared/types/metric";
+import type {
   ConversionWindowUnit,
   MetricPriorSettings,
   MetricWindowSettings,
   FactTableInterface,
   ColumnInterface,
 } from "shared/types/fact-table";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ProjectInterface } from "shared/types/project";
-import { accountFeatures, CommercialFeature } from "shared/enterprise";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { ProjectInterface } from "shared/types/project";
+import type { CommercialFeature } from "shared/enterprise";
+import { accountFeatures } from "shared/enterprise";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { generateId } from "back-end/src/util/uuid";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
-import {
-  FactTableMap,
-  getFactTablesByIds,
-} from "back-end/src/models/FactTableModel";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
+import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -86,7 +87,7 @@ import {
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
-import { ReqContextClass } from "back-end/src/services/context";
+import type { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 

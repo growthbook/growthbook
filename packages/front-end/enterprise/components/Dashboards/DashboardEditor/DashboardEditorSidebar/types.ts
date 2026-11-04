@@ -1,5 +1,5 @@
 // Context types for different block types
-import { SliceLevelsData } from "shared/experiments";
+import type { SliceLevelsData } from "shared/experiments";
 
 // Base interface for all block contexts
 export interface BlockContext {

@@ -1,6 +1,7 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import type { FC } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import cloneDeep from "lodash/cloneDeep";
-import {
+import type {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "shared/types/datasource";
@@ -12,7 +13,7 @@ import {
   EVENT_FORWARDER_MANAGED_TOOLTIP,
   EventForwarderManagedBadge,
 } from "@/components/Settings/EditDataSource/EventForwarderManaged";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

@@ -1,8 +1,8 @@
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getAllFactTablesForOrganization,

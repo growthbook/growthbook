@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { UseFormReturn, useWatch } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
+import { useWatch } from "react-hook-form";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiWarningCircle, PiXBold } from "react-icons/pi";
 import omit from "lodash/omit";
-import { Namespaces } from "shared/types/organization";
+import type { Namespaces } from "shared/types/organization";
 import { isNamespaceSelectable } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import { NamespaceApiResponse } from "@/pages/namespaces";
+import type { NamespaceApiResponse } from "@/pages/namespaces";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import type { SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -20,12 +22,12 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
+import type { RangeTuple } from "./NamespaceSelectorUtils";
 import {
   normalizeRangeAfterLowerChange,
   normalizeRangeAfterUpperChange,
   findContainingGap,
   getLargestGap,
-  RangeTuple,
   shiftDraftKeysAfterRangeRemoval,
   subtractSelectedRangesFromGaps,
   trimDraftKeysToRangeLength,

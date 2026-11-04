@@ -1,5 +1,6 @@
-import React, { FC, useMemo, useState } from "react";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { FC } from "react";
+import React, { useMemo, useState } from "react";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import { Box, Flex } from "@radix-ui/themes";

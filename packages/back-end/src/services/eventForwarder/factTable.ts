@@ -1,6 +1,6 @@
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { SDKAttributeSchema } from "shared/types/organization";
-import {
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { SDKAttributeSchema } from "shared/types/organization";
+import type {
   BigQueryEventForwarderStoredConfig,
   DatabricksEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
@@ -9,13 +9,13 @@ import type {
   ColumnInterface,
   CreateColumnProps,
 } from "shared/types/fact-table";
-import { EventForwarderConfigInterface } from "shared/validators";
+import type { EventForwarderConfigInterface } from "shared/validators";
+import type { EventForwarderDatasourceParams } from "shared/util";
 import {
   buildEventForwarderEventsFactTableColumns,
   buildEventForwarderEventsFactTableSql,
   EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
   EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
-  EventForwarderDatasourceParams,
   getEventForwarderEventsFactTableId,
   getEventForwarderEventsFactTableName,
   getEventForwarderSinkTypeForDatasource,
@@ -43,7 +43,7 @@ import {
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 /**
  * Whether the stored config has a real write destination. A config that

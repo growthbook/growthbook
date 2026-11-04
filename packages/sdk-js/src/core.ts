@@ -1,4 +1,4 @@
-import {
+import type {
   Attributes,
   EvalContext,
   ContextualBanditDefinition,
@@ -32,7 +32,7 @@ import {
   pruneCondition,
   pruneSavedGroup,
 } from "./mongrule";
-import {
+import type {
   ConditionInterface,
   EvalConditionOptions,
   ParentConditionInterface,
@@ -53,7 +53,7 @@ import {
   toString,
   hasOwn,
 } from "./util";
-import { StickyBucketService } from "./sticky-bucket-service";
+import type { StickyBucketService } from "./sticky-bucket-service";
 import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
 
 export const EVENT_FEATURE_EVALUATED = "Feature Evaluated";

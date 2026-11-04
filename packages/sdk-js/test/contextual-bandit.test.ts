@@ -1,6 +1,6 @@
 import { GrowthBook } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
-import {
+import type {
   AutoExperiment,
   ContextualBanditDefinitions,
   Result,

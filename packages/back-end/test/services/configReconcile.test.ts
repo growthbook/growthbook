@@ -1,7 +1,7 @@
-import { ConfigInterface } from "shared/types/config";
-import { SimpleSchema } from "shared/types/feature";
+import type { ConfigInterface } from "shared/types/config";
+import type { SimpleSchema } from "shared/types/feature";
 import { assertConfigSchemaChangeSafeForDescendants } from "back-end/src/services/configReconcile";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import { SoftWarningError } from "back-end/src/util/errors";
 
 const makeContext = ({

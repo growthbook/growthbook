@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { HoldoutInterface } from "shared/validators";
 import { resolveAnalysisIdentifierType, getHoldoutStage } from "shared/util";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";

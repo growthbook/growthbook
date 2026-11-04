@@ -7,16 +7,12 @@ import {
 } from "react-icons/fa6";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
-import {
-  FeatureOptionForTooltip,
-  FeatureOptionWithTooltip,
-} from "@/components/Features/FeatureOptionTooltip";
+import type { FeatureOptionForTooltip } from "@/components/Features/FeatureOptionTooltip";
+import { FeatureOptionWithTooltip } from "@/components/Features/FeatureOptionTooltip";
 import {
   OptionLabel,
   OptionProjectsLabel,

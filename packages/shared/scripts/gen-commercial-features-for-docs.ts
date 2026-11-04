@@ -1,10 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { format } from "prettier";
-import {
-  accountFeatures,
-  CommercialFeature,
-} from "../src/enterprise/license-consts";
+import type { CommercialFeature } from "../src/enterprise/license-consts";
+import { accountFeatures } from "../src/enterprise/license-consts";
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");
 const TARGET = `${basePath}/snippets/data/commercialFeatures.js`;

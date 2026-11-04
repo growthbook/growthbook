@@ -1,19 +1,14 @@
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useRef,
-  useEffect,
-} from "react";
-import {
+import type React from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import type {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-  blockHasFieldOfType,
 } from "shared/enterprise";
-import { DifferenceType } from "shared/types/stats";
+import { blockHasFieldOfType } from "shared/enterprise";
+import type { DifferenceType } from "shared/types/stats";
 import { isNumber, isStringArray } from "shared/util";
-import { ExperimentReportVariation } from "shared/types/report";
-import { ExperimentSortBy } from "shared/experiments";
+import type { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentSortBy } from "shared/experiments";
 
 export function useDashboardEditorHooks<
   B extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,

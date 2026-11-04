@@ -1,9 +1,7 @@
-import {
-  ExperimentsWinRateBlockInterface,
-  getEffectiveExperimentBlock,
-} from "shared/enterprise";
+import type { ExperimentsWinRateBlockInterface } from "shared/enterprise";
+import { getEffectiveExperimentBlock } from "shared/enterprise";
 import WinRateBlockChart from "./WinRateBlockChart";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function ExperimentsWinRateBlock({
   block: rawBlock,

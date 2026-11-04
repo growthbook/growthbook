@@ -4,26 +4,26 @@ import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { LegendItem, LegendLabel, LegendOrdinal } from "@visx/legend";
 import { AxisBottom, AxisLeft } from "@visx/axis";
+import type { ReactNode } from "react";
 import {
   createContext,
   Fragment,
-  ReactNode,
   useContext,
   useEffect,
   useRef,
   useState,
 } from "react";
-import {
+import type {
   FeatureInterface,
   FeatureUsageData,
   FeatureUsageDataPoint,
   FeatureValueType,
 } from "shared/types/feature";
-import { FeatureUsageLookback } from "shared/types/integrations";
+import type { FeatureUsageLookback } from "shared/types/integrations";
 import { isManagedWarehouseUnavailable, stemRuleId } from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { datetime } from "shared/dates";

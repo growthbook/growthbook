@@ -1,6 +1,6 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Flex } from "@radix-ui/themes";
-import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
+import type { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { DocLink } from "@/components/DocLink";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";

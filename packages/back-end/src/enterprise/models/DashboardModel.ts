@@ -1,55 +1,55 @@
-import mongoose from "mongoose";
+import type mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import { Permissions } from "shared/permissions";
 import { isString, PermissionError } from "shared/util";
-import {
+import type {
   ApiCreateDashboardBlockInterface,
   ApiDashboardBlockInterface,
+  DashboardBlockRef,
+  ApiCreateDashboardBody,
+  DashboardBlockWithAnalysisId,
+  ApiDashboardInterface,
+  ApiGetDashboardsForExperimentReturn,
+  ApiUpdateDashboardBody,
+  DashboardInterface,
+  CreateDashboardBlockInterface,
+  DashboardBlockInterface,
+  LegacyDashboardBlockInterface,
+  BlockLayout,
+} from "shared/enterprise";
+import {
   blockHasFieldOfType,
   blockUsesDashboardDateControl,
   resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
   isDashboardBlockRef,
-  DashboardBlockRef,
   apiCreateDashboardBody,
   apiCreateDashboardBodyV2,
-  ApiCreateDashboardBody,
-  DashboardBlockWithAnalysisId,
-  ApiDashboardInterface,
-  ApiGetDashboardsForExperimentReturn,
   apiUpdateDashboardBody,
-  ApiUpdateDashboardBody,
   dashboardInterface,
-  DashboardInterface,
-  CreateDashboardBlockInterface,
-  DashboardBlockInterface,
-  LegacyDashboardBlockInterface,
   convertPinnedSlicesToSliceTags,
   isDifferenceType,
-  BlockLayout,
   DASHBOARD_GRID_COLS,
   getBlockSizeBounds,
 } from "shared/enterprise";
-import {
+import type {
   ExplorationDateRange,
   defaultPrimaryKeyShape,
 } from "shared/validators";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
-import {
-  MakeModelClass,
-  ScopedFilterQuery,
-} from "back-end/src/models/BaseModel";
+import type { ScopedFilterQuery } from "back-end/src/models/BaseModel";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
+import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
   getCollection,
   removeMongooseFields,
-  ToInterface,
 } from "back-end/src/util/mongo.util";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {

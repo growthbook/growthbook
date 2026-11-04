@@ -1,7 +1,7 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
-import { JsonPatchOperation, Revision } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { JsonPatchOperation, Revision } from "shared/enterprise";
+import type { SavedGroupInterface } from "shared/types/saved-group";
 import {
   postSavedGroupRevisionRevertValidator,
   savedGroupUpdatableFieldsSchema,

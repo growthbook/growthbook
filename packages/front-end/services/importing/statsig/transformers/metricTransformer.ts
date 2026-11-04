@@ -1,4 +1,4 @@
-import {
+import type {
   ColumnRef,
   CreateFactMetricProps,
   FactMetricType,
@@ -12,7 +12,7 @@ import {
   DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_MIN_SAMPLE_SIZE,
 } from "shared/constants";
-import {
+import type {
   StatsigMetric,
   StatsigMetricCriteria,
 } from "@/services/importing/statsig/types";

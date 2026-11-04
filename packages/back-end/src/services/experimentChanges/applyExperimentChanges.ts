@@ -1,18 +1,22 @@
 import isEqual from "lodash/isEqual";
 import { validateFeatureValue } from "shared/util";
 import { conflictingFields } from "shared/experiments";
-import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
-import { EventUser } from "shared/types/events/event-types";
-import { ExperimentChangesBody, ExperimentRefRule } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
-import { ReqContext } from "back-end/types/request";
+import type { EventUser } from "shared/types/events/event-types";
+import type {
+  ExperimentChangesBody,
+  ExperimentRefRule,
+} from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/request";
 import {
   getExperimentById,
   setPendingFeatureUnlink,
 } from "back-end/src/models/ExperimentModel";
 import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import type { RevisionSnapshot } from "back-end/src/models/FeatureRevisionModel";
 import {
   deleteRevisionForFailedLanding,
   getLinkageSyncRevisionSummaries,
@@ -20,7 +24,6 @@ import {
   getRevisionSnapshot,
   prevalidateRevisionUpdate,
   restoreRevisionSnapshot,
-  RevisionSnapshot,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
@@ -28,9 +31,11 @@ import {
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
-import {
+import type {
   ExperimentFeatureUpdatePlan,
   ExperimentLinkedFeatureValueUpdate,
+} from "back-end/src/services/experiment-feature";
+import {
   planExperimentRuleEnvironments,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdate,
@@ -64,17 +69,14 @@ import {
   insertNewFeature,
   prepareNewFeature,
 } from "back-end/src/services/featureCreate";
+import type { ExperimentUpdatePlan } from "./planExperimentUpdate";
 import {
-  ExperimentUpdatePlan,
   finishExperimentUpdate,
   planExperimentUpdate,
   writeExperimentUpdatePlan,
 } from "./planExperimentUpdate";
-import {
-  LinkedChangesPlan,
-  planLinkedChanges,
-  writeLinkedChanges,
-} from "./linkedChanges";
+import type { LinkedChangesPlan } from "./linkedChanges";
+import { planLinkedChanges, writeLinkedChanges } from "./linkedChanges";
 import {
   asJson,
   assertBaseCoversChanges,

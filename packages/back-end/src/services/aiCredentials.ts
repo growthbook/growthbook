@@ -1,7 +1,8 @@
 import { AES, enc } from "crypto-js";
-import { AIProvider, AI_PROVIDERS, AI_PROVIDER_META } from "shared/ai";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { AIProvider } from "shared/ai";
+import { AI_PROVIDERS, AI_PROVIDER_META } from "shared/ai";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   ANTHROPIC_API_KEY,
   ENCRYPTION_KEY,

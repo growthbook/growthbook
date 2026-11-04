@@ -1,8 +1,8 @@
-import {
+import type {
   OrganizationInterface,
   OrganizationSettings,
 } from "shared/types/organization";
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import { DEFAULT_STATS_ENGINE } from "../../src/constants";
 import {
   getScopedSettings,

@@ -1,5 +1,5 @@
-import { EventForwarderSinkType } from "shared/types/event-forwarder";
-import { DataRegion } from "./data-regions";
+import type { EventForwarderSinkType } from "shared/types/event-forwarder";
+import type { DataRegion } from "./data-regions";
 
 export const EVENT_FORWARDER_WAREHOUSE_AREAS = [
   "Multi-region",

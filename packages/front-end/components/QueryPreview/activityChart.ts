@@ -1,4 +1,4 @@
-import { ProductAnalyticsExploration } from "shared/validators";
+import type { ProductAnalyticsExploration } from "shared/validators";
 import { enumerateProductAnalyticsDateBuckets } from "shared/enterprise";
 
 type ExplorationRange = Pick<

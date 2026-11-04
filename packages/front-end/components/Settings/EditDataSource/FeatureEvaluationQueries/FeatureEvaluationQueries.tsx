@@ -1,5 +1,6 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
-import {
+import type { FC } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import type {
   DataSourceInterfaceWithParams,
   FeatureUsageQuery,
 } from "shared/types/datasource";
@@ -14,7 +15,7 @@ import {
   EVENT_FORWARDER_MANAGED_TOOLTIP,
   EventForwarderManagedBadge,
 } from "@/components/Settings/EditDataSource/EventForwarderManaged";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";

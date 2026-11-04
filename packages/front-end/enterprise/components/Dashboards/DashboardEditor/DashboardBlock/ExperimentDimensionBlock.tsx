@@ -1,10 +1,8 @@
 import React, { useMemo } from "react";
 import { v4 as uuid4 } from "uuid";
-import {
-  ExperimentDimensionBlockInterface,
-  blockHasFieldOfType,
-} from "shared/enterprise";
-import { MetricSnapshotSettings } from "shared/types/report";
+import type { ExperimentDimensionBlockInterface } from "shared/enterprise";
+import { blockHasFieldOfType } from "shared/enterprise";
+import type { MetricSnapshotSettings } from "shared/types/report";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
@@ -15,7 +13,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { isString } from "shared/util";
-import { SignificanceThresholds } from "shared/types/stats";
+import type { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -23,7 +21,7 @@ import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function ExperimentDimensionBlock({
   block,

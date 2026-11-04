@@ -1,13 +1,11 @@
-import { UseFormReturn } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
-import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
+import type { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
 import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { isExternallyManaged } from "shared/validators";
-import {
-  CreateFactMetricFormProps,
-  getInitialInlineFilters,
-} from "@/services/metrics";
+import type { CreateFactMetricFormProps } from "@/services/metrics";
+import { getInitialInlineFilters } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
@@ -42,20 +40,21 @@ import {
   getPreviewSQL,
 } from "@/components/FactTables/MetricEditor/previewSql";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
-import ThresholdBasisRow, {
-  ThresholdBasisValue,
-} from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
+import type { ThresholdBasisValue } from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
+import ThresholdBasisRow from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import RetentionFields from "@/components/FactTables/MetricEditor/typeFields/RetentionFields";
 import QuantileFields from "@/components/FactTables/MetricEditor/typeFields/QuantileFields";
 import RatioFields from "@/components/FactTables/MetricEditor/typeFields/RatioFields";
+import type {
+  FormMetricType,
+  UnrepresentableReason,
+} from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import {
   applyFormType,
   formTypeFromStored,
-  FormMetricType,
   onFactTableChange,
   onShapeChange,
   shapeForValueType,
-  UnrepresentableReason,
   windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 

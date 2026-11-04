@@ -1,10 +1,10 @@
-import { ApiReport } from "shared/validators";
-import { ReportInterface } from "shared/types/report";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ApiReport } from "shared/validators";
+import type { ReportInterface } from "shared/types/report";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { toApiAssignmentQueryRef } from "shared/util";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 
 export async function toReportApiInterface(

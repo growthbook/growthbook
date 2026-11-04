@@ -1,5 +1,5 @@
 import { FormProvider, useForm } from "react-hook-form";
-import {
+import type {
   ExperimentValue,
   FeatureInterface,
   FeatureRule,
@@ -7,7 +7,7 @@ import {
 } from "shared/types/feature";
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getDefaultHashAttribute,
   filterEnvironmentsByFeature,
@@ -29,30 +29,32 @@ import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  ACTIVE_DRAFT_STATUSES,
+import type {
   CreateSafeRolloutInterface,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
   SafeRolloutInterface,
   SafeRolloutRule,
-  stripUnknownRuleFields,
 } from "shared/validators";
 import {
+  ACTIVE_DRAFT_STATUSES,
+  stripUnknownRuleFields,
+} from "shared/validators";
+import type {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
   PutFeatureRuleConflict,
 } from "shared/types/feature-rule";
-import {
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { withStagedTargeting } from "shared/permissions";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import type { NewExperimentRefRule } from "@/services/features";
 import {
-  NewExperimentRefRule,
   getDefaultRuleValue,
   getFeatureDefaultValue,
   useAttributeSchema,
@@ -92,12 +94,14 @@ import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
 import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
+import type {
+  ConflictResolution,
+  ContestedChunk,
+} from "@/components/DraftConflicts/ConflictContext";
 import {
   ConflictCalloutRow,
   WholeConflictCallout,
   ConflictProvider,
-  ConflictResolution,
-  ContestedChunk,
 } from "@/components/DraftConflicts/ConflictContext";
 import { decimalToPercent } from "@/services/utils";
 import {
@@ -117,9 +121,8 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 
-import DraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
+import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";

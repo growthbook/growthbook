@@ -1,6 +1,6 @@
 import { getUserById } from "back-end/src/models/UserModel";
 import { assertLoginGrantsStoredSuperAdmin } from "back-end/src/services/auth";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 
 // Not spread from requireActual: UserModel imports services/auth, so loading the
 // real module here would hand the helper the real getUserById before the mock exists

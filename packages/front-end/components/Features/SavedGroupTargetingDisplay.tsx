@@ -1,6 +1,6 @@
-import { SavedGroupTargeting } from "shared/types/feature";
+import type { SavedGroupTargeting } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";

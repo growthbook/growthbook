@@ -1,14 +1,14 @@
-import { Response } from "express";
+import type { Response } from "express";
 import { z } from "zod";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { builtInChecklistItemKeyValidator } from "shared/validators";
-import {
+import type {
   BuiltInChecklistItemKey,
   ChecklistTask,
 } from "shared/types/experimentLaunchChecklist";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   createExperimentLaunchChecklist,
   deleteExperimentLaunchChecklist,

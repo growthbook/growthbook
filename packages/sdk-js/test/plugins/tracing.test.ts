@@ -1,4 +1,5 @@
-import { Experiment, GrowthBook, GrowthBookClient } from "../../src";
+import type { Experiment } from "../../src";
+import { GrowthBook, GrowthBookClient } from "../../src";
 import {
   getTracingTags,
   TRACING_TAG_EXPERIMENT_PREFIX,

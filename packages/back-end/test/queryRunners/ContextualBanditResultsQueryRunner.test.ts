@@ -1,25 +1,23 @@
 import { contextualBanditAttrCol } from "shared/experiments";
-import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
-import { QueryInterface } from "shared/types/query";
-import {
+import type { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
+import type { QueryInterface } from "shared/types/query";
+import type {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
+import type { ContextualBanditQueryRunResult } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
   CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
   CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
   CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
-  ContextualBanditQueryRunResult,
   ContextualBanditResultsQueryRunner,
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
-import {
-  ContextualBanditResult,
-  runContextualStatsEngine,
-} from "back-end/src/enterprise/services/contextualBanditStats";
-import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { ReqContext } from "back-end/types/api";
+import type { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
+import { runContextualStatsEngine } from "back-end/src/enterprise/services/contextualBanditStats";
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { ReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
   runContextualStatsEngine: jest.fn(),

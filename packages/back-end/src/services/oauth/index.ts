@@ -1,11 +1,8 @@
 import crypto from "crypto";
-import { Request } from "express";
-import {
-  isSafeOAuthRedirectUri,
-  OAuthDcrRequest,
-  OAuthTokenPermissions,
-} from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
+import type { Request } from "express";
+import type { OAuthDcrRequest, OAuthTokenPermissions } from "shared/validators";
+import { isSafeOAuthRedirectUri } from "shared/validators";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   APP_ORIGIN,
   OAUTH_ACCESS_TOKEN_TTL_SECONDS,
@@ -25,7 +22,7 @@ import {
   getContextForAgendaJobByOrgObject,
   getContextForUserIdInOrg,
 } from "back-end/src/services/organizations";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   hashToken,
   OAUTH_ACCESS_TOKEN_PREFIX,

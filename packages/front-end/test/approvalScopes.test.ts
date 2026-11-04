@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
+import type {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";

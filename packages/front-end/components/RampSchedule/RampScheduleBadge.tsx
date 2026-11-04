@@ -1,9 +1,6 @@
-import { ReactNode } from "react";
-import {
-  isReadyForApproval,
-  isAwaitingStartApproval,
-  RampScheduleInterface,
-} from "shared/validators";
+import type { ReactNode } from "react";
+import type { RampScheduleInterface } from "shared/validators";
+import { isReadyForApproval, isAwaitingStartApproval } from "shared/validators";
 import { abbreviateAgo, dateNoYear, datetime } from "shared/dates";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";

@@ -1,9 +1,9 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import {
   oauthDcrRequestValidator,
   oauthTokenPermissionsValidator,
 } from "shared/validators";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import {
   getContextFromReq,

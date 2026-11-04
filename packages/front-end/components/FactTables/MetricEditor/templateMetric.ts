@@ -6,7 +6,7 @@ import {
   quantileSettingsValidator,
   windowSettingsValidator,
 } from "shared/validators";
-import {
+import type {
   ColumnRef,
   FactMetricInterface,
   FactTableDefinition,

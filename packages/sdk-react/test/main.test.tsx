@@ -1,12 +1,12 @@
 import * as React from "react";
 import { act } from "react-dom/test-utils";
 import { cleanup, render } from "@testing-library/react";
+import type { WithRunExperimentProps } from "../src";
 import {
   GrowthBook,
   GrowthBookProvider,
   useExperiment,
   withRunExperiment,
-  WithRunExperimentProps,
   useGrowthBook,
   useFeatureIsOn,
   useFeatureValue,

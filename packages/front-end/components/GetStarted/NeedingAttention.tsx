@@ -7,17 +7,17 @@ import {
   PiDatabaseBold,
   PiChartLineBold,
 } from "react-icons/pi";
-import { ComputedExperimentInterface } from "shared/types/experiment";
-import { FeatureMetaInfo } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ComputedExperimentInterface } from "shared/types/experiment";
+import type { FeatureMetaInfo } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { eventUserPersonId } from "shared/validators";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { AuditInterface } from "shared/types/audit";
+import type { AuditInterface } from "shared/types/audit";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/ui/RadioCards";

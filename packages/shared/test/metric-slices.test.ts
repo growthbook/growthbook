@@ -1,10 +1,10 @@
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   expandDerivedMetricsInMap,
-  ExperimentMetricInterface,
   funnelStepMetricId,
   getSliceDataForMetric,
 } from "shared/experiments";
-import {
+import type {
   ColumnInterface,
   FactMetricInterface,
   FactTableDefinition,

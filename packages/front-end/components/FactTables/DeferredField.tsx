@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, ComponentProps } from "react";
+import type { ComponentProps } from "react";
+import { useState, useEffect, useRef } from "react";
 import Field from "@/components/Forms/Field";
 
 /**

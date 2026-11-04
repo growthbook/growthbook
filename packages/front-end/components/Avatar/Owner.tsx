@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import type { Size } from "@/ui/Avatar";
-import Text, { TextProps } from "@/ui/Text";
+import type { TextProps } from "@/ui/Text";
+import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import UserAvatar from "./UserAvatar";

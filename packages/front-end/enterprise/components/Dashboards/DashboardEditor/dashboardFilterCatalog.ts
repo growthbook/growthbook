@@ -1,7 +1,7 @@
-import { DashboardInterface } from "shared/enterprise";
+import type { DashboardInterface } from "shared/enterprise";
+import type { DashboardExperimentCategoryKey } from "./experimentSearchFilterString";
 import {
   DASHBOARD_EXPERIMENT_CATEGORY_KEYS,
-  DashboardExperimentCategoryKey,
   getExperimentCategoryValues,
 } from "./experimentSearchFilterString";
 

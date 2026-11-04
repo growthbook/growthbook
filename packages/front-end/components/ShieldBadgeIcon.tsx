@@ -1,5 +1,5 @@
-import { CSSProperties } from "react";
-import { IconType } from "react-icons";
+import type { CSSProperties } from "react";
+import type { IconType } from "react-icons";
 import { PiShield } from "react-icons/pi";
 
 export default function ShieldBadgeIcon({

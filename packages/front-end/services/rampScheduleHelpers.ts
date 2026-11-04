@@ -1,10 +1,9 @@
-import {
+import type {
   RampScheduleInterface,
   RampScheduleForDisplay,
-  ACTIVE_DRAFT_STATUSES,
-  resolveStartApproval,
 } from "shared/validators";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { ACTIVE_DRAFT_STATUSES, resolveStartApproval } from "shared/validators";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 
 // Builds a `ruleId → RampScheduleInterface` map for one rendering pass of a
 // feature's rules. Layers (real schedules → synthetic pending schedules) are

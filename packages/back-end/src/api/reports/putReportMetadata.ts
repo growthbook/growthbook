@@ -1,5 +1,5 @@
 import { putReportMetadataValidator } from "shared/validators";
-import { ExperimentSnapshotReportInterface } from "shared/types/report";
+import type { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";

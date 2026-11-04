@@ -2,7 +2,7 @@ import { format } from "date-fns";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiHourglassHighFill } from "react-icons/pi";
 import { eventUserKeyName, eventUserPerson } from "shared/validators";
-import { EventUser as EventUserType } from "shared/types/events/event-types";
+import type { EventUser as EventUserType } from "shared/types/events/event-types";
 import EventUser from "@/components/Avatar/EventUser";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";

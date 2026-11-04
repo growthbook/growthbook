@@ -1,4 +1,4 @@
-import {
+import type {
   AuditInterfaceTemplate,
   EntityType,
   EventType,
@@ -6,8 +6,8 @@ import {
 } from "shared/types/audit";
 import { entityTypes } from "shared/constants";
 import { findAuditByEntityList } from "back-end/src/models/AuditModel";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 
 export function isValidAuditEntityType(type: string): type is EntityType {
   return entityTypes.includes(type as EntityType);

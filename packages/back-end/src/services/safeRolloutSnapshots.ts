@@ -15,9 +15,9 @@ import {
   getSafeRolloutSnapshotAnalysis,
   isDefined,
 } from "shared/util";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
   isBinomialMetric,
@@ -30,8 +30,8 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
-import { CreateProps } from "shared/types/base-model";
-import {
+import type { CreateProps } from "shared/types/base-model";
+import type {
   ExperimentAnalysisSummary,
   SafeRolloutNotification,
   MetricForSafeRolloutSnapshot,
@@ -40,30 +40,29 @@ import {
   SafeRolloutSnapshotSettings,
   FeatureInterface,
 } from "shared/validators";
-import {
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
-import { OrganizationInterface } from "shared/types/organization";
-import { MetricSnapshotSettings } from "shared/types/report";
-import { MetricInterface } from "shared/types/metric";
-import { DataSourceInterface } from "shared/types/datasource";
-import { MetricPriorSettings } from "shared/types/fact-table";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ResourceEvents } from "shared/types/events/base-types";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { MetricSnapshotSettings } from "shared/types/report";
+import type { MetricInterface } from "shared/types/metric";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { MetricPriorSettings } from "shared/types/fact-table";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { ResourceEvents } from "shared/types/events/base-types";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
-import {
-  FactTableMap,
-  getFactTableMap,
-} from "back-end/src/models/FactTableModel";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import type { CreateEventData } from "back-end/src/models/EventModel";
+import { createEvent } from "back-end/src/models/EventModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getPValueThresholdForProject } from "back-end/src/services/organizations";

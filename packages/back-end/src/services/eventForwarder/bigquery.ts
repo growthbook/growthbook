@@ -4,9 +4,9 @@ import {
   isValidBigQueryTableName,
   resolveBigQueryEventForwarderTableNames,
 } from "shared/util";
-import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
-import { EventForwarderConfigInterface } from "shared/validators";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
+import type { EventForwarderConfigInterface } from "shared/validators";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import {
   decryptEventForwarderConfigModel,

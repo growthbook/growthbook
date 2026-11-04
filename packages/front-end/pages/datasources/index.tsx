@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import DataSources from "@/components/Settings/DataSources";

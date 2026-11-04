@@ -1,5 +1,5 @@
 import type { AutoExperiment } from "@growthbook/growthbook";
-import {
+import type {
   AutoExperimentWithMetadata,
   ContextualBanditDefinitions,
   FeatureDefinition,
@@ -14,7 +14,8 @@ import {
   type PrerequisiteDependent,
 } from "back-end/src/util/features";
 import { logger } from "back-end/src/util/logger";
-import { Histogram, metrics } from "back-end/src/util/metrics";
+import type { Histogram } from "back-end/src/util/metrics";
+import { metrics } from "back-end/src/util/metrics";
 
 export const CB_PAYLOAD_WARN_BYTES = 512 * 1024;
 export const CB_PAYLOAD_WARN_FRACTION = 0.5;

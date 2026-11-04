@@ -1,4 +1,4 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import {
   filterEnvironmentsByFeature,
@@ -8,7 +8,7 @@ import {
   FEATURE_KEY_PATTERN,
   FEATURE_KEY_PATTERN_ERROR,
 } from "shared/constants";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { assertValidHoldout } from "back-end/src/api/features/v2Shared";
 import {
   assertValidFeatureRules,

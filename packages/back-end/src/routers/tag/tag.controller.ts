@@ -1,8 +1,8 @@
 import type { Response } from "express";
-import { TagInterface } from "shared/types/tag";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { TagInterface } from "shared/types/tag";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { addTag, removeTag } from "back-end/src/models/TagModel";
 import { removeTagInMetrics } from "back-end/src/models/MetricModel";

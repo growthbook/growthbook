@@ -1,6 +1,7 @@
-import React, { ReactNode } from "react";
+import type { ReactNode } from "react";
+import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
-import {
+import type {
   DatasetType,
   FactTableValue,
   ExplorationConfig,

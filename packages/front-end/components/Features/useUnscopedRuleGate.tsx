@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
-import { FeatureRuleScope, isUnscopedRule } from "shared/util";
+import type { FeatureRuleScope } from "shared/util";
+import { isUnscopedRule } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Checkbox from "@/ui/Checkbox";

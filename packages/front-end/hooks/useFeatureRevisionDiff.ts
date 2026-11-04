@@ -1,8 +1,10 @@
-import { useMemo, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { useMemo } from "react";
 import isEqual from "lodash/isEqual";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { RevisionMetadata, stripUnknownRuleFields } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { RevisionMetadata } from "shared/validators";
+import { stripUnknownRuleFields } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,

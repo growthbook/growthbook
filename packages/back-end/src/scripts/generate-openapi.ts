@@ -2,10 +2,10 @@ import path from "path";
 import fs from "fs";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
+import type { ApiErrorCode } from "shared/validators";
 import {
   namedSchemaRegistry,
   apiErrorRegistry,
-  ApiErrorCode,
   CONFIRM_OVERRIDE_FLAGS,
 } from "shared/validators";
 import { armableActions, routeConfirmation } from "shared/util";

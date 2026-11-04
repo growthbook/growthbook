@@ -6,7 +6,7 @@ import {
   apiListHoldoutsValidator,
   apiUpdateHoldoutBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "shared/api-model";
+import type { OpenApiModelSpec } from "shared/api-model";
 
 /** REST API surface for Holdouts under `/api/v1/holdouts/*`. */
 

@@ -1,4 +1,4 @@
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { bigQueryDialect } from "shared/dialects";
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { factMetricFactory } from "../factories/FactMetric.factory";

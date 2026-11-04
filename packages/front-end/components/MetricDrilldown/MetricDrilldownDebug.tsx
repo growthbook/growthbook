@@ -1,6 +1,7 @@
-import { FC, useMemo, useRef, useState } from "react";
-import { ExperimentMetricDefinition } from "shared/experiments";
-import {
+import type { FC } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import type {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
@@ -10,17 +11,17 @@ import {
   BaselineResponse,
 } from "shared/types/stats";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { ExperimentStatus } from "shared/types/experiment";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { ExperimentStatus } from "shared/types/experiment";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import Heading from "@/ui/Heading";
 import MetricDrilldownAdjustmentSummary from "./MetricDrilldownAdjustmentSummary";
-import { SupplementalField } from "./helpers";
+import type { SupplementalField } from "./helpers";
 
 type ComparisonSection = "variance" | "prior" | "capping";
 

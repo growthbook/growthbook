@@ -1,10 +1,12 @@
 import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, Fragment, ReactElement, ReactNode } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { ReactElement, ReactNode } from "react";
+import { forwardRef, Fragment } from "react";
 import clsx from "clsx";
 import HelperText, { getRadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
-import { radixSize, Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
+import { radixSize } from "@/ui/sizes";
 
 export type RadioOptions = {
   value: string;

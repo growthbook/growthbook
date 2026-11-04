@@ -1,4 +1,5 @@
-import { ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { Box, Flex, Text as RadixText } from "@radix-ui/themes";
 import Avatar from "./Avatar";
 import Badge from "./Badge";
@@ -10,7 +11,7 @@ import Link from "./Link";
 import { Select, SelectItem } from "./Select";
 import Switch from "./Switch";
 import Text from "./Text";
-import { TshirtSize } from "./sizes";
+import type { TshirtSize } from "./sizes";
 
 /** Steps each component accepts, so the page can name what is absent from a row. */
 const SUPPORTS: Record<string, TshirtSize[]> = {

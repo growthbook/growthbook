@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { FC, useEffect, useMemo, useState } from "react";
+import type { FC } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -14,13 +15,11 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { datetime } from "shared/dates";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ScaleLinear } from "d3-scale";
-import {
-  ExperimentMetricDefinition,
-  getLatestPhaseVariations,
-} from "shared/experiments";
-import { BanditEvent } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ScaleLinear } from "d3-scale";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import { getLatestPhaseVariations } from "shared/experiments";
+import type { BanditEvent } from "shared/validators";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import cloneDeep from "lodash/cloneDeep";
 import { Flex } from "@radix-ui/themes";
@@ -32,7 +31,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./ExperimentDateGraph.module.scss";
 import { dateAxisTicks, spacedOut } from "./dateAxis";
 

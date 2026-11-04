@@ -1,11 +1,11 @@
-import { ExperimentRefRule } from "shared/validators";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
+import type { ExperimentRefRule } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   holdsTargetingDestination,
   withStagedTargeting,
 } from "shared/permissions";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   filterEnvironmentsByFeature,
   getFeatureAutopublishOnApproval,
@@ -15,7 +15,6 @@ import {
   liveRevisionFromFeature,
   fillRevisionFromFeature,
 } from "shared/util";
-import type { FeatureRule } from "shared/types/feature";
 import {
   isScheduledPublishDue,
   isScheduledPublishPending,
@@ -24,8 +23,8 @@ import {
   getLiveAndBaseRevisionsForFeature,
   getMergeResultPublishEnvs,
 } from "back-end/src/services/features";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
 import { dangerouslyGetExperimentsByIdsBypassPermission } from "back-end/src/models/ExperimentModel";

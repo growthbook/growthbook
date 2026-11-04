@@ -4,7 +4,7 @@ import {
   ruleAppliesToEnv,
   isScheduledRule,
 } from "shared/util";
-import {
+import type {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
   ExperimentRefRule,
@@ -13,9 +13,9 @@ import {
   SafeRolloutRule,
   FeatureRule,
   RulePatchInput,
-  putFeatureRevisionRuleValidator,
 } from "shared/validators";
-import { RevisionChanges } from "shared/types/feature-revision";
+import { putFeatureRevisionRuleValidator } from "shared/validators";
+import type { RevisionChanges } from "shared/types/feature-revision";
 import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
 import {
   addIdsToFlatRules,

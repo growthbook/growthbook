@@ -1,4 +1,4 @@
-import { ExperimentPhase } from "shared/types/experiment";
+import type { ExperimentPhase } from "shared/types/experiment";
 import { assertValidExperimentPhases } from "back-end/src/services/experiments";
 
 const phase = (overrides: Partial<ExperimentPhase> = {}): ExperimentPhase => ({

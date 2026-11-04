@@ -1,4 +1,4 @@
-import { SchemaField, SimpleSchema } from "shared/types/feature";
+import type { SchemaField, SimpleSchema } from "shared/types/feature";
 
 // Structured warning codes. Importers are lossy-by-design (see index.ts): exotic
 // constructs degrade rather than throw. Codes let an LLM / CI sync loop react

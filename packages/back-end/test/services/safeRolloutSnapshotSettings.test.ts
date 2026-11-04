@@ -1,10 +1,10 @@
-import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
-import { DataSourceInterface } from "shared/types/datasource";
-import {
+import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/types/safe-rollout";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   _createSafeRolloutSnapshot,
   getSafeRolloutSnapshotSettings,

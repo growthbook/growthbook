@@ -1,5 +1,5 @@
-import { FeatureInterface } from "shared/types/feature";
-import {
+import type { FeatureInterface } from "shared/types/feature";
+import type {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";

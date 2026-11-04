@@ -1,8 +1,10 @@
 import { SegmentedControl as RadixSegmentedControl } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { ReactNode, useEffect, useLayoutEffect, useRef } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
-import { radixSize, Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
+import { radixSize } from "@/ui/sizes";
 
 export type SegmentedControlOption<T extends string> = {
   value: T;

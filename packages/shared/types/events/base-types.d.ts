@@ -1,7 +1,7 @@
-import { z, ZodType } from "zod";
-import { notificationEvents } from "shared/validators";
-import { DiffResult } from "./diff";
-import { EventUser } from "./event-types";
+import type { z, ZodType } from "zod";
+import type { notificationEvents } from "shared/validators";
+import type { DiffResult } from "./diff";
+import type { EventUser } from "./event-types";
 
 export type WebhookEntry = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

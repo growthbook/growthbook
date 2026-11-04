@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { datetime } from "shared/dates";
 import { formatByteSizeString } from "shared/util";
-import {
+import type {
   ApiSavedGroupUpload,
   SavedGroupUploadDetails,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiDownloadSimple, PiTrash, PiWarningCircle } from "react-icons/pi";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";

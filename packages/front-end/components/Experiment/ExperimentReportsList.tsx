@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ReportInterface } from "shared/types/report";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ReportInterface } from "shared/types/report";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";

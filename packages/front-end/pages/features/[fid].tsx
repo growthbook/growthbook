@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
-import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
+import type { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";

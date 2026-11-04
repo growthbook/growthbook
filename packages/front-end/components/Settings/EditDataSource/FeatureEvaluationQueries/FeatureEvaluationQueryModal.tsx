@@ -1,5 +1,6 @@
-import React, { FC, useState } from "react";
-import {
+import type { FC } from "react";
+import React, { useState } from "react";
+import type {
   DataSourceInterfaceWithParams,
   FeatureUsageQuery,
 } from "shared/types/datasource";
@@ -7,7 +8,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { TestQueryRow } from "shared/types/integrations";
+import type { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";

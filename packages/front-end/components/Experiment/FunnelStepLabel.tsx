@@ -1,5 +1,5 @@
-import { ReactElement } from "react";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ReactElement } from "react";
+import type { ExperimentTableRow } from "@/services/experiments";
 
 export default function FunnelStepLabel({
   label,

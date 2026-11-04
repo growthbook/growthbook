@@ -6,7 +6,7 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
-import { QueryInterface } from "shared/types/query";
+import type { QueryInterface } from "shared/types/query";
 import { useAuth } from "@/services/auth";
 
 export type CacheOption = "preferred" | "required" | "never";

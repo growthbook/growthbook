@@ -1,11 +1,11 @@
-import { ContextualBanditInterface } from "shared/validators";
-import {
+import type { ContextualBanditInterface } from "shared/validators";
+import type {
   ContextualBanditRefRule,
   FeatureInterface,
   FeatureRule,
 } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ReqContext } from "back-end/types/api";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ReqContext } from "back-end/types/api";
 import {
   linkFeatureToContextualBandit,
   unlinkFeatureFromContextualBandit,

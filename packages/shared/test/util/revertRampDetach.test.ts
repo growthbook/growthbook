@@ -1,4 +1,4 @@
-import { RampScheduleInterface } from "shared/validators";
+import type { RampScheduleInterface } from "shared/validators";
 import {
   getRevertRampDetachActions,
   publishRampDetaches,

@@ -1,6 +1,7 @@
 import { Box } from "@radix-ui/themes";
-import { FC, useState } from "react";
-import { MemberRoleWithProjects } from "shared/types/organization";
+import type { FC } from "react";
+import { useState } from "react";
+import type { MemberRoleWithProjects } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";

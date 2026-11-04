@@ -1,5 +1,5 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import {
+import type {
   OrganizationInterface,
   UserPermission,
 } from "shared/types/organization";

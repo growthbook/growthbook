@@ -1,7 +1,7 @@
 import { Storage } from "@google-cloud/storage";
 import { logger } from "back-end/src/util/logger";
 import { joinUrl } from "./config";
-import { FileStorage } from "./types";
+import type { FileStorage } from "./types";
 
 export const gcsFileStorage: FileStorage = {
   async upload(key, contentType, contents, cfg, logContext) {

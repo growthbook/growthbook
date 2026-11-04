@@ -1,13 +1,15 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { proposedProjectScope } from "shared/util";
 import type { Response } from "express";
-import {
+import type {
   Revision,
   RevisionTargetType,
   Conflict,
   ReviewDecision,
-  checkMergeConflicts,
   JsonPatchOperation,
+} from "shared/enterprise";
+import {
+  checkMergeConflicts,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   REVIEW_CYCLE_STATUSES,
@@ -19,12 +21,12 @@ import {
   isArmedWithAuthorizedPublisher,
   planApproveAndPublish,
 } from "back-end/src/revisions/approveAndPublish";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ReqContext } from "back-end/types/request";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { ArmAcknowledgments } from "back-end/src/services/armGuards";
+import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
   getAdapter,
   getApprovalEnabledEntityTypes,

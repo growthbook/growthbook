@@ -1,21 +1,21 @@
 import { Fragment } from "react";
 import { Box } from "@radix-ui/themes";
+import type { SdkPayloadSizeFix } from "shared/health";
 import {
   describeSdkPayloadSize,
   describeSdkPayloadSizeRecommendation,
   formatSdkPayloadBytes,
   getSdkPayloadSizeLevel,
   getSdkPayloadSizeRecommendations,
-  SdkPayloadSizeFix,
   summarizeSdkPayloadSizeFixes,
   worstSdkPayloadSizeLevel,
 } from "shared/health";
-import {
+import type {
   SdkPayloadSizeAlert,
   SdkPayloadSizeLevel,
   SdkPayloadSizeRecommendation,
 } from "shared/validators";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -23,7 +23,7 @@ import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { AppNotice } from "@/components/Notices/notices";
+import type { AppNotice } from "@/components/Notices/notices";
 import styles from "@/components/Notices/NoticeStack.module.scss";
 
 const isSevere = (level: SdkPayloadSizeLevel) =>

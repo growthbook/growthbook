@@ -3,21 +3,19 @@ import {
   getMetricResultStatus,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import {
+import type {
   SnapshotMetric,
   SnapshotVariation,
 } from "shared/types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "shared/types/report";
-import { MetricDefaults } from "shared/types/organization";
-import {
-  ExperimentTableRow,
-  NO_DATA_ERROR_MESSAGE,
-} from "@/services/experiments";
+import type { ExperimentReportResultDimension } from "shared/types/report";
+import type { MetricDefaults } from "shared/types/organization";
+import type { ExperimentTableRow } from "@/services/experiments";
+import { NO_DATA_ERROR_MESSAGE } from "@/services/experiments";
 
 export function filterRowsForMetricDrilldown(
   rows: ExperimentTableRow[],

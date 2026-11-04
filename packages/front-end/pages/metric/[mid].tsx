@@ -1,23 +1,17 @@
 import { useRouter } from "next/router";
-import React, {
-  FC,
-  useState,
-  useEffect,
-  Fragment,
-  ReactNode,
-  ReactElement,
-} from "react";
+import type { FC, ReactNode, ReactElement } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
-import { MetricInterface } from "shared/types/metric";
+import type { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear, BsThreeDotsVertical } from "react-icons/bs";
-import { IdeaInterface } from "shared/types/idea";
+import type { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";

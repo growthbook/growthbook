@@ -1,4 +1,5 @@
-import Agenda, { Job } from "agenda";
+import type { Job } from "agenda";
+import type Agenda from "agenda";
 import {
   getFeature,
   getScheduledFeaturesToUpdate,

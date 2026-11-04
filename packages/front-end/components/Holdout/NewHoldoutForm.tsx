@@ -1,10 +1,11 @@
-import React, { FC, useCallback, useState } from "react";
+import type { FC } from "react";
+import React, { useCallback, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FormProvider, useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { OrganizationSettings } from "shared/types/organization";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { OrganizationSettings } from "shared/types/organization";
 import {
   coverageToHoldoutSize,
   resolveAnalysisIdentifierType,
@@ -17,8 +18,8 @@ import { kebabCase } from "lodash";
 import { Tooltip, Separator } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
-import { FeatureEnvironment } from "shared/types/feature";
-import {
+import type { FeatureEnvironment } from "shared/types/feature";
+import type {
   CreateHoldoutInput,
   HoldoutInterfaceStringDates,
 } from "shared/validators";
@@ -28,8 +29,8 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import type { AssignmentQueryCopySource } from "@/services/datasources";
 import {
-  AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
   getExposureQuery,
@@ -43,10 +44,8 @@ import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
 import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";

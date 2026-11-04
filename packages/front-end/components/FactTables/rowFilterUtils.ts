@@ -4,7 +4,7 @@ import {
 } from "shared/experiments";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { truncateString } from "shared/util";
-import {
+import type {
   FactTableDefinition,
   FactTableInterface,
   RowFilter,

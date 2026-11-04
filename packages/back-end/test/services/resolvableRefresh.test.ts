@@ -1,5 +1,6 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { ConfigInterface } from "shared/types/config";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { ConfigInterface } from "shared/types/config";
+import type { FeatureValueSource } from "back-end/src/services/constants";
 import {
   featureReferenceTokens,
   resolvableDependencyClosure,
@@ -7,12 +8,9 @@ import {
   computeConfigKeyImplementations,
   experimentRefsReferencingConstant,
   isEmptyConfigPatch,
-  FeatureValueSource,
 } from "back-end/src/services/constants";
-import {
-  configToResolvable,
-  ResolvableValue,
-} from "back-end/src/services/resolvableValues";
+import type { ResolvableValue } from "back-end/src/services/resolvableValues";
+import { configToResolvable } from "back-end/src/services/resolvableValues";
 
 // ---------------------------------------------------------------------------
 // Builders

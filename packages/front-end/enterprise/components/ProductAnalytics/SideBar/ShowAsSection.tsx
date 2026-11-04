@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { ShowAs } from "shared/validators";
+import type { ShowAs } from "shared/validators";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
   getEffectiveShowAs,

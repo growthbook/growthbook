@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { EPPO_API_BASE_URL, IS_CLOUD } from "back-end/src/util/secrets";

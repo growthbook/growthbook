@@ -1,9 +1,9 @@
-import {
+import type {
   AIConversationInterface,
   AIConversationWithoutMessages,
-  aiConversationValidator,
 } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
+import { aiConversationValidator } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

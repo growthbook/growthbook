@@ -1,8 +1,8 @@
-import { FC } from "react";
-import { FeatureValueType } from "shared/types/feature";
+import type { FC } from "react";
+import type { FeatureValueType } from "shared/types/feature";
 import Badge from "@/ui/Badge";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
+import type { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
 
 export const FeatureLifecycleStatus: FC<{
   archived?: boolean;

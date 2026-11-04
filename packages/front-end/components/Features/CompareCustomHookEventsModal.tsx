@@ -1,7 +1,7 @@
-import { CustomHookInterface } from "shared/validators";
+import type { CustomHookInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
-import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
+import type { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
 import {
   renderCustomHookSettingsSection,
   getCustomHookSettingsBadges,

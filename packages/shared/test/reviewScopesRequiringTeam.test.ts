@@ -1,5 +1,8 @@
 import { reviewScopesRequiringTeam } from "shared/util";
-import { OrganizationSettings, RequireReview } from "shared/types/organization";
+import type {
+  OrganizationSettings,
+  RequireReview,
+} from "shared/types/organization";
 
 const rule = (over: Partial<RequireReview> = {}): RequireReview => ({
   requireReviewOn: true,

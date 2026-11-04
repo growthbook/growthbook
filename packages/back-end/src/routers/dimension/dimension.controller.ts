@@ -1,8 +1,8 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
-import { DimensionInterface } from "shared/types/dimension";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createDimension,

@@ -1,4 +1,5 @@
-import Agenda, { Job } from "agenda";
+import type { Job } from "agenda";
+import type Agenda from "agenda";
 import { dangerousFindContextualBanditsToUpdate } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
 import { determineNextContextualBanditSchedule } from "back-end/src/services/contextualBanditSchedule";

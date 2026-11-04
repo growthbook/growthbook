@@ -1,6 +1,6 @@
 import { PermissionError } from "shared/util";
 import request from "supertest";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   createFeature,
   getFeature,

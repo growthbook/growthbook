@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { DiscussionParentType } from "shared/types/discussion";
+import type { FC } from "react";
+import type { DiscussionParentType } from "shared/types/discussion";
 import { useAuth } from "@/services/auth";
 import CommentComposer from "./Comments/CommentComposer";
 

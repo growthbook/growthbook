@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { CreateMetricTimeSeriesSingleDataPoint } from "shared/validators";
+import type { CreateMetricTimeSeriesSingleDataPoint } from "shared/validators";
 import {
   connectTestMongo,
   disconnectTestMongo,

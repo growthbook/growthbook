@@ -1,7 +1,7 @@
 export { StatsEngine } from "shared/validators";
 
-import { BanditResult } from "shared/validators";
-import {
+import type { BanditResult } from "shared/validators";
+import type {
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
 } from "shared/types/integrations";

@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { isEqual } from "lodash";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   isManagedWarehouse,
   isManagedWarehousePendingQueryError,
@@ -24,7 +24,7 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import RecordsPanel from "@/components/Diagnostics/RecordsPanel";
 import useRecordsQuery from "@/components/Diagnostics/useRecordsQuery";
 import { formatTimestamp } from "@/components/Diagnostics/format";
-import { RecordsColumn } from "@/components/Diagnostics/types";
+import type { RecordsColumn } from "@/components/Diagnostics/types";
 import type {
   ColumnTopValue,
   FilterColumnSource,

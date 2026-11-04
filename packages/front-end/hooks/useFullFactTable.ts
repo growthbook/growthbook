@@ -1,4 +1,4 @@
-import { FactTableInterface } from "shared/types/fact-table";
+import type { FactTableInterface } from "shared/types/fact-table";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 

@@ -1,13 +1,10 @@
+import type { FeatureStaleEntry } from "shared/validators";
 import {
   getFeatureStaleValidator,
   ACTIVE_DRAFT_STATUSES,
-  FeatureStaleEntry,
 } from "shared/validators";
-import {
-  getApplicableEnvIds,
-  isFeatureStale,
-  TempRolloutStaleReason,
-} from "shared/util";
+import type { TempRolloutStaleReason } from "shared/util";
+import { getApplicableEnvIds, isFeatureStale } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
@@ -15,7 +12,7 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { buildFeatureLookups } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { yieldEventLoop } from "back-end/src/util/yield";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { loadStaleGraph } from "back-end/src/services/featureStaleGraph";
 
 export async function computeFeatureStale(

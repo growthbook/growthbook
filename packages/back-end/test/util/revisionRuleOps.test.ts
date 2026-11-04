@@ -1,4 +1,4 @@
-import { FeatureRule } from "shared/types/feature";
+import type { FeatureRule } from "shared/types/feature";
 import {
   insertRuleBefore,
   moveRuleInEnv,

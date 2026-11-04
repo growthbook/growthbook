@@ -8,29 +8,26 @@ import { uniq } from "lodash";
 import md5 from "md5";
 import type pino from "pino";
 import type { Request } from "express";
-import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
-import { AuditInterfaceInput } from "shared/types/audit";
-import {
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
+import type { AuditInterfaceInput } from "shared/types/audit";
+import type {
   OrganizationInterface,
   Permission,
   UserPermissions,
 } from "shared/types/organization";
-import { ApiKeyInterface } from "shared/types/apikey";
-import { EventUser } from "shared/types/events/event-types";
-import {
-  SuperAdmin,
-  eventUserIdentity,
-  eventUserPerson,
-} from "shared/validators";
-import { TeamInterface } from "shared/types/team";
-import { ProjectInterface } from "shared/types/project";
-import { ExperimentInterface } from "shared/types/experiment";
-import { DataSourceInterface } from "shared/types/datasource";
-import { FeatureInterface } from "shared/types/feature";
-import { UserInterface } from "shared/types/user";
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type { EventUser } from "shared/types/events/event-types";
+import type { SuperAdmin } from "shared/validators";
+import { eventUserIdentity, eventUserPerson } from "shared/validators";
+import type { TeamInterface } from "shared/types/team";
+import type { ProjectInterface } from "shared/types/project";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { FeatureInterface } from "shared/types/feature";
+import type { UserInterface } from "shared/types/user";
 import { stringToBoolean } from "shared/util";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   BadRequestError,
   UnauthorizedError,

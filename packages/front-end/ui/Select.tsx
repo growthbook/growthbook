@@ -1,10 +1,13 @@
 import { Select as RadixSelect, Flex } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, ReactNode, useId } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { ReactNode } from "react";
+import { forwardRef, useId } from "react";
 import clsx from "clsx";
-import { radixSize, Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
+import { radixSize } from "@/ui/sizes";
 import HelperText from "./HelperText";
-import Text, { TextSizes, TextWeights } from "./Text";
+import type { TextSizes, TextWeights } from "./Text";
+import Text from "./Text";
 
 export type SelectSize = Size<"sm" | "md" | "lg">;
 

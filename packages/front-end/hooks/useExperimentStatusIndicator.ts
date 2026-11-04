@@ -5,13 +5,13 @@ import {
   PRESET_DECISION_CRITERIAS,
   getStatusIndicatorData,
 } from "shared/enterprise";
-import {
+import type {
   DecisionCriteriaData,
   DecisionCriteriaInterface,
   ExperimentDataForStatusStringDates,
   ExperimentHealthSettings,
 } from "shared/types/experiment";
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";

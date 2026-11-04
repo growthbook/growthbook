@@ -1,5 +1,5 @@
-import { ExperimentResultStatusData } from "shared/types/experiment";
-import { HoldoutStage } from "shared/util";
+import type { ExperimentResultStatusData } from "shared/types/experiment";
+import type { HoldoutStage } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";

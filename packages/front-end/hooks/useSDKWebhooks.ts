@@ -1,4 +1,4 @@
-import { WebhookSummary } from "shared/types/webhook";
+import type { WebhookSummary } from "shared/types/webhook";
 import useApi from "./useApi";
 
 export default function useSDKWebhooks() {

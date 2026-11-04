@@ -1,12 +1,12 @@
-import {
+import type {
   MetricAnalysisInterface,
   MetricAnalysisSettings,
 } from "shared/types/metric-analysis";
 import { metricAnalysisInterfaceValidator } from "shared/validators";
+import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
   getCollection,
   removeMongooseFields,
-  ToInterface,
 } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 

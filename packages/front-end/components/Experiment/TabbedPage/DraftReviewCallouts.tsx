@@ -1,10 +1,10 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
 import { startBypassCovers } from "shared/util";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import StatusDot from "@/components/Experiment/StatusDot";
@@ -17,8 +17,8 @@ import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import type { DraftReviewState } from "./draftPicks";
 import {
-  DraftReviewState,
   draftNextStep,
   draftReviewHref,
   draftReviewState,

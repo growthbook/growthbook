@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { RequestHandler } from "express";
-import { FeatureDefinitionSDKPayload } from "back-end/src/services/features";
+import type { RequestHandler } from "express";
+import type { FeatureDefinitionSDKPayload } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   getPayloadParamsFromApiKey,

@@ -1,13 +1,13 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useCallback, useEffect, useState } from "react";
-import {
+import type {
   DashboardInterface,
   DashboardUpdateSchedule,
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockData,
-  getBlockData,
 } from "shared/enterprise";
+import { getBlockData } from "shared/enterprise";
 import { Flex, Heading, Text } from "@radix-ui/themes";
 import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";

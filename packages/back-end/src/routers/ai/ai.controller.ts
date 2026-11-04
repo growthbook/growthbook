@@ -1,28 +1,30 @@
 import type { Response } from "express";
-import {
+import type {
   AIModel,
   AIPromptInterface,
   AIPromptType,
   AIProvider,
+} from "shared/ai";
+import {
   AI_PROVIDERS,
   AI_PROVIDER_META,
   getAIModelSettingsUsingProvider,
   getProviderForAIModel,
 } from "shared/ai";
-import { AICredentialFrontEndInterface } from "shared/validators";
+import type { AICredentialFrontEndInterface } from "shared/validators";
 import {
   getAISettingsForOrg,
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   clearResolvedAIKeysCache,
   encryptAIKey,
   getKeyLast4,
   verifyAIKey,
 } from "back-end/src/services/aiCredentials";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgainForPrompt,
   secondsUntilAICanBeUsedAgainForSTT,

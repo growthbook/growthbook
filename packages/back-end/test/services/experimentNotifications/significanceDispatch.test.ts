@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { setupApp } from "back-end/test/api/api.setup";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { createOrganization } from "back-end/src/models/OrganizationModel";

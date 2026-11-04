@@ -1,10 +1,7 @@
-import {
-  Revision,
-  RevisionTargetType,
-  REVIEW_CYCLE_STATUSES,
-} from "shared/enterprise";
+import type { Revision, RevisionTargetType } from "shared/enterprise";
+import { REVIEW_CYCLE_STATUSES } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { getAdapter } from "back-end/src/revisions";

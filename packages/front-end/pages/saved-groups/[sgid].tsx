@@ -10,9 +10,9 @@ import {
 } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { Revision } from "shared/enterprise";
 import {
-  Revision,
   applyTopLevelPatchOps,
   getLiveRevision,
   getRevisionNumber,
@@ -106,9 +106,8 @@ import ConflictCallout, {
   ConflictShell,
 } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
-import SavedGroupDraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
+import type { DraftMode } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
+import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 
 const NUM_PER_PAGE = 10;
 

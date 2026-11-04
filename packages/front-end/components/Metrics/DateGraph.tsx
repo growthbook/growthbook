@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { MetricType } from "shared/types/metric";
-import { FC, Fragment, useEffect, useMemo, useState } from "react";
+import type { MetricType } from "shared/types/metric";
+import type { FC } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -14,11 +15,11 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { addDays, setHours, setMinutes } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
-import { ScaleLinear } from "d3-scale";
+import type { ScaleLinear } from "d3-scale";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import styles from "./DateGraph.module.scss";

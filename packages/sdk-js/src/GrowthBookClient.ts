@@ -47,7 +47,7 @@ import {
   reducePayload,
   runExperiment,
 } from "./core";
-import { StickyBucketService } from "./sticky-bucket-service";
+import type { StickyBucketService } from "./sticky-bucket-service";
 import {
   getRemoteSavedGroups,
   isMissingRemoteGroupIds,

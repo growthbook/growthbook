@@ -1,15 +1,21 @@
 import { useMemo } from "react";
-import {
+import type {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { CustomMetricSlice, MetricOverride } from "shared/types/experiment";
-import { PValueCorrection, StatsEngine } from "shared/types/stats";
-import { FactTableDefinition } from "shared/types/fact-table";
-import {
-  expandMetricGroups,
+import type {
+  CustomMetricSlice,
+  MetricOverride,
+} from "shared/types/experiment";
+import type { PValueCorrection, StatsEngine } from "shared/types/stats";
+import type { FactTableDefinition } from "shared/types/fact-table";
+import type {
   ExperimentMetricDefinition,
   ExperimentSortBy,
+  SliceDataForMetric,
+} from "shared/experiments";
+import {
+  expandMetricGroups,
   quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -19,17 +25,16 @@ import {
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
   getSliceDataForMetric,
-  SliceDataForMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import type { ExperimentTableRow } from "@/services/experiments";
 import {
   applyMetricOverrides,
-  ExperimentTableRow,
   compareRows,
   NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
   filterMetricsByTags,

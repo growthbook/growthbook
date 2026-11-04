@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { FullFactTableColumns } from "shared/types/fact-table";
+import type { FullFactTableColumns } from "shared/types/fact-table";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 

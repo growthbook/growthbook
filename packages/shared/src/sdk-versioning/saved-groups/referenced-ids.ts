@@ -1,4 +1,4 @@
-import { SavedGroupForPayload } from "shared/types/saved-group";
+import type { SavedGroupForPayload } from "shared/types/saved-group";
 import { recursiveWalk } from "../../util";
 
 /**

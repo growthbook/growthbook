@@ -1,4 +1,5 @@
-import Agenda, { Job } from "agenda";
+import type { Job } from "agenda";
+import type Agenda from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";

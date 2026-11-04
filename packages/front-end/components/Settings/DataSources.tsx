@@ -1,4 +1,5 @@
-import React, { FC } from "react";
+import type { FC } from "react";
+import React from "react";
 import { useRouter } from "next/router";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";

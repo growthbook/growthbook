@@ -4,6 +4,12 @@ import type { Context } from "back-end/src/models/BaseModel";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import type {
+  Feature,
+  Group,
+  ProjectScope,
+  ScopedRule,
+} from "back-end/src/util/savedGroupProjectScope.util";
 import {
   assertSavedGroupReferencesInScope,
   featureForSavedGroupValidation,
@@ -11,16 +17,12 @@ import {
   savedGroupScopeChangeBreaksTargeting,
   savedGroupScopeRuleCounterparts,
   scopedRules,
-  Feature,
-  Group,
-  ProjectScope,
-  ScopedRule,
 } from "back-end/src/util/savedGroupProjectScope.util";
 import { BadRequestError } from "back-end/src/util/errors";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
   gateOr5xx,
   makeBlockingGate,
-  PublishGate,
 } from "back-end/src/revisions/publishGates";
 
 export async function assertFeatureSavedGroupScope(

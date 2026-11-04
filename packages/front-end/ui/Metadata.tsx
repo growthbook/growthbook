@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { Flex } from "@radix-ui/themes";
-import { Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 import styles from "./Metadata.module.scss";
 

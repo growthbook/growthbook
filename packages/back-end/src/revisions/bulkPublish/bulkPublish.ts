@@ -16,12 +16,14 @@ import {
   getErrorMessage,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import type {
+  PublishGate,
+  PublishGateClearance,
+} from "back-end/src/revisions/publishGates";
 import {
   classifyPublishGate,
   gateOr5xx,
   makeBlockingGate,
-  PublishGate,
-  PublishGateClearance,
 } from "back-end/src/revisions/publishGates";
 import { ownershipChanged } from "back-end/src/revisions/util";
 import { displayEntityName } from "back-end/src/revisions/entityNames";

@@ -1,10 +1,11 @@
-import { ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
+import type {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { ExperimentAnalysisSettingsDraft } from "shared/validators";
+import type { ExperimentAnalysisSettingsDraft } from "shared/validators";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";

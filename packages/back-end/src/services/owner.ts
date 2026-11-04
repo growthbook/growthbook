@@ -1,4 +1,4 @@
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 
 /**

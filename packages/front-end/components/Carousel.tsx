@@ -1,12 +1,9 @@
+import type { FC, ReactNode, ReactElement, KeyboardEvent } from "react";
 import {
-  FC,
   useState,
   Children,
   isValidElement,
   cloneElement,
-  ReactNode,
-  ReactElement,
-  KeyboardEvent,
   useEffect,
   useRef,
 } from "react";

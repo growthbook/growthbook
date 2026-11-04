@@ -4,17 +4,17 @@ import {
   transformProductAnalyticsRowsToResult,
 } from "shared/enterprise";
 import { format, createLikeStringMatchFn } from "shared/sql";
-import {
+import type {
   ExplorationConfig,
   PopulationValue,
   ProductAnalyticsDimension,
 } from "shared/validators";
-import { SqlDialect } from "shared/types/sql";
-import {
+import type { SqlDialect } from "shared/types/sql";
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
+import type { DataSourceInterface } from "shared/types/datasource";
 
 describe("productAnalytics", () => {
   const datasource: Partial<Pick<DataSourceInterface, "settings">> = {

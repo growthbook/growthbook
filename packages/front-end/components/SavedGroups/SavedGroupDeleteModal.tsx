@@ -1,4 +1,4 @@
-import {
+import type {
   SavedGroupInterface,
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";

@@ -1,4 +1,5 @@
-import { ReactNode, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiChartLine,
@@ -6,7 +7,7 @@ import {
   PiMagnifyingGlass,
   PiTable,
 } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";

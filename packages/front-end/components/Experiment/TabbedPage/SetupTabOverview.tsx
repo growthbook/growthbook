@@ -1,6 +1,6 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";

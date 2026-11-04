@@ -1,4 +1,4 @@
-import {
+import type {
   MetricDefinitionInterface,
   MetricInterface,
 } from "shared/types/metric";

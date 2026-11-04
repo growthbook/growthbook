@@ -1,7 +1,8 @@
-import { FC, useState } from "react";
+import type { FC } from "react";
+import { useState } from "react";
 import { PiUserCheck } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PendingMember } from "shared/types/organization";
+import type { PendingMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";

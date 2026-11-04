@@ -1,4 +1,4 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import React, { useMemo } from "react";
 import { FaCheck } from "react-icons/fa";
 import { validateJSONFeatureValue } from "shared/util";

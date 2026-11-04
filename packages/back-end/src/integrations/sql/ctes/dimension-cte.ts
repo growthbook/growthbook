@@ -1,4 +1,4 @@
-import { DimensionInterface } from "shared/types/dimension";
+import type { DimensionInterface } from "shared/types/dimension";
 
 export function getDimensionCTE(
   dimension: DimensionInterface,

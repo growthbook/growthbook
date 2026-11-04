@@ -1,5 +1,6 @@
-import Agenda, { Job } from "agenda";
-import { InformationSchemaError } from "shared/types/integrations";
+import type { Job } from "agenda";
+import type Agenda from "agenda";
+import type { InformationSchemaError } from "shared/types/integrations";
 import { formatQueryExecutionErrorForApi } from "shared/util";
 import {
   DataSourceNotSupportedError,

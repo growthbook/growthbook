@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { FeatureValueType } from "shared/types/feature";
+import type { FC } from "react";
+import type { FeatureValueType } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";

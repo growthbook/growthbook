@@ -12,9 +12,9 @@ import {
 } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { ConstantInterface } from "shared/types/constant";
+import type { ConstantInterface } from "shared/types/constant";
+import type { Revision } from "shared/enterprise";
 import {
-  Revision,
   applyTopLevelPatchOps,
   getConstantRestoreChange,
   getConstantRevisionChange,
@@ -80,7 +80,7 @@ import ConstantRevertModal from "@/components/Constants/ConstantRevertModal";
 import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import ReferencesLink from "@/components/References/ReferencesLink";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
-import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
+import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 
 const TYPE_LABEL: Record<ConstantInterface["type"], string> = {
   string: "String",

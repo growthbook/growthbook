@@ -1,7 +1,7 @@
 import { pickBy } from "lodash";
-import { MetricOverride } from "shared/validators";
-import { StatsEngine } from "shared/types/stats";
-import {
+import type { MetricOverride } from "shared/validators";
+import type { StatsEngine } from "shared/types/stats";
+import type {
   DecisionFrameworkMetricOverrides,
   LegacyMetricOverride,
 } from "shared/types/experiment";

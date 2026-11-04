@@ -1,15 +1,17 @@
-import React, { ChangeEvent, FC, useEffect, useMemo, useState } from "react";
+import type { ChangeEvent, FC } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretRight, PiCaretDown, PiPlus, PiX } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
+import type { SearchFiltersItem } from "@/components/Search/SearchFilters";
 import {
   filterToString,
-  SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 import { useExperimentFilterCategories } from "@/components/Search/experimentFilterCategories";
-import { SyntaxFilter, transformQuery } from "@/services/search";
+import type { SyntaxFilter } from "@/services/search";
+import { transformQuery } from "@/services/search";
 import { Popover } from "@/ui/Popover";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";

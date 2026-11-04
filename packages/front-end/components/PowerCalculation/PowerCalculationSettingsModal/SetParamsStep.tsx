@@ -1,10 +1,10 @@
 import { IconButton } from "@radix-ui/themes";
-import { PopulationDataInterface } from "shared/types/population-data";
+import type { PopulationDataInterface } from "shared/types/population-data";
 import { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import type { FullModalPowerCalculationParams } from "shared/power";
 import {
   ensureAndReturnPowerCalculationParams,
-  FullModalPowerCalculationParams,
   isValidPowerCalculationParams,
 } from "shared/power";
 import Field from "@/components/Forms/Field";
@@ -13,7 +13,7 @@ import {
   postPopulationData,
   setMetricDataFromPopulationData,
 } from "@/components/PowerCalculation/power-calculation-utils";
-import { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import type { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import { MetricParamsInput } from "@/components/PowerCalculation/PowerCalculationSettingsModal/MetricInputs";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";

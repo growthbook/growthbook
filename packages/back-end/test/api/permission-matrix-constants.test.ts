@@ -7,7 +7,7 @@ import {
   seed,
   seedRevertDraft,
 } from "./permission-matrix-revision-entities.fixture";
-import { Persona } from "./permission-personas.fixture";
+import type { Persona } from "./permission-personas.fixture";
 
 describeEntityMatrix(CONSTANT_ENTITY);
 

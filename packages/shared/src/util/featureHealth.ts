@@ -1,26 +1,28 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentHealthSettings,
 } from "shared/types/experiment";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { GroupMap } from "shared/types/saved-group";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { GroupMap } from "shared/types/saved-group";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { createV1SavedGroupsOperatorHandler } from "../sdk-versioning/saved-groups/strategy-references-v1";
 import { conditionHasSavedGroupErrors } from "../sdk-versioning/saved-groups/errors";
 import { forEachSavedGroupIdInCondition } from "../sdk-versioning/saved-groups/referenced-ids";
+import type { RampScheduleInterface } from "../validators/ramp-schedule";
 import {
-  RampScheduleInterface,
   isReadyForApproval,
   isTerminalRampScheduleStatus,
 } from "../validators/ramp-schedule";
 import { getSafeRolloutResultStatus } from "../enterprise/decision-criteria/decisionCriteria";
-import {
+import type {
   EnvStaleResult,
+  IsFeatureStaleResult,
+  TempRolloutStaleReason,
+} from "./features";
+import {
   getMalformedPrereqConditionError,
   getTempRolloutStaleReason,
   isUnconditionalCatcher,
-  IsFeatureStaleResult,
-  TempRolloutStaleReason,
   validateFeatureValue,
 } from "./features";
 import {

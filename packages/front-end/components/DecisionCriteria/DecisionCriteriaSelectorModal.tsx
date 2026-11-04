@@ -1,6 +1,7 @@
-import { FC, useState } from "react";
+import type { FC } from "react";
+import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DecisionCriteriaData } from "shared/types/experiment";
+import type { DecisionCriteriaData } from "shared/types/experiment";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import Callout from "@/ui/Callout";

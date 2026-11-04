@@ -1,4 +1,4 @@
-import { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { Box } from "@radix-ui/themes";
 import clsx from "clsx";
 import { pValueFormatter } from "@/services/experiments";

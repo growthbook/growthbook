@@ -1,11 +1,8 @@
 import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
 import type { ReviewRequirement } from "shared/util";
-import {
-  NO_ENVIRONMENT_BINDING,
-  RevisionAction,
-  RevisionModel,
-} from "shared/permissions";
+import type { RevisionAction, RevisionModel } from "shared/permissions";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { ArmAcknowledgments } from "back-end/src/services/armGuards";

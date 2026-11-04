@@ -1,8 +1,5 @@
-import {
-  calculateNamespaceCoverage,
-  getNamespaceRanges,
-  NamespaceValue,
-} from "shared/util";
+import type { NamespaceValue } from "shared/util";
+import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
 
 export type RangeTuple = [number, number];
 

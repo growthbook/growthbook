@@ -1,4 +1,5 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { isEqual } from "lodash";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -10,7 +11,7 @@ import {
   PiPlus,
   PiX,
 } from "react-icons/pi";
-import {
+import type {
   CreateFactTableProps,
   DetectedColumn,
   FactTableInterface,

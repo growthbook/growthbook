@@ -1,4 +1,4 @@
-import { PopulationDataInterface } from "shared/types/population-data";
+import type { PopulationDataInterface } from "shared/types/population-data";
 import { populationDataInterfaceValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 

@@ -1,4 +1,5 @@
-import Agenda, { Job } from "agenda";
+import type { Job } from "agenda";
+import type Agenda from "agenda";
 import { isEqual } from "lodash";
 import { isPermissionError } from "shared/util";
 import type { ExperimentInterface } from "shared/types/experiment";

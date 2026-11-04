@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Text from "@/ui/Text";

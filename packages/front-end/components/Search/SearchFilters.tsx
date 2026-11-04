@@ -1,6 +1,5 @@
+import type { ChangeEvent, FC } from "react";
 import {
-  ChangeEvent,
-  FC,
   Fragment,
   useCallback,
   useEffect,
@@ -16,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
-import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
+import type { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 

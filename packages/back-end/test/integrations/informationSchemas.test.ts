@@ -1,4 +1,4 @@
-import {
+import type {
   InformationSchema,
   RawInformationSchema,
 } from "shared/types/integrations";

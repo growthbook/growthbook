@@ -1,5 +1,6 @@
-import { FC, useState } from "react";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { FC } from "react";
+import { useState } from "react";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   maxExpirationDate,
   violatesExpirationPolicy,

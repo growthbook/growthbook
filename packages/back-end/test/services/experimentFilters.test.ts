@@ -1,9 +1,9 @@
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentFilterResolvers } from "back-end/src/services/experimentFilters";
 import {
   parseExperimentSearchString,
   normalizeExperimentFilters,
   filterExperiments,
-  ExperimentFilterResolvers,
 } from "back-end/src/services/experimentFilters";
 
 describe("parseExperimentSearchString", () => {

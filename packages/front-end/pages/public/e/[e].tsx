@@ -1,8 +1,8 @@
 import { hasSuperAdminPermission } from "shared/permissions";
-import { ExperimentReportSSRData } from "shared/types/report";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentReportSSRData } from "shared/types/report";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Head from "next/head";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
@@ -19,7 +19,7 @@ import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExper
 import PublicExperimentDetails from "@/components/Experiment/Public/PublicExperimentDetails";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { ExperimentTab } from "@/components/Experiment/TabbedPage";
+import type { ExperimentTab } from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
 import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";

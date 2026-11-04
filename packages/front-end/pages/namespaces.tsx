@@ -1,6 +1,7 @@
-import { useState, FC } from "react";
+import type { FC } from "react";
+import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { Namespaces, NamespaceUsage } from "shared/types/organization";
+import type { Namespaces, NamespaceUsage } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import NamespaceModal from "@/components/Experiment/NamespaceModal";

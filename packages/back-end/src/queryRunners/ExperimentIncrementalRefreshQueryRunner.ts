@@ -1,26 +1,33 @@
-import type { QueryRunnerFailureCause } from "shared/types/query";
+import type {
+  QueryRunnerFailureCause,
+  ExperimentQueryMetadata,
+  Queries,
+  QueryPointer,
+  QueryStatus,
+  RunQueryMetadata,
+} from "shared/types/query";
 import { tabulateCovariateImbalance } from "shared/health";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
-  ExperimentMetricInterface,
   getFactMetricFactTableIds,
   isFactMetric,
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
-import { SegmentInterface } from "shared/types/segment";
-import {
+import type { SegmentInterface } from "shared/types/segment";
+import type {
   IncrementalRefreshInterface,
   IncrementalRefreshMetricCovariateSourceInterface,
   IncrementalRefreshMetricSourceInterface,
 } from "shared/validators";
-import {
+import type {
   ExperimentAggregateUnitsQueryResponseRows,
   ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
-import {
+import type {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotType,
@@ -29,22 +36,15 @@ import {
   resolveExposureQueryForAnalysis,
   buildUnitsQuerySettingsFromSnapshot,
 } from "shared/util";
-import {
-  ExperimentQueryMetadata,
-  Queries,
-  QueryPointer,
-  QueryStatus,
-  RunQueryMetadata,
-} from "shared/types/query";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { ApiReqContext } from "back-end/types/api";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
   analyzeExperimentResults,
@@ -74,20 +74,18 @@ import {
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
-import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
+import type { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import {
-  SnapshotResult,
-  TRAFFIC_QUERY_NAME,
-} from "./ExperimentResultsQueryRunner";
-import {
-  QueryRunner,
+import type { SnapshotResult } from "./ExperimentResultsQueryRunner";
+import { TRAFFIC_QUERY_NAME } from "./ExperimentResultsQueryRunner";
+import type {
   QueryMap,
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { QueryRunner } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";

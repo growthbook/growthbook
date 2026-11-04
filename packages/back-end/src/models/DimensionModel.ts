@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
-import { ApiDimension } from "shared/validators";
-import { DimensionInterface } from "shared/types/dimension";
+import type { ApiDimension } from "shared/validators";
+import type { DimensionInterface } from "shared/types/dimension";
 import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { ALLOW_CREATE_DIMENSIONS } from "back-end/src/util/secrets";
 import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";

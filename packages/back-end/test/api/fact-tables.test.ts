@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import {
+import type {
   ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
@@ -13,7 +13,7 @@ import {
   needsColumnRefresh,
 } from "back-end/src/api/fact-tables/updateFactTable";
 import { columnsNeedDetection } from "back-end/src/util/factTable";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const existing: Pick<
   FactTableInterface,

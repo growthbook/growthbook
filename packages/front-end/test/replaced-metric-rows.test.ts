@@ -1,6 +1,6 @@
-import { ExperimentMetricDefinition } from "shared/experiments";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { ExperimentReportResultDimension } from "shared/types/report";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ExperimentReportResultDimension } from "shared/types/report";
 import { generateRowsForMetricGroup } from "@/hooks/useExperimentTableRows";
 
 const NEW_ID = "fact__new";

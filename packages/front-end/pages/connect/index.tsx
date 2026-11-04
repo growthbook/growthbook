@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Container, Flex, Separator } from "@radix-ui/themes";
-import {
+import type {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
@@ -19,10 +19,8 @@ import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/In
 import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
-import {
-  LanguageFilter,
-  languageMapping,
-} from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import type { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import PageHead from "@/components/Layout/PageHead";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";

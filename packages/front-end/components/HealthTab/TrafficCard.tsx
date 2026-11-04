@@ -1,8 +1,8 @@
-import {
+import type {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
 } from "shared/types/experiment-snapshot";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
@@ -13,9 +13,8 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import { formatNumber } from "@/services/metrics";
-import ExperimentDateGraph, {
-  ExperimentDateGraphDataPoint,
-} from "@/components/Experiment/ExperimentDateGraph";
+import type { ExperimentDateGraphDataPoint } from "@/components/Experiment/ExperimentDateGraph";
+import ExperimentDateGraph from "@/components/Experiment/ExperimentDateGraph";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";

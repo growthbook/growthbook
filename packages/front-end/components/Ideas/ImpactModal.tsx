@@ -1,7 +1,7 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { useForm } from "react-hook-form";
-import { IdeaInterface } from "shared/types/idea";
-import { ImpactEstimateInterface } from "shared/types/impact-estimate";
+import type { IdeaInterface } from "shared/types/idea";
+import type { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";

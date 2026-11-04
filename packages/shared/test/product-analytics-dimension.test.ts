@@ -1,7 +1,7 @@
 import { generateDimensionExpression } from "shared/enterprise";
 import { staticDimensionValidator } from "shared/validators";
-import { ColumnInterface } from "shared/types/fact-table";
-import { SqlDialect } from "shared/types/sql";
+import type { ColumnInterface } from "shared/types/fact-table";
+import type { SqlDialect } from "shared/types/sql";
 
 // Collapse the multi-line CASE expressions so assertions don't depend on the
 // exact indentation/newlines used in the template strings.

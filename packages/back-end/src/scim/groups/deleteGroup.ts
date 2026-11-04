@@ -1,5 +1,5 @@
-import { Response } from "express";
-import { ScimError, ScimGetRequest } from "back-end/types/scim";
+import type { Response } from "express";
+import type { ScimError, ScimGetRequest } from "back-end/types/scim";
 import { removeMembersFromTeam } from "back-end/src/services/organizations";
 
 export async function deleteGroup(

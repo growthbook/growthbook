@@ -1,7 +1,7 @@
 import { set, subDays, addDays } from "date-fns";
 import { utcToZonedTime, zonedTimeToUtc } from "date-fns-tz";
 import { validateVirtualColumnExpression } from "shared/experiments";
-import {
+import type {
   AggregatedFactTableSettings,
   ColumnInterface,
   CreateColumnProps,
@@ -11,8 +11,8 @@ import {
   JSONColumnFields,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { TestQueryResult } from "shared/types/integrations";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { TestQueryResult } from "shared/types/integrations";
 import {
   type DetectedJSONFields,
   determineColumnTypes,

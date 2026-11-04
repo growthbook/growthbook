@@ -3,10 +3,10 @@ import {
   getFactTableTimestampColumn,
 } from "shared/experiments";
 import type { PopulationDataQuerySettings } from "shared/types/query";
-import { SegmentInterface } from "shared/types/segment";
+import type { SegmentInterface } from "shared/types/segment";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
 
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
 

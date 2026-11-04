@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { datetime } from "shared/dates";
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import Heading from "@/ui/Heading";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import Text from "@/ui/Text";

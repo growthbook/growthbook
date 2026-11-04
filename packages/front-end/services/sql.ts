@@ -1,4 +1,4 @@
-import { TestQueryRow } from "shared/types/integrations";
+import type { TestQueryRow } from "shared/types/integrations";
 
 /** RFC 4180-style quoting so commas/newlines/quotes in headers do not split columns. */
 function quoteCsvField(value: string): string {

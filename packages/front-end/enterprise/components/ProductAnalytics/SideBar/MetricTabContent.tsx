@@ -3,18 +3,16 @@ import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import type { MetricMixClass } from "@/enterprise/components/ProductAnalytics/util";
 import {
   generateUniqueValueName,
   getLockedMixClass,
   getMetricMixClass,
-  MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";

@@ -1,6 +1,6 @@
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import { DataSourceOptionKey } from "./useDataSourceOptionEligibility";
+import type { DataSourceOptionKey } from "./useDataSourceOptionEligibility";
 
 type DataSourceOptionPricing = { headline: string; detail: string | null };
 

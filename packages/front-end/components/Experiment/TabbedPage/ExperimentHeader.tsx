@@ -1,10 +1,10 @@
 import { getLatestPhaseVariations } from "shared/experiments";
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import {
@@ -14,14 +14,8 @@ import {
   getExperimentLinkageBlocker,
   type LinkedChangesResolution,
 } from "shared/util";
-import {
-  CSSProperties,
-  Fragment,
-  ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import {
@@ -33,12 +27,12 @@ import {
   PiRocketLaunch,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
+import type {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns-tz";
 import Tooltip from "@/ui/Tooltip";
 import { Popover } from "@/ui/Popover";
@@ -87,21 +81,22 @@ import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import EditExperimentInfoModal from "./EditExperimentInfoModal";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import { RUN_PERMISSION_REASON, StartExperiment } from "./useStartExperiment";
+import type { StartExperiment } from "./useStartExperiment";
+import { RUN_PERMISSION_REASON } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
 import useStartGate from "./useStartGate";
 import { StartBlockers } from "./StartSections";
+import type { LabeledDate } from "./statusSchedule";
 import {
   armedStartDate,
   hasStatusSchedule,
   allDates,
   headerDates,
   headerDetails,
-  LabeledDate,
   scheduledTime,
 } from "./statusSchedule";
 import { getStartTitle } from "./startActions";
-import { ExperimentTab } from ".";
+import type { ExperimentTab } from ".";
 
 export interface Props {
   datasourceMissing?: boolean;

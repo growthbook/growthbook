@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DistributiveOmit } from "shared/util";
+import type { DistributiveOmit } from "shared/util";
 
 const metricTimeSeriesValue = z
   .object({

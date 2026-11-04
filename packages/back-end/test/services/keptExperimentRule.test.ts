@@ -1,11 +1,11 @@
 import cloneDeep from "lodash/cloneDeep";
-import {
+import type {
   ExperimentInterface,
   ExperimentRefRule,
   FeatureInterface,
   FeatureRule,
 } from "shared/validators";
-import { FeatureDefinitionRule } from "shared/types/sdk";
+import type { FeatureDefinitionRule } from "shared/types/sdk";
 import { keptExperimentRule } from "back-end/src/services/experiment-feature";
 import { getFeatureDefinition } from "back-end/src/util/features";
 

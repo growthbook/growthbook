@@ -1,5 +1,5 @@
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
-  ExperimentMetricInterface,
   getDelayWindowHours,
   getMetricWindowHours,
   isFactFunnelMetric,

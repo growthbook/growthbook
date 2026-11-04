@@ -1,3 +1,4 @@
+import type { ConfigChainNode, ConfigFamilyMember } from "../src/util/configs";
 import {
   setOwnValueProperty,
   removeOwnValueProperty,
@@ -34,20 +35,18 @@ import {
   constantPublishEnvironments,
   computeConfigReconciliationPreview,
   isConfigLocked,
-  ConfigChainNode,
   getAncestorSchemaFieldOwners,
   classifyAncestorOwnedFields,
   formatAncestorFieldConflictMessage,
   ancestorCollisionWarnings,
   findOrphanedConfigValueKeys,
   computeConfigSchemaChangeImpact,
-  ConfigFamilyMember,
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
   getFeatureBaseConfigKey,
 } from "../src/util/configs";
 import { fieldsContractEqual } from "../src/util/config-schema";
-import { SimpleSchema, SchemaField } from "../types/feature";
+import type { SimpleSchema, SchemaField } from "../types/feature";
 
 const field = (key: string): SchemaField => ({
   key,

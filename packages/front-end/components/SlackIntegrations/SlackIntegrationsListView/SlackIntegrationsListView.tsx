@@ -1,9 +1,10 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import type { FC } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import pick from "lodash/pick";
 import { Box } from "@radix-ui/themes";
-import { SlackIntegrationInterface } from "shared/types/slack-integration";
-import { TagInterface } from "shared/types/tag";
-import {
+import type { SlackIntegrationInterface } from "shared/types/slack-integration";
+import type { TagInterface } from "shared/types/tag";
+import type {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
 } from "@/components/SlackIntegrations/slack-integrations-utils";

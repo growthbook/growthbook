@@ -1,4 +1,4 @@
-import { FeatureMetaInfo } from "shared/types/feature";
+import type { FeatureMetaInfo } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 
 // The backend always returns archived features; filtering is client-side.

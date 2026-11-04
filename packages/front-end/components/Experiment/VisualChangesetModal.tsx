@@ -1,9 +1,11 @@
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { FC, useState } from "react";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { FC } from "react";
+import { useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaInfoCircle } from "react-icons/fa";
-import { isURLTargeted, UrlTarget } from "@growthbook/growthbook";
+import type { UrlTarget } from "@growthbook/growthbook";
+import { isURLTargeted } from "@growthbook/growthbook";
 import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -11,7 +13,7 @@ import Field from "@/components/Forms/Field";
 import { GBAddCircle } from "@/components/Icons";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
-import { VisualTargeting } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
+import type { VisualTargeting } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
 
 const defaultType = "simple";
 

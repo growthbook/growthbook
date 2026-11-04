@@ -1,12 +1,13 @@
-import { FC, useMemo, useState } from "react";
-import {
+import type { FC } from "react";
+import { useMemo, useState } from "react";
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "shared/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   expandMetricGroups,
-  ExperimentMetricDefinition,
   funnelStepMetricId,
   isExpectedDirection,
   isFactFunnelMetric,
@@ -14,7 +15,7 @@ import {
   quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
-import {
+import type {
   DifferenceType,
   SignificanceThresholds,
   StatsEngine,
@@ -30,11 +31,10 @@ import { useCurrency } from "@/hooks/useCurrency";
 import Switch from "@/ui/Switch";
 import { getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
 import Tooltip from "@/ui/Tooltip";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Badge from "@/ui/Badge";
-import ExperimentDateGraph, {
-  ExperimentDateGraphDataPoint,
-} from "./ExperimentDateGraph";
+import type { ExperimentDateGraphDataPoint } from "./ExperimentDateGraph";
+import ExperimentDateGraph from "./ExperimentDateGraph";
 
 const numberFormatter = new Intl.NumberFormat();
 

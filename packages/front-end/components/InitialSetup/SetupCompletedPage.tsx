@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { useEffect, FC } from "react";
+import type { FC } from "react";
+import { useEffect } from "react";
 import { Grid } from "@radix-ui/themes";
 import { useCelebration } from "@/hooks/useCelebration";
 import {

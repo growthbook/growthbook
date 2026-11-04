@@ -10,10 +10,10 @@ import {
   PiPlusBold,
   PiTrash,
 } from "react-icons/pi";
-import { ConfirmRule } from "shared/validators";
+import type { ConfirmRule } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import EnvironmentScopeCell from "@/components/Settings/EnvironmentScopeCell";
-import { SingleValue } from "@/components/Forms/SelectField";
+import type { SingleValue } from "@/components/Forms/SelectField";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Table, {
@@ -26,10 +26,10 @@ import Table, {
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import styles from "./ConfirmRulesField.module.scss";
+import type { Category } from "./confirmRulesUtils";
 import {
   ALL,
   actionsOf,
-  Category,
   CATEGORIES,
   CATEGORY_TITLES,
   categoryOf,

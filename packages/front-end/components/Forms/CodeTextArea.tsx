@@ -14,7 +14,7 @@ import clsx from "clsx";
 import { Flex, IconButton } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { CursorData } from "@/components/Segments/SegmentForm";
+import type { CursorData } from "@/components/Segments/SegmentForm";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import {
@@ -24,7 +24,8 @@ import {
 } from "@/components/SyntaxHighlighting/codeTheme";
 import { darkCss } from "@/components/SyntaxHighlighting/darkColors";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
-import Field, { FieldProps } from "./Field";
+import type { FieldProps } from "./Field";
+import Field from "./Field";
 import styles from "./CodeTextArea.module.scss";
 
 export type AceCompletion = {

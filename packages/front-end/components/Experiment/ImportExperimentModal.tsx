@@ -1,5 +1,6 @@
-import { FC, useEffect, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FC } from "react";
+import { useEffect, useState } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";

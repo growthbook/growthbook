@@ -1,4 +1,4 @@
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 
 const testOrg = {

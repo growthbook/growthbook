@@ -1,9 +1,10 @@
 import { interleavingExposureQueryEndpoints } from "shared/api-endpoints";
-import React, { FC, useMemo, useState } from "react";
+import type { FC } from "react";
+import React, { useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { ApiInterleavingExposureQueryInterface } from "shared/validators";
 import {
-  ApiInterleavingExposureQueryInterface,
   INTERLEAVING_EXPOSURE_REQUIRED_COLUMNS,
   INTERLEAVING_ITEM_FIELD_COMPETITIVE,
   INTERLEAVING_ITEM_FIELD_ITEM_ID,
@@ -12,7 +13,7 @@ import {
 } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { TestQueryRow } from "shared/types/integrations";
+import type { TestQueryRow } from "shared/types/integrations";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";

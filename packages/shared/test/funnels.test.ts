@@ -12,9 +12,9 @@ import {
   type FunnelRuleFactTable,
   type FunnelRuleInput,
 } from "shared/funnels";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   expandDerivedMetricsInMap,
-  ExperimentMetricInterface,
   funnelStepMetricId,
   getAllExpandedMetricIdsFromExperiment,
   getCompatibleFunnelAutoSliceColumns,
@@ -28,7 +28,7 @@ import {
   explorationConfigValidator,
   funnelSettingsValidator,
 } from "shared/validators";
-import {
+import type {
   ColumnInterface,
   FactMetricInterface,
   FactTableDefinition,

@@ -1,18 +1,16 @@
 import type { Queries, QueryRunnerFailureCause } from "shared/types/query";
-import mongoose, { FilterQuery, PipelineStage } from "mongoose";
+import type { FilterQuery, PipelineStage } from "mongoose";
+import mongoose from "mongoose";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import {
-  snapshotSatisfiesBlock,
-  blockHasFieldOfType,
-  DashboardInterface,
-} from "shared/enterprise";
+import type { DashboardInterface } from "shared/enterprise";
+import { snapshotSatisfiesBlock, blockHasFieldOfType } from "shared/enterprise";
 import {
   findAnalysisComputeFailure,
   getSnapshotAnalysis,
   isString,
 } from "shared/util";
-import {
+import type {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
@@ -20,11 +18,11 @@ import {
   ExperimentSnapshotSettings,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   AnalysisKeyType,
   AnalysisMetaEntry,
-  buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import type { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
 import { logger } from "back-end/src/util/logger";
@@ -33,15 +31,15 @@ import { notifyExperimentChange } from "back-end/src/services/experimentNotifica
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
-import {
+import type {
   ExperimentUpdateExecutionLogger,
-  logExperimentUpdated,
   SnapshotConclusion,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import { logExperimentUpdated } from "back-end/src/services/experimentUpdateExecutionLogger";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
-import { Context } from "./BaseModel";
+import type { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
 const experimentSnapshotTrafficObject = {

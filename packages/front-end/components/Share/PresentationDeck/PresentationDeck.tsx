@@ -1,12 +1,7 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  ReactNode,
-} from "react";
+import type { ReactNode } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FaExpand, FaCompress } from "react-icons/fa";
 import { runCelebration, type CelebrationType } from "@/hooks/useCelebration";
 import { PresentationStepProvider } from "./PresentationStepContext";

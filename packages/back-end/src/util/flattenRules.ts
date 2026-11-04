@@ -10,7 +10,7 @@ import {
   type RampTargetQuery,
 } from "shared/util";
 import isEqual from "lodash/isEqual";
-import { FeatureRule, V1FeatureRule } from "shared/validators";
+import type { FeatureRule, V1FeatureRule } from "shared/validators";
 import { parseRuleId, stemRuleId, suffixRuleId } from "shared/util";
 import { BadRequestError } from "back-end/src/util/errors";
 

@@ -1,6 +1,7 @@
-import { UserIdType } from "shared/types/datasource";
-import React, { ReactElement, useState } from "react";
-import { UseFormReturn } from "react-hook-form";
+import type { UserIdType } from "shared/types/datasource";
+import type { ReactElement } from "react";
+import React, { useState } from "react";
+import type { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import type { TestQueryRow } from "shared/types/integrations";
 import type { TestQueryType } from "shared/types/query";
@@ -11,7 +12,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { validateSQL } from "@/services/datasources";
-import { CursorData } from "./Segments/SegmentForm";
+import type { CursorData } from "./Segments/SegmentForm";
 
 type TestQueryResults = {
   duration?: string;

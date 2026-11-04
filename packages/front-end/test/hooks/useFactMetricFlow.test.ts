@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { getDefaultFactMetricProps } from "@/services/metrics";
 

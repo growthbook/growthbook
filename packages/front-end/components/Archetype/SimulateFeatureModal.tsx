@@ -1,8 +1,9 @@
-import {
+import type {
   ArchetypeAttributeValues,
   ArchetypeInterface,
 } from "shared/types/archetype";
-import React, { FC } from "react";
+import type { FC } from "react";
+import React from "react";
 import { useForm } from "react-hook-form";
 import SelectField from "@/components/Forms/SelectField";
 import AttributeForm from "@/components/Archetype/AttributeForm";

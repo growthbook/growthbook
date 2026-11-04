@@ -5,7 +5,7 @@ import {
   type AIChatFeedbackRating,
   type AIAgentPendingAction,
 } from "shared/validators";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
 import {

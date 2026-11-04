@@ -1,8 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
-import {
-  ExperimentMetricInterface,
-  parseSliceMetricId,
-} from "shared/experiments";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import { parseSliceMetricId } from "shared/experiments";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type {
   FactMetricInterface,
@@ -11,7 +9,7 @@ import type {
 import type { AggregatedFactTableMetricStateInterface } from "shared/validators";
 
 import { precedingUtcDayStart, snapToUtcDayStart } from "shared/dates";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   getFactTableSettingsHashForAggregatedFactTable,

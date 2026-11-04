@@ -1,6 +1,6 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { parseIntWithDefault } from "shared/util";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";

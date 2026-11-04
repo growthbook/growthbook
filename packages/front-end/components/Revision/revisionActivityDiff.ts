@@ -1,8 +1,5 @@
-import {
-  Revision,
-  JsonPatchOperation,
-  applyTopLevelPatchOps,
-} from "shared/enterprise";
+import type { Revision, JsonPatchOperation } from "shared/enterprise";
+import { applyTopLevelPatchOps } from "shared/enterprise";
 
 // Reconstruct the state on either side of a single activity-log entry by
 // replaying the per-entry snapshots in chronological order. Returns `null`

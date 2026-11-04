@@ -1,12 +1,12 @@
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceParams,
   DataSourceType,
 } from "shared/types/datasource";
 import type { DataRegion } from "shared/util";
-import { DocSection } from "@/components/docSections";
+import type { DocSection } from "@/components/docSections";
 import type { EventForwarderDestination } from "./EventForwarderDestinationFields";
-import { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
+import type { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
 
 export type ConnectSetupKind = "custom" | "event_forwarder";
 

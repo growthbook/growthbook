@@ -1,8 +1,10 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiBracketsCurly, PiMagicWand } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { SchemaField, SimpleSchema } from "shared/types/feature";
+import type { SchemaField, SimpleSchema } from "shared/types/feature";
+import type { SchemaConversionResult, SchemaProjection } from "shared/util";
 import {
   fieldsToTsType,
   fieldsToProto,
@@ -16,8 +18,6 @@ import {
   jsonSchemaStringToFields,
   protoToFields,
   reconcileSchemaFields,
-  SchemaConversionResult,
-  SchemaProjection,
   simpleToJSONSchema,
   stripConfigExtends,
   tsTypesToFields,
@@ -39,7 +39,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
-import { ResolvedField } from "@/components/Configs/fieldSchema";
+import type { ResolvedField } from "@/components/Configs/fieldSchema";
 
 // Non-`json` ids match the converter ids (also a projection's `language`), so
 // one dispatch map serves both the schema buffer and projections.

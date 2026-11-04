@@ -1,5 +1,5 @@
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ReqContext } from "back-end/types/request";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ReqContext } from "back-end/types/request";
 import {
   applyFeatureContextualBanditLinkage,
   planFeatureContextualBanditLinkage,

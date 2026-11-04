@@ -1,10 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
+import type { FeatureApiResponse } from "../src";
 import {
   configureCache,
   GrowthBook,
   clearCache,
   setPolyfills,
-  FeatureApiResponse,
   helpers,
 } from "../src";
 import { evaluateFeatures } from "./helpers/evaluateFeatures";

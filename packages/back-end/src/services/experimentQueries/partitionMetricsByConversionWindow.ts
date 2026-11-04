@@ -1,9 +1,7 @@
 import cloneDeep from "lodash/cloneDeep";
-import {
-  ExperimentMetricInterface,
-  isFactFunnelMetric,
-} from "shared/experiments";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import { isFactFunnelMetric } from "shared/experiments";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 

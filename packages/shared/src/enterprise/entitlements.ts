@@ -1,11 +1,11 @@
 import { DEFAULT_ENVIRONMENT_IDS } from "../util";
 import { getValidDate } from "../dates";
-import {
+import type {
   AccountPlan,
   CommercialFeature,
   OrgLimits,
-  accountFeatures,
 } from "./license-consts";
+import { accountFeatures } from "./license-consts";
 
 export const FREE_ORG_LIMITS: OrgLimits = {
   maxProjects: 1,

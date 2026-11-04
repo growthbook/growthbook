@@ -1,4 +1,4 @@
-import { QueryType } from "shared/types/query";
+import type { QueryType } from "shared/types/query";
 
 // A Record, so adding a QueryType without a label fails type-check
 const QUERY_TYPE_LABELS: Record<QueryType, string> = {

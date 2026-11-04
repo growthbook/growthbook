@@ -1,6 +1,6 @@
 import { interleavingEnvsForChange } from "shared/permissions";
-import { InterleavingInterface } from "shared/validators";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type { InterleavingInterface } from "shared/validators";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getSDKPayloadKeys } from "./features";
 
 export function getInterleavingPayloadKeys(

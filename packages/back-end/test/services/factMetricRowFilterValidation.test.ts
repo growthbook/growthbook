@@ -1,5 +1,5 @@
-import { FactTableInterface } from "shared/types/fact-table";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { FactTableInterface } from "shared/types/fact-table";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   getNetNewSqlExprRowFilters,
   getRiskyRowFilterSqlExpressions,

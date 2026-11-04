@@ -1,11 +1,10 @@
-import { CreateProps } from "shared/types/base-model";
-import {
+import type { CreateProps } from "shared/types/base-model";
+import type {
   ApiLearning,
   ApiSearchLearningResult,
   LearningInterface,
-  apiCreateLearningBody,
-  learningValidator,
 } from "shared/validators";
+import { apiCreateLearningBody, learningValidator } from "shared/validators";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import {
   cosineSimilarity,

@@ -1,4 +1,4 @@
-import {
+import type {
   FactMetricInterface,
   FactTableDefinition,
   RowFilter,
@@ -19,13 +19,13 @@ import type {
   JourneyStepGroup,
   ExplorationDateRange,
   ProductAnalyticsChartSettings,
+  ComparisonMode,
+  SqlDataset,
 } from "shared/validators";
 import {
   explorationConfigValidator,
   explorationDateRangeValidator,
   comparisonModeValidator,
-  ComparisonMode,
-  SqlDataset,
   MAX_JOURNEY_STEP_COLUMNS,
   datasetHasValues,
 } from "shared/validators";

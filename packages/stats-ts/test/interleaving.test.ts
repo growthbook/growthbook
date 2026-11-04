@@ -1,8 +1,5 @@
-import {
-  preferenceSignTest,
-  pairedDeltaTest,
-  PairedSufficientStats,
-} from "../src/interleaving";
+import type { PairedSufficientStats } from "../src/interleaving";
+import { preferenceSignTest, pairedDeltaTest } from "../src/interleaving";
 
 // Fixture computed independently in R
 const R_FIXTURE: PairedSufficientStats = {

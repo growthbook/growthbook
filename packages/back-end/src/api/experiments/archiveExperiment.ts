@@ -1,6 +1,6 @@
+import type { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import {
   deleteExperimentValidator,
-  ExperimentInterfaceExcludingHoldouts,
   postExperimentArchiveValidator,
   postExperimentUnarchiveValidator,
 } from "shared/validators";

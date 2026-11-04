@@ -1,18 +1,12 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import {
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import React, {
-  forwardRef,
-  ReactElement,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import type { ReactElement } from "react";
+import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   rampPlanLacksHashAttribute,
   rampTargetRuleIds,
@@ -43,14 +37,13 @@ import {
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
-import {
+import type {
   ApiContextualBanditInterface,
-  isReadyForApproval,
-  isAwaitingStartApproval,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import { isReadyForApproval, isAwaitingStartApproval } from "shared/validators";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
@@ -75,11 +68,8 @@ import {
   getAttributesWithVersionStringMismatches,
 } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
-import {
-  ConflictBanner,
-  ConflictCallout,
-  getConflictBadge,
-} from "@/services/rule-conflicts";
+import type { ConflictBanner } from "@/services/rule-conflicts";
+import { ConflictCallout, getConflictBadge } from "@/services/rule-conflicts";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -90,9 +80,8 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleProjectScopeBadges from "@/components/Features/RuleProjectScopeBadges";
 import RuleCard from "@/components/Features/RuleCard";
-import DraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
+import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
 import Callout from "@/ui/Callout";

@@ -1,17 +1,20 @@
-import { ReactNode, useCallback, useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
+  blockUsesDashboardDateControl,
+  getEffectiveExplorationConfig,
+  restoreBlockLocalDateControls,
+} from "shared/enterprise";
+import type {
+  BlockComparison,
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   SqlExplorationBlockInterface,
-  blockUsesDashboardDateControl,
   FunnelExplorationBlockInterface,
-  getEffectiveExplorationConfig,
-  restoreBlockLocalDateControls,
 } from "shared/enterprise";
-import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
 import ExplorerSideBar from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";

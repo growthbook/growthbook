@@ -1,6 +1,6 @@
-import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { QueryMetadata } from "shared/types/query";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { QueryMetadata } from "shared/types/query";
 import { logger } from "./logger";
 
 // mutates metric object itself!

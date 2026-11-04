@@ -1,8 +1,8 @@
 import { includeExperimentInPayload } from "shared/util";
-import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 
 type TempRolloutExperiment = Pick<

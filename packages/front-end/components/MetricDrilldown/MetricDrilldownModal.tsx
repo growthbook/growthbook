@@ -1,35 +1,36 @@
-import { FC, useState, useMemo, useEffect } from "react";
+import type { FC } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
-import {
-  getMetricLink,
+import type {
   ExperimentMetricDefinition,
   ExperimentSortBy,
+} from "shared/experiments";
+import {
+  getMetricLink,
   isDimensionPrecomputed,
   isFactFunnelMetric,
 } from "shared/experiments";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import {
+import type {
   ExperimentStatus,
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import {
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import Modal from "@/components/Modal";
-import {
-  ExperimentTableRow,
-  getHonoredPrecomputedUnitDimensionIds,
-} from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
+import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import MetricName from "@/components/Metrics/MetricName";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
@@ -38,7 +39,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   useSnapshot,
   LocalSnapshotProvider,

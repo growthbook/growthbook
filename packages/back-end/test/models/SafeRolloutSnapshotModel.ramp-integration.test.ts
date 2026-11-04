@@ -1,4 +1,4 @@
-import { SafeRolloutSnapshotInterface } from "shared/validators";
+import type { SafeRolloutSnapshotInterface } from "shared/validators";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import {
   getSafeRolloutAnalysisSummary,

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import PersonalAccessTokenSettings from "@/components/Settings/PersonalAccessTokenSettings";
 import MemberPersonalAccessTokens from "@/components/Settings/MemberPersonalAccessTokens";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

@@ -1,4 +1,8 @@
-import { FieldValues, SubmitHandler, UseFormReturn } from "react-hook-form";
+import type {
+  FieldValues,
+  SubmitHandler,
+  UseFormReturn,
+} from "react-hook-form";
 import { StopSubmit } from "./StopSubmit";
 
 /**

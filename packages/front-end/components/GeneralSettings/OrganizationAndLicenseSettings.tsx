@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import Field from "@/components/Forms/Field";

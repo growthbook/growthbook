@@ -1,5 +1,5 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 /** Whether the experiment can be edited, and edited in place (drafts only). */

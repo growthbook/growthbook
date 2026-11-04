@@ -1,7 +1,5 @@
-import {
-  ExperimentMetricInterface,
-  getDelayWindowHours,
-} from "shared/experiments";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import { getDelayWindowHours } from "shared/experiments";
 
 export function getMetricMinDelay(
   metrics: ExperimentMetricInterface[],

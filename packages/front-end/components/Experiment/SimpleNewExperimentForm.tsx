@@ -1,9 +1,10 @@
-import { FC, useEffect, useId, useState } from "react";
+import type { FC } from "react";
+import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";

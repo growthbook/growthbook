@@ -1,10 +1,11 @@
-import React, { Fragment, ReactElement } from "react";
-import { ExperimentMetadataBlockInterface } from "shared/enterprise";
+import type { ReactElement } from "react";
+import React, { Fragment } from "react";
+import type { ExperimentMetadataBlockInterface } from "shared/enterprise";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { ScrollArea, Separator, Text } from "@radix-ui/themes";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function ExperimentMetadataBlock({
   block: { showDescription, showHypothesis, showVariationImages, variationIds },

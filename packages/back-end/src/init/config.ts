@@ -3,14 +3,14 @@ import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
 import md5 from "md5";
-import { SegmentInterface } from "shared/types/segment";
-import {
+import type { SegmentInterface } from "shared/types/segment";
+import type {
   DataSourceInterface,
   DataSourceInterfaceWithParams,
 } from "shared/types/datasource";
-import { MetricInterface } from "shared/types/metric";
-import { DimensionInterface } from "shared/types/dimension";
-import { OrganizationSettings } from "shared/types/organization";
+import type { MetricInterface } from "shared/types/metric";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { OrganizationSettings } from "shared/types/organization";
 import { encryptParams } from "back-end/src/services/datasource";
 import {
   EMAIL_ENABLED,
@@ -22,13 +22,13 @@ import {
   EMAIL_HOST_USER,
   EMAIL_PORT,
 } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   upgradeMetricDoc,
   upgradeDatasourceObject,
 } from "back-end/src/util/migrations";
 import { logger } from "back-end/src/util/logger";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 
 export type ConfigFile = {
   organization?: {

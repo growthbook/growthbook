@@ -1,4 +1,4 @@
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 
 export async function validatePayload(
   context: ApiReqContext,

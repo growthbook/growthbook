@@ -1,8 +1,8 @@
-import { DashboardInterface } from "shared/enterprise";
+import type { DashboardInterface } from "shared/enterprise";
 import type { PopulationInterface } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
-import { MetricInterface } from "shared/types/metric";
-import {
+import type { FeatureInterface } from "shared/types/feature";
+import type { MetricInterface } from "shared/types/metric";
+import type {
   EnvScopedPermission,
   Environment,
   GlobalPermission,
@@ -12,31 +12,34 @@ import {
   SDKAttribute,
   UserPermissions,
 } from "shared/types/organization";
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
-import { ExecReportInterface } from "shared/types/exec-report";
-import {
+import type { ExecReportInterface } from "shared/types/exec-report";
+import type {
   ExperimentInterface,
   ExperimentTemplateInterface,
   UpdateTemplateProps,
 } from "shared/types/experiment";
-import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
-import { UpdateProps } from "shared/types/base-model";
-import { SegmentInterface } from "shared/types/segment";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { IdeaInterface } from "shared/types/idea";
-import { ArchetypeInterface } from "shared/types/archetype";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { ConstantInterface } from "shared/types/constant";
-import { ConfigInterface } from "shared/types/config";
-import { CustomHookInterface } from "../validators/custom-hooks";
-import { ContextualBanditInterface } from "../validators/contextual-bandit";
-import { InterleavingInterface } from "../validators/interleaving";
-import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
-import { HoldoutInterface } from "../validators/holdout";
+import type {
+  DataSourceInterface,
+  ExposureQuery,
+} from "shared/types/datasource";
+import type { UpdateProps } from "shared/types/base-model";
+import type { SegmentInterface } from "shared/types/segment";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { IdeaInterface } from "shared/types/idea";
+import type { ArchetypeInterface } from "shared/types/archetype";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { ConstantInterface } from "shared/types/constant";
+import type { ConfigInterface } from "shared/types/config";
+import type { CustomHookInterface } from "../validators/custom-hooks";
+import type { ContextualBanditInterface } from "../validators/contextual-bandit";
+import type { InterleavingInterface } from "../validators/interleaving";
+import type { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
+import type { HoldoutInterface } from "../validators/holdout";
 import type { ExplorationDataset } from "../validators/product-analytics";
 import type { NotificationFilters } from "../validators/event-webhook";
 import {
@@ -46,27 +49,26 @@ import {
 } from "../util/";
 // Specific module, not the util barrel: the barrel imports back from
 // shared/permissions, and the require cycle leaves re-exports uninitialized.
-import {
-  getTargetingProjectIds,
+import { getTargetingProjectIds } from "../util/features";
+import type {
+  ReviewAuthorityFootprint,
   TargetingScopedEntity,
 } from "../util/features";
-import type { ReviewAuthorityFootprint } from "../util/features";
+import type { TeamAuthority } from "./permissions.utils";
 import {
   changedProjectRoleProjects,
   envsAllowedBy,
   hasUnrestrictedEnvAuthority,
   isProjectScopedTeam,
   sameRoleValue,
-  TeamAuthority,
   teamProjects,
 } from "./permissions.utils";
 // Type-only: erased at runtime, so no cycle back through the util barrel.
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
+import type { RevisionAction, RevisionModel } from "./revisionPermissions";
 import {
   NO_ENVIRONMENT_BINDING,
   revisionActionPermission,
-  RevisionAction,
-  RevisionModel,
 } from "./revisionPermissions";
 
 type NotificationEvent = {

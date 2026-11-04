@@ -1,14 +1,10 @@
-import { NotificationSettings } from "shared/validators";
+import type { NotificationSettings } from "shared/validators";
 import { previewNotificationEventNames } from "shared/notifications";
-import { ReqContext } from "back-end/types/request";
-import {
-  getSlackMessageForNotificationEvent,
-  SlackMessage,
-} from "back-end/src/events/handlers/slack/slack-event-handler-utils";
-import {
-  renderNotificationCard,
-  RenderedNotificationCard,
-} from "back-end/src/services/notificationCards/renderNotificationCard";
+import type { ReqContext } from "back-end/types/request";
+import type { SlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import type { RenderedNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getEventWebHookById } from "back-end/src/models/EventWebhookModel";
 import { getSampleEventPayload } from "back-end/src/services/notifications/sampleEvents";
 import { deliverSlackMessage } from "./deliverSlackNotification";

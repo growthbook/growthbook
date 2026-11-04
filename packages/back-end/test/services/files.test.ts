@@ -13,7 +13,7 @@ import {
   uploadFile,
 } from "back-end/src/services/files";
 import { s3FileStorage } from "back-end/src/services/files/s3";
-import { DestinationConfig } from "back-end/src/services/files/config";
+import type { DestinationConfig } from "back-end/src/services/files/config";
 
 // Commands keep their input, so tests can check what was sent.
 const mockSend = jest.fn();

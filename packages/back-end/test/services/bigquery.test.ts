@@ -1,4 +1,4 @@
-import { QueryMetadata } from "shared/types/query";
+import type { QueryMetadata } from "shared/types/query";
 import {
   normalizeBigQueryApiEndpoint,
   sanitizeQueryMetadataForBigQueryLabels,

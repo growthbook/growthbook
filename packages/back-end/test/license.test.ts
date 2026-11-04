@@ -1,8 +1,9 @@
 import crypto from "crypto";
-import fetch, { Response } from "node-fetch";
+import type { Response } from "node-fetch";
+import fetch from "node-fetch";
 
 import cloneDeep from "lodash/cloneDeep";
-import { LicenseInterface } from "shared/enterprise";
+import type { LicenseInterface } from "shared/enterprise";
 import {
   LICENSE_SERVER_URL,
   licenseInit,

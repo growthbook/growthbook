@@ -1,17 +1,18 @@
 import clsx from "clsx";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { DetailedHTMLProps, TdHTMLAttributes } from "react";
-import {
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { DetailedHTMLProps, TdHTMLAttributes } from "react";
+import type {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import { PiWarningCircle } from "react-icons/pi";
-import { pValueFormatter, RowResults } from "@/services/experiments";
+import type { RowResults } from "@/services/experiments";
+import { pValueFormatter } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useColumnStatusPopovers } from "./useColumnStatusPopovers";
 
 interface Props

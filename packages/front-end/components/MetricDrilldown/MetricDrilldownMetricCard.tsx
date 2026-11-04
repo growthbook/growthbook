@@ -1,13 +1,13 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import {
+import type {
   FactTableDefinition,
   RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
-  ExperimentMetricDefinition,
   getAggregateFilters,
   isBinomialMetric,
   isFactMetric,

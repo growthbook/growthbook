@@ -15,8 +15,8 @@ import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Switch from "@/ui/Switch";
+import type { Condition } from "@/services/features";
 import {
-  Condition,
   condToJson,
   jsonToConds,
   useAttributeMap,
@@ -28,9 +28,8 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
 import Field from "@/components/Forms/Field";
-import SelectField, {
-  FormatOptionLabelType,
-} from "@/components/Forms/SelectField";
+import type { FormatOptionLabelType } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea, {
   FIVE_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
@@ -46,8 +45,8 @@ import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import RemoteGroupNotLoadedWarning from "@/components/SavedGroups/RemoteGroupNotLoadedWarning";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
+import type { OperatorOption } from "./conditionOperatorOptions";
 import {
-  OperatorOption,
   formatOperatorLabel,
   getConditionOperators,
 } from "./conditionOperatorOptions";

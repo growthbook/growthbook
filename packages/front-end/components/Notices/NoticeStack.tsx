@@ -10,7 +10,8 @@ import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { AppNotice, rankNotices } from "./notices";
+import type { AppNotice } from "./notices";
+import { rankNotices } from "./notices";
 import styles from "./NoticeStack.module.scss";
 
 type Upgrade = NonNullable<AppNotice["upgrade"]>;

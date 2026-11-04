@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import {
-  useChatListBackgroundPoll,
-  type ConversationSummary,
+import type {
   AIChatMessage,
+  ConversationSummary,
 } from "@/enterprise/hooks/useAIChat";
+import { useChatListBackgroundPoll } from "@/enterprise/hooks/useAIChat";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 

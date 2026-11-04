@@ -1,5 +1,5 @@
-import { FC, ChangeEventHandler } from "react";
-import { AdobeExperiencePlatformQueryServiceConnectionParams } from "shared/types/integrations/adobe-experience-platform-query-service";
+import type { FC, ChangeEventHandler } from "react";
+import type { AdobeExperiencePlatformQueryServiceConnectionParams } from "shared/types/integrations/adobe-experience-platform-query-service";
 import TextField from "@/ui/TextField";
 import {
   KEEP_EXISTING_PLACEHOLDER,

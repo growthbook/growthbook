@@ -1,23 +1,18 @@
 import crypto from "crypto";
-import { NextFunction, Request, RequestHandler, Response } from "express";
-import {
-  Issuer,
-  IssuerMetadata,
-  TokenSet,
-  generators,
-  Client,
-  custom,
-} from "openid-client";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { IssuerMetadata, TokenSet, Client } from "openid-client";
+import { Issuer, generators, custom } from "openid-client";
 
-import { expressjwt, GetVerificationKey } from "express-jwt";
+import type { GetVerificationKey } from "express-jwt";
+import { expressjwt } from "express-jwt";
 import type { Algorithm } from "jsonwebtoken";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "shared/enterprise";
-import {
+import type {
   SSOConnectionInterface,
   UnauthenticatedResponse,
 } from "shared/types/sso-connection";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { MemoryCache } from "back-end/src/services/cache";
 import {
   AuthSecretCookie,
@@ -41,7 +36,7 @@ import {
   VERCEL_CLIENT_SECRET,
 } from "back-end/src/services/vercel-native-integration.service";
 import { vercelInstallationExists } from "back-end/src/models/VercelNativeIntegrationModel";
-import { AuthConnection, TokensResponse } from "./AuthConnection";
+import type { AuthConnection, TokensResponse } from "./AuthConnection";
 import {
   createNonce,
   RetriableAuthError,

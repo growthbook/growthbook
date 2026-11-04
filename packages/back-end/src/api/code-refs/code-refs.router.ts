@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { postCodeRefs } from "./postCodeRefs";
 import { getCodeRefs } from "./getCodeRefs";
 import { listCodeRefs } from "./listCodeRefs";

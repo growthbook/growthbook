@@ -1,7 +1,5 @@
-import {
-  ExperimentInterfaceExcludingHoldouts,
-  putExperimentScheduleValidator,
-} from "shared/validators";
+import type { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
+import { putExperimentScheduleValidator } from "shared/validators";
 import { scheduleWriteNeedsRunPermission } from "shared/experiments";
 import { scheduleActions } from "shared/util";
 import { setExperimentSchedule } from "back-end/src/services/experimentScheduling";

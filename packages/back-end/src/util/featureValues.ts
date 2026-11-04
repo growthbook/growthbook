@@ -1,5 +1,5 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { validateFeatureValue } from "shared/util";
 import isEqual from "lodash/isEqual";
 import { BadRequestError } from "./errors";

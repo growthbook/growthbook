@@ -7,9 +7,13 @@ import {
   type ReactNode,
 } from "react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { UseAuditEntriesResult } from "./useAuditEntries";
+import type { UseAuditEntriesResult } from "./useAuditEntries";
 import { getChangedSectionLabels, useAuditDiff } from "./useAuditDiff";
-import { AuditDiffConfig, AuditDiffItem, CoarsenedAuditEntry } from "./types";
+import type {
+  AuditDiffConfig,
+  AuditDiffItem,
+  CoarsenedAuditEntry,
+} from "./types";
 import {
   buildLeftColumnItems,
   buildSteps,

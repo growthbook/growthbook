@@ -1,10 +1,10 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import { experimentAnalysisSettings } from "shared/validators";
-import {
+import type {
   ExperimentReportAnalysisSettings,
   ExperimentReportInterface,
   ExperimentSnapshotReportArgs,
@@ -12,8 +12,8 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { getAllVariations } from "shared/experiments";
-import { ExperimentInterface } from "shared/types/experiment";
-import { ReqContext } from "back-end/types/request";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ReqContext } from "back-end/types/request";
 import { generateId } from "back-end/src/util/uuid";
 import { assumeUtc } from "back-end/src/util/dates";
 import {
@@ -46,7 +46,7 @@ import {
   getContextForAgendaJobByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   createReportSnapshot,

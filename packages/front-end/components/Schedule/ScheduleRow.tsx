@@ -4,7 +4,7 @@
 // this only owns the row chrome so the layout tokens live in one place.
 
 import { Box, Flex } from "@radix-ui/themes";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import Text from "@/ui/Text";
 
 const SCHEDULE_LABEL_COL_WIDTH = 70;

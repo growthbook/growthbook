@@ -1,8 +1,8 @@
 import { evaluateInvariants } from "shared/util";
+import type { Condition } from "@/components/Configs/invariantConditions";
 import {
   conditionToMongo,
   parseCondition,
-  Condition,
 } from "@/components/Configs/invariantConditions";
 
 const roundTrip = (c: Condition): Condition | null =>

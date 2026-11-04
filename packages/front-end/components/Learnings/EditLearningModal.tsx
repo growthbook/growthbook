@@ -1,7 +1,8 @@
-import { FC, useMemo, useState } from "react";
+import type { FC } from "react";
+import { useMemo, useState } from "react";
 import { Box, Grid } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { LearningInterfaceStringDates } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { LearningInterfaceStringDates } from "shared/validators";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";

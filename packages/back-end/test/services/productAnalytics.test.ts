@@ -1,11 +1,11 @@
+import type { ExplorationConfig } from "shared/validators";
 import {
-  ExplorationConfig,
   draftExplorationMetricValidator,
   explorationConfigValidator,
   internalExplorationConfigValidator,
 } from "shared/validators";
-import { FactTableInterface } from "shared/types/fact-table";
-import { ReqContext } from "back-end/types/request";
+import type { FactTableInterface } from "shared/types/fact-table";
+import type { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";

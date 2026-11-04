@@ -1,11 +1,11 @@
 import { webcrypto } from "node:crypto";
 import crypto from "crypto";
-import { OrganizationInterface } from "shared/types/organization";
-import {
+import type { OrganizationInterface } from "shared/types/organization";
+import type {
   EventUserApiKey,
   EventUserRequestedBy,
 } from "shared/types/events/event-types";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import omit from "lodash/omit";
 import { actsAsUser } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";

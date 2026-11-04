@@ -1,7 +1,5 @@
-import {
-  SlackWorkspaceConnectionInterface,
-  slackWorkspaceConnectionSchema,
-} from "shared/validators";
+import type { SlackWorkspaceConnectionInterface } from "shared/validators";
+import { slackWorkspaceConnectionSchema } from "shared/validators";
 import {
   getCollection,
   isDuplicateKeyError,

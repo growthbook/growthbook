@@ -1,15 +1,15 @@
 import uniqid from "uniqid";
-import {
+import type {
   PresentationInterface,
   PresentationSlide,
 } from "shared/types/presentation";
-import { ExperimentInterface } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { PresentationModel } from "back-end/src/models/PresentationModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 
 //import {query} from "back-end/src/config/postgres";
 

@@ -35,18 +35,20 @@ import type {
   FeaturePrerequisite,
 } from "shared/types/feature";
 import type { SDKAttributeSchema } from "shared/types/organization";
-import {
+import type {
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  RampStep,
+  FeatureRulePatch,
+  TemplateEndPatch,
+  RevisionRampCreateAction,
+  RevisionRampUpdateAction,
+  StepHoldConditions,
+} from "shared/validators";
+import {
   TEMPLATE_PATCH_FIELDS,
   TEMPLATE_STRUCTURAL_KEYS,
-  type RampStep,
-  type FeatureRulePatch,
-  type TemplateEndPatch,
-  type RevisionRampCreateAction,
-  type RevisionRampUpdateAction,
-  type StepHoldConditions,
   isReadyForApproval,
   resolveStartApproval,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,

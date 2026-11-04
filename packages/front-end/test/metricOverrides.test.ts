@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { experimentAnalysisSettingsDraft } from "shared/validators";
+import type { MetricSettingsInput } from "@/services/metricOverrides";
 import {
   describeMetricOverride,
   describeMetricSettings,
   getOverriddenMetricIds,
   getOverridesBlockedReason,
   mergeTargetMDEs,
-  MetricSettingsInput,
   pruneMetricOverrides,
   withoutDeprecatedOverrideFields,
 } from "@/services/metricOverrides";

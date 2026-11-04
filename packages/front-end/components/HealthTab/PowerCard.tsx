@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { useSWRConfig } from "swr";
 import { Box, Flex, Separator, Text, Tooltip } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiInfo, PiX } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
@@ -11,7 +11,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { coveragePercentFormatter } from "@/services/utils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { IssueValue } from "./IssueTags";
+import type { IssueValue } from "./IssueTags";
 import { StatusBadge } from "./StatusBadge";
 
 export function PowerCard({

@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getSegment } from "./getSegment";
 import { listSegments } from "./listSegments";
 import { deleteSegment } from "./deleteSegment";

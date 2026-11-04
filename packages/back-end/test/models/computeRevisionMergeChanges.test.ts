@@ -1,9 +1,9 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
-import { MergeResultChanges } from "shared/util";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Environment } from "shared/types/organization";
+import type { MergeResultChanges } from "shared/util";
 import { computeRevisionMergeChanges } from "back-end/src/models/FeatureModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const ORG_ENVS: Environment[] = [
   { id: "dev", description: "" },

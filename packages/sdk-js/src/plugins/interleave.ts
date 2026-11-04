@@ -1,7 +1,8 @@
 import type { GrowthBook } from "../GrowthBook";
 import type { UserScopedGrowthBook } from "../GrowthBookClient";
 import { genUUID, hash } from "../util";
-import { AnyGrowthBook, isGrowthBookClient } from "./utils/instance";
+import type { AnyGrowthBook } from "./utils/instance";
+import { isGrowthBookClient } from "./utils/instance";
 
 export const EVENT_INTERLEAVE_EXPOSURE = "Interleave Exposure";
 

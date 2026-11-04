@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { getMetricWindowHours } from "shared/experiments";
-import { SegmentInterface } from "shared/types/segment";
-import { ImpactEstimateInterface } from "shared/types/impact-estimate";
+import type { SegmentInterface } from "shared/types/segment";
+import type { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { processMetricValueQueryResponse } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getFactTableMap } from "./FactTableModel";
 
 const impactEstimateSchema = new mongoose.Schema({

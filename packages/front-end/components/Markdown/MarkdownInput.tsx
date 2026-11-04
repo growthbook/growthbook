@@ -1,11 +1,5 @@
-import {
-  DetailedHTMLProps,
-  FC,
-  HTMLAttributes,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import type { DetailedHTMLProps, FC, HTMLAttributes } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
 import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
@@ -13,7 +7,7 @@ import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
-import { AISuggestionType } from "shared/ai";
+import type { AISuggestionType } from "shared/ai";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";

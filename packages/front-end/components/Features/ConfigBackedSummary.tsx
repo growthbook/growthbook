@@ -1,18 +1,19 @@
-import { FeatureInterface, SchemaField } from "shared/types/feature";
-import { ConstantInterface } from "shared/types/constant";
+import type { FeatureInterface, SchemaField } from "shared/types/feature";
+import type { ConstantInterface } from "shared/types/constant";
 import {
   getConfigBackingPatch,
   setConfigBacking,
   validateJSONFeatureValue,
   deepMergePatch,
 } from "shared/util";
+import type { ConstantSource } from "shared/sdk-versioning";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
-  ConstantSource,
 } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
-import { ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { isEqual } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -21,7 +22,7 @@ import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ValueDisplay from "./ValueDisplay";
-import { ActionsOverlay } from "./CornerActions";
+import type { ActionsOverlay } from "./CornerActions";
 import {
   ConfigEnvironmentsBadge,
   ConfigOverridesBadge,

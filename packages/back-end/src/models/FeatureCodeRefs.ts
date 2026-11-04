@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
-import { FeatureCodeRefsInterface } from "shared/types/code-refs";
-import { ApiCodeRef } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
+import type { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import type { ApiCodeRef } from "shared/validators";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
-  ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 
 const featureCodeRefsSchema = new mongoose.Schema({
   organization: String,

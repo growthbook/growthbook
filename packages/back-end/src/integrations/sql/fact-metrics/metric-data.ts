@@ -1,6 +1,6 @@
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   eligibleForUncappedMetric,
-  ExperimentMetricInterface,
   getFactMetricPrimaryFactTableId,
   isFactFunnelMetric,
   isFactMetric,

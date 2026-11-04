@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { routeConfirmation } from "shared/util";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getUserById } from "back-end/src/models/UserModel";
 import {

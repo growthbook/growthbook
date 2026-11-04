@@ -1,7 +1,7 @@
 import type { SqlDialect } from "shared/types/sql";
 import { buildFunnelSql } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
-import { FactTableInterface } from "shared/types/fact-table";
+import type { ExplorationConfig } from "shared/validators";
+import type { FactTableInterface } from "shared/types/fact-table";
 import {
   postgresDialect,
   clickHouseDialect,

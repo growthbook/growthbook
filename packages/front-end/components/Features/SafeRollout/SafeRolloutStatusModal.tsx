@@ -1,4 +1,4 @@
-import {
+import type {
   SafeRolloutInterface,
   FeatureInterface,
   FeatureValueType,
@@ -11,7 +11,7 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
-import { ExperimentResultStatus } from "shared/types/experiment";
+import type { ExperimentResultStatus } from "shared/types/experiment";
 import { useEffect, useMemo } from "react";
 import { featureRequiresReview } from "shared/util";
 import { useAuth } from "@/services/auth";

@@ -1,4 +1,4 @@
-import { Response } from "express";
+import type { Response } from "express";
 import { cloneDeep } from "lodash";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
@@ -20,17 +20,15 @@ import {
 } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
-import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import {
-  AgreementType,
-  ConfirmRule,
-  updateSdkWebhookValidator,
-} from "shared/validators";
+import type { LicenseInterface } from "shared/enterprise";
+import { accountFeatures } from "shared/enterprise";
+import type { AgreementType, ConfirmRule } from "shared/validators";
+import { updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
-import { UpdateSdkWebhookProps } from "shared/types/webhook";
-import { ApiKeyInterface } from "shared/types/apikey";
-import {
+import type { UpdateSdkWebhookProps } from "shared/types/webhook";
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type {
   GetOrganizationResponse,
   CreateOrganizationPostBody,
   Invite,
@@ -43,15 +41,15 @@ import {
   Role,
   SDKAttribute,
 } from "shared/types/organization";
-import { ExperimentRule, NamespaceValue } from "shared/types/feature";
-import { TeamInterface } from "shared/types/team";
+import type { ExperimentRule, NamespaceValue } from "shared/types/feature";
+import type { TeamInterface } from "shared/types/team";
 import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   assertNamespaceHashAttributeChangeAllowed,
   assertNamespaceNotInUse,
 } from "back-end/src/services/namespaces";
-import {
+import type {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
@@ -124,7 +122,8 @@ import {
   activateRoleById,
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
-import { ConfigFile, getConfigFileHash } from "back-end/src/init/config";
+import type { ConfigFile } from "back-end/src/init/config";
+import { getConfigFileHash } from "back-end/src/init/config";
 import { getDefinitionsData } from "back-end/src/services/definitions";
 import { getDefinitionsVersionState } from "back-end/src/models/DefinitionsVersionModel";
 import {
@@ -160,7 +159,7 @@ import {
   getAuditHistory,
   getAuditedApiKeyKinds,
 } from "back-end/src/models/AuditModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,

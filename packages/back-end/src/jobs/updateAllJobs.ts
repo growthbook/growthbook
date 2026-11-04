@@ -1,7 +1,7 @@
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   getSurrogateKeysFromEnvironments,
   purgeCDNCache,

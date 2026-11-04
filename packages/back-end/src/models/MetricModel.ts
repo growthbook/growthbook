@@ -1,9 +1,10 @@
-import mongoose, { FilterQuery } from "mongoose";
+import type { FilterQuery } from "mongoose";
+import mongoose from "mongoose";
 import { evalCondition } from "@growthbook/growthbook";
-import { ExperimentMetricInterface } from "shared/experiments";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import {
+import type {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricDefinitionInterface,
@@ -13,10 +14,10 @@ import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { validatePriorSettings } from "back-end/src/util/priors";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
-  ToInterface,
   getCollection,
   projectFilterQuery,
   removeMongooseFields,

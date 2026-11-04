@@ -1,8 +1,10 @@
-import { CSSProperties, forwardRef, ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
+import { forwardRef } from "react";
 import { Badge as RadixBadge } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { RadixColor } from "@/ui/HelperText";
-import { radixSize, Size as SharedSize } from "@/ui/sizes";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { RadixColor } from "@/ui/HelperText";
+import type { Size as SharedSize } from "@/ui/sizes";
+import { radixSize } from "@/ui/sizes";
 
 type Props = {
   label: string | ReactElement;

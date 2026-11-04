@@ -1,9 +1,9 @@
 import type { Response } from "express";
-import { ProjectInterface, ProjectSettings } from "shared/types/project";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { ProjectInterface, ProjectSettings } from "shared/types/project";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { stringToBoolean } from "shared/util";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   deleteAllDataSourcesForAProject,

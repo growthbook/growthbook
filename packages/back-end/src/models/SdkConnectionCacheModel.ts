@@ -1,7 +1,5 @@
-import {
-  SdkConnectionCacheAuditContext,
-  sdkConnectionCacheValidator,
-} from "shared/validators";
+import type { SdkConnectionCacheAuditContext } from "shared/validators";
+import { sdkConnectionCacheValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 // Increment this if we change the payload contents in a backwards-incompatible way

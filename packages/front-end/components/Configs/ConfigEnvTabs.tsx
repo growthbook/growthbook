@@ -11,7 +11,7 @@ import Tooltip from "@/ui/Tooltip";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
-import { LineageNode } from "@/components/Configs/fieldSchema";
+import type { LineageNode } from "@/components/Configs/fieldSchema";
 
 type Props = {
   // The config currently open (from the URL) — a base or one of its flavors.

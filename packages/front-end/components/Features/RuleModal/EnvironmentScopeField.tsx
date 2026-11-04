@@ -1,6 +1,6 @@
 import { Box } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { Environment } from "shared/types/organization";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { Environment } from "shared/types/organization";
 import RadioGroup from "@/ui/RadioGroup";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";

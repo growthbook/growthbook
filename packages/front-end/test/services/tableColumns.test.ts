@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type {
+  TableColumnDef,
+  TableColumnLayout,
+} from "@/services/tableColumns";
 import {
   isLayoutCustomized,
   mergeLayoutForWrite,
   minTableWidth,
   resolveTableColumns,
-  TableColumnDef,
-  TableColumnLayout,
 } from "@/services/tableColumns";
 
 type Row = { id: string };

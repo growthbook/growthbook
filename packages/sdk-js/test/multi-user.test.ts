@@ -1,12 +1,12 @@
-import {
+import type {
   AutoExperiment,
   Experiment,
   FeatureApiResponse,
   FeatureRule,
-  LocalStorageStickyBucketService,
   SavedGroupsPayload,
   UserContext,
 } from "../src";
+import { LocalStorageStickyBucketService } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
 require("jest-localstorage-mock");
 

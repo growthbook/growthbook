@@ -1,14 +1,14 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { ProjectInterface } from "shared/types/project";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ReqContext } from "back-end/types/request";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { ProjectInterface } from "shared/types/project";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { SoftWarningError } from "back-end/src/util/errors";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   deleteDemoDatasourceAndDependents,
   isLegacyDemoSeed,

@@ -1,10 +1,10 @@
 import { isEqual, omit } from "lodash";
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import {
   updateConfigValidator,
   validateResolvableValue,
 } from "shared/validators";
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import {
   scopedOverridesFootprint,
   stripConfigExtends,
@@ -14,7 +14,7 @@ import {
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
 } from "shared/util";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { landDirectChange } from "back-end/src/revisions/revertActions";

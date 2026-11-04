@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ProxyTestResult } from "shared/types/sdk-connection";
+import type { ProxyTestResult } from "shared/types/sdk-connection";
 import { BsArrowRepeat } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";

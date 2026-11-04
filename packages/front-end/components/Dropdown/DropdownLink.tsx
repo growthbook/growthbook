@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ReactNode, FC } from "react";
+import type { ReactNode, FC } from "react";
 
 const DropdownLink: FC<{
   closeOnClick?: boolean;

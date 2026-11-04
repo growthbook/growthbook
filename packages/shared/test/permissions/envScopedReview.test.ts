@@ -1,5 +1,5 @@
 import { Permissions } from "shared/permissions";
-import { UserPermissions } from "shared/types/organization";
+import type { UserPermissions } from "shared/types/organization";
 
 // A reviewer who may review, limited to dev.
 const devOnlyReviewer: UserPermissions = {

@@ -1,5 +1,6 @@
-import Agenda, { Job } from "agenda";
-import { OrganizationInterface } from "shared/types/organization";
+import type { Job } from "agenda";
+import type Agenda from "agenda";
+import type { OrganizationInterface } from "shared/types/organization";
 import { getOrganizationsWithNorthStars } from "back-end/src/models/OrganizationModel";
 import {
   DEFAULT_METRIC_ANALYSIS_DAYS,

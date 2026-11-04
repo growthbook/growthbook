@@ -1,11 +1,11 @@
 import { isEqual } from "lodash";
-import {
+import type {
   SDKAttributeType,
   OrganizationInterface,
   SDKAttribute,
 } from "shared/types/organization";
-import { AttributeMap } from "shared/types/feature";
-import {
+import type { AttributeMap } from "shared/types/feature";
+import type {
   GroupMap,
   SavedGroupForPayload,
   SavedGroupsValues,

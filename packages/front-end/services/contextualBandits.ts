@@ -1,5 +1,5 @@
-import { ApiContextualBanditInterface } from "shared/validators";
-import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
+import type { ApiContextualBanditInterface } from "shared/validators";
+import type { ExperimentDataForStatusStringDates } from "shared/types/experiment";
 import { getActiveVariations } from "shared/experiments";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";

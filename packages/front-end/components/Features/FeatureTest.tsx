@@ -1,5 +1,5 @@
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React from "react";
 import { Box } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";

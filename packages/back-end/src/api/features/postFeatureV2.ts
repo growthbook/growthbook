@@ -7,7 +7,7 @@ import {
   normalizeTargetingProjects,
 } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";

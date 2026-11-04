@@ -1,8 +1,10 @@
-import { FC, useState } from "react";
+import type { FC } from "react";
+import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
-import { Team, useUser } from "@/services/UserContext";
+import type { Team } from "@/services/UserContext";
+import { useUser } from "@/services/UserContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MembersTabView } from "@/components/Settings/Team/MembersTabView";

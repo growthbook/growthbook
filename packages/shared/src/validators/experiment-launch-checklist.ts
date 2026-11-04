@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
 
 // Built-in pre-launch checklist items an org or project checklist can hide
 export const builtInChecklistItemKeyValidator = z.enum([

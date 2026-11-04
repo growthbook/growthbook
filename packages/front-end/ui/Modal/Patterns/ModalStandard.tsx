@@ -1,7 +1,8 @@
-import { ComponentProps, CSSProperties, ReactNode } from "react";
+import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
-import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
+import type { Size, TrackingEventModalProps } from "@/ui/Modal";
+import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "../ModalForm";
 
 function SubmitButton({

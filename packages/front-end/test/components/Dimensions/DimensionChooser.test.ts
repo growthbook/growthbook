@@ -1,6 +1,6 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
-import { IncrementalRefreshInterface } from "shared/validators";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { IncrementalRefreshInterface } from "shared/validators";
 import {
   CUSTOM_COMBO_OPTION,
   CUSTOM_CUTOFF_OPTION,

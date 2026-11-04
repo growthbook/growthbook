@@ -1,7 +1,7 @@
-import { Request, RequestHandler } from "express";
+import type { Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import { getExperimentBulkResultsValidator } from "shared/validators";
-import { ApiRequestLocals } from "back-end/types/api";
+import type { ApiRequestLocals } from "back-end/types/api";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByExperiment } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMapForExperimentSnapshots } from "back-end/src/services/experiments";

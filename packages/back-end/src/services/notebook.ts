@@ -6,12 +6,12 @@ import {
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { Queries } from "shared/types/query";
-import {
+import type { Queries } from "shared/types/query";
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type { DataForStatsEngine } from "shared/types/stats";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
@@ -20,10 +20,10 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getReportById } from "back-end/src/models/ReportModel";
-import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   getAnalysisSettingsForStatsEngine,

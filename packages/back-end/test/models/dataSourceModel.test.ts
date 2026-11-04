@@ -1,9 +1,9 @@
 import { Permissions, roleToPermissionMap } from "shared/permissions";
-import {
+import type {
   DataSourceInterface,
   DataSourceSettings,
 } from "shared/types/datasource";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
@@ -13,7 +13,7 @@ import {
 } from "back-end/src/models/DataSourceModel";
 import { testQueryValidity } from "back-end/src/services/datasource";
 import { usingFileConfig } from "back-end/src/init/config";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { getCollection } from "back-end/src/util/mongo.util";
 import {
   connectTestMongo,

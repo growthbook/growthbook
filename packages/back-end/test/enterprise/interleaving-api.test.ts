@@ -1,8 +1,8 @@
-import {
-  apiInterleavingSnapshotValidator,
+import type {
   InterleavingInterface,
   InterleavingSnapshotInterface,
 } from "shared/validators";
+import { apiInterleavingSnapshotValidator } from "shared/validators";
 import {
   toApiInterleaving,
   toApiInterleavingSnapshot,

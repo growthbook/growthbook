@@ -1,11 +1,11 @@
 import cloneDeep from "lodash/cloneDeep";
-import { ExperimentMetricInterface } from "shared/experiments";
-import {
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type {
   Dimension,
   ProcessedDimensions,
   UserDimension,
 } from "shared/types/integrations";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 

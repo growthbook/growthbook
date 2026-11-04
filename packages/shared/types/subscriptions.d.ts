@@ -1,4 +1,4 @@
-import { Stripe } from "stripe";
+import type { Stripe } from "stripe";
 export interface PaymentMethod {
   id: string;
   brand: string;

@@ -1,8 +1,8 @@
 import { Flex, type AvatarProps } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
-import { LinkedFeatureInfo } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
 import Avatar from "@/ui/Avatar";
 import Text from "@/ui/Text";
 import SplitButton from "@/ui/SplitButton";

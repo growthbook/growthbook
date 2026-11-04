@@ -1,6 +1,7 @@
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import React, { ReactElement, useEffect, useState } from "react";
-import { FeatureInterface } from "shared/types/feature";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { ReactElement } from "react";
+import React, { useEffect, useState } from "react";
+import type { FeatureInterface } from "shared/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";

@@ -1,9 +1,6 @@
 import { isEqual } from "lodash";
-import {
-  Revision,
-  RevisionTargetType,
-  normalizeProposedChanges,
-} from "shared/enterprise";
+import type { Revision, RevisionTargetType } from "shared/enterprise";
+import { normalizeProposedChanges } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 

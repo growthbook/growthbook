@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
 import {
   PiInfoFill,
@@ -6,11 +6,11 @@ import {
   PiWarningFill,
   PiWarningOctagonFill,
 } from "react-icons/pi";
-import { ApiContextualBanditInterface } from "shared/validators";
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import type { ApiContextualBanditInterface } from "shared/validators";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
 import { linkedDraftApproved } from "shared/util";
 import { contextualBanditHasServableVisualChanges } from "shared/experiments";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";

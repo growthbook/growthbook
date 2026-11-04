@@ -1,4 +1,4 @@
-import { OrganizationSettings } from "shared/types/organization";
+import type { OrganizationSettings } from "shared/types/organization";
 import { PiUploadSimple } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";

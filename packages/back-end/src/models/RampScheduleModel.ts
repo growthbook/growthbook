@@ -1,7 +1,5 @@
 import escapeRegExp from "lodash/escapeRegExp";
-import {
-  eventUserToApiEventUser,
-  ANCHORED_RAMP_SCHEDULE_STATUSES,
+import type {
   ApiRampScheduleInterface,
   RampScheduleInterface,
   RampScheduleStatus,
@@ -9,12 +7,16 @@ import {
   RampStepAction,
   RampTarget,
   StepHoldConditions,
+} from "shared/validators";
+import {
+  eventUserToApiEventUser,
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
   isAwaitingStartApproval,
   isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
 import mongoose from "mongoose";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import {
   rampSchedulePublishEnvironments,
   RULE_ID_ENV_SUFFIX_DELIMITER,

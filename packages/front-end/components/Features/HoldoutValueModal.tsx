@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiInfo } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
-import { HoldoutInterface } from "shared/validators";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { HoldoutInterface } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
@@ -14,9 +14,8 @@ import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useEnvironments } from "@/services/features";
-import DraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
+import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 import UiText from "@/ui/Text";
 import RuleEnvScopeBadges from "./RuleEnvScopeBadges";
 import FeatureValueField from "./FeatureValueField";

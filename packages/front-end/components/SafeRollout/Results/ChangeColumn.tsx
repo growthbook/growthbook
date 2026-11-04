@@ -1,18 +1,19 @@
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import React, { DetailedHTMLProps, HTMLAttributes } from "react";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
-import { RowResults } from "@/services/experiments";
+import type { DetailedHTMLProps, HTMLAttributes } from "react";
+import React from "react";
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { RowResults } from "@/services/experiments";
 import {
   formatPercent,
   getExperimentMetricFormatter,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 interface Props
   extends Omit<

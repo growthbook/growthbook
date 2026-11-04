@@ -1,6 +1,6 @@
 import { cloneDeep } from "lodash";
 import type { ReviewAuthorityFootprint } from "shared/util";
-import {
+import type {
   MemberRoleWithProjects,
   OrganizationInterface,
   Permission,
@@ -8,7 +8,7 @@ import {
   UserPermission,
   UserPermissions,
 } from "shared/types/organization";
-import { TeamInterface } from "shared/types/team";
+import type { TeamInterface } from "shared/types/team";
 import { assumingKeyOf, type EventUser } from "../validators/event-user";
 
 // Role-bearing fields only, so the front end can resolve without member lists.

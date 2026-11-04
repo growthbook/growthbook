@@ -1,5 +1,6 @@
-import React, { FC, useState } from "react";
-import { ArchetypeInterface } from "shared/types/archetype";
+import type { FC } from "react";
+import React, { useState } from "react";
+import type { ArchetypeInterface } from "shared/types/archetype";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";

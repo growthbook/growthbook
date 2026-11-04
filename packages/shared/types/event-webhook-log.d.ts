@@ -1,5 +1,8 @@
-import { NotificationEventName } from "./events/event";
-import { EventWebHookInterface, EventWebHookMethod } from "./event-webhook";
+import type { NotificationEventName } from "./events/event";
+import type {
+  EventWebHookInterface,
+  EventWebHookMethod,
+} from "./event-webhook";
 
 export interface EventWebHookLegacyLogInterface {
   id: string;

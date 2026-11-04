@@ -7,7 +7,7 @@ import {
   PiUsersThree,
   PiWebhooksLogo,
 } from "react-icons/pi";
-import { IconType } from "react-icons";
+import type { IconType } from "react-icons";
 import Link from "next/link";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useMemo } from "react";

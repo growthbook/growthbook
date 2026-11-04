@@ -7,36 +7,36 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
-import { LegacyMetricInterface } from "shared/types/metric";
-import {
+import type { LegacyMetricInterface } from "shared/types/metric";
+import type {
   DataSourceInterface,
   DataSourceSettings,
   ExposureQuery,
 } from "shared/types/datasource";
-import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
-import { PostgresConnectionParams } from "shared/types/integrations/postgres";
-import {
+import type { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import type { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import type {
   LegacyColumnRef,
   LegacyFactMetricInterface,
 } from "shared/types/fact-table";
-import {
+import type {
   ExperimentRule,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
 } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
-import {
+import type { OrganizationInterface } from "shared/types/organization";
+import type {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   ExperimentReportResultDimension,
   LegacyReportInterface,
 } from "shared/types/report";
-import { Queries } from "shared/types/query";
-import { ExperimentPhase } from "shared/types/experiment";
-import { LegacySavedGroupInterface } from "shared/types/saved-group";
+import type { Queries } from "shared/types/query";
+import type { ExperimentPhase } from "shared/types/experiment";
+import type { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { encryptParams } from "back-end/src/services/datasource";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";

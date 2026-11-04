@@ -1,5 +1,9 @@
-import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
-import { FactMetricType, FactTableDefinition } from "shared/types/fact-table";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import { isFactMetric } from "shared/experiments";
+import type {
+  FactMetricType,
+  FactTableDefinition,
+} from "shared/types/fact-table";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formTypeFromStored } from "@/components/FactTables/MetricEditor/metricFormTranslation";

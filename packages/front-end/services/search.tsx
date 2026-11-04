@@ -1,14 +1,5 @@
-import {
-  useState,
-  useMemo,
-  ChangeEvent,
-  FC,
-  MouseEvent,
-  ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import type { ChangeEvent, FC, MouseEvent, ReactNode } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { PiCaretDown, PiCaretUp, PiCaretUpDown } from "react-icons/pi";
 import { useRouter } from "next/router";

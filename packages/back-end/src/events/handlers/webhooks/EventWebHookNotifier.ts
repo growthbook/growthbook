@@ -1,9 +1,9 @@
-import { Agenda, Job, JobAttributesData } from "agenda";
-import {
+import type { Agenda, Job, JobAttributesData } from "agenda";
+import type {
   EventWebHookInterface,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
-import { NotificationEventName } from "shared/types/events/event";
+import type { NotificationEventName } from "shared/types/events/event";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
@@ -16,7 +16,7 @@ import { logger } from "back-end/src/util/logger";
 import { deliverEventNotification } from "back-end/src/services/notifications/deliverEventNotification";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { isBookkeepingExperimentUpdate } from "back-end/src/events/experimentUpdateNoise";
-import {
+import type {
   EventWebHookErrorResult,
   EventWebHookSuccessResult,
 } from "./event-webhooks-utils";

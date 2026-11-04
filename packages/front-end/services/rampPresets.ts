@@ -11,7 +11,7 @@
  * Naming convention for functions: generateXxxPreset(params) → RampStep[]
  */
 
-import { RampStep, RampStepAction } from "shared/validators";
+import type { RampStep, RampStepAction } from "shared/validators";
 
 // ---------------------------------------------------------------------------
 // Types

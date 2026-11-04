@@ -4,7 +4,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsStars } from "react-icons/bs";
 import { PiCaretRight } from "react-icons/pi";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";

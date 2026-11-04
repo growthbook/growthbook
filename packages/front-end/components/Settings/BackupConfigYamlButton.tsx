@@ -1,7 +1,7 @@
 import { dump } from "js-yaml";
 import { useMemo } from "react";
-import { OrganizationSettings } from "shared/types/organization";
-import { MetricInterface } from "shared/types/metric";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { MetricInterface } from "shared/types/metric";
 import { PiDownloadSimple } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useConfigJson } from "@/services/config";

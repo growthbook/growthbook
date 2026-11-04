@@ -1,4 +1,4 @@
-import { Job, JobAttributesData } from "agenda";
+import type { Job, JobAttributesData } from "agenda";
 import { logger } from "back-end/src/util/logger";
 import { JOB_TIMEOUT_MS } from "back-end/src/util/secrets";
 

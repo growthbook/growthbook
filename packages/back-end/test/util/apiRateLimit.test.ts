@@ -1,8 +1,6 @@
-import { EventUser } from "shared/types/events/event-types";
-import {
-  ApiRateLimitSettings,
-  getApiRateLimitBucket,
-} from "back-end/src/util/apiRateLimit";
+import type { EventUser } from "shared/types/events/event-types";
+import type { ApiRateLimitSettings } from "back-end/src/util/apiRateLimit";
+import { getApiRateLimitBucket } from "back-end/src/util/apiRateLimit";
 
 const defaults: ApiRateLimitSettings = {
   max: 60,

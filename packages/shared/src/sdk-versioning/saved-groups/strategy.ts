@@ -1,12 +1,12 @@
-import { OrganizationInterface } from "shared/types/organization";
-import { GroupMap } from "shared/types/saved-group";
-import { SavedGroupFormat } from "shared/types/sdk-connection";
-import { SDKCapability } from "../types";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { GroupMap } from "shared/types/saved-group";
+import type { SavedGroupFormat } from "shared/types/sdk-connection";
+import type { SDKCapability } from "../types";
 import { createInlineStrategy } from "./strategy-inline";
 import { createReferencesV1Strategy } from "./strategy-references-v1";
 import { createReferencesV2Strategy } from "./strategy-references-v2";
 import { getRemoteGroupMode, withRemoteGroups } from "./remote";
-import { SavedGroupPayloadStrategy } from "./types";
+import type { SavedGroupPayloadStrategy } from "./types";
 
 /**
  * The format a connection's setting asks for, before capabilities are applied.

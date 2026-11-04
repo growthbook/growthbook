@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
-import { z } from "zod";
-import {
+import type { z } from "zod";
+import type {
   simpleSchemaFieldValidator,
   simpleSchemaValidator,
   FeatureInterface,
@@ -10,7 +10,7 @@ import {
   V1FeatureEnvironment,
   FeatureRevisionInterface,
 } from "shared/validators";
-import { UserRef } from "./user";
+import type { UserRef } from "./user";
 
 export {
   FeatureRule,

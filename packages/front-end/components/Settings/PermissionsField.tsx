@@ -15,12 +15,14 @@ import ConfirmRulesField, {
   SUGGESTED_CONFIRM_RULES,
 } from "./ConfirmRulesField";
 import { ALL, presetOf } from "./confirmRulesUtils";
-import {
+import type {
   Allowed,
-  canCustomize,
   Holder,
   PermissionsValue,
   Preset,
+} from "./apiKeyPermissions";
+import {
+  canCustomize,
   PRESET_LABELS,
   presetAllowed,
   presetsFor,

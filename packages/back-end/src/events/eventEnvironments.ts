@@ -1,8 +1,8 @@
 import isEqual from "lodash/isEqual";
-import { ApiFeature } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
+import type { ApiFeature } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Environment } from "shared/types/organization";
 import {
   getApiFeatureAllEnvs,
   getApiFeatureEnabledEnvs,

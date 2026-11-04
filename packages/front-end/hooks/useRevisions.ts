@@ -1,4 +1,4 @@
-import { RevisionTargetType, Revision } from "shared/enterprise";
+import type { RevisionTargetType, Revision } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import useApi from "./useApi";
 

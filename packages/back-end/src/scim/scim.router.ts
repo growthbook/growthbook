@@ -1,4 +1,5 @@
-import { Router, RequestHandler } from "express";
+import type { RequestHandler } from "express";
+import { Router } from "express";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import usersRouter from "./users/users.router";
 import groupsRouter from "./groups/groups.router";

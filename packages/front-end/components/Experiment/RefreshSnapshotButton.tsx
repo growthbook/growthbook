@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FC } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Text } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";

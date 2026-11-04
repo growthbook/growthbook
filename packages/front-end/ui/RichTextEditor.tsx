@@ -1,8 +1,6 @@
+import type { MutableRefObject, ReactNode, Ref } from "react";
 import {
   forwardRef,
-  MutableRefObject,
-  ReactNode,
-  Ref,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -57,7 +55,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
 import Collapse from "@/ui/Collapse";
 import HelperText from "@/ui/HelperText";
-import { Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
 import Tooltip from "@/ui/Tooltip";
 import {
   $createImageNode,

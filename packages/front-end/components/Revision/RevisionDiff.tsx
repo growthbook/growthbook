@@ -3,16 +3,18 @@ import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
+import type {
+  DiffCommentsProps,
+  FormattedChangeItem,
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
 import {
   ExpandableDiff,
-  DiffCommentsProps,
   CollapsedSection,
   FormattedChanges,
-  type FormattedChangeItem,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
-import { DiffItem, DiffBadge, CustomRenderGroup } from "./useRevisionDiff";
+import type { DiffItem, DiffBadge, CustomRenderGroup } from "./useRevisionDiff";
 
 interface RevisionDiffProps {
   diffs: DiffItem[];

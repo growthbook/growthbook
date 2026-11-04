@@ -1,27 +1,27 @@
 import fs from "fs";
-import {
-  ExperimentMetricInterface,
-  isFactMetric,
-  quantileMetricType,
-} from "shared/experiments";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import { isFactMetric, quantileMetricType } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
-import { SegmentInterface } from "shared/types/segment";
-import {
+import type { SegmentInterface } from "shared/types/segment";
+import type {
   Dimension,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
   ExperimentUnitsQueryParams,
 } from "shared/types/integrations";
-import { DataSourceInterface, DataSourceType } from "shared/types/datasource";
-import {
+import type {
+  DataSourceInterface,
+  DataSourceType,
+} from "shared/types/datasource";
+import type {
   AttributionModel,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
   Variation,
 } from "shared/types/experiment";
-import { MetricInterface, MetricType } from "shared/types/metric";
-import {
+import type { MetricInterface, MetricType } from "shared/types/metric";
+import type {
   FactFilterInterface,
   ColumnInterface,
   FactMetricInterface,

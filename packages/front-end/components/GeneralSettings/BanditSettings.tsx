@@ -1,5 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import { ScopedSettings } from "shared/settings";
+import type { ScopedSettings } from "shared/settings";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { useOptionalSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import { UnsavedMark } from "@/components/GeneralSettings/SettingsGroup";

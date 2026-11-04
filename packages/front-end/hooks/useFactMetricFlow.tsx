@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/router";
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
@@ -12,7 +12,8 @@ import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import Modal from "@/ui/Modal";
 import Callout from "@/ui/Callout";
-import Button, { Props as ButtonProps } from "@/ui/Button";
+import type { Props as ButtonProps } from "@/ui/Button";
+import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Tooltip from "@/ui/Tooltip";
 

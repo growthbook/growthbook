@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { QueryLanguage } from "shared/types/datasource";
+import type { FC } from "react";
+import type { QueryLanguage } from "shared/types/datasource";
 import Modal from "@/components/Modal";
 import Code from "@/components/SyntaxHighlighting/Code";
 

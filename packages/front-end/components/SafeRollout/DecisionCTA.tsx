@@ -4,8 +4,9 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 
-import { SafeRolloutRule } from "shared/validators";
-import Button, { Color, Variant } from "@/ui/Button";
+import type { SafeRolloutRule } from "shared/validators";
+import type { Color, Variant } from "@/ui/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 

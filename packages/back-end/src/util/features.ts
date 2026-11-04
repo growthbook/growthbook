@@ -1,12 +1,14 @@
 import isEqual from "lodash/isEqual";
-import {
+import type {
   ConditionInterface,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
-import {
+import type {
   ExperimentDependencyIndex,
   NamespaceValue,
   ReverseDependencyIndex,
+} from "shared/util";
+import {
   buildExperimentDependencyIndex,
   buildReverseDependencyIndex,
   deepMergePatch,
@@ -35,22 +37,27 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
-import { GroupMap } from "shared/types/saved-group";
-import { SavedGroupFormat } from "shared/types/sdk-connection";
+import type { GroupMap } from "shared/types/saved-group";
+import type { SavedGroupFormat } from "shared/types/sdk-connection";
 import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
-import {
+import type {
   ExperimentMetadata,
   FeatureDefinition,
   FeatureDefinitionRule,
   FeatureMetadata,
 } from "shared/types/sdk";
-import { ProjectInterface } from "shared/types/project";
-import {
+import type { ProjectInterface } from "shared/types/project";
+import type {
   HoldoutInterface,
   ContextualBanditInterface,
   VariationWeightPair,
 } from "shared/validators";
+import type {
+  ConstantValueMap,
+  SavedGroupPayloadStrategy,
+  SDKCapability,
+} from "shared/sdk-versioning";
 import {
   describeSavedGroupError,
   getJSONValue,
@@ -58,27 +65,27 @@ import {
   getSavedGroupPayloadStrategy,
   SAVED_GROUP_ERROR_UNKNOWN,
   resolveConstantRefs,
-  ConstantValueMap,
-  SavedGroupPayloadStrategy,
-  SDKCapability,
 } from "shared/sdk-versioning";
-import { OrganizationInterface, Environment } from "shared/types/organization";
-import {
+import type {
+  OrganizationInterface,
+  Environment,
+} from "shared/types/organization";
+import type {
   FeatureInterface,
   FeatureMetaInfo,
   FeatureRule,
   LegacyFeatureInterface,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import {
+import type {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
 import { getCurrentEnabledState } from "./scheduleRules";
 

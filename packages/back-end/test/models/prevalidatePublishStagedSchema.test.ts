@@ -1,8 +1,8 @@
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { MergeResultChanges } from "shared/util";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { MergeResultChanges } from "shared/util";
 import { prevalidatePublishRevision } from "back-end/src/models/FeatureModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/enterprise/sandbox/sandbox-eval", () => ({
   runValidateFeatureHooks: jest.fn(async () => undefined),

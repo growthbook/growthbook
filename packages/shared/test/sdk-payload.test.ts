@@ -1,6 +1,6 @@
-import { OrganizationInterface } from "shared/types/organization";
-import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { SDKCapability } from "../src/sdk-versioning/types";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import type { SDKCapability } from "../src/sdk-versioning/types";
 import {
   conditionHasSavedGroupErrors,
   createV1SavedGroupsOperatorHandler,

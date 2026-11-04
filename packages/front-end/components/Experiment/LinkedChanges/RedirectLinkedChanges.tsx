@@ -1,14 +1,14 @@
-import { LinkedChangeEnvStates } from "shared/types/experiment";
+import type { LinkedChangeEnvStates } from "shared/types/experiment";
 import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import type { ColumnLayout } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import {
   ColumnCell,
   ColumnFooter,
   ColumnHeader,
-  ColumnLayout,
   HeaderText,
   StagedNote,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";
-import { ShownRedirect } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
+import type { ShownRedirect } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";

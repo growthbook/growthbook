@@ -1,5 +1,5 @@
-import { FeatureRevisionInterface } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   draftRevertedFromVersion,
   isPureFeatureArchive,

@@ -1,6 +1,6 @@
-import { ConfigInterface } from "shared/types/config";
-import { ConstantInterface } from "shared/types/constant";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { ConfigInterface } from "shared/types/config";
+import type { ConstantInterface } from "shared/types/constant";
+import type { SavedGroupInterface } from "shared/types/saved-group";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";

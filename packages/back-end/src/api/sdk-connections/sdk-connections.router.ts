@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getSdkConnection } from "./getSdkConnection";
 import { listSdkConnections } from "./listSdkConnections";
 import { postSdkConnection } from "./postSdkConnection";

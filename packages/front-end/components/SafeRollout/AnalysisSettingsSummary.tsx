@@ -1,8 +1,9 @@
 import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
-import React, { ReactElement, useState } from "react";
+import type { ReactElement } from "react";
+import React, { useState } from "react";
 import clsx from "clsx";
 import { expandMetricGroups } from "shared/experiments";
-import { SafeRolloutInterface } from "shared/validators";
+import type { SafeRolloutInterface } from "shared/validators";
 import { differenceInHours } from "date-fns";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";

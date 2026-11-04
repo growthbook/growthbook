@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 
 export type MetricDrilldownTab = "overview" | "slices" | "debug" | "funnel";
 

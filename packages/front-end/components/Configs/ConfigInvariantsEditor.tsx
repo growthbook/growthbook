@@ -35,9 +35,8 @@ import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import HelperText from "@/ui/HelperText";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
-import SelectField, {
-  FormatOptionLabelType,
-} from "@/components/Forms/SelectField";
+import type { FormatOptionLabelType } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 
 type Props = {

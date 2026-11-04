@@ -1,4 +1,5 @@
-import { ConditionInterface, Context, Experiment, GrowthBook } from "../src";
+import type { ConditionInterface, Context, Experiment } from "../src";
+import { GrowthBook } from "../src";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");

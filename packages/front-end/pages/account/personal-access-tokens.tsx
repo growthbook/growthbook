@@ -1,5 +1,5 @@
 import React from "react";
-import { NextPage } from "next";
+import type { NextPage } from "next";
 import { PersonalAccessTokensContainer } from "@/components/PersonalAccessTokens/PersonalAccessTokens";
 import { ConnectedAppsContainer } from "@/components/ConnectedApps/ConnectedApps";
 

@@ -1,16 +1,14 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
+import type { AIModel, AIModelSettingKey, AIProvider } from "shared/ai";
 import {
-  AIModel,
-  AIModelSettingKey,
-  AIProvider,
   AI_PROVIDERS,
   AI_PROVIDER_META,
   getAIModelSettingsUsingProvider,
   getProviderForAIModel,
 } from "shared/ai";
-import { AICredentialFrontEndInterface } from "shared/validators";
+import type { AICredentialFrontEndInterface } from "shared/validators";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { getModelDisplayLabel } from "@/services/aiModelSelectOptions";

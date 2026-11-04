@@ -1,5 +1,5 @@
 import { putOrganizationValidator } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   createApiRequestHandler,
   validateIsSuperUserRequest,

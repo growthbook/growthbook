@@ -1,6 +1,6 @@
 import { Agent } from "node:https";
 import { URLSearchParams } from "url";
-import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import type { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { fetch } from "back-end/src/util/http.util";
 
 const encodedParams = new URLSearchParams();

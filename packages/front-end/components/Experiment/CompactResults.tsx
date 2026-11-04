@@ -1,61 +1,62 @@
-import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
+import type { FC, ReactElement } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import {
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import {
+import type {
   CustomMetricSlice,
   ExperimentStatus,
   ExperimentType,
   MetricOverride,
 } from "shared/types/experiment";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import {
   PiArrowSquareOut,
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiFunnelSimple,
 } from "react-icons/pi";
-import {
-  expandMetricGroups,
+import type {
   ExperimentMetricDefinition,
-  getMetricLink,
   ExperimentSortBy,
   SetExperimentSortBy,
+} from "shared/experiments";
+import {
+  expandMetricGroups,
+  getMetricLink,
   isFactFunnelMetric,
 } from "shared/experiments";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  excludeFunnelSliceRows,
-  ExperimentTableRow,
-} from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
+import { excludeFunnelSliceRows } from "@/services/experiments";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import FunnelStepSliceLink, {
   funnelMetricHasSlices,
 } from "@/components/Experiment/FunnelStepSliceLink";
-import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import type { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import RadixTooltip from "@/ui/Tooltip";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { ReplacedMetricWarning } from "@/components/Metrics/MetricReplacement";
 import styles from "./CompactResults.module.scss";
-import { ExperimentTab } from "./TabbedPage";
+import type { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import DataQualityWarning from "./DataQualityWarning";
 

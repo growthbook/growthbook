@@ -1,16 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
-import {
-  components as SelectComponents,
-  ClearIndicatorProps,
-} from "react-select";
+import type { ClearIndicatorProps } from "react-select";
+import { components as SelectComponents } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
 import { PiRepeatBold, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
-import Field, { FieldProps } from "@/components/Forms/Field";
+import type { FieldProps } from "@/components/Forms/Field";
+import Field from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
-import { Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
 import { CopyIcon } from "@/ui/ActionIcons";
 
 export type StringArrayFieldSize = Size<"md" | "lg">;

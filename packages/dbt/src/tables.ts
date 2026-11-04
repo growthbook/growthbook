@@ -1,5 +1,5 @@
-import { Draft, Join, TranslateContext } from "./metrics";
-import {
+import type { Draft, Join, TranslateContext } from "./metrics";
+import type {
   BulkImportPayload,
   DbtSemanticModel,
   FactTableColumn,

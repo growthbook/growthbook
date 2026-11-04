@@ -1,6 +1,6 @@
 import type { Namespaces } from "shared/types/organization";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { countActiveExperimentsUsingNamespace } from "back-end/src/models/ExperimentModel";
 import { countFeaturesWithExperimentRuleInNamespace } from "back-end/src/models/FeatureModel";
 import { ConflictError } from "back-end/src/util/errors";

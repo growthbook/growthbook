@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NotificationEventName } from "shared/types/events/base-types";
+import type { NotificationEventName } from "shared/types/events/base-types";
 import { zodNotificationEventNamesEnum } from "./events";
 import { notificationSettingsSchema } from "./notification-card";
 import { webhookTimeoutSecondsValidator } from "./webhooks";

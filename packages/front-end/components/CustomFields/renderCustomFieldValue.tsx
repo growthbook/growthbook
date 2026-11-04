@@ -1,7 +1,8 @@
-import React, { ReactNode } from "react";
-import { CustomField } from "shared/types/custom-fields";
+import type { ReactNode } from "react";
+import React from "react";
+import type { CustomField } from "shared/types/custom-fields";
 import Markdown from "@/components/Markdown/Markdown";
-import { DataListItem } from "@/ui/DataList";
+import type { DataListItem } from "@/ui/DataList";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import {

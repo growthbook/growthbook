@@ -1,24 +1,22 @@
 import cloneDeep from "lodash/cloneDeep";
-import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { SavedGroupFormat } from "shared/types/sdk-connection";
-import {
-  getSavedGroupPayloadStrategy,
-  SavedGroupPayloadStrategy,
-} from "shared/sdk-versioning";
-import { FeatureDefinition } from "shared/types/sdk";
-import {
+import type { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import type { SavedGroupFormat } from "shared/types/sdk-connection";
+import type { SavedGroupPayloadStrategy } from "shared/sdk-versioning";
+import { getSavedGroupPayloadStrategy } from "shared/sdk-versioning";
+import type { FeatureDefinition } from "shared/types/sdk";
+import type {
   FeatureInterface,
   SavedGroupTargeting,
   ScheduleRule,
 } from "shared/types/feature";
-import {
+import type {
   OrganizationInterface,
   SDKAttribute,
   SDKAttributeSchema,
 } from "shared/types/organization";
-import { ExperimentInterface } from "shared/types/experiment";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { ConstantInterface } from "shared/types/constant";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { ConstantInterface } from "shared/types/constant";
 import { logger } from "back-end/src/util/logger";
 import {
   buildFeatureRulesFromApiEnvSettings,

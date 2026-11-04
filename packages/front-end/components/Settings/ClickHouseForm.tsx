@@ -1,5 +1,5 @@
-import { FC, ChangeEventHandler } from "react";
-import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import type { FC, ChangeEventHandler } from "react";
+import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 

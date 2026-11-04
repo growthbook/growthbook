@@ -1,5 +1,5 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { isEqual } from "lodash";
 import { Box } from "@radix-ui/themes";

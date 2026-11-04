@@ -1,5 +1,4 @@
-import {
-  DecoratorNode,
+import type {
   DOMConversionMap,
   DOMExportOutput,
   LexicalNode,
@@ -7,8 +6,9 @@ import {
   SerializedLexicalNode,
   Spread,
 } from "lexical";
-import { ReactNode } from "react";
-import { TextMatchTransformer } from "@lexical/markdown";
+import { DecoratorNode } from "lexical";
+import type { ReactNode } from "react";
+import type { TextMatchTransformer } from "@lexical/markdown";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import styles from "./RichTextEditor.module.scss";
 

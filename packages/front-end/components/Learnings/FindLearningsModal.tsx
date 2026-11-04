@@ -1,7 +1,8 @@
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import type { FC } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { AiLearningSuggestion } from "shared/validators";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { AiLearningSuggestion } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiSparkleFill } from "react-icons/pi";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";

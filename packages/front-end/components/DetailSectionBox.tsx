@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { BoxProps } from "@radix-ui/themes";
 import Button from "@/ui/Button";

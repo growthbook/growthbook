@@ -1,4 +1,4 @@
-import { InformationSchemaInterface } from "shared/types/integrations";
+import type { InformationSchemaInterface } from "shared/types/integrations";
 import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { BsStars } from "react-icons/bs";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -10,7 +10,7 @@ import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import track from "@/services/track";
-import { Status } from "@/ui/HelperText";
+import type { Status } from "@/ui/HelperText";
 
 type Props = {
   size?: "sm" | "md";

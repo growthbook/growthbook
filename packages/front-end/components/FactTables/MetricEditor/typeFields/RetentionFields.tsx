@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import {
+import type {
   FactTableDefinition,
   MetricWindowSettings,
 } from "shared/types/fact-table";
@@ -13,7 +13,8 @@ import {
   normalizeRetentionWindow,
   retentionModeFromWindow,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
-import { ThresholdBasisRow, ThresholdBasisValue } from "./ThresholdBasisRow";
+import type { ThresholdBasisValue } from "./ThresholdBasisRow";
+import { ThresholdBasisRow } from "./ThresholdBasisRow";
 
 const UNIT_OPTIONS = [
   { value: "minutes", label: "minutes" },

@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FaRedo } from "react-icons/fa";
-import {
+import type {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
-import {
+import type {
   DataSourceValue,
   ExplorationDataset,
   ExplorationConfig,

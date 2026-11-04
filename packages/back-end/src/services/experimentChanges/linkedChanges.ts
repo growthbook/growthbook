@@ -7,11 +7,11 @@ import {
 } from "shared/experiments";
 import { isScheduledToStart } from "shared/util";
 import type { AuditInterfaceInput } from "shared/types/audit";
-import { ExperimentInterface } from "shared/types/experiment";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ExperimentChangesBody } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ExperimentChangesBody } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { flushPayloadRefreshBuffer } from "back-end/src/revisions/landingSequence";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";

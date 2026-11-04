@@ -1,4 +1,4 @@
-import {
+import type {
   EventWebHookInterface,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
@@ -7,11 +7,9 @@ import {
   getWebhookTimeoutMs,
 } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
-import { SecretsReplacer } from "back-end/src/util/secrets";
-import {
-  EventWebHookResult,
-  getEventWebHookSignatureForPayload,
-} from "./event-webhooks-utils";
+import type { SecretsReplacer } from "back-end/src/util/secrets";
+import type { EventWebHookResult } from "./event-webhooks-utils";
+import { getEventWebHookSignatureForPayload } from "./event-webhooks-utils";
 
 export async function sendEventWebhook<DataType>({
   payload,

@@ -5,7 +5,7 @@ import { protoConverter } from "./proto";
 import { golangConverter } from "./golang";
 import { rustConverter } from "./rust";
 import { pythonConverter } from "./python";
-import { SchemaConverter } from "./types";
+import type { SchemaConverter } from "./types";
 
 // Registry of symmetric language converters. Each is a thin spoke that converts
 // its language to/from the JSON Schema pivot / SchemaField[]. Server-only

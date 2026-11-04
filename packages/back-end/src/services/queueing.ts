@@ -1,4 +1,5 @@
-import Agenda, { AgendaConfig, DefineOptions, Processor } from "agenda";
+import type { AgendaConfig, DefineOptions, Processor } from "agenda";
+import Agenda from "agenda";
 import mongoose from "mongoose";
 import { parseEnvInt } from "shared/util";
 import { trackJob } from "./tracing";

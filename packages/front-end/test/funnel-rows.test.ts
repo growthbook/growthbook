@@ -1,10 +1,10 @@
 import { funnelStepMetricId } from "shared/experiments";
-import {
+import type {
   FactTableDefinition,
   FunnelFactMetricInterface,
 } from "shared/types/fact-table";
-import { ExperimentReportResultDimension } from "shared/types/report";
-import { SnapshotVariation } from "shared/types/experiment-snapshot";
+import type { ExperimentReportResultDimension } from "shared/types/report";
+import type { SnapshotVariation } from "shared/types/experiment-snapshot";
 import { generateRowsForMetric } from "@/hooks/useExperimentTableRows";
 
 const FUNNEL_METRIC_ID = "fact__funnel";

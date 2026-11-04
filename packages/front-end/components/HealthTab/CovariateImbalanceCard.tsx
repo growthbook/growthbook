@@ -1,10 +1,10 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { useEffect, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { expandMetricGroups } from "shared/experiments";
 import CovariateImbalanceTable from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -14,7 +14,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import { StatusBadge } from "./StatusBadge";
-import { IssueValue } from "./IssueTags";
+import type { IssueValue } from "./IssueTags";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;

@@ -2,7 +2,7 @@ import { useFormContext } from "react-hook-form";
 import { useEffect, useMemo, useRef } from "react";
 import { getMetricWindowHours } from "shared/experiments";
 import { isProjectListValidForProject } from "shared/util";
-import { MetricWindowSettings } from "shared/types/fact-table";
+import type { MetricWindowSettings } from "shared/types/fact-table";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import clsx from "clsx";
 import Field from "@/components/Forms/Field";

@@ -1,4 +1,4 @@
-import { Condition } from "shared/types/metric";
+import type { Condition } from "shared/types/metric";
 
 export function getMixpanelPropertyColumn(col: string) {
   // Use the column directly if it contains a reference to `event`

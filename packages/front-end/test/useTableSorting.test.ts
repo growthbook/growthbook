@@ -1,9 +1,9 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { MetricDefaults } from "shared/types/organization";
-import { ExperimentMetricDefinition } from "shared/experiments";
-import { FunnelFactMetricInterface } from "shared/types/fact-table";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { MetricDefaults } from "shared/types/organization";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import type { FunnelFactMetricInterface } from "shared/types/fact-table";
 import { sortExperimentTableRows } from "@/hooks/useTableSorting";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 
 const metricDefaults: MetricDefaults = { minimumSampleSize: 0 };
 

@@ -1,12 +1,13 @@
-import { Fragment, ReactElement, useState, useCallback, useMemo } from "react";
+import type { ReactElement } from "react";
+import { Fragment, useState, useCallback, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Queries } from "shared/types/query";
-import {
+import type { Queries } from "shared/types/query";
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "shared/types/report";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { IconButton } from "@radix-ui/themes";
 import { Parser } from "json2csv";
 import { useAuth } from "@/services/auth";

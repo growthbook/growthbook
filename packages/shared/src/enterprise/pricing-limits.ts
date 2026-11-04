@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { OrgLimits } from "./license-consts";
+import type { OrgLimits } from "./license-consts";
 import { FREE_ORG_LIMITS } from "./entitlements";
 
 // Value shape: { "enabled": true, ...OrgLimits }. Per-plan values are served

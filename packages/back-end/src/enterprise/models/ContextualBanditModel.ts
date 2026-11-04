@@ -1,36 +1,40 @@
-import { z } from "zod";
+import type { z } from "zod";
 import isEqual from "lodash/isEqual";
 import { v4 as uuidv4 } from "uuid";
-import {
+import type {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
   apiContextualBanditListVisualChangesetsReturn,
   apiContextualBanditPostVisualChangesetsReturn,
   apiContextualBanditRefreshReturn,
   apiContextualBanditVariationsReturn,
+  ApiContextualBanditInterface,
+  ContextualBanditAnalysisSummary,
+  ContextualBanditInterface,
+  ContextualBanditVariation,
+  LeafWeight,
+  VariationWeightPair,
+} from "shared/validators";
+import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
-  ApiContextualBanditInterface,
   assertContextualAttributesValid,
   cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
-  ContextualBanditAnalysisSummary,
   contextualBanditApiSpec,
-  ContextualBanditInterface,
-  ContextualBanditVariation,
   contextualBanditValidator,
-  LeafWeight,
   listContextualBanditVisualChangesetsEndpoint,
   postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
   updateVariationsContextualBanditEndpoint,
-  VariationWeightPair,
 } from "shared/validators";
-import {
+import type {
   ContextualBanditLinkageDelta,
   ContextualBanditLinkageState,
+} from "shared/util";
+import {
   generateVariationId,
   getContextualBanditIdsFromRules,
 } from "shared/util";
@@ -40,7 +44,7 @@ import {
   isFactMetricId,
 } from "shared/experiments";
 import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
-import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
+import type { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";

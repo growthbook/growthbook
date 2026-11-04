@@ -5,7 +5,7 @@ import {
   suggestJourneyStepGroups,
 } from "shared/journeys";
 import { globToLikePattern } from "shared/sql";
-import { JourneyStepGroup } from "shared/validators";
+import type { JourneyStepGroup } from "shared/validators";
 
 describe("globToLikePattern", () => {
   it("maps * to % and ? to _", () => {

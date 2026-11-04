@@ -1,4 +1,5 @@
-import { ReactNode, ReactElement, useRef } from "react";
+import type { ReactNode, ReactElement } from "react";
+import { useRef } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
 import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
@@ -7,7 +8,7 @@ import {
   PiCheckCircleFill,
   PiXCircleFill,
 } from "react-icons/pi";
-import {
+import type {
   FeatureRule,
   FeaturePrerequisite,
   SavedGroupTargeting,
@@ -15,7 +16,7 @@ import {
   FeatureInterface,
   FeatureEnvironment,
 } from "shared/types/feature";
-import { RevisionMetadata } from "shared/types/feature-revision";
+import type { RevisionMetadata } from "shared/types/feature-revision";
 import { toV2FeatureSnapshot } from "shared/util";
 import { datetime } from "shared/dates";
 import type {

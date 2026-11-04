@@ -1,9 +1,9 @@
-import { InterleavingInterface } from "shared/validators";
-import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { OrganizationInterface } from "shared/types/organization";
-import { ProjectInterface } from "shared/types/project";
+import type { InterleavingInterface } from "shared/validators";
+import type { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ProjectInterface } from "shared/types/project";
 import { getSavedGroupPayloadStrategy } from "shared/sdk-versioning";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   buildSDKPayloadForConnection,
   generateInterleavingsPayload,

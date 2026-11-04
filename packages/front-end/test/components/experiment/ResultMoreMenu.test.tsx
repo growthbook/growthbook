@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   canShowRefreshMenuItem,
   canShowReenableIncrementalRefresh,

@@ -2,7 +2,7 @@ import React from "react";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { Text } from "@radix-ui/themes";
 import { FaQuestionCircle } from "react-icons/fa";
-import { MetricAnalysisPopulationType } from "shared/types/metric-analysis";
+import type { MetricAnalysisPopulationType } from "shared/types/metric-analysis";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

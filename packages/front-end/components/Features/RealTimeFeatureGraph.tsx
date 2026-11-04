@@ -4,7 +4,7 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import React from "react";
-import { FeatureRealtimeUsageRecord } from "shared/types/realtime";
+import type { FeatureRealtimeUsageRecord } from "shared/types/realtime";
 
 const usedColor = "#3aa8e8";
 const skippedColor = "#cccccc";

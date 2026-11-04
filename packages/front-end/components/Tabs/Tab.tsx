@@ -1,4 +1,4 @@
-import { ReactNode, FC, ReactElement } from "react";
+import type { ReactNode, FC, ReactElement } from "react";
 
 const Tab: FC<{
   display: ReactNode;

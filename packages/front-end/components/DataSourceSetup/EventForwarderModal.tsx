@@ -8,8 +8,8 @@ import {
   PiDatabase,
   PiInfo,
 } from "react-icons/pi";
-import { DataSourceType } from "shared/types/datasource";
-import { EventForwarderSinkType } from "shared/types/event-forwarder";
+import type { DataSourceType } from "shared/types/datasource";
+import type { EventForwarderSinkType } from "shared/types/event-forwarder";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";

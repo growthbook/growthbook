@@ -2,7 +2,7 @@ import {
   canStageArchiveDraft,
   canWriteArchiveIntoDraft,
 } from "shared/permissions";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 
 // Landing authority for every revisioned entity: archiving is delete-class
 // wherever it lands, publish covers anything, and a narrow atom covers a change

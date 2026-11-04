@@ -1,5 +1,6 @@
-import { getReviewAuthorityFootprint, RevisionFields } from "shared/util";
-import { OrganizationSettings } from "shared/types/organization";
+import type { RevisionFields } from "shared/util";
+import { getReviewAuthorityFootprint } from "shared/util";
+import type { OrganizationSettings } from "shared/types/organization";
 
 const ALL_ENVS = ["dev", "staging", "production"];
 

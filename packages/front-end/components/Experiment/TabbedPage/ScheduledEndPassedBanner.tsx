@@ -1,10 +1,10 @@
 import { Box } from "@radix-ui/themes";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
 } from "shared/types/experiment";
 import { date } from "shared/dates";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiClockFill, PiWarningCircleBold } from "react-icons/pi";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";

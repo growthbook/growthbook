@@ -2,13 +2,13 @@ import { useCallback, useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import Decimal from "decimal.js";
-import {
+import type {
   DataVizConfig,
-  dataVizConfigValidator,
   xAxisDateAggregationUnit,
   yAxisAggregationType,
   dimensionAxisConfiguration,
 } from "shared/validators";
+import { dataVizConfigValidator } from "shared/validators";
 import { getValidDate, parseWarehouseDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";

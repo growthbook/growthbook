@@ -1,4 +1,4 @@
-import { DropTableQueryParams } from "shared/types/integrations";
+import type { DropTableQueryParams } from "shared/types/integrations";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 
 export function getDropUnitsTableQuery(params: DropTableQueryParams): string {

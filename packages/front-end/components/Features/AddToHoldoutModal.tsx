@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
 import { getReviewSetting } from "shared/util";
@@ -11,9 +11,8 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import DraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
+import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";

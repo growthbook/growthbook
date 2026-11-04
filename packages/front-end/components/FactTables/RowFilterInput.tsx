@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { FactTableInterface, RowFilter } from "shared/types/fact-table";
+import type { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { useMemo, useState } from "react";
 import { PiTable } from "react-icons/pi";
 import Button from "@/ui/Button";

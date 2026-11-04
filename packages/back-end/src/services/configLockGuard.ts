@@ -1,5 +1,5 @@
-import { ConstantSource } from "shared/sdk-versioning";
-import { Revision } from "shared/enterprise";
+import type { ConstantSource } from "shared/sdk-versioning";
+import type { Revision } from "shared/enterprise";
 import { isConfigLocked } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import { resolvableDependencyClosure } from "back-end/src/services/constants";

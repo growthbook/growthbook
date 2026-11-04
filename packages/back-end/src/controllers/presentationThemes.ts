@@ -1,7 +1,7 @@
-import { Response } from "express";
-import { PresentationThemeInterface } from "shared/types/presentation";
-import { UpdateProps } from "shared/types/base-model";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { Response } from "express";
+import type { PresentationThemeInterface } from "shared/types/presentation";
+import type { UpdateProps } from "shared/types/base-model";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
 export async function getPresentationThemes(req: AuthRequest, res: Response) {

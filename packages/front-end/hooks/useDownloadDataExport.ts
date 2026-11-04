@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { DataExportFileResponse } from "shared/types/data-exports";
+import type { DataExportFileResponse } from "shared/types/data-exports";
 import { useAuth } from "@/services/auth";
 import { saveAs } from "@/services/files";
 

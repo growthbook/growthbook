@@ -1,14 +1,17 @@
 import { snowflakeCreateTableOptions } from "shared/enterprise";
-import { QueryResponse, ExternalIdCallback } from "shared/types/integrations";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { RunQueryMetadata } from "shared/types/query";
+import type {
+  QueryResponse,
+  ExternalIdCallback,
+} from "shared/types/integrations";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   cancelSnowflakeQuery,
   getSnowflakeQueryStatus,
   runSnowflakeQuery,
 } from "back-end/src/services/snowflake";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import type { ExternalQueryStatus } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {

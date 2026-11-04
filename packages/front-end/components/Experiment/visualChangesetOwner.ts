@@ -1,5 +1,5 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import {
   canEditContextualBanditVisualChanges,
   getActiveVariations,

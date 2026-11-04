@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { AuditInterface } from "shared/types/audit";
+import type { FC } from "react";
+import type { AuditInterface } from "shared/types/audit";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { auditUserToEventUser } from "shared/validators";

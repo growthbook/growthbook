@@ -1,4 +1,4 @@
-import { ZodSafeParseError } from "zod";
+import type { ZodSafeParseError } from "zod";
 import { BadRequestError } from "back-end/src/util/errors";
 
 /**

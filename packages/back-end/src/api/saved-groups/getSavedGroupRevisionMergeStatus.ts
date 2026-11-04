@@ -3,7 +3,7 @@ import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { SavedGroupInterface } from "shared/types/saved-group";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";

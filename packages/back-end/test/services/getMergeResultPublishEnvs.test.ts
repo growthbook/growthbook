@@ -1,8 +1,8 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { MergeResultChanges } from "shared/util";
-import { HoldoutInterface } from "shared/validators";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { MergeResultChanges } from "shared/util";
+import type { HoldoutInterface } from "shared/validators";
 import { getMergeResultPublishEnvs } from "back-end/src/services/features";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const ENVS = ["dev", "staging", "production"];
 

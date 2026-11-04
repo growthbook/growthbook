@@ -1,4 +1,4 @@
-import { CustomHookInterface } from "shared/validators";
+import type { CustomHookInterface } from "shared/validators";
 import { customHookMatchesScope } from "back-end/src/models/CustomHookModel";
 
 type Scope = Pick<CustomHookInterface, "entityType" | "entityId" | "projects">;

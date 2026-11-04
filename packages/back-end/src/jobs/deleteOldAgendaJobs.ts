@@ -1,4 +1,4 @@
-import Agenda from "agenda";
+import type Agenda from "agenda";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "deleteOldAgendaJobs";

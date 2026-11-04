@@ -1,21 +1,23 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { ExperimentReportVariation } from "shared/types/report";
-import {
+import type { ExperimentReportVariation } from "shared/types/report";
+import type {
   StatsEngine,
   PValueCorrection,
   DifferenceType,
 } from "shared/types/stats";
-import { ExperimentTableRow, RowResults } from "@/services/experiments";
+import type { ExperimentTableRow, RowResults } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
-import {
+import type {
   LayoutX,
-  TOOLTIP_HEIGHT,
-  TOOLTIP_TIMEOUT,
-  TOOLTIP_WIDTH,
   TooltipData,
   TooltipHoverSettings,
   YAlign,
+} from "./ResultsTableTooltip";
+import {
+  TOOLTIP_HEIGHT,
+  TOOLTIP_TIMEOUT,
+  TOOLTIP_WIDTH,
 } from "./ResultsTableTooltip";
 
 export function useResultsTableTooltip({

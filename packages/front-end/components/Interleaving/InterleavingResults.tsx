@@ -7,10 +7,11 @@ import type {
 } from "shared/validators";
 import { ago, getValidDate } from "shared/dates";
 import { interleavingVariationsList } from "shared/util";
-import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import { isFactMetric } from "shared/experiments";
 import { useInterleavingResults } from "@/hooks/useInterleavings";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 import {
   INTERLEAVING_ANALYSIS_TITLES,
   interleavingResultToSnapshotMetrics,

@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { FunnelSettings } from "shared/types/fact-table";
+import type { FunnelSettings } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";

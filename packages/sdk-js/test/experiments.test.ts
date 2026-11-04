@@ -1,5 +1,5 @@
 import { GrowthBook } from "../src";
-import {
+import type {
   AutoExperiment,
   Options,
   Experiment,

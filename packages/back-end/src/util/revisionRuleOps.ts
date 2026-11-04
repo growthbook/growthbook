@@ -1,6 +1,6 @@
 import omit from "lodash/omit";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ruleAppliesToEnv } from "shared/util";
 
 /**

@@ -1,4 +1,4 @@
-import {
+import type {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
@@ -12,10 +12,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import {
-  CreateStandardFactMetricProps,
-  getDefaultFactMetricProps,
-} from "@/services/metrics";
+import type { CreateStandardFactMetricProps } from "@/services/metrics";
+import { getDefaultFactMetricProps } from "@/services/metrics";
 import { GBInfo } from "@/components/Icons";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 

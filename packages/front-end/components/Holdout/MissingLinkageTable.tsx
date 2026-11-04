@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { HoldoutMissingLinkage } from "shared/validators";
+import type { HoldoutMissingLinkage } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";

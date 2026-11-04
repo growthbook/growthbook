@@ -1,13 +1,13 @@
+import type { ConfigSchemaChangeImpact } from "shared/util";
 import {
   getConfigSubtree,
   getAncestorSchemaKeys,
   stripAncestorOwnedFields,
   findSiblingSchemaConflicts,
   computeConfigSchemaChangeImpact,
-  ConfigSchemaChangeImpact,
   isConfigLocked,
 } from "shared/util";
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   BadRequestError,

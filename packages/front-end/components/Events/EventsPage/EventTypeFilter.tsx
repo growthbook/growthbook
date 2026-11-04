@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
-import { NotificationEventName } from "shared/types/events/event";
+import type { NotificationEventName } from "shared/types/events/event";
 import { PiCaretDown, PiMagnifyingGlass, PiX } from "react-icons/pi";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
 import { capitalizeFirstLetter } from "@/services/utils";

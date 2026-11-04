@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
-import { UseFormReturn, FieldValues } from "react-hook-form";
-import { FeatureInterface } from "shared/types/feature";
+import type { UseFormReturn, FieldValues } from "react-hook-form";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   getFeatureBaseConfigKey,
   getConfigSubtree,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Card } from "@radix-ui/themes";
-import { CappingType } from "shared/types/fact-table";
+import type { CappingType } from "shared/types/fact-table";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";

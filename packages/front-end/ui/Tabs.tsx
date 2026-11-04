@@ -1,16 +1,17 @@
 import clsx from "clsx";
+import type { ReactNode } from "react";
 import {
   Children,
   forwardRef,
   isValidElement,
-  ReactNode,
   useEffect,
   useRef,
   useState,
 } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
-import { radixSize, Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
+import { radixSize } from "@/ui/sizes";
 import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 
 /**

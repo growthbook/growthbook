@@ -1,19 +1,22 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import {
+import type {
   DataSourceParams,
   DataSourceType,
   UserIdType,
 } from "shared/types/datasource";
-import {
+import type {
   EventForwarderConfigWithMetadata,
   EventForwarderSinkType,
   EventForwarderStatus,
 } from "shared/types/event-forwarder";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type {
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "shared/types/organization";
 
 export const EVENT_FORWARDER_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] =
   ["bigquery", "snowflake", "databricks"];

@@ -1,42 +1,43 @@
-import { FC, useMemo } from "react";
+import type { FC } from "react";
+import { useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
-import {
+import type {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import {
+import type {
   ExperimentStatus,
   ExperimentType,
   MetricOverride,
 } from "shared/types/experiment";
-import {
+import type {
   PValueCorrection,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   expandMetricGroups,
-  ExperimentMetricDefinition,
   getMetricLink,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { SafeRolloutReportResultDimension } from "shared/validators";
+import type { SafeRolloutReportResultDimension } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import type { ExperimentTableRow } from "@/services/experiments";
 import {
   applyMetricOverrides,
-  ExperimentTableRow,
   NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
-import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import type { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ResultsTable from "./ResultsTable";
 

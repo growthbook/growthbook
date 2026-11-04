@@ -1,7 +1,7 @@
 import { parse, filter } from "scim2-parse-filter";
-import { Response } from "express";
+import type { Response } from "express";
 import { expandOrgMembers } from "back-end/src/services/organizations";
-import { ScimListRequest, ScimListResponse } from "back-end/types/scim";
+import type { ScimListRequest, ScimListResponse } from "back-end/types/scim";
 import {
   COUNT_DEFAULT,
   START_INDEX_DEFAULT,

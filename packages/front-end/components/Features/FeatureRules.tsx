@@ -1,17 +1,17 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
 } from "shared/validators";
-import {
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
+import type { Environment } from "shared/types/organization";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import RuleModal, {
   type RampToNewValueSeed,

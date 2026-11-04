@@ -1,14 +1,14 @@
+import type { Policy } from "shared/permissions";
 import {
   POLICY_DISPLAY_GROUPS,
   POLICY_METADATA_MAP,
   POLICY_PARTS,
-  Policy,
   RESERVED_ROLE_IDS,
   DEPRECATED_POLICIES,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import { Role } from "shared/types/organization";
+import type { Role } from "shared/types/organization";
 import router from "next/router";
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";

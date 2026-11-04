@@ -1,9 +1,10 @@
-import { FC, useState } from "react";
-import { MemberRoleWithProjects } from "shared/types/organization";
+import type { FC } from "react";
+import { useState } from "react";
+import type { MemberRoleWithProjects } from "shared/types/organization";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "./RoleRulesTable";
-import { TeamRuleSource } from "./roleRules";
+import type { TeamRuleSource } from "./roleRules";
 
 const ChangeRoleModal: FC<{
   displayInfo: string;

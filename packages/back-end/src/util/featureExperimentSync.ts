@@ -1,9 +1,9 @@
 import isEqual from "lodash/isEqual";
 import { getExperimentIdsFromRules, naiveFlattenV1Rules } from "shared/util";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { FeatureRule } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRule } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentModel,
   addLinkedFeatureToExperiment,

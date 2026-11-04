@@ -1,5 +1,7 @@
-import { Box, Flex, Text, TextProps } from "@radix-ui/themes";
-import { forwardRef, ReactElement, ReactNode } from "react";
+import type { TextProps } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import type { ReactElement, ReactNode } from "react";
+import { forwardRef } from "react";
 import {
   PiCheckCircleFill,
   PiInfoFill,
@@ -7,8 +9,9 @@ import {
   PiWarningFill,
   PiWarningOctagonFill,
 } from "react-icons/pi";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { radixSize, Size as SharedSize } from "@/ui/sizes";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { Size as SharedSize } from "@/ui/sizes";
+import { radixSize } from "@/ui/sizes";
 
 // "attention" is an orange severity tier between "warning" (amber) and "error"
 // (red). It defaults to the error octagon icon and gets role="alert", but is

@@ -7,9 +7,9 @@ import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import AddEditInterleavingExposureQueryModal from "./AddEditInterleavingExposureQueryModal";
+import type { InterleavingAnalysisValue } from "./InterleavingAnalysisFields";
 import InterleavingAnalysisFields, {
   getAnalysisError,
-  InterleavingAnalysisValue,
 } from "./InterleavingAnalysisFields";
 
 export function analysisOf(

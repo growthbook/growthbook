@@ -1,18 +1,16 @@
 import clsx from "clsx";
-import {
-  ExperimentMetricDefinition,
-  isFactMetric,
-  quantileMetricType,
-} from "shared/experiments";
-import React, { ReactElement } from "react";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import { isFactMetric, quantileMetricType } from "shared/experiments";
+import type { ReactElement } from "react";
+import React from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { StatsEngine } from "shared/types/stats";
+import type { StatsEngine } from "shared/types/stats";
 import { MdSwapCalls } from "react-icons/md";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
 } from "@/services/utils";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import { getPercentileLabel } from "@/services/metrics";

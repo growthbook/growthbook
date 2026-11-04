@@ -1,11 +1,11 @@
-import { ExposureQuery } from "shared/types/datasource";
+import type { ExposureQuery } from "shared/types/datasource";
 import type { ApiAssignmentQueryRefInput } from "../validators/assignment-query-field";
 import type {
   ApiRampMonitoringConfig,
   RampMonitoringConfig,
 } from "../validators/ramp-schedule";
+import type { AssignmentQuerySelection } from "./exposure-queries";
 import {
-  AssignmentQuerySelection,
   flattenExposureQueryInput,
   toApiAssignmentQueryRef,
 } from "./exposure-queries";

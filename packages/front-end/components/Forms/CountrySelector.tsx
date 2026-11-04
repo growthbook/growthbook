@@ -2,8 +2,10 @@ import {
   countries,
   getCountryFlagEmojiFromCountryCode,
 } from "country-codes-flags-phone-codes";
-import MultiSelectField, { MultiSelectFieldProps } from "@/ui/MultiSelectField";
-import SelectField, { SelectFieldProps } from "./SelectField";
+import type { MultiSelectFieldProps } from "@/ui/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
+import type { SelectFieldProps } from "./SelectField";
+import SelectField from "./SelectField";
 
 export const ALL_COUNTRY_CODES = countries.map((country) => country.code);
 

@@ -1,7 +1,7 @@
 import type { CommercialFeature } from "shared/enterprise";
-import { MetricOverride } from "shared/validators";
+import type { MetricOverride } from "shared/validators";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 
 export const validateCustomFields = async (
   customFieldValues: Record<string, unknown> | undefined,

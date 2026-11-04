@@ -1,13 +1,14 @@
 import { useRouter } from "next/router";
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "shared/types/idea";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type { ReactElement } from "react";
+import React, { useEffect, useState } from "react";
+import type { IdeaInterface } from "shared/types/idea";
 import { canEditDeliveryInPlace } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";

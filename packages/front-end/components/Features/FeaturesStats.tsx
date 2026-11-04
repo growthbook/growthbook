@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useMemo } from "react";
-import { FeatureCodeRefsInterface } from "shared/types/code-refs";
-import { OrganizationSettings } from "shared/types/organization";
+import type { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import type { OrganizationSettings } from "shared/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
 import { Flex, Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";

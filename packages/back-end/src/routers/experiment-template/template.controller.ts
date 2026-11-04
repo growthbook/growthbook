@@ -1,15 +1,15 @@
 import type { Response } from "express";
-import { z } from "zod";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import {
+import type { z } from "zod";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type {
   createTemplateValidator,
   ExperimentTemplateInterface,
   UpdateTemplateProps,
 } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 
 export const getTemplates = async (
   req: AuthRequest,

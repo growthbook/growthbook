@@ -1,23 +1,19 @@
 import { createPrivateKey } from "crypto";
 import { z } from "zod";
-import {
-  Column,
-  Connection,
-  QueryStatus,
-  createConnection,
-} from "snowflake-sdk";
+import type { Column, Connection, QueryStatus } from "snowflake-sdk";
+import { createConnection } from "snowflake-sdk";
 import { version as SNOWFLAKE_SDK_VERSION } from "snowflake-sdk/package.json";
-import {
+import type {
   ExternalIdCallback,
   QueryResponse,
   QueryResponseColumnData,
 } from "shared/types/integrations";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { FactTableColumnType } from "shared/types/fact-table";
-import { QueryMetadata, QueryStatistics } from "shared/types/query";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { FactTableColumnType } from "shared/types/fact-table";
+import type { QueryMetadata, QueryStatistics } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import type { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";

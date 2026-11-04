@@ -9,10 +9,8 @@ import {
 } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import {
-  DASHBOARD_OPTIONAL_FILTERS,
-  DashboardOptionalFilterKey,
-} from "./dashboardFilterCatalog";
+import type { DashboardOptionalFilterKey } from "./dashboardFilterCatalog";
+import { DASHBOARD_OPTIONAL_FILTERS } from "./dashboardFilterCatalog";
 import styles from "./DashboardControlPill.module.scss";
 
 // Why a filter can't be added yet. Each optional filter only drives blocks that

@@ -1,13 +1,11 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { hasTargetingConfigured } from "shared/experiments";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  ANCHORED_RAMP_SCHEDULE_STATUSES,
-  RampScheduleInterface,
-} from "shared/validators";
+import type { RampScheduleInterface } from "shared/validators";
+import { ANCHORED_RAMP_SCHEDULE_STATUSES } from "shared/validators";
 import {
   ensureConfigBacking,
   rampPlanControlledFields,
@@ -20,8 +18,8 @@ import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
+import type { NewExperimentRefRule } from "@/services/features";
 import {
-  NewExperimentRefRule,
   useAttributeSchema,
   resolveAttributeFilter,
 } from "@/services/features";

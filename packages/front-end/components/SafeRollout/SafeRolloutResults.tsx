@@ -1,4 +1,5 @@
-import React, { FC, useState } from "react";
+import type { FC } from "react";
+import React, { useState } from "react";
 import dynamic from "next/dynamic";
 import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -6,9 +7,9 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   SAFE_ROLLOUT_VARIATIONS,
 } from "shared/constants";
-import { MetricSnapshotSettings } from "shared/types/report";
-import { SignificanceThresholds } from "shared/types/stats";
-import { SafeRolloutInterface } from "shared/validators";
+import type { MetricSnapshotSettings } from "shared/types/report";
+import type { SignificanceThresholds } from "shared/types/stats";
+import type { SafeRolloutInterface } from "shared/validators";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { PiWarningFill } from "react-icons/pi";
 import {

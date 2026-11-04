@@ -3,18 +3,18 @@ import {
   MAX_SAVED_GROUP_DESCRIPTION_LENGTH,
   isInternalAttributeName,
 } from "shared/constants";
-import { FC, useEffect, useMemo, useRef, useState } from "react";
-import {
+import type { FC } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
   SavedGroupInterface,
   SavedGroupType,
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
+import type { Revision, JsonPatchOperation } from "shared/enterprise";
 import {
-  Revision,
   applyTopLevelPatchOps,
-  JsonPatchOperation,
   getApprovalFlowSettings,
 } from "shared/enterprise";
 import { useForm } from "react-hook-form";
@@ -56,9 +56,8 @@ import ConflictCallout, {
 } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import { namedProjectsFormatter } from "@/components/DraftConflicts/conflictValues";
-import SavedGroupDraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
+import type { DraftMode } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
+import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 
 import useProjectOptions from "@/hooks/useProjectOptions";
 

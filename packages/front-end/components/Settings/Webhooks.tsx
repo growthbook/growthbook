@@ -1,5 +1,6 @@
-import React, { FC, Fragment } from "react";
-import { WebhookInterface } from "shared/types/webhook";
+import type { FC } from "react";
+import React, { Fragment } from "react";
+import type { WebhookInterface } from "shared/types/webhook";
 import { FaCheck } from "react-icons/fa";
 import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";

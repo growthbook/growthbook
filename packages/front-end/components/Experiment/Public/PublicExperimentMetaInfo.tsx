@@ -1,6 +1,6 @@
 import { PiLink, PiCheck } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import LinkButton from "@/ui/LinkButton";

@@ -1,4 +1,5 @@
-import { ReactNode, FC, useEffect, useRef, useState } from "react";
+import type { ReactNode, FC } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export const PORTAL_CONTAINER_ID = "portal-root";

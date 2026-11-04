@@ -1,7 +1,5 @@
-import {
-  FigmaConnectionInterface,
-  figmaConnectionSchema,
-} from "shared/validators";
+import type { FigmaConnectionInterface } from "shared/validators";
+import { figmaConnectionSchema } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

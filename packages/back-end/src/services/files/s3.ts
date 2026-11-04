@@ -18,7 +18,7 @@ import {
 } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { joinUrl } from "./config";
-import { FileStorage } from "./types";
+import type { FileStorage } from "./types";
 
 /**
  * Builds an S3Client with optional role-assumption and custom-endpoint

@@ -1,4 +1,5 @@
-import { RevisionTargetType, revisionTargetType } from "shared/enterprise";
+import type { RevisionTargetType } from "shared/enterprise";
+import { revisionTargetType } from "shared/enterprise";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import type { Context } from "back-end/src/models/BaseModel";

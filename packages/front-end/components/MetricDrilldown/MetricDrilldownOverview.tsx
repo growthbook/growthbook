@@ -1,18 +1,21 @@
 import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
-import { ExperimentReportVariation } from "shared/types/report";
-import { MetricTimeSeries } from "shared/validators";
+import type {
+  ExperimentStatus,
+  LookbackOverride,
+} from "shared/types/experiment";
+import type { ExperimentReportVariation } from "shared/types/report";
+import type { MetricTimeSeries } from "shared/validators";
 import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";

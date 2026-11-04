@@ -1,14 +1,5 @@
-import {
-  CSSProperties,
-  memo,
-  ReactNode,
-  RefObject,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import type { CSSProperties, ReactNode, RefObject } from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { diffLines, diffWordsWithSpace } from "diff";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {

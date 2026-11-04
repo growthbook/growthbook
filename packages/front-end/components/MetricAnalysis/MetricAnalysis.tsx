@@ -1,4 +1,5 @@
-import React, { FC, useMemo, useState } from "react";
+import type { FC } from "react";
+import React, { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   FaDatabase,
@@ -11,20 +12,20 @@ import {
   getFactMetricPrimaryFactTableId,
   isBinomialMetric,
 } from "shared/experiments";
-import {
+import type {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
   MetricAnalysisPopulationType,
   MetricAnalysisResult,
   MetricAnalysisSettings,
 } from "shared/types/metric-analysis";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   isManagedWarehouseNoEventsGuidanceMessage,
   parseIntWithDefault,
 } from "shared/util";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";

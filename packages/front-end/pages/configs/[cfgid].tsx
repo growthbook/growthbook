@@ -13,18 +13,17 @@ import {
 } from "shared/permissions";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { ConstantInterface } from "shared/types/constant";
-import { ConfigInterface } from "shared/types/config";
-import { SchemaField, SimpleSchema } from "shared/types/feature";
+import type { ConstantInterface } from "shared/types/constant";
+import type { ConfigInterface } from "shared/types/config";
+import type { SchemaField, SimpleSchema } from "shared/types/feature";
+import type { Revision } from "shared/enterprise";
 import {
-  Revision,
   applyTopLevelPatchOps,
   getConstantRevisionChange,
 } from "shared/enterprise";
+import type { ConfigChainNode, SchemaProjection } from "shared/util";
 import {
   proposedArchivedValue,
-  ConfigChainNode,
-  SchemaProjection,
   computeConfigReconciliationPreview,
   configPublishEnvironments,
   constantRequiresReview,
@@ -43,10 +42,10 @@ import {
   restoredProjectScope,
   simpleToJSONSchema,
 } from "shared/util";
+import type { ConstantSource } from "shared/sdk-versioning";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
-  ConstantSource,
 } from "shared/sdk-versioning";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -111,15 +110,15 @@ import {
   getConstantSchemaBadges,
 } from "@/components/Constants/ConstantDiffRenders";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
+import type { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import {
   useConfigFamilyReferences,
   useConfigKeyUsage,
-  ConfigKeyImplementation,
 } from "@/hooks/useConstantReferences";
 import ConfigArchiveModal from "@/components/Configs/ConfigArchiveModal";
 import ConfigLockModal from "@/components/Configs/ConfigLockModal";
 import ConfigRevertModal from "@/components/Configs/ConfigRevertModal";
-import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
+import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LineageTree from "@/components/Configs/LineageTree";
@@ -130,10 +129,12 @@ import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
 import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
 import ConfigUsageSection from "@/components/Configs/ConfigUsageSection";
-import {
-  FIELD_GRID_TEMPLATE,
+import type {
   ResolvedField,
   LineageNode,
+} from "@/components/Configs/fieldSchema";
+import {
+  FIELD_GRID_TEMPLATE,
   blankField,
   isJsonField,
   fieldValueType,

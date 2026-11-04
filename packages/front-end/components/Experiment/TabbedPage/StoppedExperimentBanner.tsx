@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiClock, PiPencilSimple } from "react-icons/pi";
 import { date } from "shared/dates";
 import { getAllVariations } from "shared/experiments";
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";

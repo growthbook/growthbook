@@ -1,13 +1,14 @@
 import { createHmac } from "crypto";
-import Agenda, { Job } from "agenda";
-import { ReqContext } from "back-end/types/request";
+import type { Job } from "agenda";
+import type Agenda from "agenda";
+import type { ReqContext } from "back-end/types/request";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { formatLegacyCacheKey } from "back-end/src/models/SdkConnectionCacheModel";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 

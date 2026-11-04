@@ -1,10 +1,10 @@
-import { SessionReplayInterface } from "shared/validators";
+import type { SessionReplayInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
+import type { SessionReplayRow } from "back-end/src/services/clickhouse";
 import {
   listSessionReplays,
   getSessionReplayChunksBySessionId,
-  SessionReplayRow,
 } from "back-end/src/services/clickhouse";
 import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/session-replay";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";

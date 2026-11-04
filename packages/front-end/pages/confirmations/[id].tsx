@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
-import { ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import escapeRegExp from "lodash/escapeRegExp";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiTimer } from "react-icons/pi";

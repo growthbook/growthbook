@@ -1,9 +1,9 @@
+import type { ContextualBanditLinkageState } from "../../src/util/features";
 import {
-  ContextualBanditLinkageState,
   computeContextualBanditLinkageDelta,
   getContextualBanditIdsFromRules,
 } from "../../src/util/features";
-import { FeatureRule } from "../../types/feature";
+import type { FeatureRule } from "../../types/feature";
 
 function cbRule(
   contextualBanditId: string,

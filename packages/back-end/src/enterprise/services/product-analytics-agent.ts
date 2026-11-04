@@ -6,20 +6,22 @@ import {
   type AIChatMention,
   type AIChatToolResultPart,
 } from "shared/ai-chat";
-import {
-  datasetHasValues,
-  dateRangePredefined,
+import type {
   ExplorationConfig,
-  explorationConfigValidator,
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
+  datasetHasValues,
+  dateRangePredefined,
+  explorationConfigValidator,
+} from "shared/validators";
+import type {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
+import type { DataSourceInterface } from "shared/types/datasource";
 import {
   clearInapplicableShowAs,
   getEffectiveShowAs,

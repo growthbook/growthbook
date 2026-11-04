@@ -1,19 +1,16 @@
 import { createHash } from "crypto";
-import {
-  EventProperties,
-  GrowthBookClient,
-  setPolyfills,
-} from "@growthbook/growthbook";
+import type { EventProperties } from "@growthbook/growthbook";
+import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
-import { NextFunction, Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { AppFeatures } from "shared/types/app-features";
-import { OrganizationInterface } from "shared/types/organization";
+import type { AppFeatures } from "shared/types/app-features";
+import type { OrganizationInterface } from "shared/types/organization";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ReqContext } from "back-end/types/request";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ReqContext } from "back-end/types/request";
 import type { ApiRequestLocals } from "back-end/types/api";
 import {
   GB_SDK_ID,

@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 import request from "supertest";
-import { ApiKeyInterface } from "shared/types/apikey";
-import {
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { updateFactTableColumns } from "back-end/src/models/FactTableModel";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";

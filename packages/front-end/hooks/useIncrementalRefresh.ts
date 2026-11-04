@@ -1,4 +1,4 @@
-import { IncrementalRefreshInterface } from "shared/validators";
+import type { IncrementalRefreshInterface } from "shared/validators";
 import useApi from "./useApi";
 
 export function useIncrementalRefresh(experimentId: string) {

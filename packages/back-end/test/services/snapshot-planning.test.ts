@@ -1,23 +1,23 @@
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
-  ExperimentMetricInterface,
   expandDerivedMetricsInMap,
   getMetricSnapshotSettings,
 } from "shared/experiments";
-import { ExperimentInterface } from "shared/types/experiment";
-import { DataSourceInterface } from "shared/types/datasource";
-import {
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   ExperimentSnapshotReportInterface,
   LegacyExperimentReportArgs,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ApiReqContext } from "back-end/types/api";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
@@ -49,10 +49,8 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
-import {
-  FactTableMap,
-  getFactTableMap,
-} from "back-end/src/models/FactTableModel";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 

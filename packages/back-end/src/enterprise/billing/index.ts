@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/node";
-import { AccountPlan } from "shared/enterprise";
-import {
+import type { AccountPlan } from "shared/enterprise";
+import type {
   OrganizationInterface,
   OrganizationUsage,
 } from "shared/types/organization";

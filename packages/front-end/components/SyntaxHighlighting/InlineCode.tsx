@@ -1,9 +1,11 @@
-import { CSSProperties, Suspense, lazy } from "react";
+import type { CSSProperties } from "react";
+import { Suspense, lazy } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
-import { createElement, createElementProps } from "react-syntax-highlighter";
+import type { createElementProps } from "react-syntax-highlighter";
+import { createElement } from "react-syntax-highlighter";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { Language } from "./Code";
+import type { Language } from "./Code";
 import PrismFallback from "./PrismFallback";
 import { CODE_FONT_SIZE, CODE_LINE_HEIGHT, getCodeTheme } from "./codeTheme";
 

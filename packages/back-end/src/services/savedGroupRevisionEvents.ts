@@ -1,5 +1,5 @@
-import { Revision, JsonPatchOperation } from "shared/enterprise";
-import {
+import type { Revision, JsonPatchOperation } from "shared/enterprise";
+import type {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
@@ -8,9 +8,10 @@ import {
   revisionReference,
   webhookActor,
 } from "back-end/src/events/revisionReference";
-import { Context } from "back-end/src/models/BaseModel";
-import { ApiReqContext } from "back-end/types/api";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import type { Context } from "back-end/src/models/BaseModel";
+import type { ApiReqContext } from "back-end/types/api";
+import type { CreateEventData } from "back-end/src/models/EventModel";
+import { createEvent } from "back-end/src/models/EventModel";
 import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";

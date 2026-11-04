@@ -1,7 +1,7 @@
 import { createHmac } from "crypto";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import {
+import type {
   DiffResult,
   HierarchicalModification,
   SimpleModification,

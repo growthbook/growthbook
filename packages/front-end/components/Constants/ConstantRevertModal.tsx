@@ -1,7 +1,7 @@
-import { Revision } from "shared/enterprise";
-import { ConstantInterface } from "shared/types/constant";
+import type { Revision } from "shared/enterprise";
+import type { ConstantInterface } from "shared/types/constant";
 import RevertModal from "@/components/Revision/RevertModal";
-import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
+import type { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
 
 // Fields a constant revert can restore (mirrors the live + ops merge

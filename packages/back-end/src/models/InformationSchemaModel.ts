@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { z } from "zod";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import {
+import type {
   InformationSchema,
   InformationSchemaInterface,
 } from "shared/types/integrations";

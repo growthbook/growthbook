@@ -1,9 +1,7 @@
-import {
-  ExperimentsStatusBlockInterface,
-  getEffectiveExperimentBlock,
-} from "shared/enterprise";
+import type { ExperimentsStatusBlockInterface } from "shared/enterprise";
+import { getEffectiveExperimentBlock } from "shared/enterprise";
 import VelocityBlockChart from "./VelocityBlockChart";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function ExperimentsStatusBlock({
   block: rawBlock,

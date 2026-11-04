@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import {
   getDraftAffectedEnvironments,
@@ -18,7 +18,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
-import { DraftMode } from "@/components/DraftSelector";
+import type { DraftMode } from "@/components/DraftSelector";
 import SharedDraftSelectorForChanges from "@/components/DraftSelectorForChanges";
 
 export type { DraftMode };

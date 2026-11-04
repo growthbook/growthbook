@@ -1,12 +1,12 @@
-import { TemplateVariables } from "shared/types/sql";
-import {
+import type { TemplateVariables } from "shared/types/sql";
+import type {
   CappingType,
   LegacyMetricWindowSettings,
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
-import { Queries } from "./query";
+import type { Queries } from "./query";
 
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";

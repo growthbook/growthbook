@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { OpenApiModelSpec } from "../api-model";
+import type { OpenApiModelSpec } from "../api-model";
 import {
   apiCreatePopulationBody,
   apiPopulationValidator,

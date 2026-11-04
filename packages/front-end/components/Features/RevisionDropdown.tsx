@@ -1,6 +1,6 @@
-import { ReactNode } from "react";
-import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ReactNode } from "react";
+import type { FeatureInterface } from "shared/types/feature";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { dateNoYear } from "shared/dates";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
@@ -12,9 +12,8 @@ import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge, {
   isRampGenerated,
 } from "@/components/Reviews/RevisionStatusBadge";
-import SharedRevisionDropdown, {
-  RevisionDropdownRow,
-} from "@/components/Reviews/RevisionDropdown";
+import type { RevisionDropdownRow } from "@/components/Reviews/RevisionDropdown";
+import SharedRevisionDropdown from "@/components/Reviews/RevisionDropdown";
 
 export interface Props {
   feature: FeatureInterface;

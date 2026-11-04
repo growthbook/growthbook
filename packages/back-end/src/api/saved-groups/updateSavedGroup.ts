@@ -1,8 +1,8 @@
 import { isEqual } from "lodash";
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import { validateCondition } from "shared/util";
 import { updateSavedGroupValidator } from "shared/validators";
-import { UpdateSavedGroupProps } from "shared/types/saved-group";
+import type { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { landDirectChange } from "back-end/src/revisions/revertActions";

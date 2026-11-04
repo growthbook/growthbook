@@ -2,8 +2,9 @@ import {
   canStageArchiveDraft,
   canWriteArchiveIntoDraft,
 } from "shared/permissions";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision, getApprovalFlowSettings } from "shared/enterprise";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { Revision } from "shared/enterprise";
+import { getApprovalFlowSettings } from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";

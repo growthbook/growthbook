@@ -1,7 +1,7 @@
-import { SliceDataForMetric } from "shared/experiments";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { ExperimentReportResultDimension } from "shared/types/report";
-import { SnapshotVariation } from "shared/types/experiment-snapshot";
+import type { SliceDataForMetric } from "shared/experiments";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ExperimentReportResultDimension } from "shared/types/report";
+import type { SnapshotVariation } from "shared/types/experiment-snapshot";
 import { generateDimensionRowsForMetric } from "@/hooks/useExperimentDimensionRows";
 
 const METRIC_ID = "fact__revenue";

@@ -1,5 +1,6 @@
-import { EventWebHookInterface } from "shared/types/event-webhook";
-import React, { FC, useRef, useCallback, useState } from "react";
+import type { EventWebHookInterface } from "shared/types/event-webhook";
+import type { FC } from "react";
+import React, { useRef, useCallback, useState } from "react";
 import pick from "lodash/pick";
 import { useRouter } from "next/router";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
@@ -12,8 +13,8 @@ import { useAuth } from "@/services/auth";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import type { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import {
-  EventWebHookEditParams,
   useIconForState,
   WebhookIcon,
   displayedEvents,

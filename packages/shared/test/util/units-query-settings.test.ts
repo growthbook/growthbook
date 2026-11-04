@@ -1,5 +1,5 @@
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 
 describe("buildUnitsQuerySettingsFromSnapshot", () => {
   it("uses the exposure query exactly as given, ignoring the snapshot's stored identifier", () => {

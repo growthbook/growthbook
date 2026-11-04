@@ -1,11 +1,11 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiInfoFill } from "react-icons/pi";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
 import StartModalSection from "@/components/Experiment/StartModalSection";
 import { StartSummary } from "./StartSections";
-import { StartExperiment } from "./useStartExperiment";
+import type { StartExperiment } from "./useStartExperiment";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

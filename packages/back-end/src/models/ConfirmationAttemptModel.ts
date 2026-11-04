@@ -1,7 +1,5 @@
-import {
-  ConfirmationNotice,
-  confirmationAttemptValidator,
-} from "shared/validators";
+import type { ConfirmationNotice } from "shared/validators";
+import { confirmationAttemptValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

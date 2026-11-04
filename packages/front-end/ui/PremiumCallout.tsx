@@ -1,19 +1,20 @@
-import { CommercialFeature } from "shared/enterprise";
+import type { CommercialFeature } from "shared/enterprise";
 import {
   Flex,
   IconButton,
   Callout as RadixCallout,
   Text,
 } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useState } from "react";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
-import { DocLink, DocSection } from "@/components/DocLink";
+import type { DocSection } from "@/components/DocLink";
+import { DocLink } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { radixSize } from "@/ui/sizes";
-import { Size } from "@/ui/HelperText";
+import type { Size } from "@/ui/HelperText";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Link from "@/ui/Link";
 import styles from "./Callout.module.scss";

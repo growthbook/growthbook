@@ -2,9 +2,9 @@ import { z } from "zod";
 import { stringToBoolean } from "shared/util";
 import type { AIAgentPendingAction } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
+import type { SlackThreadIdentity } from "back-end/src/services/slack/slackTaskSafety";
 import {
   SlackThreadBusyError,
-  SlackThreadIdentity,
   slackTaskKey,
   isCurrentSlackApproval,
   slackConversationId,

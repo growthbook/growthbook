@@ -1,7 +1,8 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import type { FC } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceType,
   SchemaFormat,
@@ -9,7 +10,7 @@ import {
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSourceLayout";
 import { PASSWORD_USER_TYPES } from "@/components/DataSourceSetup/connectDataSourceHelpers";
-import { ConnectSetupKind } from "@/components/DataSourceSetup/DataSourceConnectInstructions";
+import type { ConnectSetupKind } from "@/components/DataSourceSetup/DataSourceConnectInstructions";
 import { defaultEventForwarderDestination } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import { generateStrongPassword } from "@/components/DataSourceSetup/generateStrongPassword";
 import LoadingOverlay from "@/components/LoadingOverlay";

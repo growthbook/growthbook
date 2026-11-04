@@ -1,6 +1,6 @@
 import { format } from "shared/sql";
-import { DropOldIncrementalUnitsQueryParams } from "shared/types/integrations";
-import { SqlDialect } from "shared/types/sql";
+import type { DropOldIncrementalUnitsQueryParams } from "shared/types/integrations";
+import type { SqlDialect } from "shared/types/sql";
 import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 
 export function getDropOldIncrementalUnitsQuery(

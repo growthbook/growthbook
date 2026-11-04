@@ -1,10 +1,10 @@
 import format from "date-fns/format";
 import { dateNoYear } from "shared/dates";
-import {
+import type {
   AuditDiffConfig,
   AuditEventMarker,
   CoarsenedAuditEntry,
-  type DiffBadge,
+  DiffBadge,
 } from "./types";
 
 // ---- Shared diff-viewer styles ----

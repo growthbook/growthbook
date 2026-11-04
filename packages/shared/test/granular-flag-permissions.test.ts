@@ -1,12 +1,10 @@
+import type { Policy, RevisionAction, RevisionModel } from "../src/permissions";
 import {
   ALL_PERMISSIONS,
   DEPRECATED_POLICIES,
   ENV_SCOPED_PERMISSIONS,
   POLICY_PERMISSION_MAP,
-  Policy,
   REVISION_PERMISSIONS,
-  RevisionAction,
-  RevisionModel,
   permissionsFromRole,
   roleSupportsEnvLimitFromRole,
 } from "../src/permissions";

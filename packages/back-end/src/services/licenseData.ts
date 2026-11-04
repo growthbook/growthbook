@@ -1,13 +1,13 @@
 import path from "path";
 import fs from "fs";
 import md5 from "md5";
-import { LicenseUserCodes } from "shared/enterprise";
-import {
+import type { LicenseUserCodes } from "shared/enterprise";
+import type {
   MemberRole,
   OrgMemberInfo,
   OrganizationInterface,
 } from "shared/types/organization";
-import { TeamInterface } from "shared/types/team";
+import type { TeamInterface } from "shared/types/team";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
 import {
   getInstallation,

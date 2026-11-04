@@ -1,4 +1,4 @@
-import { EventForwarderSinkType } from "shared/types/event-forwarder";
+import type { EventForwarderSinkType } from "shared/types/event-forwarder";
 import {
   EVENT_FORWARDER_WAREHOUSE_AREAS,
   getGrowthBookRegionForWarehouseRegion,

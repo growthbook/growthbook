@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { listFeaturesV2 } from "./listFeaturesV2";
 import { getFeatureV2 } from "./getFeatureV2";
 import { postFeatureV2 } from "./postFeatureV2";

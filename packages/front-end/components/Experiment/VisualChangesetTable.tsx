@@ -1,6 +1,7 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
-import { LinkedChangeEnvStates } from "shared/types/experiment";
-import {
+import type { FC } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import type { LinkedChangeEnvStates } from "shared/types/experiment";
+import type {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
@@ -34,9 +35,8 @@ import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
 import { ICON_PROPERTIES } from "./LinkedChanges/constants";
 import type { VisualChangesetOwnerView } from "./visualChangesetOwner";
+import type { ChangeType, Humanized } from "./visualChangesetHumanize";
 import {
-  ChangeType,
-  Humanized,
   humanizeGlobalBlock,
   humanizeMutation,
 } from "./visualChangesetHumanize";

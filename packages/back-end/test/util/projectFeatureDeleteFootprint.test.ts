@@ -1,5 +1,5 @@
-import { FeatureInterface } from "shared/types/feature";
-import { Environment } from "shared/types/organization";
+import type { FeatureInterface } from "shared/types/feature";
+import type { Environment } from "shared/types/organization";
 import { projectFeatureDeleteFootprint } from "back-end/src/util/features";
 
 const orgEnvs: Environment[] = [

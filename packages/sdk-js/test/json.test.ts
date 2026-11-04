@@ -1,19 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import {
-  clearCache,
+import type {
   Context,
   Experiment,
   FeatureApiResponse,
   FeatureResult,
-  GrowthBook,
-  GrowthBookClient,
-  LocalStorageStickyBucketService,
   PayloadFilters,
   Result,
 } from "../src";
-import { evalCondition, pruneCondition } from "../src/mongrule";
 import {
+  clearCache,
+  GrowthBook,
+  GrowthBookClient,
+  LocalStorageStickyBucketService,
+} from "../src";
+import { evalCondition, pruneCondition } from "../src/mongrule";
+import type {
   SavedGroupsValues,
   SavedGroupsPayload,
   StickyAssignmentsDocument,

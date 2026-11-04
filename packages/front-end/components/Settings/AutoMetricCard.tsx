@@ -1,7 +1,7 @@
 import { ago } from "shared/dates";
 import { cloneDeep } from "lodash";
 import { useState } from "react";
-import { AutoMetricTrackedEvent } from "shared/types/integrations";
+import type { AutoMetricTrackedEvent } from "shared/types/integrations";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
 import Button from "@/components/Button";

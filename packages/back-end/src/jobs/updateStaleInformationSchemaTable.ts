@@ -1,4 +1,5 @@
-import Agenda, { Job } from "agenda";
+import type { Job } from "agenda";
+import type Agenda from "agenda";
 import { refreshInformationSchemaTable } from "back-end/src/services/informationSchema";
 import { logger } from "back-end/src/util/logger";
 import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";

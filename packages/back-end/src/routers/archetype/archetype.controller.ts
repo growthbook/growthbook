@@ -1,13 +1,16 @@
 import type { Response } from "express";
 import { filterEnvironmentsByFeature, namespacesToMap } from "shared/util";
-import {
+import type {
   ArchetypeAttributeValues,
   ArchetypeInterface,
 } from "shared/types/archetype";
-import { FeatureTestResult } from "shared/types/feature";
+import type { FeatureTestResult } from "shared/types/feature";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse, PrivateApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type {
+  ApiErrorResponse,
+  PrivateApiErrorResponse,
+} from "back-end/types/api";
 import {
   getEnvironments,
   getContextFromReq,

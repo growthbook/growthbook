@@ -1,11 +1,12 @@
-import { ExperimentSnapshotTrafficDimension } from "shared/types/experiment-snapshot";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentSnapshotTrafficDimension } from "shared/types/experiment-snapshot";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
-import { getSRMHealthData, SRMHealthStatus } from "shared/health";
+import type { SRMHealthStatus } from "shared/health";
+import { getSRMHealthData } from "shared/health";
 import {
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -19,16 +20,15 @@ import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUse
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import SRMWarning from "@/components/Experiment/SRMWarning";
-import {
-  HealthTabConfigParams,
-  HealthTabOnboardingModal,
-} from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import type { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import { HealthTabOnboardingModal } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { EXPERIMENT_DIMENSION_PREFIX } from "./SRMCard";
 import HealthCard from "./HealthCard";
-import { IssueTags, IssueValue } from "./IssueTags";
+import type { IssueValue } from "./IssueTags";
+import { IssueTags } from "./IssueTags";
 
 interface Props {
   dimensionData: {

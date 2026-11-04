@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
-import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
-import { Revision } from "shared/enterprise";
+import type {
+  ConstantInterface,
+  ConstantWithoutValue,
+} from "shared/types/constant";
+import type { Revision } from "shared/enterprise";
 import { filterProjectsByEnvironment } from "shared/util";
 import {
   validateResolvableValue,
@@ -21,10 +24,8 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
-import {
-  useConstantDraftTarget,
-  ConstantRevisionContext,
-} from "@/components/Constants/useConstantDraftTarget";
+import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
+import { useConstantDraftTarget } from "@/components/Constants/useConstantDraftTarget";
 
 type FormValues = {
   value: string;

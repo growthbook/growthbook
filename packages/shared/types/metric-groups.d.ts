@@ -1,7 +1,7 @@
-import { z } from "zod";
+import type { z } from "zod";
 
-import { CreateProps } from "shared/types/base-model";
-import { metricGroupValidator } from "../validators";
+import type { CreateProps } from "shared/types/base-model";
+import type { metricGroupValidator } from "../validators";
 
 export type MetricGroupInterface = z.infer<typeof metricGroupValidator>;
 

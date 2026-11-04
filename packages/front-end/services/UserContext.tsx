@@ -1,5 +1,5 @@
-import { TeamInterface } from "shared/types/team";
-import {
+import type { TeamInterface } from "shared/types/team";
+import type {
   EnvScopedPermission,
   GlobalPermission,
   ExpandedMember,
@@ -18,11 +18,11 @@ import type {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { SSOConnectionInterface } from "shared/types/sso-connection";
+import type { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useRouter } from "next/router";
+import type { ReactNode } from "react";
 import {
   createContext,
-  ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -43,12 +43,12 @@ import {
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import Cookies from "js-cookie";
-import {
+import type {
   AgreementType,
   SdkPayloadSizeAlert,
   SuperAdmin,
 } from "shared/validators";
-import { AIProvider, STTModel } from "shared/ai";
+import type { AIProvider, STTModel } from "shared/ai";
 import { NonJsonResponseError } from "shared/util";
 import { z } from "zod";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
@@ -62,7 +62,8 @@ import {
   usingSSO,
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
-import { useAuth, UserOrganizations } from "@/services/auth";
+import type { UserOrganizations } from "@/services/auth";
+import { useAuth } from "@/services/auth";
 import { ApiCallError } from "@/services/apiCallError";
 import { getJitsuClient, trackPageView } from "@/services/track";
 import { getOrGeneratePageId, growthbook } from "@/services/utils";

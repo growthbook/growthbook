@@ -5,10 +5,12 @@ import type {
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import type { QueryStatus } from "shared/types/query";
-import expireOldQueries, {
-  classifyStalledSnapshot,
+import type {
   StalledQueryStatus,
   StalledSnapshotVerdict,
+} from "back-end/src/jobs/expireOldQueries";
+import expireOldQueries, {
+  classifyStalledSnapshot,
 } from "back-end/src/jobs/expireOldQueries";
 import {
   dangerousFindStalledRunningSnapshotsFromAllOrgs,

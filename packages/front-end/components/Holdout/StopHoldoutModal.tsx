@@ -1,5 +1,5 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";

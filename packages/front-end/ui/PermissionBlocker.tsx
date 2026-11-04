@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { PiProhibitInset } from "react-icons/pi";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import HelperText, { Size } from "@/ui/HelperText";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { Size } from "@/ui/HelperText";
+import HelperText from "@/ui/HelperText";
 
 /**
  * The one way a permission denial is explained next to a disabled control:

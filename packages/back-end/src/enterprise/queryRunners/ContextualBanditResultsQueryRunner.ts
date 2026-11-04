@@ -1,20 +1,17 @@
-import { Queries, QueryStatus } from "shared/types/query";
-import { UpdateProps } from "shared/types/base-model";
-import {
+import type { Queries, QueryStatus } from "shared/types/query";
+import type { UpdateProps } from "shared/types/base-model";
+import type {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
   ContextualBanditSrmLatestPeriod,
   ContextualBanditAnalysisSummary,
-  queryHasContextualBanditSrmColumns,
 } from "shared/validators";
+import { queryHasContextualBanditSrmColumns } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
-import {
-  ExperimentMetricInterface,
-  getFactMetricFactTableIds,
-  isFactMetric,
-} from "shared/experiments";
-import {
+import type { ExperimentMetricInterface } from "shared/experiments";
+import { getFactMetricFactTableIds, isFactMetric } from "shared/experiments";
+import type {
   ContextualBanditSrmQueryResponseRows,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
@@ -33,11 +30,10 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getIntegrationIdentifierQuote } from "back-end/src/services/datasource";
 import { hasUsableContextualBanditTargeting } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { logger } from "back-end/src/util/logger";
-import {
-  ContextualBanditResult,
-  runContextualStatsEngine,
-} from "back-end/src/enterprise/services/contextualBanditStats";
-import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
+import type { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
+import { runContextualStatsEngine } from "back-end/src/enterprise/services/contextualBanditStats";
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { QueryRunner } from "back-end/src/queryRunners/QueryRunner";
 import { chi2pvalue } from "back-end/src/util/stats";
 import { analyzeExperimentTraffic } from "back-end/src/services/stats";
 

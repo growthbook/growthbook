@@ -2,15 +2,17 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { isEqual, isUndefined, omit, omitBy } from "lodash";
-import {
-  managedByValidator,
+import type {
   ManagedBy,
   ApiSdkConnection,
-  savedGroupFormatValidator,
   SdkPayloadSize,
   SdkPayloadSizeLevel,
 } from "shared/validators";
 import {
+  managedByValidator,
+  savedGroupFormatValidator,
+} from "shared/validators";
+import type {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
   ProxyConnection,
@@ -31,8 +33,8 @@ import {
   PROXY_HOST_PUBLIC,
 } from "back-end/src/util/secrets";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";

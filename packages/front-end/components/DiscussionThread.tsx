@@ -1,5 +1,6 @@
-import { FC, useState } from "react";
-import {
+import type { FC } from "react";
+import { useState } from "react";
+import type {
   DiscussionParentType,
   DiscussionInterface,
   Comment,

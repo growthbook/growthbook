@@ -1,4 +1,5 @@
-import React, { ReactElement, useState } from "react";
+import type { ReactElement } from "react";
+import React, { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
   PiCheck,
@@ -6,9 +7,9 @@ import {
   PiPaperPlaneTilt,
   PiWarningFill,
 } from "react-icons/pi";
-import { WebhookInterface } from "shared/types/webhook";
+import type { WebhookInterface } from "shared/types/webhook";
 import { ago } from "shared/dates";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useApi from "@/hooks/useApi";
 import EditSDKWebhooksModal, {
   CreateSDKWebhookModal,

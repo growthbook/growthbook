@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
-import { ReactElement, useEffect, useState } from "react";
+import type { ReactElement } from "react";
+import { useEffect, useState } from "react";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";

@@ -1,8 +1,8 @@
 import React from "react";
-import { Queries } from "shared/types/query";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
-import {
+import type { Queries } from "shared/types/query";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import type {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";

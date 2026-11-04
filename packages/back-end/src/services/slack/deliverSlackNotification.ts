@@ -5,15 +5,13 @@ import type { KnownBlock } from "@slack/types";
 import { sendEventWebhook } from "back-end/src/events/handlers/webhooks/sendEventWebhook";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EventWebHookResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import type { SlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
-  SlackMessage,
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
-import {
-  renderNotificationCard,
-  RenderedNotificationCard,
-} from "back-end/src/services/notificationCards/renderNotificationCard";
+import type { RenderedNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import {
   alertFooterBlock,
   alertFooterText,

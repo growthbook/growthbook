@@ -1,4 +1,4 @@
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import {
   getFactMetricFactTableIds,
@@ -13,19 +13,20 @@ import {
   getExposureQueryIdentifierTypes,
 } from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
-import {
+import type {
   MetricAnalysisParams,
   MetricAnalysisQueryResponseRows,
 } from "shared/types/integrations";
-import {
+import type {
   MetricAnalysisHistogram,
   MetricAnalysisInterface,
   MetricAnalysisResult,
 } from "shared/types/metric-analysis";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { Queries, QueryStatus } from "shared/types/query";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { Queries, QueryStatus } from "shared/types/query";
 import { getMetricWithFiltersApplied } from "back-end/src/services/metric-analysis";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import type { QueryMap } from "./QueryRunner";
+import { QueryRunner } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisInterface,

@@ -37,7 +37,8 @@ import {
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { getBuild } from "./util/build";
-import { setMetrics, Attributes } from "./util/metrics";
+import type { Attributes } from "./util/metrics";
+import { setMetrics } from "./util/metrics";
 
 const envLevel = (process.env.OTEL_LOG_LEVEL ?? "").toUpperCase();
 const logLevel =

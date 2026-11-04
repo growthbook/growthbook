@@ -3,14 +3,13 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
 import { abbreviateAgo } from "shared/dates";
-import {
-  isReadyForApproval,
-  isAwaitingStartApproval,
+import type {
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
   StepHoldConditions,
 } from "shared/validators";
+import { isReadyForApproval, isAwaitingStartApproval } from "shared/validators";
 import stringify from "json-stringify-pretty-compact";
 import { isRampScheduleServing } from "shared/util";
 import Text from "@/ui/Text";
@@ -21,10 +20,8 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import { coveragePercentFormatter } from "@/services/utils";
-import {
-  NodeState,
-  resolveNodeStatus,
-} from "@/components/RampSchedule/rampTimelineStatus";
+import type { NodeState } from "@/components/RampSchedule/rampTimelineStatus";
+import { resolveNodeStatus } from "@/components/RampSchedule/rampTimelineStatus";
 import styles from "./RampTimeline.module.scss";
 
 // ─── helpers ────────────────────────────────────────────────────────────────

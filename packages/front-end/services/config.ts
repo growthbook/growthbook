@@ -1,9 +1,9 @@
-import { MetricInterface } from "shared/types/metric";
+import type { MetricInterface } from "shared/types/metric";
 import { useMemo } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
-import { OrganizationSettings } from "shared/types/organization";
-import { SegmentInterface } from "shared/types/segment";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { SegmentInterface } from "shared/types/segment";
 
 type Props = {
   metrics: MetricInterface[];

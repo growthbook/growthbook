@@ -1,20 +1,21 @@
 import type { Response } from "express";
-import { FilterQuery } from "mongoose";
-import { z } from "zod";
-import { SegmentInterface } from "shared/types/segment";
-import {
+import type { FilterQuery } from "mongoose";
+import type { z } from "zod";
+import type { SegmentInterface } from "shared/types/segment";
+import type {
   createSegmentModelValidator,
   updateSegmentModelValidator,
 } from "shared/validators";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { MetricInterface } from "shared/types/metric";
-import { ExperimentInterface } from "shared/types/experiment";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { MetricInterface } from "shared/types/metric";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getIdeasByQuery } from "back-end/src/services/ideas";
-import { IdeaDocument, IdeaModel } from "back-end/src/models/IdeasModel";
+import type { IdeaDocument } from "back-end/src/models/IdeasModel";
+import { IdeaModel } from "back-end/src/models/IdeasModel";
 import {
   getMetricsUsingSegment,
   removeSegmentFromAllMetrics,

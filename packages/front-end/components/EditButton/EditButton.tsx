@@ -1,4 +1,4 @@
-import { FC, CSSProperties } from "react";
+import type { FC, CSSProperties } from "react";
 import clsx from "clsx";
 import { PiPencilSimpleFill } from "react-icons/pi";
 

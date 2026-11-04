@@ -1,19 +1,17 @@
-import {
-  ExperimentMetricInterface,
-  metricRowAttributeReader,
-} from "shared/experiments";
-import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
-import {
+import type { ExperimentMetricInterface } from "shared/experiments";
+import { metricRowAttributeReader } from "shared/experiments";
+import type { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
-import {
-  computeContextualBanditWeights,
-  type ContextualBanditArm,
-  type ContextualBanditObservation,
+import type {
   ContextualBanditWeightsInput,
+  ContextualBanditArm,
+  ContextualBanditObservation,
 } from "stats-ts";
+import { computeContextualBanditWeights } from "stats-ts";
 import {
   getAnalysisSettingsForStatsEngine,
   getMetricSettingsForStatsEngine,

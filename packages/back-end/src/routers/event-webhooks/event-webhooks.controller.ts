@@ -1,18 +1,18 @@
 import type { Response } from "express";
-import {
+import type {
   EventWebHookRequestBody,
   CreateWebhookSecretProps,
   UpdateWebhookSecretProps,
 } from "shared/validators";
-import {
+import type {
   EventWebHookInterface,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
-import {
+import type {
   EventWebHookLegacyLogInterface,
   EventWebHookLogInterface,
 } from "shared/types/event-webhook-log";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 import * as EventWebHook from "back-end/src/models/EventWebhookModel";
 import {
   deleteEventWebHookById,
@@ -22,7 +22,7 @@ import {
 } from "back-end/src/models/EventWebhookModel";
 import * as EventWebHookLog from "back-end/src/models/EventWebHookLogModel";
 
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { cancellableFetch } from "back-end/src/util/http.util";
 

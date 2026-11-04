@@ -1,4 +1,7 @@
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import type {
+  ColumnInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
 import {
   getFactTableIdColumn,
   getFactTableTimestampColumn,

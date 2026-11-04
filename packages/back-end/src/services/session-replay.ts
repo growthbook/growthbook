@@ -1,10 +1,7 @@
 import { promisify } from "util";
 import zlib from "zlib";
-import {
-  getSessionReplayObjectBuffer,
-  listSessionReplayChunks,
-  SessionReplayRegion,
-} from "./files";
+import type { SessionReplayRegion } from "./files";
+import { getSessionReplayObjectBuffer, listSessionReplayChunks } from "./files";
 
 const gunzip = promisify(zlib.gunzip);
 

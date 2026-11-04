@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ApiPopulation, ProductAnalyticsExploration } from "shared/validators";
+import type {
+  ApiPopulation,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DailyBarChart from "@/components/QueryPreview/DailyBarChart";

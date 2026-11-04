@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { v4 as uuidv4 } from "uuid";
-import mongoose, { FilterQuery } from "mongoose";
-import {
+import type { FilterQuery } from "mongoose";
+import mongoose from "mongoose";
+import type {
   AnyBulkWriteOperation,
   Collection,
   Document,
@@ -13,32 +14,32 @@ import { z } from "zod";
 import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { PermissionError } from "shared/util";
-import { BaseSchemaWithPrimaryKey } from "shared/validators";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { EntityType, EventType } from "shared/types/audit";
-import {
+import type { BaseSchemaWithPrimaryKey } from "shared/validators";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { EntityType, EventType } from "shared/types/audit";
+import type {
   ApiBaseSchema,
   CrudAction,
   CrudValidatorOverrides,
   DefaultCrudValidators,
 } from "shared/api-model";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
   createModelAuditLogger,
   type AuditLogConfig,
 } from "back-end/src/services/audit";
-import {
+import type {
   ForeignKeys,
   ForeignRefs,
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
-import { ApiRequest } from "back-end/src/util/handler";
-import { ApiModelConfig } from "back-end/src/api/apiModelHandlers";
+import type { ApiRequest } from "back-end/src/util/handler";
+import type { ApiModelConfig } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
+import type { DefinitionsVersionScope } from "back-end/src/models/DefinitionsVersionModel";
 import {
-  DefinitionsVersionScope,
   definitionsScope,
   touchDefinitionsVersion,
 } from "back-end/src/models/DefinitionsVersionModel";

@@ -13,10 +13,10 @@ import {
   PiSigma,
   PiTarget,
 } from "react-icons/pi";
-import { CommercialFeature } from "shared/enterprise";
+import type { CommercialFeature } from "shared/enterprise";
 import { Select, SelectGroup, SelectItem, SelectLabel } from "@/ui/Select";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
+import type { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import styles from "./MetricTypeSelect.module.scss";
 
 export const TYPE_LABELS: Record<FormMetricType, string> = {

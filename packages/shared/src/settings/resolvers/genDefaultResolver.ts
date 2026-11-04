@@ -1,5 +1,5 @@
 import { get } from "lodash";
-import { Settings, ScopeDefinition, SettingsResolver } from "../types";
+import type { Settings, ScopeDefinition, SettingsResolver } from "../types";
 
 const scopeOrder: Array<keyof ScopeDefinition> = [
   "project",

@@ -1,6 +1,7 @@
-import { NO_ENVIRONMENT_BINDING, RevisionModel } from "shared/permissions";
+import type { RevisionModel } from "shared/permissions";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isArchiveTransition } from "shared/util";
-import { Revision, RevisionTargetType } from "shared/enterprise";
+import type { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
@@ -9,15 +10,15 @@ import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
+import type { buildPatchOps } from "back-end/src/revisions/util";
 import {
   ensureLiveRevisionExists,
   createOrUpdateRevision,
   applyPatchToSnapshot,
-  buildPatchOps,
 } from "back-end/src/revisions/util";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import {

@@ -1,13 +1,13 @@
 import type { Response } from "express";
 import { omit } from "lodash";
-import {
+import type {
   MetricTimeSeries,
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";

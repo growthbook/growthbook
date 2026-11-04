@@ -1,21 +1,23 @@
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import {
   archiveConstantValidator,
   unarchiveConstantValidator,
 } from "shared/validators";
-import { ConstantInterface } from "shared/types/constant";
+import type { ConstantInterface } from "shared/types/constant";
 import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
+import type { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import type {
+  PublishGate,
+  BypassedGate,
+} from "back-end/src/revisions/publishGates";
 import {
   evaluatePublishGates,
   PublishBlockedError,
-  PublishGate,
-  BypassedGate,
 } from "back-end/src/revisions/publishGates";
 import {
   buildPatchOps,

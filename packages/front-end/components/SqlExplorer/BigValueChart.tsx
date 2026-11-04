@@ -1,6 +1,6 @@
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import React, { type ReactNode } from "react";
-import { BigValueFormat } from "shared/validators";
+import type { BigValueFormat } from "shared/validators";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency } from "@/services/metrics";
 

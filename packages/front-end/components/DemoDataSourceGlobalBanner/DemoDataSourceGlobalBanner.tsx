@@ -1,10 +1,12 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import type { FC } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { PiCaretDownFill } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { AuthContextValue, useAuth } from "@/services/auth";
+import type { AuthContextValue } from "@/services/auth";
+import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";

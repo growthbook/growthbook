@@ -3,22 +3,22 @@ import type {
   FeatureRule,
   FeaturePrerequisite,
   FeatureRulePatch,
-} from "shared/validators";
-import {
   apiRevisionRampCreateAction,
   RampMonitoringConfig,
   RevisionRampCreateAction,
+} from "shared/validators";
+import {
   ACTIVE_DRAFT_STATUSES,
   inlineRampScheduleInput,
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
-import { z } from "zod";
+import type { z } from "zod";
+import type { FeatureRuleScope } from "shared/util";
 import {
   rampPlanLacksHashAttribute,
   getRuleAttributeScopeProjectIds,
   findStoredRuleCounterpart,
   getNewlyUnscopedRules,
-  FeatureRuleScope,
   stemRuleId,
   validateCondition,
   validatePrerequisiteCondition,
@@ -54,7 +54,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 import {

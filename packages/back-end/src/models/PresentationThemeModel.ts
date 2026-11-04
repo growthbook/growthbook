@@ -1,4 +1,4 @@
-import { PresentationThemeInterface } from "shared/types/presentation";
+import type { PresentationThemeInterface } from "shared/types/presentation";
 import { presentationThemeValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 

@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getMetric } from "./getMetric";
 import { listMetrics } from "./listMetrics";
 import { listMetricExperiments } from "./listMetricExperiments";

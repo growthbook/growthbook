@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ApiKeyInterface } from "shared/types/apikey";
-import { WebhookInterface } from "shared/types/webhook";
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type { WebhookInterface } from "shared/types/webhook";
 import SDKConnectionsList from "@/components/Features/SDKConnections/SDKConnectionsList";
 import SDKEndpoints, {
   getPublishableKeys,

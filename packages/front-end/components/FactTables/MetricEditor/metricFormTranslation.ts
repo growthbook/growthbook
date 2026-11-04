@@ -1,4 +1,4 @@
-import {
+import type {
   ColumnAggregation,
   ColumnInterface,
   ColumnRef,
@@ -14,7 +14,7 @@ import {
   getFactTableTimestampColumn,
   getFactTableIdColumn,
 } from "shared/experiments";
-import { SqlDialect } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { getInitialInlineFilters } from "@/services/metrics";
 import { isMergeAggregationMetric } from "@/services/factMetrics";
 import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";

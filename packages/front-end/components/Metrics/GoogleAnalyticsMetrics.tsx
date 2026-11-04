@@ -1,5 +1,6 @@
-import { FC, Fragment, HTMLProps } from "react";
-import { MetricType } from "shared/types/metric";
+import type { FC, HTMLProps } from "react";
+import { Fragment } from "react";
+import type { MetricType } from "shared/types/metric";
 
 const GoogleAnalyticsMetrics: FC<{
   type: MetricType;

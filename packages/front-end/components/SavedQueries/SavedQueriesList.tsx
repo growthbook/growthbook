@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { date, datetime } from "shared/dates";
-import { SavedQuery } from "shared/validators";
+import type { SavedQuery } from "shared/validators";
 import { blockHasFieldOfType } from "shared/enterprise";
 import { isString } from "shared/util";
 import { BiShow } from "react-icons/bi";

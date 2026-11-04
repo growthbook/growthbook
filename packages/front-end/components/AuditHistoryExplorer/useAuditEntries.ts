@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
+import type {
   AuditInterface,
   AuditUserApiKey,
   AuditUserLoggedIn,
@@ -7,7 +7,7 @@ import {
 } from "shared/types/audit";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/services/auth";
-import {
+import type {
   AuditDiffConfig,
   AuditEventMarker,
   AuditUserInfo,

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import type { MergeResultChanges } from "shared/util";
 import {
   checkIfRevisionNeedsReview,
   featureMetadataEnvelope,
@@ -11,22 +12,24 @@ import {
   getRevisionReviewRequirement,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
-  MergeResultChanges,
   rebasedRevisionChanges,
   REBASED_REVISION_FIELDS,
 } from "shared/util";
-import {
+import type {
   FeatureInterface,
   FeatureRule,
   V1FeatureRule,
   V1FeatureRevisionInterface,
 } from "shared/types/feature";
-import {
+import type {
   FeatureRevisionInterface,
   RevisionLog,
   RevisionChanges,
 } from "shared/types/feature-revision";
-import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
+import type {
+  EventUser,
+  EventUserLoggedIn,
+} from "shared/types/events/event-types";
 import {
   REVIEW_CYCLE_STATUSES,
   isSameReviewCycle,
@@ -34,36 +37,36 @@ import {
   reviewCycleSupersededMessage,
   statusFromStandingVerdicts,
 } from "shared/enterprise";
-import { Environment, OrganizationInterface } from "shared/types/organization";
-import {
+import type {
+  Environment,
+  OrganizationInterface,
+} from "shared/types/organization";
+import type {
   MinimalFeatureRevisionInterface,
   ActiveDraftStatus,
-  ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
   RevisionRampAction,
   RevisionReview,
-  eventUserIdentity,
 } from "shared/validators";
+import { ACTIVE_DRAFT_STATUSES, eventUserIdentity } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { editDisarmsFeatureDraft } from "back-end/src/services/confirmations";
-import {
-  featureForSavedGroupValidation,
-  Feature as SavedGroupScopeFeature,
-} from "back-end/src/util/savedGroupProjectScope.util";
+import type { Feature as SavedGroupScopeFeature } from "back-end/src/util/savedGroupProjectScope.util";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import { ConflictError } from "back-end/src/util/errors";
 import {
   getFeatureRevisionValueUpdatesForPublish,
   normalizeFeatureJSONValues,
 } from "back-end/src/util/featureValues";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { V1RulesByEnv } from "back-end/src/util/flattenRules";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   isPlausibleFeatureRule,
   isV2RevisionRules,
   narrowRuleToApplicableEnvs,
-  V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import {
   normalizeJsonSchemaDef,

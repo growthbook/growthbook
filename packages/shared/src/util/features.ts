@@ -1,18 +1,19 @@
-import Ajv, { ValidateFunction } from "ajv";
+import type { ValidateFunction } from "ajv";
+import Ajv from "ajv";
 import { differenceInDays, subMonths, subWeeks } from "date-fns";
 import { jsonrepair } from "jsonrepair";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
-import {
+import type {
   ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
   RevisionChanges,
   ApiFeature,
 } from "shared/validators";
-import {
+import type {
   FeatureInterface,
   FeaturePrerequisite,
   FeatureRule,
@@ -24,21 +25,24 @@ import {
   JSONSchemaDef,
   FeatureValueType,
 } from "shared/types/feature";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type {
   OrganizationSettings,
   RequireReview,
   TargetingReviewRule,
   Environment,
   SDKAttributeSchema,
 } from "shared/types/organization";
-import { ProjectInterface } from "shared/types/project";
-import { GroupMap } from "shared/types/saved-group";
+import type { ProjectInterface } from "shared/types/project";
+import type { GroupMap } from "shared/types/saved-group";
 // Direct file import (not the `shared/validators` barrel) to avoid a runtime
 // import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
 import { assertValidExtendsEntries } from "../validators/constant";
-import { RampScheduleInterface, RampTarget } from "../validators/ramp-schedule";
+import type {
+  RampScheduleInterface,
+  RampTarget,
+} from "../validators/ramp-schedule";
 import { hasTargetingConfigured } from "../experiments/targeting";
 import { getValidDate } from "../dates";
 import {
@@ -46,15 +50,12 @@ import {
   describeSavedGroupError,
   EXTENDS_KEY,
 } from "../sdk-versioning";
-import {
-  threeWayMerge,
-  ThreeWayMergeConfig,
-  ThreeWayMergeResult,
-} from "./threeWayMerge";
+import type { ThreeWayMergeConfig, ThreeWayMergeResult } from "./threeWayMerge";
+import { threeWayMerge } from "./threeWayMerge";
+import type { RuleCombiners } from "./projectScopedRules";
 import {
   resolveProjectScopedRule,
   projectsWithOwnRule,
-  RuleCombiners,
 } from "./projectScopedRules";
 import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";

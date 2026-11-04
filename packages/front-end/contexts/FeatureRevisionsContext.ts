@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 
 export interface FeatureRevisionsContextValue {
   /** All full revision objects available on the feature page. */

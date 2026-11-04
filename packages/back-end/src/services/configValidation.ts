@@ -13,27 +13,27 @@ import {
   getConfigBackingPatch,
   selectScopedOverride,
 } from "shared/util";
-import {
+import type {
   FeatureInterface,
   FeatureRule,
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import { bypassApprovalPermission } from "shared/permissions";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
 } from "shared/sdk-versioning";
-import { Revision } from "shared/enterprise";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Revision } from "shared/enterprise";
+import type { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   collectValidateConfigRevisionHookResults,
   runValidateConfigRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
-  PublishGate,
   hookResultsToGates,
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";

@@ -1,21 +1,13 @@
 import clsx from "clsx";
-import {
-  CSSProperties,
-  ReactElement,
-  ReactNode,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import type { CSSProperties, ReactElement, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { RxInfoCircled } from "react-icons/rx";
 import { Box, Flex, Popover } from "@radix-ui/themes";
 import { extent } from "@visx/vendor/d3-array";
-import { ExperimentReportVariation } from "shared/types/report";
-import { ExperimentStatus } from "shared/types/experiment";
-import { MetricTimeSeries } from "shared/validators";
-import {
+import type { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentStatus } from "shared/types/experiment";
+import type { MetricTimeSeries } from "shared/validators";
+import type {
   DifferenceType,
   PValueCorrection,
   SignificanceThresholds,
@@ -23,23 +15,20 @@ import {
 } from "shared/types/stats";
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import { isFactMetric } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
-import {
-  ExperimentTableRow,
-  getComputeErrorMessage,
-  getRowResults,
-  RowResults,
-} from "@/services/experiments";
+import type { ExperimentTableRow, RowResults } from "@/services/experiments";
+import { getComputeErrorMessage, getRowResults } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import type { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import Callout from "@/ui/Callout";
 import VariationLabel from "@/ui/VariationLabel";

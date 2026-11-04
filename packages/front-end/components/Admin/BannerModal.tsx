@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Flex, TextArea } from "@radix-ui/themes";
-import { OrganizationMessage } from "shared/types/organization";
+import type { OrganizationMessage } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
 import { statusMap } from "@/components/OrganizationMessages/OrganizationMessages";

@@ -1,14 +1,15 @@
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiDetective } from "react-icons/pi";
-import React, { FC, useEffect, useState } from "react";
+import type { FC } from "react";
+import React, { useEffect, useState } from "react";
 import router from "next/router";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import { ProjectInterface, ProjectSettings } from "shared/types/project";
+import type { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import type { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import RadixButton from "@/ui/Button";

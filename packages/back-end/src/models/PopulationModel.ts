@@ -1,14 +1,16 @@
-import { z } from "zod";
-import {
+import type { z } from "zod";
+import type {
   ApiPopulation,
-  apiCreatePopulationBody,
-  apiUpdatePopulationBody,
   PopulationInterface,
   PopulationStep,
+} from "shared/validators";
+import {
+  apiCreatePopulationBody,
+  apiUpdatePopulationBody,
   populationApiSpec,
   populationValidator,
 } from "shared/validators";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   getPopulationFactTableIds,
   getPopulationRuleViolations,

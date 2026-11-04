@@ -1,7 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import { formatDistance } from "date-fns";
 import { PiWarningCircle } from "react-icons/pi";
-import { RowResults } from "@/services/experiments";
+import type { RowResults } from "@/services/experiments";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",

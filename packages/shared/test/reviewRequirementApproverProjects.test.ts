@@ -2,9 +2,9 @@ import {
   featureReviewCandidateProjects,
   getRevisionReviewRequirement,
 } from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { OrganizationSettings } from "shared/types/organization";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { OrganizationSettings } from "shared/types/organization";
 
 const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
 

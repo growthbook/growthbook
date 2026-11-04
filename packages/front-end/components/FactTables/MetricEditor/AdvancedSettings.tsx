@@ -1,10 +1,10 @@
-import { UseFormReturn } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { Flex, Grid } from "@radix-ui/themes";
 import { PiCaretDown } from "react-icons/pi";
-import { MetricCappingSettings } from "shared/types/fact-table";
+import type { MetricCappingSettings } from "shared/types/fact-table";
 import { getCappingTailState } from "shared/validators";
-import { CreateFactMetricFormProps } from "@/services/metrics";
+import type { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -16,15 +16,15 @@ import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
 import { Select, SelectItem } from "@/ui/Select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import { DataListItem } from "@/ui/DataList";
+import type { DataListItem } from "@/ui/DataList";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
+import type { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import {
   cappingOk,
-  FormMetricType,
   windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import styles from "./AdvancedSettings.module.scss";

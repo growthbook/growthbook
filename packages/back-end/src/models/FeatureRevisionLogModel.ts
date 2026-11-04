@@ -7,11 +7,9 @@ import {
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import { eventUserIdentity } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
-import {
-  FeatureRevisionLogInterface,
-  featureRevisionLogValidator,
-} from "back-end/src/validators/feature-revision-log";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionLogInterface } from "back-end/src/validators/feature-revision-log";
+import { featureRevisionLogValidator } from "back-end/src/validators/feature-revision-log";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";

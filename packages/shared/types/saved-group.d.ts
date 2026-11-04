@@ -1,6 +1,6 @@
-import { z } from "zod";
+import type { z } from "zod";
 import type { ConditionInterface } from "@growthbook/growthbook";
-import {
+import type {
   postSavedGroupBodyValidator,
   putSavedGroupBodyValidator,
   savedGroupValidator,

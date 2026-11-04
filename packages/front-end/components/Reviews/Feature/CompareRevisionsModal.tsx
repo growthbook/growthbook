@@ -1,10 +1,10 @@
-import { FeatureInterface } from "shared/types/feature";
-import {
+import type { FeatureInterface } from "shared/types/feature";
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { eventUserLabel, RampScheduleInterface } from "shared/validators";
+import { eventUserLabel } from "shared/validators";
 import React, {
   useCallback,
   useEffect,
@@ -26,7 +26,10 @@ import {
 } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
-import type { HoldoutInterface } from "shared/validators";
+import type {
+  HoldoutInterface,
+  RampScheduleInterface,
+} from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -55,10 +58,12 @@ import RevisionLabel, {
 import RevisionStatusBadge, {
   isRampGenerated,
 } from "@/components/Reviews/RevisionStatusBadge";
-import {
-  useFeatureRevisionDiff,
+import type {
   FeatureRevisionDiffInput,
   FeatureRevisionDiff,
+} from "@/hooks/useFeatureRevisionDiff";
+import {
+  useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
   revisionToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";

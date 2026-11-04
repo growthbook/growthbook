@@ -1,5 +1,5 @@
 import { formatAIRateLimitRetryMessage } from "shared/ai";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";

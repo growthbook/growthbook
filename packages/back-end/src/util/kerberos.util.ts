@@ -1,9 +1,6 @@
 import { performance } from "node:perf_hooks";
-import {
-  initializeClient,
-  InitializeClientOptions,
-  GSS_MECH_OID_KRB5,
-} from "kerberos";
+import type { InitializeClientOptions } from "kerberos";
+import { initializeClient, GSS_MECH_OID_KRB5 } from "kerberos";
 import { logger } from "./logger";
 import { IS_CLOUD } from "./secrets";
 

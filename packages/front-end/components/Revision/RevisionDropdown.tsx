@@ -1,9 +1,6 @@
-import { ReactNode } from "react";
-import {
-  Revision,
-  getLiveRevision,
-  getRevisionNumberById,
-} from "shared/enterprise";
+import type { ReactNode } from "react";
+import type { Revision } from "shared/enterprise";
+import { getLiveRevision, getRevisionNumberById } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
 import { eventUserLabel, revisionActor } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
@@ -13,9 +10,8 @@ import Text from "@/ui/Text";
 import { DropdownMenuLabel } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
-import SharedRevisionDropdown, {
-  RevisionDropdownRow,
-} from "@/components/Reviews/RevisionDropdown";
+import type { RevisionDropdownRow } from "@/components/Reviews/RevisionDropdown";
+import SharedRevisionDropdown from "@/components/Reviews/RevisionDropdown";
 
 export interface RevisionDropdownProps {
   // Used only to scope the "show discarded" preference in localStorage.

@@ -1,16 +1,15 @@
-import React, { useState, ReactNode, useContext, useCallback } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ReactNode } from "react";
+import React, { useState, useContext, useCallback } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
-import {
-  getExperimentSourceSnapshotRef,
-  SourceSnapshotRef,
-} from "shared/enterprise";
+import type { SourceSnapshotRef } from "shared/enterprise";
+import { getExperimentSourceSnapshotRef } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";

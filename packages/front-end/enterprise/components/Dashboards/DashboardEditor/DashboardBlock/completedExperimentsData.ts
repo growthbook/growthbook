@@ -1,6 +1,6 @@
 import { format } from "date-fns";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ResolvedGranularity } from "@/enterprise/components/ProductAnalytics/util";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ResolvedGranularity } from "@/enterprise/components/ProductAnalytics/util";
 
 // Result buckets used by the velocity (stacked-bar) chart. Matches the four
 // categories the Executive Report renders.

@@ -2,14 +2,14 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { v4 as uuidv4 } from "uuid";
 import omit from "lodash/omit";
-import {
+import type {
   ExperimentReportInterface,
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
 import { migrateExperimentReport } from "back-end/src/util/migrations";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import {
   healMetricOverrides,

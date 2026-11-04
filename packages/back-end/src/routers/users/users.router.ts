@@ -1,6 +1,7 @@
-import express, { Request } from "express";
+import type { Request } from "express";
+import express from "express";
 import rateLimit from "express-rate-limit";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { wrapController } from "back-end/src/routers/wrapController";
 import * as usersControllerRaw from "./users.controller";
 

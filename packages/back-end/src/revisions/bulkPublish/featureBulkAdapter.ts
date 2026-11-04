@@ -1,12 +1,12 @@
 import { isStrandedLiveRevision, type MergeResultChanges } from "shared/util";
 import { draftRevertedFromVersion, publishRampDetaches } from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   bypassApprovalPermission,
   NO_ENVIRONMENT_BINDING,
   DEFAULT_PERMISSION_ERROR_MESSAGE,
 } from "shared/permissions";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type {
   RevisionRampDetachAction,
   SafeRolloutInterface,
@@ -49,28 +49,28 @@ import {
   restoreFeatureRevisionAfterFailedBulkPublish,
 } from "back-end/src/models/FeatureRevisionModel";
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
+import type { ContextualBanditLinkagePlan } from "back-end/src/util/featureContextualBanditSync";
 import {
   applyFeatureContextualBanditLinkage,
-  ContextualBanditLinkagePlan,
   planFeatureContextualBanditLinkage,
   referencesAnyContextualBandit,
   reverseFeatureContextualBanditLinkage,
 } from "back-end/src/util/featureContextualBanditSync";
 import { getMergeResultPublishEnvs } from "back-end/src/services/features";
+import type { FeatureMergePlan } from "back-end/src/services/featurePublishGates";
 import {
   collectFeaturePublishGates,
   planFeatureRevisionMerge,
-  FeatureMergePlan,
 } from "back-end/src/services/featurePublishGates";
 import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
+import type { RampBaseStatePreImage } from "back-end/src/services/rampSchedule";
 import {
   applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
   planRampBaseStateSyncForPublish,
-  RampBaseStatePreImage,
   RampLockdownError,
   restoreRampBaseStates,
 } from "back-end/src/services/rampSchedule";

@@ -7,10 +7,12 @@ import {
   columnsForShape,
   columnValueLabel,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
-import {
-  autoFillsColumn,
+import type {
   FactMetricSeed,
   IncompleteFactMetricSeed,
+} from "@/components/FactTables/MetricEditor/templateMetric";
+import {
+  autoFillsColumn,
   mappedColumn,
   mappedRowFilters,
   placeholderColumns,

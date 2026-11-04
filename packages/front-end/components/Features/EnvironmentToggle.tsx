@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Tooltip } from "@radix-ui/themes";
-import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Switch from "@/ui/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";

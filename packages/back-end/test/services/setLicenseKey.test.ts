@@ -1,4 +1,4 @@
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { licenseInit } from "back-end/src/enterprise";
 import { setLicenseKey } from "back-end/src/services/organizations";
 

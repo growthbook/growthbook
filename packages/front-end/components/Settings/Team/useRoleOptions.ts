@@ -1,7 +1,7 @@
 import { RESERVED_ROLE_IDS, getRoleDisplayName } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
-import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 export default function useRoleOptions({
   includeAdminRole = false,

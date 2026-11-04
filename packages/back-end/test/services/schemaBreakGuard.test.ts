@@ -1,12 +1,12 @@
-import { ConfigInterface } from "shared/types/config";
-import { FeatureInterface } from "shared/types/feature";
+import type { ConfigInterface } from "shared/types/config";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   collectConfigOwnBreaks,
   collectDependentConfigBreaks,
   collectDependentFeatureBreaks,
   unacknowledgedSchemaBreakViolations,
 } from "back-end/src/services/schemaBreakGuard";
-import { ResolvableValue } from "back-end/src/services/resolvableValues";
+import type { ResolvableValue } from "back-end/src/services/resolvableValues";
 
 // Minimal fixtures — collectConfigOwnBreaks reads only the fields exercised
 // below (buildConstantValueMap: key/type/value/environmentValues/project/

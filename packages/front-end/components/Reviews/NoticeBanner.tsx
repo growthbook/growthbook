@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import Text from "@/ui/Text";
 
 // Shared status banner for the publish flow (divergence/rebase/conflict notices

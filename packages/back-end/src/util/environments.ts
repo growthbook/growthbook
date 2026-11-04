@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
-import { Environment } from "shared/types/organization";
-import { ReqContext } from "back-end/types/request";
+import type { Environment } from "shared/types/organization";
+import type { ReqContext } from "back-end/types/request";
 
 /**
  * util for adding an environment to the existing organization environments.

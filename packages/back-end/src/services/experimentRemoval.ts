@@ -5,11 +5,11 @@ import {
   type ExperimentLinkageBlocker,
   type LinkedChangesResolution,
 } from "shared/util";
-import { ExperimentInterface } from "shared/types/experiment";
-import { EventUser } from "shared/types/events/event-types";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { EventUser } from "shared/types/events/event-types";
 import type { AuditInterfaceInput } from "shared/types/audit";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
   getFeatureProjectsByIds,

@@ -1,4 +1,5 @@
-import { FC, useState, useCallback } from "react";
+import type { FC } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -7,8 +8,9 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { useForm, UseFormReturn } from "react-hook-form";
-import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
+import type { UseFormReturn } from "react-hook-form";
+import { useForm } from "react-hook-form";
+import type { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { useAuth } from "@/services/auth";

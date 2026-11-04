@@ -1,6 +1,7 @@
-import { ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { Flex, Text } from "@radix-ui/themes";
-import { DataVizConfig } from "shared/validators";
+import type { DataVizConfig } from "shared/validators";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Table, {
   TableBody,

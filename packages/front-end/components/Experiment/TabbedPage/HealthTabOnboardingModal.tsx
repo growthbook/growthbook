@@ -1,24 +1,23 @@
-import React, { FC, ReactElement, useState } from "react";
-import { DimensionSlicesInterface } from "shared/types/dimension";
-import {
+import type { FC, ReactElement } from "react";
+import React, { useState } from "react";
+import type { DimensionSlicesInterface } from "shared/types/dimension";
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
-import {
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Modal from "@/components/Modal";
 import track, { trackSnapshot } from "@/services/track";
 import RadioGroup from "@/ui/RadioGroup";
-import {
-  CustomDimensionMetadata,
-  DimensionSlicesRunner,
-} from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import type { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import { DimensionSlicesRunner } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 import Callout from "@/ui/Callout";
 
 type HealthTabOnboardingModalProps = {

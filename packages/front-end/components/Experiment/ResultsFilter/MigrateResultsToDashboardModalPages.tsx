@@ -1,9 +1,9 @@
 import React, { useMemo, useEffect } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { UseFormReturn } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { DifferenceType } from "shared/types/stats";
-import {
+import type { UseFormReturn } from "react-hook-form";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { DifferenceType } from "shared/types/stats";
+import type {
   DashboardInterface,
   DashboardEditLevel,
   DashboardShareLevel,

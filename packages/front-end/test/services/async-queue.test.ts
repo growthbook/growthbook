@@ -1,5 +1,6 @@
 import { vi } from "vitest";
-import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
+import type { QueueTask, TaskResult } from "@/services/async-queue";
+import { enqueueTasks } from "@/services/async-queue";
 import { deepFreeze } from "@/test/test-helpers";
 
 describe("async queue", () => {

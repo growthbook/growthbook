@@ -1,4 +1,4 @@
-import { OpenApiModelSpec } from "../api-model";
+import type { OpenApiModelSpec } from "../api-model";
 import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiContextualBanditCancelReturn,

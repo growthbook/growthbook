@@ -1,5 +1,5 @@
 import { getExperimentStartChecklistValidator } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { getExperimentStartChecklist as getExperimentStartChecklistStatus } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { requireExperiment } from "./requireExperiment";

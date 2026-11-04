@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
-import { Request } from "express";
+import type { Request } from "express";
 import { PermissionError } from "shared/util";
 import {
   areAdditionalRolesValid,
@@ -40,10 +40,14 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import {
+import type {
   AIModel,
   AIModelKind,
   AIProvider,
+  EmbeddingModel,
+  STTModel,
+} from "shared/ai";
+import {
   AI_PROVIDERS,
   CLOUD_MANAGED_AI_MODEL,
   SELF_HOSTED_DEFAULT_AI_MODELS,
@@ -51,18 +55,16 @@ import {
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   AUTOCOMPLETE_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
-  EmbeddingModel,
-  STTModel,
   resolveDefaultSTTModel,
   getProviderForAIModel,
 } from "shared/ai";
-import { SSOConnectionInterface } from "shared/types/sso-connection";
-import {
+import type { SSOConnectionInterface } from "shared/types/sso-connection";
+import type {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
 } from "shared/types/fact-table";
-import {
+import type {
   ExpandedMember,
   ExpandedMemberInfo,
   Invite,
@@ -75,13 +77,13 @@ import {
   PendingMember,
   ProjectMemberRole,
 } from "shared/types/organization";
-import { MetricInterface } from "shared/types/metric";
-import { DimensionInterface } from "shared/types/dimension";
-import { DataSourceInterface } from "shared/types/datasource";
-import { LegacyExperimentPhase } from "shared/types/experiment";
-import { PValueCorrection } from "shared/types/stats";
+import type { MetricInterface } from "shared/types/metric";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { LegacyExperimentPhase } from "shared/types/experiment";
+import type { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
-import { TeamInterface } from "shared/types/team";
+import type { TeamInterface } from "shared/types/team";
 import { isExpired } from "shared/api-key-expiration";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import {
@@ -104,15 +106,15 @@ import {
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
 import { loginMethodOwnsOrg } from "back-end/src/services/auth/authChecks";
+import type { AIKeySource } from "back-end/src/services/aiCredentials";
 import {
-  AIKeySource,
   canOrgChooseProviderModels,
   getResolvedAIKeys,
 } from "back-end/src/services/aiCredentials";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
-import { ConfigFile } from "back-end/src/init/config";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext, ExperimentOverride } from "back-end/types/api";
+import type { ConfigFile } from "back-end/src/init/config";
 import {
   createDataSource,
   getDataSourceById,
@@ -136,8 +138,8 @@ import {
 } from "back-end/src/util/errors";
 import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
 import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
+import type { ArmingOAuthSignIn } from "back-end/src/util/armingApiKeyId";
 import {
-  ArmingOAuthSignIn,
   decodeArmingApiKeyId,
   isArmingApiKeyId,
   SECRET_API_KEY_ID,

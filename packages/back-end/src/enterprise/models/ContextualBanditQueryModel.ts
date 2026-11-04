@@ -1,7 +1,9 @@
-import {
+import type {
   ApiContextualBanditQueryInterface,
-  assertExposureQueriesTargetingAttributeColumnsValid,
   ContextualBanditQueryInterface,
+} from "shared/validators";
+import {
+  assertExposureQueriesTargetingAttributeColumnsValid,
   contextualBanditQueryApiSpec,
   contextualBanditQueryValidator,
 } from "shared/validators";

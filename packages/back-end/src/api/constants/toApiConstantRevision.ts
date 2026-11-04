@@ -1,7 +1,7 @@
-import { Revision } from "shared/enterprise";
-import { ApiConstantRevision } from "shared/validators";
-import { ConstantInterface } from "shared/types/constant";
-import { ApiReqContext } from "back-end/types/api";
+import type { Revision } from "shared/enterprise";
+import type { ApiConstantRevision } from "shared/validators";
+import type { ConstantInterface } from "shared/types/constant";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   projectRevisionSnapshots,
   revisionEnvelopeToApi,

@@ -1,13 +1,13 @@
 import React from "react";
-import { MetricAnalysisInterface } from "shared/types/metric-analysis";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getFactMetricPrimaryFactTableId,
   getMetricLink,
   isBinomialMetric,
   isFactMetric,
 } from "shared/experiments";
-import { MetricInterface } from "shared/types/metric";
+import type { MetricInterface } from "shared/types/metric";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";

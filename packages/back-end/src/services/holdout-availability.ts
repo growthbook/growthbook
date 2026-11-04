@@ -1,7 +1,7 @@
-import { HoldoutInterface } from "shared/validators";
+import type { HoldoutInterface } from "shared/validators";
 import { isHoldoutAvailableForProject } from "shared/util";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 export function assertHoldoutAvailableForProject(

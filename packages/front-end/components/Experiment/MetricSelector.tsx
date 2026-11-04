@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import {
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
@@ -11,7 +11,8 @@ import {
   isMetricJoinable,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
+import type { SelectFieldProps } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import {
   ARCHIVED_METRIC_REASON,

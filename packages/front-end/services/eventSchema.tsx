@@ -1,10 +1,10 @@
-import {
+import type {
   DataSourceParams,
   DataSourceType,
   SchemaFormat,
   SchemaOption,
 } from "shared/types/datasource";
-import { ReactElement } from "react";
+import type { ReactElement } from "react";
 import { BsDatabase } from "react-icons/bs";
 import { GrBarChart } from "react-icons/gr";
 import {
@@ -21,7 +21,7 @@ import {
   SiPresto,
   SiSnowflake,
 } from "react-icons/si";
-import { DocSection } from "@/components/DocLink";
+import type { DocSection } from "@/components/DocLink";
 
 export type eventSchema = {
   value: SchemaFormat;

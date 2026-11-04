@@ -1,12 +1,8 @@
-import {
-  createContext,
-  RefObject,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
+import type { RefObject } from "react";
+import { createContext, useLayoutEffect, useMemo, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import InlineCode, { Props as InlineCodeProps } from "./InlineCode";
+import type { Props as InlineCodeProps } from "./InlineCode";
+import InlineCode from "./InlineCode";
 
 // 0.8rem at line-height 1.5; wrapped lines are measured as they render
 const ESTIMATED_LINE_HEIGHT = 19;

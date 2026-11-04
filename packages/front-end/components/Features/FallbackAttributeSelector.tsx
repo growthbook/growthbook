@@ -1,9 +1,9 @@
-import { UseFormReturn } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 import React, { useCallback, useEffect, useState } from "react";
 import { FaInfoCircle, FaQuestionCircle } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { SDKAttribute } from "shared/types/organization";
+import type { SDKAttribute } from "shared/types/organization";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import useOrgSettings from "@/hooks/useOrgSettings";

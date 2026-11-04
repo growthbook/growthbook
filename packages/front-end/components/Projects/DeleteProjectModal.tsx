@@ -1,5 +1,6 @@
-import { FC, useState } from "react";
-import { ProjectInterface } from "shared/types/project";
+import type { FC } from "react";
+import { useState } from "react";
+import type { ProjectInterface } from "shared/types/project";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";

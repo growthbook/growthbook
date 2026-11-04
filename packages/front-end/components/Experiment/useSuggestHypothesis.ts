@@ -1,6 +1,7 @@
-import { AISuggestionType, formatAIRateLimitRetryMessage } from "shared/ai";
+import type { AISuggestionType } from "shared/ai";
+import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 

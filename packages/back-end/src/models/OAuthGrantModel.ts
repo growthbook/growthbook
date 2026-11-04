@@ -1,8 +1,8 @@
-import {
+import type {
   OAuthGrantInterface,
-  oauthGrantValidator,
   OAuthTokenPermissions,
 } from "shared/validators";
+import { oauthGrantValidator } from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";

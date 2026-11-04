@@ -1,7 +1,7 @@
 import React from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
-import { DashboardInterface } from "shared/enterprise";
+import type { DashboardInterface } from "shared/enterprise";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 

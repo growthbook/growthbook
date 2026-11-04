@@ -1,6 +1,6 @@
-import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
+import type { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import NextLink from "next/link";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getTempRolloutStaleReason,
   includeExperimentInPayload,

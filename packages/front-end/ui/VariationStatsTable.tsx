@@ -1,10 +1,7 @@
 import { Flex, Text } from "@radix-ui/themes";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import {
-  ExperimentMetricDefinition,
-  quantileMetricType,
-  isFactMetric,
-} from "shared/experiments";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import { quantileMetricType, isFactMetric } from "shared/experiments";
 import Table, {
   TableHeader,
   TableRow,
@@ -12,7 +9,7 @@ import Table, {
   TableBody,
   TableCell,
 } from "@/ui/Table";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getVariationColor } from "@/services/features";
 import {
   formatNumber,

@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import clsx from "clsx";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaCheck } from "react-icons/fa";

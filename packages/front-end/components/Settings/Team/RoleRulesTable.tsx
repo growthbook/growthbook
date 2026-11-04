@@ -1,6 +1,7 @@
-import { useMemo, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { MemberRoleWithProjects } from "shared/types/organization";
+import type { MemberRoleWithProjects } from "shared/types/organization";
 import { getRoleDisplayName, holdsGlobalAdmin } from "shared/permissions";
 import { PiTrash, PiInfo, PiPlus, PiPlusBold } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
@@ -20,10 +21,9 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import EnvironmentCell from "./EnvironmentCell";
 import useRoleOptions from "./useRoleOptions";
+import type { RoleRule, TeamRuleSource } from "./roleRules";
 import {
   ALL_PROJECTS,
-  RoleRule,
-  TeamRuleSource,
   fromRules,
   inertRules,
   newRule,

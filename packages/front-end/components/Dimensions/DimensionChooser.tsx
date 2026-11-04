@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { Flex } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/util";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
-import { IncrementalRefreshInterface } from "shared/validators";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { IncrementalRefreshInterface } from "shared/validators";
 import { PiCaretDownFill } from "react-icons/pi";
 import {
   COMBO_DIMENSION_LENGTH,
@@ -21,11 +21,9 @@ import {
 import { getValidDate } from "shared/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { analysisUpdate } from "@/services/snapshots";
 import { useAuth } from "@/services/auth";
@@ -34,9 +32,11 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import CustomDimensionFields, {
+import type {
   CustomDimensionDraft,
   CustomDimensionKind,
+} from "@/components/Dimensions/CustomDimensionFields";
+import CustomDimensionFields, {
   isCustomDimensionDraftValid,
 } from "@/components/Dimensions/CustomDimensionFields";
 import CustomDimensionModal from "@/components/Dimensions/CustomDimensionModal";

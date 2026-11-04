@@ -1,4 +1,4 @@
-import { Changeset, ExperimentInterface } from "shared/types/experiment";
+import type { Changeset, ExperimentInterface } from "shared/types/experiment";
 import {
   assertScheduledStartAllowsChange,
   scheduledStartLockedFields,

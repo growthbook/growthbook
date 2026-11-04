@@ -17,15 +17,10 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createXai } from "@ai-sdk/xai";
 import { createMistral } from "@ai-sdk/mistral";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import type { TiktokenModel } from "@dqbd/tiktoken";
+import { encoding_for_model, get_encoding } from "@dqbd/tiktoken";
+import type { AIModel, AIPromptType, AIProvider } from "shared/ai";
 import {
-  encoding_for_model,
-  get_encoding,
-  TiktokenModel,
-} from "@dqbd/tiktoken";
-import {
-  AIModel,
-  AIPromptType,
-  AIProvider,
   anthropicStructuredOutputMode,
   DEFAULT_MAX_OUTPUT_TOKENS,
   getProviderFromModel,
@@ -34,29 +29,28 @@ import {
   resolveMaxOutputTokens,
   supportsTemperature,
 } from "shared/ai";
-import { z, ZodObject, ZodRawShape } from "zod";
-import { OrganizationInterface } from "shared/types/organization";
+import type { z, ZodObject, ZodRawShape } from "zod";
+import type { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import {
   lookupTerms,
   prepareToolStep,
 } from "back-end/src/enterprise/services/aiStepPolicy";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,
 } from "back-end/src/models/AITokenUsageModel";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getAISettingsForOrg,
   getAllowedAIModel,
 } from "back-end/src/services/organizations";
-import {
-  AIKeySource,
-  missingAIKeyMessage,
-} from "back-end/src/services/aiCredentials";
+import type { AIKeySource } from "back-end/src/services/aiCredentials";
+import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
-import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
+import type { AIUsageOutcome } from "back-end/src/services/growthbook";
+import { trackAIUsage } from "back-end/src/services/growthbook";
 import {
   addCompletionUsage,
   addUsd,

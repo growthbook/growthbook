@@ -1,10 +1,10 @@
 import clsx from "clsx";
 import { Box, IconButton } from "@radix-ui/themes";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { getFeatureBaseConfigKey } from "shared/util";
 import ForceSummary from "@/components/Features/ForceSummary";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import { ActionsOverlay } from "@/components/Features/CornerActions";
+import type { ActionsOverlay } from "@/components/Features/CornerActions";
 import cornerStyles from "@/components/Features/CornerActions.module.scss";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";

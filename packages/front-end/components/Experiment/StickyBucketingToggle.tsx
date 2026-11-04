@@ -1,4 +1,4 @@
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";

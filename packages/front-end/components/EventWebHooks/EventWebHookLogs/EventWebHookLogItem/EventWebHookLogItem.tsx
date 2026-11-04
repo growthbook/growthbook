@@ -1,5 +1,6 @@
-import React, { FC } from "react";
-import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
+import type { FC } from "react";
+import React from "react";
+import type { EventWebHookLogInterface } from "shared/types/event-webhook-log";
 import classNames from "classnames";
 import { datetime } from "shared/dates";
 import { useIconForState } from "@/components/EventWebHooks/utils";

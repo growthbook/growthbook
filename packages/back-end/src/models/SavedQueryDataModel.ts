@@ -1,5 +1,6 @@
-import { UpdateProps } from "shared/types/base-model";
-import { SavedQuery, savedQueryValidator } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
+import type { SavedQuery } from "shared/validators";
+import { savedQueryValidator } from "shared/validators";
 import { chartTypeSupportsAnchorYAxisToZero } from "shared/enterprise";
 import { MakeModelClass } from "./BaseModel";
 

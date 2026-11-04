@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getDataSource } from "./getDataSource";
 import { getInformationSchema } from "./getInformationSchema";
 import { listDataSources } from "./listDataSources";

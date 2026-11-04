@@ -1,4 +1,4 @@
-import {
+import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
 } from "shared/types/organization";

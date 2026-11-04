@@ -6,8 +6,8 @@ import {
 } from "@radix-ui/themes";
 import { useId, forwardRef } from "react";
 import { PiWarningFill, PiWarningOctagonFill } from "react-icons/pi";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { Size } from "@/ui/sizes";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { Size } from "@/ui/sizes";
 import styles from "./Switch.module.scss";
 import Text from "./Text";
 

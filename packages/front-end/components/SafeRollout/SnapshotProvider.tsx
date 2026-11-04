@@ -1,11 +1,12 @@
-import React, { ReactNode, useCallback, useContext } from "react";
-import {
+import type { ReactNode } from "react";
+import React, { useCallback, useContext } from "react";
+import type {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "shared/types/safe-rollout";
 import { getSafeRolloutSnapshotAnalysis } from "shared/util";
-import { FeatureInterface, SafeRolloutInterface } from "shared/validators";
+import type { FeatureInterface, SafeRolloutInterface } from "shared/validators";
 import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{

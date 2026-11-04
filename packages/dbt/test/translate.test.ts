@@ -1,6 +1,6 @@
 import { postBulkImportFactsValidator } from "shared/validators";
 import { translate } from "../src/translate";
-import { DbtManifest, TranslateOptions } from "../src/types";
+import type { DbtManifest, TranslateOptions } from "../src/types";
 import legacy from "./fixtures/legacy-manifest.json";
 import newSpec from "./fixtures/new-spec-manifest.json";
 

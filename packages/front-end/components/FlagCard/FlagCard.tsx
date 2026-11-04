@@ -4,7 +4,7 @@ import { FaCaretUp, FaCaretDown } from "react-icons/fa";
 import clsx from "clsx";
 import React from "react";
 import { pValueFormatter } from "@/services/experiments";
-import { AnalysisResultSummaryProps } from "@/ui/AnalysisResultSummary";
+import type { AnalysisResultSummaryProps } from "@/ui/AnalysisResultSummary";
 import styles from "./FlagCard.module.scss";
 
 const numberFormatter = Intl.NumberFormat(undefined, {

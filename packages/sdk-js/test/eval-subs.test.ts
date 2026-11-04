@@ -1,4 +1,5 @@
-import { Experiment, GrowthBook, GrowthBookClient } from "../src";
+import type { Experiment } from "../src";
+import { GrowthBook, GrowthBookClient } from "../src";
 
 describe("eval subscriptions", () => {
   describe("_subscribeFeatureUsage", () => {

@@ -5,7 +5,8 @@ import {
   canSetApiKeyDisabled,
   changesApiKeyAuthority,
 } from "../../src/permissions/apiKeyAuthority";
-import { Policy, permissionsFromRole } from "../../src/permissions";
+import type { Policy } from "../../src/permissions";
+import { permissionsFromRole } from "../../src/permissions";
 
 describe("apiKeyToggleRequiresAdmin", () => {
   it("never requires admin for org keys", () => {

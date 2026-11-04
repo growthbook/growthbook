@@ -1,6 +1,9 @@
-import { FeatureRule } from "shared/validators";
-import { FeatureInterface, LegacyFeatureInterface } from "shared/types/feature";
-import { Environment } from "shared/types/organization";
+import type { FeatureRule } from "shared/validators";
+import type {
+  FeatureInterface,
+  LegacyFeatureInterface,
+} from "shared/types/feature";
+import type { Environment } from "shared/types/organization";
 import { suffixRuleId } from "shared/util";
 import {
   FeatureModel,
@@ -9,7 +12,7 @@ import {
   toInterface,
 } from "back-end/src/models/FeatureModel";
 import { getFeatureDefinition } from "back-end/src/util/features";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 // ---------------------------------------------------------------------------
 // migrateRawFeatureToV2 is the pure-function core of FeatureModel.toInterface.

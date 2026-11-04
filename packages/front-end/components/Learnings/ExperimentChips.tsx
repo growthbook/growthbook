@@ -1,6 +1,6 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 

@@ -1,4 +1,5 @@
-import { ReactElement, ReactNode, useRef, useState } from "react";
+import type { ReactElement, ReactNode } from "react";
+import { useRef, useState } from "react";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import track from "@/services/track";

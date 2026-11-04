@@ -1,5 +1,5 @@
+import type { ReactNode } from "react";
 import React, {
-  ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -7,22 +7,27 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
+  DashboardInterface,
+} from "shared/enterprise";
+import {
   blockHasFieldOfType,
   getBlockSnapshotAnalysis,
   getBlockAnalysisSettings,
   snapshotSatisfiesBlock,
   resolveBlockComparison,
-  DashboardInterface,
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
-import { Queries, QueryStatus } from "shared/types/query";
-import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
-import {
+import type { Queries, QueryStatus } from "shared/types/query";
+import type {
+  ProductAnalyticsExploration,
+  SavedQuery,
+} from "shared/validators";
+import type {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
 } from "shared/types/metric-analysis";

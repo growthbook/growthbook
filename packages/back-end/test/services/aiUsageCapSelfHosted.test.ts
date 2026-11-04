@@ -15,7 +15,7 @@ jest.mock("back-end/src/models/AITokenUsageModel", () => ({
 
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   secondsUntilAICanBeUsedAgainForEmbeddings,
   secondsUntilAICanBeUsedAgainForModel,

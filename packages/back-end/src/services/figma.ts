@@ -1,6 +1,6 @@
 import { AES, enc } from "crypto-js";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import {
   ENCRYPTION_KEY,
   FIGMA_OAUTH_CLIENT_ID,

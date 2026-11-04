@@ -1,5 +1,5 @@
 import { SLACK_BOT_EVENTS, SLACK_BOT_SCOPES } from "shared/slack-integration";
-import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   notificationEventOptions,
   matchesNotificationEvent,

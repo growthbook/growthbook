@@ -1,10 +1,5 @@
-import {
-  ComponentType,
-  ReactNode,
-  FC,
-  isValidElement,
-  cloneElement,
-} from "react";
+import type { ComponentType, ReactNode, FC } from "react";
+import { isValidElement, cloneElement } from "react";
 
 const ConditionalWrapper: FC<{
   condition: boolean;

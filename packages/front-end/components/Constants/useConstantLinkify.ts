@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ANY_REF_PATTERN } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { LinkifyConfig } from "@/components/SyntaxHighlighting/InlineCode";
+import type { LinkifyConfig } from "@/components/SyntaxHighlighting/InlineCode";
 
 // Linkifies `@const:key` / `@config:key` references to the matching detail page.
 // The two namespaces are independent (a key may exist in both), so route by the

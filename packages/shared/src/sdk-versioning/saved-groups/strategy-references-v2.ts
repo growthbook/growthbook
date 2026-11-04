@@ -1,6 +1,6 @@
 import type { ConditionInterface } from "@growthbook/growthbook";
-import { OrganizationInterface } from "shared/types/organization";
-import {
+import type { OrganizationInterface } from "shared/types/organization";
+import type {
   GroupMap,
   SavedGroupForPayload,
   SavedGroupInterface,
@@ -8,21 +8,18 @@ import {
   SavedGroupPayloadMap,
   SavedGroupType,
 } from "shared/types/saved-group";
+import type { NodeHandler } from "../../util";
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
-  NodeHandler,
   recursiveWalk,
 } from "../../util";
-import { SDKCapability } from "../types";
+import type { SDKCapability } from "../types";
 import { SAVED_GROUP_ERROR_INVALID, SAVED_GROUP_ERROR_UNKNOWN } from "./errors";
-import { SavedGroupPayloadStrategy } from "./types";
+import type { SavedGroupPayloadStrategy } from "./types";
 import { parseDerivedGroupId } from "./derived";
-import {
-  andConditionsInto,
-  NestedGroupRenderer,
-  walkSavedGroups,
-} from "./walk";
+import type { NestedGroupRenderer } from "./walk";
+import { andConditionsInto, walkSavedGroups } from "./walk";
 
 // The capability an SDK needs before we send a group of this type by
 // reference. Keyed by SavedGroupType, so adding a new type without gating it

@@ -1,6 +1,7 @@
-import React, { FC } from "react";
+import type { FC } from "react";
+import React from "react";
 import Link from "next/link";
-import { EventWebHookInterface } from "shared/types/event-webhook";
+import type { EventWebHookInterface } from "shared/types/event-webhook";
 import { datetime } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import {

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { NextPage } from "next";
+import type { NextPage } from "next";
 import ImportFromLaunchDarkly from "@/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly";
 import track from "@/services/track";
 import SettingsPage from "@/components/Layout/SettingsPage";

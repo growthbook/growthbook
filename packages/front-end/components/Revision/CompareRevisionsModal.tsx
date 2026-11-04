@@ -1,10 +1,10 @@
-import {
+import type {
   ActivityLogEntry,
   JsonPatchOperation,
   Review,
   Revision,
-  applyTopLevelPatchOps,
 } from "shared/enterprise";
+import { applyTopLevelPatchOps } from "shared/enterprise";
 import React, {
   useCallback,
   useEffect,
@@ -23,7 +23,8 @@ import {
   PiX,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { EventUser, eventUserLabel, revisionActor } from "shared/validators";
+import type { EventUser } from "shared/validators";
+import { eventUserLabel, revisionActor } from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -47,10 +48,8 @@ import RevisionLabel, {
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useUser } from "@/services/UserContext";
 import { RevisionDiff } from "@/components/Revision/RevisionDiff";
-import {
-  useRevisionDiff,
-  RevisionDiffConfig,
-} from "@/components/Revision/useRevisionDiff";
+import type { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
+import { useRevisionDiff } from "@/components/Revision/useRevisionDiff";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import { buildPerEntryDiffSnapshots } from "@/components/Revision/revisionActivityDiff";
 import styles from "./CompareRevisionsModal.module.scss";

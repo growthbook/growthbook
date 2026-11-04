@@ -1,4 +1,5 @@
-import { RefObject, useEffect, useState } from "react";
+import type { RefObject } from "react";
+import { useEffect, useState } from "react";
 
 /** Whether an element's content runs taller than `maxHeight`, as it resizes. */
 export default function useIsOverflowing(

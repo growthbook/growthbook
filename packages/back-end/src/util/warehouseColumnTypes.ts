@@ -1,4 +1,4 @@
-import { FactTableColumnType } from "shared/types/fact-table";
+import type { FactTableColumnType } from "shared/types/fact-table";
 
 /**
  * Maps the column types a warehouse reports for a query's output schema onto

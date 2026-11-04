@@ -1,17 +1,17 @@
-import { DataSourceParams, DataSourceType } from "shared/types/datasource";
-import {
+import type { DataSourceParams, DataSourceType } from "shared/types/datasource";
+import type {
   EventForwarderConfigDraft,
   EventForwarderConfigWithMetadata,
 } from "shared/types/event-forwarder";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { DataRegion } from "shared/util";
 import {
-  DataRegion,
   stripLeadingUtf8ByteOrderMark,
   tryDeriveSnowflakeAccessUrlFromAccount,
 } from "shared/util";
-import { EventForwarderDestination } from "./EventForwarderDestinationFields";
+import type { EventForwarderDestination } from "./EventForwarderDestinationFields";
 
 function isEventForwarderSink(
   type: DataSourceType,

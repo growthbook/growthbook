@@ -1,16 +1,16 @@
 import { format } from "shared/sql";
-import { MetricInterface } from "shared/types/metric";
-import {
+import type { MetricInterface } from "shared/types/metric";
+import type {
   ColumnRef,
   FactMetricInterface,
   FactMetricType,
   MetricCappingSettings,
   RowFilter,
 } from "shared/types/fact-table";
-import { ExposureQuery } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
-import { Dimension } from "shared/types/integrations";
-import { SqlDialect } from "shared/types/sql";
+import type { ExposureQuery } from "shared/types/datasource";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { Dimension } from "shared/types/integrations";
+import type { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import {

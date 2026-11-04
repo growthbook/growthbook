@@ -1,7 +1,5 @@
-import {
-  OAuthRefreshTokenInterface,
-  oauthRefreshTokenValidator,
-} from "shared/validators";
+import type { OAuthRefreshTokenInterface } from "shared/validators";
+import { oauthRefreshTokenValidator } from "shared/validators";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 

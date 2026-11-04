@@ -1,14 +1,13 @@
+import type { OrgLimits, OrgLimitsAccessor } from "shared/enterprise";
 import {
   DEFAULT_ORG_LIMITS,
-  OrgLimits,
-  OrgLimitsAccessor,
   PRICING_PHASE_1_FLAG_KEY,
   isLimitsFlagDisabled,
   makeOrgLimits,
   planTierFor,
   resolveOrgLimitsConfig,
 } from "shared/enterprise";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { getEffectiveAccountPlan, getOrgLimits } from "back-end/src/enterprise";
 import {
   getGrowthBookClient,

@@ -1,7 +1,7 @@
 import { Fragment, useMemo } from "react";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
-import { NamespaceUsage } from "shared/types/organization";
+import type { NamespaceUsage } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
 import HelperText from "@/ui/HelperText";

@@ -1,5 +1,5 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { RowResults } from "@/services/experiments";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { RowResults } from "@/services/experiments";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 
 interface Props {

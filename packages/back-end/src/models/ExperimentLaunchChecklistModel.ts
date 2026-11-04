@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import {
+import type {
   ChecklistTask,
   BuiltInChecklistItemKey,
   ExperimentLaunchChecklistInterface,
 } from "shared/types/experimentLaunchChecklist";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 
 const experimentLaunchChecklistSchema = new mongoose.Schema({
   id: String,

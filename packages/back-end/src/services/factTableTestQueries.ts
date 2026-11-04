@@ -3,20 +3,20 @@ import {
   expandVirtualColumnsInSql,
   getFactTableTimestampColumn,
 } from "shared/experiments";
-import {
+import type {
   FactFilterTestResults,
   FactTableInterface,
   RowFilter,
   RowFilterTestResults,
 } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ReqContext } from "back-end/types/request";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
   getIntegrationIdentifierQuote,
   getIntegrationSqlDialect,
 } from "back-end/src/services/datasource";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { validateVirtualColumnSql } from "back-end/src/util/factTable";
 
 const SAMPLE_ROWS_LIMIT = 20;

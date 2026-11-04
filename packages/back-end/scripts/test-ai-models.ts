@@ -12,11 +12,8 @@ import { createMistral } from "@ai-sdk/mistral";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import {
-  AI_PROVIDER_MODEL_MAP,
-  getProviderFromModel,
-  AIProvider,
-} from "shared/ai";
+import type { AIProvider } from "shared/ai";
+import { AI_PROVIDER_MODEL_MAP, getProviderFromModel } from "shared/ai";
 // eslint-disable-next-line no-restricted-imports
 import { logger } from "../src/util/logger";
 

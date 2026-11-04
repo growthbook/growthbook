@@ -5,7 +5,7 @@ import { getFeatureDefaultValue } from "@/services/features";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Text from "@/ui/Text";
-import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
+import type { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 
 const TYPE_W = 100;
 const DEFAULT_W = 200;

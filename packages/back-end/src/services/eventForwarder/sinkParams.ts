@@ -1,11 +1,11 @@
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import {
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type {
   BigQueryEventForwarderStoredConfig,
   DatabricksEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import { EventForwarderConfigInterface } from "shared/validators";
-import { EventForwarderDatasourceParams } from "shared/util";
+import type { EventForwarderConfigInterface } from "shared/validators";
+import type { EventForwarderDatasourceParams } from "shared/util";
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderProjectId,

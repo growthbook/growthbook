@@ -1,5 +1,5 @@
 import { explorationConfigReferencesColumn } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
+import type { ExplorationConfig } from "shared/validators";
 
 const baseConfig = {
   datasource: "ds1",

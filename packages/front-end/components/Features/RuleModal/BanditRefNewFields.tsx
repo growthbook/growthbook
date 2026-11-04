@@ -1,8 +1,8 @@
 import { useFormContext } from "react-hook-form";
 import { useCallback } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { CustomField } from "shared/types/custom-fields";
-import {
+import type { CustomField } from "shared/types/custom-fields";
+import type {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
@@ -37,9 +37,9 @@ import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlic
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
-import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import type { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import type { AssignmentQueryCopySource } from "@/services/datasources";
 import {
-  AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
 } from "@/services/datasources";

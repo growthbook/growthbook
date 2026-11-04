@@ -1,11 +1,11 @@
-import { ContextualBanditInterface } from "shared/validators";
-import { VisualChange } from "shared/types/visual-changeset";
+import type { ContextualBanditInterface } from "shared/validators";
+import type { VisualChange } from "shared/types/visual-changeset";
 import {
   getVisibleVariations,
   isDeactivatedVariation,
 } from "shared/experiments";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { activatePendingContextualBanditVariations } from "back-end/src/enterprise/services/contextualBandits";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import {

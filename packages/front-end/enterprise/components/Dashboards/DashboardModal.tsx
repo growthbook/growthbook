@@ -2,7 +2,7 @@ import cronstrue from "cronstrue";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import {
+import type {
   DashboardEditLevel,
   DashboardShareLevel,
   DashboardUpdateSchedule,
@@ -16,10 +16,8 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import {
-  autoUpdateDisabledMessage,
-  CreateDashboardArgs,
-} from "./DashboardsTab";
+import type { CreateDashboardArgs } from "./DashboardsTab";
+import { autoUpdateDisabledMessage } from "./DashboardsTab";
 import { useCronValidation } from "./useCronValidation";
 import DashboardUpdateScheduleSelector from "./DashboardUpdateScheduleSelector";
 

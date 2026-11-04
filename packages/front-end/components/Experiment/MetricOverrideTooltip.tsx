@@ -5,27 +5,27 @@ import {
   PiPlusBold,
   PiSlidersHorizontal,
 } from "react-icons/pi";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
-  ExperimentMetricDefinition,
   getMetricLink,
   getMetricSnapshotSettings,
   isFactMetric,
 } from "shared/experiments";
-import { MetricOverride } from "shared/validators";
-import {
+import type { MetricOverride } from "shared/validators";
+import type {
   DecisionFrameworkMetricOverrides,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { StatsEngine } from "shared/types/stats";
+import type { StatsEngine } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { metricTypeLabel } from "@/components/Metrics/FactMetricTypeDisplayName";
+import type { OverrideRow } from "@/services/metricOverrides";
 import {
   describeMetricOverride,
   describeMetricSettings,
   METRIC_OVERRIDE_COLOR,
-  OverrideRow,
 } from "@/services/metricOverrides";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";

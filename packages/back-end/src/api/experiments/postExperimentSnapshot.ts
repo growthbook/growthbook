@@ -4,11 +4,11 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
   planExperimentSnapshot,
-  PlannedExperimentSnapshot,
 } from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import {

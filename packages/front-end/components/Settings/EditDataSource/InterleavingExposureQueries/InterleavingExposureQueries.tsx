@@ -1,7 +1,8 @@
 import { interleavingExposureQueryEndpoints } from "shared/api-endpoints";
-import React, { FC, useCallback, useState } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ApiInterleavingExposureQueryInterface } from "shared/validators";
+import type { FC } from "react";
+import React, { useCallback, useState } from "react";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { ApiInterleavingExposureQueryInterface } from "shared/validators";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";

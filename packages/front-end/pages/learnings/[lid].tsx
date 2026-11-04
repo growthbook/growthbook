@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiArrowLeft, PiSparkleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { LearningWithCanManage } from "shared/validators";
+import type { LearningWithCanManage } from "shared/validators";
 import { date, getValidDate } from "shared/dates";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import useApi from "@/hooks/useApi";

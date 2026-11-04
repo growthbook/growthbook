@@ -2,7 +2,8 @@ import { useRef } from "react";
 import { Text as RadixText } from "@radix-ui/themes";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { radixSize } from "@/ui/sizes";
-import { radixWeightMap, TextColors, TextSizes, TextWeights } from "@/ui/Text";
+import type { TextColors, TextSizes, TextWeights } from "@/ui/Text";
+import { radixWeightMap } from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 /**

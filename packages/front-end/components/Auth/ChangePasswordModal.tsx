@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";

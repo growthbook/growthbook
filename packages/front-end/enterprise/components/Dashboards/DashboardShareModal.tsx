@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiCheck, PiLink } from "react-icons/pi";
-import { DashboardEditLevel, DashboardShareLevel } from "shared/enterprise";
+import type {
+  DashboardEditLevel,
+  DashboardShareLevel,
+} from "shared/enterprise";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";

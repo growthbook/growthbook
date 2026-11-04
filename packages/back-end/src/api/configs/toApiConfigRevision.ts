@@ -1,7 +1,7 @@
-import { Revision } from "shared/enterprise";
-import { ApiConfigRevision } from "shared/validators";
-import { ConfigInterface } from "shared/types/config";
-import { ApiReqContext } from "back-end/types/api";
+import type { Revision } from "shared/enterprise";
+import type { ApiConfigRevision } from "shared/validators";
+import type { ConfigInterface } from "shared/types/config";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   projectRevisionSnapshots,
   revisionEnvelopeToApi,

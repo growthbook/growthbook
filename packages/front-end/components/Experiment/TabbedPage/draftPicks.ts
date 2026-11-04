@@ -1,4 +1,4 @@
-import {
+import type {
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";

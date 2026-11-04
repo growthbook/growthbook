@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { isNumber } from "lodash";
-import { ReactElement } from "react";
+import type { ReactElement } from "react";
 
 export interface Props {
   active: boolean;

@@ -15,8 +15,8 @@ import {
   MANAGED_WAREHOUSE_EVENTS_TABLE,
   MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE,
 } from "shared/util";
-import { SqlDialect } from "shared/types/sql";
-import {
+import type { SqlDialect } from "shared/types/sql";
+import type {
   RowFilter,
   FactTableInterface,
   FactTableMap,
@@ -28,8 +28,11 @@ import {
   ColumnRef,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
-import { DataSourceSettings, DataSourceType } from "shared/types/datasource";
-import {
+import type {
+  DataSourceSettings,
+  DataSourceType,
+} from "shared/types/datasource";
+import type {
   ProductAnalyticsDimension,
   ProductAnalyticsDynamicDimension,
   ProductAnalyticsStaticDimension,
@@ -41,8 +44,8 @@ import {
   ProductAnalyticsResultRow,
   FunnelDataset,
   PopulationDataset,
-  dateGranularity,
 } from "../../validators/product-analytics";
+import { dateGranularity } from "../../validators/product-analytics";
 import {
   getRowFilterSQL,
   getColumnExpression,
@@ -51,7 +54,8 @@ import {
   getFactTableTimestampColumn,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
-import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
+import type { FunnelStep } from "../../validators/fact-table";
+import { getCappingTailState } from "../../validators/fact-table";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 import { factTableHasResolvableColumn } from "./columns";

@@ -7,14 +7,14 @@ import {
 } from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
-import { ScopedSettings } from "shared/settings";
-import {
+import type { ScopedSettings } from "shared/settings";
+import type {
   ExperimentInterface,
   Changeset,
   ExperimentResultsType,
 } from "shared/types/experiment";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
 } from "shared/validators";
@@ -32,7 +32,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { flagBypass } from "back-end/src/services/featurePublishGates";
 import {
   evaluateStartGates,
@@ -40,7 +40,7 @@ import {
   startChecklistGates,
   type StartGate,
 } from "back-end/src/services/experimentChanges/startGates";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentInAffectedEnvironments,
@@ -49,10 +49,10 @@ import {
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
 } from "back-end/src/services/experiments";
+import type { PendingDraftPublishResult } from "back-end/src/services/experiment-feature";
 import {
   formatPendingDraftFailureMessage,
   getLaunchDrafts,
-  PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";

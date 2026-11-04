@@ -1,4 +1,5 @@
-import React, { FC, useEffect, useState } from "react";
+import type { FC } from "react";
+import React, { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, IconButton } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";

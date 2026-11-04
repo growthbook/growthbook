@@ -1,4 +1,5 @@
-import { Dispatch, SetStateAction, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -15,7 +16,7 @@ import {
   rectSortingStrategy,
   SortableContext,
 } from "@dnd-kit/sortable";
-import {
+import type {
   ExperimentInterfaceStringDates,
   Screenshot,
 } from "shared/types/experiment";

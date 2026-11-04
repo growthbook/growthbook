@@ -1,11 +1,12 @@
-import { FC, ReactNode, useCallback, useMemo, useState } from "react";
+import type { FC, ReactNode } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
-import { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
+import type { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
-  ExperimentMetricDefinition,
   getFactMetricFactTableIds,
   isFactMetric,
   isFactMetricJoinable,
@@ -14,26 +15,21 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
-import {
+import type {
   FactMetricInterface,
   FactMetricType,
   FactTableDefinition,
 } from "shared/types/fact-table";
 import { PiInfo, PiTag } from "react-icons/pi";
-import { MetricOverride } from "shared/validators";
+import type { MetricOverride } from "shared/validators";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
-import SelectField, {
-  ReactSelectProps,
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import SelectField, { ReactSelectProps } from "@/components/Forms/SelectField";
 import { OptionPopover } from "@/components/Features/OptionTooltipShell";
-import {
-  MetricOverrideTooltipContent,
-  MetricSettingsScope,
-} from "@/components/Experiment/MetricOverrideTooltip";
+import type { MetricSettingsScope } from "@/components/Experiment/MetricOverrideTooltip";
+import { MetricOverrideTooltipContent } from "@/components/Experiment/MetricOverrideTooltip";
 import {
   getOverriddenMetricIds,
   METRIC_OVERRIDE_BORDER_COLOR,

@@ -1,10 +1,11 @@
 import { isEqual } from "lodash";
-import { Revision, getConstantRevisionChange } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
+import { getConstantRevisionChange } from "shared/enterprise";
 import {
   updateConstantValidator,
   validateResolvableValue,
 } from "shared/validators";
-import { ConstantInterface } from "shared/types/constant";
+import type { ConstantInterface } from "shared/types/constant";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";

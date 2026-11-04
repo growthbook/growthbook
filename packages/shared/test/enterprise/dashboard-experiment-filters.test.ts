@@ -17,7 +17,7 @@ import {
   getCustomBlockGlobalFilterKeys,
   withBlockGlobalFilterFollowing,
 } from "../../src/enterprise/dashboards/utils";
-import {
+import type {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   ExperimentsScaledImpactBlockInterface,

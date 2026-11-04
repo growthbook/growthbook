@@ -1,14 +1,14 @@
-import { ProjectInterface } from "shared/types/project";
-import { Environment } from "shared/types/organization";
-import {
+import type { ProjectInterface } from "shared/types/project";
+import type { Environment } from "shared/types/organization";
+import type {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
 } from "shared/types/feature";
-import { ConditionInterface } from "@growthbook/growthbook-react";
+import type { ConditionInterface } from "@growthbook/growthbook-react";
 import { uniqBy } from "lodash";
 import { stemRuleId, suffixRuleId } from "shared/util";
-import { ApiCallType } from "@/services/auth";
+import type { ApiCallType } from "@/services/auth";
 
 // Various utilities to help migrate from another service to GrowthBook
 

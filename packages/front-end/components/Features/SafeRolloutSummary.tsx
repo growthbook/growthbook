@@ -4,9 +4,9 @@ import {
   isFactMetricId,
   isMetricGroupId,
 } from "shared/experiments";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
-import { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
+import type { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
 import ValidateValue from "@/components/Features/ValidateValue";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";

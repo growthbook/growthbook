@@ -1,5 +1,6 @@
-import { CSSProperties, ReactNode, forwardRef, useMemo } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { CSSProperties, ReactNode } from "react";
+import { forwardRef, useMemo } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import clsx from "clsx";
 import Text from "@/ui/Text";
 import Table, {

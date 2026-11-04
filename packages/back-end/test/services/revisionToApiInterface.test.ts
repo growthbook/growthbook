@@ -1,7 +1,8 @@
-import { eventUserToApiEventUser, FeatureRule } from "shared/validators";
+import type { FeatureRule } from "shared/validators";
+import { eventUserToApiEventUser } from "shared/validators";
 import { stemRuleId, suffixRuleId } from "shared/util";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Environment } from "shared/types/organization";
 import {
   revisionToApiInterface,
   revisionToApiInterfaceV2,

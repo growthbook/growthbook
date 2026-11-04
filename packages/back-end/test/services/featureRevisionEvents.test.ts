@@ -1,6 +1,6 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Environment } from "shared/types/organization";
 import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({

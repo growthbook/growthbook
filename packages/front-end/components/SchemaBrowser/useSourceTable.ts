@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import {
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type {
   DetectedColumn,
   FactFilterTestResults,
   RowFilter,
   RowFilterTestResults,
 } from "shared/types/fact-table";
-import {
+import type {
   Column,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
@@ -14,12 +14,13 @@ import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import type { TestQueryType } from "shared/types/query";
+import type { FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
 import {
   columnTypesToColumnSource,
-  FilterColumnSource,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 import { useAuth } from "@/services/auth";
+import type { SourceTableTemplate } from "@/services/factTables";
 import {
   getDefaultPartitionColumn,
   getPartitionFormats,
@@ -28,9 +29,8 @@ import {
   getPickerTableSql,
   haveSameColumnNames,
   isPseudoColumn,
-  SourceTableTemplate,
 } from "@/services/factTables";
-import { SchemaBrowserTable } from "@/services/schemaBrowserTables";
+import type { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 import useApi from "@/hooks/useApi";
 
 export const SAMPLE_ROW_LIMIT = 20;

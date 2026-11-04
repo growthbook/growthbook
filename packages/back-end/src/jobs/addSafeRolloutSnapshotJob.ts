@@ -1,5 +1,6 @@
-import Agenda, { Job } from "agenda";
-import {
+import type { Job } from "agenda";
+import type Agenda from "agenda";
+import type {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";

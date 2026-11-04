@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import Field, { FieldProps } from "./Field";
+import type { FieldProps } from "./Field";
+import Field from "./Field";
 import { proportionToPercentInputValue } from "./percentFieldUtils";
 
 type Props = {

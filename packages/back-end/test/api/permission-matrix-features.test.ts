@@ -1,11 +1,11 @@
 import request from "supertest";
 import type { OrganizationInterface } from "shared/types/organization";
 import { setupApp } from "./api.setup";
+import type { Persona } from "./permission-personas.fixture";
 import {
   buildOrg,
   makePersonaContext,
   PERSONA_IDS,
-  Persona,
 } from "./permission-personas.fixture";
 
 /**

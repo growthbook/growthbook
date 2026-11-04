@@ -1,4 +1,5 @@
-import mutate, { DeclarativeMutation } from "dom-mutator";
+import type { DeclarativeMutation } from "dom-mutator";
+import mutate from "dom-mutator";
 import type {
   ApiHost,
   Attributes,
@@ -61,7 +62,7 @@ import {
   getStickyBucketAttributes,
   getTrackingUserContext,
 } from "./core";
-import { StickyBucketServiceSync } from "./sticky-bucket-service";
+import type { StickyBucketServiceSync } from "./sticky-bucket-service";
 import {
   isMissingRemoteGroupIds,
   REMOTE_GROUP_IDS_ATTRIBUTE,

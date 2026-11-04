@@ -1,8 +1,6 @@
-import {
-  InterleavingSnapshotInterface,
-  interleavingSnapshotValidator,
-} from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
+import type { InterleavingSnapshotInterface } from "shared/validators";
+import { interleavingSnapshotValidator } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
 import {
   CasConflictError,
   MakeModelClass,

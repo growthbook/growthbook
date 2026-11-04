@@ -1,11 +1,11 @@
-import { z } from "zod";
+import type { z } from "zod";
 import omit from "lodash/omit";
 import {
   updateFactMetricValidator,
   resolveCappingSettingsPatch,
   validateFactMetricCapping,
 } from "shared/validators";
-import {
+import type {
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,

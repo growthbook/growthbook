@@ -1,5 +1,5 @@
-import { DetectedColumn } from "shared/types/fact-table";
-import { SchemaWithPath } from "shared/types/integrations";
+import type { DetectedColumn } from "shared/types/fact-table";
+import type { SchemaWithPath } from "shared/types/integrations";
 import {
   findColumnByName,
   getRemappedUserIdColumns,

@@ -6,8 +6,8 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { sequentialDiscriminant, sequentialRho } from "shared/power";
-import { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
-import {
+import type { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotTraffic,
   SnapshotSettingsVariation,

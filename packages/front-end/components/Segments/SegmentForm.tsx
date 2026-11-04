@@ -1,6 +1,7 @@
-import { FC, useMemo, useState } from "react";
+import type { FC } from "react";
+import { useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { SegmentInterface } from "shared/types/segment";
+import type { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { PiArrowRight } from "react-icons/pi";

@@ -1,12 +1,14 @@
 import React, { useCallback, useMemo, useRef } from "react";
+import type {
+  ResolvedTableColumn,
+  TableColumnDef,
+  TableColumnLayout,
+} from "@/services/tableColumns";
 import {
   isLayoutCustomized,
   mergeLayoutForWrite,
   minTableWidth,
   resolveTableColumns,
-  ResolvedTableColumn,
-  TableColumnDef,
-  TableColumnLayout,
 } from "@/services/tableColumns";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 

@@ -1,5 +1,8 @@
-import { StatusIndicatorData, DecisionCriteriaRule } from "shared/enterprise";
-import {
+import type {
+  StatusIndicatorData,
+  DecisionCriteriaRule,
+} from "shared/enterprise";
+import type {
   ExperimentPhase,
   Variation,
   MetricOverride,
@@ -10,7 +13,7 @@ import {
   HoldoutInterface,
   RevisionStatus,
 } from "shared/validators";
-import { ExperimentRefVariation, FeatureInterface } from "./feature";
+import type { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
   AttributionModel,

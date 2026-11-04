@@ -1,15 +1,15 @@
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import {
   archiveSavedGroupValidator,
   unarchiveSavedGroupValidator,
 } from "shared/validators";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { SavedGroupInterface } from "shared/types/saved-group";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
-import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
+import type { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -20,11 +20,13 @@ import {
 } from "back-end/src/revisions/util";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import type {
+  PublishGate,
+  BypassedGate,
+} from "back-end/src/revisions/publishGates";
 import {
   evaluatePublishGates,
   PublishBlockedError,
-  PublishGate,
-  BypassedGate,
 } from "back-end/src/revisions/publishGates";
 import {
   confirmationLink,

@@ -1,13 +1,13 @@
-import {
+import type {
   SessionReplayInterface,
   SessionReplayRrwebEvent,
 } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import type { SessionReplayRow } from "back-end/src/services/clickhouse";
 import {
   getSessionReplayChunksBySessionId,
   listSessionReplays,
-  SessionReplayRow,
 } from "back-end/src/services/clickhouse";
 import {
   filterClientKeysByProject,

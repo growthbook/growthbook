@@ -1,16 +1,15 @@
 import { useMemo, useState, useEffect } from "react";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import {
-  powerMetricWeeks,
+import type {
   PowerCalculationParams,
   PowerCalculationResults,
   PartialPowerCalculationParams,
   FullModalPowerCalculationParams,
   StatsEngineSettings,
 } from "shared/power";
-import PowerCalculationSettingsModal, {
-  PowerModalPages,
-} from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import { powerMetricWeeks } from "shared/power";
+import type { PowerModalPages } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";

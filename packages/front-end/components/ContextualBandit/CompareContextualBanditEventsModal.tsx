@@ -1,6 +1,6 @@
-import { ContextualBanditInterface } from "shared/validators";
+import type { ContextualBanditInterface } from "shared/validators";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
-import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
+import type { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 
 const CONTEXTUAL_BANDIT_DIFF_CONFIG: AuditDiffConfig<ContextualBanditInterface> =

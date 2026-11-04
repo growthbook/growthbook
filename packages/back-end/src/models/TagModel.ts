@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { TagDBInterface, TagInterface } from "shared/types/tag";
+import type { TagDBInterface, TagInterface } from "shared/types/tag";
 import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
 
 const tagSchema = new mongoose.Schema({

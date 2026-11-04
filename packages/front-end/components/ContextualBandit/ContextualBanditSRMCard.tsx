@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
-import { ExperimentReportVariation } from "shared/types/report";
-import { ContextualBanditSrmLatestPeriod } from "shared/validators";
+import type { ExperimentReportVariation } from "shared/types/report";
+import type { ContextualBanditSrmLatestPeriod } from "shared/validators";
 import { DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
 import { pValueFormatter } from "@/services/experiments";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";

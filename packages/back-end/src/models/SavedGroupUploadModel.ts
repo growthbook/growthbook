@@ -1,9 +1,9 @@
-import {
+import type {
   SavedGroupUploadInterface,
   SavedGroupUploadLoad,
   SavedGroupUploadStatus,
-  savedGroupUploadValidator,
 } from "shared/validators";
+import { savedGroupUploadValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

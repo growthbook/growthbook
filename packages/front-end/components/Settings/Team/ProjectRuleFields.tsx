@@ -1,6 +1,6 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Box } from "@radix-ui/themes";
-import { ProjectMemberRole } from "shared/types/organization";
+import type { ProjectMemberRole } from "shared/types/organization";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";

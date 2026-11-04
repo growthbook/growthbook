@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { CreateFactMetricFormProps } from "@/services/metrics";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { CreateFactMetricFormProps } from "@/services/metrics";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
+import type { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
 import MetricPerformance from "@/enterprise/components/ProductAnalytics/MetricPerformance";
 import {
   getMetricPreviewUnavailableReason,

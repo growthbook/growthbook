@@ -1,8 +1,8 @@
 import { Flex } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { PiWarningCircle } from "react-icons/pi";
-import { Environment } from "shared/types/organization";
+import type { Environment } from "shared/types/organization";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 

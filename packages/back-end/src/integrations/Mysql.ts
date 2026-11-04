@@ -1,7 +1,8 @@
-import mysql, { RowDataPacket } from "mysql2/promise";
-import { ConnectionOptions } from "mysql2";
-import { QueryResponse } from "shared/types/integrations";
-import { MysqlConnectionParams } from "shared/types/integrations/mysql";
+import type { RowDataPacket } from "mysql2/promise";
+import mysql from "mysql2/promise";
+import type { ConnectionOptions } from "mysql2";
+import type { QueryResponse } from "shared/types/integrations";
+import type { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getFactTableTypeFromMysqlTypeCode } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";

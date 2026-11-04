@@ -1,6 +1,6 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import PremiumCallout from "@/ui/PremiumCallout";
@@ -15,10 +15,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { ReadOnlyChecklistRows } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { percentFormatter } from "./DecisionMakingSettings";
-import { ServerChecklistItem } from "./startActions";
+import type { ServerChecklistItem } from "./startActions";
 import { revisionHref } from "./draftPicks";
-import { StartUpgrade } from "./useStartGate";
-import { PendingDraftFailure } from "./useStartExperiment";
+import type { StartUpgrade } from "./useStartGate";
+import type { PendingDraftFailure } from "./useStartExperiment";
 
 const PENDING_DRAFT_FAILURE_LABELS: Record<
   PendingDraftFailure["reason"],

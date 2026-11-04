@@ -1,10 +1,10 @@
-import {
+import type {
   ExperimentWarningNotificationPayload,
   ApiExperiment,
   FeatureWebhookPayload,
 } from "shared/validators";
-import { LegacyNotificationEventPayload } from "./base-types";
-import { UserLoginEventProperties } from "./event-types";
+import type { LegacyNotificationEventPayload } from "./base-types";
+import type { UserLoginEventProperties } from "./event-types";
 
 export { NotificationEvent } from "./base-types";
 

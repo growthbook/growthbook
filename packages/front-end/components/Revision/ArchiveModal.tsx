@@ -1,8 +1,9 @@
-import { ReactNode, useState } from "react";
-import { Revision } from "shared/enterprise";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import type { Revision } from "shared/enterprise";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
-import { DraftMode } from "@/components/DraftSelector";
+import type { DraftMode } from "@/components/DraftSelector";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";

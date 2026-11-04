@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { useForm } from "react-hook-form";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";

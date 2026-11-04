@@ -1,16 +1,15 @@
+import type { ReactElement, ReactNode } from "react";
 import React, {
   useState,
   useEffect,
   useContext,
-  ReactElement,
-  ReactNode,
   useCallback,
   useRef,
 } from "react";
 import { useRouter } from "next/router";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { NonJsonResponseError } from "shared/util";
-import {
+import type {
   IdTokenResponse,
   UnauthenticatedResponse,
 } from "shared/types/sso-connection";

@@ -1,20 +1,20 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
   Variation,
 } from "shared/types/experiment";
-import {
+import type {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
+import type {
   HoldoutInterfaceStringDates,
   HoldoutMissingLinkage,
 } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   canEditDeliveryInPlace,
   experimentHasLinkedChanges,
@@ -36,7 +36,7 @@ import {
 import VisualChangesetColumn from "@/components/Experiment/VisualChangesetColumn";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import {
+import type {
   ColumnLayout,
   ImplementationColumn,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";
@@ -47,9 +47,9 @@ import EditVariationMetadataModal from "@/components/Experiment/EditVariationMet
 import EditVariationKeysModal from "@/components/Experiment/EditVariationKeysModal";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import HoldoutTrafficAndTargeting from "@/components/Holdout/HoldoutTrafficAndTargeting";
+import type { TargetingDraft } from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import TrafficAllocationFunnel, {
   changesVariationList,
-  TargetingDraft,
 } from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import AnalysisPlan from "@/components/Experiment/TabbedPage/AnalysisPlan";
@@ -68,28 +68,30 @@ import Frame from "@/ui/Frame";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import HoldoutEnvironments from "./HoldoutEnvironments";
+import type { FlagEnvironmentsDraft, HoldoutDraft } from "./ExperimentEdits";
 import {
-  FlagEnvironmentsDraft,
-  HoldoutDraft,
   useExperimentEdits,
   useExperimentFieldEdit,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
+import type {
+  LinkedChangesDraft,
+  RedirectFields,
+  ShownRedirect,
+  VisualTargeting,
+} from "./linkedChangesDraft";
 import {
   addRedirect,
   editRedirect,
   EMPTY_LINKED_CHANGES,
   hasSetAsideVisualChanges,
-  LinkedChangesDraft,
   linkedChangesBody,
   newRedirectKey,
   pruneLinkedChanges,
   rebaseLinkedChanges,
-  RedirectFields,
   removeRedirect,
   removeVisual,
-  ShownRedirect,
   shownUrlRedirects,
   redirectServedValues,
   visualServedValues,
@@ -98,7 +100,6 @@ import {
   stageVisualTargeting,
   undoRedirect,
   undoVisual,
-  VisualTargeting,
 } from "./linkedChangesDraft";
 import { useAddedFlags } from "./addedFlags";
 

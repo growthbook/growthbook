@@ -1,7 +1,5 @@
-import {
-  DecisionCriteriaInterface,
-  decisionCriteriaInterface,
-} from "shared/enterprise";
+import type { DecisionCriteriaInterface } from "shared/enterprise";
+import { decisionCriteriaInterface } from "shared/enterprise";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({

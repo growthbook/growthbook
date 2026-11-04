@@ -1,10 +1,10 @@
 import clsx from "clsx";
 import { PiDotsSix } from "react-icons/pi";
+import type { PanelResizeHandleProps as LibResizeHandleProps } from "react-resizable-panels";
 import {
   Panel,
   PanelGroup,
   PanelResizeHandle as LibResizeHandle,
-  PanelResizeHandleProps as LibResizeHandleProps,
 } from "react-resizable-panels";
 import styles from "./ResizablePanels.module.scss";
 

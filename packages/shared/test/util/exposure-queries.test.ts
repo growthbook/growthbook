@@ -22,7 +22,7 @@ import {
   findColumnsNeedingQuotes,
   getColumnsNeedingQuotesMessage,
 } from "shared/util";
-import { ExposureQuery } from "shared/types/datasource";
+import type { ExposureQuery } from "shared/types/datasource";
 
 function query(
   partial: Partial<ExposureQuery> &

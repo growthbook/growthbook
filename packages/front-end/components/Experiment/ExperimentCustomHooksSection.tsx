@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { CustomHookInterface } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { CustomHookInterface } from "shared/validators";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
@@ -10,8 +10,8 @@ import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
+import type { HookScope } from "@/components/CustomHooks/CustomHooksTable";
 import CustomHooksTable, {
-  HookScope,
   hookScopeColumn,
   isHookScopedTo,
 } from "@/components/CustomHooks/CustomHooksTable";

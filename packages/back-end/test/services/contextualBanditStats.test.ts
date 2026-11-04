@@ -1,4 +1,4 @@
-import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
+import type { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import { contextualBanditAttrCol } from "shared/experiments";
 import {
   buildContextualBanditObservations,

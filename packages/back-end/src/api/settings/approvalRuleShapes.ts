@@ -2,7 +2,7 @@ import {
   apiRequireReviewRule,
   apiSavedGroupApprovalRule,
 } from "shared/validators";
-import {
+import type {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";

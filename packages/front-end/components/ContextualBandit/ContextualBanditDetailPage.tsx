@@ -1,17 +1,18 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
-import { Fragment, ReactNode, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import {
-  ApiContextualBanditInterface,
   getDroppedContextualAttributes,
   getEffectiveContextualAttributes,
 } from "shared/validators";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import {
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
   Variation,

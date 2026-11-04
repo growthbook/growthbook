@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ReactElement, ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { FaCheck } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import Button from "@/components/Button";

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   useState,
   useEffect,
@@ -5,7 +6,6 @@ import {
   useMemo,
   useRef,
   createContext,
-  ReactNode,
 } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js/pure";

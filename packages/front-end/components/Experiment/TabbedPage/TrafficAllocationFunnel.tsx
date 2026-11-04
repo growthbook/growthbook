@@ -1,6 +1,7 @@
 import clsx from "clsx";
-import { Dispatch, ReactNode, SetStateAction, useMemo, useState } from "react";
-import {
+import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { useMemo, useState } from "react";
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
@@ -48,16 +49,15 @@ import Badge from "@/ui/Badge";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
 import { coveragePercentFormatter } from "@/services/utils";
 import FunnelConnector from "./FunnelConnector";
-import { ImplementationColumn } from "./ImplementationColumn";
+import type { ImplementationColumn } from "./ImplementationColumn";
 import VariationValuesTable from "./VariationValuesTable";
 import { InfoTip } from "./SetupFieldRow";
-import { DraftPick, FlagDraftPicks } from "./draftPicks";
+import type { DraftPick, FlagDraftPicks } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
 import useExperimentEditing from "./useExperimentEditing";
+import type { FlagEnvironmentsDraft, HoldoutDraft } from "./ExperimentEdits";
 import {
   experimentFieldChanges,
-  FlagEnvironmentsDraft,
-  HoldoutDraft,
   reviewAgainstCurrent,
   useEditBase,
   useExperimentEdits,

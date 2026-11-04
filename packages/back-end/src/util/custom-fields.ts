@@ -1,6 +1,9 @@
 import isEqual from "lodash/isEqual";
-import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
-import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
+import type {
+  CustomField,
+  CustomFieldSection,
+} from "shared/types/custom-fields";
+import type { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 
 function isEmptyValue(value: unknown, type: CustomField["type"]): boolean {
   if (type === "enum" || type === "multiselect") {

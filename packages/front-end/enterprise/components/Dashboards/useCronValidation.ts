@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import cronstrue from "cronstrue";
-import { DashboardUpdateSchedule } from "shared/enterprise";
+import type { DashboardUpdateSchedule } from "shared/enterprise";
 
 export function useCronValidation(
   currentUpdateSchedule: DashboardUpdateSchedule | undefined,

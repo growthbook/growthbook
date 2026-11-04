@@ -1,4 +1,4 @@
-import { ExperimentMetricInterface } from "shared/experiments";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import Frame from "@/ui/Frame";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 

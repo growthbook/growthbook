@@ -1,20 +1,12 @@
-import {
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import isEqual from "lodash/isEqual";
 import { datasourceChangeDrops } from "shared/experiments";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import {
-  ExperimentAnalysisSettingsDraft,
-  experimentAnalysisSettingsDraft,
-} from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { ExperimentAnalysisSettingsDraft } from "shared/validators";
+import { experimentAnalysisSettingsDraft } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import {
   hasPendingScheduledStart,

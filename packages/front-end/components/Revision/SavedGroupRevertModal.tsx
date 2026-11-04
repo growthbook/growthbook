@@ -1,9 +1,10 @@
-import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { ApiSavedGroupUpload } from "shared/validators";
+import type { Revision } from "shared/enterprise";
+import { applyTopLevelPatchOps } from "shared/enterprise";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { ApiSavedGroupUpload } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
-import { RevisionDiffConfig } from "./useRevisionDiff";
+import type { RevisionDiffConfig } from "./useRevisionDiff";
 import RevertModal from "./RevertModal";
 
 // Fields a saved-group revert can restore (mirrors the live + ops merge

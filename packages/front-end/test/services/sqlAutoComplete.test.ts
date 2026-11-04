@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import {
+import type {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
@@ -8,7 +8,7 @@ import {
   getSelectedTables,
   getAutoCompletions,
 } from "@/services/sqlAutoComplete";
-import { CursorData } from "@/components/Segments/SegmentForm";
+import type { CursorData } from "@/components/Segments/SegmentForm";
 import { getTemplateCompletions } from "@/services/sqlKeywords";
 
 const mockSqlKeywords = [

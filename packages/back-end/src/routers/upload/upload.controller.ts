@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import {
+import type {
   SignedImageUrlResponse,
   SignedUploadUrlResponse,
   UploadResponse,
@@ -12,7 +12,7 @@ import {
   getSignedUploadUrl,
   getImageData,
 } from "back-end/src/services/files";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
   getOrganizationById,

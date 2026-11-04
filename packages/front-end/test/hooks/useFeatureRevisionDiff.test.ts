@@ -1,7 +1,7 @@
-import * as React from "react";
+import type * as React from "react";
 import { render, renderHook } from "@testing-library/react";
+import type { FeatureRevisionDiffInput } from "@/hooks/useFeatureRevisionDiff";
 import {
-  FeatureRevisionDiffInput,
   legacyEnvironmentRefs,
   useFeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";

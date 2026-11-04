@@ -1,17 +1,17 @@
-import { FeatureInterface } from "shared/types/feature";
-import {
+import type { FeatureInterface } from "shared/types/feature";
+import type {
   FeatureRevisionInterface,
   RevisionChanges,
 } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
-import { MergeResultChanges } from "shared/util";
+import type { Environment } from "shared/types/organization";
+import type { MergeResultChanges } from "shared/util";
 import { revisionChangesSchema } from "shared/validators";
 import {
   computeRevisionUpdate,
   computeRevisionPublishChanges,
   REVISION_CONTENT_FIELDS,
 } from "back-end/src/models/FeatureRevisionModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const ORG_ENVS: Environment[] = [
   { id: "dev", description: "" },

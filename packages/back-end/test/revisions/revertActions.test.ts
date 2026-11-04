@@ -4,7 +4,7 @@ import {
   resolveRevertStrategy,
   revertTargetState,
 } from "back-end/src/revisions/revertActions";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 
 /**
  * Revert authority can go wrong in both directions: derived from the landing

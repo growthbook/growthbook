@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
-import { PresentationInterface } from "shared/types/presentation";
+import type { PresentationInterface } from "shared/types/presentation";
 import { date } from "shared/dates";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";

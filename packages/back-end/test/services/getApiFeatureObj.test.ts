@@ -1,16 +1,19 @@
-import { FeatureInterface, LegacyFeatureInterface } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
-import { ExperimentInterface } from "shared/types/experiment";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { GroupMap } from "shared/types/saved-group";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type {
+  FeatureInterface,
+  LegacyFeatureInterface,
+} from "shared/types/feature";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { GroupMap } from "shared/types/saved-group";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   getApiFeatureObj,
   getApiFeatureObjV2,
   scrubConfigExtends,
 } from "back-end/src/services/features";
 import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 // Regression: env-less org → v1 REST emit dropped every rule because
 // `getApiFeatureObj` used `org.settings.environments ?? []` instead of the

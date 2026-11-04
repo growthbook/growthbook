@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import type { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { SettingsField, SettingsGroup } from "./SettingsGroup";
 
 export default function NorthStarMetricSettings() {

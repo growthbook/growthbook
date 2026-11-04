@@ -1,4 +1,4 @@
-import { FeatureValueType, SchemaField } from "shared/types/feature";
+import type { FeatureValueType, SchemaField } from "shared/types/feature";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";

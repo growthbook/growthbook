@@ -1,10 +1,10 @@
-import Agenda from "agenda";
+import type Agenda from "agenda";
 import {
   addDays,
   EXPIRING_SOON_DAYS,
   getExpirationStatus,
 } from "shared/api-key-expiration";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { createEvent } from "back-end/src/models/EventModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";

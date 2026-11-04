@@ -1,5 +1,5 @@
 import { isEqual } from "lodash";
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import { stringRowFilterOperators } from "shared/validators";
 import { isRowFilterComplete } from "./rowFilterUtils";
 

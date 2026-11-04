@@ -1,5 +1,5 @@
-import { FC, ChangeEventHandler } from "react";
-import { AthenaConnectionParams } from "shared/types/integrations/athena";
+import type { FC, ChangeEventHandler } from "react";
+import type { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";

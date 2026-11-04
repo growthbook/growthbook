@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import { UserInterface } from "shared/types/user";
+import type { Request, Response } from "express";
+import type { UserInterface } from "shared/types/user";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -29,7 +29,7 @@ import {
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { updatePassword, verifyPassword } from "back-end/src/services/users";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { _dangerousGetSSOConnectionsByEmailDomain } from "back-end/src/models/SSOConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import {

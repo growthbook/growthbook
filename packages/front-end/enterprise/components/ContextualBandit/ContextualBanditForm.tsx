@@ -1,16 +1,15 @@
-import React, { FC, useState, useCallback } from "react";
+import type { FC } from "react";
+import React, { useState, useCallback } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
-import {
-  ApiCreateContextualBanditBody,
-  getEligibleContextualAttributes,
-} from "shared/validators";
+import type { ApiCreateContextualBanditBody } from "shared/validators";
+import { getEligibleContextualAttributes } from "shared/validators";
 import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
 import { validateAndFixCondition } from "shared/util";
@@ -41,10 +40,8 @@ import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useExperiments } from "@/hooks/useExperiments";

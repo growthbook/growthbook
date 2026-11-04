@@ -1,7 +1,8 @@
-import { ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
@@ -11,9 +12,8 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { coveragePercentFormatter, formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import ChangesTable, {
-  ChangesTableRow,
-} from "@/components/Reviews/ChangesTable";
+import type { ChangesTableRow } from "@/components/Reviews/ChangesTable";
+import ChangesTable from "@/components/Reviews/ChangesTable";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";

@@ -1,8 +1,8 @@
 import { isEqual } from "lodash";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { isDefined, toApiAssignmentQueryRef } from "shared/util";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import {
-  ExperimentMetricInterface,
   getFunnelStepMetric,
   isDimensionPrecomputed,
   isFactFunnelMetric,
@@ -10,16 +10,19 @@ import {
   parseFunnelStepMetricId,
   parseSliceMetricId,
 } from "shared/experiments";
-import { ApiExperimentBulkResult, LookbackOverride } from "shared/validators";
-import {
+import type {
+  ApiExperimentBulkResult,
+  LookbackOverride,
+} from "shared/validators";
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/types/experiment";
-import { ExposureQuery } from "shared/types/datasource";
-import { ExperimentReportResultDimension } from "shared/types/report";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExposureQuery } from "shared/types/datasource";
+import type { ExperimentReportResultDimension } from "shared/types/report";
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
 import { safeFloatOrNull } from "back-end/src/services/experiments";
 
 export function buildExperimentBulkResultId(

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ChangeEvent, CSSProperties, FC } from "react";
+import type { ChangeEvent, CSSProperties, FC } from "react";
 import Field from "./Field";
 
 const EditableH1: FC<{

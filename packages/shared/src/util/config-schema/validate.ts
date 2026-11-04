@@ -1,5 +1,5 @@
 import Ajv from "ajv";
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import { simpleToJSONSchema } from "../features";
 import { CONSTANT_EXTENDS_KEY } from "../../constants";
 

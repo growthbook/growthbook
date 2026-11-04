@@ -1,6 +1,6 @@
-import { ApiConfig } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiConfig } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { createEvent } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
 

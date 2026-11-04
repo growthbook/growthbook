@@ -1,5 +1,5 @@
 import isEqual from "lodash/isEqual";
-import { Changeset, ExperimentInterface } from "shared/types/experiment";
+import type { Changeset, ExperimentInterface } from "shared/types/experiment";
 import { isScheduledToStart } from "shared/util";
 import { BadRequestError } from "back-end/src/util/errors";
 

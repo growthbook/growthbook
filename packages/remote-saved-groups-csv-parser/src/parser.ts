@@ -10,7 +10,7 @@ import {
   NOT_TEXT,
   startsLikeBinary,
 } from "./lines";
-import { RemoteGroupCsvOptions, RemoteGroupCsvResult } from "./types";
+import type { RemoteGroupCsvOptions, RemoteGroupCsvResult } from "./types";
 
 /**
  * Reads a remote saved group CSV in chunks, with memory bounded by one line.

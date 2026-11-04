@@ -1,5 +1,5 @@
 import { ensureLimit, format, SQL_ROW_LIMIT } from "shared/sql";
-import { SqlDialect } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 export function getFreeFormQuery(
   dialect: SqlDialect,

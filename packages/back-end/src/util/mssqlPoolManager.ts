@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import mssql from "mssql";
-import { MssqlConnectionParams } from "shared/types/integrations/mssql";
+import type { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import { logger } from "back-end/src/util/logger";
 
 type PoolEntry = {

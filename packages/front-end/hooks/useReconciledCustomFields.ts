@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
-import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import type {
+  CustomField,
+  CustomFieldSection,
+} from "shared/types/custom-fields";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import {
   customFieldValuesEqual,

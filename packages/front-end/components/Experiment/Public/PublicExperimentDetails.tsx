@@ -1,5 +1,5 @@
 import { Flex, Separator } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Metadata from "@/ui/Metadata";
 import ScrollArea from "@/ui/ScrollArea";
 import { PanelSection } from "@/components/Experiment/TabbedPage/ExperimentDetailsPanel";

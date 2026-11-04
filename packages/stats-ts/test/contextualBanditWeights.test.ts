@@ -1,10 +1,10 @@
 import type { MetricSettingsForStatsEngine } from "shared/types/stats";
-import {
-  computeContextualBanditWeights,
-  type ContextualBanditArm,
-  type ContextualBanditObservation,
+import type {
   ContextualBanditWeightsInput,
+  ContextualBanditArm,
+  ContextualBanditObservation,
 } from "../src/contextualBanditWeights";
+import { computeContextualBanditWeights } from "../src/contextualBanditWeights";
 
 const ZERO_ARM: ContextualBanditArm = {
   n: 0,
