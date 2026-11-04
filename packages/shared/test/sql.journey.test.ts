@@ -77,6 +77,8 @@ const helpers: SqlDialect = {
   kllExtractPoint: () => "",
   kllExtractQuantiles: () => "",
   kllRankApprox: () => "",
+  lagLead: (fn, column, offset, windowSpec) =>
+    `${fn}(${column}, ${offset}) OVER (${windowSpec})`,
   identifierQuote: '"',
 };
 

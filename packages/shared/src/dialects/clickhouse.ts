@@ -18,6 +18,17 @@ const quoteClickHouseJsonPath = (path: string): string =>
 
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
+  // `lagInFrame` / `leadInFrame` exist on every ClickHouse release with window
+  // functions; uppercase `LAG` / `LEAD` only resolve from 25.10. They read
+  // within the frame, so the frame spans the whole partition. `toNullable`
+  // makes a row past the boundary NULL instead of the type's default ('').
+  lagLead: (
+    fn: "LAG" | "LEAD",
+    column: string,
+    offset: number,
+    windowSpec: string,
+  ) =>
+    `${fn === "LAG" ? "lagInFrame" : "leadInFrame"}(toNullable(${column}), ${offset}) OVER (${windowSpec} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)`,
   concatStrings: (parts: string[]) => parts.join(" || "),
   formatDialect: "clickhouse",
   escapeStringLiteral: clickHouseEscapeStringLiteral,
