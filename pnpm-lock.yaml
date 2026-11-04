@@ -576,6 +576,9 @@ importers:
       pino-pretty:
         specifier: ^13.0.0
         version: 13.0.0
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
       rimraf:
         specifier: ^3.0.2
         version: 3.0.2
