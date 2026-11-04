@@ -798,6 +798,41 @@ describe("sessionReplayPlugin — flush pipeline", () => {
     );
   });
 
+  it("omits experiments the user was not exposed to", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    gb.run({
+      key: "exposed-exp",
+      variations: ["control", "variant"],
+      hashAttribute: "session_id",
+    });
+    // Coverage 0 never buckets, so this evaluates but never becomes an exposure
+    gb.run({
+      key: "unexposed-exp",
+      variations: ["control", "variant"],
+      hashAttribute: "session_id",
+      coverage: 0,
+    });
+
+    jest.advanceTimersByTime(60_000);
+    await flushMicrotasks();
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      experimentEvals: { items: Array<{ key: string }> };
+    };
+    const keys = body.experimentEvals.items.map((i) => i.key);
+    expect(keys).toContain("exposed-exp");
+    expect(keys).not.toContain("unexposed-exp");
+  });
+
   it("resolves gb_session_id from the session_id attribute", async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,

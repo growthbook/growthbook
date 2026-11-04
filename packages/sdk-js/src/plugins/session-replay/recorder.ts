@@ -692,19 +692,24 @@ export function createReplayRecorder({
     });
   });
 
-  const offExperiment = growthbook.subscribe((experiment, result) => {
-    if (experimentEvals.length >= MAX_BUFFERED_EVENTS) experimentEvals.shift();
-    experimentEvals.push({
-      key: experiment.key,
-      timestamp: Date.now(),
-      name: experiment.name,
-      result: {
-        value: result.value,
-        variationId: result.variationId,
-        featureId: result.featureId,
-      },
-    });
-  });
+  // Exposures only; subscribe() would also capture qaMode and targeting misses
+  const offExperiment = growthbook._subscribeExperimentViewed(
+    (experiment, result) => {
+      if (experimentEvals.length >= MAX_BUFFERED_EVENTS)
+        experimentEvals.shift();
+      experimentEvals.push({
+        key: experiment.key,
+        timestamp: Date.now(),
+        name: experiment.name,
+        result: {
+          value: result.value,
+          // Numeric index, unlike /track's "Experiment Viewed" which sends result.key
+          variationId: result.variationId,
+          featureId: result.featureId,
+        },
+      });
+    },
+  );
 
   const offEvent = growthbook._subscribeCustomEvents(
     (eventName, properties) => {
