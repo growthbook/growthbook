@@ -1313,8 +1313,8 @@ describe("expireOldQueries aggregated fact table runs", () => {
   });
 
   it("concludes an orphaned run whose queued heartbeats went stale, minutes after death", async () => {
-    // Under the old hour-long window this run would hold the registry lock
-    // for ~60 minutes before being examined at all.
+    // Under the old hour-long window this run would sit unfinished for ~60
+    // minutes before being examined at all.
     const createdAt = new Date(Date.now() - 7 * 60 * 1000);
     runDocs = [
       run([{ query: "qry_1", status: "queued" }], { dateCreated: createdAt }),
