@@ -1,6 +1,6 @@
 import { RefCallback, useCallback, useRef } from "react";
 
-// Help launchers rise above the tallest mounted bottom bar via --bottom-bar-clearance.
+// Make the `?` help  launcher on bottom right not overlap with bottom bar actions
 const barHeights = new Map<Element, number>();
 
 function publish() {

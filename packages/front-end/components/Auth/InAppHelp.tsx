@@ -19,8 +19,7 @@ import styles from "./InAppHelp.module.scss";
 // Pylon's launcher is a third-party iframe, so its footprint can't be measured.
 const PYLON_CLEARANCE_PX = 76;
 
-// Matches Pylon's bubble (54px square, 12px from the bottom, 10px from the right),
-// so both launchers sit in the same spot.
+// But we want to match Pylon's bubble the best as we can
 const LAUNCHER_SIZE_PX = 54;
 const LAUNCHER_BOTTOM_PX = 12;
 
