@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import {
   DiscussionParentType,
   DiscussionInterface,
@@ -58,6 +58,35 @@ const DiscussionThread: FC<{
   const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/${type}/${id}`,
   );
+
+  // Until a rail sticks, its composer sits over the thread's end, so the
+  // thread runs on past its last lines by as much: enough to scroll them
+  // clear, with its shadow for more below lasting until they are. Only the
+  // thread's scroll range follows the page's scroll, so a frame's lag shows
+  // nowhere but under the composer.
+  const threadScroller = useRef<HTMLDivElement>(null);
+  const composer = useRef<HTMLDivElement>(null);
+  const underComposer = useRef<HTMLDivElement>(null);
+  const composerOverThread = fillHeight && allowNewComments && !!data;
+  useEffect(() => {
+    const scroller = threadScroller.current;
+    const over = composer.current;
+    const room = underComposer.current;
+    if (!composerOverThread || !scroller || !over || !room) return;
+    const fit = () => {
+      const overlap =
+        scroller.getBoundingClientRect().bottom -
+        over.getBoundingClientRect().top;
+      room.style.height = `${Math.max(0, overlap)}px`;
+    };
+    fit();
+    window.addEventListener("scroll", fit, { passive: true });
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("scroll", fit);
+      window.removeEventListener("resize", fit);
+    };
+  }, [composerOverThread]);
 
   if (error) {
     return <Callout status="error">{error.message}</Callout>;
@@ -187,6 +216,7 @@ const DiscussionThread: FC<{
         // The thread scrolls above the composer, which casts its shadow for
         // more below.
         <ScrollArea
+          ref={threadScroller}
           edgeCue="deep-shadow"
           skipEdges={["top", "bottom"]}
           style={{ flex: 1, minHeight: 0 }}
@@ -194,6 +224,7 @@ const DiscussionThread: FC<{
           {/* Less on the left, where the avatars already set the cards in. */}
           <Box pl="4" pr="5" py="4">
             {thread}
+            <div ref={underComposer} />
           </Box>
         </ScrollArea>
       ) : (
@@ -201,6 +232,7 @@ const DiscussionThread: FC<{
       )}
       {allowNewComments && (
         <Box
+          ref={composer}
           mt={fillHeight ? undefined : "4"}
           pt={fillHeight ? "4" : undefined}
           px={fillHeight ? "5" : undefined}
