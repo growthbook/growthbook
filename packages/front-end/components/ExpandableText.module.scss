@@ -13,8 +13,19 @@
   mask-repeat: no-repeat;
 }
 
-// Twice the class, to outrank a click row's own placing of the buttons in it.
-.more.more {
+// With the link under it, its last lines fade out toward it, so it reads as
+// going on. The padding below, where the next line starts, stays hidden.
+.fadesOut {
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 1.5lh - var(--space-1)),
+    transparent calc(100% - var(--space-1))
+  );
+}
+
+// Over the end of its last line. Twice the class, to outrank a click row's own
+// placing of the buttons in it.
+.atLineEnd.atLineEnd {
   position: absolute;
   right: 0;
   bottom: 0;

@@ -8,10 +8,12 @@ import {
   useState,
 } from "react";
 import { Box } from "@radix-ui/themes";
+import clsx from "clsx";
 import Link from "@/ui/Link";
 import styles from "./ExpandableText.module.scss";
 
-const MAX_LINES = 8;
+// How many lines show while it's cut off.
+export const CLAMPED_LINES = 8;
 
 // What keeps its own clicks inside the text.
 const CONTROLS =
@@ -19,7 +21,7 @@ const CONTROLS =
 
 const Expansion = createContext({ expanded: false, expand: () => {} });
 
-// The height of its first MAX_LINES lines as it resizes, or null when it has
+// The height of its first CLAMPED_LINES lines as it resizes, or null when it has
 // no more than that.
 function useClampHeight(ref: RefObject<HTMLElement>): number | null {
   const [height, setHeight] = useState<number | null>(null);
@@ -33,9 +35,22 @@ function useClampHeight(ref: RefObject<HTMLElement>): number | null {
       // Clamped by lines for a moment, so the cut falls between two whatever
       // their heights; drawn that way, it would add its own ellipsis.
       const style = el.style.cssText;
-      el.style.cssText += `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${MAX_LINES}; overflow: hidden;`;
-      const clamped = el.offsetHeight;
+      el.style.cssText += `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${CLAMPED_LINES}; overflow: hidden;`;
+      let clamped = el.offsetHeight;
       el.style.cssText = style;
+      // Laid out in rows rather than lines of text (flex, grid), it isn't
+      // clamped by lines, so it's cut within as many lines' height, under the
+      // lowest thing that still fits whole: between two rows.
+      const limit = CLAMPED_LINES * parseFloat(getComputedStyle(el).lineHeight);
+      if (clamped >= full - 1 && full > limit) {
+        const top = el.getBoundingClientRect().top;
+        clamped = 0;
+        el.querySelectorAll("*").forEach((node) => {
+          const bottom = node.getBoundingClientRect().bottom - top;
+          if (bottom <= limit && bottom > clamped) clamped = bottom;
+        });
+        if (!clamped) clamped = limit;
+      }
       setHeight(full > clamped + 1 ? clamped : null);
     };
     measure();
@@ -101,8 +116,24 @@ export default function ExpandableText({
   );
 }
 
-// The text itself, past MAX_LINES cut off with a link to the rest.
-export function ExpandableTextBody({ children }: { children: ReactNode }) {
+/**
+ * Whether the text is open, for what's costly to build in full while only its
+ * first lines show: past CLAMPED_LINES, it can wait to build the rest.
+ */
+export function useTextExpanded() {
+  return useContext(Expansion).expanded;
+}
+
+// The text itself, past CLAMPED_LINES cut off with a link to the rest.
+export function ExpandableTextBody({
+  linkBelow = false,
+  children,
+}: {
+  // The link on its own line under the text, at its start, where the lines
+  // end short (as rows do) and one at the end would be missed.
+  linkBelow?: boolean;
+  children: ReactNode;
+}) {
   const content = useRef<HTMLDivElement>(null);
   const clampHeight = useClampHeight(content);
   const { expanded, expand } = useContext(Expansion);
@@ -111,7 +142,9 @@ export function ExpandableTextBody({ children }: { children: ReactNode }) {
   return (
     <Box position="relative">
       <Box
-        className={clamped ? styles.clamped : undefined}
+        className={
+          clamped ? (linkBelow ? styles.fadesOut : styles.clamped) : undefined
+        }
         style={{
           maxHeight: clamped
             ? `calc(${clampHeight}px + 2 * var(--space-1))`
@@ -126,7 +159,11 @@ export function ExpandableTextBody({ children }: { children: ReactNode }) {
         <div ref={content}>{children}</div>
       </Box>
       {clamped ? (
-        <Link size="sm" className={styles.more} onClick={expand}>
+        <Link
+          size="sm"
+          className={clsx(styles.more, !linkBelow && styles.atLineEnd)}
+          onClick={expand}
+        >
           … expand
         </Link>
       ) : null}
