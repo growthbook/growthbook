@@ -1,5 +1,5 @@
 import {
-  type default as React,
+  type Dispatch,
   useState,
   useMemo,
   useCallback,
@@ -20,7 +20,7 @@ export function useDashboardEditorHooks<
   B extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 >(
   block: B,
-  setBlock: React.Dispatch<B> | undefined,
+  setBlock: Dispatch<B> | undefined,
   variations?: ExperimentReportVariation[],
 ) {
   // Use a ref to always have the latest block value for setters
