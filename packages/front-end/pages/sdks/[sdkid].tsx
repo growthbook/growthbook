@@ -18,6 +18,7 @@ import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
+import SdkQaOverridesSection from "@/components/Features/SDKConnections/SdkQaOverridesSection";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
 import Badge from "@/ui/Badge";
@@ -251,6 +252,7 @@ export default function SDKConnectionPage() {
           </Link>
         </Callout>
       )}
+      <SdkQaOverridesSection connection={connection} />
       <SdkWebhooks connection={connection} />
       <div className="mt-4">
         <CodeSnippetModal

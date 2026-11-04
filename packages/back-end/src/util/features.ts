@@ -17,6 +17,7 @@ import {
   getNamespaceHashAttribute,
   getNamespaceRanges,
   getRulesForEnvironment,
+  getQaTrackingKey,
   getTargetingProjectIds,
   includeExperimentInPayload,
   isDefined,
@@ -73,7 +74,9 @@ import {
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  ExperimentPhase,
 } from "shared/types/experiment";
+import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -272,6 +275,72 @@ function warnSavedGroupProblemOnce(problem: string) {
  *
  * The strategy decides how the group itself is written, not this function.
  */
+export function qaOverrideAdditionalTargetingCondition(
+  override: ExperimentQaOverrideInterface,
+): ConditionInterface | undefined {
+  if (!override.additionalTargeting) return undefined;
+  const { attribute, values } = override.additionalTargeting;
+  return { [attribute]: { $in: values } };
+}
+
+export function qaOverrideCondition({
+  override,
+  experimentCondition,
+}: {
+  override: ExperimentQaOverrideInterface;
+  experimentCondition?: ConditionInterface;
+}): ConditionInterface | undefined {
+  const extra = qaOverrideAdditionalTargetingCondition(override);
+  const base = override.applyExperimentTargeting
+    ? experimentCondition
+    : undefined;
+  if (base && extra) return { $and: [base, extra] };
+  return base ?? extra;
+}
+
+export function qaOverrideWeights(
+  override: ExperimentQaOverrideInterface,
+  experiment: Pick<ExperimentInterface, "variations" | "phases">,
+  phase: Pick<ExperimentPhase, "variationWeights">,
+): number[] {
+  if (override.assignment.type === "forced") {
+    const variationId = override.assignment.variationId;
+    const variations = getLatestPhaseVariations(experiment);
+    const index = variations.findIndex((v) => v.id === variationId);
+    if (index >= 0) {
+      return variations.map((_, i) => (i === index ? 1 : 0));
+    }
+  }
+  return phase.variationWeights;
+}
+
+export function applyQaOverrideToRule(
+  rule: FeatureDefinitionRule,
+  experiment: ExperimentInterface,
+  phase: ExperimentPhase,
+  override: ExperimentQaOverrideInterface,
+): FeatureDefinitionRule {
+  rule.key = getQaTrackingKey(experiment.trackingKey);
+  rule.seed = rule.key;
+  rule.weights = qaOverrideWeights(override, experiment, phase);
+  rule.coverage = override.applyExperimentCoverage ? phase.coverage : 1;
+  rule.disableStickyBucketing = true;
+
+  const condition = qaOverrideCondition({
+    override,
+    experimentCondition: rule.condition,
+  });
+  if (condition) {
+    rule.condition = condition;
+  } else {
+    delete rule.condition;
+  }
+  if (!override.applyExperimentTargeting) {
+    delete rule.parentConditions;
+  }
+  return rule;
+}
+
 export function mergeConditionAndSavedGroups({
   savedGroupStrategy,
   condition,
@@ -1047,6 +1116,7 @@ export function getFeatureDefinition({
   includeRuleIds,
   includeExperimentNames,
   includeDraftExperimentRefs,
+  qaOverrides,
   namespaces,
   metadataOptions,
   projectsMap,
@@ -1075,6 +1145,8 @@ export function getFeatureDefinition({
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   includeDraftExperimentRefs?: boolean;
+  // Draft experiments served to this connection through a QA override, by experiment id.
+  qaOverrides?: Map<string, ExperimentQaOverrideInterface>;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -1347,12 +1419,19 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          if (exp.status === "draft" && !includeDraftExperimentRefs)
+          const qaOverride =
+            exp.status === "draft" ? qaOverrides?.get(exp.id) : undefined;
+
+          if (
+            exp.status === "draft" &&
+            !includeDraftExperimentRefs &&
+            !qaOverride
+          )
             return null;
 
           if (
             !includeExperimentInPayload(exp, [], {
-              includeDrafts: includeDraftExperimentRefs,
+              includeDrafts: includeDraftExperimentRefs || !!qaOverride,
             })
           )
             return null;
@@ -1445,6 +1524,9 @@ export function getFeatureDefinition({
               : phaseVariations.map((v) => ({ key: v.key }));
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
+            if (qaOverride) {
+              applyQaOverrideToRule(rule, exp, phase, qaOverride);
+            }
           }
           if (rule.condition)
             savedGroupStrategy.finalizeCondition(rule.condition);

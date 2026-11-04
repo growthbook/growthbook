@@ -6,6 +6,8 @@ import {
   changesetOwnerRef,
   includeExperimentInPayload,
   hasVisualChanges,
+  isQaTrackingKey,
+  QA_TRACKING_KEY_SUFFIX,
 } from "shared/util";
 import {
   generateTrackingKey,
@@ -834,6 +836,14 @@ export async function getSampleExperiment(
   return exp ? toInterface(exp) : null;
 }
 
+function assertNotQaTrackingKey(trackingKey: string) {
+  if (isQaTrackingKey(trackingKey)) {
+    throw new Error(
+      `Tracking key cannot end with "${QA_TRACKING_KEY_SUFFIX}" (reserved for QA overrides)`,
+    );
+  }
+}
+
 export async function createExperiment({
   data,
   context,
@@ -851,6 +861,7 @@ export async function createExperiment({
       async (key: string) => await getExperimentByTrackingKey(context, key),
     );
   }
+  assertNotQaTrackingKey(data.trackingKey);
 
   const nextUpdate = determineNextDate(
     context.org.settings?.updateSchedule || null,
@@ -965,6 +976,7 @@ export async function updateExperiment({
   };
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
+  if (allChanges.trackingKey) assertNotQaTrackingKey(allChanges.trackingKey);
 
   validateMetricOverrides(allChanges.metricOverrides);
   if (allChanges.phases) {
@@ -2475,6 +2487,16 @@ const onExperimentUpdate = async ({
   };
 
   if (
+    (oldExperiment.status === "draft" && newExperiment.status !== "draft") ||
+    (!oldExperiment.archived && newExperiment.archived)
+  ) {
+    await context.models.experimentQaOverrides.deleteByExperiment(
+      newExperiment.id,
+      { skipSDKRefresh: true },
+    );
+  }
+
+  if (
     !bypassWebhooks &&
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
@@ -2543,6 +2565,9 @@ const onExperimentDelete = async (
   experiment: ExperimentInterface,
 ) => {
   await logExperimentDeleted(context, experiment);
+  await context.models.experimentQaOverrides.deleteByExperiment(experiment.id, {
+    skipSDKRefresh: true,
+  });
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];

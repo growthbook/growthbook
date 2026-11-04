@@ -488,6 +488,25 @@ export async function editSDKConnection(
     dateUpdated: new Date(),
   };
 
+  if (
+    otherChanges.environment !== undefined &&
+    otherChanges.environment !== connection.environment
+  ) {
+    await context.models.experimentQaOverrides.deleteBySdkConnection(
+      connection.id,
+      { skipSDKRefresh: true },
+    );
+  } else if (
+    Array.isArray(otherChanges.projects) &&
+    !isEqual(otherChanges.projects, connection.projects)
+  ) {
+    await context.models.experimentQaOverrides.deleteOutOfScopeForSdkConnection(
+      connection.id,
+      otherChanges.projects,
+      { skipSDKRefresh: true },
+    );
+  }
+
   await SDKConnectionModel.updateOne(
     {
       organization: context.org.id,
@@ -546,6 +565,10 @@ export async function deleteSDKConnectionModel(
     organization: context.org.id,
     id: sdkConnection.id,
   });
+  await context.models.experimentQaOverrides.deleteBySdkConnection(
+    sdkConnection.id,
+    { skipSDKRefresh: true },
+  );
 
   await audit.logDelete(context, sdkConnection);
 }

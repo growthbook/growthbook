@@ -22,6 +22,7 @@ export const updateEnvValidator = z.object({
       toggleOnList: z.boolean().optional(),
       defaultState: z.any().optional(),
       projects: z.array(z.string()).optional(),
+      qaOverridesEnabled: z.boolean().optional(),
     })
     .strict(),
 });
@@ -34,6 +35,7 @@ export const environment = z
     defaultState: z.boolean().optional(),
     projects: z.array(z.string()).optional(),
     parent: z.string().optional(),
+    qaOverridesEnabled: z.boolean().optional(),
   })
   .strict();
 

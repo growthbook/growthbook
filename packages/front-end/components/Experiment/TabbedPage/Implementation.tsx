@@ -8,7 +8,10 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  experimentSupportsQaOverrides,
+} from "shared/util";
 import { getActivePhaseIndex } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
@@ -30,6 +33,7 @@ import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import QaOverridesSection from "@/components/Experiment/QaOverrides/QaOverridesSection";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -161,6 +165,14 @@ export default function Implementation({
           source="implementation-tab"
         />
       )}
+      {experiment.status === "draft" &&
+      !experiment.archived &&
+      experimentSupportsQaOverrides(experiment) ? (
+        <QaOverridesSection
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+        />
+      ) : null}
       <div className="my-4">
         <Heading as="h2" size="lg" color="text-high" mb="2">
           Implementation

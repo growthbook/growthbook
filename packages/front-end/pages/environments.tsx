@@ -129,6 +129,7 @@ const EnvironmentsPage: FC = () => {
               <TableColumnHeader>SDK Connections</TableColumnHeader>
               <TableColumnHeader>Default state</TableColumnHeader>
               <TableColumnHeader>Show on features page</TableColumnHeader>
+              <TableColumnHeader>QA overrides</TableColumnHeader>
               <TableColumnHeader style={{ width: 30 }} />
             </TableRow>
           </TableHeader>
@@ -211,6 +212,7 @@ const EnvironmentsPage: FC = () => {
                     </Tooltip>
                   </TableCell>
                   <TableCell>{e.toggleOnList ? "yes" : ""}</TableCell>
+                  <TableCell>{e.qaOverridesEnabled ? "enabled" : ""}</TableCell>
                   <TableCell>
                     <DropdownMenu
                       trigger={

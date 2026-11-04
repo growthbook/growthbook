@@ -153,6 +153,7 @@ import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/d
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
+import { experimentQaOverrideRouter } from "./routers/experiment-qa-overrides/experiment-qa-overrides.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -916,6 +917,9 @@ app.use("/decision-criteria", decisionCriteriaRouter);
 
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);
+
+// Experiment QA Overrides
+app.use("/qa-overrides", experimentQaOverrideRouter);
 
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);

@@ -10,6 +10,7 @@ import type {
 } from "shared/types/integrations";
 import {
   formatQueryExecutionErrorForApi,
+  getQaTrackingKey,
   parseOptionalInt,
   resolveExposureQueryForAnalysis,
 } from "shared/util";
@@ -65,6 +66,8 @@ export async function postExposures(
       /** Phase to compile `{{phase.index}}` for; defaults to the active one. */
       phase?: number;
       cache?: "preferred" | "required" | "never";
+      /** "qa" reads exposures served through QA overrides (`<trackingKey>__qa`). */
+      exposureSource?: "live" | "qa";
     },
     { id: string }
   >,
@@ -131,6 +134,11 @@ export async function postExposures(
     context.throwBadRequestError("End date must be after start date.");
   }
 
+  const experimentTrackingKey =
+    req.body.exposureSource === "qa"
+      ? getQaTrackingKey(experiment.trackingKey)
+      : experiment.trackingKey;
+
   const phaseIndex = req.body.phase ?? getActivePhaseIndex(experiment);
   if (phaseIndex >= experiment.phases.length) {
     context.throwBadRequestError("Phase not found.");
@@ -166,7 +174,7 @@ export async function postExposures(
 
   const queryParams: ExperimentExposuresQueryParams = {
     experimentId: experiment.id,
-    experimentTrackingKey: experiment.trackingKey,
+    experimentTrackingKey,
     exposureQuery: resolvedExposureQuery,
     startDate,
     endDate,
@@ -190,7 +198,7 @@ export async function postExposures(
 
   const cacheKey = getExposuresCacheKey({
     experimentId: experiment.id,
-    experimentTrackingKey: experiment.trackingKey,
+    experimentTrackingKey,
     exposureQueryId: exposureQuery.id,
     exposureQuerySql: resolvedExposureQuery.query,
     identifierType: resolvedExposureQuery.identifierType,

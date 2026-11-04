@@ -64,6 +64,7 @@ export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
 export * from "./event-forwarder-fact-table";
+export * from "./qa-overrides";
 export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];

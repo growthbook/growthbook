@@ -35,6 +35,7 @@ export default function EnvironmentModal({
       defaultState: existing.defaultState ?? true,
       projects: existing.projects || [],
       parent: existing.parent,
+      qaOverridesEnabled: existing.qaOverridesEnabled || false,
     },
   });
   const { apiCall } = useAuth();
@@ -118,6 +119,7 @@ export default function EnvironmentModal({
                 toggleOnList: value.toggleOnList,
                 defaultState: value.defaultState,
                 projects: value.projects,
+                qaOverridesEnabled: value.qaOverridesEnabled,
               },
             }),
           });
@@ -137,6 +139,7 @@ export default function EnvironmentModal({
             defaultState: value.defaultState,
             projects: value.projects,
             parent: value.parent,
+            qaOverridesEnabled: value.qaOverridesEnabled,
           };
           await apiCall(`/environment`, {
             method: "POST",
@@ -270,6 +273,16 @@ export default function EnvironmentModal({
         value={!!form.watch("toggleOnList")}
         onChange={(value) => {
           form.setValue("toggleOnList", value);
+        }}
+        mb="3"
+      />
+      <Switch
+        id={"qaOverrides"}
+        label="Allow QA overrides"
+        description="Lets draft experiments be served to this environment's SDK Connections for testing. Turning this off removes any active overrides."
+        value={!!form.watch("qaOverridesEnabled")}
+        onChange={(value) => {
+          form.setValue("qaOverridesEnabled", value);
         }}
       />
     </Modal>

@@ -202,6 +202,29 @@ export const putEnvironment = async (
       },
     });
 
+    if (
+      envsArr[existingEnvIndex].qaOverridesEnabled &&
+      !environment.qaOverridesEnabled
+    ) {
+      const removed =
+        await context.models.experimentQaOverrides.deleteByEnvironment(id, {
+          skipSDKRefresh: true,
+        });
+      if (removed.length) {
+        const connections = await findSDKConnectionsByOrganization(context);
+        queueSDKPayloadRefresh({
+          context,
+          payloadKeys: [],
+          sdkConnections: connections.filter((c) => c.environment === id),
+          auditContext: {
+            event: "qa overrides disabled",
+            model: "environment",
+            id,
+          },
+        });
+      }
+    }
+
     if (environment.projects) {
       const existingProjects = envsArr[existingEnvIndex].projects || [];
       const newProjects = environment.projects;
@@ -356,6 +379,9 @@ export const deleteEnvironment = async (
       },
     });
     await cleanupDeletedEnvironment(org.id, id);
+    await context.models.experimentQaOverrides.deleteByEnvironment(id, {
+      skipSDKRefresh: true,
+    });
 
     await req.audit({
       event: "environment.delete",
