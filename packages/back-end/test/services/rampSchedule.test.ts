@@ -692,28 +692,35 @@ describe("getStartPatchForRule", () => {
         enabled: true,
       } as FeatureRule),
     ).not.toHaveProperty("hashAttribute");
-    expect(
-      getStartPatchForRule({
-        id: "r2",
-        type: "force",
-        value: "true",
-        enabled: true,
-      } as FeatureRule),
-    ).not.toHaveProperty("coverage");
   });
 
-  it("scheduled start on a force rule does not write null coverage", () => {
+  it("replaying a force rule's anchor leaves no coverage key on it", () => {
     const force = {
       id: "r1",
       type: "force",
       value: "true",
       enabled: true,
     } as FeatureRule;
-    const startPatch = getStartPatchForRule(force);
-    expect(startPatch).not.toHaveProperty("coverage");
-    const afterStart = applyPatchToRule(force, startPatch);
+    const afterStart = applyPatchToRule(force, getStartPatchForRule(force));
     expect(afterStart.type).toBe("force");
-    expect((afterStart as { coverage?: number }).coverage).toBeUndefined();
+    expect(afterStart).not.toHaveProperty("coverage");
+  });
+
+  it("rolling a promoted force rule back to its anchor restores full coverage", () => {
+    const force = {
+      id: "r1",
+      type: "force",
+      value: "true",
+      enabled: true,
+    } as FeatureRule;
+    const anchor = getStartPatchForRule(force);
+    const ramped = applyPatchToRule(force, {
+      coverage: 0.5,
+      hashAttribute: "id",
+    });
+    expect(ramped.type).toBe("rollout");
+    const rolledBack = applyPatchToRule(ramped, anchor);
+    expect((rolledBack as { coverage?: number }).coverage).toBe(1);
   });
 
   it("captures explicit null clears for absent rule fields", () => {

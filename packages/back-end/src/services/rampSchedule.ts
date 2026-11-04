@@ -679,7 +679,13 @@ export function applyPatchToRule(
 ): FeatureRule {
   const updated = { ...existing };
   if ("coverage" in patch) {
-    (updated as { coverage?: number }).coverage = patch.coverage ?? undefined;
+    // Delete rather than assign undefined, which Mongo would store as null.
+    const nextCoverage = patch.coverage ?? null;
+    if (nextCoverage === null) {
+      delete (updated as { coverage?: number }).coverage;
+    } else {
+      (updated as { coverage?: number }).coverage = nextCoverage;
+    }
   }
   if ("condition" in patch) {
     updated.condition = patch.condition ?? undefined;
@@ -773,16 +779,13 @@ export function getStartPatchForRule(
     hashVersion?: 1 | 2;
   };
   const patch: Omit<RampStartPatch, "ruleId"> = {
+    coverage: ruleState.coverage ?? null,
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
     prerequisites: ruleState.prerequisites ?? null,
     ...ruleScopeAsStartPatch(rule),
     enabled: ruleState.enabled ?? null,
   };
-  // Force rules without coverage must not anchor null — replay would persist it.
-  if (rule.type === "rollout" || ruleState.coverage !== undefined) {
-    patch.coverage = ruleState.coverage ?? null;
-  }
 
   if ("value" in ruleState) {
     patch.force = ruleState.value;

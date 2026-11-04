@@ -55,7 +55,7 @@ describe("applyPatch — force/rollout seed stamping", () => {
     expect(seedOf(converted)).toBe("custom");
   });
 
-  it("treats null stored coverage as full force (not a rollout)", () => {
+  it("ignores coverage stored on a force rule", () => {
     const withNullCoverage = {
       ...force,
       coverage: null,
@@ -63,6 +63,6 @@ describe("applyPatch — force/rollout seed stamping", () => {
 
     const updated = applyPatch(withNullCoverage, patch({ enabled: true }));
     expect(updated.type).toBe("force");
-    expect((updated as { coverage?: number | null }).coverage).toBeUndefined();
+    expect(updated).not.toHaveProperty("coverage");
   });
 });

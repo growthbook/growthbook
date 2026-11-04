@@ -150,16 +150,18 @@ export function applyPatch(
       );
     }
 
+    // A force rule has no coverage, so only the patch can make it a rollout;
+    // anything stored on one (e.g. a null) is ignored.
     const effectiveCoverage =
-      patch.coverage ?? (existing as RolloutRule).coverage;
+      patch.coverage ??
+      (type === "rollout" ? (existing as RolloutRule).coverage : undefined);
     const effectiveHashAttr =
       patch.hashAttribute ?? (existing as RolloutRule).hashAttribute;
     const effectiveValue =
       patch.value ?? (existing as ForceRule | RolloutRule).value;
 
     // coverage < 1 → rollout (requires hashAttribute); else → force.
-    // null/undefined coverage means full force (Mongo may store absent as null).
-    const isRollout = effectiveCoverage != null && effectiveCoverage < 1;
+    const isRollout = effectiveCoverage !== undefined && effectiveCoverage < 1;
 
     if (isRollout) {
       if (!effectiveHashAttr) {
@@ -190,18 +192,13 @@ export function applyPatch(
         ...commonUpdates,
         type: "force",
         value: effectiveValue ?? "",
-        ...(effectiveCoverage != null && {
-          coverage: effectiveCoverage,
-        }),
         ...(effectiveHashAttr !== undefined && {
           hashAttribute: effectiveHashAttr,
         }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
         ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
-      if (effectiveCoverage == null) {
-        delete (updated as { coverage?: number }).coverage;
-      }
+      delete (updated as { coverage?: number }).coverage;
       return updated;
     }
   }
