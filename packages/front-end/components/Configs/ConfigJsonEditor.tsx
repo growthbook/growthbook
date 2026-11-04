@@ -29,6 +29,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import ScrollArea from "@/ui/ScrollArea";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
@@ -578,7 +579,7 @@ export default function ConfigJsonEditor({
   ): ReactNode => {
     const render = CODE_RENDERERS[lang] ?? fieldsToTsType;
     return (
-      <Box style={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}>
+      <ScrollArea edgeCue="fade" style={{ maxHeight: 320, maxWidth: "100%" }}>
         <InlineCode
           language={lang === "go" ? "go" : (lang as "typescript")}
           code={render(schemaFields, {
@@ -586,7 +587,7 @@ export default function ConfigJsonEditor({
             projection,
           })}
         />
-      </Box>
+      </ScrollArea>
     );
   };
 

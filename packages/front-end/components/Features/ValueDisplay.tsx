@@ -292,6 +292,7 @@ export default function ValueDisplay({
         <ScrollArea
           ref={scrollBoxRef}
           gutter
+          edgeCue="fade"
           className={fullClassName}
           style={{
             maxHeight: boxStyle.maxHeight,

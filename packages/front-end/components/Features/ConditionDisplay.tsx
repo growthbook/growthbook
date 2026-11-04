@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
+import ScrollArea from "@/ui/ScrollArea";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import VirtualizedCode, {
   isLongCode,
@@ -128,9 +129,9 @@ function ConditionJson({ code }: { code: string }) {
     return <InlineCode language="json" code={code} />;
   }
   return (
-    <Box ref={scrollRef} style={{ maxHeight: 400, overflowY: "auto" }}>
+    <ScrollArea ref={scrollRef} edgeCue="fade" style={{ maxHeight: 400 }}>
       <VirtualizedCode scrollRef={scrollRef} language="json" code={code} />
-    </Box>
+    </ScrollArea>
   );
 }
 
@@ -171,18 +172,20 @@ export function MultiValuesDisplay({
           openOnHover
           side="bottom"
           align="start"
-          contentStyle={{ maxWidth: 480, maxHeight: 240, overflowY: "auto" }}
+          contentStyle={{ maxWidth: 480 }}
           trigger={
             <span className="mr-1">
               <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
             </span>
           }
           content={
-            <RemainingValues
-              values={values}
-              displayMap={displayMap}
-              savedGroupIds={savedGroupIds}
-            />
+            <ScrollArea gutter edgeCue="fade" style={{ maxHeight: 210 }}>
+              <RemainingValues
+                values={values}
+                displayMap={displayMap}
+                savedGroupIds={savedGroupIds}
+              />
+            </ScrollArea>
           }
         />
       )}

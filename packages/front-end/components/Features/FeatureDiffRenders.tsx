@@ -30,6 +30,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
+import ScrollArea from "@/ui/ScrollArea";
 import { useExperiments } from "@/hooks/useExperiments";
 import VariationLabel from "@/ui/VariationLabel";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
@@ -144,10 +145,11 @@ function ValueChangedField({
   return (
     <div className="mb-2">
       {label && <div className="font-weight-bold mb-1">{label}</div>}
-      <div
+      <ScrollArea
         ref={scrollRef}
+        edgeCue="fade"
         className="diff-wrapper diff-wrapper-compact"
-        style={{ maxHeight: 250, overflowY: "auto" }}
+        style={{ maxHeight: 250 }}
       >
         <LazyDiffViewer
           oldValue={pre ?? ""}
@@ -156,7 +158,7 @@ function ValueChangedField({
           styles={COMPACT_DIFF_STYLES}
           scrollRef={scrollRef}
         />
-      </div>
+      </ScrollArea>
     </div>
   );
 }
