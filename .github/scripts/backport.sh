@@ -24,11 +24,18 @@ else
 fi
 git checkout -B "$branch"
 
+# The package@version entries in a commit's pnpm-lock.yaml.
+lock_versions() {
+  git show "$1:pnpm-lock.yaml" | sed -nE "s/^  '?(@?[^@ (']+@[^(:' ]+)[^:]*:( \{\})?\$/\1/p" | sort -u
+}
+dropped=$(mktemp)
+
 for ref in "$@"; do
   sha=$ref
   if [[ $ref =~ ^[0-9]+$ ]]; then
     sha=$(gh pr view "$ref" --json mergeCommit --jq .mergeCommit.oid)
   fi
+  comm -23 <(lock_versions "$sha^") <(lock_versions "$sha") | sed "s/\$/ $ref/" >>"$dropped"
   if git cherry-pick -x "$sha"; then continue; fi
 
   mapfile -t conflicted < <(git diff --name-only --diff-filter=U)
@@ -74,4 +81,11 @@ done
 pnpm install --lockfile-only --ignore-scripts
 if ! git diff --quiet HEAD -- pnpm-lock.yaml; then
   git commit -m "Regenerate pnpm-lock.yaml" -- pnpm-lock.yaml
+fi
+
+# A conflicting lockfile keeps the release's, which loses lockfile-only bumps, so check what the picks removed is gone.
+stale=$(awk 'NR == FNR { have[$1]; next } $1 in have { print "  " $1 " (removed by " $2 ")" }' <(lock_versions HEAD) "$dropped")
+if [ -n "$stale" ]; then
+  printf '::error::pnpm-lock.yaml still has versions the picks removed; update them by hand:\n%s\n' "$stale"
+  exit 1
 fi
