@@ -3,7 +3,7 @@ import path from "node:path";
 import { format } from "prettier";
 import {
   accountFeatures,
-  CommercialFeature,
+  type CommercialFeature,
 } from "../src/enterprise/license-consts";
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");

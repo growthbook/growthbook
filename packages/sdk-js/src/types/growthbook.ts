@@ -6,7 +6,7 @@ import type {
   StickyBucketService,
   UserScopedGrowthBook,
 } from "..";
-import { ConditionInterface, ParentConditionInterface } from "./mongrule";
+import type { ConditionInterface, ParentConditionInterface } from "./mongrule";
 
 declare global {
   interface Window {

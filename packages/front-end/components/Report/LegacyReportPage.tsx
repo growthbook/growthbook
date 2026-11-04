@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import {
+import type {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
   ReportInterface,
@@ -9,11 +9,11 @@ import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { IdeaInterface } from "shared/types/idea";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { IdeaInterface } from "shared/types/idea";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { SignificanceThresholds } from "shared/types/stats";
+import type { SignificanceThresholds } from "shared/types/stats";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";

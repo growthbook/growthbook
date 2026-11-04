@@ -1,4 +1,4 @@
-import { Permission } from "shared/types/organization";
+import type { Permission } from "shared/types/organization";
 
 // Maps each revision entity/action to its permission atom and scope.
 

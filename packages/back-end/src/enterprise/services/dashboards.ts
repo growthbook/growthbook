@@ -1,38 +1,38 @@
 import { isEqual, omit, uniqWith } from "lodash";
 import { getSnapshotCutoffDate, isString } from "shared/util";
-import { ExperimentMetricInterface } from "shared/experiments";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
   blockHasFieldOfType,
   buildComparisonExplorationConfig,
-  BlockSnapshotSettings,
+  type BlockSnapshotSettings,
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
   getEffectiveExplorationConfig,
   snapshotSatisfiesBlock,
-  DashboardBlockWithAnalysisId,
-  DashboardInterface,
-  MetricExplorerBlockInterface,
-  DashboardBlockInterface,
+  type DashboardBlockWithAnalysisId,
+  type DashboardInterface,
+  type MetricExplorerBlockInterface,
+  type DashboardBlockInterface,
   resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import {
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 
-import { ExperimentInterface } from "shared/types/experiment";
-import { MetricSnapshotSettings } from "shared/types/report";
-import { StatsEngine } from "shared/types/stats";
-import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { MetricSnapshotSettings } from "shared/types/report";
+import type { StatsEngine } from "shared/types/stats";
+import type { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
-import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { ApiReqContext } from "back-end/types/api";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
+import type { ApiReqContext } from "back-end/types/api";
 import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import {

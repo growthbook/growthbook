@@ -1,5 +1,5 @@
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import ScrollArea, { pinnedTo } from "./ScrollArea";
 
 const rows = Array.from({ length: 20 }, (_, i) => `Row ${i + 1}`);

@@ -1,4 +1,4 @@
-import { RevisionAction, RevisionModel } from "./revisionPermissions";
+import type { RevisionAction, RevisionModel } from "./revisionPermissions";
 
 export type ProjectScoped = { project?: string; projects?: string[] };
 

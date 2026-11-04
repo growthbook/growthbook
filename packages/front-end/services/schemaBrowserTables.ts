@@ -1,4 +1,4 @@
-import { SchemaWithPath, TableWithPath } from "shared/types/integrations";
+import type { SchemaWithPath, TableWithPath } from "shared/types/integrations";
 
 export type SchemaBrowserTable = TableWithPath & {
   schemaName: string;

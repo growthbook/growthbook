@@ -1,4 +1,4 @@
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   buildSnowflakeEventForwarderTableReference,
   resolveSnowflakeEventForwarderTableNames,

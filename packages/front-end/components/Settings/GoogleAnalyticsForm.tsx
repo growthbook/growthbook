@@ -1,5 +1,5 @@
-import { FC, ChangeEventHandler, useState } from "react";
-import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import { type FC, type ChangeEventHandler, useState } from "react";
+import type { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { FaKey, FaCheck } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";

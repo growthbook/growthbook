@@ -1,6 +1,6 @@
 import type { FeatureInterface } from "shared/types/feature";
 import {
-  AddedFlag,
+  type AddedFlag,
   addedFlagChanges,
 } from "@/components/Experiment/TabbedPage/addedFlags";
 

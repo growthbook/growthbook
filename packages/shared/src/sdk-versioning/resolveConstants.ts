@@ -1,4 +1,4 @@
-import { ConstantInterface } from "shared/types/constant";
+import type { ConstantInterface } from "shared/types/constant";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
 import { deepMergePatch, isUnsafeMergeKey } from "../util/deep-merge";
 import {

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import {
+import type {
   ContextualBanditRefRule,
   ContextualBanditRefVariation,
   FeatureEnvironment,
@@ -7,7 +7,7 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { useEffect, useState } from "react";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {

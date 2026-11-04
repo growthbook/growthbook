@@ -1,6 +1,6 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
-  Revision,
+  type Revision,
   getLiveRevision,
   getRevisionNumberById,
 } from "shared/enterprise";
@@ -14,7 +14,7 @@ import { DropdownMenuLabel } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import SharedRevisionDropdown, {
-  RevisionDropdownRow,
+  type RevisionDropdownRow,
 } from "@/components/Reviews/RevisionDropdown";
 
 export interface RevisionDropdownProps {

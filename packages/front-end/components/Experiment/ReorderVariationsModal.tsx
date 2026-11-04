@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { RiDraggable } from "react-icons/ri";
 import { Box, Flex } from "@radix-ui/themes";
-import {
+import type {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
 import { getStorableVariations } from "shared/experiments";
 import Text from "@/ui/Text";
-import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import type { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import SortableVariationsList from "@/components/Features/SortableVariationsList";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import VariationLabel from "@/ui/VariationLabel";

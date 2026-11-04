@@ -1,36 +1,36 @@
-import { z } from "zod";
+import type { z } from "zod";
 import isEqual from "lodash/isEqual";
 import { v4 as uuidv4 } from "uuid";
 import {
-  apiContextualBanditCancelReturn,
-  apiContextualBanditLifecycleReturn,
-  apiContextualBanditListVisualChangesetsReturn,
-  apiContextualBanditPostVisualChangesetsReturn,
-  apiContextualBanditRefreshReturn,
-  apiContextualBanditVariationsReturn,
+  type apiContextualBanditCancelReturn,
+  type apiContextualBanditLifecycleReturn,
+  type apiContextualBanditListVisualChangesetsReturn,
+  type apiContextualBanditPostVisualChangesetsReturn,
+  type apiContextualBanditRefreshReturn,
+  type apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
-  ApiContextualBanditInterface,
+  type ApiContextualBanditInterface,
   assertContextualAttributesValid,
   cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
-  ContextualBanditAnalysisSummary,
+  type ContextualBanditAnalysisSummary,
   contextualBanditApiSpec,
-  ContextualBanditInterface,
-  ContextualBanditVariation,
+  type ContextualBanditInterface,
+  type ContextualBanditVariation,
   contextualBanditValidator,
-  LeafWeight,
+  type LeafWeight,
   listContextualBanditVisualChangesetsEndpoint,
   postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
   updateVariationsContextualBanditEndpoint,
-  VariationWeightPair,
+  type VariationWeightPair,
 } from "shared/validators";
 import {
-  ContextualBanditLinkageDelta,
-  ContextualBanditLinkageState,
+  type ContextualBanditLinkageDelta,
+  type ContextualBanditLinkageState,
   generateVariationId,
   getContextualBanditIdsFromRules,
 } from "shared/util";
@@ -40,7 +40,7 @@ import {
   isFactMetricId,
 } from "shared/experiments";
 import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
-import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
+import type { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";

@@ -1,16 +1,16 @@
 import crypto from "crypto";
-import { Request, Response } from "express";
-import { z } from "zod";
+import type { Request, Response } from "express";
+import type { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
-import { ManagedBy } from "shared/validators";
+import type { ManagedBy } from "shared/validators";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
-  Resource,
-  VercelNativeIntegration,
+  type Resource,
+  type VercelNativeIntegration,
 } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   addMemberToOrg,
@@ -23,7 +23,7 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   getVercelSSOToken,
   syncVercelSdkConnection,
@@ -57,11 +57,11 @@ import { logger } from "back-end/src/util/logger";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
-  UpsertInstallationPayload,
-  ProvisitionResource,
-  UpdateResource,
-  UpdateInstallation,
-  BillingPlan,
+  type UpsertInstallationPayload,
+  type ProvisitionResource,
+  type UpdateResource,
+  type UpdateInstallation,
+  type BillingPlan,
 } from "./vercel-native-integration.validators";
 
 const STARTER_BILLING_PLAN: BillingPlan = {

@@ -1,6 +1,6 @@
-import React, { FC, useState } from "react";
+import React, { type FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
+import type {
   AttributionModel,
   LookbackOverride,
   LookbackOverrideValueUnit,

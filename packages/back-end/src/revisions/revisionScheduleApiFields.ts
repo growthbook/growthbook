@@ -1,5 +1,5 @@
-import { Revision } from "shared/enterprise";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Revision } from "shared/enterprise";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { eventUserToApiEventUser } from "shared/validators";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
 

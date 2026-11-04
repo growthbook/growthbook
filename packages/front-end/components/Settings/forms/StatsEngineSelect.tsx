@@ -1,6 +1,6 @@
-import { ReactNode } from "react";
-import { StatsEngine } from "shared/types/stats";
-import { ScopedSettings } from "shared/settings";
+import type { ReactNode } from "react";
+import type { StatsEngine } from "shared/types/stats";
+import type { ScopedSettings } from "shared/settings";
 import SelectField from "@/components/Forms/SelectField";
 import { capitalizeFirstLetter } from "@/services/utils";
 

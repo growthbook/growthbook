@@ -3,7 +3,7 @@ import {
   useEffect,
   useRef,
   useCallback,
-  MutableRefObject,
+  type MutableRefObject,
 } from "react";
 import type { ActiveTurnItem } from "./types";
 

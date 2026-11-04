@@ -1,5 +1,5 @@
-import { ExperimentInterface } from "shared/types/experiment";
-import { ApiReqContext } from "back-end/types/api";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ApiReqContext } from "back-end/types/api";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 

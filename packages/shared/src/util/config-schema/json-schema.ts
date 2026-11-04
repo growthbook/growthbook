@@ -1,7 +1,7 @@
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import { simpleToJSONSchema } from "../features";
 import { normalizeField } from "./fields";
-import {
+import type {
   FromFieldsOptions,
   SchemaConversionResult,
   SchemaConverter,

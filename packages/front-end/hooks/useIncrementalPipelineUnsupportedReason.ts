@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getIncrementalPipelineUnsupportedReason } from "shared/enterprise";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";

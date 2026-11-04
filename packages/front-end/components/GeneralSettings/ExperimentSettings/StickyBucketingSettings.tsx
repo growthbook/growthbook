@@ -11,7 +11,7 @@ import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import { UnsavedMark } from "@/components/GeneralSettings/SettingsGroup";
-import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import type { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 export default function StickyBucketingSettings() {
   const { hasCommercialFeature } = useUser();

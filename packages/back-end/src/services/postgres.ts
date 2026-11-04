@@ -1,7 +1,7 @@
-import { Client, ClientConfig } from "pg";
-import { QueryResponse } from "shared/types/integrations";
-import { FactTableColumnType } from "shared/types/fact-table";
-import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { Client, type ClientConfig } from "pg";
+import type { QueryResponse } from "shared/types/integrations";
+import type { FactTableColumnType } from "shared/types/fact-table";
+import type { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { logger } from "back-end/src/util/logger";
 
 export async function runPostgresQuery(

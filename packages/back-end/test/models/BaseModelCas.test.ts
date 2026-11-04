@@ -8,8 +8,8 @@ import {
   CasConflictError,
   MakeModelClass,
   waitForIndexes,
+  type Context,
 } from "back-end/src/models/BaseModel";
-import type { Context } from "back-end/src/models/BaseModel";
 
 // Minimal BaseModel-derived model used purely to exercise updateWithCas. It has
 // a scalar (`counter`) and an array (`reviews`) field so we can guard on both.

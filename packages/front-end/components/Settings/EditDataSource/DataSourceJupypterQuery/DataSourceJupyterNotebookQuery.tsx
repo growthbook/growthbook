@@ -1,7 +1,7 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import { PiPlus } from "react-icons/pi";
 import { Box, Flex, Heading } from "@radix-ui/themes";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

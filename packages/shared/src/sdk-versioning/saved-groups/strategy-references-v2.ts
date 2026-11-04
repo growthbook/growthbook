@@ -1,6 +1,6 @@
 import type { ConditionInterface } from "@growthbook/growthbook";
-import { OrganizationInterface } from "shared/types/organization";
-import {
+import type { OrganizationInterface } from "shared/types/organization";
+import type {
   GroupMap,
   SavedGroupForPayload,
   SavedGroupInterface,
@@ -11,16 +11,16 @@ import {
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
-  NodeHandler,
+  type NodeHandler,
   recursiveWalk,
 } from "../../util";
-import { SDKCapability } from "../types";
+import type { SDKCapability } from "../types";
 import { SAVED_GROUP_ERROR_INVALID, SAVED_GROUP_ERROR_UNKNOWN } from "./errors";
-import { SavedGroupPayloadStrategy } from "./types";
+import type { SavedGroupPayloadStrategy } from "./types";
 import { parseDerivedGroupId } from "./derived";
 import {
   andConditionsInto,
-  NestedGroupRenderer,
+  type NestedGroupRenderer,
   walkSavedGroups,
 } from "./walk";
 

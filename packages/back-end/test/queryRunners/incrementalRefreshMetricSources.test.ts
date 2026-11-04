@@ -2,7 +2,7 @@ import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapsho
 import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   getIncrementalRefreshMetricSources,
-  MetricSourceGroups,
+  type MetricSourceGroups,
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box } from "@radix-ui/themes";
 import Frame from "@/ui/Frame";
 import VariationLabel from "@/ui/VariationLabel";

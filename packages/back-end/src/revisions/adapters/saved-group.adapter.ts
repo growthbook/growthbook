@@ -1,6 +1,6 @@
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { SavedGroupInterface } from "shared/types/saved-group";
 import {
-  Revision,
+  type Revision,
   getApprovalFlowRules,
   entityProjects,
   isSavedGroupRevisionMetadataOnly,
@@ -14,13 +14,13 @@ import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { ReviewRequirement } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
-  ApplyChangesResult,
-  EntityRevisionAdapter,
+  type ApplyChangesResult,
+  type EntityRevisionAdapter,
   filterUpdatableChanges,
   revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
-  ArmAcknowledgments,
+  type ArmAcknowledgments,
   buildArmAcknowledgments,
 } from "back-end/src/services/armGuards";
 

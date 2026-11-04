@@ -5,12 +5,12 @@ import {
 } from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
 import omit from "lodash/omit";
-import {
+import type {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement, useEffect, useMemo, useState } from "react";
+import React, { type ReactElement, useEffect, useMemo, useState } from "react";
 import {
   validateFeatureValue,
   getConfigBackingKey,

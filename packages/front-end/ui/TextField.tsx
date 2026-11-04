@@ -1,13 +1,13 @@
 import { Flex, TextField as RadixTextField } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, ReactNode, Ref, useId } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { forwardRef, type ReactNode, type Ref, useId } from "react";
 import clsx from "clsx";
 import TextareaAutosize, {
-  TextareaAutosizeProps,
+  type TextareaAutosizeProps,
 } from "react-textarea-autosize";
-import { radixSize, Size } from "@/ui/sizes";
+import { radixSize, type Size } from "@/ui/sizes";
 import HelperText from "./HelperText";
-import Text, { TextSizes, TextWeights } from "./Text";
+import Text, { type TextSizes, type TextWeights } from "./Text";
 import styles from "./TextField.module.scss";
 
 export type TextFieldSize = Size<"sm" | "md" | "lg">;

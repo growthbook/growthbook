@@ -7,7 +7,7 @@ import {
   normalizeDefaultRole,
   pickDefaultRoleFields,
 } from "shared/permissions";
-import {
+import type {
   OrganizationInterface,
   OrganizationSettings,
 } from "shared/types/organization";

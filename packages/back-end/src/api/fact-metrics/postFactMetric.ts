@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import omit from "lodash/omit";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -8,16 +8,16 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
 } from "shared/constants";
 import {
-  postFactMetricBodyFields,
+  type postFactMetricBodyFields,
   postFactMetricValidator,
   resolveCappingSettingsPatch,
   validateFactMetricCapping,
 } from "shared/validators";
-import {
+import type {
   CreateFactMetricProps,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";

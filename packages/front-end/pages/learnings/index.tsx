@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
-import { ComputedExperimentInterface } from "shared/types/experiment";
-import { LearningWithCanManage } from "shared/validators";
+import type { ComputedExperimentInterface } from "shared/types/experiment";
+import type { LearningWithCanManage } from "shared/validators";
 import { useRouter } from "next/router";
 import { PiArrowsClockwise, PiSparkleFill } from "react-icons/pi";
 import Heading from "@/ui/Heading";

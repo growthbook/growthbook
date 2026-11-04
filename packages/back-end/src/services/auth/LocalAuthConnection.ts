@@ -1,8 +1,8 @@
-import { NextFunction, Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { expressjwt } from "express-jwt";
 import jwt from "jsonwebtoken";
-import { UnauthenticatedResponse } from "shared/types/sso-connection";
-import { UserInterface } from "shared/types/user";
+import type { UnauthenticatedResponse } from "shared/types/sso-connection";
+import type { UserInterface } from "shared/types/user";
 import { JWT_SECRET } from "back-end/src/util/secrets";
 import {
   AuthRefreshModel,
@@ -15,7 +15,7 @@ import {
   trackLoginForUser,
 } from "back-end/src/services/users";
 import { getUserById } from "back-end/src/models/UserModel";
-import { AuthConnection, TokensResponse } from "./AuthConnection";
+import type { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";
 
 const jwtCheck = expressjwt({

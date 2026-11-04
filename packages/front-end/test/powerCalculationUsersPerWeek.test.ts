@@ -1,5 +1,5 @@
-import { PopulationDataInterface } from "shared/types/population-data";
-import { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import type { PopulationDataInterface } from "shared/types/population-data";
+import type { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import { setMetricDataFromPopulationData } from "@/components/PowerCalculation/power-calculation-utils";
 
 describe("setMetricDataFromPopulationData", () => {

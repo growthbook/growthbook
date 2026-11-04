@@ -1,4 +1,4 @@
-import { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
+import type { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
 
 /**
  * A remote group checked against another attribute is a "derived" group, with

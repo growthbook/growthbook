@@ -6,15 +6,15 @@ import {
   isScheduledRule,
 } from "shared/util";
 import {
-  RevisionRampCreateAction,
-  RevisionRampUpdateAction,
-  SafeRolloutRule,
-  FeatureRule,
-  RulePatchInput,
+  type RevisionRampCreateAction,
+  type RevisionRampUpdateAction,
+  type SafeRolloutRule,
+  type FeatureRule,
+  type RulePatchInput,
   putFeatureRevisionRuleV2Validator,
-  RulePatchInputV2,
+  type RulePatchInputV2,
 } from "shared/validators";
-import { RevisionChanges } from "shared/types/feature-revision";
+import type { RevisionChanges } from "shared/types/feature-revision";
 import {
   addIdsToFlatRules,
   assertFeatureValuesValid,

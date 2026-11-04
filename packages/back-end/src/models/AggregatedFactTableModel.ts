@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import {
-  AggregatedFactTableInterface,
+  type AggregatedFactTableInterface,
   aggregatedFactTableValidator,
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";

@@ -1,5 +1,8 @@
-import { mappedColumn, placeholderColumns } from "./templateMetric";
-import type { IncompleteFactMetricSeed } from "./templateMetric";
+import {
+  mappedColumn,
+  placeholderColumns,
+  type IncompleteFactMetricSeed,
+} from "./templateMetric";
 
 describe("placeholderColumns", () => {
   it("puts the same placeholder name in both sets when it plays both roles", () => {

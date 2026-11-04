@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
-import { CreateMetricTimeSeriesSingleDataPoint } from "shared/validators";
+import type { CreateMetricTimeSeriesSingleDataPoint } from "shared/validators";
 import {
   connectTestMongo,
   disconnectTestMongo,
 } from "back-end/test/test-helpers";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
-import { waitForIndexes } from "back-end/src/models/BaseModel";
-import type { Context } from "back-end/src/models/BaseModel";
+import { waitForIndexes, type Context } from "back-end/src/models/BaseModel";
 
 const context = {
   org: { id: "org_1" },

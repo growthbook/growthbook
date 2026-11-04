@@ -1,31 +1,29 @@
-import {
+import type {
   FactMetricInterface,
   FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
-import type {
-  MetricValue,
-  FactTableValue,
-  DataSourceValue,
-  SqlValue,
-  PopulationValue,
-  ProductAnalyticsValue,
-  DatasetType,
-  ExplorationDataset,
-  ExplorationConfig,
-  FunnelStep,
-  FunnelDataset,
-  JourneyDataset,
-  JourneyStepGroup,
-  ExplorationDateRange,
-  ProductAnalyticsChartSettings,
-} from "shared/validators";
 import {
+  type MetricValue,
+  type FactTableValue,
+  type DataSourceValue,
+  type SqlValue,
+  type PopulationValue,
+  type ProductAnalyticsValue,
+  type DatasetType,
+  type ExplorationDataset,
+  type ExplorationConfig,
+  type FunnelStep,
+  type FunnelDataset,
+  type JourneyDataset,
+  type JourneyStepGroup,
+  type ExplorationDateRange,
+  type ProductAnalyticsChartSettings,
   explorationConfigValidator,
   explorationDateRangeValidator,
   comparisonModeValidator,
-  ComparisonMode,
-  SqlDataset,
+  type ComparisonMode,
+  type SqlDataset,
   MAX_JOURNEY_STEP_COLUMNS,
   datasetHasValues,
 } from "shared/validators";
@@ -54,8 +52,8 @@ import {
   sanitizeDimensions,
   getRelevantFactTableIds,
   clearInapplicableShowAs,
+  type DimensionFactTable,
 } from "shared/enterprise";
-import type { DimensionFactTable } from "shared/enterprise";
 import {
   operatorLabelMap,
   getColumnInfo,

@@ -1,5 +1,5 @@
 import Cookies from "js-cookie";
-import {
+import type {
   CacheSettings,
   Options as Context,
   FeatureApiResponse,
@@ -10,13 +10,13 @@ import { GrowthBook } from "./GrowthBook";
 import {
   BrowserCookieStickyBucketService,
   LocalStorageStickyBucketService,
-  StickyBucketService,
+  type StickyBucketService,
 } from "./sticky-bucket-service";
 import { autoAttributesPlugin } from "./plugins/auto-attributes";
 import { growthbookTrackingPlugin } from "./plugins/growthbook-tracking";
 import {
   thirdPartyTrackingPlugin,
-  Trackers,
+  type Trackers,
 } from "./plugins/third-party-tracking";
 
 type WindowContext = Context & {

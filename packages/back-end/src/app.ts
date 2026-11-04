@@ -4,10 +4,10 @@ import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, {
-  ErrorRequestHandler,
-  Request,
-  RequestHandler,
-  Response,
+  type ErrorRequestHandler,
+  type Request,
+  type RequestHandler,
+  type Response,
 } from "express";
 import cors from "cors";
 import asyncHandler from "express-async-handler";
@@ -19,7 +19,7 @@ import { populationDataRouter } from "back-end/src/routers/population-data/popul
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
 import { usingFileConfig } from "./init/config";
-import { AuthRequest } from "./types/AuthRequest";
+import type { AuthRequest } from "./types/AuthRequest";
 import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,

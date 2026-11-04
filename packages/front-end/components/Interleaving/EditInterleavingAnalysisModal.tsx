@@ -9,7 +9,7 @@ import Callout from "@/ui/Callout";
 import AddEditInterleavingExposureQueryModal from "./AddEditInterleavingExposureQueryModal";
 import InterleavingAnalysisFields, {
   getAnalysisError,
-  InterleavingAnalysisValue,
+  type InterleavingAnalysisValue,
 } from "./InterleavingAnalysisFields";
 
 export function analysisOf(

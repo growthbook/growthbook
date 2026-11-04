@@ -1,7 +1,7 @@
-import { Response } from "express";
-import { RampScheduleTemplateInterface } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { Response } from "express";
+import type { RampScheduleTemplateInterface } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   collectRampPlanPatches,

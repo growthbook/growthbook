@@ -5,7 +5,7 @@ import {
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
-  MergeStrategy,
+  type MergeStrategy,
   rebasedRevisionChanges,
 } from "shared/util";
 import { postFeatureRevisionRebaseValidator } from "shared/validators";

@@ -1,8 +1,8 @@
-import { draftMetrics, TranslateContext } from "./metrics";
+import { draftMetrics, type TranslateContext } from "./metrics";
 import { importPlainModels } from "./plain-models";
 import { metricKey } from "./prune";
 import { planTables } from "./tables";
-import {
+import type {
   DbtManifest,
   DbtSemanticModel,
   TranslateOptions,

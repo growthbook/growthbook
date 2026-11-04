@@ -11,22 +11,25 @@ import {
   getRevisionReviewRequirement,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
-  MergeResultChanges,
+  type MergeResultChanges,
   rebasedRevisionChanges,
   REBASED_REVISION_FIELDS,
 } from "shared/util";
-import {
+import type {
   FeatureInterface,
   FeatureRule,
   V1FeatureRule,
   V1FeatureRevisionInterface,
 } from "shared/types/feature";
-import {
+import type {
   FeatureRevisionInterface,
   RevisionLog,
   RevisionChanges,
 } from "shared/types/feature-revision";
-import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
+import type {
+  EventUser,
+  EventUserLoggedIn,
+} from "shared/types/events/event-types";
 import {
   REVIEW_CYCLE_STATUSES,
   isSameReviewCycle,
@@ -34,36 +37,39 @@ import {
   reviewCycleSupersededMessage,
   statusFromStandingVerdicts,
 } from "shared/enterprise";
-import { Environment, OrganizationInterface } from "shared/types/organization";
+import type {
+  Environment,
+  OrganizationInterface,
+} from "shared/types/organization";
 import {
-  MinimalFeatureRevisionInterface,
-  ActiveDraftStatus,
+  type MinimalFeatureRevisionInterface,
+  type ActiveDraftStatus,
   ACTIVE_DRAFT_STATUSES,
-  RevisionMetadata,
-  RevisionRampAction,
-  RevisionReview,
+  type RevisionMetadata,
+  type RevisionRampAction,
+  type RevisionReview,
   eventUserIdentity,
 } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { editDisarmsFeatureDraft } from "back-end/src/services/confirmations";
 import {
   featureForSavedGroupValidation,
-  Feature as SavedGroupScopeFeature,
+  type Feature as SavedGroupScopeFeature,
 } from "back-end/src/util/savedGroupProjectScope.util";
 import { ConflictError } from "back-end/src/util/errors";
 import {
   getFeatureRevisionValueUpdatesForPublish,
   normalizeFeatureJSONValues,
 } from "back-end/src/util/featureValues";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   isPlausibleFeatureRule,
   isV2RevisionRules,
   narrowRuleToApplicableEnvs,
-  V1RulesByEnv,
+  type V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import {
   normalizeJsonSchemaDef,

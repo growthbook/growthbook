@@ -1,4 +1,4 @@
-import { FeatureEnvironment } from "shared/types/feature";
+import type { FeatureEnvironment } from "shared/types/feature";
 import { getEnabledHoldoutEnvironments } from "shared/util";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";

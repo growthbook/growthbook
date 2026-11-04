@@ -1,8 +1,8 @@
 import React from "react";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { EventUser as EventUserType } from "shared/types/events/event-types";
+import type { EventUser as EventUserType } from "shared/types/events/event-types";
 import EventUser from "@/components/Avatar/EventUser";
-import { Size } from "@/ui/Avatar";
+import type { Size } from "@/ui/Avatar";
 import Text from "@/ui/Text";
 
 export interface CommentCardProps {

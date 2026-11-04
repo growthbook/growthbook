@@ -11,7 +11,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { amber } from "@radix-ui/colors";
 import React, {
   forwardRef,
-  ReactElement,
+  type ReactElement,
   useCallback,
   useEffect,
   useState,
@@ -23,7 +23,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { radixSize, Size } from "@/ui/sizes";
+import { radixSize, type Size } from "@/ui/sizes";
 
 type AllowedChildren = string | React.ReactNode;
 

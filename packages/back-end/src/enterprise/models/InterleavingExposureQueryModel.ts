@@ -1,9 +1,9 @@
 import { escapeRegExp, isEqual } from "lodash";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
-  ApiInterleavingExposureQueryInterface,
+  type ApiInterleavingExposureQueryInterface,
   INTERLEAVING_EXPOSURE_REQUIRED_COLUMNS,
-  InterleavingExposureQueryInterface,
+  type InterleavingExposureQueryInterface,
   interleavingExposureQueryApiSpec,
   interleavingExposureQueryValidator,
 } from "shared/validators";

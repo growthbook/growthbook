@@ -3,7 +3,7 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
 import { getMultipleExposureHealthData } from "shared/health";
-import { ExperimentInterface, ExperimentType } from "shared/validators";
+import type { ExperimentInterface, ExperimentType } from "shared/validators";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 

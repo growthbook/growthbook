@@ -1,14 +1,18 @@
-import React, { ReactNode, useMemo } from "react";
+import React, { type ReactNode, useMemo } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiInfo, PiXBold } from "react-icons/pi";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FieldValues, useFieldArray, UseFormReturn } from "react-hook-form";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  type FieldValues,
+  useFieldArray,
+  type UseFormReturn,
+} from "react-hook-form";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import {
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   expandMetricGroups,
   getDefaultRegressionAdjustmentDays,
   getMetricWindowHours,
@@ -17,9 +21,9 @@ import {
   isFactMetric,
   isRetentionMetric,
 } from "shared/experiments";
-import { OrganizationSettings } from "shared/types/organization";
-import { StatsEngine } from "shared/types/stats";
-import { MetricOverride } from "shared/validators";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { StatsEngine } from "shared/types/stats";
+import type { MetricOverride } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -35,7 +39,7 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
-import TextField, { TextFieldProps } from "@/ui/TextField";
+import TextField, { type TextFieldProps } from "@/ui/TextField";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { decimalToPercent } from "@/services/utils";

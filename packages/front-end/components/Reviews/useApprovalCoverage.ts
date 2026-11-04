@@ -8,9 +8,9 @@ import {
   revisionActionPermission,
   teamsForMember,
   userHasPermission,
+  type RevisionModel,
 } from "shared/permissions";
 import type { ReviewAuthorityFootprint } from "shared/util";
-import type { RevisionModel } from "shared/permissions";
 import type {
   MemberRoleWithProjects,
   OrganizationInterface,

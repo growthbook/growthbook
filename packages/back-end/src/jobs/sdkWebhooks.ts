@@ -1,9 +1,12 @@
 import { createHmac } from "crypto";
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import md5 from "md5";
 import { Promise as BluebirdPromise } from "bluebird";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { WebhookInterface, WebhookPayloadFormat } from "shared/types/webhook";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type {
+  WebhookInterface,
+  WebhookPayloadFormat,
+} from "shared/types/webhook";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { WEBHOOKS } from "back-end/src/util/secrets";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
@@ -12,15 +15,15 @@ import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
 import {
   cancellableFetch,
-  CancellableFetchReturn,
+  type CancellableFetchReturn,
   getWebhookTimeoutMs,
 } from "back-end/src/util/http.util";
 import {
   getContextForAgendaJobByOrgId,
   getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{

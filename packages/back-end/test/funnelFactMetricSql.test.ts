@@ -1,8 +1,8 @@
 import { format } from "shared/sql";
-import { ExposureQuery } from "shared/types/datasource";
-import { SnapshotBanditSettings } from "shared/types/experiment-snapshot";
-import { SqlDialect } from "shared/types/sql";
-import {
+import type { ExposureQuery } from "shared/types/datasource";
+import type { SnapshotBanditSettings } from "shared/types/experiment-snapshot";
+import type { SqlDialect } from "shared/types/sql";
+import type {
   FunnelFactMetricInterface,
   MetricFunnelStep,
 } from "shared/types/fact-table";

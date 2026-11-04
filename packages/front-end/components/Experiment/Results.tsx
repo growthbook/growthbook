@@ -1,7 +1,7 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React, { FC, useState, useEffect } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import React, { type FC, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import {
+import type {
   DifferenceType,
   SignificanceThresholds,
   StatsEngine,
@@ -17,8 +17,8 @@ import {
   getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "shared/types/report";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -39,7 +39,7 @@ import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experime
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { hasHealthData } from "@/components/HealthTab/constants";
-import { ExperimentTab } from "./TabbedPage";
+import type { ExperimentTab } from "./TabbedPage";
 import { showsUnhealthyBanner } from "./TabbedPage/UnhealthyExperimentBanner";
 
 export type AnalysisBarSettings = {

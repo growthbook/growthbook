@@ -1,6 +1,6 @@
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { IconButton } from "@radix-ui/themes";
-import { ApiKeyInterface } from "shared/types/apikey";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   DropdownMenu,
   DropdownMenuGroup,

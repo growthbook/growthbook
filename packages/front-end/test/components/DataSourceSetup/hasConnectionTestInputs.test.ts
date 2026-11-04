@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DataSourceType } from "shared/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import { hasConnectionTestInputs } from "@/components/DataSourceSetup/hasConnectionTestInputs";
 
 const cloud = vi.hoisted(() => ({ value: false }));

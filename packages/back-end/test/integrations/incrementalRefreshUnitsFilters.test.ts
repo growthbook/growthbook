@@ -1,6 +1,6 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { ExposureQuery } from "shared/types/datasource";
-import { SegmentInterface } from "shared/types/segment";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExposureQuery } from "shared/types/datasource";
+import type { SegmentInterface } from "shared/types/segment";
 import BigQuery from "back-end/src/integrations/BigQuery";
 
 // Incremental units query must apply segment and queryFilter to new

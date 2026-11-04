@@ -1,7 +1,7 @@
 import md5 from "md5";
 import { isEqual } from "lodash";
 import {
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,
@@ -13,17 +13,17 @@ import {
   INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS,
   overallResultsBuiltWithoutIncrementalPipeline,
 } from "shared/enterprise";
-import {
+import type {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
   IncrementalRefreshInterface,
 } from "shared/validators";
-import {
+import type {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { OrganizationInterface } from "shared/types/organization";
-import { ExposureQuery } from "shared/types/datasource";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ExposureQuery } from "shared/types/datasource";
 import {
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
@@ -33,14 +33,14 @@ import {
   getSnapshotCutoffDate,
   resolveAnalysisIdentifierType,
 } from "shared/util";
-import { ExperimentInterface } from "shared/types/experiment";
-import {
+import type { ExperimentInterface } from "shared/types/experiment";
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";

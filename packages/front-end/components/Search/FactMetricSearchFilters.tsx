@@ -1,13 +1,13 @@
-import React, { FC, useMemo } from "react";
+import React, { type FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { metricTypeValidator } from "shared/validators";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { useUser } from "@/services/UserContext";
 import Tag from "@/components/Tags/Tag";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
-  BaseSearchFiltersProps,
+  type BaseSearchFiltersProps,
   FilterDropdown,
   FilterHeading,
   FilterItem,

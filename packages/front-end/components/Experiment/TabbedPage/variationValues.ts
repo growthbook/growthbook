@@ -1,4 +1,4 @@
-import { FeatureValueType } from "shared/types/feature";
+import type { FeatureValueType } from "shared/types/feature";
 import {
   expandSparseToFull,
   sortObjectKeys,

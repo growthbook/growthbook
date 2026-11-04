@@ -1,4 +1,4 @@
-import {
+import type {
   ManagedBy,
   SavedGroupFormat,
   SdkPayloadSize,
@@ -68,7 +68,7 @@ export type CreateSDKConnectionParams = {
   managedBy?: ManagedBy;
 };
 
-import { sdkLanguages } from "shared/constants";
+import type { sdkLanguages } from "shared/constants";
 
 export type SDKLanguage = (typeof sdkLanguages)[number];
 

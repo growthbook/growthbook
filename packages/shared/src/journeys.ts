@@ -1,16 +1,14 @@
 import { isEqual } from "lodash";
 import type { FactTableInterface } from "shared/types/fact-table";
-import type {
-  ExplorationConfig,
-  JourneyDataset,
-  JourneyPathStep,
-  JourneyStepGroup,
-  ProductAnalyticsDimension,
-  ProductAnalyticsExploration,
-  ProductAnalyticsJourneyRow,
-  ProductAnalyticsResultRow,
-} from "./validators/product-analytics";
 import {
+  type ExplorationConfig,
+  type JourneyDataset,
+  type JourneyPathStep,
+  type JourneyStepGroup,
+  type ProductAnalyticsDimension,
+  type ProductAnalyticsExploration,
+  type ProductAnalyticsJourneyRow,
+  type ProductAnalyticsResultRow,
   DEFAULT_JOURNEY_OPTIONS_PER_STEP,
   MAX_JOURNEY_LOOKAHEAD_DEPTH,
   MAX_JOURNEY_OPTIONS_PER_STEP,

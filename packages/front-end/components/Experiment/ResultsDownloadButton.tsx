@@ -1,4 +1,4 @@
-import {
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "shared/types/report";

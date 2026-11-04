@@ -1,4 +1,4 @@
-import { ReactNode, useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import useIsOverflowing from "@/hooks/useIsOverflowing";
 import Link from "@/ui/Link";

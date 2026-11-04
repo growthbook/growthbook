@@ -1,5 +1,5 @@
-import { FeatureRule } from "shared/validators";
-import { Environment } from "shared/types/organization";
+import type { FeatureRule } from "shared/validators";
+import type { Environment } from "shared/types/organization";
 import { getApplicableEnvIds, stemRuleId, suffixRuleId } from "shared/util";
 import {
   ensureUniqueRuleIds,
@@ -8,8 +8,8 @@ import {
   isV2RevisionRules,
   mergeSyncRules,
   narrowRuleForEnvRemoval,
-  V1FeatureRule,
-  V1RulesByEnv,
+  type V1FeatureRule,
+  type V1RulesByEnv,
   rampTargetsEquivalent,
   resolveRampTarget,
   resolveRampTargets,

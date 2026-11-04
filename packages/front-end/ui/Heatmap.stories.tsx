@@ -1,9 +1,9 @@
 import { Flex, Text } from "@radix-ui/themes";
 import Badge from "./Badge";
 import Heatmap, {
-  HeatmapColorScale,
-  HeatmapColumn,
-  HeatmapRow,
+  type HeatmapColorScale,
+  type HeatmapColumn,
+  type HeatmapRow,
 } from "./Heatmap";
 
 const variationColumns: HeatmapColumn[] = [

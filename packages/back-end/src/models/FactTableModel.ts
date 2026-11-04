@@ -1,4 +1,4 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
@@ -6,9 +6,9 @@ import {
   sqlReferencesColumn,
 } from "shared/experiments";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
-import { SqlIdentifierQuote } from "shared/types/sql";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 import { isEqual, omit } from "lodash";
-import {
+import type {
   CreateColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -24,14 +24,14 @@ import {
   ColumnInterface,
 } from "shared/types/fact-table";
 import {
-  ApiFactTable,
-  ApiFactTableColumn,
-  ApiFactTableFilter,
+  type ApiFactTable,
+  type ApiFactTableColumn,
+  type ApiFactTableFilter,
   isExternallyManaged,
   externallyManagedError,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";

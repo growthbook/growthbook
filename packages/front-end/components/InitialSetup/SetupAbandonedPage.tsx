@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FC } from "react";
+import type { FC } from "react";
 import { Grid } from "@radix-ui/themes";
 import {
   ExperimentFeatureCard,

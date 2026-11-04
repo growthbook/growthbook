@@ -1,19 +1,19 @@
 import { z } from "zod";
-import { Client, ClientOptions, QueryOptions } from "presto-client";
+import { Client, type ClientOptions, type QueryOptions } from "presto-client";
 import { format } from "shared/sql";
 import { parseIntWithDefault } from "shared/util";
 import { prestoCreateTablePartitions } from "shared/enterprise";
-import {
+import type {
   QueryResponse,
   QueryResponseColumnData,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   ExternalIdCallback,
 } from "shared/types/integrations";
-import { QueryStatistics, RunQueryMetadata } from "shared/types/query";
-import { PrestoConnectionParams } from "shared/types/integrations/presto";
+import type { QueryStatistics, RunQueryMetadata } from "shared/types/query";
+import type { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import type { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import {
   getQueryTagString,

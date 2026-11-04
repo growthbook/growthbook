@@ -9,7 +9,7 @@ import {
   confirmationLink,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { requireExperiment } from "./requireExperiment";
 

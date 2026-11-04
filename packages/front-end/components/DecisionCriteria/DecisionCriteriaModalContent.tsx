@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Box, Flex, IconButton, Separator, Text } from "@radix-ui/themes";
 import { FaPlusCircle } from "react-icons/fa";
 import {
@@ -11,7 +11,7 @@ import {
 } from "react-icons/pi";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
-import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
+import type { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 
 // One width for every row's label, so each row's field starts in line.
 const LABEL_WIDTH = "80px";

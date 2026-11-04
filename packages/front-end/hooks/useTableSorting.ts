@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { ExperimentSortBy } from "shared/experiments";
-import { MetricDefaults } from "shared/types/organization";
-import { ExperimentTableRow, compareRows } from "@/services/experiments";
+import type { ExperimentSortBy } from "shared/experiments";
+import type { MetricDefaults } from "shared/types/organization";
+import { type ExperimentTableRow, compareRows } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 interface UseTableSortingParams {

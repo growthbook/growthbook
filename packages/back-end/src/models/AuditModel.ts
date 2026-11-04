@@ -1,8 +1,8 @@
-import mongoose, { FilterQuery, QueryOptions } from "mongoose";
-import { AuditInterface, EntityType } from "shared/types/audit";
+import mongoose, { type FilterQuery, type QueryOptions } from "mongoose";
+import type { AuditInterface, EntityType } from "shared/types/audit";
 import {
   removeMongooseFields,
-  ToInterface,
+  type ToInterface,
 } from "back-end/src/util/mongo.util";
 import { generateId } from "back-end/src/util/uuid";
 

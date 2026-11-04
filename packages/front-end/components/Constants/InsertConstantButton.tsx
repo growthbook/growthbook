@@ -1,11 +1,14 @@
 import React, {
-  ReactElement,
+  type ReactElement,
   cloneElement,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
+import type {
+  ConstantInterface,
+  ConstantWithoutValue,
+} from "shared/types/constant";
 import { CONSTANT_REF_PATTERN } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";

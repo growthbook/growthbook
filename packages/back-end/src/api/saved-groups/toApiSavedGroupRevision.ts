@@ -1,7 +1,7 @@
-import { Revision } from "shared/enterprise";
-import { ApiSavedGroupRevision } from "shared/validators";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { ApiReqContext } from "back-end/types/api";
+import type { Revision } from "shared/enterprise";
+import type { ApiSavedGroupRevision } from "shared/validators";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   projectRevisionSnapshots,
   revisionEnvelopeToApi,

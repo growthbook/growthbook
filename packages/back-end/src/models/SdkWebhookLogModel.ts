@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { migrateSdkWebhookLogModel } from "back-end/src/util/migrations";
-import { SdkWebHookLogInterface } from "back-end/types/sdk-webhook-log";
+import type { SdkWebHookLogInterface } from "back-end/types/sdk-webhook-log";
 
 const sdkWebHookLogSchema = new mongoose.Schema({
   id: {

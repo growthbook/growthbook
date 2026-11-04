@@ -1,11 +1,11 @@
 import { useForm } from "react-hook-form";
 import React from "react";
-import { TagInterface } from "shared/types/tag";
+import type { TagInterface } from "shared/types/tag";
 import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import { RadixColor } from "@/ui/HelperText";
+import type { RadixColor } from "@/ui/HelperText";
 import { TextField } from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";

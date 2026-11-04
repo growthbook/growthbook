@@ -1,4 +1,4 @@
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import { resolveContextualBanditStatusHealth } from "@/hooks/useContextualBandits";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
 

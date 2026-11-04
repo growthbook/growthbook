@@ -1,11 +1,11 @@
-import { DataSourceInterface } from "shared/types/datasource";
-import {
+import type { DataSourceInterface } from "shared/types/datasource";
+import type {
   ExperimentInterface,
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { MetricDefinitionInterface } from "shared/types/metric";
-import {
+import type { MetricDefinitionInterface } from "shared/types/metric";
+import type {
   OrganizationSettings,
   NorthStarMetric,
   MetricDefaults,
@@ -15,11 +15,11 @@ import {
   RequireReview,
   TargetingReviewRule,
 } from "shared/types/organization";
-import { StatsEngine, PValueCorrection } from "shared/types/stats";
-import { ProjectInterface } from "shared/types/project";
-import { ReportInterface } from "shared/types/report";
-import { MetricWindowSettings } from "shared/types/fact-table";
-import { ExperimentMetricDefinition } from "../experiments/experiments";
+import type { StatsEngine, PValueCorrection } from "shared/types/stats";
+import type { ProjectInterface } from "shared/types/project";
+import type { ReportInterface } from "shared/types/report";
+import type { MetricWindowSettings } from "shared/types/fact-table";
+import type { ExperimentMetricDefinition } from "../experiments/experiments";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";

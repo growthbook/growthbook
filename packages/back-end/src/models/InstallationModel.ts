@@ -7,7 +7,7 @@
  */
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
-import { InstallationInterface } from "back-end/types/installation";
+import type { InstallationInterface } from "back-end/types/installation";
 
 const InstallationSchema = new mongoose.Schema({
   id: String,

@@ -1,6 +1,6 @@
 import { format } from "shared/sql";
-import { AlterNewIncrementalUnitsQueryParams } from "shared/types/integrations";
-import { SqlDialect } from "shared/types/sql";
+import type { AlterNewIncrementalUnitsQueryParams } from "shared/types/integrations";
+import type { SqlDialect } from "shared/types/sql";
 
 export function getAlterNewIncrementalUnitsQuery(
   dialect: SqlDialect,

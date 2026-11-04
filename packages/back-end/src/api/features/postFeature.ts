@@ -1,11 +1,11 @@
-import { z } from "zod";
+import type { z } from "zod";
 import {
   FEATURE_KEY_PATTERN,
   FEATURE_KEY_PATTERN_ERROR,
 } from "shared/constants";
 import { normalizeTargetingProjects } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";

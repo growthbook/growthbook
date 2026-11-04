@@ -1,6 +1,6 @@
 import {
   eligibleForUncappedMetric,
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   getFactMetricPrimaryFactTableId,
   isFactFunnelMetric,
   isFactMetric,

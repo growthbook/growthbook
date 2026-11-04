@@ -1,7 +1,7 @@
 import {
   preferenceSignTest,
   pairedDeltaTest,
-  PairedSufficientStats,
+  type PairedSufficientStats,
 } from "../src/interleaving";
 
 // Fixture computed independently in R

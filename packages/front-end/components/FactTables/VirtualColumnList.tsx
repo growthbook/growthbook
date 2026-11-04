@@ -1,4 +1,7 @@
-import { FactTableInterface, ColumnInterface } from "shared/types/fact-table";
+import type {
+  FactTableInterface,
+  ColumnInterface,
+} from "shared/types/fact-table";
 import { useState } from "react";
 import { IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";

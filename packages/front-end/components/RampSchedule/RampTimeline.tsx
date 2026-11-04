@@ -6,10 +6,10 @@ import { abbreviateAgo } from "shared/dates";
 import {
   isReadyForApproval,
   isAwaitingStartApproval,
-  RampScheduleInterface,
-  RampScheduleStatus,
-  RampStepAction,
-  StepHoldConditions,
+  type RampScheduleInterface,
+  type RampScheduleStatus,
+  type RampStepAction,
+  type StepHoldConditions,
 } from "shared/validators";
 import stringify from "json-stringify-pretty-compact";
 import { isRampScheduleServing } from "shared/util";
@@ -22,7 +22,7 @@ import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetin
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import { coveragePercentFormatter } from "@/services/utils";
 import {
-  NodeState,
+  type NodeState,
   resolveNodeStatus,
 } from "@/components/RampSchedule/rampTimelineStatus";
 import styles from "./RampTimeline.module.scss";

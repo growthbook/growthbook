@@ -1,4 +1,4 @@
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";

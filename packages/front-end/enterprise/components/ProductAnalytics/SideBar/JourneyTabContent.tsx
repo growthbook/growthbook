@@ -10,12 +10,12 @@ import {
   PiUserFill,
   PiX,
 } from "react-icons/pi";
-import type {
-  ExplorationConfig,
-  JourneyDataset,
-  JourneyStepGroup,
+import {
+  type ExplorationConfig,
+  type JourneyDataset,
+  type JourneyStepGroup,
+  MAX_JOURNEY_STEP_COLUMNS,
 } from "shared/validators";
-import { MAX_JOURNEY_STEP_COLUMNS } from "shared/validators";
 import {
   applyStepGroups,
   stepGroupsForColumn,

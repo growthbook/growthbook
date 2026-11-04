@@ -1,9 +1,13 @@
 import clsx from "clsx";
-import { config, MetricParams, PartialMetricParams } from "shared/power";
+import {
+  config,
+  type MetricParams,
+  type PartialMetricParams,
+} from "shared/power";
 import Field from "@/components/Forms/Field";
 import PercentField from "@/components/Forms/PercentField";
 import Switch from "@/ui/Switch";
-import { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import type { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
 import Checkbox from "@/ui/Checkbox";

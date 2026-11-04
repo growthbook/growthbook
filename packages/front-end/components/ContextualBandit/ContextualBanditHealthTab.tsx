@@ -1,7 +1,7 @@
-import { ReactNode, useEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { ApiContextualBanditInterface } from "shared/validators";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { ApiContextualBanditInterface } from "shared/validators";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { datetimeAt } from "shared/dates";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";

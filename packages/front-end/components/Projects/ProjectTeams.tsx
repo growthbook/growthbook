@@ -1,14 +1,14 @@
-import { FC, useState } from "react";
+import { type FC, useState } from "react";
 import { useRouter } from "next/router";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownFill } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
+import type {
   MemberRoleWithProjects,
   ProjectMemberRole,
 } from "shared/types/organization";
 import { holdsGlobalAdmin, isProjectScopedTeam } from "shared/permissions";
-import { Team, useUser } from "@/services/UserContext";
+import { type Team, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

@@ -1,5 +1,5 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getPrecomputedDimensions,
   getPrecomputedUnitDimensionIds,

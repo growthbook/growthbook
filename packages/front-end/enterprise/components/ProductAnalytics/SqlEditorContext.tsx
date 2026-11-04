@@ -1,6 +1,6 @@
 import {
   createContext,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -8,8 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { AceCompletion } from "@/components/Forms/CodeTextArea";
-import { CursorData } from "@/components/Segments/SegmentForm";
+import type { AceCompletion } from "@/components/Forms/CodeTextArea";
+import type { CursorData } from "@/components/Segments/SegmentForm";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
 import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
 

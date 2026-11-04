@@ -1,5 +1,5 @@
-import { ExperimentReportVariation } from "shared/types/report";
-import {
+import type { ExperimentReportVariation } from "shared/types/report";
+import type {
   CovariateImbalanceResult,
   MetricVariationCovariateImbalanceResult,
 } from "shared/health";

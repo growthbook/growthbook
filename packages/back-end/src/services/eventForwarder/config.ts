@@ -1,10 +1,10 @@
 import { AES, enc } from "crypto-js";
 import isEqual from "lodash/isEqual";
-import { DataSourceInterface } from "shared/types/datasource";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import {
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type {
   BigQueryEventForwarderConfigDraft,
   BigQueryEventForwarderStoredConfig,
   DatabricksEventForwarderConfigDraft,
@@ -15,12 +15,12 @@ import {
   EventForwarderSinkType,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import { EventForwarderConfigInterface } from "shared/validators";
+import type { EventForwarderConfigInterface } from "shared/validators";
 import {
   DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
   databricksParamsSupportEventForwarder,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
-  EventForwarderDatasourceParams,
+  type EventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   normalizeBigQueryTablePrefixForEventForwarder,
   normalizeDatabricksEventForwarderZerobusEndpoint,
@@ -32,7 +32,7 @@ import {
   resolveSnowflakeEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 
 type SinkConfig =

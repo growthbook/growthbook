@@ -1,6 +1,6 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { SDKAttribute } from "shared/types/organization";
-import {
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { SDKAttribute } from "shared/types/organization";
+import type {
   StatsigFeatureGate,
   StatsigDynamicConfig,
 } from "@/services/importing/statsig/types";

@@ -1,5 +1,5 @@
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { countSDKConnectionsByEnvironment } from "back-end/src/models/SdkConnectionModel";
 import { removeEnvironmentFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
 import { BadRequestError } from "back-end/src/util/errors";

@@ -1,5 +1,5 @@
-import { FC, ElementType, useState, useMemo } from "react";
-import { AuditInterface, EventType } from "shared/types/audit";
+import { type FC, type ElementType, useState, useMemo } from "react";
+import type { AuditInterface, EventType } from "shared/types/audit";
 import { Flex } from "@radix-ui/themes";
 import { DiffMethod } from "react-diff-viewer-continued";
 import { PiArrowClockwise, PiCaretDown, PiCaretUp } from "react-icons/pi";

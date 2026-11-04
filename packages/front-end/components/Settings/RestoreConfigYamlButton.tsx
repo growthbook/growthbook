@@ -1,14 +1,14 @@
-import { OrganizationSettings } from "shared/types/organization";
+import type { OrganizationSettings } from "shared/types/organization";
 import { PiUploadSimple } from "react-icons/pi";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { load, dump } from "js-yaml";
 import { createPatch } from "diff";
 import { html } from "diff2html";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isSecretDatasourceParamKey } from "shared/util";
 import cloneDeep from "lodash/cloneDeep";
-import {
+import type {
   MetricCappingSettings,
   MetricWindowSettings,
 } from "shared/types/fact-table";
@@ -16,7 +16,7 @@ import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
 } from "shared/constants";
-import { MetricInterface } from "shared/types/metric";
+import type { MetricInterface } from "shared/types/metric";
 import { useAuth } from "@/services/auth";
 import { useConfigJson } from "@/services/config";
 import { useDefinitions } from "@/services/DefinitionsContext";

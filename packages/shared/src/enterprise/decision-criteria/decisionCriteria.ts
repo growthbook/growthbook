@@ -3,8 +3,8 @@ import {
   expandMetricGroups,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import {
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type {
   DecisionCriteriaAction,
   DecisionCriteriaCondition,
   DecisionCriteriaData,
@@ -19,12 +19,12 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "shared/types/experiment";
-import {
+import type {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/types/safe-rollout";
-import { SnapshotVariation } from "shared/types/experiment-snapshot";
-import { OrganizationSettings } from "shared/types/organization";
+import type { SnapshotVariation } from "shared/types/experiment-snapshot";
+import type { OrganizationSettings } from "shared/types/organization";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,

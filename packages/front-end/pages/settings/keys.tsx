@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import ApiKeys from "@/components/Settings/ApiKeys";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SettingsPage, {

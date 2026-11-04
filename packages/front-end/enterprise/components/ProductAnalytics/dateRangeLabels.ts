@@ -1,5 +1,9 @@
-import { dateRangePredefined, lookbackUnit } from "shared/validators";
-import type { ComparisonMode, ExplorationDateRange } from "shared/validators";
+import type {
+  dateRangePredefined,
+  lookbackUnit,
+  ComparisonMode,
+  ExplorationDateRange,
+} from "shared/validators";
 
 // Sentence case per .agents/guides/ui-copy-style.md — these are select/radio
 // labels, not headings.

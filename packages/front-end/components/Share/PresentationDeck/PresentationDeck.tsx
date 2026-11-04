@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useRef,
   useState,
-  ReactNode,
+  type ReactNode,
 } from "react";
 import { FaExpand, FaCompress } from "react-icons/fa";
 import { runCelebration, type CelebrationType } from "@/hooks/useCelebration";

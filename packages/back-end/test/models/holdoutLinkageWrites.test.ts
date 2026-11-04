@@ -1,5 +1,7 @@
-import { holdoutLinkageWrites } from "back-end/src/models/FeatureModel";
-import type { HoldoutExperimentLinkagePlan } from "back-end/src/models/FeatureModel";
+import {
+  holdoutLinkageWrites,
+  type HoldoutExperimentLinkagePlan,
+} from "back-end/src/models/FeatureModel";
 
 /**
  * The compare-and-swap expectation for a holdout-linkage write.

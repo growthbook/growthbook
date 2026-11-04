@@ -1,19 +1,19 @@
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { hasPendingScheduledStart } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { HoldoutInterfaceStringDates } from "shared/validators";
-import { DiscussionInterface } from "shared/types/discussion";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
+import type { DiscussionInterface } from "shared/types/discussion";
 import DiscussionThread from "@/components/DiscussionThread";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ScrollArea from "@/ui/ScrollArea";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import ProjectTagBar, {
   ExperimentDataFields,
-  QuickEditField,
+  type QuickEditField,
 } from "@/components/Experiment/TabbedPage/ProjectTagBar";
 import EditExperimentInfoModal, {
-  InfoSection,
+  type InfoSection,
   SECTION_HEADERS,
 } from "@/components/Experiment/TabbedPage/EditExperimentInfoModal";
 import { useCustomFields } from "@/hooks/useCustomFields";

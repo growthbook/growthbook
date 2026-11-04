@@ -1,10 +1,10 @@
 import type { Response } from "express";
-import {
+import type {
   CreateMetricGroupProps,
   MetricGroupInterface,
 } from "shared/types/metric-groups";
-import { UpdateProps } from "shared/types/base-model";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { UpdateProps } from "shared/types/base-model";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { removeMetricFromExperiments } from "back-end/src/models/ExperimentModel";

@@ -1,16 +1,19 @@
-import { Queries, QueryStatus } from "shared/types/query";
-import { UpdateProps } from "shared/types/base-model";
-import {
+import type { Queries, QueryStatus } from "shared/types/query";
+import type { UpdateProps } from "shared/types/base-model";
+import type {
   InterleavingMetricResult,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
 } from "shared/validators";
 import type { InterleavingMetricQueryResponseRows } from "shared/types/integrations";
 import { preferenceSignTest, pairedDeltaTest } from "stats-ts";
-import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
+import {
+  type QueryMap,
+  QueryRunner,
+} from "back-end/src/queryRunners/QueryRunner";
 import { markPendingQueriesAsFailed } from "back-end/src/models/QueryModel";
 import { cancelExternalJobsForQueries } from "back-end/src/services/queryCancellation";
-import { ResolvedInterleavingMetric } from "back-end/src/enterprise/services/interleavingMetrics";
+import type { ResolvedInterleavingMetric } from "back-end/src/enterprise/services/interleavingMetrics";
 import { interleavingMetricColumn } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 
 export type InterleavingResultsQueryParams = {

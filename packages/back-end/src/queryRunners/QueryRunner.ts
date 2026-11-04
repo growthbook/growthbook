@@ -1,6 +1,9 @@
 import EventEmitter from "events";
-import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
-import {
+import type {
+  ExternalIdCallback,
+  QueryResponse,
+} from "shared/types/integrations";
+import type {
   Queries,
   QueryInterface,
   QueryPointer,
@@ -24,16 +27,16 @@ import {
   updateQueryIfPending,
   updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
   cancelExternalJobsForQueries,
   cancelQueryAndConfirm,
 } from "back-end/src/services/queryCancellation";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
-import {
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type {
   ExperimentUpdateExecutionLogger,
   ExperimentUpdateTimingPhase,
   SnapshotRunnerRole,

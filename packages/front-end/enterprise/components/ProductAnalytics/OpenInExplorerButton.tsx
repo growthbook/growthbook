@@ -1,4 +1,4 @@
-import Button, { Props as ButtonProps } from "@/ui/Button";
+import Button, { type Props as ButtonProps } from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Tooltip from "@/ui/Tooltip";
 

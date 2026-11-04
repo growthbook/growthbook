@@ -1,29 +1,29 @@
 import {
-  FC,
+  type FC,
   useMemo,
   useRef,
-  ReactNode,
+  type ReactNode,
   useState,
-  ComponentProps,
+  type ComponentProps,
 } from "react";
 import ReactSelect, {
   components,
-  ClearIndicatorProps,
-  InputProps,
-  FormatOptionLabelMeta,
-  StylesConfig,
-  DropdownIndicatorProps,
+  type ClearIndicatorProps,
+  type InputProps,
+  type FormatOptionLabelMeta,
+  type StylesConfig,
+  type DropdownIndicatorProps,
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import { PiXBold, PiCaretDown } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
 import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
-import Text, { TextSizes, TextWeights } from "@/ui/Text";
-import { Size } from "@/ui/sizes";
+import Text, { type TextSizes, type TextWeights } from "@/ui/Text";
+import type { Size } from "@/ui/sizes";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
-import Field, { FieldProps } from "./Field";
+import Field, { type FieldProps } from "./Field";
 
 export const RadixThemeMenuPortal = (
   props: ComponentProps<typeof components.MenuPortal>,

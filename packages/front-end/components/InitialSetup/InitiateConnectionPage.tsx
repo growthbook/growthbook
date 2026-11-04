@@ -1,6 +1,6 @@
-import { UseFormReturn } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
-import { SdkFormValues } from "@/pages/setup";
+import type { SdkFormValues } from "@/pages/setup";
 import RadioGroup from "@/ui/RadioGroup";
 
 interface Props {

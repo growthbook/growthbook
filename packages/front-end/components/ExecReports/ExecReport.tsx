@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { Flex, Box, Text, Heading } from "@radix-ui/themes";
-import { ComputedExperimentInterface } from "shared/types/experiment";
+import type { ComputedExperimentInterface } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import Link from "@/ui/Link";
 import DatePicker from "@/components/DatePicker";

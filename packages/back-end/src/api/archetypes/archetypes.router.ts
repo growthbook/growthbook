@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { listArchetypes } from "./listArchetypes";
 import { postArchetype } from "./postArchetype";
 import { getArchetype } from "./getArchetype";

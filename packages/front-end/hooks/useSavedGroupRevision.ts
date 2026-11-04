@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
-import { Revision, JsonPatchOperation } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { Revision, JsonPatchOperation } from "shared/enterprise";
+import type { SavedGroupInterface } from "shared/types/saved-group";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";

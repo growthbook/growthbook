@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import { populationEndpoints } from "shared/api-endpoints";
 import { Box, Flex } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";

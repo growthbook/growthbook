@@ -1,4 +1,4 @@
-import { Namespaces } from "shared/types/organization";
+import type { Namespaces } from "shared/types/organization";
 
 // These types are defined locally (not imported from validators/shared) to avoid
 // circular dependencies in the shared package's import graph.

@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { listFeatures } from "./listFeatures";
 import { toggleFeature } from "./toggleFeature";
 import { revertFeature } from "./revertFeature";

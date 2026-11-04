@@ -1,6 +1,6 @@
 import NextLink from "next/link";
 import React, { useCallback } from "react";
-import {
+import type {
   ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,

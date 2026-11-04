@@ -4,8 +4,8 @@ import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import SelectField, {
-  GroupedValue,
-  SingleValue,
+  type GroupedValue,
+  type SingleValue,
 } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import Button from "@/ui/Button";
@@ -14,7 +14,7 @@ import {
   generateUniqueValueName,
   getLockedMixClass,
   getMetricMixClass,
-  MetricMixClass,
+  type MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";

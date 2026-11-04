@@ -4,13 +4,13 @@ import {
   BigQueryTimestamp,
   type TableField,
 } from "@google-cloud/bigquery";
-import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
+import type { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
 import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
 import { format } from "shared/sql";
-import {
+import type {
   ExternalIdCallback,
   InformationSchema,
   QueryResponse,
@@ -19,16 +19,16 @@ import {
   MaxTimestampMetricSourceQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { RunQueryMetadata } from "shared/types/query";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import type { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { toOptionalNumber } from "back-end/src/util/integration";
 import {
-  BigQueryDataType,
+  type BigQueryDataType,
   getFactTableTypeFromBigQueryType,
   sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";

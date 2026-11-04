@@ -1,6 +1,6 @@
 import { postExperimentCommentValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { addComment } from "back-end/src/services/discussions";
 

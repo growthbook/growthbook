@@ -1,8 +1,8 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   isReadyForApproval,
   isAwaitingStartApproval,
-  RampScheduleInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
 import { abbreviateAgo, dateNoYear, datetime } from "shared/dates";
 import Badge from "@/ui/Badge";

@@ -1,6 +1,6 @@
-import { OrganizationInterface } from "shared/types/organization";
-import { ApiKeyWithRole } from "shared/types/apikey";
-import { TeamInterface } from "shared/types/team";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ApiKeyWithRole } from "shared/types/apikey";
+import type { TeamInterface } from "shared/types/team";
 import { Permissions, hasPermission } from "shared/permissions";
 import {
   getKeyPermissionsForRequest,

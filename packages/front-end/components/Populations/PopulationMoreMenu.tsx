@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { populationEndpoints } from "shared/api-endpoints";
-import { ApiPopulation } from "shared/validators";
+import type { ApiPopulation } from "shared/validators";
 import { IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical } from "react-icons/pi";
 import { radixSize } from "@/ui/sizes";

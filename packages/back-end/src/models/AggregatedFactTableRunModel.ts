@@ -1,6 +1,6 @@
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import {
-  AggregatedFactTableRunInterface,
+  type AggregatedFactTableRunInterface,
   aggregatedFactTableRunValidator,
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";

@@ -3,7 +3,7 @@ import { useFormContext } from "react-hook-form";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
-import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import type { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function SavedGroupSettings() {

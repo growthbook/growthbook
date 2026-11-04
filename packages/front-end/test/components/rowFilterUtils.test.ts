@@ -1,5 +1,8 @@
 import { format } from "date-fns";
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import type {
+  ColumnInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
 import {
   getAttributeFieldsExposedAsColumns,
   factTableToColumnSource,

@@ -1,8 +1,8 @@
 import {
-  CSSProperties,
+  type CSSProperties,
   memo,
-  ReactNode,
-  RefObject,
+  type ReactNode,
+  type RefObject,
   useContext,
   useEffect,
   useMemo,

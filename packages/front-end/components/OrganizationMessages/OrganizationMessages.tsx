@@ -1,10 +1,10 @@
-import React, { FC, useMemo } from "react";
+import React, { type FC, useMemo } from "react";
 import md5 from "md5";
-import { OrganizationMessage } from "shared/types/organization";
+import type { OrganizationMessage } from "shared/types/organization";
 import { useUser } from "@/services/UserContext";
 import Markdown from "@/components/Markdown/Markdown";
 import Callout from "@/ui/Callout";
-import { Status } from "@/ui/HelperText";
+import type { Status } from "@/ui/HelperText";
 
 type OrganizationMessagesProps = {
   messages: OrganizationMessage[];

@@ -3,11 +3,11 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import Decimal from "decimal.js";
 import {
-  DataVizConfig,
+  type DataVizConfig,
   dataVizConfigValidator,
-  xAxisDateAggregationUnit,
-  yAxisAggregationType,
-  dimensionAxisConfiguration,
+  type xAxisDateAggregationUnit,
+  type yAxisAggregationType,
+  type dimensionAxisConfiguration,
 } from "shared/validators";
 import { getValidDate, parseWarehouseDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";

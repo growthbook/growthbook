@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
 } from "shared/types/experiment";
-import {
+import type {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
@@ -29,12 +29,12 @@ import {
   ColumnCell,
   ColumnFooter,
   ColumnHeader,
-  ColumnLayout,
+  type ColumnLayout,
   HeaderText,
-  ShownVariation,
+  type ShownVariation,
   StagedNote,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";
-import {
+import type {
   ShownVisualChangeset,
   VisualTargeting,
 } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
@@ -47,8 +47,8 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import {
-  ChangeType,
-  Humanized,
+  type ChangeType,
+  type Humanized,
   humanizeGlobalBlock,
   humanizeMutation,
 } from "./visualChangesetHumanize";

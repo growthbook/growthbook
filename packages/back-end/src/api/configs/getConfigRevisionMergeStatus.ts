@@ -3,7 +3,7 @@ import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";

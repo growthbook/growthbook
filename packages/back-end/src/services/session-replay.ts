@@ -3,7 +3,7 @@ import zlib from "zlib";
 import {
   getSessionReplayObjectBuffer,
   listSessionReplayChunks,
-  SessionReplayRegion,
+  type SessionReplayRegion,
 } from "./files";
 
 const gunzip = promisify(zlib.gunzip);

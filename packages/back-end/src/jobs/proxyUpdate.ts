@@ -1,6 +1,6 @@
 import { createHmac } from "crypto";
-import Agenda, { Job } from "agenda";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { Agenda, Job } from "agenda";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -11,8 +11,8 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";

@@ -1,5 +1,5 @@
 import {
-  ConfirmationNotice,
+  type ConfirmationNotice,
   confirmationAttemptValidator,
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";

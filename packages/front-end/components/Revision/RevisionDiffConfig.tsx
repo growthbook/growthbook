@@ -1,4 +1,4 @@
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { SavedGroupInterface } from "shared/types/saved-group";
 import {
   renderSavedGroupSettings,
   renderSavedGroupTargeting,
@@ -9,7 +9,7 @@ import {
   getSavedGroupTargetingBadges,
   getSavedGroupValuesBadges,
 } from "@/components/SavedGroups/SavedGroupDiffRenders";
-import { RevisionDiffConfig } from "./useRevisionDiff";
+import type { RevisionDiffConfig } from "./useRevisionDiff";
 
 export const REVISION_SAVED_GROUP_DIFF_CONFIG: RevisionDiffConfig<SavedGroupInterface> =
   {

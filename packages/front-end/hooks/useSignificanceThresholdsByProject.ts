@@ -4,9 +4,9 @@ import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_P_VALUE_THRESHOLD,
 } from "shared/constants";
-import { ProjectInterface } from "shared/types/project";
-import { SignificanceThresholds } from "shared/types/stats";
-import { OrganizationInterface } from "shared/types/organization";
+import type { ProjectInterface } from "shared/types/project";
+import type { SignificanceThresholds } from "shared/types/stats";
+import type { OrganizationInterface } from "shared/types/organization";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { computeConfidenceLevelsFromCiUpper } from "./useConfidenceLevels";

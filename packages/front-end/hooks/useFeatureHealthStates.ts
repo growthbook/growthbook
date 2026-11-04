@@ -5,10 +5,10 @@ import {
   useEffect,
   useRef,
   useState,
-  ReactNode,
+  type ReactNode,
   createElement,
 } from "react";
-import { FeatureHealthStateEntry } from "shared/util";
+import type { FeatureHealthStateEntry } from "shared/util";
 import { useAuth } from "@/services/auth";
 
 export type { FeatureHealthStateEntry };

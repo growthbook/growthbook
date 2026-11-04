@@ -1,6 +1,6 @@
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
-import { availableShapes, RatioShape } from "./metricFormTranslation";
+import { availableShapes, type RatioShape } from "./metricFormTranslation";
 
 export const SHAPE_LABELS: Record<RatioShape, string> = {
   count: "Count",

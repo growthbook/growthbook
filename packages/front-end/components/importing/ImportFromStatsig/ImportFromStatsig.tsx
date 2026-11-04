@@ -2,17 +2,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle, FaExchangeAlt } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
-import { FeatureInterface } from "shared/types/feature";
-import { ProjectInterface } from "shared/types/project";
-import { FactTableInterface } from "shared/types/fact-table";
-import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ProjectInterface } from "shared/types/project";
+import type { FactTableInterface } from "shared/types/fact-table";
+import type { SavedGroupWithoutValues } from "shared/types/saved-group";
 import {
   buildImportedData,
   runImport,
-  BuildImportedDataOptions,
-  RunImportOptions,
+  type BuildImportedDataOptions,
+  type RunImportOptions,
 } from "@/services/importing/statsig/statsig-importing";
-import { ImportStatus, ImportData } from "@/services/importing/statsig/types";
+import type {
+  ImportStatus,
+  ImportData,
+} from "@/services/importing/statsig/types";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";

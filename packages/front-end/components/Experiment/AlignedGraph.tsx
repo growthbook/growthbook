@@ -1,4 +1,8 @@
-import React, { DetailedHTMLProps, FC, HTMLAttributes } from "react";
+import React, {
+  type DetailedHTMLProps,
+  type FC,
+  type HTMLAttributes,
+} from "react";
 import { GridColumns } from "@visx/grid";
 import { Axis, Orientation, AxisLeft } from "@visx/axis";
 import { scaleLinear } from "@visx/scale";
@@ -7,11 +11,11 @@ import { Line } from "@visx/shape";
 import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {

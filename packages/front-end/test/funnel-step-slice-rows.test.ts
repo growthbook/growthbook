@@ -1,7 +1,7 @@
 import { funnelStepMetricId } from "shared/experiments";
-import { ExperimentReportResultDimension } from "shared/types/report";
+import type { ExperimentReportResultDimension } from "shared/types/report";
 import { buildFunnelStepSliceRows } from "@/components/MetricDrilldown/helpers";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 
 const FUNNEL_METRIC_ID = "fact__funnel";
 const SLICE_IDS = [

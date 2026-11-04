@@ -11,17 +11,17 @@ import {
 import {
   buildConstantValueMap,
   resolveConstantRefs,
-  ConstantValueMap,
-  ConstantSource,
+  type ConstantValueMap,
+  type ConstantSource,
 } from "shared/sdk-versioning";
-import { ConstantInterface } from "shared/types/constant";
-import { ConfigInterface } from "shared/types/config";
-import { FeatureInterface } from "shared/types/feature";
-import { Revision } from "shared/enterprise";
+import type { ConstantInterface } from "shared/types/constant";
+import type { ConfigInterface } from "shared/types/config";
+import type { FeatureInterface } from "shared/types/feature";
+import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   getResolvableValues,
-  ResolvableValue,
+  type ResolvableValue,
 } from "back-end/src/services/resolvableValues";
 import {
   getArmAcknowledgment,

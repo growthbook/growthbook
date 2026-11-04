@@ -1,6 +1,6 @@
-import { analyticsreporting_v4, google } from "googleapis";
+import { type analyticsreporting_v4, google } from "googleapis";
 import cloneDeep from "lodash/cloneDeep";
-import {
+import type {
   MetricValueParams,
   ExperimentMetricQueryResponse,
   MetricValueQueryResponse,
@@ -43,17 +43,17 @@ import {
   DropAggregatedFactTableQueryParams,
 } from "shared/types/integrations";
 import { parseIntWithDefault } from "shared/util";
-import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
-import {
+import type { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import type {
   DataSourceInterface,
   DataSourceProperties,
 } from "shared/types/datasource";
-import { MetricInterface } from "shared/types/metric";
-import { QueryMetadata } from "shared/types/query";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { ReqContext } from "back-end/types/request";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { MetricInterface } from "shared/types/metric";
+import type { QueryMetadata } from "shared/types/query";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ReqContext } from "back-end/types/request";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   GOOGLE_OAUTH_CLIENT_ID,

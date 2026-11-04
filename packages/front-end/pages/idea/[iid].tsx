@@ -1,14 +1,14 @@
 import { useRouter } from "next/router";
-import { IdeaInterface } from "shared/types/idea";
-import { useState, ReactElement, useEffect } from "react";
+import type { IdeaInterface } from "shared/types/idea";
+import { useState, type ReactElement, useEffect } from "react";
 import {
   FaAngleLeft,
   FaArchive,
   FaChartLine,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import { ImpactEstimateInterface } from "shared/types/impact-estimate";
-import {
+import type { ImpactEstimateInterface } from "shared/types/impact-estimate";
+import type {
   ExperimentInterfaceStringDates,
   ExperimentDataForStatusStringDates,
 } from "shared/types/experiment";

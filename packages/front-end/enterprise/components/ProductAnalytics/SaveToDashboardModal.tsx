@@ -6,13 +6,13 @@ import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import {
   DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
-  DashboardInterface,
-  DashboardEditLevel,
-  DashboardShareLevel,
-  DashboardUpdateSchedule,
+  type DashboardInterface,
+  type DashboardEditLevel,
+  type DashboardShareLevel,
+  type DashboardUpdateSchedule,
   getBlockData,
 } from "shared/enterprise";
-import {
+import type {
   DatasetType,
   ExplorationConfig,
   ComparisonMode,

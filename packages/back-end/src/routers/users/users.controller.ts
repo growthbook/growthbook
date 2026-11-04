@@ -1,15 +1,15 @@
 import { createHmac } from "node:crypto";
 import { hasSuperAdminPermission } from "shared/permissions";
-import { Response } from "express";
-import { OrganizationInterface } from "shared/types/organization";
+import type { Response } from "express";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   NPS_CATEGORY_META,
   NPS_MAX_FEEDBACK_LENGTH,
   npsCategoryOf,
 } from "shared/nps";
 import {
-  NpsDisposition,
-  NpsResponseBody,
+  type NpsDisposition,
+  type NpsResponseBody,
   npsResponseBodyValidator,
 } from "shared/validators";
 import type { KnownBlock } from "@slack/types";
@@ -21,7 +21,7 @@ import {
   truncateSlackText,
 } from "back-end/src/util/slack.util";
 import { postNpsResponseToLicenseServer } from "back-end/src/enterprise/licenseUtil";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import {

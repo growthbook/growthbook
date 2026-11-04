@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ApiAggregatedTableRefreshTrigger } from "shared/validators";
-import { FactTableInterface } from "shared/types/fact-table";
-import { QueryStatus } from "shared/types/query";
+import type { FactTableInterface } from "shared/types/fact-table";
+import type { QueryStatus } from "shared/types/query";
 import { dateOnly, timestamp } from "shared/dates";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -11,7 +11,7 @@ import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
-import { RadixColor } from "@/ui/HelperText";
+import type { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import Modal from "@/ui/Modal";

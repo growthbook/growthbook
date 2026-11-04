@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { listConfigs } from "./listConfigs";
 import { postConfig } from "./postConfig";
 import { getConfig } from "./getConfig";

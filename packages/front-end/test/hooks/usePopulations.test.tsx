@@ -1,8 +1,8 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import useSWR, { SWRConfig } from "swr";
 import { populationEndpoints } from "shared/api-endpoints";
-import { ApiPopulation } from "shared/validators";
+import type { ApiPopulation } from "shared/validators";
 import { usePopulations, useRefreshPopulations } from "@/hooks/usePopulations";
 import { useAuth } from "@/services/auth";
 import { getRestApiCacheKey, useRestApiCall } from "@/services/restApi";

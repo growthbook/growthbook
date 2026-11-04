@@ -6,7 +6,7 @@ import {
   PiChartScatter,
 } from "react-icons/pi";
 import { useRouter } from "next/router";
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";

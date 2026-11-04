@@ -1,4 +1,4 @@
-import { SqlDialect } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 

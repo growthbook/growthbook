@@ -1,5 +1,5 @@
-import { useState, FC, useMemo } from "react";
-import { Environment } from "shared/types/organization";
+import { useState, type FC, useMemo } from "react";
+import type { Environment } from "shared/types/organization";
 import { isProjectListValidForProject } from "shared/util";
 import { BiShow } from "react-icons/bi";
 import { BsThreeDotsVertical } from "react-icons/bs";

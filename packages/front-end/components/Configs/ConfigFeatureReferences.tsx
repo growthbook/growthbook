@@ -1,8 +1,8 @@
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiFlag, PiDotOutline } from "react-icons/pi";
-import { LineageNode } from "@/components/Configs/fieldSchema";
-import { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
+import type { LineageNode } from "@/components/Configs/fieldSchema";
+import type { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";

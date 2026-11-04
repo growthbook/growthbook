@@ -1,6 +1,6 @@
 import { omit } from "lodash";
 import {
-  WebhookSecretFrontEndInterface,
+  type WebhookSecretFrontEndInterface,
   webhookSecretSchema,
 } from "shared/validators";
 import { secretsReplacer } from "back-end/src/util/secrets";

@@ -16,11 +16,11 @@ import ConfirmRulesField, {
 } from "./ConfirmRulesField";
 import { ALL, presetOf } from "./confirmRulesUtils";
 import {
-  Allowed,
+  type Allowed,
   canCustomize,
-  Holder,
-  PermissionsValue,
-  Preset,
+  type Holder,
+  type PermissionsValue,
+  type Preset,
   PRESET_LABELS,
   presetAllowed,
   presetsFor,

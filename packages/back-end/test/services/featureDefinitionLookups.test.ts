@@ -1,9 +1,9 @@
-import { FeatureInterface } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
-import { ExperimentInterface } from "shared/types/experiment";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { MAX_SAVED_GROUP_DEPTH } from "shared/sdk-versioning";
 import {
   getApiFeatureObj,
@@ -11,7 +11,7 @@ import {
   getFeatureDefinitionLookups,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 
 // The REST feature reads load only the Saved Groups and Safe Rollouts the
 // features' definitions can look up, and the groups without their ID lists.

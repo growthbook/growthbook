@@ -1,13 +1,13 @@
 import { format as sqlFormat } from "sql-formatter";
-import { SqlResultChunkInterface } from "../types/query";
-import {
+import type { SqlResultChunkInterface } from "../types/query";
+import type {
   FormatDialect,
   GlobMatchFn,
   SqlDialect,
   SqlIdentifierQuote,
   StringMatchFn,
 } from "../types/sql";
-import { FormatError } from "../types/error";
+import type { FormatError } from "../types/error";
 import { parseEnvInt } from "./util/numbers";
 
 /** Escaping and LIKE-clause behavior for one dialect. Shared by the string-match

@@ -19,7 +19,7 @@ import {
   INTERLEAVING_ITEM_ID_COLUMN,
   INTERLEAVING_ITEMS_COLUMN,
   INTERLEAVING_TIMESTAMP_COLUMN,
-  InterleavingAnalysis,
+  type InterleavingAnalysis,
 } from "shared/validators";
 import type {
   InterleavingMetricQueryMetric,

@@ -1,12 +1,12 @@
-import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   ExperimentModel,
   getPayloadKeys,
   hasActualChanges,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   connectTestMongo,
   disconnectTestMongo,

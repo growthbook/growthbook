@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Container, Flex, Grid } from "@radix-ui/themes";
-import { ApiAutoRun, autoRunMetaString } from "shared/validators";
+import { type ApiAutoRun, autoRunMetaString } from "shared/validators";
 import {
   createdByRun,
-  TeardownFailure,
+  type TeardownFailure,
   teardownRun,
   updatedByLaterRuns,
 } from "@/services/importing/eppo/eppo-importing";

@@ -1,5 +1,11 @@
-import React, { FC, ReactNode, useEffect, useRef, useState } from "react";
-import {
+import React, {
+  type FC,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import type {
   ExpandedMember,
   OrganizationInterface,
 } from "shared/types/organization";
@@ -9,7 +15,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import router from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
-  EffectiveRoleSource,
+  type EffectiveRoleSource,
   getEffectiveRolesForProject,
   getRolePermissions,
   holdsGlobalAdmin,
@@ -22,7 +28,7 @@ import Link from "@/ui/Link";
 import RoleRuleLabel, {
   CollapsedRuleRows,
   projectRuleGroup,
-  RuleRow,
+  type RuleRow,
   shadowedRulesCell,
 } from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";

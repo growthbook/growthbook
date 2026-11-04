@@ -5,7 +5,7 @@ import {
 import { format } from "shared/sql";
 import type { ColumnTopValuesParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
-import { ColumnInterface } from "shared/types/fact-table";
+import type { ColumnInterface } from "shared/types/fact-table";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export function getColumnsTopValuesQuery(

@@ -9,12 +9,12 @@ import {
   getDemoDatasourceProjectIdForOrganization,
   getLegacyDemoFactTableIds,
 } from "shared/demo-datasource";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
-import { FactTableInterface } from "shared/types/fact-table";
-import { ProjectInterface } from "shared/types/project";
-import { ReqContext } from "back-end/types/request";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FactTableInterface } from "shared/types/fact-table";
+import type { ProjectInterface } from "shared/types/project";
+import type { ReqContext } from "back-end/types/request";
 import {
   deleteDemoDatasourceAndDependents,
   isLegacyDemoSeed,

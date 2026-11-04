@@ -1,17 +1,20 @@
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type {
   NotificationEventPayloadSchemaType,
   ResourceEvents,
 } from "shared/types/events/base-types";
-import {
+import type {
   FeatureRevisionUpdatedPayload,
   FeatureRevisionWebhookPayload,
 } from "shared/validators";
 import { resolveTargetingProjectIds } from "shared/util";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { toApiRevision } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";

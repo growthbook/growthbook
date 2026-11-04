@@ -1,7 +1,10 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
-import type { JourneyDataset, JourneyStepGroup } from "shared/validators";
-import { MAX_JOURNEY_STEP_GROUPS } from "shared/validators";
+import {
+  type JourneyDataset,
+  type JourneyStepGroup,
+  MAX_JOURNEY_STEP_GROUPS,
+} from "shared/validators";
 import { suggestJourneyStepGroups } from "shared/journeys";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";

@@ -1,6 +1,6 @@
 import { MAX_ID_LENGTH } from "../src/constants";
 import { parseRemoteGroupCsv } from "../src/parser";
-import { RemoteGroupCsvOptions } from "../src/types";
+import type { RemoteGroupCsvOptions } from "../src/types";
 
 const encode = (s: string) => new TextEncoder().encode(s);
 

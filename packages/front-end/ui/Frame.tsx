@@ -1,5 +1,5 @@
-import { forwardRef, ReactNode } from "react";
-import { Box, BoxProps } from "@radix-ui/themes";
+import { forwardRef, type ReactNode } from "react";
+import { Box, type BoxProps } from "@radix-ui/themes";
 
 export default forwardRef<
   HTMLDivElement,

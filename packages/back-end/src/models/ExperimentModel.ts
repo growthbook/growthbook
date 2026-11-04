@@ -1,5 +1,5 @@
 import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -12,19 +12,19 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
-import {
+import type {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
 import {
-  ExperimentInterfaceExcludingHoldouts,
-  ExperimentStatus,
+  type ExperimentInterfaceExcludingHoldouts,
+  type ExperimentStatus,
   SCHEDULE_STOP_AFTER_UNITS,
   SCHEDULED_STATUS_UPDATE_TYPES,
   SCHEDULED_STOP_MODES,
   SCHEDULED_STOP_FALLBACKS,
 } from "shared/validators";
-import {
+import type {
   Changeset,
   ExperimentInterface,
   ExperimentType,
@@ -32,8 +32,8 @@ import {
   LegacyExperimentInterface,
   Variation,
 } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
-import { DiffResult } from "shared/types/events/diff";
+import type { FeatureInterface } from "shared/types/feature";
+import type { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
   getUnsetAnalysisSettings,
@@ -41,7 +41,7 @@ import {
   SETTLED_ANALYSIS_SETTINGS,
 } from "shared/settings";
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   assertValidBucketVersions,
   assertValidExperimentPhases,
@@ -54,22 +54,22 @@ import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
   experimentAllocatesTrafficInNamespace,
-  NamespaceUsageExperiment,
+  type NamespaceUsageExperiment,
 } from "back-end/src/util/namespaces";
 import { validateMetricOverrides } from "back-end/src/util/priors";
 import {
   queueSDKPayloadRefresh,
-  URLRedirectExperiment,
-  VisualExperiment,
+  type URLRedirectExperiment,
+  type VisualExperiment,
 } from "back-end/src/services/features";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getCollection,
   removeMongooseFields,
-  ToInterface,
+  type ToInterface,
 } from "back-end/src/util/mongo.util";
 import {
   createVercelExperimentationItemFromExperiment,
@@ -92,7 +92,7 @@ import {
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
 import { CasConflictError } from "./BaseModel";
-import { IdeaDocument } from "./IdeasModel";
+import type { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
 import {

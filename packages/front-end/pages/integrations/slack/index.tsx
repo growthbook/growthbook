@@ -5,14 +5,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { NextPage } from "next";
+import type { NextPage } from "next";
 import { useRouter } from "next/router";
 import {
   SLACK_BOT_SCOPES,
   missingSlackBotScopes,
 } from "shared/slack-integration";
-import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
+import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import type { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiSlackLogo, PiArrowClockwise } from "react-icons/pi";
 import SlackWorkspacePanel from "@/components/SlackIntegrations/SlackWorkspacePanel";

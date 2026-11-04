@@ -1,9 +1,9 @@
 import { contextualBanditQueryEndpoints } from "shared/api-endpoints";
-import React, { FC, useMemo, useState } from "react";
+import React, { type FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
-  ApiContextualBanditQueryInterface,
+  type ApiContextualBanditQueryInterface,
   formatInvalidTargetingAttributeColumnMessages,
   formatMalformedTargetingAttributeColumnMessages,
   getInvalidTargetingAttributeColumnsForExposureQueries,
@@ -11,7 +11,7 @@ import {
 } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { TestQueryRow } from "shared/types/integrations";
+import type { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MultiSelectField from "@/ui/MultiSelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";

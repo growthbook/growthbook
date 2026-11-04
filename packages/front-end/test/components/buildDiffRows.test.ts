@@ -1,6 +1,6 @@
 import {
   buildDiffRows,
-  DiffRow,
+  type DiffRow,
 } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
 
 const lines = (n: number, prefix = "line") =>

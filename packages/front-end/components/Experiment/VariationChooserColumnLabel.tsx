@@ -1,5 +1,5 @@
-import { Variation, VariationWithIndex } from "shared/types/experiment";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { Variation, VariationWithIndex } from "shared/types/experiment";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";

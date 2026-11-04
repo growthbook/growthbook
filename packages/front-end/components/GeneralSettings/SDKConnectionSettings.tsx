@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
-import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import type { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function SDKConnectionSettings() {

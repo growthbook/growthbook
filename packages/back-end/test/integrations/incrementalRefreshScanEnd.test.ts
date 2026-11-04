@@ -1,5 +1,5 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { ExposureQuery } from "shared/types/datasource";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExposureQuery } from "shared/types/datasource";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getIncrementalMetricScanEnd } from "back-end/src/services/experiments";

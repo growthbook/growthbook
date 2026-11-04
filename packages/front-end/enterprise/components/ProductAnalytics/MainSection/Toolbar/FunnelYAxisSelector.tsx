@@ -1,7 +1,7 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiHash, PiPercent } from "react-icons/pi";
-import {
+import type {
   ExplorationConfig,
   FunnelDataset,
   FunnelYAxisScale,

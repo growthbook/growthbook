@@ -1,14 +1,14 @@
 import {
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   getSliceDataForMetric,
   isFactFunnelMetric,
 } from "shared/experiments";
-import { CustomMetricSlice } from "shared/types/experiment";
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { CustomMetricSlice } from "shared/types/experiment";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import Link from "@/ui/Link";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 import {
-  DrilldownDimensionInfo,
+  type DrilldownDimensionInfo,
   useMetricDrilldownContext,
 } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 

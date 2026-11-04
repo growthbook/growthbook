@@ -1,16 +1,16 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { DifferenceType } from "shared/types/stats";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { DifferenceType } from "shared/types/stats";
 import {
   DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
-  DashboardInterface,
+  type DashboardInterface,
   getBlockData,
   CREATE_BLOCK_TYPE,
-  DashboardEditLevel,
-  DashboardShareLevel,
+  type DashboardEditLevel,
+  type DashboardShareLevel,
 } from "shared/enterprise";
-import { ExperimentSortBy } from "shared/experiments";
+import type { ExperimentSortBy } from "shared/experiments";
 import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import cronstrue from "cronstrue";
 import PagedModal from "@/components/Modal/PagedModal";

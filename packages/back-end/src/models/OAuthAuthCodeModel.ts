@@ -1,5 +1,5 @@
 import {
-  OAuthAuthCodeInterface,
+  type OAuthAuthCodeInterface,
   oauthAuthCodeValidator,
 } from "shared/validators";
 import { getCollection } from "back-end/src/util/mongo.util";

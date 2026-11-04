@@ -1,11 +1,11 @@
-import { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
-import { Revision, RevisionStatus } from "shared/enterprise";
+import type { Revision, RevisionStatus } from "shared/enterprise";
 import {
-  EventUser as EventUserType,
+  type EventUser as EventUserType,
   eventUserLabel,
   revisionActor,
 } from "shared/validators";
@@ -16,7 +16,7 @@ import EventUser from "@/components/Avatar/EventUser";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/ui/Pagination";
 import {
-  SyntaxFilter,
+  type SyntaxFilter,
   useAddComputedFields,
   useSearch,
 } from "@/services/search";

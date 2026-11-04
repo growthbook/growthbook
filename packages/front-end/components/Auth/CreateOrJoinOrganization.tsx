@@ -1,10 +1,10 @@
-import { FC, useEffect, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import { PiPlusBold } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { OWNER_JOB_TITLES } from "shared/constants";
-import {
+import type {
   OwnerJobTitle,
   CreateOrganizationPostBody,
 } from "shared/types/organization";

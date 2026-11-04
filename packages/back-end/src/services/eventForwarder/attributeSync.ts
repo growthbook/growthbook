@@ -1,9 +1,9 @@
-import { SDKAttributeSchema } from "shared/types/organization";
+import type { SDKAttributeSchema } from "shared/types/organization";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarder/config";
 import { reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries } from "back-end/src/services/eventForwarder/datasourceSync";
 import { syncEventForwarderEventsFactTableMetadata } from "back-end/src/services/eventForwarder/factTable";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 export async function syncEventForwarderAfterAttributeSchemaChange(
   context: ReqContext,

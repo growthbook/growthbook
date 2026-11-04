@@ -2,12 +2,12 @@ import {
   canStageArchiveDraft,
   canWriteArchiveIntoDraft,
 } from "shared/permissions";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { eventUserPersonId } from "shared/validators";
 import { useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import Text from "@/ui/Text";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -21,7 +21,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import DraftSelectorForChanges, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import FeatureReferencesList from "./FeatureReferencesList";
 

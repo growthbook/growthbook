@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
-import { OAuthClientInterface } from "shared/validators";
+import type { OAuthClientInterface } from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
 
 /**

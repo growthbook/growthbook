@@ -1,4 +1,4 @@
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 
 // The internal model + the JSON-Schema-shaped helpers every converter depends
 // on. Pure (no React/DOM/network): the same logic runs in the browser editor

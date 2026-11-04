@@ -1,11 +1,11 @@
 import type { Response } from "express";
-import {
+import type {
   CustomFieldSection,
   CustomFieldsInterface,
   CreateCustomFieldProps,
 } from "shared/types/custom-fields";
 import { ALL_SECTIONS } from "shared/validators";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
 // region POST /custom-fields

@@ -1,6 +1,6 @@
-import { FC, ChangeEventHandler, useState } from "react";
+import { type FC, type ChangeEventHandler, useState } from "react";
 import { Box } from "@radix-ui/themes";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";

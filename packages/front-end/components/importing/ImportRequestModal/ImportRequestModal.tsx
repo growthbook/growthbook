@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { type FC, useState } from "react";
 import track from "@/services/track";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";

@@ -1,12 +1,12 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import type {
-  ExplorationConfig,
-  JourneyDataset,
-  ProductAnalyticsExploration,
-  ProductAnalyticsResultRow,
+import {
+  type ExplorationConfig,
+  type JourneyDataset,
+  type ProductAnalyticsExploration,
+  type ProductAnalyticsResultRow,
+  MAX_JOURNEY_PATH_LENGTH,
 } from "shared/validators";
-import { MAX_JOURNEY_PATH_LENGTH } from "shared/validators";
 import {
   JOURNEY_NONE,
   JOURNEY_OTHER,

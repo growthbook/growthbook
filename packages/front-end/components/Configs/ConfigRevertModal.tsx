@@ -1,7 +1,7 @@
-import { Revision } from "shared/enterprise";
-import { ConfigInterface } from "shared/types/config";
+import type { Revision } from "shared/enterprise";
+import type { ConfigInterface } from "shared/types/config";
 import RevertModal from "@/components/Revision/RevertModal";
-import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
+import type { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 
 // Fields a config revert can restore. `archived` is handled separately via an

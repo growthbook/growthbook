@@ -1,4 +1,4 @@
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 
 const baseConfig = (

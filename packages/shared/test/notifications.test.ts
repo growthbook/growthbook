@@ -11,7 +11,7 @@ import {
   cardNotificationEventNames,
   initiallyEnabledNotificationCategories,
   notificationCategories,
-  NotificationEventCategory,
+  type NotificationEventCategory,
   hasNotificationWildcard,
   notificationEventOptions,
   getNotificationLevel,

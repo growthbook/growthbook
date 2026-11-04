@@ -1,7 +1,7 @@
-import { FC, useEffect, useRef, useState } from "react";
+import { type FC, useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ProjectInterface } from "shared/types/project";
-import { ExpandedMember } from "shared/types/organization";
+import type { ProjectInterface } from "shared/types/project";
+import type { ExpandedMember } from "shared/types/organization";
 import { putProjectValidator } from "shared/validators";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";

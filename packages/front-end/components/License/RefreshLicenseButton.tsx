@@ -1,6 +1,6 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
-import { LicenseInterface } from "shared/enterprise";
+import type { LicenseInterface } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";

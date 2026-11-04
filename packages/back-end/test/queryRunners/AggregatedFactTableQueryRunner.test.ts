@@ -1,16 +1,16 @@
-import {
+import type {
   QueryInterface,
   QueryPointer,
   QueryStatus,
   Queries,
 } from "shared/types/query";
-import { ReqContext } from "back-end/types/request";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { ReqContext } from "back-end/types/request";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   AggregatedFactTableQueryRunner,
   getRestateChunkBounds,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
-import {
+import type {
   ProcessedRowsType,
   RowsType,
   StartQueryParams,

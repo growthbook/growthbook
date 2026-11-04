@@ -1,4 +1,4 @@
-import { ReactElement } from "react";
+import type { ReactElement } from "react";
 import {
   getLaunchChecklistItems,
   type LaunchChecklistItem,
@@ -6,14 +6,14 @@ import {
   missingVariationValueItems,
   unrelatedDraftChangeItems,
 } from "shared/experiments";
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
+import type { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
 import { hasPendingScheduledStart, startBypassCovers } from "shared/util";
 import track from "@/services/track";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";

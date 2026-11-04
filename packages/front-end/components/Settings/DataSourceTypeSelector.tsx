@@ -1,4 +1,4 @@
-import { DataSourceType } from "shared/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import { Text } from "@radix-ui/themes";
 import { dataSourceConnections } from "@/services/eventSchema";
 import RadioCards from "@/ui/RadioCards";

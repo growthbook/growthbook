@@ -1,7 +1,10 @@
-import React, { FC, ReactNode, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
-import { FeatureInterface } from "shared/types/feature";
+import React, { type FC, type ReactNode, useState } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
+  CustomField,
+  CustomFieldSection,
+} from "shared/types/custom-fields";
+import type { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -17,7 +20,7 @@ import {
   renderCustomFieldValue,
 } from "./renderCustomFieldValue";
 import CustomFieldEditModal, {
-  CustomFieldDraftInfo,
+  type CustomFieldDraftInfo,
 } from "./CustomFieldEditModal";
 
 const CustomFieldDisplay: FC<{

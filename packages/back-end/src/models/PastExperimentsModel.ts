@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import uniqid from "uniqid";
-import {
+import type {
   PastExperiment,
   PastExperimentsInterface,
 } from "shared/types/past-experiments";
-import { Queries } from "shared/types/query";
+import type { Queries } from "shared/types/query";
 import { queriesSchema } from "./QueryModel";
 
 const pastExperimentsSchema = new mongoose.Schema({

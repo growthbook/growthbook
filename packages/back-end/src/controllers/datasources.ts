@@ -1,5 +1,5 @@
 import { hasSuperAdminPermission } from "shared/permissions";
-import { Response } from "express";
+import type { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import pick from "lodash/pick";
 import uniqid from "uniqid";
@@ -20,7 +20,7 @@ import {
   getPipelineValidationInsertQuery,
   type PipelineValidationResults,
 } from "shared/enterprise";
-import { TemplateVariables } from "shared/types/sql";
+import type { TemplateVariables } from "shared/types/sql";
 import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
@@ -28,10 +28,10 @@ import {
   testQueryTypeValidator,
   testDataSourceConnectionBodySchema,
 } from "shared/validators";
-import { AutoMetricToCreate } from "shared/types/integrations";
-import { AuditUserLoggedIn } from "shared/types/audit";
-import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
-import {
+import type { AutoMetricToCreate } from "shared/types/integrations";
+import type { AuditUserLoggedIn } from "shared/types/audit";
+import type { EventForwarderConfigDraft } from "shared/types/event-forwarder";
+import type {
   DataSourceParams,
   DataSourceType,
   DataSourcePipelineSettings,
@@ -43,12 +43,12 @@ import {
   GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
 import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import type { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
-import { SDKAttributeSchema } from "shared/types/organization";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { SDKAttributeSchema } from "shared/types/organization";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
   mergeParams,

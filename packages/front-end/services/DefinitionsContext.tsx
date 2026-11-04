@@ -1,32 +1,35 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { DataRegion } from "shared/util";
-import { DimensionInterface } from "shared/types/dimension";
-import { MetricDefinitionInterface } from "shared/types/metric";
-import { SegmentInterface } from "shared/types/segment";
-import { ProjectInterface } from "shared/types/project";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataRegion } from "shared/util";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { MetricDefinitionInterface } from "shared/types/metric";
+import type { SegmentInterface } from "shared/types/segment";
+import type { ProjectInterface } from "shared/types/project";
 import {
   useContext,
   useMemo,
   createContext,
-  FC,
-  ReactNode,
+  type FC,
+  type ReactNode,
   useCallback,
-  ReactElement,
+  type ReactElement,
   useEffect,
 } from "react";
-import { TagInterface } from "shared/types/tag";
-import {
+import type { TagInterface } from "shared/types/tag";
+import type {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
-import { SavedGroupForDefinitions } from "shared/types/saved-group";
-import { ConstantWithoutValue } from "shared/types/constant";
-import { ConfigWithoutValue } from "shared/types/config";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { CustomField } from "shared/types/custom-fields";
-import { DecisionCriteriaInterface } from "shared/types/experiment";
-import { WebhookSecretFrontEndInterface } from "shared/validators";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetricId,
+} from "shared/experiments";
+import type { SavedGroupForDefinitions } from "shared/types/saved-group";
+import type { ConstantWithoutValue } from "shared/types/constant";
+import type { ConfigWithoutValue } from "shared/types/config";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { CustomField } from "shared/types/custom-fields";
+import type { DecisionCriteriaInterface } from "shared/types/experiment";
+import type { WebhookSecretFrontEndInterface } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";

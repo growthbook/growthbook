@@ -1,13 +1,13 @@
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import {
   DEMO_EXPERIMENT_ID,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
   isSampleDatasource,
 } from "shared/demo-datasource";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";

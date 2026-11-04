@@ -4,8 +4,8 @@ import {
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
-  ExperimentInterfaceExcludingHoldouts,
-  ExperimentTemplateInterface,
+  type ExperimentInterfaceExcludingHoldouts,
+  type ExperimentTemplateInterface,
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
@@ -18,7 +18,7 @@ import {
   assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
-  PostExperimentApiPayload,
+  type PostExperimentApiPayload,
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";

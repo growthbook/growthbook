@@ -1,4 +1,4 @@
-import { InterleavingInterface } from "shared/validators";
+import type { InterleavingInterface } from "shared/validators";
 import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";
 
 const interleaving = (fields: Partial<InterleavingInterface>) =>

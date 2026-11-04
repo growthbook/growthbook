@@ -8,7 +8,7 @@ import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
   planExperimentSnapshot,
-  PlannedExperimentSnapshot,
+  type PlannedExperimentSnapshot,
 } from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import {

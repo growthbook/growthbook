@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { UnionToTuple } from "shared/util";
-import {
+import type { UnionToTuple } from "shared/util";
+import type {
   NotificationEventName,
   NotificationEventResource,
   ResourceEvents,

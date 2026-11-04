@@ -1,6 +1,6 @@
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { AlertDialog, Box, Flex, Text } from "@radix-ui/themes";
-import Button, { Color } from "@/ui/Button";
+import Button, { type Color } from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 
 type Props = {

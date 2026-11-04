@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { expandSparseToFull, stripDefaultsForSparse } from "shared/util";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";

@@ -1,6 +1,6 @@
 import {
-  ApiErrorCode,
-  ApiErrorDetails,
+  type ApiErrorCode,
+  type ApiErrorDetails,
   apiErrorRegistry,
 } from "shared/validators";
 import { experimentFieldLabels } from "shared/experiments";

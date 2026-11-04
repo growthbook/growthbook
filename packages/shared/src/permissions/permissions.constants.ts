@@ -1,4 +1,8 @@
-import { DefaultMemberRole, Permission, Role } from "shared/types/organization";
+import type {
+  DefaultMemberRole,
+  Permission,
+  Role,
+} from "shared/types/organization";
 
 export const POLICIES = [
   "ReadData",

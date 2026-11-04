@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import omit from "lodash/omit";
 import { Flex } from "@radix-ui/themes";
-import {
+import type {
   CreateFactMetricProps,
   FactMetricInterface,
   FactTableDefinition,
@@ -15,7 +15,7 @@ import {
 } from "shared/types/fact-table";
 import Text from "@/ui/Text";
 import {
-  CreateFactMetricFormProps,
+  type CreateFactMetricFormProps,
   fromFactMetricFormValues,
   getDefaultFactMetricProps,
   getFactMetricTrackProps,
@@ -32,7 +32,7 @@ import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
 import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
-import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
+import type { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
 
 import styles from "./MetricWorkspace.module.scss";
 import { createNavigationCancellation } from "./navigationCancellation";

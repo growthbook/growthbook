@@ -1,5 +1,5 @@
-import { TranslateContext } from "./metrics";
-import {
+import type { TranslateContext } from "./metrics";
+import type {
   BulkImportPayload,
   DbtNode,
   FactMetricData,

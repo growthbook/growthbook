@@ -1,10 +1,10 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { z } from "zod";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
 import {
   handleSlackAppHomeOpened,
-  SlackAppHomeOpened,
+  type SlackAppHomeOpened,
   slackAppHomeOpenedSchema,
 } from "back-end/src/services/slack/slackAppHome";
 import {
@@ -14,8 +14,8 @@ import {
 import {
   handleSlackAssistantMention,
   handleSlackAssistantConfirmation,
-  SlackAssistantMention,
-  SlackAssistantConfirmation,
+  type SlackAssistantMention,
+  type SlackAssistantConfirmation,
   slackAssistantMentionSchema,
   slackAssistantConfirmationSchema,
 } from "back-end/src/services/slack/slackAssistant";

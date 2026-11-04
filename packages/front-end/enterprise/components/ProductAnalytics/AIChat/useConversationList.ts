@@ -4,7 +4,7 @@ import { useAuth } from "@/services/auth";
 import {
   useChatListBackgroundPoll,
   type ConversationSummary,
-  AIChatMessage,
+  type AIChatMessage,
 } from "@/enterprise/hooks/useAIChat";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";

@@ -1,4 +1,4 @@
-import { DetailedHTMLProps, HTMLAttributes } from "react";
+import type { DetailedHTMLProps, HTMLAttributes } from "react";
 
 export default function OverflowText({
   children,

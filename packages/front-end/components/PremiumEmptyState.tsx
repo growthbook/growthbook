@@ -1,5 +1,5 @@
-import React, { FC, useState } from "react";
-import { CommercialFeature } from "shared/enterprise";
+import React, { type FC, useState } from "react";
+import type { CommercialFeature } from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";

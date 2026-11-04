@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
-import { Responsive } from "@radix-ui/themes/props";
-import { Size } from "@/ui/sizes";
+import type { Responsive } from "@radix-ui/themes/props";
+import type { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";

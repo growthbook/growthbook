@@ -1,4 +1,10 @@
-import { ReactNode, FC, useState, ReactElement, isValidElement } from "react";
+import {
+  type ReactNode,
+  type FC,
+  useState,
+  type ReactElement,
+  isValidElement,
+} from "react";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const ConfirmButton: FC<{

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
 import Text from "@/ui/Text";

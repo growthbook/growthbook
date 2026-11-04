@@ -5,7 +5,7 @@ import {
   getLatestSDKVersion,
   getSDKCapabilities,
   getSDKCapabilityVersion,
-  SDKCapability,
+  type SDKCapability,
 } from "shared/sdk-versioning";
 import type { SDKLanguage } from "shared/types/sdk-connection";
 

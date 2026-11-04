@@ -4,11 +4,11 @@ import {
   archiveFootprintForControl,
   canLandArchiveToggle,
 } from "shared/permissions";
-import { ConstantWithoutValue } from "shared/types/constant";
-import { Revision } from "shared/enterprise";
+import type { ConstantWithoutValue } from "shared/types/constant";
+import type { Revision } from "shared/enterprise";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
-import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
+import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
 import { useConstantReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";

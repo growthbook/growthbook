@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import React, {
-  CSSProperties,
-  ReactElement,
+  type CSSProperties,
+  type ReactElement,
   Suspense,
   lazy,
   useMemo,

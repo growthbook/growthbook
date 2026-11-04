@@ -3,11 +3,11 @@ import omit from "lodash/omit";
 import type { ExperimentChangesBody } from "shared/validators";
 import { syncedDestinationURLs } from "shared/experiments";
 import { sortObjectKeys } from "shared/util";
-import {
+import type {
   DestinationURL,
   URLRedirectInterface,
 } from "shared/types/url-redirect";
-import {
+import type {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";

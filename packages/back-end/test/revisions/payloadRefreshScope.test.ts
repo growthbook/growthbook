@@ -11,10 +11,12 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
+  type DeferredEventBuffer,
 } from "back-end/src/events/bulkPublishCorrelation";
-import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
-import type { Context } from "back-end/src/models/BaseModel";
-import { advancedGuardStamp } from "back-end/src/models/BaseModel";
+import {
+  type Context,
+  advancedGuardStamp,
+} from "back-end/src/models/BaseModel";
 
 /**
  * The single-entity half of bulk publish's side-effect batching: a landing's

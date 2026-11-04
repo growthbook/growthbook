@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { PiSparkle } from "react-icons/pi";
-import {
+import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";

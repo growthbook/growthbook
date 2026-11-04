@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   useMemo,
   useState,
@@ -36,14 +36,14 @@ import {
 } from "shared/enterprise";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   ACTIVE_DRAFT_STATUSES,
-  SafeRolloutInterface,
-  HoldoutInterface,
-  MinimalFeatureRevisionInterface,
-  RampScheduleInterface,
+  type SafeRolloutInterface,
+  type HoldoutInterface,
+  type MinimalFeatureRevisionInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
 import EventUser from "@/components/Avatar/EventUser";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
@@ -90,7 +90,7 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Markdown from "@/components/Markdown/Markdown";
 import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
-import { CustomFieldDraftInfo } from "@/components/CustomFields/CustomFieldEditModal";
+import type { CustomFieldDraftInfo } from "@/components/CustomFields/CustomFieldEditModal";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -100,9 +100,9 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
-import { FeatureTab } from "@/pages/features/[fid]";
+import type { FeatureTab } from "@/pages/features/[fid]";
 import {
-  PrerequisiteStateResult,
+  type PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";

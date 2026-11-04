@@ -1,10 +1,10 @@
-import { SDKLanguage } from "shared/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
-  LanguageFilter,
+  type LanguageFilter,
 } from "./SDKLanguageLogo";
 
 const tabs: Record<LanguageFilter, string> = {

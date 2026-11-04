@@ -1,7 +1,7 @@
 import {
   useEntityDraftStates,
-  UseEntityDraftStatesReturn,
-  DraftStatusCounts,
+  type UseEntityDraftStatesReturn,
+  type DraftStatusCounts,
 } from "./useEntityDraftStates";
 
 export type { DraftStatusCounts };

@@ -8,7 +8,7 @@ import {
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
-import {
+import type {
   Settings,
   SettingsResolver,
   ScopedSettings,

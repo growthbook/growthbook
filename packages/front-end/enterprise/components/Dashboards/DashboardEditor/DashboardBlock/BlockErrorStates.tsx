@@ -1,4 +1,4 @@
-import {
+import type {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
 } from "shared/enterprise";

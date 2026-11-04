@@ -1,4 +1,4 @@
-import React, { ReactNode, ReactElement } from "react";
+import React, { type ReactNode, type ReactElement } from "react";
 import isEqual from "lodash/isEqual";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

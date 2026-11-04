@@ -2,7 +2,7 @@ import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
-  ApiContextualBanditInterface,
+  type ApiContextualBanditInterface,
   getEffectiveContextualAttributes,
   getEligibleContextualAttributes,
 } from "shared/validators";

@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { OrganizationInterface } from "shared/types/organization";
+import type { ReactNode } from "react";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   envScopedPermissionsForRole,
   getRoleDisplayName,

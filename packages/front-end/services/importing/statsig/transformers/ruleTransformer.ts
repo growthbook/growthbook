@@ -1,8 +1,8 @@
-import { ConditionInterface } from "@growthbook/growthbook-react";
+import type { ConditionInterface } from "@growthbook/growthbook-react";
 import escapeRegExp from "lodash/escapeRegExp";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { getDefaultPrerequisiteCondition } from "shared/util";
-import { StatsigCondition } from "@/services/importing/statsig/types";
+import type { StatsigCondition } from "@/services/importing/statsig/types";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 
 export type TransformedCondition = {

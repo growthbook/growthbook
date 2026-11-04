@@ -2,9 +2,9 @@ import {
   NO_ENVIRONMENT_BINDING,
   bypassApprovalPermission,
 } from "shared/permissions";
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import {
-  Revision,
+  type Revision,
   configPublishFootprint,
   getConstantRevisionApprovalChange,
   getConstantRevisionChange,
@@ -22,11 +22,14 @@ import {
   configValidator,
   configUpdatableFieldsSchema,
 } from "shared/validators";
-import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  type PublishFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
-  ApplyChangesResult,
-  EntityRevisionAdapter,
+  type ApplyChangesResult,
+  type EntityRevisionAdapter,
   filterUpdatableChanges,
   revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
@@ -42,7 +45,7 @@ import {
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import {
-  ArmAcknowledgments,
+  type ArmAcknowledgments,
   buildArmAcknowledgments,
 } from "back-end/src/services/armGuards";
 import {
@@ -68,14 +71,13 @@ import {
   archiveDependentsGateMessage,
 } from "back-end/src/services/archiveDependentsGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
+  type PublishGate,
   gateOr5xx,
   makeBlockingGate,
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
-import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { OrganizationSettings } from "shared/types/organization";
-import {
+import type { OrganizationSettings } from "shared/types/organization";
+import type {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,

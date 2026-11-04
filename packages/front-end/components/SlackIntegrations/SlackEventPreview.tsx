@@ -1,4 +1,4 @@
-import { SlackNotificationPreviewBody } from "shared/validators";
+import type { SlackNotificationPreviewBody } from "shared/validators";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";

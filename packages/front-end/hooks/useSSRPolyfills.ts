@@ -3,13 +3,13 @@ import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_P_VALUE_THRESHOLD,
 } from "shared/constants";
-import { ExperimentReportSSRData } from "shared/types/report";
-import { ExperimentMetricDefinition } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { FactTableDefinition } from "shared/types/fact-table";
-import { DimensionInterface } from "shared/types/dimension";
-import { ProjectInterface } from "shared/types/project";
+import type { ExperimentReportSSRData } from "shared/types/report";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import type { CommercialFeature } from "shared/enterprise";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { FactTableDefinition } from "shared/types/fact-table";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { ProjectInterface } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";

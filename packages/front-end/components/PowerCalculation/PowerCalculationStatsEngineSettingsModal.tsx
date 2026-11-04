@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { StatsEngineSettings } from "shared/power";
+import type { StatsEngineSettings } from "shared/power";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";

@@ -1,24 +1,24 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CSSTransition } from "react-transition-group";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { BanditEvent } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { BanditEvent } from "shared/validators";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import {
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { getVariationColor } from "@/services/features";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
 import { useBanditSummaryTooltip } from "@/components/Experiment/BanditSummaryTableTooltip/useBanditSummaryTooltip";
 import BanditSummaryTooltip from "@/components/Experiment/BanditSummaryTableTooltip/BanditSummaryTooltip";
-import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
+import type { TooltipHoverSettings } from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { ROW_HEIGHT } from "@/components/Experiment/ResultsTable";

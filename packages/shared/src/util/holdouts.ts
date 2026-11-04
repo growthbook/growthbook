@@ -1,8 +1,8 @@
-import {
+import type {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { HoldoutInterface } from "../validators/holdout";
+import type { HoldoutInterface } from "../validators/holdout";
 
 // Capped at 0.5 because an equal control group is reserved alongside the holdout.
 export const MAX_HOLDOUT_SIZE = 0.5;

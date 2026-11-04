@@ -10,14 +10,14 @@ import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   filterEnvironmentsByFeature,
-  MergeResultChanges,
+  type MergeResultChanges,
   checkIfRevisionNeedsReview,
   getRevertTargetArchived,
   getRevertTargetHoldout,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import {
   assertCanRevertArchived,

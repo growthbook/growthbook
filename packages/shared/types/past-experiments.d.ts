@@ -1,4 +1,4 @@
-import { Queries } from "./query";
+import type { Queries } from "./query";
 
 export interface PastExperiment {
   exposureQueryId: string;

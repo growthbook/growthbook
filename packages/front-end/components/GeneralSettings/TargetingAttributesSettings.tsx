@@ -2,7 +2,7 @@ import { Box } from "@radix-ui/themes";
 import { getRequireRegisteredAttributesSettings } from "shared/util";
 import { useFormContext } from "react-hook-form";
 import Checkbox from "@/ui/Checkbox";
-import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import type { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 // The form always works with the canonical object shape

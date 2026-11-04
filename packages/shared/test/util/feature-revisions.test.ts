@@ -1,6 +1,9 @@
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { OrganizationSettings, RequireReview } from "shared/types/organization";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type {
+  OrganizationSettings,
+  RequireReview,
+} from "shared/types/organization";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -13,7 +16,7 @@ import {
   getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
   mergeRevision,
-  RevisionFields,
+  type RevisionFields,
   draftDiffersFromLive,
   liveRevisionFromFeature,
   reconcileMergeBaselines,

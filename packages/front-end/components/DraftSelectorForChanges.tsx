@@ -1,5 +1,5 @@
-import { ReactNode, useEffect } from "react";
-import DraftSelector, { DraftMode } from "@/components/DraftSelector";
+import { type ReactNode, useEffect } from "react";
+import DraftSelector, { type DraftMode } from "@/components/DraftSelector";
 
 export type { DraftMode };
 

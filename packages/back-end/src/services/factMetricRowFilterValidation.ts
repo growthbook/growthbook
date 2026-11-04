@@ -1,6 +1,6 @@
 import { getFactTableTimestampColumn } from "shared/experiments";
-import { FactTableInterface, RowFilter } from "shared/types/fact-table";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { FactTableInterface, RowFilter } from "shared/types/fact-table";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 
 type FactTableForRowFilterValidation = Pick<
   FactTableInterface,

@@ -1,4 +1,4 @@
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { buildDatabricksConnectionOptions } from "back-end/src/services/databricks";
 import { encryptParams } from "back-end/src/services/datasource";
 import Databricks from "back-end/src/integrations/Databricks";

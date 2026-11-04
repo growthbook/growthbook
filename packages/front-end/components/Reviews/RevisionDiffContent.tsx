@@ -2,7 +2,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import {
   ExpandableDiff,
-  DiffCommentsProps,
+  type DiffCommentsProps,
   DiffFormatToggle,
   CopyAsButton,
   FormattedChanges,
@@ -13,7 +13,7 @@ import {
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
-import { DiffItem } from "@/components/Revision/useRevisionDiff";
+import type { DiffItem } from "@/components/Revision/useRevisionDiff";
 import { diffSectionAnchorKey } from "@/components/Revision/RevisionDiff";
 
 // Generic clone of the feature flow's Changes-tab diff chrome

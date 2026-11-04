@@ -1,4 +1,4 @@
-import { IssuerMetadata } from "openid-client";
+import type { IssuerMetadata } from "openid-client";
 
 export interface SSOConnectionInterface {
   id?: string;

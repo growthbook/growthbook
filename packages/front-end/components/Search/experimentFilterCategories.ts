@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import {
+import type {
   ExperimentHealthState,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { useUser } from "@/services/UserContext";
-import { SearchFiltersItem } from "@/components/Search/SearchFilters";
+import type { SearchFiltersItem } from "@/components/Search/SearchFilters";
 import { EXPERIMENT_HEALTH_STATE_LABELS } from "@/services/experiments";
 import { isTempRolloutHealthState } from "@/services/health";
 

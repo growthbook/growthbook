@@ -1,6 +1,6 @@
 import {
-  PointerEvent as ReactPointerEvent,
-  ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useEffect,
   useRef,
   useState,

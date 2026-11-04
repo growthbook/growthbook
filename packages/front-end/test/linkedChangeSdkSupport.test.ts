@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   linkedChangeSdkSupported,
   type LinkedChangeTarget,

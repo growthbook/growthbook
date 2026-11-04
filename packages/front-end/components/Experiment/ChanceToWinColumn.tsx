@@ -1,14 +1,14 @@
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { DetailedHTMLProps, TdHTMLAttributes } from "react";
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import { PiWarningCircle } from "react-icons/pi";
-import { RowResults } from "@/services/experiments";
+import type { RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useColumnStatusPopovers } from "./useColumnStatusPopovers";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {

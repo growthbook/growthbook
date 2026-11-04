@@ -1,9 +1,9 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
 import {
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-  ExperimentsScaledImpactBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
+  type ExperimentsScaledImpactBlockInterface,
   withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import MetricSelector from "@/components/Experiment/MetricSelector";

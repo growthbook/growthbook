@@ -2,7 +2,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import {
   blockHasFieldOfType,
   isResultsTableItem,
-  SqlExplorerBlockInterface,
+  type SqlExplorerBlockInterface,
 } from "shared/enterprise";
 import { isString } from "shared/util";
 import { useMemo } from "react";
@@ -12,7 +12,7 @@ import {
 } from "@/components/DataViz/SqlExplorerDataVisualization";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import ScrollArea from "@/ui/ScrollArea";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function SqlExplorerBlock({
   block,

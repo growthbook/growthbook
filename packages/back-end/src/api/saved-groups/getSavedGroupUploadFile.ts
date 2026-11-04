@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import { z } from "zod";
-import { ApiRequestLocals } from "back-end/types/api";
+import type { ApiRequestLocals } from "back-end/types/api";
 import { getRemoteSavedGroupUpload } from "back-end/src/services/remoteSavedGroups";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { logger } from "back-end/src/util/logger";

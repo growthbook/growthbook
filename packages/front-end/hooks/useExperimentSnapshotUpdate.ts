@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { isDimensionPrecomputed } from "shared/experiments";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

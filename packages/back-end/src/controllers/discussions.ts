@@ -1,7 +1,7 @@
-import { Response } from "express";
-import { DiscussionParentType } from "shared/types/discussion";
+import type { Response } from "express";
+import type { DiscussionParentType } from "shared/types/discussion";
 import { DISCUSSION_PARENT_TYPES } from "shared/constants";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   addComment,
   getDiscussionByParent,

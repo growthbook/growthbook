@@ -4,8 +4,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Markdown from "@/components/Markdown/Markdown";
 import {
-  DiffCommentRef,
-  DiffRefSnapshot,
+  type DiffCommentRef,
+  type DiffRefSnapshot,
   scrollToDiffRef,
   splitDiffRefSegments,
 } from "@/components/Reviews/diffCommentRefs";

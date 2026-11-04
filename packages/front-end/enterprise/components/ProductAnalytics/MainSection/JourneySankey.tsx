@@ -8,11 +8,11 @@ import { JOURNEY_OTHER, JOURNEY_TERMINALS } from "shared/journeys";
 import type { JourneyHeightScale } from "shared/validators";
 import { formatNumber, formatPercent } from "@/services/metrics";
 import { CHART_COLORS } from "@/components/DataViz/chart-theme";
-import {
-  type JourneyColumn,
-  type JourneyEdge,
-  type JourneyNode,
-  type JourneyViewModel,
+import type {
+  JourneyColumn,
+  JourneyEdge,
+  JourneyNode,
+  JourneyViewModel,
 } from "./useJourneyModel";
 
 const NODE_W = 9;

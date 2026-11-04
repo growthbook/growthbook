@@ -5,7 +5,7 @@ import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { capitalizeFirstLetter } from "@/services/utils";
-import { AppNotice } from "./notices";
+import type { AppNotice } from "./notices";
 
 type ExpiringKey = ReturnType<typeof useUser>["expiringApiKeys"][number];
 

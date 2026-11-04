@@ -29,7 +29,7 @@ import {
   getRemoteSavedGroupUploadDownloadUrl,
   getRemoteSavedGroupUploadUrl,
   listRemoteSavedGroupUploads,
-  RemoteSavedGroupsContext,
+  type RemoteSavedGroupsContext,
   toApiSavedGroupsWithUploads,
   validateRemoteSavedGroupUpload,
 } from "back-end/src/services/remoteSavedGroups";

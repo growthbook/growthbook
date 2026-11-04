@@ -1,5 +1,5 @@
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ReqContext } from "shared/types/organization";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ReqContext } from "shared/types/organization";
 import {
   VisualChangesetModel,
   updateVisualChange,

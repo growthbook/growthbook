@@ -1,5 +1,5 @@
 import {
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   getColumnRefWhereClause,
   getFactTableIdColumnExpression,
   getMetricTemplateVariables,

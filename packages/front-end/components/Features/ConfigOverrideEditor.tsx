@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import { deepMergePatch } from "shared/util";
 import { isEqual } from "lodash";
 import {
@@ -24,7 +24,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import {
-  ResolvedField,
+  type ResolvedField,
   FIELD_TYPE_OPTIONS,
   fieldForTypeToken,
   fieldIsNullable,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiVisualChangeset } from "shared/validators";
+import type { ApiVisualChangeset } from "shared/validators";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,

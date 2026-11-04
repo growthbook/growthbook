@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Container, Flex, Separator } from "@radix-ui/themes";
-import {
+import type {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
@@ -20,7 +20,7 @@ import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import {
-  LanguageFilter,
+  type LanguageFilter,
   languageMapping,
 } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import PageHead from "@/components/Layout/PageHead";

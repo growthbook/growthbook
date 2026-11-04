@@ -1,7 +1,7 @@
 import { isEqual } from "lodash";
-import { SimpleSchema } from "shared/types/feature";
-import { AncestorFieldCollision } from "shared/util";
-import { ConfigInterface } from "shared/types/config";
+import type { SimpleSchema } from "shared/types/feature";
+import type { AncestorFieldCollision } from "shared/util";
+import type { ConfigInterface } from "shared/types/config";
 
 type NormalizeSchema = (
   config: {

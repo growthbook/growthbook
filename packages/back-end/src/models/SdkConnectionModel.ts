@@ -4,13 +4,13 @@ import { z } from "zod";
 import { isEqual, isUndefined, omit, omitBy } from "lodash";
 import {
   managedByValidator,
-  ManagedBy,
-  ApiSdkConnection,
+  type ManagedBy,
+  type ApiSdkConnection,
   savedGroupFormatValidator,
-  SdkPayloadSize,
-  SdkPayloadSizeLevel,
+  type SdkPayloadSize,
+  type SdkPayloadSizeLevel,
 } from "shared/validators";
-import {
+import type {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
   ProxyConnection,
@@ -31,8 +31,8 @@ import {
   PROXY_HOST_PUBLIC,
 } from "back-end/src/util/secrets";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";

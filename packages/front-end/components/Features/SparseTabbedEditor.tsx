@@ -1,9 +1,9 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
 import { Box, Flex } from "@radix-ui/themes";
-import { FeatureValueType } from "shared/types/feature";
+import type { FeatureValueType } from "shared/types/feature";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import { Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
 import CodeTextArea, {
   TEN_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";

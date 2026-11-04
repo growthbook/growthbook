@@ -1,4 +1,4 @@
-import Handlebars, { HelperOptions } from "handlebars";
+import Handlebars, { type HelperOptions } from "handlebars";
 import type { SqlDialect } from "shared/types/sql";
 
 // Adapted from https://github.com/helpers/handlebars-helpers

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import {
+import type {
   FeatureInterface,
   FeatureValueType,
   JSONSchemaDef,
@@ -16,7 +16,7 @@ import {
   parseLooseJSON,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
@@ -31,7 +31,7 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import EditSchemaField from "@/components/Features/EditSchemaField";
 import DraftSelectorForChanges, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 
 export interface Props {

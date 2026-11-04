@@ -8,7 +8,7 @@ import {
   getFilteredExperimentsUsingMetric,
   parseExperimentSearchString,
   splitCsv,
-  StructuredExperimentFilters,
+  type StructuredExperimentFilters,
 } from "back-end/src/services/experimentFilters";
 import {
   _getSnapshots,

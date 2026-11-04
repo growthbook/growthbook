@@ -1,5 +1,5 @@
 import {
-  SdkConnectionCacheAuditContext,
+  type SdkConnectionCacheAuditContext,
   sdkConnectionCacheValidator,
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { format, resolveConfig } from "prettier";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   notificationEventMetadata,
   publicNotificationEventNames,

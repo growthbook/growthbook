@@ -1,5 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { RowFilter, RowFilterTestResults } from "shared/types/fact-table";
+import type { RowFilter, RowFilterTestResults } from "shared/types/fact-table";
 import { PiArrowsClockwise } from "react-icons/pi";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isEqual } from "lodash";
@@ -15,7 +15,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   factTableToColumnSource,
-  FilterColumnSource,
+  type FilterColumnSource,
   isRowFilterComplete,
 } from "./rowFilterUtils";
 import { RowFilterEditorRows } from "./RowFilterFields";

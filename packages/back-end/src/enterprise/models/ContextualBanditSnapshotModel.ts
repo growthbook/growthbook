@@ -1,5 +1,5 @@
 import {
-  ContextualBanditSnapshotInterface,
+  type ContextualBanditSnapshotInterface,
   contextualBanditSnapshotValidator,
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";

@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import { Permissions, roleToPermissionMap } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { deleteAllDataSourcesForAProject } from "back-end/src/models/DataSourceModel";
 import * as lifecycle from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import * as configInit from "back-end/src/init/config";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/init/config");
 jest.mock("back-end/src/services/eventForwarder/datasourceLifecycle");

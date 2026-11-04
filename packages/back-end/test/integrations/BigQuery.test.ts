@@ -1,7 +1,7 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { ExposureQuery } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
-import { Dimension } from "shared/types/integrations";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExposureQuery } from "shared/types/datasource";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { Dimension } from "shared/types/integrations";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";

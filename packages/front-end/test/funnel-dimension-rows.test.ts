@@ -1,13 +1,13 @@
 import { funnelStepMetricId } from "shared/experiments";
-import { FunnelFactMetricInterface } from "shared/types/fact-table";
-import { ExperimentReportResultDimension } from "shared/types/report";
-import { SnapshotVariation } from "shared/types/experiment-snapshot";
+import type { FunnelFactMetricInterface } from "shared/types/fact-table";
+import type { ExperimentReportResultDimension } from "shared/types/report";
+import type { SnapshotVariation } from "shared/types/experiment-snapshot";
 import {
   generateDimensionRowsForMetric,
   groupFunnelDimensionRows,
   sortFunnelDimensionRows,
 } from "@/hooks/useExperimentDimensionRows";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 
 const FUNNEL_METRIC_ID = "fact__funnel";
 const STEP_NAMES = ["Viewed landing page", "Signed up", "Completed onboarding"];

@@ -1,5 +1,5 @@
 import { isEqual } from "lodash";
-import { Revision, RevisionTargetType } from "shared/enterprise";
+import type { Revision, RevisionTargetType } from "shared/enterprise";
 
 // A revert-based auto-publish may skip required review only when the referenced
 // revision is a genuine, already-merged revision of THIS entity. `revertedFrom`

@@ -1,4 +1,4 @@
-import { ContextualBanditInterface } from "shared/validators";
+import type { ContextualBanditInterface } from "shared/validators";
 
 const HOUR_MS = 60 * 60 * 1000;
 

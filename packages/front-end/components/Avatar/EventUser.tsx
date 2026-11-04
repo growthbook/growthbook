@@ -1,5 +1,5 @@
 import { eventUserKeyName, eventUserPerson } from "shared/validators";
-import { EventUser as EventUserType } from "shared/types/events/event-types";
+import type { EventUser as EventUserType } from "shared/types/events/event-types";
 import { Flex } from "@radix-ui/themes";
 import { PiRobot } from "react-icons/pi";
 import Badge from "@/ui/Badge";

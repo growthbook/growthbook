@@ -1,6 +1,6 @@
-import { SegmentInterface } from "shared/types/segment";
+import type { SegmentInterface } from "shared/types/segment";
 import { segmentValidator } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import { getConfigSegments, usingFileConfig } from "back-end/src/init/config";
 import { STORE_SEGMENTS_IN_MONGO } from "back-end/src/util/secrets";
 import { MakeModelClass } from "./BaseModel";

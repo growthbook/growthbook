@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { filterToString } from "@/components/Search/SearchFilters";
-import { SyntaxFilter, transformQuery } from "@/services/search";
+import { type SyntaxFilter, transformQuery } from "@/services/search";
 
 describe("filterToString", () => {
   const roundTrip = (filter: SyntaxFilter) =>

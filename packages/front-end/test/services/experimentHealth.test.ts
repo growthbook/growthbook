@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { OLD_TEMP_ROLLOUT_DAYS } from "shared/util";
 import {
   getExperimentHealthState,

@@ -1,13 +1,17 @@
-import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
 import {
-  CSSProperties,
-  ForwardedRef,
+  Button as RadixButton,
+  type ButtonProps,
+  Text,
+} from "@radix-ui/themes";
+import {
+  type CSSProperties,
+  type ForwardedRef,
   forwardRef,
-  ReactNode,
+  type ReactNode,
   useState,
 } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { radixSize, Size as SharedSize } from "@/ui/sizes";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { radixSize, type Size as SharedSize } from "@/ui/sizes";
 
 // "inherit" drops the forced accent color so the button inherits the
 // surrounding Radix accent context (e.g. a Callout's status color).

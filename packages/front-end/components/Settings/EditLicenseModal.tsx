@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { type FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";

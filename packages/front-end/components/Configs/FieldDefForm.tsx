@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import { simpleSchemaFieldToJSONSchema } from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -26,7 +26,7 @@ import {
   FIELD_TYPE_OPTIONS,
   JSON_SCHEMA_PRESETS,
   OTHER_TYPE_VALUE,
-  PresetKey,
+  type PresetKey,
   fieldTypeSelectValue,
   fieldValueType,
   fieldIsNullable,

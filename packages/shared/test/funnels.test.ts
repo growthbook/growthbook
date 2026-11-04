@@ -14,7 +14,7 @@ import {
 } from "shared/funnels";
 import {
   expandDerivedMetricsInMap,
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   funnelStepMetricId,
   getAllExpandedMetricIdsFromExperiment,
   getCompatibleFunnelAutoSliceColumns,
@@ -28,7 +28,7 @@ import {
   explorationConfigValidator,
   funnelSettingsValidator,
 } from "shared/validators";
-import {
+import type {
   ColumnInterface,
   FactMetricInterface,
   FactTableDefinition,

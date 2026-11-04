@@ -1,6 +1,6 @@
-import { FeatureInterface } from "shared/types/feature";
-import { CustomHookInterface } from "shared/validators";
-import {
+import type { FeatureInterface } from "shared/types/feature";
+import type { CustomHookInterface } from "shared/validators";
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
@@ -18,7 +18,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import JSONValidation from "@/components/Features/JSONValidation";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
 import CustomHooksTable, {
-  HookScope,
+  type HookScope,
   hookScopeColumn,
   isHookScopedTo,
 } from "@/components/CustomHooks/CustomHooksTable";

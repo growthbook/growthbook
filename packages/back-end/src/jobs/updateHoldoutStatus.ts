@@ -1,14 +1,14 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import {
   getHoldoutStage,
-  HoldoutStage,
+  type HoldoutStage,
   isHoldoutStageTransitionAllowed,
 } from "shared/util";
-import {
+import type {
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
 } from "shared/validators";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";

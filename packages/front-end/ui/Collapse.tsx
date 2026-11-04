@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ReactNode, TransitionEvent, useState } from "react";
+import { type ReactNode, type TransitionEvent, useState } from "react";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import styles from "./Collapse.module.scss";
 

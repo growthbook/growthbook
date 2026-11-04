@@ -4,7 +4,7 @@ import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
-  DataRegion,
+  type DataRegion,
   findEventForwarderManagedViolation,
   getExposureQueryProjectScopeError,
   getExposureQueryProjectScopeViolations,
@@ -17,7 +17,7 @@ import {
   getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
 } from "shared/util";
-import {
+import type {
   DataSourceInterface,
   DataSourceParams,
   DataSourcePipelineSettings,
@@ -26,8 +26,8 @@ import {
   ExposureQuery,
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
-import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
-import { ApiDataSource } from "shared/validators";
+import type { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import type { ApiDataSource } from "shared/validators";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
   encryptParams,
@@ -44,8 +44,8 @@ import { upgradeDatasourceObject } from "back-end/src/util/migrations";
 import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import {
   ensureIndexOnce,

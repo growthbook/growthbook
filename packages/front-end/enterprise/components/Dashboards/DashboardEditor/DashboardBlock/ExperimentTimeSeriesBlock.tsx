@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState } from "react";
-import { ExperimentTimeSeriesBlockInterface } from "shared/enterprise";
-import { MetricSnapshotSettings } from "shared/types/report";
+import type { ExperimentTimeSeriesBlockInterface } from "shared/enterprise";
+import type { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
 import { getValidDate } from "shared/dates";
@@ -15,7 +15,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { excludeFunnelSliceRows } from "@/services/experiments";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function ExperimentTimeSeriesBlock({
   block,

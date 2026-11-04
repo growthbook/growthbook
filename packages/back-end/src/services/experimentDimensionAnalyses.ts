@@ -1,7 +1,7 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { isDimensionPrecomputed } from "shared/experiments";
-import { ExperimentInterface } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
+import type { ExperimentInterface } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import {

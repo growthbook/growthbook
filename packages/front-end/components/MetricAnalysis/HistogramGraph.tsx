@@ -1,4 +1,10 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
@@ -9,7 +15,7 @@ import {
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
-import { ScaleLinear } from "d3-scale";
+import type { ScaleLinear } from "d3-scale";
 import styles from "@/components/Metrics/DateGraph.module.scss";
 import { useCurrency } from "@/hooks/useCurrency";
 

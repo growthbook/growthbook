@@ -1,37 +1,37 @@
-import { FC, useState, useMemo } from "react";
+import { type FC, useState, useMemo } from "react";
 import { PiInfo } from "react-icons/pi";
 import {
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
+  type ExperimentMetricDefinition,
+  type ExperimentSortBy,
   isFactFunnelMetric,
 } from "shared/experiments";
-import {
+import type {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
   SignificanceThresholds,
 } from "shared/types/stats";
-import { ExperimentStatus } from "shared/types/experiment";
-import {
+import type { ExperimentStatus } from "shared/types/experiment";
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "shared/types/report";
 import { Box, Flex, Text, TextField, Tooltip } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { Select, SelectItem } from "@/ui/Select";
 import {
   buildFunnelStepSliceRows,
   filterRowsForMetricDrilldown,
 } from "./helpers";
-import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
+import type { DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricDefinition;

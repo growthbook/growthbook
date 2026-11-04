@@ -1,4 +1,4 @@
-import { SimpleSchema, SchemaField } from "shared/types/feature";
+import type { SimpleSchema, SchemaField } from "shared/types/feature";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
 import { NO_ENVIRONMENT_BINDING } from "../permissions/revisionPermissions";
 import { parsePlainJSONObject } from "./features";
@@ -7,8 +7,8 @@ import {
   evaluateInvariants,
   fieldsContractEqual,
   invariantRuleFields,
-  InvariantViolation,
-  SchemaWarning,
+  type InvariantViolation,
+  type SchemaWarning,
   validateConfigValue,
   valueHasReferenceToken,
 } from "./config-schema";

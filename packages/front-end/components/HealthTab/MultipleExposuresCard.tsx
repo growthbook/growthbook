@@ -7,7 +7,7 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
-import { IssueValue } from "./IssueTags";
+import type { IssueValue } from "./IssueTags";
 
 interface Props {
   totalUsers: number;

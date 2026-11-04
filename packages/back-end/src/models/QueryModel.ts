@@ -1,8 +1,12 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
-import { QueryInterface, QueryStatistics, QueryType } from "shared/types/query";
-import { QueryLanguage } from "shared/types/datasource";
-import { ApiQuery } from "shared/validators";
+import type {
+  QueryInterface,
+  QueryStatistics,
+  QueryType,
+} from "shared/types/query";
+import type { QueryLanguage } from "shared/types/datasource";
+import type { ApiQuery } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { generateId } from "back-end/src/util/uuid";
 import { logger } from "back-end/src/util/logger";

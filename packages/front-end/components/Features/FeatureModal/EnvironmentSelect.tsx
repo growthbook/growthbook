@@ -1,6 +1,13 @@
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Environment } from "shared/types/organization";
-import { FeatureEnvironment } from "shared/types/feature";
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { Environment } from "shared/types/organization";
+import type { FeatureEnvironment } from "shared/types/feature";
 import { filterProjectsByEnvironment } from "shared/util";
 import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";

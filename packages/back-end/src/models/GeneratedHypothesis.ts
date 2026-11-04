@@ -1,10 +1,10 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
 import { createFeature } from "./FeatureModel";

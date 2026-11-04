@@ -1,6 +1,6 @@
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";

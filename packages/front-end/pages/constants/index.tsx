@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
-import { ConstantWithoutValue } from "shared/types/constant";
+import type { ConstantWithoutValue } from "shared/types/constant";
 import { isProjectListValidForProject, truncateString } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";

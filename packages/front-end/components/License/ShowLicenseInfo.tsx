@@ -1,8 +1,8 @@
-import React, { FC, useState } from "react";
+import React, { type FC, useState } from "react";
 import { date } from "shared/dates";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
-import DataList, { DataListItem } from "@/ui/DataList";
+import DataList, { type DataListItem } from "@/ui/DataList";
 import Table, {
   TableBody,
   TableCell,

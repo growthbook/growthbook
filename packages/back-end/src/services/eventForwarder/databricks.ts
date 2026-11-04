@@ -1,4 +1,4 @@
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import {
   buildDatabricksEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,

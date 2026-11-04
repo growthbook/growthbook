@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { EntityType } from "shared/types/audit";
+import type { ReactNode } from "react";
+import type { EntityType } from "shared/types/audit";
 import type { EventUserRequestedBy } from "shared/validators";
 import type { Language } from "@/components/SyntaxHighlighting/Code";
 

@@ -1,12 +1,12 @@
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import {
+import type {
   LinkedChangeEnvStates,
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
 } from "shared/types/experiment";
 import type { ExperimentRuleEnvironments } from "shared/validators";
 import { PiArrowRight, PiCaretDown, PiCaretRight } from "react-icons/pi";
-import { Fragment, ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import {
   FaCircleCheck,
   FaCircleXmark,

@@ -1,5 +1,5 @@
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { OrganizationInterface } from "shared/types/organization";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { OrganizationInterface } from "shared/types/organization";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 
 const ORG_SCHEDULE_NEXT = new Date("2026-07-14T20:45:55.000Z");

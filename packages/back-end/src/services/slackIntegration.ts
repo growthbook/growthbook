@@ -4,20 +4,20 @@ import { defaultSlackNotificationEvents } from "shared/notifications";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
   parseNotificationSettings,
-  SlackNotificationSettingsBody,
-  SlackWorkspaceConnectionFrontEndInterface,
-  SlackWorkspaceConnectionInterface,
+  type SlackNotificationSettingsBody,
+  type SlackWorkspaceConnectionFrontEndInterface,
+  type SlackWorkspaceConnectionInterface,
 } from "shared/validators";
 import { z } from "zod";
-import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { EventWebHookInterface } from "shared/types/event-webhook";
+import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import type { EventWebHookInterface } from "shared/types/event-webhook";
 import { signState, verifySignedState } from "back-end/src/util/signedState";
 import {
   APP_ORIGIN,
   SLACK_CLIENT_ID,
   SLACK_CLIENT_SECRET,
 } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   createEventWebHook,
   deleteEventWebHookById,

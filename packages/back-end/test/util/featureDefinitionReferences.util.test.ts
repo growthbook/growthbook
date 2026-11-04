@@ -1,6 +1,6 @@
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ExperimentInterface } from "shared/types/experiment";
 import {
   getSafeRolloutIdsForFeatureDefinitions,
   getSavedGroupIdsForFeatureDefinitions,

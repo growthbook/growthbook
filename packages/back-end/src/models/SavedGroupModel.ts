@@ -2,16 +2,16 @@ import { SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES } from "shared/constants";
 import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
-import {
+import type {
   SavedGroupInterface,
   LegacySavedGroupInterface,
   SavedGroupWithoutValues,
   SavedGroupForDefinitions,
   SavedGroupMetadata,
 } from "shared/types/saved-group";
-import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
-import { UpdateFilter } from "mongodb";
+import { savedGroupValidator, type ApiSavedGroup } from "shared/validators";
+import type { UpdateProps } from "shared/types/base-model";
+import type { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { BadRequestError } from "back-end/src/util/errors";
 import {

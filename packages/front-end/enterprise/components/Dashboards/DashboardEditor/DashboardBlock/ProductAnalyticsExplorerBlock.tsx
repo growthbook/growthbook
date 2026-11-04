@@ -1,11 +1,11 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { useMemo } from "react";
 import {
-  MetricExplorationBlockInterface,
-  FactTableExplorationBlockInterface,
-  DataSourceExplorationBlockInterface,
-  SqlExplorationBlockInterface,
-  FunnelExplorationBlockInterface,
+  type MetricExplorationBlockInterface,
+  type FactTableExplorationBlockInterface,
+  type DataSourceExplorationBlockInterface,
+  type SqlExplorationBlockInterface,
+  type FunnelExplorationBlockInterface,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
@@ -13,11 +13,11 @@ import {
   resolveComparisonMode,
   getComparisonAlignmentStrategy,
   computeExplorationComparisonPayload,
-  DashboardBlockInterfaceOrData,
+  type DashboardBlockInterfaceOrData,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
-import { ProductAnalyticsExploration } from "shared/validators";
-import { QueryInterface } from "shared/types/query";
+import type { ProductAnalyticsExploration } from "shared/validators";
+import type { QueryInterface } from "shared/types/query";
 import useApi from "@/hooks/useApi";
 import {
   explorationPollDelayMs,
@@ -28,7 +28,7 @@ import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 // Poll interval for a tile's exploration: back off while it's still running,
 // stop (0) once it's terminal (success/error) or absent.

@@ -39,7 +39,7 @@ import {
 } from "back-end/src/revisions/landingSequence";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { assertCanPublishRevision as assertCanPublishRevisionImpl } from "back-end/src/revisions/revisionActions";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import { ConflictError } from "back-end/src/util/errors";
 
 const assertCanPublishRevision = assertCanPublishRevisionImpl as jest.Mock;

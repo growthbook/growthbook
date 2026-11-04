@@ -1,4 +1,9 @@
-import { DetailedHTMLProps, FC, HTMLAttributes, useMemo } from "react";
+import {
+  type DetailedHTMLProps,
+  type FC,
+  type HTMLAttributes,
+  useMemo,
+} from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import ReactMarkdown from "react-markdown";

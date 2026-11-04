@@ -1,9 +1,9 @@
 import { getConfigParentKey } from "shared/util";
 import type { RevisionModel } from "shared/permissions";
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getArmAcknowledgment,
   type ArmGuardId,

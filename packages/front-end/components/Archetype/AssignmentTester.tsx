@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
+import type { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { filterEnvironmentsByFeature, stemRuleId } from "shared/util";
 import { FaChevronRight } from "react-icons/fa";
-import { ArchetypeInterface } from "shared/types/archetype";
+import type { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";

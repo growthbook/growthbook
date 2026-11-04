@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import {
-  Revision,
+  type Revision,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
 } from "shared/enterprise";

@@ -1,6 +1,6 @@
 import { databricksCreateTableOptions } from "shared/enterprise";
-import { QueryResponse } from "shared/types/integrations";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { QueryResponse } from "shared/types/integrations";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import SqlIntegration from "./SqlIntegration";

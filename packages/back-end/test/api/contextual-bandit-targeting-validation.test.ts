@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import request from "supertest";
-import { OrganizationInterface } from "shared/types/organization";
-import { ContextualBanditInterface } from "shared/validators";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ContextualBanditInterface } from "shared/validators";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "./api.setup";
 

@@ -1,5 +1,5 @@
 import { format } from "shared/sql";
-import { FactTableColumnType } from "shared/types/fact-table";
+import type { FactTableColumnType } from "shared/types/fact-table";
 import { baseDialect } from "shared/dialects";
 import {
   getBaseIdTypeAndJoins,

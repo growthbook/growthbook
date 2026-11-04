@@ -1,8 +1,8 @@
 import {
-  BypassedGate,
+  type BypassedGate,
   PublishBlockedError,
-  PublishGate,
-  PublishGateClearance,
+  type PublishGate,
+  type PublishGateClearance,
   classifyPublishGate,
   evaluatePublishGates,
   schemaFailureGateOverride,

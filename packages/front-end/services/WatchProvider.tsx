@@ -1,4 +1,4 @@
-import { FC, createContext, useContext, ReactNode } from "react";
+import { type FC, createContext, useContext, type ReactNode } from "react";
 import { useUser } from "./UserContext";
 
 type WatchContextValue = {

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import TagsInput from "@/components/Tags/TagsInput";
 
 const TagsField: FC<{

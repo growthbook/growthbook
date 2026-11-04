@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
+import type { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { isManagedWarehouseUnavailable } from "shared/util";
-import { AceCompletion } from "@/components/Forms/CodeTextArea";
-import { CursorData } from "@/components/Segments/SegmentForm";
+import type { AceCompletion } from "@/components/Forms/CodeTextArea";
+import type { CursorData } from "@/components/Segments/SegmentForm";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";

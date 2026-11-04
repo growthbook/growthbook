@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
-import { CustomField } from "shared/types/custom-fields";
+import type { CustomField } from "shared/types/custom-fields";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import {
+import type {
   FeatureInterface,
   FeaturePrerequisite,
   FeatureRule,
@@ -19,7 +19,7 @@ import {
   expandSparseToFull,
 } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
@@ -30,18 +30,18 @@ import HashVersionSelector, {
 } from "@/components/Experiment/HashVersionSelector";
 import {
   getFeatureDefaultValue,
-  NewExperimentRefRule,
+  type NewExperimentRefRule,
   useAttributeSchema,
   resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
-import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
+import type { RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
-import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
+import type { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
@@ -52,7 +52,7 @@ import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlic
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
-  AssignmentQueryCopySource,
+  type AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
   getExposureQueriesForProject,

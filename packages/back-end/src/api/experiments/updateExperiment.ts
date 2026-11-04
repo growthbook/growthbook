@@ -9,7 +9,7 @@ import {
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
-  ExperimentInterfaceExcludingHoldouts,
+  type ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
   postExperimentArchiveValidator,
 } from "shared/validators";
@@ -32,7 +32,7 @@ import {
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
-  UpdateExperimentApiPayload,
+  type UpdateExperimentApiPayload,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import {

@@ -1,5 +1,5 @@
-import { FeatureValueType } from "../validators";
-import { SDKCapability } from "./types";
+import type { FeatureValueType } from "../validators";
+import type { SDKCapability } from "./types";
 
 // Base feature keys
 export const STRICT_FEATURE_KEYS = ["defaultValue", "rules"] as const;

@@ -1,9 +1,9 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentType,
 } from "shared/types/experiment";
 import { useMemo } from "react";
-import { HoldoutInterface } from "shared/validators";
+import type { HoldoutInterface } from "shared/validators";
 import useApi from "./useApi";
 
 export function useExperiments(

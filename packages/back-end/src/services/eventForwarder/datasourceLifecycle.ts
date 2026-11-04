@@ -1,8 +1,8 @@
-import { DataSourceInterface } from "shared/types/datasource";
-import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
-import { EventForwarderConfigInterface } from "shared/validators";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { EventForwarderConfigDraft } from "shared/types/event-forwarder";
+import type { EventForwarderConfigInterface } from "shared/validators";
 import {
-  EventForwarderDatasourceParams,
+  type EventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
 } from "shared/util";
 import { usingFileConfig } from "back-end/src/init/config";
@@ -18,8 +18,8 @@ import {
   updateEventForwarderCredentialsThroughLicenseServer,
 } from "back-end/src/services/eventForwarder/connector";
 import { logger } from "back-end/src/util/logger";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 
 async function deleteEventForwarderAndTeardown({
   context,

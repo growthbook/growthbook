@@ -3,7 +3,7 @@
 /**
  * You can get this property on the response.locals.eventAudit property
  */
-import { EventUser } from "shared/validators";
+import type { EventUser } from "shared/validators";
 export {
   EventUser,
   EventUserLoggedIn,

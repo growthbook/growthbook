@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiFunnelBold, PiPlus } from "react-icons/pi";
-import { ExplorationConfig, FunnelDataset } from "shared/validators";
+import type { ExplorationConfig, FunnelDataset } from "shared/validators";
 import { isFactFunnelMetric } from "shared/experiments";
 import {
   deriveFunnelUnit,

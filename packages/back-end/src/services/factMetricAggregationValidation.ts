@@ -1,5 +1,5 @@
 import { getSelectedColumnDatatype } from "shared/experiments";
-import {
+import type {
   ColumnRef,
   FactMetricType,
   FactTableInterface,

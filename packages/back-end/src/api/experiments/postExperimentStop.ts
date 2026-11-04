@@ -1,11 +1,11 @@
 import {
-  ExperimentInterfaceExcludingHoldouts,
+  type ExperimentInterfaceExcludingHoldouts,
   postExperimentStopValidator,
 } from "shared/validators";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { stopExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
 export const postExperimentStop = createApiRequestHandler(

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
-import { DataSourceType } from "shared/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";

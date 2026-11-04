@@ -1,4 +1,4 @@
-import { DataSourceType } from "shared/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import { parseIntWithDefault } from "./numbers";
 
 // Datasources whose warehouse enforces a strict per-account concurrency limit

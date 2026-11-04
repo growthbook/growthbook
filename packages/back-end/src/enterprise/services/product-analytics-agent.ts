@@ -9,17 +9,17 @@ import {
 import {
   datasetHasValues,
   dateRangePredefined,
-  ExplorationConfig,
+  type ExplorationConfig,
   explorationConfigValidator,
-  ProductAnalyticsExploration,
-  ProductAnalyticsResultRow,
+  type ProductAnalyticsExploration,
+  type ProductAnalyticsResultRow,
 } from "shared/validators";
-import {
+import type {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
+import type { DataSourceInterface } from "shared/types/datasource";
 import {
   clearInapplicableShowAs,
   getEffectiveShowAs,

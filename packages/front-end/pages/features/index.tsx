@@ -7,11 +7,11 @@ import { useRouter } from "next/router";
 import { useFeature, useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
-import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
+import type { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -51,8 +51,10 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
-import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
-import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
+import {
+  useFeatureContentSearch,
+  type ContentSearchParams,
+} from "@/hooks/useFeatureContentSearch";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
 import { useFeatureDependencyIndex } from "@/hooks/useFeatureDependencyIndex";
 import ProjectBadges from "@/components/ProjectBadges";

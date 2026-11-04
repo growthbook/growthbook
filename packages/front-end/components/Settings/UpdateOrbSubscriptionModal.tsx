@@ -6,8 +6,8 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
-import { SubscriptionInfo } from "shared/enterprise";
+import type { TaxIdType, StripeAddress } from "shared/types/subscriptions";
+import type { SubscriptionInfo } from "shared/enterprise";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";

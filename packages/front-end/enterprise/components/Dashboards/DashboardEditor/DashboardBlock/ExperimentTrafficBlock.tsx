@@ -1,11 +1,11 @@
-import { ExperimentTrafficBlockInterface } from "shared/enterprise";
+import type { ExperimentTrafficBlockInterface } from "shared/enterprise";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { useMemo } from "react";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function ExperimentTrafficBlock({
   block: { showTable, showTimeseries },

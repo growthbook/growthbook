@@ -4,7 +4,7 @@ import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
+import type { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
 import Link from "@/ui/Link";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";

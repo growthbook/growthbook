@@ -1,19 +1,23 @@
-import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import {
+import React, {
+  type DetailedHTMLProps,
+  type HTMLAttributes,
+  useEffect,
+} from "react";
+import type {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import {
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
 import { BsX } from "react-icons/bs";
 import clsx from "clsx";
-import { ExperimentMetricDefinition } from "shared/experiments";
-import { RowResults } from "@/services/experiments";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import type { RowResults } from "@/services/experiments";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import Portal from "@/components/Modal/Portal";
 

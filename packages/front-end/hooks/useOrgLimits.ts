@@ -7,7 +7,7 @@ import {
   makeOrgLimits,
   planTierFor,
   resolveOrgLimitsConfig,
-  OrgLimitsAccessor,
+  type OrgLimitsAccessor,
 } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 

@@ -1,5 +1,5 @@
 import { parseRowFilter } from "./row-filter";
-import {
+import type {
   ColumnRef,
   DbtAggParams,
   DbtEntity,
@@ -29,7 +29,7 @@ import {
   tagsOf,
   toWindow,
   Unsupported,
-  Window,
+  type Window,
 } from "./util";
 
 // Read-only indexes over the manifest, plus the warnings every stage appends to.

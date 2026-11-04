@@ -1,5 +1,5 @@
-import { ExperimentMetricInterface } from "shared/experiments";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import {
   buildResultMetricNameResolver,
   toApiResultAnalysis,

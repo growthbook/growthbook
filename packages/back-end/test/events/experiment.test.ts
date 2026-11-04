@@ -1,4 +1,4 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   logExperimentCreated,
   logExperimentUpdated,

@@ -1,5 +1,5 @@
 import {
-  FigmaConnectionInterface,
+  type FigmaConnectionInterface,
   figmaConnectionSchema,
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";

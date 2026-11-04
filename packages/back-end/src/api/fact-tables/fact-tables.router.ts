@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getFactTable } from "./getFactTable";
 import { listFactTables } from "./listFactTables";
 import { postFactTable } from "./postFactTable";

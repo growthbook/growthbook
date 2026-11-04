@@ -4,7 +4,7 @@ import {
   GrowthBook,
   clearCache,
   setPolyfills,
-  FeatureApiResponse,
+  type FeatureApiResponse,
   LocalStorageStickyBucketService,
   BrowserCookieStickyBucketService,
   RedisStickyBucketService,

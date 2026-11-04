@@ -1,7 +1,9 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
-import type { postFeatureRuleV2 } from "shared/validators";
-import { resolveSavedGroupsInput } from "shared/validators";
+import {
+  type postFeatureRuleV2,
+  resolveSavedGroupsInput,
+} from "shared/validators";
 import {
   validateScheduleRules,
   setConfigBacking,

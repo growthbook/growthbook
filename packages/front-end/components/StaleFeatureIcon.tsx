@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { OLD_TEMP_ROLLOUT_DAYS, StaleFeatureReason } from "shared/util";
-import { FeatureValueType } from "shared/types/feature";
+import { OLD_TEMP_ROLLOUT_DAYS, type StaleFeatureReason } from "shared/util";
+import type { FeatureValueType } from "shared/types/feature";
 import { ago } from "shared/dates";
 import { PiArrowClockwise } from "react-icons/pi";
 // eslint-disable-next-line no-restricted-imports
@@ -11,7 +11,7 @@ import { Popover } from "@/ui/Popover";
 import Modal from "@/components/Modal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
+import type { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { isPartiallyStale } from "@/services/health";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";

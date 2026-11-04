@@ -7,8 +7,8 @@ import type {
 import type { QueryStatus } from "shared/types/query";
 import expireOldQueries, {
   classifyStalledSnapshot,
-  StalledQueryStatus,
-  StalledSnapshotVerdict,
+  type StalledQueryStatus,
+  type StalledSnapshotVerdict,
 } from "back-end/src/jobs/expireOldQueries";
 import {
   dangerousFindStalledRunningSnapshotsFromAllOrgs,

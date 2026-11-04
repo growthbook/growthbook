@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
 import type { linkedChangesResolution } from "../validators/experiments";
 

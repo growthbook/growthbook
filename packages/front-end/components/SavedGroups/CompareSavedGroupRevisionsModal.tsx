@@ -1,5 +1,5 @@
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision } from "shared/enterprise";
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { Revision } from "shared/enterprise";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
 

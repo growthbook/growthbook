@@ -1,10 +1,10 @@
 // Loaded first, as the app does: the mocks below would otherwise enter the
 // ProjectModel / request-context import cycle from the wrong end.
 import "back-end/src/services/features";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import { builtInChecklistItemKeyValidator } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   getExperimentById,
   updateExperiment,

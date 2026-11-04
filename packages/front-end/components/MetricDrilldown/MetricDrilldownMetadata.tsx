@@ -9,9 +9,9 @@ import {
   isUpperPercentileCappedMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { LookbackOverride } from "shared/validators";
+import type { LookbackOverride } from "shared/validators";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { StatsEngine } from "shared/types/stats";
+import type { StatsEngine } from "shared/types/stats";
 import { date } from "shared/dates";
 import Metadata from "@/ui/Metadata";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
@@ -20,7 +20,7 @@ import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
 } from "@/services/utils";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 
 /** Percentile value shown as a percentage, with an optional zero-handling note. */
 function formatPercentileCap(

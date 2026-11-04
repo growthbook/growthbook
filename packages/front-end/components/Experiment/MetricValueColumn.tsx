@@ -1,17 +1,17 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import {
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type {
   CSSProperties,
   DetailedHTMLProps,
   ReactElement,
   TdHTMLAttributes,
 } from "react";
 import {
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,

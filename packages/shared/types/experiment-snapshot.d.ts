@@ -1,11 +1,11 @@
-import { MidExperimentPowerCalculationResult } from "shared/enterprise";
-import { BanditResult } from "shared/validators";
-import { CovariateImbalanceResult } from "shared/health";
-import {
+import type { MidExperimentPowerCalculationResult } from "shared/enterprise";
+import type { BanditResult } from "shared/validators";
+import type { CovariateImbalanceResult } from "shared/health";
+import type {
   AnalysisKeyType,
   AnalysisMetaEntry,
 } from "shared/snapshot-analysis-chunks";
-import {
+import type {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
   DifferenceType,
@@ -15,18 +15,18 @@ import {
   RealizedSettings,
   SupplementalResults,
 } from "shared/types/stats";
-import { QueryLanguage } from "./datasource";
-import { DimensionInterface } from "./dimension";
-import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
-import { MetricInterface, MetricStats } from "./metric";
-import { Queries } from "./query";
-import { PhaseSQLVar } from "./sql";
-import {
+import type { QueryLanguage } from "./datasource";
+import type { DimensionInterface } from "./dimension";
+import type { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
+import type { MetricInterface, MetricStats } from "./metric";
+import type { Queries } from "./query";
+import type { PhaseSQLVar } from "./sql";
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
-import {
+import type {
   AttributionModel,
   ExperimentInterfaceStringDates,
   LegacyBanditResult,

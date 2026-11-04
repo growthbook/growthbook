@@ -1,6 +1,6 @@
-import React, { CSSProperties, Fragment } from "react";
+import React, { type CSSProperties, Fragment } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExperimentValue, FeatureValueType } from "shared/types/feature";
+import type { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
   getVariationDefaultName,

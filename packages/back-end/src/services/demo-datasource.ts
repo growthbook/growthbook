@@ -13,21 +13,21 @@ import {
 } from "shared/demo-datasource";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { PostgresConnectionParams } from "shared/types/integrations/postgres";
-import {
+import type { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import type {
   DataSourceInterface,
   DataSourceSettings,
 } from "shared/types/datasource";
-import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
-import { ProjectInterface } from "shared/types/project";
-import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
-import {
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ProjectInterface } from "shared/types/project";
+import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import type {
   FactMetricInterface,
   MetricWindowSettings,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   createDataSource,
   deleteDatasource,

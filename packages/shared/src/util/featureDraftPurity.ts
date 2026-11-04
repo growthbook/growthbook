@@ -5,7 +5,7 @@ import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 // Specific file, not the barrel, to avoid a runtime import cycle.
 import { normalizeProposedChanges } from "../revisions/helpers";
 import {
-  MergeResultChanges,
+  type MergeResultChanges,
   featureMetadataEnvelope,
   getEffectiveRevisionHoldout,
   getRevertTargetArchived,

@@ -3,7 +3,7 @@
 // no presets. Under the hood it writes into RampSectionState so the save path is
 // identical to the ramp schedule path.
 
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import SelectField from "@/components/Forms/SelectField";

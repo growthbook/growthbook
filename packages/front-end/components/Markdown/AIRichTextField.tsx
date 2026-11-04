@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { AISuggestionType } from "shared/ai";
+import type { AISuggestionType } from "shared/ai";
 import AISuggestButton from "@/components/Markdown/AISuggestButton";
-import RichTextEditor, { RichTextHeight } from "@/ui/RichTextEditor";
+import RichTextEditor, { type RichTextHeight } from "@/ui/RichTextEditor";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";

@@ -1,7 +1,7 @@
 import {
   memo,
-  ReactNode,
-  RefObject,
+  type ReactNode,
+  type RefObject,
   useContext,
   useMemo,
   useState,
@@ -9,14 +9,14 @@ import {
 import { diffLines } from "diff";
 import ReactDiffViewer, {
   DiffMethod,
-  ReactDiffViewerProps,
+  type ReactDiffViewerProps,
 } from "react-diff-viewer-continued";
 import {
   isLongCode,
   RenderInFullContext,
 } from "@/components/SyntaxHighlighting/VirtualizedCode";
 import VirtualizedDiff, {
-  DiffLineRef,
+  type DiffLineRef,
 } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
 import Button from "@/ui/Button";
 

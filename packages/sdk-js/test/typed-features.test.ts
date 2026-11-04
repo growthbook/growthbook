@@ -1,4 +1,4 @@
-import { Context, GrowthBook } from "../src";
+import { type Context, GrowthBook } from "../src";
 
 type TestAppFeatures = {
   dark_mode: boolean;

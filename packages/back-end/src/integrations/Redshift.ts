@@ -1,6 +1,6 @@
-import { SqlDialect } from "shared/types/sql";
-import { QueryResponse } from "shared/types/integrations";
-import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import type { SqlDialect } from "shared/types/sql";
+import type { QueryResponse } from "shared/types/integrations";
+import type { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import { getFactTableTypeFromPostgresOid } from "back-end/src/util/warehouseColumnTypes";

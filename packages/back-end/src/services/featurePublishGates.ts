@@ -1,6 +1,6 @@
 import {
   autoMerge,
-  AutoMergeResult,
+  type AutoMergeResult,
   reconcileMergeBaselines,
   getRevisionReviewRequirement,
   draftDiffersFromLive,
@@ -10,11 +10,11 @@ import {
   getEnvsFromRampSchedule,
   getLiveChangesSinceBase,
   liveRevisionFromFeature,
-  MergeResultChanges,
+  type MergeResultChanges,
   getReviewAuthorityFootprint,
   governingReviewProjectsForFeature,
 } from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   approvalApprovers,
   approvalRoleIds,
@@ -22,7 +22,7 @@ import {
   assessRequiredApproverTeamsByProject,
   bypassApprovalPermission,
 } from "shared/permissions";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { EventUser } from "shared/types/events/event-types";
 import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -66,7 +66,7 @@ import {
 } from "back-end/src/services/savedGroupProjectScope";
 import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
-  PublishGate,
+  type PublishGate,
   hookResultsToGates,
   makeBlockingGate,
   schemaFailureGateOverride,

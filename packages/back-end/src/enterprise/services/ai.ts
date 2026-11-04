@@ -7,8 +7,10 @@ import {
   stepCountIs,
   NoObjectGeneratedError,
   NoOutputGeneratedError,
+  type ToolSet,
+  type ModelMessage,
+  type LanguageModelUsage,
 } from "ai";
-import type { ToolSet, ModelMessage, LanguageModelUsage } from "ai";
 import {
   createOpenAI,
   type OpenAIResponsesProviderOptions,
@@ -20,12 +22,12 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import {
   encoding_for_model,
   get_encoding,
-  TiktokenModel,
+  type TiktokenModel,
 } from "@dqbd/tiktoken";
 import {
-  AIModel,
-  AIPromptType,
-  AIProvider,
+  type AIModel,
+  type AIPromptType,
+  type AIProvider,
   anthropicStructuredOutputMode,
   DEFAULT_MAX_OUTPUT_TOKENS,
   getProviderFromModel,
@@ -34,29 +36,32 @@ import {
   resolveMaxOutputTokens,
   supportsTemperature,
 } from "shared/ai";
-import { z, ZodObject, ZodRawShape } from "zod";
-import { OrganizationInterface } from "shared/types/organization";
+import type { z, ZodObject, ZodRawShape } from "zod";
+import type { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import {
   lookupTerms,
   prepareToolStep,
 } from "back-end/src/enterprise/services/aiStepPolicy";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,
 } from "back-end/src/models/AITokenUsageModel";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getAISettingsForOrg,
   getAllowedAIModel,
 } from "back-end/src/services/organizations";
 import {
-  AIKeySource,
+  type AIKeySource,
   missingAIKeyMessage,
 } from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
-import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
+import {
+  type AIUsageOutcome,
+  trackAIUsage,
+} from "back-end/src/services/growthbook";
 import {
   addCompletionUsage,
   addUsd,

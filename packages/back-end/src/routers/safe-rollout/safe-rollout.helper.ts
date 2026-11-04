@@ -1,9 +1,9 @@
 import {
-  FeatureInterface,
+  type FeatureInterface,
   isTerminalRampScheduleStatus,
-  RampScheduleInterface,
-  SafeRolloutInterface,
-  SafeRolloutRule,
+  type RampScheduleInterface,
+  type SafeRolloutInterface,
+  type SafeRolloutRule,
 } from "shared/validators";
 import { getRulesForEnvironment } from "shared/util";
 

@@ -22,7 +22,7 @@ import {
   $createQuoteNode,
   $isHeadingNode,
   $isQuoteNode,
-  HeadingTagType,
+  type HeadingTagType,
 } from "@lexical/rich-text";
 import {
   $isListNode,
@@ -41,11 +41,11 @@ import {
   SELECTION_CHANGE_COMMAND,
   COMMAND_PRIORITY_LOW,
   type ElementNode,
-  TextFormatType,
+  type TextFormatType,
 } from "lexical";
 import Tooltip from "@/ui/Tooltip";
 import RichTextEditorLinkEditor, {
-  LinkTarget,
+  type LinkTarget,
   useLinkTarget,
 } from "./RichTextEditorLinkEditor";
 import styles from "./RichTextEditor.module.scss";

@@ -1,4 +1,4 @@
-import { ApiFeature, ApiFeatureForceRule } from "shared/validators";
+import type { ApiFeature, ApiFeatureForceRule } from "shared/validators";
 import {
   RELEVANT_KEYS_FOR_ALL_ENVS,
   deriveLiveFeatureEventEnvironments,

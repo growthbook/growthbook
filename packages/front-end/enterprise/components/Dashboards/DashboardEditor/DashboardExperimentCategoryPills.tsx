@@ -1,18 +1,18 @@
 import { useMemo } from "react";
-import { DashboardInterface } from "shared/enterprise";
+import type { DashboardInterface } from "shared/enterprise";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useExperimentFilterCategories } from "@/components/Search/experimentFilterCategories";
-import { SearchFiltersItem } from "@/components/Search/SearchFilters";
+import type { SearchFiltersItem } from "@/components/Search/SearchFilters";
 import Tag from "@/components/Tags/Tag";
 import DashboardChecklistFilter, {
-  ChecklistOption,
+  type ChecklistOption,
 } from "./DashboardChecklistFilter";
 import {
   EXPERIMENT_CATEGORY_LABELS,
   EXPERIMENT_CATEGORY_SEARCH_PLACEHOLDERS,
 } from "./dashboardFilterCatalog";
 import {
-  DashboardExperimentCategoryKey,
+  type DashboardExperimentCategoryKey,
   getExperimentCategoryValues,
   setExperimentCategoryValues,
 } from "./experimentSearchFilterString";

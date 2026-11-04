@@ -4,7 +4,7 @@ import {
   NotificationEventResource,
 } from "./base-types";
 
-import {
+import type {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "./notification-events";

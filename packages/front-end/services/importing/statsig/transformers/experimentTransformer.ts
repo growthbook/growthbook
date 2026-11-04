@@ -1,8 +1,8 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { StatsigExperiment } from "@/services/importing/statsig/types";
+import type { StatsigExperiment } from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 

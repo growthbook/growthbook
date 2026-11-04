@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from "react";
-import { UseFormReturn } from "react-hook-form";
-import { DraftConflict } from "shared/types/draft-conflict";
+import type { UseFormReturn } from "react-hook-form";
+import type { DraftConflict } from "shared/types/draft-conflict";
 import HelperText from "@/ui/HelperText";
 import {
   ConflictCalloutRow,
-  ConflictResolution,
-  ContestedChunk,
+  type ConflictResolution,
+  type ContestedChunk,
   WholeConflictCallout,
 } from "@/components/DraftConflicts/ConflictContext";
 import { formatChunkValue } from "@/components/DraftConflicts/conflictValues";

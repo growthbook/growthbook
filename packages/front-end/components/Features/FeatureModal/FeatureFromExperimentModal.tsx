@@ -1,17 +1,17 @@
 import { useForm } from "react-hook-form";
-import {
+import type {
   ExperimentRefRule,
   ExperimentRefVariation,
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import {
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { useEffect, useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
@@ -30,7 +30,7 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import type { ExperimentChangesBody } from "shared/validators";
 import type { SaveRefusal } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import {
-  AddedFlag,
+  type AddedFlag,
   addedFlagChanges,
   useFlagCreated,
 } from "@/components/Experiment/TabbedPage/addedFlags";
@@ -60,7 +60,7 @@ import Tooltip from "@/ui/Tooltip";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import DraftSelectorDropdown, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

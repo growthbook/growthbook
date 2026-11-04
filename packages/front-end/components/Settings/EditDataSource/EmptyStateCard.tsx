@@ -1,4 +1,4 @@
-import React, { FC, PropsWithChildren } from "react";
+import React, { type FC, type PropsWithChildren } from "react";
 
 /**
  * A centered card. It can be used for empty states on the data source editing screen for each section

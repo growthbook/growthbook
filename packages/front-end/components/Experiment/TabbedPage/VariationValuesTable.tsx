@@ -1,15 +1,15 @@
 import clsx from "clsx";
 import {
   forwardRef,
-  HTMLAttributes,
-  ReactElement,
-  ReactNode,
+  type HTMLAttributes,
+  type ReactElement,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
@@ -75,15 +75,15 @@ import {
   ColumnCell,
   ColumnFooter,
   ColumnHeader,
-  ColumnLayout,
-  ColumnProblem,
+  type ColumnLayout,
+  type ColumnProblem,
   HeaderKind,
   HeaderText,
-  ImplementationColumn,
+  type ImplementationColumn,
   StagedNote,
 } from "./ImplementationColumn";
 import {
-  FlagEnvironmentsDraft,
+  type FlagEnvironmentsDraft,
   useExperimentEdits,
   useEditBase,
   useHoldEditBases,
@@ -94,7 +94,7 @@ import {
   canStartSeparateDraft,
   draftReviewHref,
   draftReviewState,
-  FlagDraftPicks,
+  type FlagDraftPicks,
   resolveDraftPick,
   revisionHref,
 } from "./draftPicks";
@@ -108,7 +108,7 @@ import {
 } from "./variationValues";
 import styles from "./VariationValuesTable.module.scss";
 import {
-  AddedFlag,
+  type AddedFlag,
   addedFlagChanges,
   addedFlagInfo,
   linkEditId,

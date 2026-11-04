@@ -1,10 +1,10 @@
-import React, { FC, useMemo } from "react";
+import React, { type FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { ApiPopulation } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import {
-  BaseSearchFiltersProps,
+  type BaseSearchFiltersProps,
   FilterDropdown,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";

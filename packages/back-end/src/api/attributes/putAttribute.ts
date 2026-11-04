@@ -1,5 +1,5 @@
 import { putAttributeValidator } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";

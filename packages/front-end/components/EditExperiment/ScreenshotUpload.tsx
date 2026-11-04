@@ -1,6 +1,6 @@
-import { ClipboardEvent, useEffect, useState } from "react";
+import { type ClipboardEvent, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { Screenshot } from "shared/types/experiment";
+import type { Screenshot } from "shared/types/experiment";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiProhibit, PiUploadSimple } from "react-icons/pi";

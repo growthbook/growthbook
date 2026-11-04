@@ -1,13 +1,13 @@
-import React, { Fragment, ReactElement, useEffect } from "react";
-import {
+import React, { Fragment, type ReactElement, useEffect } from "react";
+import type {
   PresentationInterface,
   PresentationCustomTheme,
 } from "shared/types/presentation";
-import {
+import type {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   expandMetricGroups,
   getAllVariations,

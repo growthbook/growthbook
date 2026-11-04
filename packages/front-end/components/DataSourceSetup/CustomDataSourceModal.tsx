@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { DataSourceType } from "shared/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import { isTestableDataSourceType } from "shared/validators";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Heading from "@/ui/Heading";

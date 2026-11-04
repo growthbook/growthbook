@@ -1,7 +1,7 @@
 import React from "react";
 import { Box } from "@radix-ui/themes";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
+import type { ExplorationConfig } from "shared/validators";
 import EmptyState from "@/enterprise/components/ProductAnalytics/EmptyState";
 import {
   ExplorerProvider,

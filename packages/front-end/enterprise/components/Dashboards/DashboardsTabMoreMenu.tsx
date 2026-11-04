@@ -1,8 +1,8 @@
 import { useState, useContext, useCallback, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { DashboardInterface } from "shared/enterprise";
-import { ExperimentUpdateSchedule } from "shared/types/organization";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { DashboardInterface } from "shared/enterprise";
+import type { ExperimentUpdateSchedule } from "shared/types/organization";
 import { Flex, IconButton } from "@radix-ui/themes";
 import {
   DropdownMenu,

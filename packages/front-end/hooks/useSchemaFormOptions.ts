@@ -1,10 +1,10 @@
 import { useState } from "react";
-import {
+import type {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import useApi from "./useApi";
 
 export default function useSchemaFormOptions(

@@ -1,9 +1,9 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { date } from "shared/dates";
 import { parseIntWithDefault } from "shared/util";
-import { ExperimentPhaseStringDates } from "shared/types/experiment";
+import type { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";

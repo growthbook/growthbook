@@ -1,4 +1,4 @@
-import { ReqContext } from "shared/types/organization";
+import type { ReqContext } from "shared/types/organization";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {

@@ -1,8 +1,11 @@
-import { FeatureRule } from "shared/validators";
+import type { FeatureRule } from "shared/validators";
 import { stemRuleId, suffixRuleId } from "shared/util";
-import { FeatureInterface, V1FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
+import type {
+  FeatureInterface,
+  V1FeatureInterface,
+} from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Environment } from "shared/types/organization";
 import {
   bucketRulesByEnv,
   toLegacyFeature,
@@ -11,7 +14,7 @@ import {
 } from "back-end/src/util/toLegacy";
 import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
 import { buildFeatureRevisionInterface } from "back-end/src/models/FeatureRevisionModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 // ---------------------------------------------------------------------------
 // toLegacyFeature / toLegacyRevision project v2 features and revisions back

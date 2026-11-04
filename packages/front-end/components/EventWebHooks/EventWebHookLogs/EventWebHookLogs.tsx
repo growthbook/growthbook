@@ -1,6 +1,12 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import _ from "lodash";
-import { EventWebHookLogInterface } from "shared/types/event-webhook-log";
+import type { EventWebHookLogInterface } from "shared/types/event-webhook-log";
 import { useRouter } from "next/router";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
 import Callout from "@/ui/Callout";

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import {
+import type {
   DashboardInterface,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,

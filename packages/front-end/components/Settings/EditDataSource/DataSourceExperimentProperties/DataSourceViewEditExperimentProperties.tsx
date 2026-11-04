@@ -1,11 +1,11 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import {
+import type {
   DataSourceEvents,
   DataSourceInterfaceWithParams,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { DataSourceEditExperimentEventPropertiesModal } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 

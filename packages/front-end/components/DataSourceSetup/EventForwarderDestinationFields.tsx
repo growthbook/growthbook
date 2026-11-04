@@ -3,12 +3,12 @@ import {
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   suggestDatabricksEventForwarderZerobusEndpoint,
 } from "shared/util";
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceParams,
   DataSourceType,
 } from "shared/types/datasource";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { DocLink } from "@/components/DocLink";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";

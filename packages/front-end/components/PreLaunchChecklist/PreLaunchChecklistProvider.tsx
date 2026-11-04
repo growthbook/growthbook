@@ -1,14 +1,14 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { sdkConnectionServesProject } from "shared/experiments";
 import {
   createContext,
-  ReactNode,
+  type ReactNode,
   useContext,
   useMemo,
   useRef,
@@ -20,7 +20,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import { getChecklistItems } from "./PreLaunchChecklistItems";
-import { ChecklistSummary, summarizeChecklist } from "./checklistSummary";
+import { type ChecklistSummary, summarizeChecklist } from "./checklistSummary";
 import { useManualChecklistToggle } from "./useManualChecklistToggle";
 
 interface PreLaunchChecklistContextValue {

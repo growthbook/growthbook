@@ -1,18 +1,18 @@
-import { ExperimentPhaseStringDates } from "shared/types/experiment";
-import React, { ReactNode } from "react";
+import type { ExperimentPhaseStringDates } from "shared/types/experiment";
+import React, { type ReactNode } from "react";
 import qs from "query-string";
 import { getEqualWeights } from "shared/experiments";
 import {
   BrowserCookieStickyBucketService,
-  Context,
+  type Context,
 } from "@growthbook/growthbook-react";
 import { GrowthBook } from "@growthbook/growthbook";
 import Cookies from "js-cookie";
 import md5 from "md5";
 import { v4 as uuidv4 } from "uuid";
-import { AccountPlan } from "shared/enterprise";
+import type { AccountPlan } from "shared/enterprise";
 import { GB_SDK_ID_DEV, GB_SDK_ID_PROD } from "shared/constants";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import track, {
   getJitsuAnonymousId,
   getTrackingPageUrl,

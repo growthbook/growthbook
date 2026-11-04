@@ -1,15 +1,15 @@
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import {
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type {
   BigQueryEventForwarderStoredConfig,
   DatabricksEventForwarderStoredConfig,
   EventForwarderSinkType,
   EventForwarderStatus,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import { EventForwarderDatasourceParams } from "shared/util";
-import {
+import type { EventForwarderDatasourceParams } from "shared/util";
+import type {
   EventForwarderConfigInterface,
   EventForwarderConnectorPhase,
   EventForwarderStatusResponse,
@@ -22,8 +22,8 @@ import {
   postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
-  EventForwarderLicenseConnectorPhase,
-  EventForwarderLicenseConnectorStatus,
+  type EventForwarderLicenseConnectorPhase,
+  type EventForwarderLicenseConnectorStatus,
   postEventForwarderStatusToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
 import {
@@ -47,7 +47,7 @@ import {
 // After writeAccess: the Snowflake service loads SqlIntegration, which must already be initialised.
 import { ensureEventForwarderSnowflakeTables } from "back-end/src/services/eventForwarder/snowflake";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 // ---------------------------------------------------------------------------
 // Connector status sync

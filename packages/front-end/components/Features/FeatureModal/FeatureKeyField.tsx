@@ -1,6 +1,6 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { FEATURE_KEY_PATTERN } from "shared/constants";
-import { UseFormRegisterReturn } from "react-hook-form";
+import type { UseFormRegisterReturn } from "react-hook-form";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 

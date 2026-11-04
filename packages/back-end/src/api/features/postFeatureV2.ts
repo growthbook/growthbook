@@ -7,7 +7,7 @@ import {
   normalizeTargetingProjects,
 } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -33,13 +33,12 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
-import type { ApiFeatureEnvSettings } from "./postFeature";
+import { type ApiFeatureEnvSettings, validateEnvKeys } from "./postFeature";
 import {
   assertValidFeatureRules,
   validateCustomFields,
   validateRuleAttributes,
 } from "./validations";
-import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,

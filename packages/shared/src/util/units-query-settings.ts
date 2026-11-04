@@ -1,9 +1,9 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import {
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type {
   ExperimentUnitsQuerySettings,
   ResolvedExposureQuery,
 } from "shared/types/integrations";
-import { ContextualBanditSnapshotSettings } from "../validators/contextual-bandit-snapshot";
+import type { ContextualBanditSnapshotSettings } from "../validators/contextual-bandit-snapshot";
 
 export function buildUnitsQuerySettingsFromSnapshot(
   settings: ExperimentSnapshotSettings,

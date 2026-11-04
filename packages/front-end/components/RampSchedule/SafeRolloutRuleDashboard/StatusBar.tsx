@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { RampScheduleInterface, SafeRolloutInterface } from "shared/validators";
+import type {
+  RampScheduleInterface,
+  SafeRolloutInterface,
+} from "shared/validators";
 import { formatShortAgo, getValidDate } from "shared/dates";
 import { getSafeRolloutSnapshotAnalysis } from "shared/util";
-import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
+import type { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import {
   PiCaretDownBold,
   PiDatabase,

@@ -1,10 +1,13 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ReqContext } from "back-end/types/request";
+import type {
+  ColumnInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { ReqContext } from "back-end/types/request";
 import {
   getAllFactTablesWithAutoSliceUpdatesEnabled,
   getFactTable,

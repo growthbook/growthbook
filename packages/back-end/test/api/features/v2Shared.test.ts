@@ -3,7 +3,7 @@ import type { ReqContext } from "back-end/types/organization";
 import type { ApiReqContext } from "back-end/types/api";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
-  ApiRuleV2Input,
+  type ApiRuleV2Input,
   assertCanUseRuleScheduling,
   assertUniqueRuleIds,
   assertUniqueRuleIdsByEnv,

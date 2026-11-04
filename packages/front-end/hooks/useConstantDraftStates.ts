@@ -1,6 +1,6 @@
 import {
   useEntityDraftStates,
-  UseEntityDraftStatesReturn,
+  type UseEntityDraftStatesReturn,
 } from "./useEntityDraftStates";
 
 export type UseConstantDraftStatesReturn = UseEntityDraftStatesReturn;

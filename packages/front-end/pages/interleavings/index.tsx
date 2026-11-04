@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { date, datetime } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";

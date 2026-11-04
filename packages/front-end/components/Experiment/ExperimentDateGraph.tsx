@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { type FC, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -13,9 +13,9 @@ import {
 } from "@visx/tooltip";
 import { date, getValidDate } from "shared/dates";
 import type { ExperimentReportVariation } from "shared/types/report";
-import { StatsEngine } from "shared/types/stats";
+import type { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
-import { ScaleLinear } from "d3-scale";
+import type { ScaleLinear } from "d3-scale";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";

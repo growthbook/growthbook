@@ -1,11 +1,11 @@
 import isEqual from "lodash/isEqual";
 import uniqBy from "lodash/uniqBy";
-import { ContextualBanditInterface } from "shared/validators";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ContextualBanditInterface } from "shared/validators";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import {
-  ContextualBanditUpdate,
+  type ContextualBanditUpdate,
   determineNextContextualBanditSchedule,
 } from "back-end/src/services/contextualBanditSchedule";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
@@ -18,8 +18,8 @@ import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   formatPendingDraftFailureMessage,
-  PendingDraftFailure,
-  PendingDraftPublishResult,
+  type PendingDraftFailure,
+  type PendingDraftPublishResult,
   publishPendingFeatureDraftsForContextualBandit,
 } from "back-end/src/services/experiment-feature";
 

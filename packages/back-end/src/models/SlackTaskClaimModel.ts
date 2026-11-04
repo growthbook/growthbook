@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   slackTaskClaimSchema,
-  SlackTaskClaimInterface,
+  type SlackTaskClaimInterface,
 } from "shared/validators";
 import {
   ensureIndexOnce,

@@ -1,9 +1,9 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import uniqid from "uniqid";
-import { AutoMetricToCreate } from "shared/types/integrations";
-import { AuditUserLoggedIn } from "shared/types/audit";
-import { InsertMetricProps } from "shared/types/metric";
-import { ExpandedMember } from "shared/types/organization";
+import type { AutoMetricToCreate } from "shared/types/integrations";
+import type { AuditUserLoggedIn } from "shared/types/audit";
+import type { InsertMetricProps } from "shared/types/metric";
+import type { ExpandedMember } from "shared/types/organization";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { insertMetrics } from "back-end/src/models/MetricModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";

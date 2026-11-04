@@ -1,9 +1,9 @@
 import {
-  AICredentialFrontEndInterface,
-  AICredentialInterface,
+  type AICredentialFrontEndInterface,
+  type AICredentialInterface,
   aiCredentialSchema,
 } from "shared/validators";
-import { AIProvider } from "shared/ai";
+import type { AIProvider } from "shared/ai";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { CasConflictError, MakeModelClass } from "./BaseModel";
 

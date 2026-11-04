@@ -16,26 +16,29 @@ import {
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { ExperimentAnalysisSummary } from "shared/validators";
+import type { ExperimentAnalysisSummary } from "shared/validators";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   getExperimentSRMValue,
   getExperimentTotalUnitsFromHealth,
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
-import { StatsEngine } from "shared/types/stats";
-import {
+import type { StatsEngine } from "shared/types/stats";
+import type {
   ExperimentHealthSettings,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultStatusData,
 } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ResourceEvents } from "shared/types/events/base-types";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { Context } from "back-end/src/models/BaseModel";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import type { Context } from "back-end/src/models/BaseModel";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
 import { countVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { logger } from "back-end/src/util/logger";

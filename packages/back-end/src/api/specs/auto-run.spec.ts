@@ -5,7 +5,7 @@ import {
   apiUpdateAutoRunBody,
   apiAppendAutoRunArtifactBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "shared/api-model";
+import type { OpenApiModelSpec } from "shared/api-model";
 
 export const appendAutoRunArtifactEndpoint = {
   pathFragment: "/:id/artifacts",

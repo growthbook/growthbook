@@ -4,14 +4,14 @@
  * It re-creates the analysis inputs and replays the refresh path over the
  * persisted results, so no new warehouse queries are run.
  */
-import {
+import type {
   ExperimentSnapshotInterface,
   SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
 import {
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
 } from "shared/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -19,10 +19,10 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { ExperimentResultsQueryRunner } from "./ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "./ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "./ExperimentIncrementalRefreshExploratoryQueryRunner";

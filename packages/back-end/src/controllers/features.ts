@@ -8,19 +8,19 @@ import {
   projectScopeChanged,
   withStagedTargeting,
 } from "shared/permissions";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
-import {
+import type {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
   featureReviewCandidateProjects,
   ANY_REVIEW_FOOTPRINT,
-  MergeResultChanges,
-  MergeStrategy,
+  type MergeResultChanges,
+  type MergeStrategy,
   assertSchemaMatchesValueType,
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -48,7 +48,7 @@ import {
   namespacesToMap,
   normalizeTargetingInUpdates,
   computeFeatureHealth,
-  FeatureHealthStateEntry,
+  type FeatureHealthStateEntry,
   rebasedRevisionChanges,
   getFeaturePageDefaultVersion,
   naiveFlattenV1Rules,
@@ -62,24 +62,24 @@ import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
-  SDKCapability,
+  type SDKCapability,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import {
   ACTIVE_DRAFT_STATUSES,
   eventUserIdentity,
-  RampScheduleInterface,
-  RampStepAction,
-  RevisionMetadata,
-  RevisionRampAction,
-  RevisionRampCreateAction,
-  RevisionRampDetachAction,
-  RevisionRampUpdateAction,
-  SafeRolloutInterface,
-  SafeRolloutRule,
+  type RampScheduleInterface,
+  type RampStepAction,
+  type RevisionMetadata,
+  type RevisionRampAction,
+  type RevisionRampCreateAction,
+  type RevisionRampDetachAction,
+  type RevisionRampUpdateAction,
+  type SafeRolloutInterface,
+  type SafeRolloutRule,
 } from "shared/validators";
-import { FeatureUsageLookback } from "shared/types/integrations";
-import {
+import type { FeatureUsageLookback } from "shared/types/integrations";
+import type {
   ContextualBanditRefRule,
   ExperimentRefRule,
   FeatureInterface,
@@ -91,15 +91,15 @@ import {
   FeatureUsageData,
   FeatureUsageDataPoint,
 } from "shared/types/feature";
-import { FeatureUsageRecords } from "shared/types/realtime";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import {
+import type { FeatureUsageRecords } from "shared/types/realtime";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { Changeset, ExperimentInterface } from "shared/types/experiment";
-import { DraftConflict } from "shared/types/draft-conflict";
-import {
+import type { Changeset, ExperimentInterface } from "shared/types/experiment";
+import type { DraftConflict } from "shared/types/draft-conflict";
+import type {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
   PutFeatureRuleConflict,
@@ -122,7 +122,7 @@ import {
   stagingTargetingBase,
 } from "back-end/src/revisions/featureDraftAuthority";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
   getContextFromReq,
@@ -160,7 +160,7 @@ import {
   assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
-  FeatureDefinitionSDKPayload,
+  type FeatureDefinitionSDKPayload,
   getFeatureDefinitions,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
@@ -230,7 +230,7 @@ import {
   undoReview,
   getActiveDraft,
   getActiveDraftStates,
-  DraftStatusCounts,
+  type DraftStatusCounts,
   getMinimalRevisions,
   getRevision,
   getRevisionsByVersions,
@@ -239,7 +239,7 @@ import {
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
   prevalidateRevisionUpdate,
-  ReviewSubmittedType,
+  type ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
   RevisionContentChangedError,
@@ -251,7 +251,7 @@ import {
   getEnabledEnvironments,
   getArchiveFootprint,
 } from "back-end/src/util/features";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
@@ -283,7 +283,7 @@ import {
   updateExperiment,
   getExistingExperimentIds,
 } from "back-end/src/models/ExperimentModel";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRepair";
@@ -300,7 +300,7 @@ import {
 import {
   formatPendingDraftFailureMessage,
   linkFeatureToExperiment,
-  PendingDraftPublishResult,
+  type PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
@@ -344,7 +344,7 @@ import {
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import {
   insertNewFeature,
-  NewFeatureInput,
+  type NewFeatureInput,
   prepareNewFeature,
 } from "back-end/src/services/featureCreate";
 import {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  ExperimentsScaledImpactBlockInterface,
+  type ExperimentsScaledImpactBlockInterface,
   getEffectiveExperimentBlock,
 } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
@@ -9,7 +9,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { useCompletedExperiments } from "./completedExperiments";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function ExperimentsScaledImpactBlock({
   block: rawBlock,

@@ -1,18 +1,18 @@
-import {
+import type {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
   AggregatedFactTableRunInterface,
 } from "shared/validators";
-import { Queries, QueryPointer, QueryStatus } from "shared/types/query";
-import { UpdateProps } from "shared/types/base-model";
-import {
+import type { Queries, QueryPointer, QueryStatus } from "shared/types/query";
+import type { UpdateProps } from "shared/types/base-model";
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
 import { snapToUtcDayStart } from "shared/dates";
-import { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
+import type { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 
 export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
 

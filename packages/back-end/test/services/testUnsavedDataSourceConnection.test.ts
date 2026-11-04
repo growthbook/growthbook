@@ -1,7 +1,7 @@
-import { DataSourceInterface } from "shared/types/datasource";
+import type { DataSourceInterface } from "shared/types/datasource";
 import { testUnsavedDataSourceConnection } from "back-end/src/services/datasource";
 import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const mockTestConnection = jest.fn();
 const mockTestedIds: string[] = [];

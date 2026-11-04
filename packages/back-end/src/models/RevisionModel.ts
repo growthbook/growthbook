@@ -2,12 +2,12 @@ import {
   isUserBlockedFromApproving,
   revisionValidator,
   activityLogEntryValidator,
-  Revision,
-  ActivityLogEntry,
-  RevisionTargetType,
-  ReviewDecision,
-  JsonPatchOperation,
-  ScheduledPublishInput,
+  type Revision,
+  type ActivityLogEntry,
+  type RevisionTargetType,
+  type ReviewDecision,
+  type JsonPatchOperation,
+  type ScheduledPublishInput,
   getApprovalFlowSettings,
   entityProjects,
   isRevisionEditLockedBySchedule,
@@ -18,7 +18,10 @@ import {
   statusFromStandingVerdicts,
 } from "shared/enterprise";
 import uniqid from "uniqid";
-import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
+import {
+  ACTIVE_DRAFT_STATUSES,
+  type ActiveDraftStatus,
+} from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   DISARMED_BY_EDIT,
@@ -30,9 +33,9 @@ import {
   type CasAuthority,
 } from "back-end/src/models/casLoop";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
-import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
+import { type Context, MakeModelClass } from "back-end/src/models/BaseModel";
 import {
-  ArmAcknowledgments,
+  type ArmAcknowledgments,
   hasArmAcknowledgments,
 } from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";

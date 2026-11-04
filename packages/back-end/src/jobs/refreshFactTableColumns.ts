@@ -1,5 +1,8 @@
-import Agenda, { Job } from "agenda";
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import type { Agenda, Job } from "agenda";
+import type {
+  ColumnInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
 import {
   getFactTable,
   updateFactTableColumns,

@@ -1,12 +1,12 @@
 import {
-  ContextualBanditLinkageDelta,
-  ContextualBanditLinkageState,
+  type ContextualBanditLinkageDelta,
+  type ContextualBanditLinkageState,
   computeContextualBanditLinkageDelta,
   getContextualBanditIdsFromRules,
 } from "shared/util";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 

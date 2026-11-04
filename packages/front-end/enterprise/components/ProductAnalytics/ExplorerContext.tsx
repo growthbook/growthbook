@@ -6,23 +6,26 @@ import React, {
   useCallback,
   useEffect,
   useRef,
-  ReactNode,
+  type ReactNode,
 } from "react";
-import { ColumnInterface, FullFactTableColumns } from "shared/types/fact-table";
+import type {
+  ColumnInterface,
+  FullFactTableColumns,
+} from "shared/types/fact-table";
 import {
-  ExplorationConfig,
-  ProductAnalyticsValue,
-  DatasetType,
+  type ExplorationConfig,
+  type ProductAnalyticsValue,
+  type DatasetType,
   datasetHasValues,
   datasetTypeHasValues,
-  ProductAnalyticsExploration,
-  ExplorationDateRange,
+  type ProductAnalyticsExploration,
+  type ExplorationDateRange,
   MAX_JOURNEY_PATH_LENGTH,
-  SqlValue,
+  type SqlValue,
   type ComparisonMode,
   type ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
-import { QueryInterface } from "shared/types/query";
+import type { QueryInterface } from "shared/types/query";
 import {
   buildComparisonDateRangeForMode,
   computeExplorationComparisonPayload,
@@ -39,7 +42,7 @@ import {
   explorationPollDelayMs,
   createEmptyDataset,
   createEmptyValue,
-  ExplorerDraftConfig,
+  type ExplorerDraftConfig,
   generateUniqueValueName,
   getAvailableDimensionColumns,
   getInitialInlineFilters,
@@ -62,7 +65,7 @@ import useFullFactTables from "@/hooks/useFullFactTables";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SqlEditorProvider } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
-import { useExploreData, CacheOption } from "./useExploreData";
+import { useExploreData, type CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
 

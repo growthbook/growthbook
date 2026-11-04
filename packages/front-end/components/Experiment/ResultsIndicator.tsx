@@ -1,5 +1,5 @@
-import { FC } from "react";
-import Badge, { Size } from "@/ui/Badge";
+import type { FC } from "react";
+import Badge, { type Size } from "@/ui/Badge";
 
 export type Results = "won" | "lost" | "dnf" | "inconclusive";
 

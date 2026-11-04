@@ -1,7 +1,7 @@
-import { FC, useMemo } from "react";
+import { type FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
-  BaseSearchFiltersProps,
+  type BaseSearchFiltersProps,
   FilterHeading,
   FilterItem,
   FilterDropdown,

@@ -1,6 +1,6 @@
-import { FactMetricType } from "shared/types/fact-table";
-import { EntityEvents } from "shared/types/audit";
-import {
+import type { FactMetricType } from "shared/types/fact-table";
+import type { EntityEvents } from "shared/types/audit";
+import type {
   ApprovalFlowConfigurations,
   LearningStatus,
 } from "shared/types/organization";

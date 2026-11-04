@@ -1,7 +1,7 @@
 import { PiQuestion } from "react-icons/pi";
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExpandedMember } from "shared/types/organization";
+import type { ExpandedMember } from "shared/types/organization";
 import Switch from "@/ui/Switch";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";

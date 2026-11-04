@@ -4,15 +4,15 @@ import omit from "lodash/omit";
 import pick from "lodash/pick";
 import intersection from "lodash/intersection";
 import { z } from "zod";
-import { SlackIntegrationInterface } from "shared/types/slack-integration";
-import { NotificationEventName } from "shared/types/events/base-types";
+import type { SlackIntegrationInterface } from "shared/types/slack-integration";
+import type { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
   isEventWebhookWildcard,
-  NotificationEventNameOrWildcard,
+  type NotificationEventNameOrWildcard,
   getWildcardPatternsForEvent,
 } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 

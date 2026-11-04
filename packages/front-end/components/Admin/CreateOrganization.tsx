@@ -1,4 +1,4 @@
-import { useState, FC } from "react";
+import { useState, type FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import TextField from "@/ui/TextField";

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CustomHookInterface } from "shared/validators";
+import type { CustomHookInterface } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";

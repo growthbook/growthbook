@@ -10,11 +10,11 @@ import {
   NULL_DIMENSION_VALUE,
   NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
-import {
+import type {
   MetricDefinitionInterface,
   MetricInterface,
 } from "shared/types/metric";
-import {
+import type {
   ColumnInterface,
   ColumnRef,
   FactMetricInterface,
@@ -31,11 +31,11 @@ import {
   RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
-import {
+import type {
   MetricDefaults,
   OrganizationSettings,
 } from "shared/types/organization";
-import {
+import type {
   AttributionModel,
   CustomMetricSlice,
   ExperimentInterface,
@@ -43,23 +43,23 @@ import {
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
-import {
+import type {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "shared/types/datasource";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import {
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type {
   DifferenceType,
   IndexedPValue,
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import {
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type {
   SqlDialect,
   SqlIdentifierQuote,
   StringMatchFn,

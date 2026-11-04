@@ -1,5 +1,5 @@
 import {
-  SlackWorkspaceConnectionInterface,
+  type SlackWorkspaceConnectionInterface,
   slackWorkspaceConnectionSchema,
 } from "shared/validators";
 import {

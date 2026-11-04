@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   acknowledgeSlackChannelSave,
   getSlackChannelFormValues,
-  SlackChannelFormValues,
+  type SlackChannelFormValues,
 } from "@/components/SlackIntegrations/slackChannelForm";
 
 const initial: SlackChannelFormValues = {

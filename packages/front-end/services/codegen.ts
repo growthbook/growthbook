@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { parseIntWithDefault } from "shared/util";
 

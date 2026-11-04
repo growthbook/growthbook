@@ -1,4 +1,4 @@
-import {
+import type {
   DataSourceType,
   DataSourceInterfaceWithParams,
 } from "shared/types/datasource";

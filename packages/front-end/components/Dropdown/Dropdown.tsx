@@ -1,13 +1,13 @@
 import clsx from "clsx";
 import {
-  FC,
-  ReactElement,
+  type FC,
+  type ReactElement,
   useState,
   Children,
   isValidElement,
   cloneElement,
-  ReactNode,
-  CSSProperties,
+  type ReactNode,
+  type CSSProperties,
 } from "react";
 import useGlobalMenu from "@/services/useGlobalMenu";
 import DropdownLink from "./DropdownLink";

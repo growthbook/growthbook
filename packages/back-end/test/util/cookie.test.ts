@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import {
   IdTokenCookie,
   RefreshTokenCookie,

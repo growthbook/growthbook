@@ -1,5 +1,5 @@
 import { NULL_DIMENSION_VALUE } from "shared/constants";
-import {
+import type {
   Dimension,
   ExperimentDimension,
   UserDimension,

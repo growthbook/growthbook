@@ -4,7 +4,7 @@ import {
   resolveSavedGroupFormat,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React, { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";

@@ -11,7 +11,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
-import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import SidebarLink, { type SidebarLinkProps } from "./SidebarLink";
 import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";

@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getFactMetric } from "./getFactMetric";
 import { listFactMetrics } from "./listFactMetrics";
 import { postFactMetric } from "./postFactMetric";

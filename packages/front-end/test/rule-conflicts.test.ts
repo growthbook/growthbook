@@ -1,12 +1,12 @@
-import { FeatureRule } from "shared/types/feature";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FeatureRule } from "shared/types/feature";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   buildConflictBanners,
   getReachabilityCells,
   getRuleReachability,
   OTHER_PROJECT_BUCKET,
-  RuleReachability,
-  SavedGroupForConflicts,
+  type RuleReachability,
+  type SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
 
 const noExperiments = new Map<string, ExperimentInterfaceStringDates>();

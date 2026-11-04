@@ -1,26 +1,26 @@
 import { resolveExposureQueryForAnalysis } from "shared/util";
-import type { QueryRunnerFailureCause } from "shared/types/query";
-import {
-  ExperimentMetricInterface,
-  getFactMetricFactTableIds,
-  isFactFunnelMetric,
-  isFactMetric,
-  isRatioMetric,
-} from "shared/experiments";
-import { Dimension } from "shared/types/integrations";
-import { FactMetricInterface } from "shared/types/fact-table";
-import {
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
-  SnapshotType,
-} from "shared/types/experiment-snapshot";
-import {
+import type {
+  QueryRunnerFailureCause,
   ExperimentQueryMetadata,
   Queries,
   QueryPointer,
   QueryStatus,
 } from "shared/types/query";
-import { ApiReqContext } from "back-end/types/api";
+import {
+  type ExperimentMetricInterface,
+  getFactMetricFactTableIds,
+  isFactFunnelMetric,
+  isFactMetric,
+  isRatioMetric,
+} from "shared/experiments";
+import type { Dimension } from "shared/types/integrations";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+  SnapshotType,
+} from "shared/types/experiment-snapshot";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   errorSnapshotIfStillRunning,
   findSnapshotById,
@@ -39,8 +39,8 @@ import {
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
@@ -49,12 +49,12 @@ import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   QueryRunner,
-  QueryMap,
-  ProcessedRowsType,
-  RowsType,
-  StartQueryParams,
+  type QueryMap,
+  type ProcessedRowsType,
+  type RowsType,
+  type StartQueryParams,
 } from "./QueryRunner";
-import { SnapshotResult } from "./ExperimentResultsQueryRunner";
+import type { SnapshotResult } from "./ExperimentResultsQueryRunner";
 
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   snapshotType: SnapshotType;

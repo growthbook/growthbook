@@ -3,7 +3,7 @@ import {
   invariantRuleFields,
   describeInvariantRule,
   apiInvariantsToStored,
-  ConfigInvariant,
+  type ConfigInvariant,
 } from "../src/util/config-schema/invariants";
 
 // Contract for the mongrule-backed invariants engine. Each rule is a mongo

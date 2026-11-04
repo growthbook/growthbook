@@ -6,7 +6,7 @@ import type {
   FactMetricQuantileData,
   FactMetricSource,
 } from "shared/types/integrations";
-import { type ExperimentMetricInterface } from "shared/experiments";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";

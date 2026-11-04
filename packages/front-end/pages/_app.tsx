@@ -4,7 +4,7 @@ import "@/styles/radix-config.css";
 import "@/styles/global-radix-overrides.scss";
 import "@/styles/global.scss";
 
-import { AppProps } from "next/app";
+import type { AppProps } from "next/app";
 import Head from "next/head";
 import clsx from "clsx";
 import React, { Fragment, useEffect, useState } from "react";

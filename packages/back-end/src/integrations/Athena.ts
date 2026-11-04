@@ -1,12 +1,15 @@
-import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
-import { AthenaConnectionParams } from "shared/types/integrations/athena";
+import type {
+  ExternalIdCallback,
+  QueryResponse,
+} from "shared/types/integrations";
+import type { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   cancelAthenaQuery,
   getAthenaQueryStatus,
   runAthenaQuery,
 } from "back-end/src/services/athena";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import type { ExternalQueryStatus } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { ExperimentReportVariation } from "shared/types/report";
-import {
+import type { ExperimentReportVariation } from "shared/types/report";
+import type {
   StatsEngine,
   PValueCorrection,
   DifferenceType,
 } from "shared/types/stats";
-import { ExperimentTableRow, RowResults } from "@/services/experiments";
+import type { ExperimentTableRow, RowResults } from "@/services/experiments";
 
 export function useAnalysisResultSummary({
   orderedVariations,

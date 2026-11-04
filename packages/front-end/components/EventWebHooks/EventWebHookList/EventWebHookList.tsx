@@ -1,10 +1,10 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowRight, PiPlus } from "react-icons/pi";
-import { EventWebHookInterface } from "shared/types/event-webhook";
+import type { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
+import type { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

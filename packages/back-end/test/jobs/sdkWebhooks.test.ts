@@ -1,5 +1,5 @@
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { ReqContext } from "back-end/types/request";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { ReqContext } from "back-end/types/request";
 import { fireGlobalSdkWebhooks } from "back-end/src/jobs/sdkWebhooks";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 

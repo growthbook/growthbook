@@ -1,4 +1,4 @@
-import React, { ReactNode, useState, useMemo } from "react";
+import React, { type ReactNode, useState, useMemo } from "react";
 import clsx from "clsx";
 import { PiPlus, PiX, PiStackBold, PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
@@ -6,15 +6,15 @@ import {
   isFactMetric,
   expandMetricGroups,
   getFactMetricPrimaryFactTableId,
-  SliceLevelsData,
+  type SliceLevelsData,
 } from "shared/experiments";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { CustomMetricSlice } from "shared/validators";
-import { StylesConfig } from "react-select";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { CustomMetricSlice } from "shared/validators";
+import type { StylesConfig } from "react-select";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import SelectField, { type SingleValue } from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";

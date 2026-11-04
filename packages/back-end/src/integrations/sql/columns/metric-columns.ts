@@ -1,5 +1,5 @@
 import {
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   getAggregateFilters,
   getColumnExpression,
   getFactTableIdColumnExpression,

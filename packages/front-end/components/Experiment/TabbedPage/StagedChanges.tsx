@@ -15,7 +15,7 @@ import Tooltip from "@/ui/Tooltip";
 import { ApiCallError } from "@/services/apiCallError";
 import {
   incompatibleNote,
-  StagedReview,
+  type StagedReview,
   useExperimentEdits,
 } from "./ExperimentEdits";
 

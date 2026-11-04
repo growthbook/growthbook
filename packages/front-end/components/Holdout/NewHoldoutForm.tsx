@@ -1,10 +1,10 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FormProvider, useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { OrganizationSettings } from "shared/types/organization";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { OrganizationSettings } from "shared/types/organization";
 import {
   coverageToHoldoutSize,
   resolveAnalysisIdentifierType,
@@ -17,8 +17,8 @@ import { kebabCase } from "lodash";
 import { Tooltip, Separator } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
-import { FeatureEnvironment } from "shared/types/feature";
-import {
+import type { FeatureEnvironment } from "shared/types/feature";
+import type {
   CreateHoldoutInput,
   HoldoutInterfaceStringDates,
 } from "shared/validators";
@@ -29,7 +29,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  AssignmentQueryCopySource,
+  type AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
   getExposureQuery,
@@ -44,8 +44,8 @@ import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
 import SelectField, {
-  GroupedValue,
-  SingleValue,
+  type GroupedValue,
+  type SingleValue,
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";

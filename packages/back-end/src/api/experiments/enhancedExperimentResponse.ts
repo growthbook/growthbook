@@ -1,12 +1,12 @@
 import { getHealthSettings, getStatusIndicatorData } from "shared/enterprise";
-import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
+import type { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   getExperimentDecisionCriteria,
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 export async function toEnhancedExperimentApiResponse(
   context: ReqContext,

@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useSearchParams } from "next/navigation";
 import { getValidDate } from "shared/dates";
 import { Box, Flex, Heading } from "@radix-ui/themes";
-import { ComputedExperimentInterface } from "shared/types/experiment";
+import type { ComputedExperimentInterface } from "shared/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";

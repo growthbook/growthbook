@@ -1,4 +1,4 @@
-import {
+import type {
   InterleavingInterface,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
@@ -6,8 +6,8 @@ import {
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";

@@ -1,5 +1,5 @@
-import { ApiKeyInterface } from "shared/types/apikey";
-import { OrganizationInterface } from "shared/types/organization";
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   isApiKeyForUserInOrganization,
   migrateApiKey,

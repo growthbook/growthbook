@@ -9,8 +9,8 @@ import {
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import {
   autoFillsColumn,
-  FactMetricSeed,
-  IncompleteFactMetricSeed,
+  type FactMetricSeed,
+  type IncompleteFactMetricSeed,
   mappedColumn,
   mappedRowFilters,
   placeholderColumns,

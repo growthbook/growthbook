@@ -1,5 +1,5 @@
-import { FC, useState } from "react";
-import { ApiKeyInterface } from "shared/types/apikey";
+import { type FC, useState } from "react";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -16,7 +16,7 @@ import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import ApiKeyExpirationPolicy, {
   ExpirationPolicyField,
-  Kind,
+  type Kind,
   parseLifetimeDraft,
   settingField,
 } from "./ApiKeyExpirationPolicy";

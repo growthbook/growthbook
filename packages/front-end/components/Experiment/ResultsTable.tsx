@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import React, {
-  CSSProperties,
-  ReactElement,
+  type CSSProperties,
+  type ReactElement,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -9,14 +9,14 @@ import React, {
   useState,
 } from "react";
 import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
-import { ExperimentReportVariation } from "shared/types/report";
-import { ExperimentStatus } from "shared/types/experiment";
-import {
+import type { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentStatus } from "shared/types/experiment";
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   SignificanceThresholds,
@@ -27,23 +27,23 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { MetricTimeSeries } from "shared/validators";
+import type { MetricTimeSeries } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import {
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
-  SetExperimentSortBy,
+  type ExperimentMetricDefinition,
+  type ExperimentSortBy,
+  type SetExperimentSortBy,
   funnelStepMetricId,
   isFactMetric,
-  SampleSizeSource,
+  type SampleSizeSource,
 } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import {
-  ExperimentTableRow,
+  type ExperimentTableRow,
   getComputeErrorMessage,
   getEffectLabel,
   getRowResults,
-  RowResults,
+  type RowResults,
   useDomain,
 } from "@/services/experiments";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
@@ -54,10 +54,10 @@ import PValueColumn from "@/components/Experiment/PValueColumn";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import QuickEditButton from "@/components/Experiment/TabbedPage/QuickEditButton";
 import TimeSeriesButton from "@/components/TimeSeriesButton";
-import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import type { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
 import VariationLabel from "@/ui/VariationLabel";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";

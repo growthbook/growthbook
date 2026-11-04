@@ -1,6 +1,6 @@
 // Wrap every controller function in asyncHandler to catch errors properly
 import asyncHandler from "express-async-handler";
-import { RequestHandler } from "express";
+import type { RequestHandler } from "express";
 
 // eslint-disable-next-line
 type Handler = RequestHandler<any>;

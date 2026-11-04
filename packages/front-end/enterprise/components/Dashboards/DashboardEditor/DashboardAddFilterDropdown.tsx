@@ -11,7 +11,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import {
   DASHBOARD_OPTIONAL_FILTERS,
-  DashboardOptionalFilterKey,
+  type DashboardOptionalFilterKey,
 } from "./dashboardFilterCatalog";
 import styles from "./DashboardControlPill.module.scss";
 

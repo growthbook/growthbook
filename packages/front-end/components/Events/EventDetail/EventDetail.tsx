@@ -1,6 +1,6 @@
-import React, { FC } from "react";
+import React, { type FC } from "react";
 import { useRouter } from "next/router";
-import { EventInterface } from "shared/types/events/event";
+import type { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";

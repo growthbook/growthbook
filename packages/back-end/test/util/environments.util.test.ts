@@ -1,7 +1,7 @@
-import { Environment } from "shared/types/organization";
+import type { Environment } from "shared/types/organization";
 import { deepFreeze } from "back-end/test/test-helpers";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 
 const auditLogMock = jest.fn();
 

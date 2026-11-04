@@ -1,7 +1,7 @@
-import React, { FC, useState } from "react";
+import React, { type FC, useState } from "react";
 import { IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical } from "react-icons/pi";
-import { SDKAttribute } from "shared/types/organization";
+import type { SDKAttribute } from "shared/types/organization";
 import {
   DropdownMenu,
   DropdownMenuItem,

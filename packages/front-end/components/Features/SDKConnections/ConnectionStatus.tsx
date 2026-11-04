@@ -1,4 +1,4 @@
-import { ReactElement } from "react";
+import type { ReactElement } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { teal, red } from "@radix-ui/colors";
 import Tooltip from "@/components/Tooltip/Tooltip";

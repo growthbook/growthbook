@@ -4,11 +4,11 @@ import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
 import {
-  ComparisonMode,
-  DatasetType,
+  type ComparisonMode,
+  type DatasetType,
   datasetTypeHasValues,
-  ExplorationConfig,
-  ExplorationDateRange,
+  type ExplorationConfig,
+  type ExplorationDateRange,
 } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { isFactFunnelMetric } from "shared/experiments";
@@ -42,7 +42,7 @@ import {
   createEmptyValue,
   decodeExplorationConfig,
   explorationConfigParser,
-  ExplorerDraftConfig,
+  type ExplorerDraftConfig,
   getInitialInlineFilters,
   previousTimeFrameQueryParser,
   comparisonModeQueryParser,

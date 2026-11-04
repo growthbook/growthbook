@@ -3,8 +3,8 @@ import {
   CLOUD_MANAGED_AI_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   SELF_HOSTED_DEFAULT_AI_MODELS,
+  type AIProvider,
 } from "shared/ai";
-import type { AIProvider } from "shared/ai";
 import type { AIKeySource } from "back-end/src/services/aiCredentials";
 
 // IS_CLOUD is captured at module load, so each case builds its own module

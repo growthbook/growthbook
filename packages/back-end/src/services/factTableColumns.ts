@@ -9,10 +9,13 @@ import {
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
   DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
 } from "shared/constants";
-import { OrganizationSettings } from "shared/types/organization";
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ReqContext } from "back-end/types/request";
+import type { OrganizationSettings } from "shared/types/organization";
+import type {
+  ColumnInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { ReqContext } from "back-end/types/request";
 import {
   columnNamesMatch,
   getColumnByName,

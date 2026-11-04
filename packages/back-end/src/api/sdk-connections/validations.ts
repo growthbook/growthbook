@@ -4,13 +4,13 @@ import {
   getSDKVersions,
 } from "shared/sdk-versioning";
 import { sdkLanguages } from "shared/constants";
-import {
+import type {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { OrganizationInterface } from "shared/types/organization";
-import { ApiReqContext } from "back-end/types/api";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 

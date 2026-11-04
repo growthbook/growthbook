@@ -1,5 +1,8 @@
-import { DataSourceSettings, DataSourceType } from "shared/types/datasource";
-import { ChangeEventHandler, useId } from "react";
+import type {
+  DataSourceSettings,
+  DataSourceType,
+} from "shared/types/datasource";
+import { type ChangeEventHandler, useId } from "react";
 import { getDefaultMaxConcurrentQueries } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";

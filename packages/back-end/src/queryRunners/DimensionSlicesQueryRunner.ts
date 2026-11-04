@@ -1,19 +1,19 @@
-import {
+import type {
   ExperimentDimension,
   DimensionSlicesQueryResponseRows,
 } from "shared/types/integrations";
-import {
+import type {
   DimensionSlicesInterface,
   DimensionSlicesResult,
 } from "shared/types/dimension";
-import { Queries } from "shared/types/query";
-import { ExposureQuery } from "shared/types/datasource";
+import type { Queries } from "shared/types/query";
+import type { ExposureQuery } from "shared/types/datasource";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import {
   getDimensionSlicesById,
   updateDimensionSlices,
 } from "back-end/src/models/DimensionSlicesModel";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 export type DimensionSlicesParams = {
   exposureQueryId: string;
   lookbackDays: number;

@@ -1,9 +1,9 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { ago, datetime } from "shared/dates";
 import {
-  ExpiresAt,
+  type ExpiresAt,
   getExpirationStatus,
-  MaxLifetimeDays,
+  type MaxLifetimeDays,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { Flex } from "@radix-ui/themes";

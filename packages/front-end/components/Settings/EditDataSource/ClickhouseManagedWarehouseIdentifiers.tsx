@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { GrowthbookClickhouseDataSourceWithParams } from "shared/types/datasource";
+import type { GrowthbookClickhouseDataSourceWithParams } from "shared/types/datasource";
 import {
   getManagedWarehouseUserIdTypes,
-  ManagedWarehouseIdAttributeIdentifier,
+  type ManagedWarehouseIdAttributeIdentifier,
 } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";

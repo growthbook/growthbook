@@ -1,6 +1,6 @@
-import { teamSchema, ApiDeleteTeamReturn } from "shared/validators";
-import { ApiTeamInterface, TeamInterface } from "shared/types/team";
-import { UpdateProps } from "shared/types/base-model";
+import { teamSchema, type ApiDeleteTeamReturn } from "shared/validators";
+import type { ApiTeamInterface, TeamInterface } from "shared/types/team";
+import type { UpdateProps } from "shared/types/base-model";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { stringToBoolean } from "shared/util";
 import escapeRegExp from "lodash/escapeRegExp";

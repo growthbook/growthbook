@@ -1,4 +1,4 @@
-import { DestinationConfig } from "./config";
+import type { DestinationConfig } from "./config";
 
 // Backend-agnostic listed file shape (S3 / GCS / local).
 export interface ListedFile {

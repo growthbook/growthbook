@@ -1,6 +1,9 @@
 import { getRolePermissions } from "shared/permissions";
-import { ApiKeyInterface } from "shared/types/apikey";
-import { OrganizationInterface, Permission } from "shared/types/organization";
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type {
+  OrganizationInterface,
+  Permission,
+} from "shared/types/organization";
 import { verifyApiKeyPermission } from "back-end/src/middleware/authenticateApiRequestMiddleware";
 
 describe("REST API auth middleware", () => {

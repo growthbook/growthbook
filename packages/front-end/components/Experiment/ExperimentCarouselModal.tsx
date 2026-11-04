@@ -1,7 +1,13 @@
-import { FC, useState, useEffect, useRef, CSSProperties } from "react";
+import {
+  type FC,
+  useState,
+  useEffect,
+  useRef,
+  type CSSProperties,
+} from "react";
 import clsx from "clsx";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiCameraSlashLight, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import Modal from "@/ui/Modal";

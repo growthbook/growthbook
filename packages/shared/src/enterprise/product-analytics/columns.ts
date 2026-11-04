@@ -1,10 +1,10 @@
 import { isEqual } from "lodash";
-import {
+import type {
   FactTableInterface,
   FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
-import {
+import type {
   SqlDataset,
   ExplorationConfig,
   ExplorationDataset,

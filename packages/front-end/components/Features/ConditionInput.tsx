@@ -16,7 +16,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Switch from "@/ui/Switch";
 import {
-  Condition,
+  type Condition,
   condToJson,
   jsonToConds,
   useAttributeMap,
@@ -29,7 +29,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
 import Field from "@/components/Forms/Field";
 import SelectField, {
-  FormatOptionLabelType,
+  type FormatOptionLabelType,
 } from "@/components/Forms/SelectField";
 import CodeTextArea, {
   FIVE_LINES_HEIGHT,
@@ -47,7 +47,7 @@ import RadioGroup from "@/ui/RadioGroup";
 import RemoteGroupNotLoadedWarning from "@/components/SavedGroups/RemoteGroupNotLoadedWarning";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import {
-  OperatorOption,
+  type OperatorOption,
   formatOperatorLabel,
   getConditionOperators,
 } from "./conditionOperatorOptions";

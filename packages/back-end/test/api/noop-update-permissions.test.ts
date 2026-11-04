@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import request from "supertest";
-import { ApiKeyInterface } from "shared/types/apikey";
-import { OrganizationInterface } from "shared/types/organization";
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 import { setupApp } from "./api.setup";

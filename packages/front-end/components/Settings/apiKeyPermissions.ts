@@ -1,6 +1,6 @@
-import { ApiKeyInterface } from "shared/types/apikey";
-import { MemberRoleWithProjects } from "shared/types/organization";
-import { ConfirmRule, OAuthTokenPermissions } from "shared/validators";
+import type { ApiKeyInterface } from "shared/types/apikey";
+import type { MemberRoleWithProjects } from "shared/types/organization";
+import type { ConfirmRule, OAuthTokenPermissions } from "shared/validators";
 import {
   mergeConfirmRules,
   presetOf as confirmPresetOf,

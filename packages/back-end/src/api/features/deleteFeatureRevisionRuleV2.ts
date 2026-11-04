@@ -1,5 +1,5 @@
 import { deleteFeatureRevisionRuleV2Validator } from "shared/validators";
-import { RevisionChanges } from "shared/types/feature-revision";
+import type { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";

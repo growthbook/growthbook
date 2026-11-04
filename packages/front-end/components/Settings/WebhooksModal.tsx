@@ -1,6 +1,6 @@
-import { FC, useEffect, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import {
+import type {
   CreateSdkWebhookProps,
   UpdateSdkWebhookProps,
   WebhookInterface,
@@ -8,7 +8,7 @@ import {
   WebhookPayloadFormat,
 } from "shared/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { SDKLanguage } from "shared/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 import { CLOUD_EGRESS_IP } from "shared/constants";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";

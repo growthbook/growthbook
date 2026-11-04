@@ -1,9 +1,11 @@
 import { isEqual } from "lodash";
 import type { RevisionTargetType } from "shared/enterprise";
 import { getAdapter } from "back-end/src/revisions";
-import { CasConflictError, Context } from "back-end/src/models/BaseModel";
-import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
-import { entityKey } from "back-end/src/events/bulkPublishCorrelation";
+import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
+import {
+  type DeferredEventBuffer,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { ConflictError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";

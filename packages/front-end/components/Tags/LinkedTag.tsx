@@ -1,9 +1,9 @@
 import { Box } from "@radix-ui/themes";
-import { MouseEvent } from "react";
+import type { MouseEvent } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
-import Tag, { TagProps } from "./Tag";
+import Tag, { type TagProps } from "./Tag";
 
 type Props = Omit<TagProps, "label"> & {
   href: string;

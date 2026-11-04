@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { RequireReview } from "shared/types/organization";
+import type { RequireReview } from "shared/types/organization";
 import { getReviewSetting } from "shared/util";
 import { getApprovalFlowRules } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";

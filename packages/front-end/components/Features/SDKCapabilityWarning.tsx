@@ -1,7 +1,7 @@
-import { ReactNode, useMemo } from "react";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { type ReactNode, useMemo } from "react";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
-  SDKCapability,
+  type SDKCapability,
   getConnectionSDKCapabilities,
 } from "shared/sdk-versioning";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";

@@ -1,6 +1,6 @@
-import { EventForwarderConfigInterface } from "shared/validators";
-import { DataSourceType } from "shared/types/datasource";
-import {
+import type { EventForwarderConfigInterface } from "shared/validators";
+import type { DataSourceType } from "shared/types/datasource";
+import type {
   BigQueryEventForwarderStoredConfig,
   DatabricksEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,

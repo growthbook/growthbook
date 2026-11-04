@@ -2,19 +2,19 @@ import escapeRegExp from "lodash/escapeRegExp";
 import {
   eventUserToApiEventUser,
   ANCHORED_RAMP_SCHEDULE_STATUSES,
-  ApiRampScheduleInterface,
-  RampScheduleInterface,
-  RampScheduleStatus,
-  RampStartAction,
-  RampStepAction,
-  RampTarget,
-  StepHoldConditions,
+  type ApiRampScheduleInterface,
+  type RampScheduleInterface,
+  type RampScheduleStatus,
+  type RampStartAction,
+  type RampStepAction,
+  type RampTarget,
+  type StepHoldConditions,
   isAwaitingStartApproval,
   isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
 import mongoose from "mongoose";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import {
   rampSchedulePublishEnvironments,
   RULE_ID_ENV_SUFFIX_DELIMITER,

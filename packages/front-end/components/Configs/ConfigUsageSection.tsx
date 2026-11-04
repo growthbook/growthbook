@@ -3,12 +3,12 @@ import { Box } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
+import type { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import {
   dedupeImplementations,
   ByKeyUsageTable,
   ByReferenceUsageTable,
-  DedupedImplementation,
+  type DedupedImplementation,
 } from "./ConfigUsageTable";
 
 // The feature-rule / default-value and experiment references that override keys

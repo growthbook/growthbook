@@ -1,5 +1,8 @@
-import { FC, useEffect, useMemo, useState } from "react";
-import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import { type FC, useEffect, useMemo, useState } from "react";
+import type {
+  CustomField,
+  CustomFieldSection,
+} from "shared/types/custom-fields";
 import { ALL_SECTIONS } from "shared/validators";
 import {
   closestCenter,

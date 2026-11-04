@@ -23,7 +23,7 @@ import {
 import { getAdapter } from "back-end/src/revisions";
 import {
   resolveEntityPublishGates,
-  PublishGate,
+  type PublishGate,
 } from "back-end/src/revisions/publishGates";
 import {
   buildMergeDesiredState,

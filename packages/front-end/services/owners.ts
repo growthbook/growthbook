@@ -1,4 +1,4 @@
-import { ExpandedMember } from "shared/types/organization";
+import type { ExpandedMember } from "shared/types/organization";
 
 export function getOwnerDisplay({
   owner,

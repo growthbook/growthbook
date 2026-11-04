@@ -11,9 +11,9 @@ import {
   getComparisonAlignmentStrategy,
   getDateGranularity,
   buildAlignedComparisonRowLookup,
+  type ComparisonAlignmentStrategy,
 } from "shared/enterprise";
-import type { ComparisonAlignmentStrategy } from "shared/enterprise";
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import { parseWarehouseDate } from "shared/dates";
 import {
   compareJourneyStepValues,

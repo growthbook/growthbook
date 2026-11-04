@@ -1,6 +1,6 @@
 import {
   createContext,
-  ReactNode,
+  type ReactNode,
   useContext,
   useEffect,
   useMemo,
@@ -9,10 +9,10 @@ import {
 } from "react";
 import { useRouter } from "next/router";
 import {
-  FieldErrors,
+  type FieldErrors,
   FormProvider,
   useForm,
-  UseFormReturn,
+  type UseFormReturn,
 } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import get from "lodash/get";
@@ -38,12 +38,12 @@ import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
 } from "shared/settings";
-import { OrganizationSettings } from "shared/types/organization";
+import type { OrganizationSettings } from "shared/types/organization";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import {
   AI_PROMPT_DEFAULTS,
-  AIPromptInterface,
-  AIPromptType,
+  type AIPromptInterface,
+  type AIPromptType,
   CUSTOMIZABLE_PROMPT_TYPES,
   getProviderForAIModel,
 } from "shared/ai";
@@ -55,7 +55,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import useApi from "@/hooks/useApi";
 import { applyApprovalFlowEntitlements } from "@/hooks/useOrgSettings";
 import {
-  OrganizationSettingsWithMetricDefaults,
+  type OrganizationSettingsWithMetricDefaults,
   METRIC_DEFAULTS,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";

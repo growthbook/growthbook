@@ -1,5 +1,5 @@
 import {
-  ContextualBanditEventInterface,
+  type ContextualBanditEventInterface,
   contextualBanditEventValidator,
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";

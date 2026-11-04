@@ -1,10 +1,10 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   Screenshot,
   Variation,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { FC, useState, useRef } from "react";
+import { type FC, useState, useRef } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import clsx from "clsx";

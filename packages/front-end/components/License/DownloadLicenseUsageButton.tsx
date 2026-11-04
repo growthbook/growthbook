@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { LicenseMetaData, LicenseUserCodes } from "shared/enterprise";
+import type { FC } from "react";
+import type { LicenseMetaData, LicenseUserCodes } from "shared/enterprise";
 
 import { FaDownload } from "react-icons/fa";
 import { snakeCase } from "lodash";

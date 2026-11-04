@@ -1,7 +1,7 @@
 import {
-  SavedGroupUploadInterface,
-  SavedGroupUploadLoad,
-  SavedGroupUploadStatus,
+  type SavedGroupUploadInterface,
+  type SavedGroupUploadLoad,
+  type SavedGroupUploadStatus,
   savedGroupUploadValidator,
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";

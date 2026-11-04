@@ -1,4 +1,4 @@
-import {
+import type {
   DashboardBlockInterface,
   DashboardBlockData,
   DashboardBlockType,
@@ -16,7 +16,7 @@ import {
   ExperimentsStatusBlockInterface,
   FunnelExplorationBlockInterface,
 } from "shared/enterprise";
-import {
+import type {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
@@ -26,16 +26,16 @@ import {
   ExplorationDateRange,
   dateGranularity,
 } from "shared/validators";
-import {
+import type {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import {
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { DataSourceInterface } from "shared/types/datasource";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { DataSourceInterface } from "shared/types/datasource";
 import { isNumber, isString } from "../../util/types";
 import { getSnapshotAnalysis, isManagedWarehouse } from "../../util";
 import {
@@ -43,7 +43,7 @@ import {
   generateSliceString,
   expandMetricGroups,
 } from "../../experiments/experiments";
-import { DataVizConfig } from "../../../validators";
+import type { DataVizConfig } from "../../../validators";
 import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;

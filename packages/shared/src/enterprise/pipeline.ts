@@ -4,7 +4,7 @@ import {
   isFactMetric,
   isExperimentOutdatedReasonField,
   quantileMetricType,
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
 } from "shared/experiments";
 import type {
   DataSourceType,

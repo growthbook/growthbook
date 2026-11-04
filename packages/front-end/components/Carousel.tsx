@@ -1,12 +1,12 @@
 import {
-  FC,
+  type FC,
   useState,
   Children,
   isValidElement,
   cloneElement,
-  ReactNode,
-  ReactElement,
-  KeyboardEvent,
+  type ReactNode,
+  type ReactElement,
+  type KeyboardEvent,
   useEffect,
   useRef,
 } from "react";

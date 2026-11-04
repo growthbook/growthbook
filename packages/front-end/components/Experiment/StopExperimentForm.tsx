@@ -1,6 +1,6 @@
-import { FC, useRef } from "react";
+import { type FC, useRef } from "react";
 import { getAllVariations } from "shared/experiments";
-import {
+import type {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
@@ -11,7 +11,7 @@ import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -29,7 +29,7 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { coveragePercentFormatter } from "@/services/utils";
-import { Results } from "./ResultsIndicator";
+import type { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;

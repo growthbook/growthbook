@@ -1,4 +1,5 @@
-import React, {
+import {
+  type Dispatch,
   useState,
   useMemo,
   useCallback,
@@ -6,20 +7,20 @@ import React, {
   useEffect,
 } from "react";
 import {
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
 } from "shared/enterprise";
-import { DifferenceType } from "shared/types/stats";
+import type { DifferenceType } from "shared/types/stats";
 import { isNumber, isStringArray } from "shared/util";
-import { ExperimentReportVariation } from "shared/types/report";
-import { ExperimentSortBy } from "shared/experiments";
+import type { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentSortBy } from "shared/experiments";
 
 export function useDashboardEditorHooks<
   B extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 >(
   block: B,
-  setBlock: React.Dispatch<B> | undefined,
+  setBlock: Dispatch<B> | undefined,
   variations?: ExperimentReportVariation[],
 ) {
   // Use a ref to always have the latest block value for setters

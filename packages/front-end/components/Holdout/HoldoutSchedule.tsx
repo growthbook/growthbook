@@ -1,9 +1,9 @@
 import { Flex, Box } from "@radix-ui/themes";
-import { HoldoutInterfaceStringDates } from "shared/validators";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getHoldoutStage } from "shared/util";
 import { format, differenceInMinutes } from "date-fns";
-import { ProgressBar, Segment } from "@/ui/ProgressBar";
+import { ProgressBar, type Segment } from "@/ui/ProgressBar";
 import Text from "@/ui/Text";
 import styles from "./HoldoutSchedule.module.scss";
 

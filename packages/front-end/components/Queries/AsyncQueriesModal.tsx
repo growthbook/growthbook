@@ -1,7 +1,7 @@
-import { FC, Fragment, useMemo, useState } from "react";
-import { QueryInterface } from "shared/types/query";
+import { type FC, Fragment, useMemo, useState } from "react";
+import type { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { SavedQuery } from "shared/validators";
+import type { SavedQuery } from "shared/validators";
 import {
   isManagedWarehouseOutOfMemoryQueryError,
   isManagedWarehousePendingQueryError,

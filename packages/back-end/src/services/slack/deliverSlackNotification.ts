@@ -6,13 +6,13 @@ import { sendEventWebhook } from "back-end/src/events/handlers/webhooks/sendEven
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EventWebHookResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import {
-  SlackMessage,
+  type SlackMessage,
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
   renderNotificationCard,
-  RenderedNotificationCard,
+  type RenderedNotificationCard,
 } from "back-end/src/services/notificationCards/renderNotificationCard";
 import {
   alertFooterBlock,

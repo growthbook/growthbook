@@ -1,6 +1,6 @@
 import { assessApprovalCoverage } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
-import { TeamInterface } from "shared/types/team";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { TeamInterface } from "shared/types/team";
 
 const feature = { project: "" };
 

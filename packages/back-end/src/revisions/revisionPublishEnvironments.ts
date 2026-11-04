@@ -1,4 +1,4 @@
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import {
   configPublishEnvironments as configPublishEnvs,
   constantPublishEnvironments as constantPublishEnvs,

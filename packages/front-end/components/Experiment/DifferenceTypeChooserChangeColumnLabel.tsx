@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   StatsEngine,

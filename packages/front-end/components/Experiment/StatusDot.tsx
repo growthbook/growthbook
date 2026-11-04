@@ -1,4 +1,4 @@
-import { forwardRef, HTMLAttributes } from "react";
+import { forwardRef, type HTMLAttributes } from "react";
 import { Box } from "@radix-ui/themes";
 
 // Forwards its ref and props, so it can be a tooltip's trigger.

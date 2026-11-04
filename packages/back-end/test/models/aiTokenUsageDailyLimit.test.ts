@@ -1,4 +1,4 @@
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),

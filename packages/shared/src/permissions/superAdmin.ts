@@ -1,7 +1,7 @@
 import {
   SUPER_ADMIN_PERMISSIONS,
-  SuperAdmin,
-  SuperAdminPermission,
+  type SuperAdmin,
+  type SuperAdminPermission,
 } from "../validators/users";
 
 function isSuperAdminPermission(p: unknown): p is SuperAdminPermission {

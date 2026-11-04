@@ -1,4 +1,4 @@
-import { FunnelStep } from "shared/types/fact-table";
+import type { FunnelStep } from "shared/types/fact-table";
 
 export function updateFunnelSteps(
   steps: FunnelStep[],

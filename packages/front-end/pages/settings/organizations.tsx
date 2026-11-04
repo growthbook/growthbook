@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import CreateOrJoinOrganization from "@/components/Auth/CreateOrJoinOrganization";
 import {
   allowSelfOrgCreation,

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
-import { DecisionCriteriaData } from "shared/types/experiment";
+import type { DecisionCriteriaData } from "shared/types/experiment";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,

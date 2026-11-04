@@ -2,7 +2,7 @@ import {
   EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   isEventForwarderManaged,
 } from "shared/util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   getDataSourceById,
   updateDataSource,

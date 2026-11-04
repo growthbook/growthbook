@@ -1,10 +1,10 @@
 import {
-  FC,
+  type FC,
   useState,
-  ButtonHTMLAttributes,
-  DetailedHTMLProps,
-  ReactNode,
-  CSSProperties,
+  type ButtonHTMLAttributes,
+  type DetailedHTMLProps,
+  type ReactNode,
+  type CSSProperties,
   useEffect,
 } from "react";
 import clsx from "clsx";

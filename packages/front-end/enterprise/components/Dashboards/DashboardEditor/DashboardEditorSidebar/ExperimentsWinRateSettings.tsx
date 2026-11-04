@@ -1,9 +1,9 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
 import {
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-  ExperimentsWinRateBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
+  type ExperimentsWinRateBlockInterface,
   withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import Switch from "@/ui/Switch";

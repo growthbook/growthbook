@@ -1,8 +1,8 @@
 import {
-  CSSProperties,
+  type CSSProperties,
   forwardRef,
-  ReactNode,
-  UIEventHandler,
+  type ReactNode,
+  type UIEventHandler,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -10,7 +10,7 @@ import {
 } from "react";
 import { ScrollArea as RadixScrollArea } from "@radix-ui/themes";
 import clsx from "clsx";
-import { radixSize, Size } from "@/ui/sizes";
+import { radixSize, type Size } from "@/ui/sizes";
 import styles from "./ScrollArea.module.scss";
 
 type Edge = "top" | "bottom" | "left" | "right";

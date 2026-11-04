@@ -1,5 +1,5 @@
-import { SDKLanguage } from "shared/types/sdk-connection";
-import { IconType } from "react-icons";
+import type { SDKLanguage } from "shared/types/sdk-connection";
+import type { IconType } from "react-icons";
 import { DiRuby, DiPython, DiReact, DiAndroid } from "react-icons/di";
 import { FaHashtag, FaApple, FaJava, FaCode, FaRust } from "react-icons/fa";
 import {
@@ -18,12 +18,12 @@ import {
   SiNextdotjs,
   SiRoku,
 } from "react-icons/si";
-import React, { ReactElement } from "react";
+import React, { type ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { BsFiletypeHtml } from "react-icons/bs";
 import { TbCloudCode } from "react-icons/tb";
-import { DocSection } from "@/components/DocLink";
+import type { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import UITooltip from "@/ui/Tooltip";
 

@@ -1,5 +1,8 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
+import type {
+  FeatureInterface,
+  FeaturePrerequisite,
+} from "shared/types/feature";
 import { useMemo, useState } from "react";
 import {
   filterEnvironmentsByFeature,
@@ -9,9 +12,9 @@ import {
 } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { Box } from "@radix-ui/themes";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import PrerequisiteStatesTable, {
-  MinimalFeatureInfo,
+  type MinimalFeatureInfo,
 } from "@/components/Features/PrerequisiteStatesTable";
 import { getPrerequisites, useEnvironments } from "@/services/features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
@@ -31,12 +34,12 @@ import { ConflictShell } from "@/components/DraftConflicts/ConflictContext";
 import HelperText from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import {
-  PrerequisiteStateResult,
+  type PrerequisiteStateResult,
   useBatchPrerequisiteStates,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
 import DraftSelectorForChanges, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 

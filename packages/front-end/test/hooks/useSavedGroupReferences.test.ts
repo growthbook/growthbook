@@ -1,5 +1,5 @@
 import {
-  SavedGroupReferences,
+  type SavedGroupReferences,
   totalSavedGroupReferences,
 } from "@/hooks/useSavedGroupReferences";
 

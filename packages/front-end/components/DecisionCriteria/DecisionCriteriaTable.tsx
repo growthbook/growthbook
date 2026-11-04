@@ -1,7 +1,7 @@
-import { FC, useState, MouseEvent } from "react";
+import { type FC, useState, type MouseEvent } from "react";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaCheck } from "react-icons/fa";
-import { DecisionCriteriaData } from "shared/types/experiment";
+import type { DecisionCriteriaData } from "shared/types/experiment";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   DropdownMenu,

@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { isFactMetric } from "shared/experiments";
 import { getValidDate } from "shared/dates";
 import { stringToBoolean } from "shared/util";
-import {
+import type {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
   MetricAnalysisSettings,
@@ -13,7 +13,7 @@ import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnaly
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,

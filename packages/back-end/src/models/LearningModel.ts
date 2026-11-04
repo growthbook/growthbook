@@ -1,8 +1,8 @@
-import { CreateProps } from "shared/types/base-model";
+import type { CreateProps } from "shared/types/base-model";
 import {
-  ApiLearning,
-  ApiSearchLearningResult,
-  LearningInterface,
+  type ApiLearning,
+  type ApiSearchLearningResult,
+  type LearningInterface,
   apiCreateLearningBody,
   learningValidator,
 } from "shared/validators";

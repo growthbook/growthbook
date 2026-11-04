@@ -1,7 +1,7 @@
 import { subWeeks } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FeatureInterface, ExperimentRefRule } from "shared/types/feature";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FeatureInterface, ExperimentRefRule } from "shared/types/feature";
 
 import {
   isFeatureStale,

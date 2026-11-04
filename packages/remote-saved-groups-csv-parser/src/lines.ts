@@ -1,6 +1,6 @@
 import { MAX_ID_LENGTH } from "./constants";
 import { toRemoteGroupKey } from "./keys";
-import { RemoteGroupCsvOptions } from "./types";
+import type { RemoteGroupCsvOptions } from "./types";
 
 export type LineResult = { id: string } | { skip: true } | { error: string };
 

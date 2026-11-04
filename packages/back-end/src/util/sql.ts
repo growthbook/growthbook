@@ -1,6 +1,9 @@
 import Handlebars from "handlebars";
-import { SQLVars, SqlDialect } from "shared/types/sql";
-import { FactTableColumnType, JSONColumnFields } from "shared/types/fact-table";
+import type { SQLVars, SqlDialect } from "shared/types/sql";
+import type {
+  FactTableColumnType,
+  JSONColumnFields,
+} from "shared/types/fact-table";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers

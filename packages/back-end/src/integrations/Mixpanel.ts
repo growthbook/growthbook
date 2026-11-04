@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { getDelayWindowHours, getMetricWindowHours } from "shared/experiments";
-import {
+import type {
   DimensionSlicesQueryResponse,
   DropTableQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
@@ -42,20 +42,20 @@ import {
   InsertMetricSourceCovariateDataQueryParams,
   InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
 } from "shared/types/integrations";
-import {
+import type {
   DataSourceInterface,
   DataSourceProperties,
 } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
-import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
-import { MetricInterface, MetricType } from "shared/types/metric";
-import { QueryMetadata } from "shared/types/query";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { ReqContext } from "back-end/types/request";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import type { MetricInterface, MetricType } from "shared/types/metric";
+import type { QueryMetadata } from "shared/types/query";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ReqContext } from "back-end/types/request";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { formatQuery, runQuery } from "back-end/src/services/mixpanel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   conditionToJavascript,
   getAggregateFunctions,

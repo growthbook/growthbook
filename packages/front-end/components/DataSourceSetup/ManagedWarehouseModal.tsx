@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { PiGlobe } from "react-icons/pi";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import {
   DEFAULT_DATA_REGION,
-  DataRegion,
+  type DataRegion,
   useDataRegionOptions,
 } from "@/services/dataRegions";
 import { useDefinitions } from "@/services/DefinitionsContext";

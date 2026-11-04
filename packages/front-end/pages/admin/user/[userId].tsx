@@ -10,7 +10,7 @@ import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import EditMember, {
-  AdminMember,
+  type AdminMember,
   formatSuperAdmin,
 } from "@/components/Admin/EditMember";
 import KeyValues from "@/components/Admin/KeyValues";

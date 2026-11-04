@@ -1,25 +1,25 @@
-import { Response } from "express";
+import type { Response } from "express";
 import {
   isFactMetricId,
   getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { daysBetween } from "shared/dates";
 import { isDefined } from "shared/util";
-import { IdeaInterface } from "shared/types/idea";
-import {
+import type { IdeaInterface } from "shared/types/idea";
+import type {
   AutoMetricToCreate,
   AutoMetricTrackedEvent,
 } from "shared/types/integrations";
-import { AuditUserLoggedIn } from "shared/types/audit";
-import { MetricInterface } from "shared/types/metric";
-import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import {
+import type { AuditUserLoggedIn } from "shared/types/audit";
+import type { MetricInterface } from "shared/types/metric";
+import type { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { MetricAnalysisInterface } from "shared/types/metric-analysis";
-import {
+import type { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import type {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";

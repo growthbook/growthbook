@@ -1,5 +1,5 @@
-import { DataSourceType } from "shared/types/datasource";
-import {
+import type { DataSourceType } from "shared/types/datasource";
+import type {
   EventForwarderConfigDraft,
   EventForwarderConfigWithMetadata,
   EventForwarderStatus,
@@ -8,7 +8,7 @@ import {
   buildEventForwarderConnectDraft,
   buildEventForwarderRetryDraft,
 } from "@/components/DataSourceSetup/buildEventForwarderConnectDraft";
-import { EventForwarderDestination } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
+import type { EventForwarderDestination } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 
 const destination = (
   overrides: Partial<EventForwarderDestination> = {},

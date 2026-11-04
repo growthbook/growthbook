@@ -1,12 +1,12 @@
 import type { ConditionInterface } from "@growthbook/growthbook";
-import {
+import type {
   GroupMap,
   SavedGroupInterface,
   SavedGroupPayloadMap,
   SavedGroupsValues,
 } from "shared/types/saved-group";
-import { SavedGroupFormat } from "shared/types/sdk-connection";
-import { NodeHandler } from "../../util";
+import type { SavedGroupFormat } from "shared/types/sdk-connection";
+import type { NodeHandler } from "../../util";
 
 /**
  * Everything a payload build does with saved groups. The group map,

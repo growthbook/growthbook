@@ -3,7 +3,7 @@ import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
-import { AppNotice } from "./notices";
+import type { AppNotice } from "./notices";
 
 export default function useAccountPlanNotices(): AppNotice[] {
   const permissionsUtil = usePermissionsUtil();

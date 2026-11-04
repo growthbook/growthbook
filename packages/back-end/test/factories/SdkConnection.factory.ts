@@ -1,5 +1,5 @@
 import { Factory } from "fishery";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 
 export const sdkConnectionFactory = Factory.define<SDKConnectionInterface>(
   ({ sequence, params }) => ({

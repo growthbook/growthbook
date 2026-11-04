@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { ImpactEstimateInterface } from "shared/types/impact-estimate";
+import type { FC } from "react";
+import type { ImpactEstimateInterface } from "shared/types/impact-estimate";
 
 function formatNumber(num: number): string {
   if (num > 1000000) {

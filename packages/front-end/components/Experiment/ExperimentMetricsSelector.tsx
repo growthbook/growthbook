@@ -1,4 +1,4 @@
-import { ReactNode, useState, useMemo } from "react";
+import { type ReactNode, useState, useMemo } from "react";
 import { resolveAnalysisIdentifierType } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
@@ -9,11 +9,11 @@ import {
   isFactFunnelMetric,
   getUserIdTypes,
 } from "shared/experiments";
-import {
+import type {
   FactMetricType,
   FactTableDefinitionMap,
 } from "shared/types/fact-table";
-import { ExperimentType } from "shared/validators";
+import type { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { getExposureQuery } from "@/services/datasources";

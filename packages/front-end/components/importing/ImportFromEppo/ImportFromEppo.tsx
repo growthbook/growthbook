@@ -1,19 +1,19 @@
 import React, { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
-import { ApiAutoRun } from "shared/validators";
+import type { ApiAutoRun } from "shared/validators";
 import {
   buildImportData,
   CATEGORIES,
-  EppoCategory,
-  EppoData,
-  ExistingIds,
+  type EppoCategory,
+  type EppoData,
+  type ExistingIds,
   fetchEppoData,
   getColumnNames,
   getImportedIds,
-  ImportItem,
-  ImportResult,
-  ItemMatch,
+  type ImportItem,
+  type ImportResult,
+  type ItemMatch,
   matchItems,
   runEppoImport,
 } from "@/services/importing/eppo/eppo-importing";

@@ -1,6 +1,6 @@
-import { FC, useMemo } from "react";
+import { type FC, useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   SignificanceThresholds,
@@ -11,14 +11,14 @@ import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { RadixColor } from "@/ui/HelperText";
+import type { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 import {
-  AdjustmentEffectSize,
-  AdjustmentImpact,
+  type AdjustmentEffectSize,
+  type AdjustmentImpact,
   getAdjustmentImpactSummary,
-  SupplementalField,
+  type SupplementalField,
 } from "./helpers";
 
 interface MetricDrilldownAdjustmentSummaryProps {

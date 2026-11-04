@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { DecisionCriteriaData } from "shared/enterprise";
+import type { FC } from "react";
+import type { DecisionCriteriaData } from "shared/enterprise";
 import Modal from "@/components/Modal";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";

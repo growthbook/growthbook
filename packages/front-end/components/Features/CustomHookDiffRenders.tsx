@@ -1,7 +1,7 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import { Flex } from "@radix-ui/themes";
-import { CustomHookInterface } from "shared/validators";
+import type { CustomHookInterface } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";

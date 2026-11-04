@@ -1,4 +1,4 @@
-import { CustomField } from "shared/types/custom-fields";
+import type { CustomField } from "shared/types/custom-fields";
 import {
   customFieldValuesEqual,
   filterCustomFieldsForSection,

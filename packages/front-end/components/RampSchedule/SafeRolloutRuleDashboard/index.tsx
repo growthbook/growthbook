@@ -1,15 +1,25 @@
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { extent } from "@visx/vendor/d3-array";
-import { MetricTimeSeries, RampScheduleInterface } from "shared/validators";
+import type {
+  MetricTimeSeries,
+  RampScheduleInterface,
+} from "shared/validators";
 import { getValidDate } from "shared/dates";
 import {
   filterInvalidMetricTimeSeries,
   getSafeRolloutSnapshotAnalysis,
 } from "shared/util";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import { expandMetricGroups } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -23,7 +33,7 @@ import {
 import {
   buildDummyIssueProfile,
   buildDummyScenarios,
-  DummyScenario,
+  type DummyScenario,
   getDummySeed,
   seededRandom,
 } from "@/components/RampSchedule/dummyMonitoringData";

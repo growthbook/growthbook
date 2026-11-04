@@ -1,4 +1,4 @@
-import { AccountPlan, AdminOrgStatus } from "shared/enterprise";
+import type { AccountPlan, AdminOrgStatus } from "shared/enterprise";
 import Badge from "@/ui/Badge";
 
 const PLANS: Record<

@@ -1,20 +1,20 @@
-import { Response } from "express";
+import type { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import {
+import type {
   DataVizConfig,
   SavedQuery,
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
 } from "shared/validators";
-import {
+import type {
   InformationSchemaTablesInterface,
   InformationSchemaInterface,
   Column,
 } from "shared/types/integrations";
-import { DataSourceInterface } from "shared/types/datasource";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -32,8 +32,8 @@ import {
   getInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import { fetchTableData } from "back-end/src/services/informationSchema";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 /**

@@ -4,7 +4,7 @@ import {
   Panel,
   PanelGroup,
   PanelResizeHandle as LibResizeHandle,
-  PanelResizeHandleProps as LibResizeHandleProps,
+  type PanelResizeHandleProps as LibResizeHandleProps,
 } from "react-resizable-panels";
 import styles from "./ResizablePanels.module.scss";
 

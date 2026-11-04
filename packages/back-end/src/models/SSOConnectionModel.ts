@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { SSOConnectionInterface } from "shared/types/sso-connection";
+import type { SSOConnectionInterface } from "shared/types/sso-connection";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const ssoConnectionSchema = new mongoose.Schema({

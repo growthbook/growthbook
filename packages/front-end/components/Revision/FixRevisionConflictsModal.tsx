@@ -4,9 +4,9 @@ import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiCheckBold, PiGitMergeBold } from "react-icons/pi";
 import {
-  Revision,
+  type Revision,
   checkMergeConflicts,
-  Conflict,
+  type Conflict,
   normalizeProposedChanges,
   patchOpsToPartial,
   getRevisionUpdatableFields,

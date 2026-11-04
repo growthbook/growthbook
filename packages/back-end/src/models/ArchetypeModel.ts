@@ -1,8 +1,8 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { ArchetypeInterface } from "shared/types/archetype";
-import { ApiArchetype } from "shared/validators";
+import type { ArchetypeInterface } from "shared/types/archetype";
+import type { ApiArchetype } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 
 const archetypeSchema = new mongoose.Schema({

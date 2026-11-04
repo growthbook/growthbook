@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import styles from "./ValueGroup.module.scss";

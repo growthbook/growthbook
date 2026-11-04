@@ -1,6 +1,6 @@
-import { MetricOverride } from "shared/types/experiment";
-import { MetricWindowSettings } from "shared/types/fact-table";
-import { SettingsResolver, Settings, ScopeDefinition } from "../types";
+import type { MetricOverride } from "shared/types/experiment";
+import type { MetricWindowSettings } from "shared/types/fact-table";
+import type { SettingsResolver, Settings, ScopeDefinition } from "../types";
 import {
   getMetricWindowHours,
   getDelayWindowHours,

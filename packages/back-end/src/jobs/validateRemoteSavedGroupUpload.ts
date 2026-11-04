@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import type { Agenda, Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import {
   failRemoteSavedGroupUploadValidation,

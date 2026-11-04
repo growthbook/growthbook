@@ -1,6 +1,6 @@
-import { Response } from "express";
+import type { Response } from "express";
 import { isRoleValid, getDefaultRole } from "shared/permissions";
-import {
+import type {
   ScimError,
   ScimGroup,
   ScimGroupPostRequest,

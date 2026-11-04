@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import TextField from "./TextField";
 

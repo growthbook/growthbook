@@ -1,11 +1,11 @@
 import { hasSuperAdminPermission } from "shared/permissions";
-import {
+import type {
   ExperimentSnapshotReportInterface,
   ExperimentReportSSRData,
 } from "shared/types/report";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Head from "next/head";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { truncateString } from "shared/util";
 import { date } from "shared/dates";
 import PageHead from "@/components/Layout/PageHead";

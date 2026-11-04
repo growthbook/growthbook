@@ -1,5 +1,5 @@
-import { ExperimentInterface } from "shared/validators";
-import { ReqContext } from "back-end/types/organization";
+import type { ExperimentInterface } from "shared/validators";
+import type { ReqContext } from "back-end/types/organization";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 
 // Legacy experiment docs can carry a phase with no dateStarted. The serializer

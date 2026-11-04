@@ -1,6 +1,6 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
-  LDListFeatureFlagsResponse,
+  type LDListFeatureFlagsResponse,
   transformLDEnvironmentsToGBEnvironment,
   transformLDFeatureFlagToGBFeature,
   transformLDProjectsToGBProject,

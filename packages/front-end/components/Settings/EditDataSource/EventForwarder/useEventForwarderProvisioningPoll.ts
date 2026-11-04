@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EventForwarderStatusResponse } from "shared/validators";
+import type { EventForwarderStatusResponse } from "shared/validators";
 import { useAuth } from "@/services/auth";
 
 const POLL_INTERVAL_MS = 5000;

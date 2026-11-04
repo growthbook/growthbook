@@ -23,22 +23,22 @@ import {
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { datetime, getValidDate } from "shared/dates";
 import {
-  MergeConflict,
-  MergeStrategy,
+  type MergeConflict,
+  type MergeStrategy,
   DRAFT_REVISION_STATUSES,
 } from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
-import {
+import type { FeatureInterface } from "shared/types/feature";
+import type {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import {
+import type {
   RampScheduleInterface,
   HoldoutInterface,
   RevisionRampDetachAction,
 } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
-import { DiffLineRef } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
+import type { DiffLineRef } from "@/components/AuditHistoryExplorer/VirtualizedDiff";
 import { RenderInFullContext } from "@/components/SyntaxHighlighting/VirtualizedCode";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -59,7 +59,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
   COPY_DIFF_FORMATS,
-  CopyDiffFormat,
+  type CopyDiffFormat,
   formatDiffForCopy,
 } from "@/components/Reviews/diffCopyFormats";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
@@ -87,9 +87,9 @@ import { holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import { Popover } from "@/ui/Popover";
 import {
-  AnchoredComment,
-  DiffCommentRef,
-  DiffRefSnapshot,
+  type AnchoredComment,
+  type DiffCommentRef,
+  type DiffRefSnapshot,
   DIFF_FORMAT_EVENT,
   DIFF_SECTION_EXPAND_EVENT,
   buildDiffSnapshotEntries,

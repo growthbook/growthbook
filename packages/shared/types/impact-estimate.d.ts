@@ -1,4 +1,4 @@
-import { QueryLanguage } from "./datasource";
+import type { QueryLanguage } from "./datasource";
 
 export interface ImpactEstimateInterface {
   id: string;

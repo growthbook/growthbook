@@ -1,8 +1,11 @@
-import { FactMetricInterface, ColumnInterface } from "shared/types/fact-table";
+import type {
+  FactMetricInterface,
+  ColumnInterface,
+} from "shared/types/fact-table";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 

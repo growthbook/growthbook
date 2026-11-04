@@ -1,31 +1,31 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { EventUser } from "shared/types/events/event-types";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { EventUser } from "shared/types/events/event-types";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import {
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
-  RampStartAction,
-  RampStartPatch,
-  LockdownConfig,
-  RampEvent,
-  RampEventType,
-  RampMonitoringConfig,
-  RampMonitoringMode,
-  RampScheduleInterface,
-  RampScheduleTemplateInterface,
-  RampStep,
-  RampStepAction,
-  RevisionRampDetachAction,
-  SafeRolloutInterface,
+  type RampStartAction,
+  type RampStartPatch,
+  type LockdownConfig,
+  type RampEvent,
+  type RampEventType,
+  type RampMonitoringConfig,
+  type RampMonitoringMode,
+  type RampScheduleInterface,
+  type RampScheduleTemplateInterface,
+  type RampStep,
+  type RampStepAction,
+  type RevisionRampDetachAction,
+  type SafeRolloutInterface,
   isAwaitingStartApproval,
   startApprovalPending,
 } from "shared/validators";
-import { ResourceEvents } from "shared/types/events/base-types";
+import type { ResourceEvents } from "shared/types/events/base-types";
 import {
-  MergeResultChanges,
+  type MergeResultChanges,
   filterEnvironmentsByFeature,
   getApplicableEnvIds,
   getEnvsFromRampSchedule,
@@ -49,8 +49,8 @@ import {
   getEnvironmentIdsFromOrg,
   getEnvironments,
 } from "back-end/src/services/organizations";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getFeatureRuleEnvironmentsByIds,
   getFeature,
@@ -66,11 +66,14 @@ import {
   getRevision,
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import {
   assertValidAssignmentQuerySelectionChange,
   getExposureQueriesForDatasource,
-  RecordAssignmentQueryScope,
+  type RecordAssignmentQueryScope,
 } from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,

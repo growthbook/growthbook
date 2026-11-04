@@ -1,11 +1,11 @@
-import {
+import type {
   InformationSchemaInterface,
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
-import { DataSourceType } from "shared/types/datasource";
-import { CursorData } from "@/components/Segments/SegmentForm";
-import { AceCompletion } from "@/components/Forms/CodeTextArea";
+import type { DataSourceType } from "shared/types/datasource";
+import type { CursorData } from "@/components/Segments/SegmentForm";
+import type { AceCompletion } from "@/components/Forms/CodeTextArea";
 import {
   getSqlKeywords,
   COMPLETION_SCORES,

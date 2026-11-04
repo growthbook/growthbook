@@ -1,5 +1,5 @@
 import {
-  baseDialect,
+  type baseDialect,
   bigQueryDialect,
   snowflakeDialect,
   databricksDialect,

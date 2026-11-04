@@ -1,12 +1,12 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
-import { FeatureValueType } from "shared/types/feature";
+import type { FeatureValueType } from "shared/types/feature";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
-import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
+import type { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
 import {
-  OptionContext,
+  type OptionContext,
   OptionPopover,
   OptionTooltipDescription,
   OptionTooltipProjectsRow,

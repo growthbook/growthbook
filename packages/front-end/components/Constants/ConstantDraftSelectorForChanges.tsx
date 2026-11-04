@@ -1,5 +1,5 @@
-import { Revision } from "shared/enterprise";
-import { DraftMode } from "@/components/DraftSelector";
+import type { Revision } from "shared/enterprise";
+import type { DraftMode } from "@/components/DraftSelector";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 
 export type { DraftMode };

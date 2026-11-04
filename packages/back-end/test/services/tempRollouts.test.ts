@@ -1,4 +1,4 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   getTempRolloutCandidateFeatureIds,
   selectServedTempRolloutExperimentIds,

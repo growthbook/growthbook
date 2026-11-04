@@ -1,4 +1,4 @@
-import {
+import type {
   RampScheduleInterface,
   SafeRolloutInterface,
   ExperimentHealthAction,
@@ -15,8 +15,8 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
 import isEqual from "lodash/isEqual";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
   advanceStep,

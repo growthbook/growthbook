@@ -1,9 +1,9 @@
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ReqContext } from "back-end/types/request";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ReqContext } from "back-end/types/request";
 import {
   collectFeaturePublishGates,
-  FeatureMergePlan,
+  type FeatureMergePlan,
 } from "back-end/src/services/featurePublishGates";
 import { evaluatePublishGates } from "back-end/src/revisions/publishGates";
 

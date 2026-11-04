@@ -1,7 +1,7 @@
 import clsx from "clsx";
-import { ReactElement, ReactNode, useState, forwardRef } from "react";
+import { type ReactElement, type ReactNode, useState, forwardRef } from "react";
 import TextareaAutosize, {
-  TextareaAutosizeProps,
+  type TextareaAutosizeProps,
 } from "react-textarea-autosize";
 import HelperText from "@/ui/HelperText";
 

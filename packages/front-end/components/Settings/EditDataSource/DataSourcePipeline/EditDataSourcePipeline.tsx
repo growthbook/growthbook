@@ -2,7 +2,7 @@ import { useMemo, useRef, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import cloneDeep from "lodash/cloneDeep";
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourcePipelineMode,
 } from "shared/types/datasource";
@@ -12,7 +12,7 @@ import {
   type PipelineValidationResults,
 } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useExperiments } from "@/hooks/useExperiments";
 import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/PipelineValidationResults";

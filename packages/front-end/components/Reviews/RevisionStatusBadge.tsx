@@ -10,7 +10,7 @@ import {
 import type { RevisionStatus, ActiveDraftStatus } from "shared/validators";
 import type { EventUser } from "shared/types/events/event-types";
 import Badge from "@/ui/Badge";
-import { RadixColor } from "@/ui/HelperText";
+import type { RadixColor } from "@/ui/HelperText";
 import StatusDot from "@/components/Experiment/StatusDot";
 
 // Entity-agnostic revision identity — enough to render status badges, labels,

@@ -4,9 +4,9 @@ import {
   mergeLayoutForWrite,
   minTableWidth,
   resolveTableColumns,
-  ResolvedTableColumn,
-  TableColumnDef,
-  TableColumnLayout,
+  type ResolvedTableColumn,
+  type TableColumnDef,
+  type TableColumnLayout,
 } from "@/services/tableColumns";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 

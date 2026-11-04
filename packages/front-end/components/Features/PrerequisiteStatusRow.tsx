@@ -1,6 +1,9 @@
-import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
+import type {
+  FeatureInterface,
+  FeaturePrerequisite,
+} from "shared/types/feature";
 import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
-import { Environment } from "shared/types/organization";
+import type { Environment } from "shared/types/organization";
 import React, { useMemo, useState, type ReactElement } from "react";
 import {
   FaCircleCheck,
@@ -12,7 +15,7 @@ import {
 } from "react-icons/fa6";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { getPrerequisites } from "@/services/features";
@@ -25,7 +28,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
 import Text from "@/ui/Text";
 import {
-  PrerequisiteStateResult,
+  type PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
 import {
@@ -34,7 +37,7 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 import DraftSelectorForChanges, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { featureStatusColors } from "./FeaturesOverview";
 

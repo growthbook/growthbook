@@ -1,16 +1,16 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ReactNode, useMemo, useState } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { type ReactNode, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";

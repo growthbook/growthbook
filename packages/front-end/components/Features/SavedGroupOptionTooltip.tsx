@@ -1,11 +1,11 @@
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { SavedGroupForDefinitions } from "shared/types/saved-group";
+import type { SavedGroupForDefinitions } from "shared/types/saved-group";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import { AttributeOptionProjectsLabel } from "./AttributeOptionTooltip";
 import {
-  OptionContext,
+  type OptionContext,
   OptionLabel,
   OptionMenuRow,
   OptionPopover,

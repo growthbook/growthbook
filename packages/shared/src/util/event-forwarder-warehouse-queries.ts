@@ -17,11 +17,11 @@ import {
   buildEventForwarderPropertyValueSql,
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
-  EventForwarderQuerySinkType,
+  type EventForwarderQuerySinkType,
   quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
 import {
-  EventForwarderUserIdTypePair,
+  type EventForwarderUserIdTypePair,
   isEventForwarderManaged,
   normalizeUserIdTypeName,
   resolveEventForwarderManagedName,

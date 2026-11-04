@@ -1,24 +1,22 @@
 import type { ExperimentInterface } from "shared/types/experiment";
-import type {
-  FeatureRule,
-  FeaturePrerequisite,
-  FeatureRulePatch,
-} from "shared/validators";
 import {
-  apiRevisionRampCreateAction,
-  RampMonitoringConfig,
-  RevisionRampCreateAction,
+  type FeatureRule,
+  type FeaturePrerequisite,
+  type FeatureRulePatch,
+  type apiRevisionRampCreateAction,
+  type RampMonitoringConfig,
+  type RevisionRampCreateAction,
   ACTIVE_DRAFT_STATUSES,
   inlineRampScheduleInput,
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   rampPlanLacksHashAttribute,
   getRuleAttributeScopeProjectIds,
   findStoredRuleCounterpart,
   getNewlyUnscopedRules,
-  FeatureRuleScope,
+  type FeatureRuleScope,
   stemRuleId,
   validateCondition,
   validatePrerequisiteCondition,
@@ -54,7 +52,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 import {

@@ -1,15 +1,15 @@
 import { DBSQLClient } from "@databricks/sql";
 import {
-  TColumnDesc,
-  TTableSchema,
+  type TColumnDesc,
+  type TTableSchema,
   TTypeId,
 } from "@databricks/sql/thrift/TCLIService_types";
-import {
+import type {
   QueryResponse,
   QueryResponseColumnData,
 } from "shared/types/integrations";
-import { FactTableColumnType } from "shared/types/fact-table";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { FactTableColumnType } from "shared/types/fact-table";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT } from "back-end/src/util/secrets";
 

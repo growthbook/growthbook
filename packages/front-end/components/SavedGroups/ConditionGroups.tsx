@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
-import {
+import type {
   SavedGroupInterface,
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";

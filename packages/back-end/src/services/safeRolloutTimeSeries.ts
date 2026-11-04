@@ -1,7 +1,7 @@
 import md5 from "md5";
 import { isFactMetricId, expandMetricGroups } from "shared/experiments";
 import { SAFE_ROLLOUT_VARIATIONS } from "shared/constants";
-import {
+import type {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
@@ -12,13 +12,13 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotMetricInterface,
 } from "shared/validators";
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { ExposureQuery } from "shared/types/datasource";
+import type { ExposureQuery } from "shared/types/datasource";
 import { getIdentifierTypeForSettingsHash } from "shared/util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";

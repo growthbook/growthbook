@@ -1,5 +1,5 @@
 import {
-  MergeResultChanges,
+  type MergeResultChanges,
   PermissionError,
   draftRevertedFromVersion,
   isArchiveTransition,
@@ -13,10 +13,13 @@ import {
   NO_ENVIRONMENT_BINDING,
   reachedTargeting,
   withStagedTargeting,
+  type TargetingScoped,
 } from "shared/permissions";
-import type { TargetingScoped } from "shared/permissions";
-import { FeatureInterface } from "shared/types/feature";
-import { eventUserIdentity, FeatureRevisionInterface } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
+import {
+  eventUserIdentity,
+  type FeatureRevisionInterface,
+} from "shared/validators";
 import {
   assertCanLandRevision,
   canAdvanceDraftWithNarrowAtom,

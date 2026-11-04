@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
-import {
+import type {
   ExperimentValue,
   FeatureInterface,
   FeatureValueType,

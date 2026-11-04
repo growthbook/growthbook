@@ -1,10 +1,14 @@
-import { bypassApprovalPermission } from "shared/permissions";
-import type { RevisionModel } from "shared/permissions";
+import {
+  bypassApprovalPermission,
+  type RevisionModel,
+} from "shared/permissions";
 import type { Revision, RevisionTargetType } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { makeBlockingGate } from "back-end/src/revisions/publishGates";
+import {
+  type PublishGate,
+  makeBlockingGate,
+} from "back-end/src/revisions/publishGates";
 import { isRevisionDiverged } from "back-end/src/revisions/util";
 import {
   revisionApprovalsCoverChange,

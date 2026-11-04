@@ -1,24 +1,24 @@
-import { Request, Response, NextFunction, RequestHandler } from "express";
+import type { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
 import {
   getRolePermissions,
   hasPermission,
   hasSuperAdminPermission,
 } from "shared/permissions";
-import { SuperAdmin } from "shared/validators";
-import {
+import type { SuperAdmin } from "shared/validators";
+import type {
   EventUserLoggedIn,
   EventUserRequestedBy,
 } from "shared/types/events/event-types";
-import {
+import type {
   OrganizationInterface,
   Permission,
   UserPermissions,
 } from "shared/types/organization";
-import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
-import { TeamInterface } from "shared/types/team";
+import type { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
+import type { TeamInterface } from "shared/types/team";
 import { licenseInit } from "back-end/src/enterprise";
-import { ApiRequestLocals } from "back-end/types/api";
+import type { ApiRequestLocals } from "back-end/types/api";
 import {
   getContextFromReq,
   getOrganizationById,
@@ -47,7 +47,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,

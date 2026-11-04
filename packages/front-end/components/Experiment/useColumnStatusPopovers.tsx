@@ -1,8 +1,8 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentMetricDefinition } from "shared/experiments";
-import { RowResults } from "@/services/experiments";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
+import type { ExperimentMetricDefinition } from "shared/experiments";
+import type { RowResults } from "@/services/experiments";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useResultPopover } from "./useResultPopover";
 
 interface UseColumnStatusPopoversOptions {

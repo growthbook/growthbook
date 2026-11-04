@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiPencilSimple } from "react-icons/pi";

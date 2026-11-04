@@ -3,10 +3,10 @@ import { AlertDialog, Box, Flex } from "@radix-ui/themes";
 import { scaleTime } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { localPoint } from "@visx/event";
-import { MetricTimeSeries, RampEvent } from "shared/validators";
+import type { MetricTimeSeries, RampEvent } from "shared/validators";
 import { getValidDate } from "shared/dates";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import { getMetricLink, isFactMetric } from "shared/experiments";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -17,14 +17,14 @@ import {
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { PiCaretDownBold, PiInfo } from "react-icons/pi";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { ExperimentReportVariation } from "shared/types/report";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { ExperimentTableRow, getRowResults } from "@/services/experiments";
+import { type ExperimentTableRow, getRowResults } from "@/services/experiments";
 import SafeRolloutTimeSeriesGraph, {
-  TimeSeriesEventMarker,
+  type TimeSeriesEventMarker,
 } from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
 import StatusColumn from "@/components/SafeRollout/Results/StatusColumn";
 import MetricName from "@/components/Metrics/MetricName";

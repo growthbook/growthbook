@@ -1,7 +1,7 @@
-import Agenda from "agenda";
-import { Queries, QueryInterface } from "shared/types/query";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import {
+import type Agenda from "agenda";
+import type { Queries, QueryInterface } from "shared/types/query";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
   ContextualBanditSnapshotInterface,
@@ -16,7 +16,7 @@ import {
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
-import { SnapshotReapReason } from "back-end/src/services/experimentUpdateExecutionLogger";
+import type { SnapshotReapReason } from "back-end/src/services/experimentUpdateExecutionLogger";
 import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
@@ -43,7 +43,7 @@ import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 
 const JOB_NAME = "expireOldQueries";
 

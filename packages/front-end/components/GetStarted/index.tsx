@@ -10,7 +10,7 @@ import {
   Text,
 } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
-import { CommercialFeature } from "shared/enterprise";
+import type { CommercialFeature } from "shared/enterprise";
 import router from "next/router";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
@@ -41,7 +41,7 @@ import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
 import { isExperimentationLeaning } from "@/services/onboarding";
-import { DocSection } from "@/components/DocLink";
+import type { DocSection } from "@/components/DocLink";
 import useApi from "@/hooks/useApi";
 import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 

@@ -1,9 +1,9 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
 import {
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-  ExperimentsStatusBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
+  type ExperimentsStatusBlockInterface,
   withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";

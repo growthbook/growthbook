@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { verifyConfigSchemaValidator } from "shared/validators";
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import {
   canonicalSchemaString,
   diffSchemaFields,

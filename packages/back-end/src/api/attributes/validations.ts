@@ -1,5 +1,5 @@
-import { SDKAttributeType } from "shared/types/organization";
-import { ApiReqContext } from "back-end/types/api";
+import type { SDKAttributeType } from "shared/types/organization";
+import type { ApiReqContext } from "back-end/types/api";
 import { validateCustomFieldsForSectionAndProjects } from "back-end/src/util/custom-fields";
 
 export const validatePayload = async (

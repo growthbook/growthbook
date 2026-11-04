@@ -1,6 +1,6 @@
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import { getAllVariations } from "shared/experiments";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";

@@ -1,5 +1,5 @@
 import {
-  DecisionCriteriaInterface,
+  type DecisionCriteriaInterface,
   decisionCriteriaInterface,
 } from "shared/enterprise";
 import { MakeModelClass } from "back-end/src/models/BaseModel";

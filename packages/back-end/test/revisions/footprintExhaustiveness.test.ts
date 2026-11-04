@@ -1,10 +1,9 @@
 import {
   REVISION_PERMISSIONS,
   featurePublishFootprint,
+  type RevisionModel,
 } from "shared/permissions";
-import type { RevisionModel } from "shared/permissions";
-import { revisionTargetType } from "shared/enterprise";
-import type { RevisionTargetType } from "shared/enterprise";
+import { revisionTargetType, type RevisionTargetType } from "shared/enterprise";
 import type { OrganizationInterface } from "shared/types/organization";
 import { getAdapter } from "back-end/src/revisions";
 import { buildPatchOps } from "back-end/src/revisions/util";

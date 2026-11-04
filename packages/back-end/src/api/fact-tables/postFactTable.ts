@@ -1,6 +1,6 @@
 import { omit } from "lodash";
 import { postFactTableValidator } from "shared/validators";
-import { CreateFactTableProps } from "shared/types/fact-table";
+import type { CreateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {

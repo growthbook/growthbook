@@ -1,4 +1,4 @@
-import { SavedGroupUploadDetails } from "shared/validators";
+import type { SavedGroupUploadDetails } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import HelperText from "@/ui/HelperText";

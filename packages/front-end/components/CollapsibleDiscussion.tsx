@@ -1,7 +1,7 @@
-import { FC, useState } from "react";
+import { type FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight, PiChatCircle } from "react-icons/pi";
-import {
+import type {
   DiscussionInterface,
   DiscussionParentType,
 } from "shared/types/discussion";

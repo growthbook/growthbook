@@ -1,4 +1,4 @@
-import { Experiment, GrowthBook, GrowthBookClient } from "../../src";
+import { type Experiment, GrowthBook, GrowthBookClient } from "../../src";
 import { thirdPartyTrackingPlugin } from "../../src/plugins/third-party-tracking";
 
 declare global {

@@ -1,26 +1,24 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
   conditionFromLeafClauses,
   getMetricLink,
   isActiveVariation,
   isDeactivatedVariation,
-} from "shared/experiments";
-import type {
-  ContextualBanditResultsLeaf,
-  ContextualLeafClause,
+  type ContextualBanditResultsLeaf,
+  type ContextualLeafClause,
 } from "shared/experiments";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
-import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
+import Heatmap, { type HeatmapColumn, type HeatmapRow } from "@/ui/Heatmap";
 import VariationNumber from "@/ui/VariationNumber";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import Tooltip from "@/ui/Tooltip";

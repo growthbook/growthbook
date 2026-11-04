@@ -1,4 +1,4 @@
-import {
+import type {
   ColumnInterface,
   CreateColumnProps,
   CreateFactFilterProps,
@@ -6,12 +6,12 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
   SchemaFormat,
 } from "shared/types/datasource";
-import {
+import type {
   MetricDefaults,
   OrganizationSettings,
   SDKAttributeSchema,
@@ -22,10 +22,10 @@ import {
   getManagedWarehouseUserIdTypes,
 } from "shared/util";
 import {
-  CreateStandardFactMetricProps,
+  type CreateStandardFactMetricProps,
   getDefaultFactMetricProps,
 } from "@/services/metrics";
-import { ApiCallType } from "@/services/auth";
+import type { ApiCallType } from "@/services/auth";
 import { eventSchemas } from "@/services/eventSchema";
 import {
   isLlmTracingFormat,

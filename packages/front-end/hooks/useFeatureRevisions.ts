@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import useApi from "@/hooks/useApi";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 

@@ -1,7 +1,7 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSourceLayout";

@@ -1,4 +1,4 @@
-import { AutoExperiment, FeatureRule } from "@growthbook/growthbook";
+import type { AutoExperiment, FeatureRule } from "@growthbook/growthbook";
 
 export type FeatureMetadata = {
   projects?: string[];

@@ -1,5 +1,5 @@
-import { FC, useState } from "react";
-import { AuditInterface } from "shared/types/audit";
+import { type FC, useState } from "react";
+import type { AuditInterface } from "shared/types/audit";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { HistoryTableRow } from "@/components/HistoryTable";

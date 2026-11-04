@@ -3,7 +3,7 @@ import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { ConstantInterface } from "shared/types/constant";
+import type { ConstantInterface } from "shared/types/constant";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";

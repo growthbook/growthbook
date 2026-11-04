@@ -1,7 +1,7 @@
-import { DataSourceType } from "shared/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import { format } from "shared/sql";
 import { getDataSourceSqlDialect } from "shared/dialects";
-import { FormatDialect } from "shared/types/sql";
+import type { FormatDialect } from "shared/types/sql";
 
 export function canFormatSql(datasourceType: DataSourceType): boolean {
   return !!getSqlDialect(datasourceType);

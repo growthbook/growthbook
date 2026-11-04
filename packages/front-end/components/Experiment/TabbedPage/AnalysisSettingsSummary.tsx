@@ -1,5 +1,5 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FactTableColumnType } from "shared/types/fact-table";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FactTableColumnType } from "shared/types/fact-table";
 import React, {
   useCallback,
   useMemo,
@@ -7,9 +7,9 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { OrganizationSettings } from "shared/types/organization";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   expandMetricGroups,
@@ -19,7 +19,7 @@ import {
   isFactMetricJoinable,
   isMetricJoinable,
   expandDerivedMetricsInMap,
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
@@ -30,14 +30,14 @@ import {
   getIncrementalFullRefreshReasons,
   overallResultsBuiltWithoutIncrementalPipeline,
   OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
-  IncrementalFullRefreshComparable,
+  type IncrementalFullRefreshComparable,
 } from "shared/enterprise";
 import {
   resolveAnalysisIdentifierType,
   getSnapshotAnalysis,
   getSnapshotCutoffDate,
 } from "shared/util";
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
   DEFAULT_P_VALUE_THRESHOLD,

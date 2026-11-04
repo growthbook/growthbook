@@ -3,11 +3,11 @@ import {
   Permissions,
   roleToPermissionMap,
 } from "shared/permissions";
-import { OrganizationInterface } from "shared/types/organization";
-import { TeamInterface } from "shared/types/team";
-import { FeatureInterface } from "shared/types/feature";
-import { MetricInterface } from "shared/types/metric";
-import { DataSourceInterface } from "shared/types/datasource";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { TeamInterface } from "shared/types/team";
+import type { FeatureInterface } from "shared/types/feature";
+import type { MetricInterface } from "shared/types/metric";
+import type { DataSourceInterface } from "shared/types/datasource";
 import { SUPERADMIN_DEFAULT_ROLE } from "back-end/src/util/secrets";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 

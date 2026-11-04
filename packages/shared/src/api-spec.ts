@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import type { ConfirmAction } from "./validators/confirmations";
 
 export const apiHttpVerbs = ["get", "post", "put", "delete", "patch"] as const;

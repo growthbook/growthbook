@@ -1,8 +1,8 @@
-import {
+import type {
   InterleavingInterface,
   InterleavingExposureQueryInterface,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";

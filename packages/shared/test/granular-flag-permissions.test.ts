@@ -3,10 +3,10 @@ import {
   DEPRECATED_POLICIES,
   ENV_SCOPED_PERMISSIONS,
   POLICY_PERMISSION_MAP,
-  Policy,
+  type Policy,
   REVISION_PERMISSIONS,
-  RevisionAction,
-  RevisionModel,
+  type RevisionAction,
+  type RevisionModel,
   permissionsFromRole,
   roleSupportsEnvLimitFromRole,
 } from "../src/permissions";

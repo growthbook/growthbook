@@ -5,7 +5,7 @@ import {
   GrowthBookClient,
   clearCache,
   setPolyfills,
-  FeatureApiResponse,
+  type FeatureApiResponse,
   prefetchPayload,
   onHidden,
   onVisible,

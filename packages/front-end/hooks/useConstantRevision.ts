@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
-import { Revision, JsonPatchOperation } from "shared/enterprise";
-import { ConstantInterface } from "shared/types/constant";
-import { ConfigInterface } from "shared/types/config";
+import type { Revision, JsonPatchOperation } from "shared/enterprise";
+import type { ConstantInterface } from "shared/types/constant";
+import type { ConfigInterface } from "shared/types/config";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";

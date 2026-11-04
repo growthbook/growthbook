@@ -1,5 +1,5 @@
 import { hasPermission, intersectUserPermissions } from "shared/permissions";
-import {
+import type {
   Permission,
   UserPermission,
   UserPermissions,

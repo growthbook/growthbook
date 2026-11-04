@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";

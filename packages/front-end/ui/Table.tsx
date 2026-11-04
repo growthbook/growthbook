@@ -2,7 +2,7 @@ import React, { forwardRef, useEffect, useRef } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
-import { radixSize, Size } from "@/ui/sizes";
+import { radixSize, type Size } from "@/ui/sizes";
 import styles from "./Table.module.scss";
 
 /** Standard top offset (px) for sticky table headers. Must be >= top nav height (56px) so the header's top border isn't covered. */

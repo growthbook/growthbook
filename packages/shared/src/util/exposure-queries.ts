@@ -1,11 +1,11 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import {
+import type {
   DataSourceSettings,
   ExposureQuery,
   ExposureQueryColumnMapping,
 } from "shared/types/datasource";
-import { ResolvedExposureQuery } from "shared/types/integrations";
+import type { ResolvedExposureQuery } from "shared/types/integrations";
 import type { UnquotedIdentifierFold } from "shared/types/sql";
 import type {
   ApiAssignmentQueryRef,

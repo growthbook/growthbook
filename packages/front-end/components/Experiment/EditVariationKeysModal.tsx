@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import {
+import type {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";

@@ -1,5 +1,5 @@
-import { FC, ChangeEventHandler } from "react";
-import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import type { FC, ChangeEventHandler } from "react";
+import type { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import GeneratedPasswordNote from "./GeneratedPasswordNote";
 import HostWarning from "./HostWarning";

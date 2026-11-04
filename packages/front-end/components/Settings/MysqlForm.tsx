@@ -1,5 +1,5 @@
-import { FC, ChangeEventHandler } from "react";
-import { MysqlConnectionParams } from "shared/types/integrations/mysql";
+import type { FC, ChangeEventHandler } from "react";
+import type { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import GeneratedPasswordNote from "./GeneratedPasswordNote";
 import HostWarning from "./HostWarning";

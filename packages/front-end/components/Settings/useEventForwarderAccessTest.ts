@@ -1,6 +1,6 @@
-import { DataSourceParams, DataSourceType } from "shared/types/datasource";
-import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
-import { EventForwarderAccessTestResponse } from "shared/validators";
+import type { DataSourceParams, DataSourceType } from "shared/types/datasource";
+import type { EventForwarderConfigDraft } from "shared/types/event-forwarder";
+import type { EventForwarderAccessTestResponse } from "shared/validators";
 import { useAuth } from "@/services/auth";
 
 export function useEventForwarderAccessTest({

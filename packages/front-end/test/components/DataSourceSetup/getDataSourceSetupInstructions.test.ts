@@ -1,6 +1,6 @@
-import { DataSourceParams } from "shared/types/datasource";
-import { PostgresConnectionParams } from "shared/types/integrations/postgres";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { DataSourceParams } from "shared/types/datasource";
+import type { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { getDataSourceSetupInstructions } from "@/components/DataSourceSetup/getDataSourceSetupInstructions";
 
 const CLOUD_EGRESS_IP = "52.70.79.40";

@@ -6,7 +6,7 @@ import {
   changesRampPlan,
 } from "back-end/src/services/rampPlanReview";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeatures: jest.fn(),

@@ -1,10 +1,10 @@
 import {
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
 } from "shared/experiments";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { ExperimentReportResultDimension } from "shared/types/report";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ExperimentReportResultDimension } from "shared/types/report";
 
 function factMetric(
   id: string,

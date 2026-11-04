@@ -1,7 +1,7 @@
-import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
+import type { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import {
   getInformationSchemaValidator,
-  ApiInformationSchema,
+  type ApiInformationSchema,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";

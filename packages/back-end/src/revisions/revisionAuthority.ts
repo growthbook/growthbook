@@ -1,12 +1,12 @@
 import isEqual from "lodash/isEqual";
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import type { CasAuthority } from "back-end/src/models/casLoop";
 import {
   canAdvanceDraftWithNarrowAtom,
   canDiscardOrRecallDraft,
   canRebaseWithNarrowAtom,
 } from "back-end/src/revisions/landAuthority";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import { isPureArchiveRevision } from "back-end/src/revisions/archiveTransition";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import {

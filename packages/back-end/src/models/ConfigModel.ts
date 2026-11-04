@@ -6,20 +6,20 @@ import {
   findBasePrecedenceInversions,
   getAncestorSchemaFieldOwners,
   classifyAncestorOwnedFields,
-  AncestorFieldCollision,
+  type AncestorFieldCollision,
   findSiblingSchemaConflicts,
   fieldsToJsonSchema,
   storedInvariantsToApi,
   isConfigLocked,
 } from "shared/util";
-import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
-import { SimpleSchema } from "shared/types/feature";
+import type { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
+import type { SimpleSchema } from "shared/types/feature";
 import {
-  ApiConfig,
+  type ApiConfig,
   configValidator,
   getCyclicConstantRefs,
 } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";

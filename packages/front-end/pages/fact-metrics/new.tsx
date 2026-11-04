@@ -1,9 +1,9 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
-import { CommercialFeature } from "shared/enterprise";
+import type { CommercialFeature } from "shared/enterprise";
 import { getFactMetricCommercialFeature } from "@/services/factMetrics";
 import { duplicateFactMetric } from "@/services/metrics";
 import { getSafeReturnUrl } from "@/services/returnUrl";
@@ -21,7 +21,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
 import {
   parseMetricTemplate,
-  TemplateMetric,
+  type TemplateMetric,
 } from "@/components/FactTables/MetricEditor/templateMetric";
 
 export default function NewFactMetricPage() {

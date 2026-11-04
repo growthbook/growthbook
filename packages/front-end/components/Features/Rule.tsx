@@ -1,18 +1,18 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import {
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import React, {
   forwardRef,
-  ReactElement,
+  type ReactElement,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useRouter } from "next/router";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   rampPlanLacksHashAttribute,
   rampTargetRuleIds,
@@ -44,12 +44,12 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
-  ApiContextualBanditInterface,
+  type ApiContextualBanditInterface,
   isReadyForApproval,
   isAwaitingStartApproval,
-  SafeRolloutInterface,
-  HoldoutInterface,
-  RampScheduleInterface,
+  type SafeRolloutInterface,
+  type HoldoutInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
@@ -76,7 +76,7 @@ import {
 } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import {
-  ConflictBanner,
+  type ConflictBanner,
   ConflictCallout,
   getConflictBadge,
 } from "@/services/rule-conflicts";
@@ -91,7 +91,7 @@ import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleProjectScopeBadges from "@/components/Features/RuleProjectScopeBadges";
 import RuleCard from "@/components/Features/RuleCard";
 import DraftSelectorForChanges, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";

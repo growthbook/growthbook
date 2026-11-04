@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { Environment } from "shared/types/organization";
+import type { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";

@@ -1,5 +1,5 @@
-import React, { FC, useMemo, useState } from "react";
-import {
+import React, { type FC, useMemo, useState } from "react";
+import type {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "shared/types/datasource";

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import RoleForm from "@/components/Teams/Roles/RoleForm";
 import RoleFormWrapper from "@/components/Teams/Roles/RoleFormWrapper";
 import Heading from "@/ui/Heading";

@@ -1,6 +1,6 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
-import { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
+import type { AuditDiffConfig } from "@/components/AuditHistoryExplorer/types";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
   normalizeFeatureSnapshot,

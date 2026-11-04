@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";

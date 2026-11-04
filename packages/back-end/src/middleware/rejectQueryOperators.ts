@@ -1,4 +1,4 @@
-import { RequestHandler } from "express";
+import type { RequestHandler } from "express";
 
 // Path of the first `$`-prefixed key in a parsed query object, or null
 export function findOperatorKey(value: unknown, path = ""): string | null {

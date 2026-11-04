@@ -1,8 +1,8 @@
 import { PermissionError, proposedProjectScope } from "shared/util";
 import { isEqual } from "lodash";
 import {
-  Revision,
-  RevisionTargetType,
+  type Revision,
+  type RevisionTargetType,
   checkMergeConflicts,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
@@ -10,8 +10,8 @@ import {
   entityProjects,
   isScheduledPublishPending,
   isScheduledPublishDue,
-  ReviewDecision,
-  JsonPatchOperation,
+  type ReviewDecision,
+  type JsonPatchOperation,
   REVIEW_CYCLE_STATUSES,
   standingReviews,
 } from "shared/enterprise";

@@ -1,12 +1,12 @@
-import { SetStateAction } from "react";
-import {
+import type { SetStateAction } from "react";
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysisSettings,
 } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { getValidDate } from "shared/dates";
-import { SourceSnapshotRef } from "shared/enterprise";
+import type { SourceSnapshotRef } from "shared/enterprise";
 
 export async function analysisUpdate(
   newSettings: ExperimentSnapshotAnalysisSettings,

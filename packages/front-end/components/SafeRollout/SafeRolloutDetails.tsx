@@ -1,6 +1,6 @@
 import { Box } from "@radix-ui/themes";
-import { SafeRolloutInterface } from "shared/validators";
-import { SignificanceThresholds } from "shared/types/stats";
+import type { SafeRolloutInterface } from "shared/validators";
+import type { SignificanceThresholds } from "shared/types/stats";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import SafeRolloutResults from "./SafeRolloutResults";

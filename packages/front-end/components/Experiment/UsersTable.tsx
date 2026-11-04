@@ -1,10 +1,10 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
-import {
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "shared/types/report";
-import { OrganizationSettings } from "shared/types/organization";
+import type { OrganizationSettings } from "shared/types/organization";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { formatTrafficSplit } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";

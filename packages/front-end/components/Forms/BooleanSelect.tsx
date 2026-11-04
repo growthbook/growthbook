@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Controller, Control } from "react-hook-form";
+import { Controller, type Control } from "react-hook-form";
 
 // eslint-disable-next-line
 export type BooleanSelectControl = Control<any>;

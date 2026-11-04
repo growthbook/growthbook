@@ -1,5 +1,5 @@
-import { PastExperimentResult } from "shared/types/integrations";
-import { PastExperiment } from "shared/types/past-experiments";
+import type { PastExperimentResult } from "shared/types/integrations";
+import type { PastExperiment } from "shared/types/past-experiments";
 import {
   getPastExperimentsWatermark,
   mergePastExperimentResults,

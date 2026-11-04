@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   apiPaginationFieldsValidator,
   apiRampScheduleInterface,
-  RampScheduleInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
 import {
   applyPagination,

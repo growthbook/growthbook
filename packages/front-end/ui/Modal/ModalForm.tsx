@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { truncateString } from "shared/util";
 import { useModalContext, useOptionalModalContext } from "@/ui/Modal";
 import { getErrorDetails } from "@/services/apiCallError";

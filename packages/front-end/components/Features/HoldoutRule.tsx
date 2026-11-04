@@ -1,9 +1,9 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef, useState } from "react";
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
-import { HoldoutInterface } from "shared/validators";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { HoldoutInterface } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -16,7 +16,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
-import RuleCard, { RuleCardSideColor } from "@/components/Features/RuleCard";
+import RuleCard, {
+  type RuleCardSideColor,
+} from "@/components/Features/RuleCard";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";

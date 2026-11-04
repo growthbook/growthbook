@@ -1,17 +1,17 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
-import { z } from "zod";
+import type { z } from "zod";
 import {
-  postConfigBodyValidator,
-  putConfigBodyValidator,
+  type postConfigBodyValidator,
+  type putConfigBodyValidator,
   validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
-import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
+import type { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
 import {
-  Revision,
+  type Revision,
   normalizeProposedChanges,
   getConstantRevisionChange,
 } from "shared/enterprise";
@@ -30,12 +30,12 @@ import {
   collectConfigInvariantViolations,
   stripConfigExtends,
   scopedOverridesFootprint,
-  ScopedOverrideEntry,
+  type ScopedOverrideEntry,
   setOwnValueProperty,
   removeOwnValueProperty,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { assertCanCreateConfigInState } from "back-end/src/revisions/createAuthority";
 import {
   canStageArchiveDraft,
@@ -46,8 +46,8 @@ import {
   runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { parseIdsQuery } from "back-end/src/util/validation";
 import {
@@ -64,9 +64,9 @@ import {
   configPublishEnvironments,
 } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
-  ConstantReferences,
-  ConfigFamilyFeatureRef,
-  ConfigKeyImplementation,
+  type ConstantReferences,
+  type ConfigFamilyFeatureRef,
+  type ConfigKeyImplementation,
   loadConstantReferences,
   loadConfigFamilyFeatureReferences,
   getConfigKeyImplementations,

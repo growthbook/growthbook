@@ -6,19 +6,19 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
-import { RampScheduleInterface } from "shared/validators";
+import type { RampScheduleInterface } from "shared/validators";
 import {
   computeFeatureHealth,
-  EnvStaleResult,
+  type EnvStaleResult,
   getTempRolloutStaleReason,
   isFeatureStale,
 } from "shared/util";
 import { getHealthSettings } from "shared/enterprise";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { GroupMap } from "shared/types/saved-group";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { OrganizationSettings } from "shared/types/organization";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { GroupMap } from "shared/types/saved-group";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { SafeRolloutInterface } from "shared/types/safe-rollout";
 
 const healthSettings = getHealthSettings(undefined, true);
 

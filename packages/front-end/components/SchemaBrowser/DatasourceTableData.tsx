@@ -1,11 +1,11 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   isManagedWarehouseUnavailable,
   MANAGED_WAREHOUSE_EVENTS_TABLE,
 } from "shared/util";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { InformationSchemaTablesInterface } from "shared/types/integrations";
-import { JSONColumnFields } from "shared/types/fact-table";
+import type { InformationSchemaTablesInterface } from "shared/types/integrations";
+import type { JSONColumnFields } from "shared/types/fact-table";
 import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";

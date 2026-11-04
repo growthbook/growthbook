@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { PiInfo } from "react-icons/pi";
 import { Text } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";

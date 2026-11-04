@@ -1,5 +1,5 @@
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import {
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";

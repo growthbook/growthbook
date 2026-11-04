@@ -1,4 +1,4 @@
-import { SqlDialect } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 export function getSampleUnitsCTE(dialect: SqlDialect): string {
   return `__experimentUnits AS (

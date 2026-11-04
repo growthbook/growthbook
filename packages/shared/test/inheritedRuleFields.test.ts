@@ -1,4 +1,4 @@
-import { RequireReview } from "shared/types/organization";
+import type { RequireReview } from "shared/types/organization";
 import {
   normalizeApprovalRuleSettings,
   pruneApprovalRuleReferences,

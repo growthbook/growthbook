@@ -1,4 +1,4 @@
-import { CustomHookInterface } from "shared/validators";
+import type { CustomHookInterface } from "shared/validators";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Code from "@/components/SyntaxHighlighting/Code";
 

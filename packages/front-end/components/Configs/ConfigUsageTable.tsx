@@ -19,7 +19,7 @@ import { Popover } from "@/ui/Popover";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { valueToDisplayString } from "@/components/Configs/fieldSchema";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
+import type { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import styles from "./ConfigUsageTable.module.scss";
 
 // Shared row formats for config-key usage, rendered both in the per-key hover

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
-import { RadixColor } from "./HelperText";
+import type { RadixColor } from "./HelperText";
 import styles from "./ProgressBar.module.scss";
 
 export type Segment = {

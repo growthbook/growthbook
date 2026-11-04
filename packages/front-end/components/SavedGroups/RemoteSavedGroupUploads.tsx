@@ -5,8 +5,8 @@ import {
   formatByteSizeString,
   REMOTE_SAVED_GROUP_SAMPLE_BYTES,
 } from "shared/util";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import {
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type {
   ApiSavedGroupUpload,
   SavedGroupUploadDetails,
   SavedGroupUploadUrlResponse,

@@ -1,12 +1,12 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import React, { type FC, useCallback, useMemo, useState } from "react";
 import { PiCaretRight, PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
-import {
+import type {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "shared/types/datasource";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/AddEditIdentityJoinModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";

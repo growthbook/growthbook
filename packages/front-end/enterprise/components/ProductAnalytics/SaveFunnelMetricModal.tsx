@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Flex } from "@radix-ui/themes";
-import { FunnelDataset } from "shared/validators";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FunnelDataset } from "shared/validators";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   funnelDatasetToFunnelSettings,
   getFunnelSaveBlockers,

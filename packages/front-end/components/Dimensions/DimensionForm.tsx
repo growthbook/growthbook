@@ -1,7 +1,7 @@
-import { FC, useMemo, useState } from "react";
+import { type FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
-import { DimensionInterface } from "shared/types/dimension";
+import type { DimensionInterface } from "shared/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";

@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { ReactNode } from "react";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Flex, Grid } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";

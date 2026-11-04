@@ -1,4 +1,4 @@
-import React, { ReactElement } from "react";
+import React, { type ReactElement } from "react";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -10,8 +10,8 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import Callout from "@/ui/Callout";
 import {
-  ExperimentImpactData,
-  ExperimentImpactType,
+  type ExperimentImpactData,
+  type ExperimentImpactType,
   NoExperimentsForImpactBanner,
   formatImpact,
 } from ".";

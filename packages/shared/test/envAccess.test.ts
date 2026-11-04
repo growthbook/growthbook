@@ -1,4 +1,4 @@
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { envScopeLabels } from "../src/permissions/envAccess";
 
 const org = {

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   PiArrowCounterClockwise,
@@ -7,7 +7,7 @@ import {
   PiPlus,
   PiX,
 } from "react-icons/pi";
-import {
+import type {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";

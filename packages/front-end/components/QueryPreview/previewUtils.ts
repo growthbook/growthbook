@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { startCase } from "lodash";
-import { FactTableDefinition } from "shared/types/fact-table";
-import { ExplorationConfig } from "shared/validators";
+import type { FactTableDefinition } from "shared/types/fact-table";
+import type { ExplorationConfig } from "shared/validators";
 
 export function getPreviewDateRange(
   now = new Date(),

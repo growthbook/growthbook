@@ -1,8 +1,8 @@
-import { Response } from "express";
-import { FilterQuery } from "mongoose";
-import { IdeaInterface } from "shared/types/idea";
-import { Vote } from "shared/types/vote";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { Response } from "express";
+import type { FilterQuery } from "mongoose";
+import type { IdeaInterface } from "shared/types/idea";
+import type { Vote } from "shared/types/vote";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getIdeasByOrganization,
   createIdea,
@@ -16,7 +16,7 @@ import {
   getImpactEstimate,
   ImpactEstimateModel,
 } from "back-end/src/models/ImpactEstimateModel";
-import { IdeaDocument } from "back-end/src/models/IdeasModel";
+import type { IdeaDocument } from "back-end/src/models/IdeasModel";
 import { getExperimentByIdea } from "back-end/src/models/ExperimentModel";
 
 export async function getIdeas(

@@ -6,7 +6,7 @@ import {
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep, omit } from "lodash";
-import {
+import type {
   CreateVirtualColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -24,11 +24,11 @@ import {
   FactTableColumnType,
   FullFactTableColumns,
 } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { QueryStatus } from "shared/types/query";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { ReqContext } from "back-end/types/request";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { QueryStatus } from "shared/types/query";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { ReqContext } from "back-end/types/request";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { parseIdsQuery } from "back-end/src/util/validation";
 import {
@@ -77,7 +77,7 @@ import { logger } from "back-end/src/util/logger";
 import { columnNamesMatch, getColumnByName } from "back-end/src/util/sql";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
-  AggregatedFactTableStatus,
+  type AggregatedFactTableStatus,
   buildAggregatedFactTableStatus,
   deriveAggregatedFactTableRunStatus,
   getAggregatedFactTableMetrics,

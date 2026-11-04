@@ -1,6 +1,9 @@
-import { projectScopeChanged } from "shared/permissions";
+import {
+  projectScopeChanged,
+  type Permissions,
+  type RevisionModel,
+} from "shared/permissions";
 import { isArchiveTransition as isArchiveTransitionPredicate } from "shared/util";
-import type { Permissions, RevisionModel } from "shared/permissions";
 
 // Archiving is delete-class: it takes the entity out of service, and being
 // archived is what lets it then be deleted freely. Unarchiving only puts it back

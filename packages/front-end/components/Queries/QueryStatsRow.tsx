@@ -1,5 +1,5 @@
-import { QueryInterface, QueryStatistics } from "shared/types/query";
-import { ReactElement } from "react";
+import type { QueryInterface, QueryStatistics } from "shared/types/query";
+import type { ReactElement } from "react";
 import { isManagedWarehouse } from "shared/util";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";

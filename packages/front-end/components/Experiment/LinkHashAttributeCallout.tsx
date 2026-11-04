@@ -1,4 +1,4 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import track from "@/services/track";

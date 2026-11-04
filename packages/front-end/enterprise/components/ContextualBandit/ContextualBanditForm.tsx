@@ -1,14 +1,14 @@
-import React, { FC, useState, useCallback } from "react";
+import React, { type FC, useState, useCallback } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
 import {
-  ApiCreateContextualBanditBody,
+  type ApiCreateContextualBanditBody,
   getEligibleContextualAttributes,
 } from "shared/validators";
 import { useRouter } from "next/router";
@@ -42,8 +42,8 @@ import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
 import SelectField, {
-  GroupedValue,
-  SingleValue,
+  type GroupedValue,
+  type SingleValue,
 } from "@/components/Forms/SelectField";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";

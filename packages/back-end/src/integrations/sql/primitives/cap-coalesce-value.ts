@@ -2,10 +2,10 @@ import {
   getAggregateFilters,
   isCappableMetricType,
   getLowerCappingSettings,
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
 } from "shared/experiments";
-import { ColumnRef } from "shared/types/fact-table";
-import { SqlDialect } from "shared/types/sql";
+import type { ColumnRef } from "shared/types/fact-table";
+import type { SqlDialect } from "shared/types/sql";
 import { getCappingTailState } from "shared/validators";
 
 export function capCoalesceValue(

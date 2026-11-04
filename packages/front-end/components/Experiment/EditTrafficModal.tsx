@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { distributeWeights } from "@/services/utils";

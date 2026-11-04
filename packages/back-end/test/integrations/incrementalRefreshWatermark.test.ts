@@ -1,5 +1,5 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { ExposureQuery } from "shared/types/datasource";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExposureQuery } from "shared/types/datasource";
 import {
   bigQueryDialect,
   snowflakeDialect,

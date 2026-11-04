@@ -1,4 +1,7 @@
-import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import type {
+  CustomField,
+  CustomFieldSection,
+} from "shared/types/custom-fields";
 
 function normalizeProject(project: string | undefined) {
   const trimmedProject = (project ?? "").trim();

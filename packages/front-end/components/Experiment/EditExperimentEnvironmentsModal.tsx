@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
-import {
+import type {
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,

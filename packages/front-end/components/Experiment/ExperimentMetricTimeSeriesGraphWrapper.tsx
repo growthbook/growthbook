@@ -2,15 +2,18 @@ import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import {
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
+import type {
   MetricTimeSeries,
-  type MetricTimeSeriesVariation,
+  MetricTimeSeriesVariation,
 } from "shared/validators";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import { ExperimentMetricDefinition, getAdjustedCI } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  getAdjustedCI,
+} from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -21,8 +24,8 @@ import { findTimeSeriesVariation } from "@/services/timeSeriesVariations";
 import { useCurrency } from "@/hooks/useCurrency";
 import type { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
-  DataPointVariation,
-  ExperimentTimeSeriesGraphDataPoint,
+  type DataPointVariation,
+  type ExperimentTimeSeriesGraphDataPoint,
 } from "./ExperimentTimeSeriesGraph";
 
 function getLiftSlice(

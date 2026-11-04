@@ -1,25 +1,28 @@
-import { BigQueryTimestamp } from "@google-cloud/bigquery";
-import { ExperimentMetricInterface } from "shared/experiments";
+import type { BigQueryTimestamp } from "@google-cloud/bigquery";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import type {
   InterleavingAnalysis,
   InterleavingVariationRole,
 } from "shared/validators";
-import { MetricAnalysisSettings } from "shared/types/metric-analysis";
-import { DimensionInterface } from "shared/types/dimension";
-import { AttributionModel } from "shared/types/experiment";
-import {
+import type { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { AttributionModel } from "shared/types/experiment";
+import type {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
-import { MetricInterface, MetricType } from "shared/types/metric";
-import { QueryStatistics } from "shared/types/query";
+import type { MetricInterface, MetricType } from "shared/types/metric";
+import type {
+  QueryStatistics,
+  PopulationDataQuerySettings,
+} from "shared/types/query";
 import type {
   ExposureQuery,
   ExposureQueryColumnMapping,
 } from "shared/types/datasource";
-import {
+import type {
   FactTableMap,
   ColumnInterface,
   FactMetricInterface,
@@ -28,9 +31,8 @@ import {
   MetricQuantileSettings,
   RowFilter,
 } from "shared/types/fact-table";
-import type { PopulationDataQuerySettings } from "shared/types/query";
-import { SegmentInterface } from "shared/types/segment";
-import { PhaseSQLVar, TemplateVariables } from "shared/types/sql";
+import type { SegmentInterface } from "shared/types/segment";
+import type { PhaseSQLVar, TemplateVariables } from "shared/types/sql";
 
 export interface PipelineIntegration {
   getExperimentUnitsTableQueryFromCte(

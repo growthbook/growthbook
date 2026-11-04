@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 
 const EmptyState: FC<{

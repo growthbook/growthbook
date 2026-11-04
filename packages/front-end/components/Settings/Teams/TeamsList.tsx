@@ -1,11 +1,11 @@
-import React, { FC, useState } from "react";
+import React, { type FC, useState } from "react";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import { Team, useUser } from "@/services/UserContext";
+import { type Team, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import {

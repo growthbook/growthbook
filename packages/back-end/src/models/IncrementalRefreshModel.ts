@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import {
-  IncrementalRefreshInterface,
+  type IncrementalRefreshInterface,
   incrementalRefreshValidator,
 } from "shared/validators";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";

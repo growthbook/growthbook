@@ -1,8 +1,8 @@
 import crypto from "crypto";
 import { promisify } from "util";
-import { Request } from "express";
-import { UserInterface } from "shared/types/user";
-import { UserLoginInterface } from "shared/validators";
+import type { Request } from "express";
+import type { UserInterface } from "shared/types/user";
+import type { UserLoginInterface } from "shared/validators";
 import { getUserByEmail, updateUser } from "back-end/src/models/UserModel";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { createEventWithPayload } from "back-end/src/models/EventModel";

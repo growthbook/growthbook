@@ -1,6 +1,6 @@
 import {
-  Revision,
-  JsonPatchOperation,
+  type Revision,
+  type JsonPatchOperation,
   applyTopLevelPatchOps,
 } from "shared/enterprise";
 

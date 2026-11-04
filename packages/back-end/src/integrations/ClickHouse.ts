@@ -3,16 +3,16 @@ import {
   ClickHouseError,
   ClickHouseLogLevel,
   createClient,
-  ResponseJSON,
+  type ResponseJSON,
 } from "@clickhouse/client";
-import {
+import type {
   ExternalIdCallback,
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
 } from "shared/types/integrations";
-import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
   isManagedWarehouse,
   isManagedWarehouseAwaitingProvisioning,
@@ -20,7 +20,7 @@ import {
   ManagedWarehouseOutOfMemoryError,
   ManagedWarehousePendingError,
 } from "shared/util";
-import { RunQueryMetadata } from "shared/types/query";
+import type { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";

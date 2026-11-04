@@ -1,12 +1,18 @@
-import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
-import {
+import React, {
+  type FC,
+  Fragment,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
-import { DimensionSlicesInterface } from "shared/types/dimension";
+import type { DimensionSlicesInterface } from "shared/types/dimension";
 import {
   getExposureQueryIdentifierTypes,
   isEventForwarderManaged,
@@ -15,7 +21,7 @@ import {
   EVENT_FORWARDER_MANAGED_TOOLTIP,
   EventForwarderManagedBadge,
 } from "@/components/Settings/EditDataSource/EventForwarderManaged";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { ExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueryModal";
 import Button from "@/ui/Button";
@@ -24,7 +30,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import type { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 import ProjectBadges from "@/components/ProjectBadges";
 import UITooltip from "@/ui/Tooltip";
 

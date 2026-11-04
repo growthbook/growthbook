@@ -1,11 +1,13 @@
-import { FC } from "react";
-import { StylesConfig } from "react-select";
-import { TagInterface } from "shared/types/tag";
+import type { FC } from "react";
+import type { StylesConfig } from "react-select";
+import type { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField, { MultiSelectFieldSize } from "@/ui/MultiSelectField";
+import MultiSelectField, {
+  type MultiSelectFieldSize,
+} from "@/ui/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
-import { RadixColor } from "@/ui/HelperText";
+import type { RadixColor } from "@/ui/HelperText";
 
 export interface ColorOption {
   readonly value: string;

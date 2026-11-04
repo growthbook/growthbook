@@ -1,6 +1,6 @@
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
-import {
+import type {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LinkedFeatureEnvInputs,
@@ -8,22 +8,22 @@ import {
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { ExperimentReportVariation } from "shared/types/report";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
-import {
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { ExperimentReportVariation } from "shared/types/report";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Environment } from "shared/types/organization";
+import type {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import {
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
@@ -32,8 +32,8 @@ import {
   featureHasEnvironment,
   getAttributeScopeProjectIds,
   getTargetingProjectIds,
-  StagedTargetingScope,
-  TargetingScopedEntity,
+  type StagedTargetingScope,
+  type TargetingScopedEntity,
 } from "./features";
 
 export * from "./strings";

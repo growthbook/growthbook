@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import {
   dateRangePredefined,
   lookbackUnit,
-  ExplorationDateRange,
+  type ExplorationDateRange,
 } from "shared/validators";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";

@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { PiMagnifyingGlass, PiX } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import { TextField } from "@/ui/TextField";

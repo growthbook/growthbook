@@ -10,7 +10,7 @@ import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   filterEnvironmentsByFeature,
-  MergeResultChanges,
+  type MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
   getRevertTargetArchived,

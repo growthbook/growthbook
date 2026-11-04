@@ -1,5 +1,5 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ChangeEventHandler, ReactNode, useState } from "react";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { type ChangeEventHandler, type ReactNode, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
@@ -12,7 +12,7 @@ import MixpanelForm from "./MixpanelForm";
 import MysqlForm from "./MysqlForm";
 import PostgresForm from "./PostgresForm";
 import PrestoForm from "./PrestoForm";
-import SnowflakeForm, { KeyPairGenerator } from "./SnowflakeForm";
+import SnowflakeForm, { type KeyPairGenerator } from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
 import AdobeExperiencePlatformQueryServiceForm from "./AdobeExperiencePlatformQueryServiceForm";

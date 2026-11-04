@@ -10,8 +10,8 @@ import {
   isAwaitingStartApproval,
   readOnlyEcho,
   HUMAN_OVERRIDE_NOTE,
+  type RampScheduleInterface,
 } from "shared/validators";
-import type { RampScheduleInterface } from "shared/validators";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,

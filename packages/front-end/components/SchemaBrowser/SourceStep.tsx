@@ -1,6 +1,6 @@
 import {
-  MutableRefObject,
-  ReactNode,
+  type MutableRefObject,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -14,14 +14,14 @@ import {
   PiWarningFill,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
+import type {
   InformationSchemaInterfaceWithPaths,
   TestQueryRow,
 } from "shared/types/integrations";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ago } from "shared/dates";
-import { DetectedColumn } from "shared/types/fact-table";
-import { TemplateVariables } from "shared/types/sql";
+import type { DetectedColumn } from "shared/types/fact-table";
+import type { TemplateVariables } from "shared/types/sql";
 import {
   isManagedWarehouseUnavailable,
   parseIntWithDefault,
@@ -32,7 +32,7 @@ import { validateSQL } from "@/services/datasources";
 import {
   getSchemaBrowserTables,
   getUnlistedTable,
-  SchemaBrowserTable,
+  type SchemaBrowserTable,
 } from "@/services/schemaBrowserTables";
 import useApi from "@/hooks/useApi";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -54,7 +54,7 @@ import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
 import {
   SAMPLE_ROW_LIMIT,
-  SourceTable,
+  type SourceTable,
 } from "@/components/SchemaBrowser/useSourceTable";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { RESULT_TABLE_MAX_HEIGHT } from "./constants";
 
 export default function PlainQueryResultTable({

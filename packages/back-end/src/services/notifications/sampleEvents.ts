@@ -1,15 +1,15 @@
 // Synthetic notification events for previews and test sends.
 import type { PreviewNotificationEventName } from "shared/notifications";
-import { DiffResult } from "shared/types/events/diff";
-import { NotificationEvent } from "shared/types/events/notification-events";
-import {
+import type { DiffResult } from "shared/types/events/diff";
+import type { NotificationEvent } from "shared/types/events/notification-events";
+import type {
   ApiExperiment,
   EventUser,
   FeatureRevisionWebhookPayload,
   FeatureWebhookPayload,
   RampScheduleStartedPayload,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 type SampleContext = Pick<ReqContext, "userId" | "email" | "userName">;
 
 const API_VERSION = "2024-07-31" as const;

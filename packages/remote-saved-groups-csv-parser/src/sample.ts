@@ -1,6 +1,6 @@
 import { NEWLINE } from "./constants";
 import { checkLine, NOT_TEXT, startsLikeBinary } from "./lines";
-import { RemoteGroupCsvOptions } from "./types";
+import type { RemoteGroupCsvOptions } from "./types";
 
 /**
  * Checks part of a CSV without reading the rest, for a quick check at upload.

@@ -1,4 +1,4 @@
-import {
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";

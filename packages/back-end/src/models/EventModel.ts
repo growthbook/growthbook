@@ -3,7 +3,7 @@ import { z } from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { isEqual } from "lodash";
-import {
+import type {
   NotificationEventResource,
   NotificationEvents,
   ResourceEvents,
@@ -17,11 +17,14 @@ import {
   zodNotificationEventResources,
   eventData,
 } from "shared/validators";
-import { EventInterface, BaseEventInterface } from "shared/types/events/event";
-import { DiffResult } from "shared/types/events/diff";
+import type {
+  EventInterface,
+  BaseEventInterface,
+} from "shared/types/events/event";
+import type { DiffResult } from "shared/types/events/diff";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 
 const API_VERSION = "2024-07-31" as const;

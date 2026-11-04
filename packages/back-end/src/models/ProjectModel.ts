@@ -1,12 +1,12 @@
 import { isEqual } from "lodash";
 import { pruneApprovalRuleReferences } from "shared/util";
-import { TeamInterface } from "shared/types/team";
+import type { TeamInterface } from "shared/types/team";
 import {
-  OAuthGrantInterface,
-  ManagedBy,
-  ProjectInterface,
+  type OAuthGrantInterface,
+  type ManagedBy,
+  type ProjectInterface,
   projectValidator,
-  ApiProject,
+  type ApiProject,
 } from "shared/validators";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";

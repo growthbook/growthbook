@@ -1,7 +1,7 @@
 import { scaleBand, scaleTime } from "@visx/scale";
 import { Group } from "@visx/group";
 import { AxisTop } from "@visx/axis";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentStatus,

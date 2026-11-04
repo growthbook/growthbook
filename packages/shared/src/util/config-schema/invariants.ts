@@ -1,6 +1,6 @@
 import { evalCondition } from "@growthbook/growthbook";
-import { z } from "zod";
-import { configInvariantValidator } from "../../validators/features";
+import type { z } from "zod";
+import type { configInvariantValidator } from "../../validators/features";
 import { isUnsafeMergeKey } from "../deep-merge";
 import { sortObjectKeys } from "../sortObjectKeys";
 

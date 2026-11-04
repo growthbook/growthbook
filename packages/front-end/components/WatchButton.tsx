@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { type FC, useState } from "react";
 import { FaEye } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";

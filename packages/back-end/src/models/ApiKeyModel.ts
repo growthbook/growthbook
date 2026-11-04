@@ -1,11 +1,11 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
-import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import type { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import {
   apiKeySchema,
-  ConfirmRule,
-  OAuthTokenPermissions,
+  type ConfirmRule,
+  type OAuthTokenPermissions,
 } from "shared/validators";
 import {
   apiKeyToggleRequiresAdmin,
@@ -17,7 +17,7 @@ import {
 import {
   addDays,
   EXPIRING_SOON_DAYS,
-  ExpiresAt,
+  type ExpiresAt,
   getExpirationProblem,
   isExpired,
   latestEditedExpiration,

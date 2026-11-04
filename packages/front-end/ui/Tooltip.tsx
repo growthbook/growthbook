@@ -2,12 +2,12 @@ import {
   cloneElement,
   forwardRef,
   isValidElement,
-  PointerEvent,
+  type PointerEvent,
   useState,
 } from "react";
 import {
   Tooltip as RadixTooltip,
-  TooltipProps as RadixTooltipProps,
+  type TooltipProps as RadixTooltipProps,
 } from "@radix-ui/themes";
 
 type TooltipProps = RadixTooltipProps & {

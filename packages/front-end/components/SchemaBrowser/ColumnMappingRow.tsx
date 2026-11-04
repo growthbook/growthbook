@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowsSplitBold,
@@ -11,7 +11,7 @@ import {
   PiUserBold,
   PiX,
 } from "react-icons/pi";
-import { DetectedColumn } from "shared/types/fact-table";
+import type { DetectedColumn } from "shared/types/fact-table";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";

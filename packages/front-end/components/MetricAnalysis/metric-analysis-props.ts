@@ -1,8 +1,8 @@
-import {
+import type {
   CreateMetricAnalysisProps,
   MetricAnalysisSource,
 } from "shared/types/metric-analysis";
-import { MetricAnalysisFormFields } from "@/components/MetricAnalysis/MetricAnalysis";
+import type { MetricAnalysisFormFields } from "@/components/MetricAnalysis/MetricAnalysis";
 
 export function getMetricAnalysisProps({
   id,

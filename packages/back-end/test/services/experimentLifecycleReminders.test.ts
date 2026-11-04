@@ -1,4 +1,4 @@
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import {
   getExperimentsByIds,

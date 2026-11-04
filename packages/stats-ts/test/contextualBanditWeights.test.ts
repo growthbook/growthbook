@@ -3,7 +3,7 @@ import {
   computeContextualBanditWeights,
   type ContextualBanditArm,
   type ContextualBanditObservation,
-  ContextualBanditWeightsInput,
+  type ContextualBanditWeightsInput,
 } from "../src/contextualBanditWeights";
 
 const ZERO_ARM: ContextualBanditArm = {

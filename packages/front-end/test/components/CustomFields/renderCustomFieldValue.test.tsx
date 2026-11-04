@@ -1,7 +1,7 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { CustomField } from "shared/types/custom-fields";
+import type { CustomField } from "shared/types/custom-fields";
 import { renderCustomFieldValue } from "@/components/CustomFields/renderCustomFieldValue";
 
 const fieldTypes: CustomField["type"][] = [

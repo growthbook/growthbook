@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActiveDraftStatus } from "shared/validators";
+import type { ActiveDraftStatus } from "shared/validators";
 import { useAuth } from "@/services/auth";
 
 export type DraftStatusCounts = Partial<Record<ActiveDraftStatus, number>>;

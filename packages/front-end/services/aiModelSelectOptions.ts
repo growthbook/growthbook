@@ -1,5 +1,8 @@
-import type { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
+  type AIModel,
+  type AIProvider,
+  type EmbeddingModel,
+  type STTModel,
   AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
   DEFAULT_EMBEDDING_MODEL,

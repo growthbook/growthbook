@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getSavedGroup } from "./getSavedGroup";
 import { listSavedGroups } from "./listSavedGroups";
 import { postSavedGroup } from "./postSavedGroup";

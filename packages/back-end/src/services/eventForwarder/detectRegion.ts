@@ -4,8 +4,8 @@ import {
   warehouseRegionIdFromDatabricksZerobusEndpoint,
   warehouseRegionIdFromSnowflakeCurrentRegion,
 } from "shared/util";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
 import { getErrorMessage } from "back-end/src/util/errors";

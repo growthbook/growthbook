@@ -1,5 +1,5 @@
-import { Response } from "express";
-import { ScimError, ScimGetRequest } from "back-end/types/scim";
+import type { Response } from "express";
+import type { ScimError, ScimGetRequest } from "back-end/types/scim";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { removeUserFromOrg } from "./patchUser";
 

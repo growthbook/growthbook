@@ -1,4 +1,4 @@
-import { DataSourceType } from "shared/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import { isCloud } from "@/services/env";
 
 function hasText(value: unknown): boolean {

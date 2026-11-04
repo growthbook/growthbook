@@ -1,4 +1,4 @@
-import { AIPromptType, AI_PROMPT_DEFAULTS } from "shared/ai";
+import { type AIPromptType, AI_PROMPT_DEFAULTS } from "shared/ai";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { aiPromptValidator } from "back-end/src/routers/ai/ai.validators";
 

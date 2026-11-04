@@ -1,14 +1,14 @@
 import { resolveAssignmentQuerySelectionChange } from "shared/util";
 import {
-  CreateSafeRolloutInterface,
+  type CreateSafeRolloutInterface,
   createSafeRolloutValidator,
-  SafeRolloutInterface,
+  type SafeRolloutInterface,
 } from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { BadRequestError } from "back-end/src/util/errors";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 
 // This functions needs to stay in the back-end because it uses models, and can't be shared like the
 // other validators in shared/validators.ts

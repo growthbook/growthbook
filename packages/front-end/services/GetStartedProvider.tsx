@@ -1,8 +1,8 @@
 import {
-  FC,
+  type FC,
   createContext,
   useContext,
-  ReactNode,
+  type ReactNode,
   useState,
   useCallback,
 } from "react";

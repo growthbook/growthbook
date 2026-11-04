@@ -12,7 +12,7 @@ import {
   parseFunnelStepMetricId,
   parseSliceMetricId,
 } from "shared/experiments";
-import {
+import type {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesDataPointTag,
   MetricTimeSeriesValue,
@@ -23,7 +23,7 @@ import {
   GoalMetricStatus,
   GuardrailMetricStatus,
 } from "shared/validators";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -31,14 +31,14 @@ import {
   MetricForSnapshot,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
   ColumnRef,
 } from "shared/types/fact-table";
-import { ExposureQuery } from "shared/types/datasource";
+import type { ExposureQuery } from "shared/types/datasource";
 import { getIdentifierTypeForSettingsHash } from "shared/util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";

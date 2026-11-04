@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { SegmentInterface } from "shared/types/segment";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";

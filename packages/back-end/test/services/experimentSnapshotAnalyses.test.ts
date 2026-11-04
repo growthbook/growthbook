@@ -1,12 +1,12 @@
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/types/experiment";
-import { ExperimentMetricInterface } from "shared/experiments";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
   addOrUpdateSnapshotAnalysis,

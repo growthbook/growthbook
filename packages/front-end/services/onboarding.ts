@@ -1,4 +1,4 @@
-import { DemographicData } from "shared/types/organization";
+import type { DemographicData } from "shared/types/organization";
 
 // When a user has no explicit usage intents, fall back to their role:
 // Engineers most often start with feature flags, so they should not be

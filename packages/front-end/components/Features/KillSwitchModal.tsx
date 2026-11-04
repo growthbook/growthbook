@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
-import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
+import type { FeatureInterface } from "shared/types/feature";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Environment } from "shared/types/organization";
 import { ACTIVE_DRAFT_STATUSES, eventUserPersonId } from "shared/validators";
 import {
   getReviewSetting,
@@ -25,7 +25,7 @@ import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import DraftSelectorForChanges, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import PermissionBlocker from "@/ui/PermissionBlocker";

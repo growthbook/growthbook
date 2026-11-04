@@ -1,4 +1,4 @@
-import {
+import type {
   FactTableDefinition,
   FunnelFactMetricInterface,
 } from "shared/types/fact-table";

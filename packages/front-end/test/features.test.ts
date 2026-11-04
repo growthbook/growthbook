@@ -1,6 +1,6 @@
 import stringify from "json-stringify-pretty-compact";
 import {
-  AttributeData,
+  type AttributeData,
   condToJson,
   getDefaultOperator,
   jsonToConds,

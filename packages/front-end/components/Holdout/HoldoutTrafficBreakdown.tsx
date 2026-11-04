@@ -1,7 +1,7 @@
-import { ExperimentPhaseStringDates } from "shared/types/experiment";
+import type { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
-import Text, { TextProps } from "@/ui/Text";
+import Text, { type TextProps } from "@/ui/Text";
 
 export default function HoldoutTrafficBreakdown({
   phase,

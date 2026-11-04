@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Box } from "@radix-ui/themes";
 import Table, {
   TableBody,

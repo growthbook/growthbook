@@ -1,10 +1,10 @@
-import {
+import type {
   ExperimentInterface,
   ExperimentPhase,
   Variation,
   VariationStatus,
 } from "shared/types/experiment";
-import { DestinationURL } from "shared/types/url-redirect";
+import type { DestinationURL } from "shared/types/url-redirect";
 
 type ExperimentWithVariations = Pick<ExperimentInterface, "variations">;
 

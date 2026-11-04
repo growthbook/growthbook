@@ -1,13 +1,13 @@
 import type { Response } from "express";
-import { TeamInterface } from "shared/types/team";
-import { MemberRoleWithProjects } from "shared/types/organization";
+import type { TeamInterface } from "shared/types/team";
+import type { MemberRoleWithProjects } from "shared/types/organization";
 import {
   addMembersToTeam,
   assertCanChangeTeamMembership,
   getContextFromReq,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 
 // region POST /teams
 

@@ -1,14 +1,20 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   ExperimentSnapshotInterface,
   ExperimentSnapshotTraffic,
 } from "shared/types/experiment-snapshot";
-import {
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -20,7 +26,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import ExposureLogsCard from "@/components/HealthTab/ExposureLogsCard";
-import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
+import { IssueTags, type IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
@@ -30,7 +36,7 @@ import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
 import {
-  HealthTabConfigParams,
+  type HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "./HealthTabOnboardingModal";
 

@@ -1,8 +1,8 @@
 import { factMetricValidator } from "shared/validators";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 import {
-  CreateFactMetricFormProps,
+  type CreateFactMetricFormProps,
   fromFactMetricFormValues,
 } from "@/services/metrics";
 

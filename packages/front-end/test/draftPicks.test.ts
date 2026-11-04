@@ -1,4 +1,4 @@
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   draftNextStep,
   draftReviewState,

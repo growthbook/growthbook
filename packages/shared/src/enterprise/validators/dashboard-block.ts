@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DistributiveOmit } from "shared/util";
+import type { DistributiveOmit } from "shared/util";
 import {
   metricAnalysisSettingsStringDatesValidator,
   metricAnalysisSettingsValidator,
@@ -13,7 +13,7 @@ import {
   explorationDateRangeValidator,
   comparisonModeValidator,
   dateGranularity,
-  ExplorationDateRange,
+  type ExplorationDateRange,
 } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange } from "../product-analytics/sql";
 import { hasTimestampColumn } from "../product-analytics/utils";

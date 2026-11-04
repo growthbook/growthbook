@@ -1,7 +1,7 @@
-import { Variation, VariationWithIndex } from "shared/types/experiment";
-import { ExperimentReportVariation } from "shared/types/report";
+import type { Variation, VariationWithIndex } from "shared/types/experiment";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { useCallback, useEffect, useState } from "react";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,

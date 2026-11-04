@@ -1,9 +1,9 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { PiInfo, PiWarningFill } from "react-icons/pi";
 import {
-  AssignmentQueryNotice,
+  type AssignmentQueryNotice,
   getDefaultIdentifierType,
   getExposureQueriesInScope,
   getGroupedIdentifierTypeOptions,
@@ -13,8 +13,8 @@ import {
   isIdentifierUndeclared,
 } from "@/services/datasources";
 import SelectField, {
-  GroupedValue,
-  SingleValue,
+  type GroupedValue,
+  type SingleValue,
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";

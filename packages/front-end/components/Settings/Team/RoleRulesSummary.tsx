@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { MemberRoleWithProjects } from "shared/types/organization";
+import type { MemberRoleWithProjects } from "shared/types/organization";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";

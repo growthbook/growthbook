@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import {
+import type {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";

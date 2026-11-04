@@ -1,7 +1,7 @@
 import { configPublishEnvironments } from "shared/util";
-import { Revision, JsonPatchOperation } from "shared/enterprise";
-import { ConfigInterface } from "shared/types/config";
-import {
+import type { Revision, JsonPatchOperation } from "shared/enterprise";
+import type { ConfigInterface } from "shared/types/config";
+import type {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
@@ -10,9 +10,12 @@ import {
   revisionReference,
   webhookActor,
 } from "back-end/src/events/revisionReference";
-import { Context } from "back-end/src/models/BaseModel";
-import { ApiReqContext } from "back-end/types/api";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import type { Context } from "back-end/src/models/BaseModel";
+import type { ApiReqContext } from "back-end/types/api";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { toApiConfigRevision } from "back-end/src/api/configs/toApiConfigRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";

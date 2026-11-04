@@ -1,5 +1,5 @@
 import { putApprovalSettingsValidator } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   assertTargetingRulesDisjoint,
   normalizeApprovalRuleSettings,

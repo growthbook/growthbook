@@ -1,13 +1,13 @@
 import {
-  Revision,
-  Review,
-  ActivityLogEntry,
-  JsonPatchOperation,
+  type Revision,
+  type Review,
+  type ActivityLogEntry,
+  type JsonPatchOperation,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { revisionActor, eventUserToApiEventUser } from "shared/validators";
 import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 

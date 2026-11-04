@@ -1,9 +1,9 @@
-import {
+import type {
   AggregatedFactTableSettings,
   ColumnInterface,
   UpdateColumnProps,
 } from "shared/types/fact-table";
-import {
+import type {
   DataSourceInterface,
   GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";

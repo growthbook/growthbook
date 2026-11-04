@@ -1,5 +1,5 @@
-import { SegmentInterface } from "shared/types/segment";
-import { UpdateProps } from "shared/types/base-model";
+import type { SegmentInterface } from "shared/types/segment";
+import type { UpdateProps } from "shared/types/base-model";
 import { updateSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";

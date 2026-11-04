@@ -1,4 +1,4 @@
-import { ChildProcess, spawn } from "child_process";
+import { type ChildProcess, spawn } from "child_process";
 import os from "os";
 import path from "path";
 import readline from "readline";
@@ -10,8 +10,10 @@ import {
 import { createPool } from "generic-pool";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import JSON5 from "json5";
-import { MultipleExperimentMetricAnalysis } from "shared/types/stats";
-import type { ExperimentDataForStatsEngine } from "shared/types/stats";
+import type {
+  MultipleExperimentMetricAnalysis,
+  ExperimentDataForStatsEngine,
+} from "shared/types/stats";
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT, IS_CLOUD } from "back-end/src/util/secrets";
 import { metrics } from "back-end/src/util/metrics";

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   getInitialDatasourceResources,
   getDatasourceTemplateResources,

@@ -1,7 +1,7 @@
 import path from "path";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,

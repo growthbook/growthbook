@@ -6,7 +6,7 @@ import {
   makePersonaContext,
   OPERATION_ORACLE,
   PERSONA_IDS,
-  Persona,
+  type Persona,
 } from "./permission-personas.fixture";
 
 /**

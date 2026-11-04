@@ -1,12 +1,16 @@
-import { isStrandedLiveRevision, type MergeResultChanges } from "shared/util";
-import { draftRevertedFromVersion, publishRampDetaches } from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
+import {
+  isStrandedLiveRevision,
+  type MergeResultChanges,
+  draftRevertedFromVersion,
+  publishRampDetaches,
+} from "shared/util";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   bypassApprovalPermission,
   NO_ENVIRONMENT_BINDING,
   DEFAULT_PERMISSION_ERROR_MESSAGE,
 } from "shared/permissions";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type {
   RevisionRampDetachAction,
   SafeRolloutInterface,
@@ -51,7 +55,7 @@ import {
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import {
   applyFeatureContextualBanditLinkage,
-  ContextualBanditLinkagePlan,
+  type ContextualBanditLinkagePlan,
   planFeatureContextualBanditLinkage,
   referencesAnyContextualBandit,
   reverseFeatureContextualBanditLinkage,
@@ -60,7 +64,7 @@ import { getMergeResultPublishEnvs } from "back-end/src/services/features";
 import {
   collectFeaturePublishGates,
   planFeatureRevisionMerge,
-  FeatureMergePlan,
+  type FeatureMergePlan,
 } from "back-end/src/services/featurePublishGates";
 import {
   dispatchFeatureRevisionEvent,
@@ -70,7 +74,7 @@ import {
   applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
   planRampBaseStateSyncForPublish,
-  RampBaseStatePreImage,
+  type RampBaseStatePreImage,
   RampLockdownError,
   restoreRampBaseStates,
 } from "back-end/src/services/rampSchedule";
@@ -85,17 +89,17 @@ import {
 } from "back-end/src/util/errors";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
+import {
+  type PublishGate,
+  authorityRefused,
+  gateOr5xx,
+  makeBlockingGate,
+} from "back-end/src/revisions/publishGates";
 import { resolveRevertRampStopsForRevision } from "back-end/src/revisions/revertRampGuard";
 import {
   LandingConflictError,
   runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
-import {
-  authorityRefused,
-  gateOr5xx,
-  makeBlockingGate,
-} from "back-end/src/revisions/publishGates";
 import type {
   BulkPublishableAdapter,
   BulkRevisionRef,

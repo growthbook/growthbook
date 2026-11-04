@@ -1,7 +1,7 @@
-import { Response } from "express";
-import { PresentationInterface } from "shared/types/presentation";
-import { ExperimentInterface } from "shared/types/experiment";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { Response } from "express";
+import type { PresentationInterface } from "shared/types/presentation";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getPresentationById,
   getPresentationsByOrganization,

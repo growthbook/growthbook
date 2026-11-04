@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
 import {
   initializeClient,
-  InitializeClientOptions,
+  type InitializeClientOptions,
   GSS_MECH_OID_KRB5,
 } from "kerberos";
 import { logger } from "./logger";

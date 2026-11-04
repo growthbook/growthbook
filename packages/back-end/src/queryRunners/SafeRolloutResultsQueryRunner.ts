@@ -1,23 +1,23 @@
-import { UpdateProps } from "shared/types/base-model";
-import { ExperimentMetricInterface } from "shared/experiments";
+import type { UpdateProps } from "shared/types/base-model";
+import type { ExperimentMetricInterface } from "shared/experiments";
 import { omit } from "lodash";
-import { ExperimentAggregateUnitsQueryResponseRows } from "shared/types/integrations";
-import { Queries, QueryStatus } from "shared/types/query";
-import {
+import type { ExperimentAggregateUnitsQueryResponseRows } from "shared/types/integrations";
+import type { Queries, QueryStatus } from "shared/types/query";
+import type {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotHealth,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { getSnapshotSettingsFromSafeRolloutArgs } from "back-end/src/services/safeRolloutSnapshots";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import { logger } from "back-end/src/util/logger";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 import {
-  ExperimentResultsQueryParams,
+  type ExperimentResultsQueryParams,
   startExperimentResultQueries,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";

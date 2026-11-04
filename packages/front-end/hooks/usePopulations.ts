@@ -1,6 +1,6 @@
 import { populationEndpoints } from "shared/api-endpoints";
 import { useCallback, useMemo } from "react";
-import { ApiPopulation } from "shared/validators";
+import type { ApiPopulation } from "shared/validators";
 import { isProjectListValidForProject } from "shared/util";
 import useSWR, { useSWRConfig } from "swr";
 import { useAuth } from "@/services/auth";

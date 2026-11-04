@@ -1,4 +1,4 @@
-import { FC, useEffect, useState, CSSProperties } from "react";
+import { type FC, useEffect, useState, type CSSProperties } from "react";
 import { Box } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";

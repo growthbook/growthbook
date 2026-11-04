@@ -1,6 +1,6 @@
-import { ReactElement } from "react";
+import type { ReactElement } from "react";
 import { FaRobot } from "react-icons/fa";
-import Avatar, { Props as AvatarProps } from "@/ui/Avatar";
+import Avatar, { type Props as AvatarProps } from "@/ui/Avatar";
 
 type Props = {
   name?: string;

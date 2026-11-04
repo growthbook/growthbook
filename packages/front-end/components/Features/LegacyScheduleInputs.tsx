@@ -1,4 +1,4 @@
-import { ScheduleRule } from "shared/types/feature";
+import type { ScheduleRule } from "shared/types/feature";
 import React, { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";

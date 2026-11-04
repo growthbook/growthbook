@@ -11,16 +11,16 @@ import {
   savedGroupScopeChangeBreaksTargeting,
   savedGroupScopeRuleCounterparts,
   scopedRules,
-  Feature,
-  Group,
-  ProjectScope,
-  ScopedRule,
+  type Feature,
+  type Group,
+  type ProjectScope,
+  type ScopedRule,
 } from "back-end/src/util/savedGroupProjectScope.util";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
   gateOr5xx,
   makeBlockingGate,
-  PublishGate,
+  type PublishGate,
 } from "back-end/src/revisions/publishGates";
 
 export async function assertFeatureSavedGroupScope(

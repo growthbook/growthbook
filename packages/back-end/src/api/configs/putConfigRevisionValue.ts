@@ -4,9 +4,9 @@ import {
   parsePlainJSONObject,
   inferFieldsFromValue,
   ancestorCollisionWarnings,
-  SchemaWarning,
+  type SchemaWarning,
 } from "shared/util";
-import { SimpleSchema } from "shared/types/feature";
+import type { SimpleSchema } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {

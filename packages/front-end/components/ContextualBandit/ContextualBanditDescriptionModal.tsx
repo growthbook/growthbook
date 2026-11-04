@@ -1,7 +1,7 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOutFill } from "react-icons/pi";
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";

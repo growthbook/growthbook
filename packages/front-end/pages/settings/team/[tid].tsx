@@ -1,5 +1,5 @@
 import router from "next/router";
-import React, { FC, useState } from "react";
+import React, { type FC, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";

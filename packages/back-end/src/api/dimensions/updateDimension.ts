@@ -1,5 +1,5 @@
 import { updateDimensionValidator } from "shared/validators";
-import { DimensionInterface } from "shared/types/dimension";
+import type { DimensionInterface } from "shared/types/dimension";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { SavedGroupsPayload } from "./types/growthbook";
+import type { SavedGroupsPayload } from "./types/growthbook";
 import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
-import {
+import type {
   ConditionInterface,
   SavedGroupReference,
   TestedObj,

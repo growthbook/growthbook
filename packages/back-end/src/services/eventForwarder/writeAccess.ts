@@ -2,29 +2,29 @@ import {
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
 } from "shared/enterprise";
-import {
+import type {
   BigQueryEventForwarderStoredConfig,
   DatabricksEventForwarderStoredConfig,
   EventForwarderConfigDraft,
   EventForwarderSinkType,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import {
+import type {
   EventForwarderAccessTestResponse,
   EventForwarderConfigInterface,
 } from "shared/validators";
-import {
+import type {
   DataSourceInterface,
   DataSourceParams,
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
   databricksParamsSupportEventForwarder,
-  EventForwarderDatasourceParams,
+  type EventForwarderDatasourceParams,
   getEventForwarderDatasourceParams,
 } from "shared/util";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -39,7 +39,7 @@ import {
 } from "back-end/src/services/eventForwarder/config";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 type EventForwarderWriteAccessInput =
   | {

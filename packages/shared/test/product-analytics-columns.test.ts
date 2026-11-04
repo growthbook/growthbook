@@ -6,11 +6,11 @@ import {
   getRelevantFactTableIds,
   sanitizeDimensions,
 } from "shared/enterprise";
-import {
+import type {
   ExplorationConfig,
   ExplorationDataset,
 } from "shared/validators/product-analytics";
-import {
+import type {
   ColumnInterface,
   FactTableInterface,
   FactMetricInterface,

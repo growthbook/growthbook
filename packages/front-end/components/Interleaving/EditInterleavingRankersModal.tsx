@@ -7,7 +7,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import InterleavingVariationsInput, {
   getRankersError,
-  InterleavingRankers,
+  type InterleavingRankers,
 } from "./InterleavingVariationsInput";
 
 export function rankersOf(il: ApiInterleavingInterface): InterleavingRankers {

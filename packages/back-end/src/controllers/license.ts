@@ -1,16 +1,16 @@
 import crypto from "crypto";
 import { hasSuperAdminPermission } from "shared/permissions";
-import { Response } from "express";
-import { AccountPlan } from "shared/enterprise";
+import type { Response } from "express";
+import type { AccountPlan } from "shared/enterprise";
 import { LicenseServerError } from "back-end/src/util/errors";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   licenseInit,
   postCreateTrialEnterpriseLicenseToLicenseServer,

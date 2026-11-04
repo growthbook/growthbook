@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";

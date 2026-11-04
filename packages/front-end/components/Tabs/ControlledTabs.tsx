@@ -1,10 +1,10 @@
 import {
-  FC,
+  type FC,
   Children,
   useState,
   isValidElement,
-  ReactNode,
-  ReactElement,
+  type ReactNode,
+  type ReactElement,
   useEffect,
 } from "react";
 import clsx from "clsx";

@@ -1,4 +1,4 @@
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 
 // Guards that arm a deferred (scheduled / auto-publish-on-approval) publish with
 // an acknowledgment fingerprint. Each stores its acknowledged conflict keys under

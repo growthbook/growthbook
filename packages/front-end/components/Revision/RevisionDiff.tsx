@@ -5,14 +5,14 @@ import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import {
   ExpandableDiff,
-  DiffCommentsProps,
+  type DiffCommentsProps,
   CollapsedSection,
   FormattedChanges,
   type FormattedChangeItem,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
-import { DiffItem, DiffBadge, CustomRenderGroup } from "./useRevisionDiff";
+import type { DiffItem, DiffBadge, CustomRenderGroup } from "./useRevisionDiff";
 
 interface RevisionDiffProps {
   diffs: DiffItem[];

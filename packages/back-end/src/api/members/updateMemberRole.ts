@@ -1,6 +1,6 @@
 import { cloneDeep } from "lodash";
 import { updateMemberRoleValidator } from "shared/validators";
-import { Member, ProjectMemberRole } from "shared/types/organization";
+import type { Member, ProjectMemberRole } from "shared/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
   assertMemberRoleInfoValid,

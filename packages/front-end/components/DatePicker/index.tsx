@@ -1,10 +1,10 @@
-import { DateRange, DayPicker, Matcher } from "react-day-picker";
+import { type DateRange, DayPicker, type Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { endOfDay, format, startOfDay, startOfMonth } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, {
-  ReactNode,
+  type ReactNode,
   useCallback,
   useEffect,
   useId,

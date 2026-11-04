@@ -1,7 +1,7 @@
 import { isEqual } from "lodash";
 import {
-  Revision,
-  RevisionTargetType,
+  type Revision,
+  type RevisionTargetType,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";

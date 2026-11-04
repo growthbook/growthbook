@@ -5,8 +5,8 @@ import {
   isExperimentIncrementalEnabled,
   isNewerOverallResultsDataAvailable,
   overallResultsBuiltWithoutIncrementalPipeline,
+  type IncrementalFullRefreshComparable,
 } from "shared/enterprise";
-import type { IncrementalFullRefreshComparable } from "shared/enterprise";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import type { DataSourcePipelineSettings } from "shared/types/datasource";
 import type { FactMetricInterface } from "shared/types/fact-table";

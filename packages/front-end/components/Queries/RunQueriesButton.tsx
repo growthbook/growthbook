@@ -1,11 +1,11 @@
 import {
-  ForwardedRef,
+  type ForwardedRef,
   forwardRef,
-  ReactElement,
+  type ReactElement,
   useEffect,
   useState,
 } from "react";
-import { QueryStatus, Queries } from "shared/types/query";
+import type { QueryStatus, Queries } from "shared/types/query";
 import { PiPlay, PiArrowClockwise, PiXBold } from "react-icons/pi";
 import { getValidDate } from "shared/dates";
 import { IconButton, Progress, Text } from "@radix-ui/themes";

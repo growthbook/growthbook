@@ -1,11 +1,11 @@
-import { SqlDialect } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { format } from "shared/sql";
-import {
+import type {
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
 } from "shared/types/integrations";
-import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import type { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";

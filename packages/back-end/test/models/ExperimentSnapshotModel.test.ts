@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";

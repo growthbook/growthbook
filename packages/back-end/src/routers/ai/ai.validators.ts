@@ -3,7 +3,7 @@ import {
   AI_PROMPT_TYPES,
   AI_PROVIDER_MODEL_MAP,
   AI_PROVIDERS,
-  AIModel,
+  type AIModel,
 } from "shared/ai";
 
 export const aiPromptTypeValidator = z.enum(AI_PROMPT_TYPES);

@@ -1,6 +1,6 @@
 import { getScopedSettings } from "shared/settings";
-import { ExperimentInterface } from "shared/types/experiment";
-import { OrganizationInterface } from "shared/types/organization";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { OrganizationInterface } from "shared/types/organization";
 import { resetExperimentBanditSettings } from "back-end/src/services/experiments";
 
 describe("resetExperimentBanditSettings", () => {

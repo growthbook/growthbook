@@ -1,10 +1,10 @@
 import type { Response } from "express";
-import { z } from "zod";
+import type { z } from "zod";
 import { isEqual } from "lodash";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { Environment } from "shared/types/organization";
-import {
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { Environment } from "shared/types/organization";
+import type {
   createEnvValidator,
   deleteEnvValidator,
   updateEnvOrderValidator,
@@ -17,8 +17,8 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   getEnvironments,
   getContextFromReq,

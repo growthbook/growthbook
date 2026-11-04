@@ -1,12 +1,12 @@
 import { format } from "shared/sql";
-import { SqlDialect } from "shared/types/sql";
-import { FactTableInterface, FactTableMap } from "shared/types/fact-table";
-import { DataSourceType } from "shared/types/datasource";
+import type { SqlDialect } from "shared/types/sql";
+import type { FactTableInterface, FactTableMap } from "shared/types/fact-table";
+import type { DataSourceType } from "shared/types/datasource";
 import {
   getColumnExpression,
   getFactTableTimestampColumn,
 } from "../../experiments/experiments";
-import {
+import type {
   ExplorationConfig,
   JourneyDataset,
   JourneyStepGroup,

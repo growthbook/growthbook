@@ -1,22 +1,22 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
   Variation,
 } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
-import { DifferenceType } from "shared/types/stats";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import {
+import type { DifferenceType } from "shared/types/stats";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type {
   HoldoutInterfaceStringDates,
   HoldoutMissingLinkage,
 } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { Box } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
@@ -63,11 +63,11 @@ import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useStartExperiment from "./useStartExperiment";
 import ExperimentDetailsPanel, {
-  DetailsPanelTab,
+  type DetailsPanelTab,
 } from "./ExperimentDetailsPanel";
 import {
   ExperimentEditsProvider,
-  HoldoutDraft,
+  type HoldoutDraft,
   useExperimentEdits,
   useExperimentFieldEdit,
   useStagedState,
@@ -80,9 +80,9 @@ import Implementation, {
   IMPLEMENTATION_ID,
   withStagedVariations,
 } from "./Implementation";
-import { TargetingDraft } from "./TrafficAllocationFunnel";
+import type { TargetingDraft } from "./TrafficAllocationFunnel";
 import {
-  AddedFlag,
+  type AddedFlag,
   addedFlagChanges,
   linkEditId,
   useAddedFlags,

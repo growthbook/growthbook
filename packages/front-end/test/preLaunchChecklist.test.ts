@@ -1,12 +1,12 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import {
-  CheckListItem,
+  type CheckListItem,
   getChecklistItems,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import {

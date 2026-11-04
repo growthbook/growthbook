@@ -1,11 +1,11 @@
-import { z } from "zod";
-import { ExposureQuery } from "shared/types/datasource";
+import type { z } from "zod";
+import type { ExposureQuery } from "shared/types/datasource";
 import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
   getEnabledHoldoutEnvironments,
   getHoldoutStage,
-  HoldoutStage,
+  type HoldoutStage,
   isHoldoutStageTransitionAllowed,
   stringToBoolean,
   parseAssignmentQueryInput,
@@ -13,17 +13,17 @@ import {
 } from "shared/util";
 import { getActivePhase } from "shared/experiments";
 import {
-  ApiHoldoutInterface,
+  type ApiHoldoutInterface,
   apiCreateHoldoutBody,
-  apiHoldoutActionReturn,
-  apiHoldoutActionValidator,
+  type apiHoldoutActionReturn,
+  type apiHoldoutActionValidator,
   apiUpdateHoldoutBody,
   HOLDOUT_API_TARGETING_UPDATE_FIELDS,
-  HoldoutInterface,
+  type HoldoutInterface,
   holdoutValidator,
 } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { UpdateProps } from "shared/types/base-model";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { notifyHoldoutNewLinkage } from "back-end/src/services/holdoutNotifications";
 import {
   type DeferredEventBuffer,
@@ -54,7 +54,7 @@ import {
 import { getCollection } from "back-end/src/util/mongo.util";
 import { InvalidStatusError, NotFoundError } from "back-end/src/util/errors";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
-import { ApiRequest } from "back-end/src/util/handler";
+import type { ApiRequest } from "back-end/src/util/handler";
 import {
   assertCanRunHoldoutEnvironments,
   assertCanUpdateHoldout,

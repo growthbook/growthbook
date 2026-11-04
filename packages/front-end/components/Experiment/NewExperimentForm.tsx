@@ -1,6 +1,12 @@
-import React, { FC, useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  type FC,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   Variation,
@@ -30,7 +36,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  AssignmentQueryCopySource,
+  type AssignmentQueryCopySource,
   getNewExperimentDatasourceDefaults,
 } from "@/services/datasources";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
@@ -64,8 +70,8 @@ import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
 import SelectField, {
-  GroupedValue,
-  SingleValue,
+  type GroupedValue,
+  type SingleValue,
 } from "@/components/Forms/SelectField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ConditionInput from "@/components/Features/ConditionInput";

@@ -1,4 +1,4 @@
-import {
+import type {
   ColumnRef,
   FactTableDefinition,
   FunnelStep,
@@ -7,7 +7,7 @@ import {
   MetricWindowSettings,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
-import { DataSourceType } from "shared/types/datasource";
+import type { DataSourceType } from "shared/types/datasource";
 import {
   DEFAULT_IDENTIFIER_QUOTE,
   getAggregateFilters,

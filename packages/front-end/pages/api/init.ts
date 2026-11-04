@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 
 export interface EnvironmentInitValue {

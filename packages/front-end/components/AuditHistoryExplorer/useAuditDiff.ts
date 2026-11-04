@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import isEqual from "lodash/isEqual";
-import { AuditDiffConfig, AuditDiffItem, AuditDiffSection } from "./types";
+import type { AuditDiffConfig, AuditDiffItem, AuditDiffSection } from "./types";
 
 function stripArraySubKeys(value: unknown, subKeys: string[]): unknown {
   if (!Array.isArray(value)) return value;

@@ -1,4 +1,4 @@
-import { Policy, POLICY_PARTS } from "shared/permissions";
+import { type Policy, POLICY_PARTS } from "shared/permissions";
 
 export type PolicyCheckboxState = boolean | "indeterminate";
 

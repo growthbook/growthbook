@@ -1,4 +1,4 @@
-import {
+import type {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
 } from "shared/enterprise";
@@ -7,7 +7,7 @@ import { Flex, TextField, Text, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiSlidersHorizontal, PiWrench } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import Switch from "@/ui/Switch";
 import { useDefinitions } from "@/services/DefinitionsContext";

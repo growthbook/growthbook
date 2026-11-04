@@ -1,25 +1,23 @@
 import cloneDeep from "lodash/cloneDeep";
 import { v4 as uuidv4 } from "uuid";
 import {
-  RevisionRampCreateAction,
+  type RevisionRampCreateAction,
   postFeatureRevisionRuleAddValidator,
-  RuleCreateInput,
-  SafeRolloutInterface,
-} from "shared/validators";
-import type {
-  ExperimentRefRule,
-  FeatureRule,
-  ForceRule,
-  RolloutRule,
-  SafeRolloutRule,
+  type RuleCreateInput,
+  type SafeRolloutInterface,
+  type ExperimentRefRule,
+  type FeatureRule,
+  type ForceRule,
+  type RolloutRule,
+  type SafeRolloutRule,
 } from "shared/validators";
 import {
   getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
   flattenExposureQueryInput,
 } from "shared/util";
-import { RevisionChanges } from "shared/types/feature-revision";
-import { CreateProps } from "shared/types/base-model";
+import type { RevisionChanges } from "shared/types/feature-revision";
+import type { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   addIdsToFlatRules,

@@ -2,7 +2,7 @@ import {
   postConfigValidator,
   validateResolvableValue,
 } from "shared/validators";
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import {
   stripConfigExtends,
   apiInvariantsToStored,

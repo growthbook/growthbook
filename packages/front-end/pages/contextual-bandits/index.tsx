@@ -9,7 +9,7 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { Box, Flex } from "@radix-ui/themes";
 import {
-  ComputedContextualBanditInterface,
+  type ComputedContextualBanditInterface,
   contextualBanditStatusIndicatorData,
   useContextualBanditSearch,
 } from "@/services/contextualBandits";
@@ -36,7 +36,7 @@ import Badge from "@/ui/Badge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import ContextualBanditEmptyState, {
-  ContextualBanditEmptyStateKind,
+  type ContextualBanditEmptyStateKind,
 } from "@/components/ContextualBandit/ContextualBanditEmptyState";
 import Callout from "@/ui/Callout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";

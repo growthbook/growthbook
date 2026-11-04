@@ -1,12 +1,12 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig } from "swr";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import {
   FeatureRevisionsContext,
-  FeatureRevisionsContextValue,
+  type FeatureRevisionsContextValue,
 } from "@/contexts/FeatureRevisionsContext";
 import { useAuth } from "@/services/auth";
 

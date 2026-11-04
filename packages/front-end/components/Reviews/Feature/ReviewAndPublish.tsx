@@ -1,10 +1,10 @@
 import {
-  EventUser as EventUserType,
+  type EventUser as EventUserType,
   eventUserIdentity,
   eventUserLabel,
   eventUserPersonId,
   revisionActor,
-  RampScheduleInterface,
+  type RampScheduleInterface,
   ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import {
@@ -15,7 +15,7 @@ import {
   targetingRefusal,
   withStagedTargeting,
 } from "shared/permissions";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   Fragment,
   useState,
@@ -24,7 +24,7 @@ import {
   useCallback,
   useEffect,
 } from "react";
-import {
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
   RevisionLog,
@@ -48,7 +48,7 @@ import {
   getLiveChangesSinceBase,
   isPureFeatureArchive,
   isPureFeatureRevert,
-  MergeStrategy,
+  type MergeStrategy,
   getRevertRampDetachActions,
 } from "shared/util";
 import {
@@ -57,7 +57,7 @@ import {
   findPublishLockingScheduledRevision,
   isInReviewCycle,
 } from "shared/enterprise";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import {
   PiLockSimple,
@@ -92,7 +92,7 @@ import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import LinkButton from "@/components/Button";
 import Revisionlog, {
-  MutateLog,
+  type MutateLog,
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
@@ -104,8 +104,8 @@ import {
   featureToFeatureRevisionDiffInput,
   mergeResultToDiffInput,
   revisionToFeatureRevisionDiffInput,
-  FeatureRevisionDiffInput,
-  FeatureRevisionDiff,
+  type FeatureRevisionDiffInput,
+  type FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "@/ui/Button";
@@ -126,7 +126,7 @@ import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import {
-  ChecklistReadyStatus,
+  type ChecklistReadyStatus,
   PreLaunchChecklistForDraftFeature,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
@@ -135,7 +135,7 @@ import {
   ExpandableConflict,
   buildRampDiffs,
   DiffContent,
-  DiffCommentsProps,
+  type DiffCommentsProps,
   RevisionCommentSection,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import {
@@ -175,7 +175,7 @@ import {
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
 import ReviewHeader, {
-  ReviewHeaderOtherDraft,
+  type ReviewHeaderOtherDraft,
 } from "@/components/Reviews/ReviewHeader";
 
 const listFormat = new Intl.ListFormat("en", { type: "conjunction" });

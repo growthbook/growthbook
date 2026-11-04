@@ -1,9 +1,9 @@
-import { FC } from "react";
-import {
+import type { FC } from "react";
+import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "shared/types/report";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSRMHealthData } from "shared/health";
 import {
   DEFAULT_SRM_THRESHOLD,
@@ -11,7 +11,7 @@ import {
 } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import SRMWarning from "./SRMWarning";
-import { ExperimentTab } from "./TabbedPage";
+import type { ExperimentTab } from "./TabbedPage";
 
 const DataQualityWarning: FC<{
   results: ExperimentReportResultDimension;

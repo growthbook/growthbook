@@ -3,7 +3,7 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import Link from "@/ui/Link";
 import ColumnSettingsButton from "./ColumnSettingsButton";
-import { ManagedColumn } from "./ColumnSettings";
+import type { ManagedColumn } from "./ColumnSettings";
 
 const INITIAL: ManagedColumn[] = [
   { id: "name", label: "Attribute", visible: true, alwaysVisible: true },

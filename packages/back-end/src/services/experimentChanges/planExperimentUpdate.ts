@@ -17,7 +17,7 @@ import type {
   ExperimentChangesFields,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import {
+import type {
   Changeset,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -57,7 +57,7 @@ import {
 import { assumeUtc } from "back-end/src/util/dates";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {

@@ -1,13 +1,13 @@
-import { ApiContextualBanditInterface } from "shared/validators";
+import type { ApiContextualBanditInterface } from "shared/validators";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { getActiveVariations } from "shared/experiments";
 import { useMemo } from "react";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   getContextualBanditResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import type { IssueValue } from "@/components/HealthTab/IssueTags";
 import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import useOrgSettings from "@/hooks/useOrgSettings";

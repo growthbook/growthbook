@@ -1,4 +1,4 @@
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import { useRouter } from "next/router";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";

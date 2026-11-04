@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { isEqual } from "lodash";
-import {
+import type {
   DecisionFrameworkMetricOverrides,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { expandMetricGroups } from "shared/experiments";
-import { MetricOverride } from "shared/validators";
-import { StatsEngine } from "shared/types/stats";
+import type { MetricOverride } from "shared/validators";
+import type { StatsEngine } from "shared/types/stats";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Callout from "@/ui/Callout";
@@ -24,7 +24,7 @@ import {
 } from "@/services/metricOverrides";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import {
-  EditMetricsFormInterface,
+  type EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";

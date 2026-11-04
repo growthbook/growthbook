@@ -1,4 +1,4 @@
-import { ReactElement } from "react";
+import type { ReactElement } from "react";
 import { Flex } from "@radix-ui/themes";
 
 const FONT_SIZE = {

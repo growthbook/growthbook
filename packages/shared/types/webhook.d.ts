@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { webhookMethods, webhookSchema } from "shared/validators";
+import type { z } from "zod";
+import type { webhookMethods, webhookSchema } from "shared/validators";
 
 export type WebhookInterface = z.infer<typeof webhookSchema>;
 

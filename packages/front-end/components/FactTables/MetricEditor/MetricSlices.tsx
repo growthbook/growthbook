@@ -1,6 +1,6 @@
-import { UseFormReturn } from "react-hook-form";
-import { FactTableDefinition } from "shared/types/fact-table";
-import { CreateFactMetricFormProps } from "@/services/metrics";
+import type { UseFormReturn } from "react-hook-form";
+import type { FactTableDefinition } from "shared/types/fact-table";
+import type { CreateFactMetricFormProps } from "@/services/metrics";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";

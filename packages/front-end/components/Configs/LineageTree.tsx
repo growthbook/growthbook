@@ -10,7 +10,7 @@ import {
   PiPlusBold,
 } from "react-icons/pi";
 import { isScopedConfig } from "shared/util";
-import { LineageNode } from "@/components/Configs/fieldSchema";
+import type { LineageNode } from "@/components/Configs/fieldSchema";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import styles from "./LineageTree.module.scss";

@@ -1,6 +1,6 @@
 import {
   contextualBanditSnapshotSettingsValidator,
-  ContextualBanditSnapshotSettings,
+  type ContextualBanditSnapshotSettings,
 } from "../src/validators/contextual-bandit-snapshot";
 
 function buildSettings(

@@ -1,8 +1,8 @@
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   postReleasePublishRevisionsValidator,
-  publishRevisionsItem,
+  type publishRevisionsItem,
 } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {

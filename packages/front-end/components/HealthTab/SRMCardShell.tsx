@@ -1,7 +1,7 @@
-import { ReactNode, useEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExperimentReportVariation } from "shared/types/report";
-import { getSRMHealthData, SRMHealthStatus } from "shared/health";
+import type { ExperimentReportVariation } from "shared/types/report";
+import { getSRMHealthData, type SRMHealthStatus } from "shared/health";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import SRMWarning from "@/components/Experiment/SRMWarning";
@@ -9,7 +9,7 @@ import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { StatusBadge } from "./StatusBadge";
-import { IssueValue } from "./IssueTags";
+import type { IssueValue } from "./IssueTags";
 
 export function useSrmHealth({
   srm,

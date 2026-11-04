@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
-import {
+import type {
   DecisionCriteriaInterface,
   DecisionCriteriaCondition,
   DecisionCriteriaRule,

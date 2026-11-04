@@ -18,9 +18,9 @@ import {
   withJourneyOptionsAt,
 } from "shared/journeys";
 import { createLikeMatchFns } from "shared/sql";
-import { ExplorationConfig, JourneyPathStep } from "shared/validators";
-import { SqlDialect } from "shared/types/sql";
-import { FactTableInterface } from "shared/types/fact-table";
+import type { ExplorationConfig, JourneyPathStep } from "shared/validators";
+import type { SqlDialect } from "shared/types/sql";
+import type { FactTableInterface } from "shared/types/fact-table";
 
 const helpers: SqlDialect = {
   escapeStringLiteral: (value) => value.replace(/'/g, `''`),

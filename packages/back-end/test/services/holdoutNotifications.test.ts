@@ -1,5 +1,5 @@
-import type { HoldoutInterface } from "shared/validators";
 import {
+  type HoldoutInterface,
   holdoutCreatedNotificationPayload,
   holdoutNewLinkageNotificationPayload,
   holdoutStatusChangedNotificationPayload,

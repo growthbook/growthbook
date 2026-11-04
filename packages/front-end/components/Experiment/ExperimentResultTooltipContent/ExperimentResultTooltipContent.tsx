@@ -3,13 +3,16 @@ import clsx from "clsx";
 import { formatDistance } from "date-fns";
 import { PiWarningCircle } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetric,
+} from "shared/experiments";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { RowResults } from "@/services/experiments";
+import type { RowResults } from "@/services/experiments";
 import {
   formatPercent,
   getColumnRefFormatter,

@@ -13,18 +13,18 @@ import {
 } from "shared/permissions";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { ConstantInterface } from "shared/types/constant";
-import { ConfigInterface } from "shared/types/config";
-import { SchemaField, SimpleSchema } from "shared/types/feature";
+import type { ConstantInterface } from "shared/types/constant";
+import type { ConfigInterface } from "shared/types/config";
+import type { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
-  Revision,
+  type Revision,
   applyTopLevelPatchOps,
   getConstantRevisionChange,
 } from "shared/enterprise";
 import {
   proposedArchivedValue,
-  ConfigChainNode,
-  SchemaProjection,
+  type ConfigChainNode,
+  type SchemaProjection,
   computeConfigReconciliationPreview,
   configPublishEnvironments,
   constantRequiresReview,
@@ -46,7 +46,7 @@ import {
 import {
   buildConstantValueMap,
   resolveConstantRefs,
-  ConstantSource,
+  type ConstantSource,
 } from "shared/sdk-versioning";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -114,12 +114,12 @@ import { useConstantRevision } from "@/hooks/useConstantRevision";
 import {
   useConfigFamilyReferences,
   useConfigKeyUsage,
-  ConfigKeyImplementation,
+  type ConfigKeyImplementation,
 } from "@/hooks/useConstantReferences";
 import ConfigArchiveModal from "@/components/Configs/ConfigArchiveModal";
 import ConfigLockModal from "@/components/Configs/ConfigLockModal";
 import ConfigRevertModal from "@/components/Configs/ConfigRevertModal";
-import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
+import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LineageTree from "@/components/Configs/LineageTree";
@@ -132,8 +132,8 @@ import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSect
 import ConfigUsageSection from "@/components/Configs/ConfigUsageSection";
 import {
   FIELD_GRID_TEMPLATE,
-  ResolvedField,
-  LineageNode,
+  type ResolvedField,
+  type LineageNode,
   blankField,
   isJsonField,
   fieldValueType,

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Card, Flex, Separator } from "@radix-ui/themes";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
 import AddLlmTracingModal from "@/components/Settings/EditDataSource/AddLlmTracingModal";
 import {
@@ -12,7 +12,7 @@ import {
   getLlmTracingTools,
   isLlmTracingFormat,
   isLlmTracingToolAdded,
-  LlmTracingFormat,
+  type LlmTracingFormat,
 } from "@/services/llmTracing";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";

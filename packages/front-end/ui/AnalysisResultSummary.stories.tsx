@@ -1,12 +1,12 @@
 import { Flex } from "@radix-ui/themes";
-import {
+import type {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { PValueCorrection, StatsEngine } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
-import { RowResults } from "@/services/experiments";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { PValueCorrection, StatsEngine } from "shared/types/stats";
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { RowResults } from "@/services/experiments";
 import Frame from "@/ui/Frame";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 

@@ -1,9 +1,9 @@
-import { FC, useCallback, useMemo, useState } from "react";
+import { type FC, useCallback, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiSparkleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { LearningWithCanManage } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { LearningWithCanManage } from "shared/validators";
 import { date, getValidDate } from "shared/dates";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import EmptyState from "@/components/EmptyState";
@@ -21,7 +21,7 @@ import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import {
   FilterDropdown,
-  SearchFiltersItem,
+  type SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 import { useSearch } from "@/services/search";

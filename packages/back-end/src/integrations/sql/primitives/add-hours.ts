@@ -1,4 +1,4 @@
-import { SqlDialect } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 export function addHours(
   dialect: SqlDialect,

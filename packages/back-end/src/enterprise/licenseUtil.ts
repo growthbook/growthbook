@@ -8,27 +8,27 @@ import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
 import {
   accountFeatures,
-  AccountPlan,
+  type AccountPlan,
   accountPlans,
-  CommercialFeature,
-  CommercialFeaturesMap,
-  LicenseData,
-  LicenseInterface,
-  LicenseMetaData,
-  LicenseUserCodes,
+  type CommercialFeature,
+  type CommercialFeaturesMap,
+  type LicenseData,
+  type LicenseInterface,
+  type LicenseMetaData,
+  type LicenseUserCodes,
   makeOrgLimits,
   DEFAULT_ORG_LIMITS,
-  OrgLimits,
-  OrgLimitsAccessor,
+  type OrgLimits,
+  type OrgLimitsAccessor,
   planTierFor,
-  SubscriptionInfo,
+  type SubscriptionInfo,
 } from "shared/enterprise";
-import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
-import { EventForwarderSinkType } from "shared/types/event-forwarder";
-import {
+import type { StripeAddress, TaxIdType } from "shared/types/subscriptions";
+import type { EventForwarderSinkType } from "shared/types/event-forwarder";
+import type {
   OrganizationInterface,
   OrgMemberInfo,
-  type SDKAttributeSchema,
+  SDKAttributeSchema,
 } from "shared/types/organization";
 import { fetch } from "back-end/src/util/http.util";
 import { LicenseServerError } from "back-end/src/util/errors";

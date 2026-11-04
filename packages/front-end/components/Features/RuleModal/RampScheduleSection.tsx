@@ -36,9 +36,9 @@ import type {
 } from "shared/types/feature";
 import type { SDKAttributeSchema } from "shared/types/organization";
 import {
-  RampScheduleInterface,
-  RampScheduleTemplateInterface,
-  RampStepAction,
+  type RampScheduleInterface,
+  type RampScheduleTemplateInterface,
+  type RampStepAction,
   TEMPLATE_PATCH_FIELDS,
   TEMPLATE_STRUCTURAL_KEYS,
   type RampStep,

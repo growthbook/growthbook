@@ -1,11 +1,11 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
-import { BanditEvent } from "shared/validators";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { BanditEvent } from "shared/validators";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getBanditSRMValue } from "shared/health";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
@@ -20,7 +20,7 @@ import SegmentedControl from "@/ui/SegmentedControl";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

@@ -1,4 +1,4 @@
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import {
   applyRowFilters,
   canNarrowLoadedRows,

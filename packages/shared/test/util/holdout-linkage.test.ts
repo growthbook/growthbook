@@ -2,7 +2,7 @@ import {
   computeHoldoutExperimentLinkageDelta,
   getExperimentIdsFromRules,
 } from "../../src/util/features";
-import { FeatureRule } from "../../types/feature";
+import type { FeatureRule } from "../../types/feature";
 
 function expRule(experimentId: string, id = experimentId): FeatureRule {
   return {

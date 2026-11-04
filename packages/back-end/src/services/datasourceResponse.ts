@@ -1,18 +1,20 @@
 import omit from "lodash/omit";
-import {
+import type {
   DataSourceInterface,
   DataSourceInterfaceWithParams,
   DataSourceType,
 } from "shared/types/datasource";
-import { EventForwarderConfigWithMetadata } from "shared/types/event-forwarder";
-import { getEventForwarderSinkTypeForDatasource } from "shared/util";
-import type { DataSourceParamsForType } from "shared/util";
-import { ReqContext } from "back-end/types/request";
+import type { EventForwarderConfigWithMetadata } from "shared/types/event-forwarder";
+import {
+  getEventForwarderSinkTypeForDatasource,
+  type DataSourceParamsForType,
+} from "shared/util";
+import type { ReqContext } from "back-end/types/request";
 import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getEventForwarderMetadataForDatasource } from "back-end/src/services/eventForwarder/config";
 
 type DataSourceByType = {

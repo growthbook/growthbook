@@ -1,12 +1,12 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardBlockType,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockType,
   blockHasFieldOfType,
   blockUsesDashboardDateControl,
-  DashboardInterface,
+  type DashboardInterface,
   isDashboardGlobalControlSupportedBlock,
   isDashboardExperimentBlock,
   experimentBlockOptedOutOfGlobalFilters,
@@ -17,20 +17,20 @@ import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
 import clsx from "clsx";
 import { isNumber, isString, isDefined } from "shared/util";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { SavedQuery } from "shared/validators";
+import type { SavedQuery } from "shared/validators";
 import {
   expandMetricGroups,
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { MetricAnalysisInterface } from "shared/types/metric-analysis";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,
   DropdownMenuItem,

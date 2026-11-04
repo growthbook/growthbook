@@ -1,13 +1,13 @@
 import type { Response } from "express";
 import { z } from "zod";
 import {
-  ApiAutoRun,
+  type ApiAutoRun,
   apiAppendAutoRunArtifactBody,
   apiCreateAutoRunBody,
   apiUpdateAutoRunBody,
   MAX_AUTO_RUN_ARTIFACTS,
 } from "shared/validators";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 

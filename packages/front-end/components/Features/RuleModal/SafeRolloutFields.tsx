@@ -1,6 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
   PiCaretUpFill,
@@ -13,12 +13,12 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import {
-  NewExperimentRefRule,
+  type NewExperimentRefRule,
   useAttributeSchema,
   resolveAttributeFilter,
 } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
-import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
+import type { RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/ui/Checkbox";

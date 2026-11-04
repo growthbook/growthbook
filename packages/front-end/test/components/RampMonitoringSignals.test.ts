@@ -24,8 +24,8 @@ vi.mock("@/components/RampSchedule/rollbackReason", () => ({
 }));
 
 import type { RampScheduleInterface } from "shared/validators";
-import type { SignalResult } from "@/components/RampSchedule/RampMonitoringSignals";
 import {
+  type SignalResult,
   isHoldingNow,
   isNearingStepEnd,
   conservativeActionForSignals,

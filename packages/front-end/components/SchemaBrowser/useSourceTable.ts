@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import {
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type {
   DetectedColumn,
   FactFilterTestResults,
   RowFilter,
   RowFilterTestResults,
 } from "shared/types/fact-table";
-import {
+import type {
   Column,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
@@ -16,7 +16,7 @@ import { buildRowFilterWhereClause } from "shared/experiments";
 import type { TestQueryType } from "shared/types/query";
 import {
   columnTypesToColumnSource,
-  FilterColumnSource,
+  type FilterColumnSource,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 import { useAuth } from "@/services/auth";
@@ -28,9 +28,9 @@ import {
   getPickerTableSql,
   haveSameColumnNames,
   isPseudoColumn,
-  SourceTableTemplate,
+  type SourceTableTemplate,
 } from "@/services/factTables";
-import { SchemaBrowserTable } from "@/services/schemaBrowserTables";
+import type { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 import useApi from "@/hooks/useApi";
 
 export const SAMPLE_ROW_LIMIT = 20;

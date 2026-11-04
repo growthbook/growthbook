@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightBold } from "react-icons/pi";

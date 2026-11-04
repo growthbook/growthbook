@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { scrubSentryEvent } from "shared/sentry";
-import { EnvironmentInitValue } from "@/./pages/api/init";
+import type { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
   telemetry: "disable",

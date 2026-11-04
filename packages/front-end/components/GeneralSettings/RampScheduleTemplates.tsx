@@ -23,7 +23,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { FeatureInterface } from "shared/types/feature";
-import { RampScheduleTemplateInterface } from "shared/validators";
+import type { RampScheduleTemplateInterface } from "shared/validators";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";

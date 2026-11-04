@@ -1,20 +1,20 @@
-import { Queries, QueryStatus } from "shared/types/query";
-import { UpdateProps } from "shared/types/base-model";
+import type { Queries, QueryStatus } from "shared/types/query";
+import type { UpdateProps } from "shared/types/base-model";
 import {
-  ContextualBanditInterface,
-  ContextualBanditSnapshotInterface,
-  ContextualBanditSnapshotSettings,
-  ContextualBanditSrmLatestPeriod,
-  ContextualBanditAnalysisSummary,
+  type ContextualBanditInterface,
+  type ContextualBanditSnapshotInterface,
+  type ContextualBanditSnapshotSettings,
+  type ContextualBanditSrmLatestPeriod,
+  type ContextualBanditAnalysisSummary,
   queryHasContextualBanditSrmColumns,
 } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
 import {
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   getFactMetricFactTableIds,
   isFactMetric,
 } from "shared/experiments";
-import {
+import type {
   ContextualBanditSrmQueryResponseRows,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
@@ -34,10 +34,13 @@ import { getIntegrationIdentifierQuote } from "back-end/src/services/datasource"
 import { hasUsableContextualBanditTargeting } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { logger } from "back-end/src/util/logger";
 import {
-  ContextualBanditResult,
+  type ContextualBanditResult,
   runContextualStatsEngine,
 } from "back-end/src/enterprise/services/contextualBanditStats";
-import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
+import {
+  type QueryMap,
+  QueryRunner,
+} from "back-end/src/queryRunners/QueryRunner";
 import { chi2pvalue } from "back-end/src/util/stats";
 import { analyzeExperimentTraffic } from "back-end/src/services/stats";
 

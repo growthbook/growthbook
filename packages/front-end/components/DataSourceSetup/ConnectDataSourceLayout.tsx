@@ -1,5 +1,5 @@
 import {
-  ChangeEventHandler,
+  type ChangeEventHandler,
   useCallback,
   useEffect,
   useMemo,
@@ -14,15 +14,15 @@ import {
   PiXBold,
 } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceType,
   SchemaFormat,
 } from "shared/types/datasource";
-import { EventForwarderSinkType } from "shared/types/event-forwarder";
+import type { EventForwarderSinkType } from "shared/types/event-forwarder";
 import {
-  EventForwarderWarehouseArea,
-  EventForwarderWarehouseRegion,
+  type EventForwarderWarehouseArea,
+  type EventForwarderWarehouseRegion,
   getGrowthBookRegionForWarehouseRegion,
   listEventForwarderWarehouseRegions,
 } from "shared/util";
@@ -30,7 +30,7 @@ import {
   getDemoDatasourceProjectIdForOrganization,
   isSampleDatasource,
 } from "shared/demo-datasource";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import EditSchemaOptions from "@/components/Settings/EditSchemaOptions";
@@ -38,7 +38,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  DataRegion,
+  type DataRegion,
   DEFAULT_DATA_REGION,
   useDataRegionOptions,
 } from "@/services/dataRegions";
@@ -54,7 +54,7 @@ import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
-import { KeyPairGenerator } from "@/components/Settings/SnowflakeForm";
+import type { KeyPairGenerator } from "@/components/Settings/SnowflakeForm";
 import { buildEventForwarderConnectDraft } from "./buildEventForwarderConnectDraft";
 import DataSourceProjectScope from "./DataSourceProjectScope";
 import {
@@ -63,7 +63,7 @@ import {
 } from "./connectDataSourceHelpers";
 import DataSourceTypeIcon from "./DataSourceTypeIcon";
 import DataSourceConnectInstructions, {
-  ConnectSetupKind,
+  type ConnectSetupKind,
 } from "./DataSourceConnectInstructions";
 import EventForwarderDestinationFields, {
   defaultEventForwarderDestination,
@@ -73,10 +73,10 @@ import EventForwarderDestinationFields, {
 } from "./EventForwarderDestinationFields";
 import {
   generateSnowflakeKeyPair,
-  SnowflakeKeyPair,
+  type SnowflakeKeyPair,
 } from "./generateSnowflakeKeyPair";
 import { hasConnectionTestInputs } from "./hasConnectionTestInputs";
-import { overallTestStatus, TestStatus } from "./overallTestStatus";
+import { overallTestStatus, type TestStatus } from "./overallTestStatus";
 
 function isEventForwarderSink(
   type: DataSourceType | undefined,

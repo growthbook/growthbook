@@ -1,11 +1,11 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
-import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 
 type EditJupyterNotebookQueryRunnerProps = DataSourceQueryEditingModalBaseProps;
 

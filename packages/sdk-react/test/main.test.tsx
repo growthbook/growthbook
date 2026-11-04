@@ -6,7 +6,7 @@ import {
   GrowthBookProvider,
   useExperiment,
   withRunExperiment,
-  WithRunExperimentProps,
+  type WithRunExperimentProps,
   useGrowthBook,
   useFeatureIsOn,
   useFeatureValue,

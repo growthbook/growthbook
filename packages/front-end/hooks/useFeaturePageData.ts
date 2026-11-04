@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   filterEnvironmentsByFeature,
   getFeaturePageDefaultVersion,
@@ -9,10 +9,10 @@ import {
 } from "shared/util";
 import {
   ACTIVE_DRAFT_STATUSES,
-  SafeRolloutInterface,
-  HoldoutInterface,
-  MinimalFeatureRevisionInterface,
-  RampScheduleInterface,
+  type SafeRolloutInterface,
+  type HoldoutInterface,
+  type MinimalFeatureRevisionInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";

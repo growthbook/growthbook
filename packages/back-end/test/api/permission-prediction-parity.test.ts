@@ -8,13 +8,13 @@ import {
   getRolePermissions,
   holdsRevisionDestination,
   Permissions,
-  RevisionModel,
+  type RevisionModel,
 } from "shared/permissions";
 import {
   buildOrg,
   OPERATION_ORACLE,
   PERSONA_IDS,
-  Persona,
+  type Persona,
 } from "./permission-personas.fixture";
 
 // Keep client-side authority predictions aligned with the endpoint oracle.

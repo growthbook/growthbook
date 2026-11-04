@@ -6,7 +6,7 @@ import {
   getOverriddenMetricIds,
   getOverridesBlockedReason,
   mergeTargetMDEs,
-  MetricSettingsInput,
+  type MetricSettingsInput,
   pruneMetricOverrides,
   withoutDeprecatedOverrideFields,
 } from "@/services/metricOverrides";

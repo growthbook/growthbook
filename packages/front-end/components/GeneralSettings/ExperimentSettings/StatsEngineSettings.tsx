@@ -1,5 +1,5 @@
 import React from "react";
-import { useFormContext, UseFormReturn } from "react-hook-form";
+import { useFormContext, type UseFormReturn } from "react-hook-form";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_P_VALUE_THRESHOLD,
@@ -8,8 +8,8 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { StatsEngine, PValueCorrection } from "shared/types/stats";
-import { MetricDefaults } from "shared/types/organization";
+import type { StatsEngine, PValueCorrection } from "shared/types/stats";
+import type { MetricDefaults } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
 import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";

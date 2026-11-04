@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { Namespaces } from "shared/types/organization";
+import type { Namespaces } from "shared/types/organization";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";

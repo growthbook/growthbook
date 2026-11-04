@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { isEqual } from "lodash";
 import { PiArrowsClockwise, PiMagnifyingGlass } from "react-icons/pi";
@@ -23,8 +23,8 @@ import CollapsibleSidePanel from "./CollapsibleSidePanel";
 import ExpandableTable from "./ExpandableTable";
 import RowsPerPageSelect from "./RowsPerPageSelect";
 import { rowsWithinWindow } from "./recordsWindow";
-import { RecordsColumn } from "./types";
-import { UseRecordsQueryResult } from "./useRecordsQuery";
+import type { RecordsColumn } from "./types";
+import type { UseRecordsQueryResult } from "./useRecordsQuery";
 
 const DEFAULT_ROWS_PER_PAGE = 15;
 

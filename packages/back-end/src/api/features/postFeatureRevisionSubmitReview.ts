@@ -1,7 +1,7 @@
 import {
-  EventUser,
+  type EventUser,
   eventUserIdentity,
-  FeatureRevisionInterface,
+  type FeatureRevisionInterface,
   postFeatureRevisionSubmitReviewValidator,
 } from "shared/validators";
 import { featureReviewCandidateProjects, getReviewSetting } from "shared/util";
@@ -19,7 +19,7 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import {
   getRevision,
-  ReviewSubmittedType,
+  type ReviewSubmittedType,
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
 import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";

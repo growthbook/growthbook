@@ -1,4 +1,4 @@
-import { CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { PiUserBold } from "react-icons/pi";
 import ShieldBadgeIcon from "@/components/ShieldBadgeIcon";
 

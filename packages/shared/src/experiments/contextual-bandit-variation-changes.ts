@@ -1,4 +1,4 @@
-import {
+import type {
   ContextualBanditVariationStatus,
   VariationWeightPair,
 } from "shared/validators";

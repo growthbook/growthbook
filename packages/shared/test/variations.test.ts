@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
 import {
   getLatestPhaseVariations,
   snapshotColumnVariationIds,

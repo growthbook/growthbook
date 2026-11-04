@@ -1,10 +1,10 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import escapeRegExp from "lodash/escapeRegExp";
 import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
-import {
+import type {
   DemographicData,
   Invite,
   Member,
@@ -14,16 +14,16 @@ import {
   OrgMemberInfo,
   Role,
 } from "shared/types/organization";
-import { ApiOrganization } from "shared/validators";
+import type { ApiOrganization } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
-  ToInterface,
+  type ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const baseMemberFields = {
   _id: false,

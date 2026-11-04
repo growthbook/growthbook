@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { dateGranularity } from "shared/validators";
-import type { ExplorationDateRange } from "shared/validators";
+import type { dateGranularity, ExplorationDateRange } from "shared/validators";
 import {
-  BlockComparison,
+  type BlockComparison,
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import DateRangeTriggerPopover from "@/enterprise/components/ProductAnalytics/DateRangeTriggerPopover";
 import DateRangeComparePanel, {
-  DateRangeCompareValue,
+  type DateRangeCompareValue,
 } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import { comparisonSuffix } from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import {

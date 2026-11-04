@@ -5,7 +5,10 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
-import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
+import type {
+  FeatureInterface,
+  FeaturePrerequisite,
+} from "shared/types/feature";
 import {
   entityTargetsProject,
   getDefaultPrerequisiteCondition,
@@ -40,19 +43,19 @@ import {
   ConditionRowHeader,
 } from "@/components/Features/TargetingConditionsCard";
 import PrerequisiteFeatureSelector, {
-  FeatureOptionMeta,
+  type FeatureOptionMeta,
 } from "@/components/Features/PrerequisiteFeatureSelector";
 import PrerequisiteStatesTable, {
-  MinimalFeatureInfo,
+  type MinimalFeatureInfo,
 } from "@/components/Features/PrerequisiteStatesTable";
 import PrerequisiteAlerts from "@/components/Features/PrerequisiteAlerts";
 import {
   useBatchPrerequisiteStates,
-  PrerequisiteStateResult,
+  type PrerequisiteStateResult,
 } from "@/hooks/usePrerequisiteStates";
 import { condToJson, jsonToConds } from "@/services/features";
 import SelectField, {
-  FormatOptionLabelType,
+  type FormatOptionLabelType,
 } from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/ui/StringArrayField";

@@ -4,8 +4,8 @@ import {
   getLatestPhaseVariations,
   syncedDestinationURLs,
 } from "shared/experiments";
-import { ExperimentInterface } from "shared/types/experiment";
-import { URLRedirectInterface } from "shared/types/url-redirect";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
 import { urlRedirectValidator } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";

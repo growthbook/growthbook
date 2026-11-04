@@ -1,13 +1,13 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { resolveAnalysisIdentifierType } from "shared/util";
-import { FactTableColumnType } from "shared/types/fact-table";
+import type { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import {
   isDimensionPrecomputed,
   getEffectiveLookbackOverride,
 } from "shared/experiments";
 import React, { useState, useCallback } from "react";
-import {
+import type {
   ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "shared/types/report";
@@ -20,7 +20,9 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import Results, { AnalysisBarSettings } from "@/components/Experiment/Results";
+import Results, {
+  type AnalysisBarSettings,
+} from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -35,7 +37,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import AnalysisSettingInfo from "@/components/AnalysisSettingInfo";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
-import { ExperimentTab } from ".";
+import type { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

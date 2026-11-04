@@ -4,24 +4,24 @@ import {
 } from "shared/util";
 import type { OrganizationSettings } from "shared/types/organization";
 import {
-  EventUser as EventUserType,
+  type EventUser as EventUserType,
   eventUserIdentity,
   eventUserLabel,
   revisionActor,
 } from "shared/validators";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
 import {
-  Revision,
-  RevisionStatus,
+  type Revision,
+  type RevisionStatus,
   getRevisionKey,
   isInReviewCycle,
 } from "shared/enterprise";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { FeatureMetaInfo } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
 import { FaSearch } from "react-icons/fa";
 import Heading from "@/ui/Heading";
@@ -34,7 +34,7 @@ import StatusDot from "@/components/Experiment/StatusDot";
 import Pagination from "@/ui/Pagination";
 import { DocLink } from "@/components/DocLink";
 import {
-  SyntaxFilter,
+  type SyntaxFilter,
   useAddComputedFields,
   useSearch,
 } from "@/services/search";

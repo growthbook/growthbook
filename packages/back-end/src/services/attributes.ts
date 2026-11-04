@@ -5,8 +5,8 @@ import {
 } from "shared/util";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { BadRequestError } from "back-end/src/util/errors";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 
 export async function removeTagInAttribute(
   context: ReqContext,

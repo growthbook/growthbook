@@ -5,7 +5,7 @@ import { PiCaretDownFill } from "react-icons/pi";
 import { FaDownload } from "react-icons/fa";
 import SelectField from "@/components/Forms/SelectField";
 import HelperText from "@/ui/HelperText";
-import Button, { Size } from "@/ui/Button";
+import Button, { type Size } from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SplitButton from "@/ui/SplitButton";

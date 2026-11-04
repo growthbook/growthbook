@@ -1,6 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { date } from "shared/dates";
 import React from "react";
 import { PiArrowSquareOut, PiClock } from "react-icons/pi";
@@ -22,7 +22,7 @@ import SelectField from "@/components/Forms/SelectField";
 import {
   getDefaultVariationValue,
   getFeatureDefaultValue,
-  NewExperimentRefRule,
+  type NewExperimentRefRule,
 } from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useExperiments } from "@/hooks/useExperiments";

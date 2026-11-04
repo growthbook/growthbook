@@ -1,6 +1,6 @@
 import { EXPERIMENT_FILTER_KEYS } from "@/components/Search/SidebarExperimentFilters";
 import { filterToString } from "@/components/Search/SearchFilters";
-import { SyntaxFilter, transformQuery } from "@/services/search";
+import { type SyntaxFilter, transformQuery } from "@/services/search";
 
 /**
  * Read/write helpers for the dashboard's global `experimentSearchString`.

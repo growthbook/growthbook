@@ -1,5 +1,5 @@
 import React from "react";
-import { NextPage } from "next";
+import type { NextPage } from "next";
 import { ImportYourData } from "@/components/importing/ImportYourData/ImportYourData";
 import SettingsPage from "@/components/Layout/SettingsPage";
 

@@ -1,6 +1,6 @@
-import { DataSourceInterface } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
-import { ExperimentInterface } from "shared/validators";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { ExperimentInterface } from "shared/validators";
 import {
   assertExperimentPrecomputedUnitDimensionIdsAreValid,
   datasourceHasWritableEphemeralPipeline,

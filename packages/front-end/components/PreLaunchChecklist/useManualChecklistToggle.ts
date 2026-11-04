@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import { nextManualChecklist } from "./checklistSummary";
 

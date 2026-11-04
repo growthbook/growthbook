@@ -2,7 +2,7 @@ import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import type { ApiReqContext } from "back-end/types/api";
 import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
 import {
-  ChangesetOwner,
+  type ChangesetOwner,
   ownerNotFoundMessage,
   resolveChangesetOwner,
 } from "back-end/src/services/changesetOwner";

@@ -1,28 +1,28 @@
 import { useMemo } from "react";
-import {
+import type {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { MetricOverride } from "shared/types/experiment";
-import { PValueCorrection, StatsEngine } from "shared/types/stats";
-import { FactTableDefinition } from "shared/types/fact-table";
+import type { MetricOverride } from "shared/types/experiment";
+import type { PValueCorrection, StatsEngine } from "shared/types/stats";
+import type { FactTableDefinition } from "shared/types/fact-table";
 import {
   expandMetricGroups,
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
+  type ExperimentMetricDefinition,
+  type ExperimentSortBy,
   funnelStepMetricId,
   isFactFunnelMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getSliceDataForMetric,
-  SliceDataForMetric,
+  type SliceDataForMetric,
   generateSliceString,
   generateSelectAllSliceString,
   isMetricGroupId,
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
 } from "shared/experiments";
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -35,10 +35,10 @@ const METRIC_SELECTOR_IDS = [
 
 import {
   applyMetricOverrides,
-  ExperimentTableRow,
+  type ExperimentTableRow,
   NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useTableSorting } from "@/hooks/useTableSorting";
 
 export interface UseExperimentTableRowsParams {

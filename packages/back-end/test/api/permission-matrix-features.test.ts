@@ -5,7 +5,7 @@ import {
   buildOrg,
   makePersonaContext,
   PERSONA_IDS,
-  Persona,
+  type Persona,
 } from "./permission-personas.fixture";
 
 /**

@@ -9,10 +9,10 @@
  */
 
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureInterface } from "shared/types/feature";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { FeatureInterface } from "shared/types/feature";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import {
   buildSDKPayloadForConnection,
   isSDKConnectionAffectedByPayloadKey,

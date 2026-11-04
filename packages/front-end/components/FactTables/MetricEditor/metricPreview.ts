@@ -1,10 +1,10 @@
-import {
+import type {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
 import {
-  ExplorationConfig,
-  ProductAnalyticsResultRow,
+  type ExplorationConfig,
+  type ProductAnalyticsResultRow,
   draftExplorationMetricValidator,
 } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";

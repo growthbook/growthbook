@@ -1,10 +1,15 @@
-import React, { useState, useEffect, ReactElement, useCallback } from "react";
-import {
+import React, {
+  useState,
+  useEffect,
+  type ReactElement,
+  useCallback,
+} from "react";
+import type {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";
 import Link from "@/ui/Link";

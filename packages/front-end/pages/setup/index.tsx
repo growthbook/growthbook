@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import {
+import type {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { ProjectInterface } from "shared/types/project";
-import { Environment } from "shared/types/organization";
+import type { ProjectInterface } from "shared/types/project";
+import type { Environment } from "shared/types/organization";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -19,7 +19,7 @@ import PageHead from "@/components/Layout/PageHead";
 import SetupCompletedPage from "@/components/InitialSetup/SetupCompletedPage";
 import {
   getConnectionLanguageFilter,
-  LanguageFilter,
+  type LanguageFilter,
   languageMapping,
 } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { useEnvironments } from "@/services/features";

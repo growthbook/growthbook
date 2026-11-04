@@ -1,6 +1,6 @@
 import { getEnabledHoldoutEnvironments } from "shared/util";
-import { HoldoutInterface } from "shared/validators";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import type { HoldoutInterface } from "shared/validators";
+import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getSDKPayloadKeys } from "./features";
 
 export function getAffectedSDKPayloadKeys(

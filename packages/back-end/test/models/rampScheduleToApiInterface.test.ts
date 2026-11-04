@@ -6,9 +6,9 @@ jest.mock("back-end/src/services/rampSchedule", () => ({
   getRampAutoUpdatePreference: jest.fn(),
 }));
 
-import { RampScheduleInterface } from "shared/validators";
+import type { RampScheduleInterface } from "shared/validators";
 import { apiMonitoringConfigToInternal } from "shared/util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 
 const context = {

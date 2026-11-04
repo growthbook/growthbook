@@ -1,4 +1,4 @@
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { postProjectValidator, putProjectValidator } from "shared/validators";

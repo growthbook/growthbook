@@ -1,6 +1,6 @@
-import { FeatureRule } from "shared/validators";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
+import type { FeatureRule } from "shared/validators";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Environment } from "shared/types/organization";
 import { naiveFlattenV1Rules, suffixRuleId } from "shared/util";
 import {
   activeReviewsFromLog,
@@ -8,8 +8,8 @@ import {
   computeRevisionUpdate,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
-import { ReqContext } from "back-end/types/request";
-import { V1RulesByEnv } from "back-end/src/util/flattenRules";
+import type { ReqContext } from "back-end/types/request";
+import type { V1RulesByEnv } from "back-end/src/util/flattenRules";
 
 // ---------------------------------------------------------------------------
 // buildFeatureRevisionInterface is the pure-function core of

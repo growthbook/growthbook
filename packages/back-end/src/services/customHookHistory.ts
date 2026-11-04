@@ -1,13 +1,13 @@
 import {
-  ApiCustomHook,
+  type ApiCustomHook,
   auditUserToEventUser,
-  CustomHookEntityType,
-  CustomHookInterface,
-  CustomHookType,
+  type CustomHookEntityType,
+  type CustomHookInterface,
+  type CustomHookType,
   eventUserCredit,
 } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
-import { Context } from "back-end/src/models/BaseModel";
+import type { UpdateProps } from "shared/types/base-model";
+import type { Context } from "back-end/src/models/BaseModel";
 import { NotFoundError } from "back-end/src/util/errors";
 import {
   countAuditByEntity,

@@ -1,10 +1,10 @@
 import { parseIntWithDefault } from "shared/util";
-import { IRecordSet } from "mssql";
-import {
+import type { IRecordSet } from "mssql";
+import type {
   QueryResponse,
   QueryResponseColumnData,
 } from "shared/types/integrations";
-import { MssqlConnectionParams } from "shared/types/integrations/mssql";
+import type { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
 import { getFactTableTypeFromMssqlDeclaration } from "back-end/src/util/warehouseColumnTypes";

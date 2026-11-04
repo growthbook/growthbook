@@ -23,7 +23,7 @@ import { Popover } from "@/ui/Popover";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SelectField from "@/components/Forms/SelectField";
 import ConfigKeyUsageBadge from "@/components/Configs/ConfigKeyUsageBadge";
-import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
+import type { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -31,7 +31,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   FIELD_GRID_TEMPLATE,
-  ResolvedField,
+  type ResolvedField,
   fieldTypeLabel,
   fieldValueType,
   fieldIsNullable,

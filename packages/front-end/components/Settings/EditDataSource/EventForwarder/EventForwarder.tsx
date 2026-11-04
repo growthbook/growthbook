@@ -13,18 +13,18 @@ import {
   supportsEventForwarder,
   tryDeriveSnowflakeAccessUrlFromAccount,
 } from "shared/util";
-import {
+import type {
   EventForwarderConfigDraft,
   EventForwarderStatus,
 } from "shared/types/event-forwarder";
-import { EventForwarderStatusResponse } from "shared/validators";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
-import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import type { EventForwarderStatusResponse } from "shared/validators";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
-import { DailyUsage, UsageLimits } from "shared/types/organization";
+import type { DailyUsage, UsageLimits } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
@@ -57,7 +57,7 @@ import {
 } from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
 import {
   DEFAULT_DATA_REGION,
-  DataRegion,
+  type DataRegion,
   getDataRegionLabel,
   useDataRegionOptions,
 } from "@/services/dataRegions";

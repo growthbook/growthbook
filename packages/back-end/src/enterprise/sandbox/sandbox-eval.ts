@@ -1,9 +1,9 @@
-import type { EventUser } from "shared/validators";
 import {
-  CustomHookEntityType,
-  CustomHookErrorDetail,
-  CustomHookInterface,
-  CustomHookType,
+  type EventUser,
+  type CustomHookEntityType,
+  type CustomHookErrorDetail,
+  type CustomHookInterface,
+  type CustomHookType,
   eventUserIdentity,
   hookEntityType,
   revisionActor,
@@ -21,22 +21,22 @@ import {
   buildConstantValueMap,
   resolveConstantRefs,
 } from "shared/sdk-versioning";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ConfigInterface } from "shared/types/config";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ConfigInterface } from "shared/types/config";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { CustomHookError, SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import {
   expandOrgMembers,
   getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
 import {
   configToResolvable,
-  ResolvableValue,
+  type ResolvableValue,
 } from "back-end/src/services/resolvableValues";
 import type { SandboxEvalResult } from "./sandbox-core";
 import { runInSandbox } from "./sandbox-pool";

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { PiLightning, PiLightningSlash, PiWarningFill } from "react-icons/pi";
 import {
   ago,
@@ -8,10 +8,13 @@ import {
   abbreviateAgo,
 } from "shared/dates";
 import { Text, Flex, Box, IconButton } from "@radix-ui/themes";
-import { QueryStatus } from "shared/types/query";
-import { SourceSnapshotRef } from "shared/enterprise";
+import type { QueryStatus } from "shared/types/query";
+import type { SourceSnapshotRef } from "shared/enterprise";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { getResultsFreshness, ResultsFreshness } from "@/services/snapshots";
+import {
+  getResultsFreshness,
+  type ResultsFreshness,
+} from "@/services/snapshots";
 
 const FAILED_STRING = `The most recent update failed. Click to view queries.`;
 const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partial results

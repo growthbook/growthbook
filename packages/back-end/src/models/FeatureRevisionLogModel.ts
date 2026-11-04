@@ -7,9 +7,9 @@ import {
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import { eventUserIdentity } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
-  FeatureRevisionLogInterface,
+  type FeatureRevisionLogInterface,
   featureRevisionLogValidator,
 } from "back-end/src/validators/feature-revision-log";
 import { MakeModelClass } from "./BaseModel";

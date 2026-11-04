@@ -4,7 +4,7 @@ import {
   GrowthBook,
   clearCache,
   setPolyfills,
-  FeatureApiResponse,
+  type FeatureApiResponse,
   helpers,
 } from "../src";
 import { evaluateFeatures } from "./helpers/evaluateFeatures";

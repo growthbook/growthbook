@@ -1,4 +1,4 @@
-import { ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureValue } from "@growthbook/growthbook-react";

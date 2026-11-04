@@ -7,7 +7,7 @@ import {
   apiTeamValidator,
   apiUpdateTeamBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "shared/api-model";
+import type { OpenApiModelSpec } from "shared/api-model";
 import { statusCodeReturn } from "back-end/src/util/handler";
 
 export const addTeamMembersEndpoint = {

@@ -1,4 +1,4 @@
-import { EventUser } from "shared/types/events/event-types";
+import type { EventUser } from "shared/types/events/event-types";
 import { revisionActor, revisionActors } from "shared/validators";
 
 // An org key that armed deferred work for a requester is stored as

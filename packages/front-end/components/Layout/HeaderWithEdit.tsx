@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ReactElement } from "react";
+import type { ReactElement } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";

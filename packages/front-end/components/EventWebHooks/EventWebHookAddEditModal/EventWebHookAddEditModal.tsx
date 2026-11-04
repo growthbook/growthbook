@@ -1,6 +1,12 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { z } from "zod";
-import { useForm, UseFormReturn } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowLeft, PiCaretRight, PiCheckCircleFill } from "react-icons/pi";
@@ -19,12 +25,12 @@ import {
   eventWebHookPayloadTypes,
   legacyEventWebHookPayloadTypes,
   eventWebHookMethods,
-  EventWebHookMethod,
-  EventWebHookPayloadType,
-  EventWebHookEditParams,
+  type EventWebHookMethod,
+  type EventWebHookPayloadType,
+  type EventWebHookEditParams,
   eventWebHookEventOptions,
   formatWebhookEventOptionLabel,
-  EventWebHookModalMode,
+  type EventWebHookModalMode,
   notificationEventNames,
   WebhookIcon,
   timeoutError,

@@ -1,12 +1,12 @@
 import normal from "@stdlib/stats/base/dists/normal";
-import {
+import type {
   FactTableInterface,
   FactMetricInterface,
   ColumnInterface,
   FactFilterInterface,
 } from "shared/types/fact-table";
-import { IndexedPValue } from "shared/types/stats";
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { IndexedPValue } from "shared/types/stats";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
@@ -34,7 +34,7 @@ import {
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   isAutoSnapshotScheduled,
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   withScheduledBy,
   areVariationWeightsValid,
   getMetricSampleSize,
@@ -43,7 +43,7 @@ import {
   getDefaultRegressionAdjustmentDays,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
-import { LookbackOverride } from "../src/validators/experiments";
+import type { LookbackOverride } from "../src/validators/experiments";
 
 describe("Experiments", () => {
   describe("Fact Tables", () => {

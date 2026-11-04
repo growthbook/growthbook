@@ -2,7 +2,7 @@ import { growthbookTrackingPlugin } from "../../src/plugins/growthbook-tracking"
 import {
   EVENT_EXPERIMENT_VIEWED,
   EVENT_FEATURE_EVALUATED,
-  Experiment,
+  type Experiment,
   GrowthBook,
   GrowthBookClient,
 } from "../../src";

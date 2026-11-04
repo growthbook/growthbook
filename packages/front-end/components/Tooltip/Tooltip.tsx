@@ -1,10 +1,10 @@
 import {
-  ReactNode,
-  FC,
-  HTMLAttributes,
+  type ReactNode,
+  type FC,
+  type HTMLAttributes,
   useState,
   useEffect,
-  CSSProperties,
+  type CSSProperties,
   useRef,
   useCallback,
 } from "react";

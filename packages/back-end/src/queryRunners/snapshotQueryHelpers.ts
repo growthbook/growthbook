@@ -1,4 +1,4 @@
-import {
+import type {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { BiShow } from "react-icons/bi";
 import { PiWarningFill } from "react-icons/pi";
 import Link from "@/ui/Link";

@@ -1,4 +1,4 @@
-import { CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { ghcolors } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { darkDeclaration } from "./darkColors";
 

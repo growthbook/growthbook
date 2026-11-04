@@ -1,15 +1,15 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { OrganizationSettings } from "shared/types/organization";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   isProjectListValidForProject,
   isManagedWarehouseUnavailable,
   getActiveFeatureUsageQuery,
 } from "shared/util";
-import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
-import { QueryStatistics } from "shared/types/query";
+import type { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
+import type { QueryStatistics } from "shared/types/query";
 import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { format } from "date-fns";

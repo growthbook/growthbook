@@ -1,14 +1,17 @@
 import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
 import {
   Athena,
-  ResultSet,
-  StartQueryExecutionCommandInput,
+  type ResultSet,
+  type StartQueryExecutionCommandInput,
 } from "@aws-sdk/client-athena";
-import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
-import { QueryStatistics } from "shared/types/query";
-import { AthenaConnectionParams } from "shared/types/integrations/athena";
+import type {
+  ExternalIdCallback,
+  QueryResponse,
+} from "shared/types/integrations";
+import type { QueryStatistics } from "shared/types/query";
+import type { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { parseEnvInt, parseOptionalInt } from "shared/util";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import type { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableTypeFromTrinoType } from "back-end/src/util/warehouseColumnTypes";

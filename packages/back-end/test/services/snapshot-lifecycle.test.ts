@@ -1,18 +1,18 @@
-import { ExperimentMetricInterface } from "shared/experiments";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ExperimentInterface } from "shared/types/experiment";
-import {
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
-import { MetricSnapshotSettings } from "shared/types/report";
-import { ApiReqContext } from "back-end/types/api";
+import type { MetricSnapshotSettings } from "shared/types/report";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   createSnapshotFromPlan,
-  PlannedExperimentSnapshot,
+  type PlannedExperimentSnapshot,
 } from "back-end/src/services/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
@@ -22,7 +22,7 @@ import { updateExperimentDashboards } from "back-end/src/enterprise/services/das
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({

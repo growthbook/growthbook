@@ -1,5 +1,5 @@
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { DataSourceInterface } from "shared/types/datasource";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { DataSourceInterface } from "shared/types/datasource";
 import { provisionEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarder/connector";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { postProvisionEventForwarderToLicenseServer } from "back-end/src/enterprise/licenseUtil";

@@ -1,5 +1,5 @@
 import { checkRemoteGroupCsvSample } from "../src/sample";
-import { RemoteGroupCsvOptions } from "../src/types";
+import type { RemoteGroupCsvOptions } from "../src/types";
 
 const encode = (s: string) => new TextEncoder().encode(s);
 

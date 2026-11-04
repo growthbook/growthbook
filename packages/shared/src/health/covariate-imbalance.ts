@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
 import { getIntersectionBaseMetricIds } from "shared/experiments";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "shared/types/report";
+import type { ExperimentReportResultDimension } from "shared/types/report";
 
 export const MetricVariationCovariateImbalanceResultValidator = z.object({
   metricId: z.string(),

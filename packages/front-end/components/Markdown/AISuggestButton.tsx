@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BsStars } from "react-icons/bs";
-import { AISuggestionType } from "shared/ai";
+import type { AISuggestionType } from "shared/ai";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";

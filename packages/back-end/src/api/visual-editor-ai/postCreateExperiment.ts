@@ -1,11 +1,11 @@
 import { z } from "zod";
 import uniqid from "uniqid";
 import { v4 as uuidv4 } from "uuid";
-import type {
-  ExperimentInterface,
-  ExperimentInterfaceExcludingHoldouts,
+import {
+  type ExperimentInterface,
+  type ExperimentInterfaceExcludingHoldouts,
+  ignoreWarningsBodyField,
 } from "shared/validators";
-import { ignoreWarningsBodyField } from "shared/validators";
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { createExperiment } from "back-end/src/models/ExperimentModel";
 import { SoftWarningError } from "back-end/src/util/errors";

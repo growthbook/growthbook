@@ -1,6 +1,6 @@
 import { parseDimensionId } from "shared/experiments";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 
 function validateExperimentDimension({

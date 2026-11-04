@@ -1,11 +1,11 @@
 import {
-  EventForwarderDatasourceParams,
+  type EventForwarderDatasourceParams,
   getEventForwarderHashAttributes,
   reconcileEventForwarderManagedExposureQueries,
   resolveEventForwarderManagedUserIdTypes,
 } from "shared/util";
-import { SDKAttributeSchema } from "shared/types/organization";
-import { EventForwarderConfigInterface } from "shared/validators";
+import type { SDKAttributeSchema } from "shared/types/organization";
+import type { EventForwarderConfigInterface } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import {
   getDataSourceById,
@@ -14,7 +14,7 @@ import {
 import { buildExposureQueryParams } from "back-end/src/services/eventForwarder/sinkParams";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 function hasChanges<T>(before: T, after: T): boolean {
   return !isEqual(before, after);

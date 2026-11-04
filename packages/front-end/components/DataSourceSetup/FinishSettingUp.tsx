@@ -1,6 +1,6 @@
 import {
-  CSSProperties,
-  ReactNode,
+  type CSSProperties,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -10,12 +10,12 @@ import { Box, Flex, Grid, IconButton, Progress } from "@radix-ui/themes";
 import { PiCheck, PiMinus, PiPencilSimple, PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
-import {
+import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,
   UserIdType,
 } from "shared/types/datasource";
-import { SDKAttribute } from "shared/types/organization";
+import type { SDKAttribute } from "shared/types/organization";
 import {
   attributeMatchesDatasourceProjects,
   attributeToUserIdTypeName,

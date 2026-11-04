@@ -1,5 +1,5 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
-import { ContextualBanditSnapshotInterface } from "shared/validators";
+import type { ContextualBanditSnapshotInterface } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { loadContextualBanditForRead } from "./_shared";
 

@@ -2,14 +2,14 @@ import {
   Children,
   cloneElement,
   isValidElement,
-  MutableRefObject,
-  ReactElement,
-  ReactNode,
+  type MutableRefObject,
+  type ReactElement,
+  type ReactNode,
   useEffect,
   useMemo,
   useRef,
 } from "react";
-import { components, GroupBase, MenuListProps } from "react-select";
+import { components, type GroupBase, type MenuListProps } from "react-select";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 // Menus up to this many rows render as usual; past it only the rows near the

@@ -1,13 +1,13 @@
-import { ConstantInterface } from "shared/types/constant";
-import { ConfigInterface } from "shared/types/config";
+import type { ConstantInterface } from "shared/types/constant";
+import type { ConfigInterface } from "shared/types/config";
 import {
   getConfigBaseKeys,
   withConfigExtends,
-  ScopedOverrideEntry,
+  type ScopedOverrideEntry,
 } from "shared/util";
-import { ConstantSource } from "shared/sdk-versioning";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ConstantSource } from "shared/sdk-versioning";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 
 // A constant or config flattened for reference resolution; `source` keeps the
 // `@const:`/`@config:` namespaces from matching each other. `scopedOverrides`

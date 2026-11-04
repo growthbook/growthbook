@@ -1,5 +1,5 @@
-import { Request } from "express";
-import { ApiRequestLocals } from "./api";
+import type { Request } from "express";
+import type { ApiRequestLocals } from "./api";
 
 export type BaseScimRequest = Request & ApiRequestLocals;
 

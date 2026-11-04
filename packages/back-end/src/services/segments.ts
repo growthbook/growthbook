@@ -1,5 +1,5 @@
-import { SegmentInterface } from "shared/types/segment";
-import { ApiSegment } from "shared/validators";
+import type { SegmentInterface } from "shared/types/segment";
+import type { ApiSegment } from "shared/validators";
 
 export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
   return {

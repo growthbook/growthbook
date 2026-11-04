@@ -1,5 +1,5 @@
-import { AICredentialInterface } from "shared/validators";
-import { AI_PROVIDER_META, AI_PROVIDERS, AIProvider } from "shared/ai";
+import type { AICredentialInterface } from "shared/validators";
+import { AI_PROVIDER_META, AI_PROVIDERS, type AIProvider } from "shared/ai";
 
 // Env vars are captured at module load in util/secrets, so they have to be set
 // before the module graph is required. Each test builds its own module instance

@@ -1,9 +1,9 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
-import {
+import React, { type FC, useCallback, useMemo, useState } from "react";
+import type {
   PastExperiment,
   PastExperimentsInterface,
 } from "shared/types/past-experiments";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
 import {
   getExposureQueryIdentifierTypes,

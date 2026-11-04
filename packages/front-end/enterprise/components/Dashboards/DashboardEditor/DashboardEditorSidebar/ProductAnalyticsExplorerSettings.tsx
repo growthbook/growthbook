@@ -1,10 +1,10 @@
 import {
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-  MetricExplorationBlockInterface,
-  FactTableExplorationBlockInterface,
-  DataSourceExplorationBlockInterface,
-  FunnelExplorationBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
+  type MetricExplorationBlockInterface,
+  type FactTableExplorationBlockInterface,
+  type DataSourceExplorationBlockInterface,
+  type FunnelExplorationBlockInterface,
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
@@ -12,9 +12,9 @@ import {
   resolveComparisonPreviousTimeFrame,
   restoreBlockLocalDateControls,
   blockUsesDashboardDateControl,
-  SqlExplorationBlockInterface,
+  type SqlExplorationBlockInterface,
 } from "shared/enterprise";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { isEqual } from "lodash";
 import type {
   ComparisonMode,

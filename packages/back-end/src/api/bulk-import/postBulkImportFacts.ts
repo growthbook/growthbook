@@ -1,10 +1,10 @@
 import { PermissionError } from "shared/util";
 import {
-  BulkImportError,
+  type BulkImportError,
   postBulkImportFactsValidator,
 } from "shared/validators";
-import { DataSourceInterface } from "shared/types/datasource";
-import {
+import type { DataSourceInterface } from "shared/types/datasource";
+import type {
   AggregatedFactTableSettings,
   CreateFactTableProps,
   FactMetricInterface,

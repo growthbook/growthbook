@@ -1,5 +1,5 @@
-import { FC, ChangeEventHandler } from "react";
-import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import type { FC, ChangeEventHandler } from "react";
+import type { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";

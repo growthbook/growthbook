@@ -1,7 +1,9 @@
 import { forwardRef } from "react";
-import { Text as RadixText } from "@radix-ui/themes";
-import type { TextProps as RadixTextProps } from "@radix-ui/themes";
-import { radixSize, Size } from "@/ui/sizes";
+import {
+  Text as RadixText,
+  type TextProps as RadixTextProps,
+} from "@radix-ui/themes";
+import { radixSize, type Size } from "@/ui/sizes";
 
 export type TextSizes = Size<"sm" | "md" | "lg" | "xl"> | "inherit";
 export type TextWeights = "regular" | "medium" | "semibold";

@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
+import type { AppFeatures } from "shared/types/app-features";
 import { truncateString } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";

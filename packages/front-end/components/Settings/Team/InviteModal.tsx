@@ -1,7 +1,7 @@
 import { Box } from "@radix-ui/themes";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import {
+import type {
   DefaultMemberRole,
   MemberRoleWithProjects,
 } from "shared/types/organization";

@@ -1,4 +1,4 @@
-import { FC, ReactNode } from "react";
+import type { FC, ReactNode } from "react";
 import {
   DndContext,
   closestCenter,
@@ -14,7 +14,7 @@ import {
   verticalListSortingStrategy,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Variation } from "shared/types/experiment";
+import type { Variation } from "shared/types/experiment";
 import type { SortableVariation } from "./SortableFeatureVariationRow";
 
 /** Moves a variation; keys that track position are renumbered to match. */

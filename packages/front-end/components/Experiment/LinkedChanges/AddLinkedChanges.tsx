@@ -1,11 +1,11 @@
-import { CommercialFeature } from "shared/enterprise";
+import type { CommercialFeature } from "shared/enterprise";
 import {
-  SDKCapability,
+  type SDKCapability,
   someConnectionSupportsCapabilities,
 } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ReactElement } from "react";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ReactElement } from "react";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import {
   PiCaretDownFill,
@@ -24,7 +24,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
-import { ICON_PROPERTIES, LinkedChange } from "./constants";
+import { ICON_PROPERTIES, type LinkedChange } from "./constants";
 
 export const LINKED_CHANGES: Record<
   LinkedChange,

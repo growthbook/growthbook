@@ -1,4 +1,4 @@
-import { RowFilter } from "shared/types/fact-table";
+import type { RowFilter } from "shared/types/fact-table";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { DateFilterInput } from "./DateFilterInput";

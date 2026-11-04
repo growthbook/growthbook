@@ -1,13 +1,13 @@
-import { z } from "zod";
-import { ContextualBanditInterface } from "shared/validators";
-import { contextualBanditEndpoints } from "shared/api-endpoints";
-import { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
+import type { z } from "zod";
+import type { ContextualBanditInterface } from "shared/validators";
+import type { contextualBanditEndpoints } from "shared/api-endpoints";
+import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
 import { getVisibleVariations } from "shared/experiments";
-import {
+import type {
   ContextualBanditRefRule,
   FeatureInterface,
 } from "shared/types/feature";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {

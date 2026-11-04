@@ -1,6 +1,6 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { ReactNode } from "react";
-import { ColumnRef, FactTableDefinition } from "shared/types/fact-table";
+import type { ReactNode } from "react";
+import type { ColumnRef, FactTableDefinition } from "shared/types/fact-table";
 import { reconcileInlineFilterPrompts } from "shared/experiments";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import { Select, SelectItem } from "@/ui/Select";
@@ -20,7 +20,7 @@ import {
   columnValueLabel,
   onFactTableChange,
   onShapeChange,
-  RatioShape,
+  type RatioShape,
   shapeFromColumnRef,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 

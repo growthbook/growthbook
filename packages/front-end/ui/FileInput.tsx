@@ -1,4 +1,4 @@
-import { ChangeEvent, FC, useRef, useState } from "react";
+import { type ChangeEvent, type FC, useRef, useState } from "react";
 import clsx from "clsx";
 import Button from "@/ui/Button";
 import styles from "./FileInput.module.scss";

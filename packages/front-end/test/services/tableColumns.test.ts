@@ -4,8 +4,8 @@ import {
   mergeLayoutForWrite,
   minTableWidth,
   resolveTableColumns,
-  TableColumnDef,
-  TableColumnLayout,
+  type TableColumnDef,
+  type TableColumnLayout,
 } from "@/services/tableColumns";
 
 type Row = { id: string };

@@ -1,4 +1,4 @@
-import { ContextualBanditInterface } from "shared/validators";
+import type { ContextualBanditInterface } from "shared/validators";
 import { assertVariationsCoverBandit } from "back-end/src/api/contextual-bandits/_shared";
 
 function makeCb(

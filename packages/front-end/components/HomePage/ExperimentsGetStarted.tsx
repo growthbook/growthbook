@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { PiArrowRight } from "react-icons/pi";
 import { FaArrowLeft } from "react-icons/fa";
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { useDefinitions } from "@/services/DefinitionsContext";

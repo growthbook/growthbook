@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export interface RecordsColumn<T> {
   /** Stable identity, and the default row field this column consumes. */

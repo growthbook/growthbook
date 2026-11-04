@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useState } from "react";
 import { isFactFunnelMetric } from "shared/experiments";
-import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
+import type { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 
 import { Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";

@@ -1,9 +1,9 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import { getHoldoutStage } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";

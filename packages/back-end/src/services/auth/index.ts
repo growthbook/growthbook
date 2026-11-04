@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "shared/enterprise";
 import { ExpressCookieStickyBucketService } from "@growthbook/growthbook";
 import {
@@ -6,10 +6,10 @@ import {
   normalizeSuperAdmin,
   userHasPermission,
 } from "shared/permissions";
-import { AuditInterface } from "shared/types/audit";
-import { Permission } from "shared/types/organization";
-import { UserInterface } from "shared/types/user";
-import {
+import type { AuditInterface } from "shared/types/audit";
+import type { Permission } from "shared/types/organization";
+import type { UserInterface } from "shared/types/user";
+import type {
   EventUserForResponseLocals,
   EventUserLoggedIn,
 } from "shared/types/events/event-types";
@@ -19,7 +19,7 @@ import {
   IS_LOCALHOST,
   SUPER_ADMIN_AUTH_SUB_PREFIX,
 } from "back-end/src/util/secrets";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   hasUser,
   markUserAsVerified,
@@ -60,7 +60,7 @@ import {
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
-import { AuthConnection } from "./AuthConnection";
+import type { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
 import {

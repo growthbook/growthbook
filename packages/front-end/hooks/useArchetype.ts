@@ -1,5 +1,5 @@
-import { ArchetypeInterface } from "shared/types/archetype";
-import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
+import type { ArchetypeInterface } from "shared/types/archetype";
+import type { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import useApi from "./useApi";
 
 export const useArchetype = ({

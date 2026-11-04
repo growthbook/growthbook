@@ -1,8 +1,8 @@
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
 } from "shared/types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "shared/types/report";
+import type { ExperimentReportResultDimension } from "shared/types/report";
 import { tabulateCovariateImbalance } from "../src/health/covariate-imbalance";
 
 function makeAnalysisSettings(

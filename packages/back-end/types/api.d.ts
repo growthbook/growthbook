@@ -1,13 +1,13 @@
-import { AuditInterfaceInput } from "shared/types/audit";
-import { EventUser } from "shared/types/events/event-types";
-import { ExperimentStatus } from "shared/types/experiment";
-import { OrganizationInterface } from "shared/types/organization";
-import { FeatureDefinition } from "shared/types/sdk";
-import { UserInterface } from "shared/types/user";
-import { ApiErrorCode, ApiErrorDetails } from "shared/validators";
-import { PermissionFunctions } from "back-end/src/types/AuthRequest";
-import { PublishGate } from "back-end/src/revisions/publishGates";
-import { ReqContext } from "./request";
+import type { AuditInterfaceInput } from "shared/types/audit";
+import type { EventUser } from "shared/types/events/event-types";
+import type { ExperimentStatus } from "shared/types/experiment";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { FeatureDefinition } from "shared/types/sdk";
+import type { UserInterface } from "shared/types/user";
+import type { ApiErrorCode, ApiErrorDetails } from "shared/validators";
+import type { PermissionFunctions } from "back-end/src/types/AuthRequest";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
+import type { ReqContext } from "./request";
 
 export interface ExperimentOverride {
   weights?: number[];

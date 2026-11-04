@@ -1,12 +1,12 @@
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
 import React, { useCallback, useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import {
+import type {
   ExperimentReportInterface,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
-import {
+import type {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
@@ -17,8 +17,8 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { MetricDefinitionInterface } from "shared/types/metric";
-import { DifferenceType } from "shared/types/stats";
+import type { MetricDefinitionInterface } from "shared/types/metric";
+import type { DifferenceType } from "shared/types/stats";
 import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,

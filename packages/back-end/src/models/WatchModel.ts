@@ -1,6 +1,6 @@
 import {
-  UpdateWatchOptions,
-  WatchInterface,
+  type UpdateWatchOptions,
+  type WatchInterface,
   watchSchema,
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";

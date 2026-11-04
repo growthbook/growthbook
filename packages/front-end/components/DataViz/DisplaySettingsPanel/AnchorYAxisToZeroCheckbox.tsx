@@ -1,4 +1,4 @@
-import { DataVizConfig, LineChart, ScatterChart } from "shared/validators";
+import type { DataVizConfig, LineChart, ScatterChart } from "shared/validators";
 import { chartTypeSupportsAnchorYAxisToZero } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
 

@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { type FC, useState } from "react";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SimpleNewExperimentForm from "@/components/Experiment/SimpleNewExperimentForm";
 import track from "@/services/track";

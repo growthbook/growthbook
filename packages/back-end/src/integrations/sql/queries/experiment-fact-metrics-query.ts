@@ -21,14 +21,14 @@ import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import {
-  FunnelMetricForResolution,
-  FunnelMetricSteps,
+  type FunnelMetricForResolution,
+  type FunnelMetricSteps,
   getFunnelResolutionCTEs,
   getFunnelUserMetricAggColumns,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import { getFlattenedUnitMetricsCTE } from "back-end/src/integrations/sql/ctes/flattened-unit-metrics-cte";
 import {
-  AggColumn,
+  type AggColumn,
   renderAggColumns,
 } from "back-end/src/integrations/sql/columns/agg-column";
 import {

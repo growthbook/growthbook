@@ -1,11 +1,14 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import {
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { DifferenceType, StatsEngine } from "shared/types/stats";
+import type {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { MetricDefaults, SDKAttributeSchema } from "shared/types/organization";
-import {
+import type {
+  MetricDefaults,
+  SDKAttributeSchema,
+} from "shared/types/organization";
+import type {
   ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,
@@ -13,7 +16,7 @@ import {
   MetricOverride,
   ExperimentHealthState,
 } from "shared/types/experiment";
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourcePipelineSettings,
   ExposureQuery,
@@ -27,12 +30,12 @@ import {
 } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
-import {
+import type {
   FactTableDefinition,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
   getFunnelStepMetric,
@@ -53,15 +56,15 @@ import {
   parseFunnelStepMetricId,
   parseSliceMetricId,
   parseSliceQueryString,
-  SampleSizeSource,
-  SliceDataForMetric,
+  type SampleSizeSource,
+  type SliceDataForMetric,
 } from "shared/experiments";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ReactElement, useMemo } from "react";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import { type ReactElement, useMemo } from "react";
 import {
   expandTempRolloutToken,
   TEMP_ROLLOUT_HEALTH,
-  TempRolloutHealthState,
+  type TempRolloutHealthState,
 } from "@/services/health";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
@@ -69,8 +72,8 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import { RowError } from "@/components/Experiment/ResultsTable";
-import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
+import type { RowError } from "@/components/Experiment/ResultsTable";
+import { getDefaultRuleValue, type NewExperimentRefRule } from "./features";
 
 export const NO_DATA_ERROR_MESSAGE = "No data";
 

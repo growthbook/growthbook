@@ -1,7 +1,7 @@
 import {
-  ApiContextualBanditQueryInterface,
+  type ApiContextualBanditQueryInterface,
   assertExposureQueriesTargetingAttributeColumnsValid,
-  ContextualBanditQueryInterface,
+  type ContextualBanditQueryInterface,
   contextualBanditQueryApiSpec,
   contextualBanditQueryValidator,
 } from "shared/validators";

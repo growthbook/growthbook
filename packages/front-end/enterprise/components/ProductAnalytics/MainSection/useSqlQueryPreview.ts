@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { QueryExecutionResult, type SqlDataset } from "shared/validators";
+import type { QueryExecutionResult, SqlDataset } from "shared/validators";
 import { mapColumnTypeToExplorationType } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";

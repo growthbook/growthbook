@@ -1,9 +1,9 @@
 import React, { useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { PresentationInterface } from "shared/types/presentation";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { PresentationInterface } from "shared/types/presentation";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";

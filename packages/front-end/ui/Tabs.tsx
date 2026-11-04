@@ -3,14 +3,14 @@ import {
   Children,
   forwardRef,
   isValidElement,
-  ReactNode,
+  type ReactNode,
   useEffect,
   useRef,
   useState,
 } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
-import { radixSize, Size } from "@/ui/sizes";
+import { radixSize, type Size } from "@/ui/sizes";
 import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 
 /**

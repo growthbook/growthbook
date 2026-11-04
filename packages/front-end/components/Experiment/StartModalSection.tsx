@@ -1,6 +1,6 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import Text from "@/ui/Text";
 
 export default function StartModalSection({

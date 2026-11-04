@@ -1,5 +1,5 @@
 import {
-  ReactNode,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -8,7 +8,7 @@ import {
 } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
-  Revision,
+  type Revision,
   checkMergeConflicts,
   getRevisionUpdatableFields,
   applyTopLevelPatchOps,
@@ -29,8 +29,8 @@ import {
   revisionActor,
   type RevisionStatus,
 } from "shared/validators";
-import type { PublishGovernanceResult } from "shared/util";
 import {
+  type PublishGovernanceResult,
   isArchiveTransition,
   isPureArchiveRevision,
   proposedArchivedValue,
@@ -69,7 +69,7 @@ import {
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
 import {
-  RevisionLike,
+  type RevisionLike,
   revisionStatusColor,
   revisionStatusIcon,
   revisionStatusLabel,
@@ -79,7 +79,7 @@ import {
   buildAnchoredCommentMapFromReviews,
   REVIEW_SUBTAB_EVENT,
 } from "@/components/Reviews/diffCommentRefs";
-import { DiffCommentsProps } from "@/components/Reviews/Feature/RevisionDiffUtils";
+import type { DiffCommentsProps } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import RevisionTimeline, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/RevisionTimeline";
@@ -87,7 +87,7 @@ import ScheduledPublishControl from "@/components/Reviews/ScheduledPublishContro
 import ReviewHeader from "@/components/Reviews/ReviewHeader";
 import { RevisionDiffContent } from "@/components/Reviews/RevisionDiffContent";
 import RevisionDescription from "@/components/Reviews/RevisionDescription";
-import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
+import { useRevisionDiff, type RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 import { revisionTimelineLogs } from "./revisionTimelineLogs";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";

@@ -1,5 +1,5 @@
-import { DataSourceInterface } from "shared/types/datasource";
-import {
+import type { DataSourceInterface } from "shared/types/datasource";
+import type {
   ExperimentSnapshotInterface,
   SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";

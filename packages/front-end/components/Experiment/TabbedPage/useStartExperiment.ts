@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import {
+import type {
   ApiErrorDetails,
   HoldoutInterfaceStringDates,
 } from "shared/validators";
@@ -13,7 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
-import { ServerChecklistItem } from "./startActions";
+import type { ServerChecklistItem } from "./startActions";
 
 export type PendingDraftFailure =
   ApiErrorDetails<"pending_draft_publish_failed">["failedFeatureDrafts"][number];

@@ -1,4 +1,4 @@
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { BadRequestError } from "back-end/src/util/errors";
 

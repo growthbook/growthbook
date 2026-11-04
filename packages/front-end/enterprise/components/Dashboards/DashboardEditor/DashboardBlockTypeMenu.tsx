@@ -1,5 +1,5 @@
-import { Fragment, ReactNode, useState } from "react";
-import { DashboardBlockType } from "shared/enterprise";
+import { Fragment, type ReactNode, useState } from "react";
+import type { DashboardBlockType } from "shared/enterprise";
 import {
   DropdownMenu,
   DropdownMenuItem,

@@ -1,10 +1,10 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
-  MergeResultChanges,
+  type MergeResultChanges,
   PermissionError,
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -26,21 +26,21 @@ import {
   withKeptIdentifierType,
 } from "shared/util";
 import {
-  SafeRolloutInterface,
-  SafeRolloutRule,
-  RampScheduleInterface,
-  RampScheduleTemplateInterface,
-  RevisionRampAction,
-  RevisionRampDetachAction,
-  RevisionRampCreateAction,
-  RevisionRampUpdateAction,
-  RampStartAction,
-  RampStepAction,
+  type SafeRolloutInterface,
+  type SafeRolloutRule,
+  type RampScheduleInterface,
+  type RampScheduleTemplateInterface,
+  type RevisionRampAction,
+  type RevisionRampDetachAction,
+  type RevisionRampCreateAction,
+  type RevisionRampUpdateAction,
+  type RampStartAction,
+  type RampStepAction,
   resolveStartApproval,
-  RampMonitoringConfig,
+  type RampMonitoringConfig,
 } from "shared/validators";
-import { UpdateProps } from "shared/types/base-model";
-import {
+import type { UpdateProps } from "shared/types/base-model";
+import type {
   FeatureEnvironment,
   FeatureInterface,
   FeatureMetaInfo,
@@ -49,11 +49,11 @@ import {
   V1FeatureInterface,
   V1FeatureRule,
 } from "shared/types/feature";
-import { EventUser } from "shared/types/events/event-types";
-import { OrganizationInterface } from "shared/types/organization";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ResourceEvents } from "shared/types/events/base-types";
-import { DiffResult } from "shared/types/events/diff";
+import type { EventUser } from "shared/types/events/event-types";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ResourceEvents } from "shared/types/events/base-types";
+import type { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
 import { yieldEventLoop } from "back-end/src/util/yield";
@@ -92,8 +92,8 @@ import {
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
   planRampBaseStateSyncForPublish,
-  RampBaseStatePreImage,
-  RampBaseStateRefusal,
+  type RampBaseStatePreImage,
+  type RampBaseStateRefusal,
   restoreRampBaseStates,
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
@@ -120,10 +120,10 @@ import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   isPlausibleFeatureRule,
-  V1RulesByEnv,
+  type V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
   buildInheritedChildrenByAncestor,
@@ -160,7 +160,7 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
 import {
   captureEventBuffer,
@@ -183,8 +183,8 @@ import { settleFeatureRemovalsAfterPublish } from "back-end/src/util/featureExpe
 import {
   createEvent,
   hasPreviousObject,
-  CreateEventData,
-  CreateEventParams,
+  type CreateEventData,
+  type CreateEventParams,
 } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,

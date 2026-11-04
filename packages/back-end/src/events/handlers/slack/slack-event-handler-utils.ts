@@ -3,33 +3,33 @@ import formatNumber from "number-format.js";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import isEqual from "lodash/isEqual";
-import {
+import type {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "shared/types/events/notification-events";
-import { EventInterface } from "shared/types/events/event";
-import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import type { EventInterface } from "shared/types/events/event";
+import type { SlackIntegrationInterface } from "shared/types/slack-integration";
 import {
-  ExperimentWarningNotificationPayload,
-  ExperimentInfoSignificancePayload,
-  ExperimentInfoScheduledStatusUpdatePayload,
-  ExperimentDecisionNotificationPayload,
-  SafeRolloutDecisionNotificationPayload,
-  SafeRolloutUnhealthyNotificationPayload,
-  RampScheduleStepApprovalRequiredPayload,
+  type ExperimentWarningNotificationPayload,
+  type ExperimentInfoSignificancePayload,
+  type ExperimentInfoScheduledStatusUpdatePayload,
+  type ExperimentDecisionNotificationPayload,
+  type SafeRolloutDecisionNotificationPayload,
+  type SafeRolloutUnhealthyNotificationPayload,
+  type RampScheduleStepApprovalRequiredPayload,
   eventUserLabel,
   eventUserPerson,
 } from "shared/validators";
-import {
+import type {
   DiffResult,
   HierarchicalValue,
   HierarchicalModification,
   SimpleModification,
   ItemFieldChange,
-  type ModificationItem,
+  ModificationItem,
 } from "shared/types/events/diff";
 import {
-  FilterDataForNotificationEvent,
+  type FilterDataForNotificationEvent,
   getFilterDataForNotificationEvent,
 } from "back-end/src/events/handlers/utils";
 import { APP_ORIGIN } from "back-end/src/util/secrets";

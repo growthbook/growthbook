@@ -1,5 +1,5 @@
-import { DataSourceSettings } from "shared/types/datasource";
-import { SqlDialect } from "shared/types/sql";
+import type { DataSourceSettings } from "shared/types/datasource";
+import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export function getIdentitiesQuery(

@@ -1,6 +1,6 @@
 import { Flex, SegmentedControl } from "@radix-ui/themes";
 import { useState } from "react";
-import {
+import type {
   ColumnRef,
   FactTableDefinition,
   MetricQuantileSettings,

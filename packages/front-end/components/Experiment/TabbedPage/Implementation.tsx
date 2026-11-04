@@ -1,20 +1,20 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
   Variation,
 } from "shared/types/experiment";
-import {
+import type {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
+import type {
   HoldoutInterfaceStringDates,
   HoldoutMissingLinkage,
 } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   canEditDeliveryInPlace,
   experimentHasLinkedChanges,
@@ -36,7 +36,7 @@ import {
 import VisualChangesetColumn from "@/components/Experiment/VisualChangesetColumn";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import {
+import type {
   ColumnLayout,
   ImplementationColumn,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";
@@ -49,7 +49,7 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import HoldoutTrafficAndTargeting from "@/components/Holdout/HoldoutTrafficAndTargeting";
 import TrafficAllocationFunnel, {
   changesVariationList,
-  TargetingDraft,
+  type TargetingDraft,
 } from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import AnalysisPlan from "@/components/Experiment/TabbedPage/AnalysisPlan";
@@ -69,8 +69,8 @@ import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperime
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
-  FlagEnvironmentsDraft,
-  HoldoutDraft,
+  type FlagEnvironmentsDraft,
+  type HoldoutDraft,
   useExperimentEdits,
   useExperimentFieldEdit,
   useRegisterExperimentEdit,
@@ -81,15 +81,15 @@ import {
   editRedirect,
   EMPTY_LINKED_CHANGES,
   hasSetAsideVisualChanges,
-  LinkedChangesDraft,
+  type LinkedChangesDraft,
   linkedChangesBody,
   newRedirectKey,
   pruneLinkedChanges,
   rebaseLinkedChanges,
-  RedirectFields,
+  type RedirectFields,
   removeRedirect,
   removeVisual,
-  ShownRedirect,
+  type ShownRedirect,
   shownUrlRedirects,
   redirectServedValues,
   visualServedValues,
@@ -98,7 +98,7 @@ import {
   stageVisualTargeting,
   undoRedirect,
   undoVisual,
-  VisualTargeting,
+  type VisualTargeting,
 } from "./linkedChangesDraft";
 import { useAddedFlags } from "./addedFlags";
 

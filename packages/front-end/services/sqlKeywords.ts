@@ -24,7 +24,7 @@
  *
  */
 
-import { AceCompletion } from "@/components/Forms/CodeTextArea";
+import type { AceCompletion } from "@/components/Forms/CodeTextArea";
 
 // Constants for completion scores - single source of truth for all SQL completions
 export const COMPLETION_SCORES = {

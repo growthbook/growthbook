@@ -1,5 +1,5 @@
-import { FactTableColumnType } from "shared/types/fact-table";
-import { QueryMetadata } from "shared/types/query";
+import type { FactTableColumnType } from "shared/types/fact-table";
+import type { QueryMetadata } from "shared/types/query";
 import { logger } from "back-end/src/util/logger";
 
 const URL_SCHEME = /^[a-z][a-z\d+.-]*:/i;

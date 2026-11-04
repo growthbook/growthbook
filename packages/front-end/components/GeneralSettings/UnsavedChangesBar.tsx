@@ -15,7 +15,7 @@ import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import { describeUnsavedChanges } from "./settingsSections";
-import { SettingsChange, useSettingsForm } from "./SettingsFormProvider";
+import { type SettingsChange, useSettingsForm } from "./SettingsFormProvider";
 import styles from "./SettingsSection.module.scss";
 
 const TOAST_MS = 3000;

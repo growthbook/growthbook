@@ -1,5 +1,5 @@
 import { isSavedGroupAvailableForProjects } from "shared/util";
-import { SavedGroupTargeting } from "shared/types/feature";
+import type { SavedGroupTargeting } from "shared/types/feature";
 import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React, { useEffect } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";

@@ -4,12 +4,12 @@ import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
 import { useForm } from "react-hook-form";
 import {
-  NpsCategory,
+  type NpsCategory,
   NPS_MAX_FEEDBACK_LENGTH,
   npsCategoryOf,
   npsValueOf,
 } from "shared/nps";
-import { NpsDisposition, NpsSurveyStatus } from "shared/validators";
+import type { NpsDisposition, NpsSurveyStatus } from "shared/validators";
 import { hasSuperAdminPermission } from "shared/permissions";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";

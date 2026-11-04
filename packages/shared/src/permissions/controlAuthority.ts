@@ -2,8 +2,11 @@
 // and a barrel round-trip risks a runtime cycle.
 import { proposedProjectScope } from "../util/featureDraftPurity";
 import { holdsMoveDestination } from "./moveAuthority";
-import { NO_ENVIRONMENT_BINDING } from "./revisionPermissions";
-import type { RevisionAction, RevisionModel } from "./revisionPermissions";
+import {
+  NO_ENVIRONMENT_BINDING,
+  type RevisionAction,
+  type RevisionModel,
+} from "./revisionPermissions";
 import type { Permissions } from "./permissionsClass";
 
 // Pure client-side predictions of endpoint authority decisions.

@@ -1,5 +1,5 @@
 import {
-  SDKCapability,
+  type SDKCapability,
   getMinSupportedSDKVersions,
 } from "shared/sdk-versioning";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";

@@ -1,14 +1,14 @@
 import { omit } from "lodash";
-import { z } from "zod";
+import type { z } from "zod";
 import {
-  customFieldsPropsValidator,
+  type customFieldsPropsValidator,
   customFieldsValidator,
   customFieldSectionValues,
   apiCreateCustomFieldBody,
   apiUpdateCustomFieldBody,
-  ApiCustomField,
+  type ApiCustomField,
 } from "shared/validators";
-import { CustomFieldSection } from "shared/types/custom-fields";
+import type { CustomFieldSection } from "shared/types/custom-fields";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";

@@ -1,4 +1,4 @@
-import { ProjectInterface } from "shared/types/project";
+import type { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";

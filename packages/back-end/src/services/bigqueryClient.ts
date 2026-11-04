@@ -1,5 +1,5 @@
 import { BigQuery } from "@google-cloud/bigquery";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { normalizeBigQueryApiEndpoint } from "back-end/src/services/bigquery";
 import { BadRequestError } from "back-end/src/util/errors";
 import { IS_CLOUD, WEBHOOK_PROXY } from "back-end/src/util/secrets";

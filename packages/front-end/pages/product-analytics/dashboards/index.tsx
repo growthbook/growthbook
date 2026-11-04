@@ -1,9 +1,9 @@
 import { ago } from "shared/dates";
 import { useCallback, useEffect, useState } from "react";
 import {
-  DashboardInterface,
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
+  type DashboardInterface,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
   getBlockData,
 } from "shared/enterprise";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -22,7 +22,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
 import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
-import {
+import type {
   CreateDashboardArgs,
   SubmitDashboard,
   UpdateDashboardArgs,

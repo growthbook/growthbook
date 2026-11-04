@@ -1,6 +1,6 @@
-import { AIModel, AIProvider } from "shared/ai";
-import { AIKeySource } from "back-end/src/services/aiCredentials";
-import { ReqContext } from "back-end/types/request";
+import type { AIModel, AIProvider } from "shared/ai";
+import type { AIKeySource } from "back-end/src/services/aiCredentials";
+import type { ReqContext } from "back-end/types/request";
 
 // The cap only exists on Cloud, so every case here is a Cloud case.
 jest.mock("back-end/src/util/secrets", () => ({

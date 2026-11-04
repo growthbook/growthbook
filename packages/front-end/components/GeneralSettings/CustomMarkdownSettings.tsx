@@ -1,5 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import type { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import PremiumCallout from "@/ui/PremiumCallout";

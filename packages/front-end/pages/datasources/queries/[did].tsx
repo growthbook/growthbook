@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { PiXBold } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import type {
   DataSourceUsage as DataSourceUsageData,
   QueryInterface,

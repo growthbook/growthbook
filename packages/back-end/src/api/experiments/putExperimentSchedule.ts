@@ -1,5 +1,5 @@
 import {
-  ExperimentInterfaceExcludingHoldouts,
+  type ExperimentInterfaceExcludingHoldouts,
   putExperimentScheduleValidator,
 } from "shared/validators";
 import { scheduleWriteNeedsRunPermission } from "shared/experiments";

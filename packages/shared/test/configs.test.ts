@@ -34,20 +34,20 @@ import {
   constantPublishEnvironments,
   computeConfigReconciliationPreview,
   isConfigLocked,
-  ConfigChainNode,
+  type ConfigChainNode,
   getAncestorSchemaFieldOwners,
   classifyAncestorOwnedFields,
   formatAncestorFieldConflictMessage,
   ancestorCollisionWarnings,
   findOrphanedConfigValueKeys,
   computeConfigSchemaChangeImpact,
-  ConfigFamilyMember,
+  type ConfigFamilyMember,
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
   getFeatureBaseConfigKey,
 } from "../src/util/configs";
 import { fieldsContractEqual } from "../src/util/config-schema";
-import { SimpleSchema, SchemaField } from "../types/feature";
+import type { SimpleSchema, SchemaField } from "../types/feature";
 
 const field = (key: string): SchemaField => ({
   key,

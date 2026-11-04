@@ -1,6 +1,6 @@
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
-  NotificationCardFormat,
+  type NotificationCardFormat,
 } from "shared/validators";
 import {
   renderDarkCard,

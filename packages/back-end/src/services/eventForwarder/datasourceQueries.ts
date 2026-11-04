@@ -1,7 +1,7 @@
-import { EventForwarderConfigInterface } from "shared/validators";
+import type { EventForwarderConfigInterface } from "shared/validators";
 import {
   buildEventForwarderFeatureUsageQuery,
-  EventForwarderDatasourceParams,
+  type EventForwarderDatasourceParams,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -11,7 +11,7 @@ import {
 import { buildFeatureUsageQueryParams } from "back-end/src/services/eventForwarder/sinkParams";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 export async function ensureEventForwarderFeatureUsageQuery(
   context: ReqContext,

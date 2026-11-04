@@ -1,6 +1,6 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import omit from "lodash/omit";
-import { LicenseInterface } from "shared/enterprise";
+import type { LicenseInterface } from "shared/enterprise";
 import type { LicenseRefs } from "back-end/src/util/adminOrgQuery";
 
 const licenseSchema = new mongoose.Schema({

@@ -1,4 +1,4 @@
-import { FactTableInterface } from "shared/types/fact-table";
+import type { FactTableInterface } from "shared/types/fact-table";
 import Link from "@/ui/Link";
 
 export interface Props {

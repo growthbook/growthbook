@@ -1,12 +1,12 @@
 import { AES, enc } from "crypto-js";
 import uniqid from "uniqid";
 import { isReadOnlySQL } from "shared/sql";
-import {
+import type {
   SqlDialect,
   SqlIdentifierQuote,
   TemplateVariables,
 } from "shared/types/sql";
-import {
+import type {
   ExperimentExposuresQueryParams,
   ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryResponseRows,
@@ -15,19 +15,26 @@ import {
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
-import {
+import type {
   DataSourceInterface,
   DataSourceParams,
   DataSourceType,
   ExposureQuery,
   FeatureUsageQuery,
 } from "shared/types/datasource";
-import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
-import { FeatureInterface } from "shared/types/feature";
-import { QueryStatistics, QueryType, TestQueryType } from "shared/types/query";
+import type {
+  DetectedColumn,
+  FactTableColumnType,
+} from "shared/types/fact-table";
+import type { FeatureInterface } from "shared/types/feature";
+import type {
+  QueryStatistics,
+  QueryType,
+  TestQueryType,
+} from "shared/types/query";
 import {
   formatQueryExecutionErrorForApi,
-  DataSourceParamsForType,
+  type DataSourceParamsForType,
   mergeDataSourceParams,
   redactSecretParams,
   getExposureQueryExperimentIdColumn,
@@ -52,13 +59,13 @@ import AdobeExperiencePlatformQueryService from "back-end/src/integrations/Adobe
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 

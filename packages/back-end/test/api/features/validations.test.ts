@@ -15,7 +15,7 @@ import {
 } from "back-end/src/api/features/validations";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeaturesWithoutEditorFields: jest.fn(),

@@ -1,7 +1,7 @@
 import {
-  OAuthGrantInterface,
+  type OAuthGrantInterface,
   oauthGrantValidator,
-  OAuthTokenPermissions,
+  type OAuthTokenPermissions,
 } from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";

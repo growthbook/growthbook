@@ -1,5 +1,5 @@
 import React from "react";
-import { Revision, RevisionStatus } from "shared/enterprise";
+import type { Revision, RevisionStatus } from "shared/enterprise";
 import Badge from "@/ui/Badge";
 import {
   revisionStatusColor,

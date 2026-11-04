@@ -1,12 +1,12 @@
 import { useRouter } from "next/router";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React, { ReactElement, useState } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import React, { type ReactElement, useState } from "react";
 import { getHoldoutStage } from "shared/util";
-import {
+import type {
   HoldoutInterfaceStringDates,
   HoldoutMissingLinkage,
 } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";

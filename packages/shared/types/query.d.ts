@@ -1,5 +1,5 @@
-import { z } from "zod";
-import {
+import type { z } from "zod";
+import type {
   queryPointerValidator,
   queryRunnerFailureCause,
   queryStatisticsValidator,
@@ -9,8 +9,8 @@ import {
   sqlResultChunkValidator,
 } from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
-import { QueryLanguage } from "./datasource";
-import { SnapshotTriggeredBy, SnapshotType } from "./experiment-snapshot";
+import type { QueryLanguage } from "./datasource";
+import type { SnapshotTriggeredBy, SnapshotType } from "./experiment-snapshot";
 
 export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;
 

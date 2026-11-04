@@ -1,10 +1,10 @@
-import { CommercialFeature } from "shared/enterprise";
+import type { CommercialFeature } from "shared/enterprise";
 import React from "react";
-import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
-import { RadixColor } from "@/ui/HelperText";
+import type { RadixColor } from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
 
 export type Props = {

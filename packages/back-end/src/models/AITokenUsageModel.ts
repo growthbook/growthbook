@@ -1,7 +1,7 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
-import { AITokenUsageInterface } from "shared/ai";
-import { OrganizationInterface } from "shared/types/organization";
+import type { AITokenUsageInterface } from "shared/ai";
+import type { OrganizationInterface } from "shared/types/organization";
 import { parseEnvInt } from "shared/util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise/licenseUtil";

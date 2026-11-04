@@ -1,7 +1,7 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
-import { ConstantInterface } from "shared/types/constant";
-import { ConfigInterface } from "shared/types/config";
+import type { ConstantInterface } from "shared/types/constant";
+import type { ConfigInterface } from "shared/types/config";
 import { describeInvariantRule } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import {
@@ -11,7 +11,7 @@ import {
   ProjectName,
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
-import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
+import type { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 
 // Combined shape so the render/badge helpers serve both constants and configs.
 type DiffShape = ConstantInterface & ConfigInterface;

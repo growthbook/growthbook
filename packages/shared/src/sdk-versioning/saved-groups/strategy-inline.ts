@@ -1,9 +1,9 @@
-import { OrganizationInterface } from "shared/types/organization";
-import { GroupMap } from "shared/types/saved-group";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { GroupMap } from "shared/types/saved-group";
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
-  NodeHandler,
+  type NodeHandler,
   recursiveWalk,
 } from "../../util";
 // Inlining builds the same conditions as v1, then rewrites them below.
@@ -11,7 +11,7 @@ import {
   createV1SavedGroupsOperatorHandler,
   createV1Condition,
 } from "./strategy-references-v1";
-import { SavedGroupPayloadStrategy } from "./types";
+import type { SavedGroupPayloadStrategy } from "./types";
 
 /** The value operator each reference operator becomes when inlined. */
 const savedGroupOperatorReplacements = {

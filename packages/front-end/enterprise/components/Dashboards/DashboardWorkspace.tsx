@@ -1,11 +1,11 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  BlockLayout,
-  DashboardInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-  DashboardBlockType,
+  type BlockLayout,
+  type DashboardInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
+  type DashboardBlockType,
   CREATE_BLOCK_TYPE,
   getBlockData,
   getInitialConfigByBlockType,
@@ -24,7 +24,7 @@ import {
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import { LayoutItem } from "react-grid-layout";
+import type { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   PiCaretDoubleLeft,
@@ -46,11 +46,11 @@ import DashboardEditor, {
   DASHBOARD_TOPBAR_HEIGHT,
   getGridKeyForBlock,
 } from "./DashboardEditor";
-import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
+import type { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import { isBlockTypeAllowed } from "./DashboardEditor/dashboardBlockTypes";
 import {
-  AddBlockOptions,
+  type AddBlockOptions,
   insertBlockAtIndex,
 } from "./DashboardEditor/dashboardLayout";
 import DashboardModal from "./DashboardModal";

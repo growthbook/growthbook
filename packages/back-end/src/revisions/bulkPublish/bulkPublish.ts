@@ -5,8 +5,10 @@ import {
   flushPayloadRefreshBuffer,
 } from "back-end/src/revisions/landingSequence";
 import type { Context } from "back-end/src/models/BaseModel";
-import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
-import { entityKey } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  type DeferredEventBuffer,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
   BadRequestError,
@@ -20,8 +22,8 @@ import {
   classifyPublishGate,
   gateOr5xx,
   makeBlockingGate,
-  PublishGate,
-  PublishGateClearance,
+  type PublishGate,
+  type PublishGateClearance,
 } from "back-end/src/revisions/publishGates";
 import { ownershipChanged } from "back-end/src/revisions/util";
 import { displayEntityName } from "back-end/src/revisions/entityNames";

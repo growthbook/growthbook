@@ -1,17 +1,17 @@
 import React, {
-  FC,
+  type FC,
   Fragment,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import {
+import type {
   ArchetypeAttributeValues,
   ArchetypeInterface,
 } from "shared/types/archetype";
-import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
+import type { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { featureHasEnvironment } from "shared/util";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";

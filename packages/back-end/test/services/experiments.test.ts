@@ -1,23 +1,23 @@
-import { z } from "zod";
-import {
+import type { z } from "zod";
+import type {
   postExperimentValidator,
   postMetricValidator,
   putMetricValidator,
   updateExperimentValidator,
 } from "shared/validators";
-import { DataSourceInterface } from "shared/types/datasource";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { isFactMetric } from "shared/experiments";
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import {
+import type {
   ExperimentUpdateSchedule,
   OrganizationInterface,
 } from "shared/types/organization";
 import { addTags } from "back-end/src/models/TagModel";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import {
-  ScheduleUpdateInput,
+  type ScheduleUpdateInput,
   validateScheduleUpdate,
 } from "back-end/src/services/experimentScheduling";
 import {

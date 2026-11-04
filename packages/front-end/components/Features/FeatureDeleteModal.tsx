@@ -1,4 +1,4 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { Text } from "@radix-ui/themes";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";

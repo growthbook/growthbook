@@ -4,15 +4,15 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { autoMerge, reconcileMergeBaselines } from "shared/util";
-import { SafeRolloutStatus, SafeRolloutRule } from "shared/validators";
-import {
+import type { SafeRolloutStatus, SafeRolloutRule } from "shared/validators";
+import type {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/types/safe-rollout";
-import { OrganizationInterface } from "shared/types/organization";
-import { FeatureInterface } from "shared/types/feature";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
 import {
   editFeatureRule,

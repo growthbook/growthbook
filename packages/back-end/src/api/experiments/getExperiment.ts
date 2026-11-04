@@ -1,5 +1,5 @@
 import {
-  ExperimentInterfaceExcludingHoldouts,
+  type ExperimentInterfaceExcludingHoldouts,
   getExperimentValidator,
 } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";

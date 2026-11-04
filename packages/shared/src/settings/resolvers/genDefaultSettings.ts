@@ -1,4 +1,4 @@
-import { MemberRoleInfo, MetricDefaults } from "shared/types/organization";
+import type { MemberRoleInfo, MetricDefaults } from "shared/types/organization";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
@@ -24,7 +24,7 @@ import {
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
   DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
 } from "../../constants";
-import { Settings } from "../types";
+import type { Settings } from "../types";
 
 export const DEFAULT_ATTRIBUTION_MODEL = "firstExposure";
 export const DEFAULT_ROLE: MemberRoleInfo = {

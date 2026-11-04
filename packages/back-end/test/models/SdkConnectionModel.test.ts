@@ -1,5 +1,5 @@
 import { omit } from "lodash";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import {
   createSDKConnection,

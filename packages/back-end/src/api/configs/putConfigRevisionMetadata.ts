@@ -3,7 +3,7 @@ import { putConfigRevisionMetadataValidator } from "shared/validators";
 import {
   formatAncestorFieldConflictMessage,
   ancestorCollisionWarnings,
-  SchemaWarning,
+  type SchemaWarning,
 } from "shared/util";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";

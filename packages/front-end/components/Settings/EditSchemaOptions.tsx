@@ -1,8 +1,8 @@
-import {
+import type {
   DataSourceInterfaceWithParams,
   SchemaFormat,
 } from "shared/types/datasource";
-import { ChangeEventHandler } from "react";
+import type { ChangeEventHandler } from "react";
 import { Flex } from "@radix-ui/themes";
 import TextField from "@/ui/TextField";
 import { eventSchemas } from "@/services/eventSchema";

@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { CustomField } from "shared/types/custom-fields";
+import type { FC } from "react";
+import type { CustomField } from "shared/types/custom-fields";
 import { Flex, Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";

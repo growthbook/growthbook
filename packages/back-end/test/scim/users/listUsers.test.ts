@@ -1,8 +1,8 @@
-import { Response } from "express";
-import { ExpandedMember } from "shared/types/organization";
+import type { Response } from "express";
+import type { ExpandedMember } from "shared/types/organization";
 import { listUsers } from "back-end/src/scim/users/listUsers";
 import { expandOrgMembers } from "back-end/src/services/organizations";
-import { ScimListRequest, ScimListResponse } from "back-end/types/scim";
+import type { ScimListRequest, ScimListResponse } from "back-end/types/scim";
 
 jest.mock("back-end/src/services/organizations", () => ({
   expandOrgMembers: jest.fn(),

@@ -1,20 +1,20 @@
 import { publicNotificationEventNames } from "shared/notifications";
-import { NotificationEventNameOrWildcard } from "shared/validators";
+import type { NotificationEventNameOrWildcard } from "shared/validators";
 import { DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS } from "shared/constants";
-import React, { ReactNode, useMemo } from "react";
+import React, { type ReactNode, useMemo } from "react";
 import clsx from "clsx";
 import {
   PiQuestionLight,
   PiXSquareLight,
   PiCheckCircleLight,
 } from "react-icons/pi";
-import {
+import type {
   EventWebHookPayloadType,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
 import { VscJson } from "react-icons/vsc";
-import { FormatOptionLabelMeta } from "react-select";
-import { SingleValue } from "@/components/Forms/SelectField";
+import type { FormatOptionLabelMeta } from "react-select";
+import type { SingleValue } from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
 
 export type {

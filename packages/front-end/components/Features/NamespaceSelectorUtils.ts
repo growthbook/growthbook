@@ -1,7 +1,7 @@
 import {
   calculateNamespaceCoverage,
   getNamespaceRanges,
-  NamespaceValue,
+  type NamespaceValue,
 } from "shared/util";
 
 export type RangeTuple = [number, number];

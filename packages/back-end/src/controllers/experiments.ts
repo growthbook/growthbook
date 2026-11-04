@@ -1,4 +1,4 @@
-import { Response } from "express";
+import type { Response } from "express";
 import uniqid from "uniqid";
 import { z } from "zod";
 import format from "date-fns/format";
@@ -19,11 +19,11 @@ import {
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
-import { IdeaInterface } from "shared/types/idea";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { DataSourceInterface } from "shared/types/datasource";
-import { MetricStats } from "shared/types/metric";
-import {
+import type { IdeaInterface } from "shared/types/idea";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { MetricStats } from "shared/types/metric";
+import type {
   Changeset,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -32,13 +32,13 @@ import {
   ExperimentStatus,
   ExperimentType,
 } from "shared/types/experiment";
-import {
+import type {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { CreateURLRedirectProps } from "shared/types/url-redirect";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { CreateURLRedirectProps } from "shared/types/url-redirect";
 import { experimentChangesBody } from "shared/validators";
 import {
   ContextualBanditChangesetOwner,
@@ -49,7 +49,7 @@ import {
 } from "back-end/src/services/changesetOwner";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import {
+import type {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
@@ -66,7 +66,7 @@ import {
   getExperimentAttributeScopeProjects,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
-  SnapshotAnalysisParams,
+  type SnapshotAnalysisParams,
   createExperimentSnapshot,
   updateExperimentBanditSettings,
   validateVariationIds,
@@ -143,13 +143,16 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
-import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
+import type {
+  ApiReqContext,
+  PrivateApiErrorResponse,
+} from "back-end/types/api";
 import {
   PastExperimentsQueryRunner,
   withCountedIdentifierTypes,
 } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { assumeUtc } from "back-end/src/util/dates";
 import {
@@ -180,7 +183,7 @@ import {
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
   applyExperimentChanges,
-  ExperimentChangesResult,
+  type ExperimentChangesResult,
 } from "back-end/src/services/experimentChanges/applyExperimentChanges";
 import {
   errorStringFromZodResult,
@@ -188,7 +191,7 @@ import {
 } from "back-end/src/util/validation";
 import {
   applyExperimentUpdatePlan,
-  ExperimentUpdateInput,
+  type ExperimentUpdateInput,
   planExperimentUpdate,
 } from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";

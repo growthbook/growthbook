@@ -1,7 +1,7 @@
 import { cloneDeep } from "lodash";
-import { OrganizationInterface } from "shared/types/organization";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { ConfigFile } from "back-end/src/init/config";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { ConfigFile } from "back-end/src/init/config";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   findOrganizationById,

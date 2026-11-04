@@ -1,4 +1,4 @@
-import React, { CSSProperties, FC } from "react";
+import React, { type CSSProperties, type FC } from "react";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
 import Button from "@/ui/Button";

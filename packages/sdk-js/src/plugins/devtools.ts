@@ -1,12 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { GrowthBook } from "../GrowthBook";
-import {
+import type {
   Attributes,
   FeatureApiResponse,
   LogUnion,
   Plugin,
 } from "../types/growthbook";
-import { GrowthBookClient, UserScopedGrowthBook } from "../GrowthBookClient";
+import {
+  type GrowthBookClient,
+  UserScopedGrowthBook,
+} from "../GrowthBookClient";
 
 export type DevtoolsState = {
   attributes?: Record<string, any>;

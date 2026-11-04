@@ -8,7 +8,7 @@ import { getFunnelStepDisplayLabel } from "@/enterprise/components/ProductAnalyt
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getPreviewUnitLabel } from "@/components/QueryPreview/previewUtils";
 import Text from "@/ui/Text";
-import FunnelStepsChart, { FunnelChartSeries } from "./FunnelStepsChart";
+import FunnelStepsChart, { type FunnelChartSeries } from "./FunnelStepsChart";
 
 export default function FunnelChart({
   exploration,

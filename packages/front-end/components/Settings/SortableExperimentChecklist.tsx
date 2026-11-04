@@ -12,7 +12,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
+import type { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { FaGripHorizontal, FaTimes } from "react-icons/fa";
 import { forwardRef, useState } from "react";
 import useSortableItem from "@/hooks/useSortableItem";

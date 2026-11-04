@@ -1,8 +1,8 @@
-import {
+import type {
   DataSourceInterfaceWithParams,
   DataSourceType,
 } from "shared/types/datasource";
-import { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
+import type { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
 
 // Warehouses whose setup instructions create a password-authenticated user.
 export const PASSWORD_USER_TYPES = new Set<DataSourceType>([

@@ -1,4 +1,4 @@
-import { EventForwarderConfigInterface } from "shared/validators";
+import type { EventForwarderConfigInterface } from "shared/validators";
 import { AES } from "crypto-js";
 import {
   getEventForwarderForDatasource,

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useForm, UseFormReturn } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
@@ -24,10 +24,10 @@ import {
 } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { allConnectionsSupportBucketingV2 } from "./HashVersionSelector";
-import { ChangeType } from "./MakeChangesFlow";
+import type { ChangeType } from "./MakeChangesFlow";
 import {
   experimentFieldChanges,
-  StageTargeting,
+  type StageTargeting,
 } from "./TabbedPage/ExperimentEdits";
 
 export interface UseExperimentTargetingFormResult {

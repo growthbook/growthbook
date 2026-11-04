@@ -1,8 +1,8 @@
-import { Revision } from "shared/enterprise";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { Revision } from "shared/enterprise";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
-  ApiEventUser,
-  EventUser,
+  type ApiEventUser,
+  type EventUser,
   eventUserIdentity,
   eventUserLegacyLabel,
   eventUserToApiEventUser,

@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { BanditEvent } from "shared/validators";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import type { BanditEvent } from "shared/validators";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
 import {
-  LayoutX,
+  type LayoutX,
   TOOLTIP_HEIGHT,
   TOOLTIP_TIMEOUT,
   TOOLTIP_WIDTH,
-  TooltipData,
-  TooltipHoverSettings,
-  YAlign,
+  type TooltipData,
+  type TooltipHoverSettings,
+  type YAlign,
 } from "./BanditSummaryTooltip";
 
 export function useBanditSummaryTooltip({

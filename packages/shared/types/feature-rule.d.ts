@@ -1,4 +1,4 @@
-import {
+import type {
   CreateSafeRolloutInterface,
   ExperimentHealthAction,
   FeatureRule,
@@ -8,7 +8,7 @@ import {
   RampStartAction,
   RampStepAction,
 } from "shared/validators";
-import { DraftConflict } from "shared/types/draft-conflict";
+import type { DraftConflict } from "shared/types/draft-conflict";
 
 // Inline ramp schedule to create atomically with the rule.
 export type InlineRampScheduleCreate = {

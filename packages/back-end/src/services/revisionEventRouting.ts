@@ -1,6 +1,6 @@
 import { serveFootprint } from "shared/permissions";
-import { Revision } from "shared/enterprise";
-import { Context } from "back-end/src/models/BaseModel";
+import type { Revision } from "shared/enterprise";
+import type { Context } from "back-end/src/models/BaseModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
 

@@ -4,7 +4,7 @@ import type { AIAgentPendingAction } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   SlackThreadBusyError,
-  SlackThreadIdentity,
+  type SlackThreadIdentity,
   slackTaskKey,
   isCurrentSlackApproval,
   slackConversationId,

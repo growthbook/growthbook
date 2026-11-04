@@ -1,13 +1,13 @@
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-  DashboardBlockType,
-  DashboardInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
+  type DashboardBlockType,
+  type DashboardInterface,
   dashboardBlockHasIds,
 } from "shared/enterprise";
 import React, { useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";

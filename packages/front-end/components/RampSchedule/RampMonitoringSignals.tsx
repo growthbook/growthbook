@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
   isReadyForApproval,
-  RampScheduleInterface,
-  SafeRolloutInterface,
+  type RampScheduleInterface,
+  type SafeRolloutInterface,
 } from "shared/validators";
-import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
+import type { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import { getValidDate } from "shared/dates";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -17,7 +17,7 @@ import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { expandMetricGroups } from "shared/experiments";
 import { isRampScheduleServing, pValueFormatter } from "shared/util";
 import Badge from "@/ui/Badge";
-import Button, { Size as ButtonSize } from "@/ui/Button";
+import Button, { type Size as ButtonSize } from "@/ui/Button";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";

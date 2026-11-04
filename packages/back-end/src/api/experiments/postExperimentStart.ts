@@ -1,5 +1,5 @@
 import {
-  ExperimentInterfaceExcludingHoldouts,
+  type ExperimentInterfaceExcludingHoldouts,
   postExperimentStartValidator,
 } from "shared/validators";
 import { getValidDate } from "shared/dates";
@@ -9,7 +9,7 @@ import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
 } from "back-end/src/api/features/reviewBypass";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   approveScheduledExperimentStart,
   getStartAcknowledgment,

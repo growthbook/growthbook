@@ -1,4 +1,4 @@
-import { FunnelStep } from "shared/types/fact-table";
+import type { FunnelStep } from "shared/types/fact-table";
 import { updateFunnelSteps } from "./funnelStepUpdates";
 
 const steps: FunnelStep[] = [1, 2, 3].map((number) => ({

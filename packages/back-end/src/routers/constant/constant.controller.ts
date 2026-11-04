@@ -1,17 +1,20 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
-import { z } from "zod";
+import type { z } from "zod";
 import {
-  postConstantBodyValidator,
-  putConstantBodyValidator,
+  type postConstantBodyValidator,
+  type putConstantBodyValidator,
   validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
-import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
+import type {
+  ConstantInterface,
+  ConstantWithoutValue,
+} from "shared/types/constant";
 import {
-  Revision,
+  type Revision,
   normalizeProposedChanges,
   getConstantRevisionChange,
 } from "shared/enterprise";
@@ -26,8 +29,8 @@ import {
   runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ApiErrorResponse } from "back-end/types/api";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { parseIdsQuery } from "back-end/src/util/validation";
 import {
@@ -43,7 +46,7 @@ import {
   constantPublishEnvironments,
 } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
-  ConstantReferences,
+  type ConstantReferences,
   loadConstantReferences,
   assertKeyAvailable,
 } from "back-end/src/services/constants";

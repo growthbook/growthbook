@@ -1,8 +1,8 @@
-import { z } from "zod";
+import type { z } from "zod";
 import {
-  ExplorationConfig,
-  ApiAnalyticsExploration,
-  ProductAnalyticsExploration,
+  type ExplorationConfig,
+  type ApiAnalyticsExploration,
+  type ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
 } from "shared/validators";
 import md5 from "md5";

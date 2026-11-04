@@ -1,5 +1,5 @@
 import {
-  MetricExplorerBlockInterface,
+  type MetricExplorerBlockInterface,
   blockHasFieldOfType,
 } from "shared/enterprise";
 import { useMemo } from "react";
@@ -20,7 +20,7 @@ import HelperText from "@/ui/HelperText";
 import { useDashboardMetricAnalysis } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { CHART_GRID } from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function MetricExplorerBlock({
   block,

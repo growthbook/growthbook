@@ -1,5 +1,5 @@
 import { Box, Flex, IconButton, Tooltip } from "@radix-ui/themes";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import { PiX } from "react-icons/pi";
 import Badge from "@/ui/Badge";

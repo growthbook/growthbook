@@ -10,16 +10,16 @@ import {
   isManagedWarehouseMigrating,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
-  ManagedWarehouseIdAttributeIdentifier,
+  type ManagedWarehouseIdAttributeIdentifier,
 } from "shared/util";
-import { DataSourceInterface } from "shared/types/datasource";
-import { SDKAttributeSchema } from "shared/types/organization";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { SDKAttributeSchema } from "shared/types/organization";
 import type {
   ExperimentEvalItem,
   FeatureEvalItem,
   SessionEventItem,
 } from "shared/validators";
-import { ColumnInterface } from "shared/types/fact-table";
+import type { ColumnInterface } from "shared/types/fact-table";
 import { isEqual } from "lodash";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -35,7 +35,7 @@ import {
 import { getCollection } from "back-end/src/util/mongo.util";
 import { syncJsonErgonomicsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import type SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { logger } from "back-end/src/util/logger";
 
 // --- Session Replay ---

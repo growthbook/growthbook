@@ -1,5 +1,5 @@
-import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
-import { RequestInit } from "node-fetch";
+import { Isolate, type Context, Reference, ExternalCopy } from "isolated-vm";
+import type { RequestInit } from "node-fetch";
 import { parseEnvInt } from "shared/util";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";

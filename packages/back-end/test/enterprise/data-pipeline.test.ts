@@ -1,9 +1,9 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { ExperimentInterface } from "shared/types/experiment";
-import { ExposureQueryColumnMapping } from "shared/types/datasource";
-import { OrganizationInterface } from "shared/types/organization";
-import { IncrementalRefreshInterface } from "shared/validators";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExposureQueryColumnMapping } from "shared/types/datasource";
+import type { OrganizationInterface } from "shared/types/organization";
+import type { IncrementalRefreshInterface } from "shared/validators";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import {

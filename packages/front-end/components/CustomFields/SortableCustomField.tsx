@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { CustomField } from "shared/types/custom-fields";
+import type { CustomField } from "shared/types/custom-fields";
 import { RiDraggable } from "react-icons/ri";
 import { PiWarningBold } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";

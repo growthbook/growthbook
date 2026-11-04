@@ -4,7 +4,7 @@ import {
   assertValidPrerequisiteParents,
 } from "back-end/src/services/prerequisiteParents";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeaturesWithoutEditorFields: jest.fn(),

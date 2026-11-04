@@ -5,7 +5,7 @@ import yaml from "js-yaml";
 import {
   namedSchemaRegistry,
   apiErrorRegistry,
-  ApiErrorCode,
+  type ApiErrorCode,
   CONFIRM_OVERRIDE_FLAGS,
 } from "shared/validators";
 import { armableActions, routeConfirmation } from "shared/util";

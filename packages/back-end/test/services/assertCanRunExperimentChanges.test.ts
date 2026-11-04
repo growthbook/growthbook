@@ -1,5 +1,5 @@
-import { ExperimentInterface } from "shared/validators";
-import { ReqContext } from "back-end/types/organization";
+import type { ExperimentInterface } from "shared/validators";
+import type { ReqContext } from "back-end/types/organization";
 import { assertCanRunExperimentChanges } from "back-end/src/services/experiments";
 
 // Import cycles: a lazy Proxy defers requireActual to first property access.

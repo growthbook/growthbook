@@ -1,10 +1,10 @@
-import { DataSourceInterface } from "shared/types/datasource";
+import type { DataSourceInterface } from "shared/types/datasource";
 import {
   loadChangedAssignmentQuerySelection,
   resolveApiMonitoringConfig,
   resolveAssignmentQueryIdentifier,
 } from "back-end/src/services/assignmentQuerySelection";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 const datasource = {
   id: "ds_1",

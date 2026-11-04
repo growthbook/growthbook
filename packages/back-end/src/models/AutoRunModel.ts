@@ -1,9 +1,9 @@
-import { z } from "zod";
+import type { z } from "zod";
 import {
   autoRunValidator,
-  apiUpdateAutoRunBody,
-  AutoRunArtifact,
-  ApiAutoRun,
+  type apiUpdateAutoRunBody,
+  type AutoRunArtifact,
+  type ApiAutoRun,
 } from "shared/validators";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {

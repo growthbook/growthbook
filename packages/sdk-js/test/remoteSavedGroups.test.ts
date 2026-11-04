@@ -1,9 +1,9 @@
 import {
   GrowthBook,
   GrowthBookClient,
-  RedisSetClient,
-  SavedGroupResolver,
-  SavedGroupsPayload,
+  type RedisSetClient,
+  type SavedGroupResolver,
+  type SavedGroupsPayload,
   getRemoteSavedGroups,
   redisResolver,
 } from "../src";

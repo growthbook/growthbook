@@ -9,8 +9,8 @@ import {
   PiUserFill,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import { z } from "zod";
-import { rowFilterValidator } from "shared/validators";
+import type { z } from "zod";
+import type { rowFilterValidator } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import Button from "@/ui/Button";

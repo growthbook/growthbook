@@ -1,6 +1,6 @@
-import { FC } from "react";
+import type { FC } from "react";
 import ReferencesList, {
-  ReferenceSection,
+  type ReferenceSection,
 } from "@/components/References/ReferencesList";
 
 type FeatureRef = { id: string; name?: string; project?: string };

@@ -1,20 +1,23 @@
-import { z } from "zod";
+import type { z } from "zod";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
   snapshotSatisfiesBlock,
-  DashboardInterface,
-  DashboardBlockInterface,
+  type DashboardInterface,
+  type DashboardBlockInterface,
   resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
-import { UpdateProps } from "shared/types/base-model";
-import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { MetricAnalysisInterface } from "shared/types/metric-analysis";
-import { ExperimentInterface } from "shared/types/experiment";
-import {
+import type { UpdateProps } from "shared/types/base-model";
+import type {
+  ProductAnalyticsExploration,
+  SavedQuery,
+} from "shared/validators";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
@@ -37,7 +40,10 @@ import {
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
-import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
+import type {
+  createDashboardBody,
+  updateDashboardBody,
+} from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
   dashboard: DashboardInterface;

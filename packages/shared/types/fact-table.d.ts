@@ -1,5 +1,5 @@
-import { z } from "zod";
-import {
+import type { z } from "zod";
+import type {
   createFactFilterPropsValidator,
   createColumnPropsValidator,
   createVirtualColumnPropsValidator,
@@ -35,8 +35,8 @@ import {
   funnelSettingsValidator,
   conditionalInlineFiltersValidator,
 } from "shared/validators";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { TestQueryRow } from "shared/types/integrations";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type FactTableType = z.infer<typeof factTableTypeValidator>;

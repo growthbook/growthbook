@@ -4,9 +4,9 @@ import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { InterleavingMetricConfig } from "shared/validators";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { InterleavingMetricConfig } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 

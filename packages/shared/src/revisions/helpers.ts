@@ -29,7 +29,7 @@ import { constantUpdatableFieldsSchema } from "../validators/constant";
 import { savedGroupUpdatableFieldsSchema } from "../validators/saved-group";
 import {
   resolveProjectScopedRule,
-  RuleCombiners,
+  type RuleCombiners,
 } from "../util/projectScopedRules";
 
 // One project for a constant or config, several for a saved group.

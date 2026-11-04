@@ -1,11 +1,11 @@
-import { Revision } from "shared/enterprise";
+import type { Revision } from "shared/enterprise";
 import {
   archiveConfigValidator,
   unarchiveConfigValidator,
 } from "shared/validators";
-import { ConfigInterface } from "shared/types/config";
+import type { ConfigInterface } from "shared/types/config";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
+import type { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -13,8 +13,8 @@ import { getAdapter } from "back-end/src/revisions";
 import {
   evaluatePublishGates,
   PublishBlockedError,
-  PublishGate,
-  BypassedGate,
+  type PublishGate,
+  type BypassedGate,
 } from "back-end/src/revisions/publishGates";
 import {
   buildPatchOps,

@@ -1,6 +1,6 @@
-import { ExperimentRule, FeatureInterface } from "shared/types/feature";
+import type { ExperimentRule, FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { calculateNamespaceCoverage } from "shared/util";
 import { getVariationColor } from "@/services/features";

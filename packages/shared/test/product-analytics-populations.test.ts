@@ -8,21 +8,21 @@ import {
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
-  ExplorationDateRange,
-  MetricExplorationConfig,
-  ExplorationPopulation,
-  ProductAnalyticsDimension,
+  type ExplorationDateRange,
+  type MetricExplorationConfig,
+  type ExplorationPopulation,
+  type ProductAnalyticsDimension,
   explorationPopulationValidator,
   metricTypeValidator,
   explorationConfigValidator,
   productAnalyticsExplorationValidator,
   populationExplorationConfigValidator,
 } from "shared/validators";
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { SqlDialect } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 /*
  * One small event log drives every result below, so each expected number can

@@ -1,16 +1,16 @@
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { URLRedirectInterface } from "shared/types/url-redirect";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import {
   addRedirect,
   editRedirect,
   EMPTY_LINKED_CHANGES as EMPTY,
   hasSetAsideVisualChanges,
-  LinkedChangesDraft,
+  type LinkedChangesDraft,
   linkedChangesBody,
   newRedirectKey,
   pruneLinkedChanges,
   rebaseLinkedChanges,
-  RedirectFields,
+  type RedirectFields,
   removeRedirect,
   removeVisual,
   shownUrlRedirects,

@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { Queries, QueryPointer, QueryStatus } from "shared/types/query";
+import type { Queries, QueryPointer, QueryStatus } from "shared/types/query";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import {
   connectTestMongo,
@@ -14,7 +14,7 @@ import {
   cancelExperimentSnapshot,
   planSnapshotCancel,
   SNAPSHOT_CANCELLED_ERROR,
-  SnapshotCancelAction,
+  type SnapshotCancelAction,
 } from "back-end/src/services/snapshotCancellation";
 import {
   createExperimentSnapshotModel,
@@ -31,9 +31,9 @@ import {
 import { createReport, getReportById } from "back-end/src/models/ReportModel";
 import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { BadRequestError } from "back-end/src/util/errors";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/services/datasource", () => ({
   getIntegrationFromDatasourceId: jest.fn(),

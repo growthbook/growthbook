@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SnapshotType } from "shared/types/experiment-snapshot";
+import type { SnapshotType } from "shared/types/experiment-snapshot";
 import { BadRequestError } from "back-end/src/util/errors";
 
 // Express's extended query parser turns `?type[$ne]=x` into an object, so only

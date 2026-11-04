@@ -1,4 +1,4 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
@@ -12,7 +12,7 @@ import {
   getStartSchedule,
   withServerChecklist,
 } from "./startActions";
-import { StartExperiment } from "./useStartExperiment";
+import type { StartExperiment } from "./useStartExperiment";
 
 export type StartUpgrade = "visual-editor" | "redirects";
 

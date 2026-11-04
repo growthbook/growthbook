@@ -1,8 +1,8 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import React, { type FC, useCallback, useMemo, useState } from "react";
+import type { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
-import { RotatedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
+import type { RotatedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
 import { groupApiKeysByType } from "@/services/secret-api-keys.utils";

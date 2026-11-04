@@ -1,6 +1,6 @@
-import { ExperimentMetricInterface } from "shared/experiments";
-import { TemplateVariables } from "shared/types/sql";
-import {
+import type { ExperimentMetricInterface } from "shared/experiments";
+import type { TemplateVariables } from "shared/types/sql";
+import type {
   AlterNewIncrementalUnitsQueryParams,
   AutoMetricTrackedEvent,
   ColumnTopValuesParams,
@@ -62,7 +62,7 @@ import {
   UserExperimentExposuresQueryParams,
   UserExperimentExposuresQueryResponse,
 } from "shared/types/integrations";
-import {
+import type {
   AutoFactTableSchemas,
   DataSourceInterface,
   DataSourceType,
@@ -70,16 +70,16 @@ import {
   SchemaFormat,
 } from "shared/types/datasource";
 import type { DataSourceParamsForType } from "shared/util";
-import {
+import type {
   AdditionalQueryMetadata,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { DimensionInterface } from "shared/types/dimension";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { MetricInterface, MetricType } from "shared/types/metric";
-import { ReqContext } from "back-end/types/request";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { MetricInterface, MetricType } from "shared/types/metric";
+import type { ReqContext } from "back-end/types/request";
 
 export type { MetricAnalysisParams };
 

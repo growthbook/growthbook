@@ -1,9 +1,9 @@
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureDefinition } from "shared/types/sdk";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureDefinition } from "shared/types/sdk";
 import { GrowthBook } from "@growthbook/growthbook";
-import { ConstantValueMap } from "shared/sdk-versioning";
+import type { ConstantValueMap } from "shared/sdk-versioning";
 import { getFeatureDefinition } from "back-end/src/util/features";
-import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
+import type { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 
 function makeRolloutFeature(
   overrides?: Partial<FeatureInterface>,

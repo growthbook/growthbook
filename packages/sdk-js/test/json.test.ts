@@ -2,18 +2,18 @@
 
 import {
   clearCache,
-  Context,
-  Experiment,
-  FeatureApiResponse,
-  FeatureResult,
+  type Context,
+  type Experiment,
+  type FeatureApiResponse,
+  type FeatureResult,
   GrowthBook,
   GrowthBookClient,
   LocalStorageStickyBucketService,
-  PayloadFilters,
-  Result,
+  type PayloadFilters,
+  type Result,
 } from "../src";
 import { evalCondition, pruneCondition } from "../src/mongrule";
-import {
+import type {
   SavedGroupsValues,
   SavedGroupsPayload,
   StickyAssignmentsDocument,

@@ -2,7 +2,7 @@ import { Flex } from "@radix-ui/themes";
 import Metadata from "@/ui/Metadata";
 import SortedTags from "@/components/Tags/SortedTags";
 import Owner from "@/components/Avatar/Owner";
-import { ExperimentTableRow } from "@/services/experiments";
+import type { ExperimentTableRow } from "@/services/experiments";
 
 export function MetricDrilldownOwnerTags({ row }: { row: ExperimentTableRow }) {
   const { metric } = row;

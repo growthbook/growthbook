@@ -1,11 +1,11 @@
 import omit from "lodash/omit";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
-  FeatureRule,
-  RevisionRampUpdateAction,
-  RampStartState,
+  type FeatureRule,
+  type RevisionRampUpdateAction,
+  type RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
-  RampScheduleInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
 import { getApplicableEnvIds } from "shared/util";
 import {

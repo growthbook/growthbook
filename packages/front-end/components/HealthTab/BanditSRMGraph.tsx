@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { FC, Fragment, useMemo, useState } from "react";
+import { type FC, Fragment, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -14,7 +14,7 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { datetime } from "shared/dates";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";

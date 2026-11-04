@@ -1,14 +1,14 @@
-import { HoldoutInterfaceStringDates } from "shared/validators";
-import { ExperimentSnapshotReportInterface } from "shared/types/report";
+import type { HoldoutInterfaceStringDates } from "shared/validators";
+import type { ExperimentSnapshotReportInterface } from "shared/types/report";
 import {
   getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
 } from "shared/util";
-import React, { RefObject, useCallback, useState } from "react";
+import React, { type RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, getValidDate } from "shared/dates";
-import { DifferenceType } from "shared/types/stats";
+import type { DifferenceType } from "shared/types/stats";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,

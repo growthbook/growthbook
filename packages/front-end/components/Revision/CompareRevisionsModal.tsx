@@ -1,8 +1,8 @@
 import {
-  ActivityLogEntry,
-  JsonPatchOperation,
-  Review,
-  Revision,
+  type ActivityLogEntry,
+  type JsonPatchOperation,
+  type Review,
+  type Revision,
   applyTopLevelPatchOps,
 } from "shared/enterprise";
 import React, {
@@ -23,7 +23,11 @@ import {
   PiX,
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { EventUser, eventUserLabel, revisionActor } from "shared/validators";
+import {
+  type EventUser,
+  eventUserLabel,
+  revisionActor,
+} from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -49,7 +53,7 @@ import { useUser } from "@/services/UserContext";
 import { RevisionDiff } from "@/components/Revision/RevisionDiff";
 import {
   useRevisionDiff,
-  RevisionDiffConfig,
+  type RevisionDiffConfig,
 } from "@/components/Revision/useRevisionDiff";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import { buildPerEntryDiffSnapshots } from "@/components/Revision/revisionActivityDiff";

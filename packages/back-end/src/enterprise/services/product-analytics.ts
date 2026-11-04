@@ -1,11 +1,11 @@
 import {
-  ExplorationConfig,
+  type ExplorationConfig,
   explorationConfigValidator,
   internalExplorationConfigValidator,
-  ProductAnalyticsExploration,
-  ExplorationCacheQuery,
+  type ProductAnalyticsExploration,
+  type ExplorationCacheQuery,
   factMetricValidator,
-  PopulationStep,
+  type PopulationStep,
 } from "shared/validators";
 import {
   getPopulationFactTableIds,
@@ -26,7 +26,7 @@ import {
   validateJourneyDataset,
   validateJourneyStepColumns,
 } from "shared/journeys";
-import {
+import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
@@ -39,8 +39,8 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { ProductAnalyticsExplorationQueryRunner } from "back-end/src/queryRunners/ProductAnalyticsExplorationQueryRunner";
-import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 

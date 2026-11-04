@@ -1,7 +1,10 @@
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { CustomHookEntityType, CustomHookInterface } from "shared/validators";
+import type {
+  CustomHookEntityType,
+  CustomHookInterface,
+} from "shared/validators";
 import { useAuth } from "@/services/auth";
 import Table, {
   TableHeader,

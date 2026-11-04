@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { FileStorage, ListedFile } from "./types";
+import type { FileStorage, ListedFile } from "./types";
 
 // Local disk, for development and simple self-hosted installs. Files are
 // served by the back end at /upload/...

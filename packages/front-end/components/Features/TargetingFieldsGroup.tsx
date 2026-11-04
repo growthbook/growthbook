@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import {
+import type { ReactNode } from "react";
+import type {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
@@ -8,7 +8,7 @@ import { Separator } from "@radix-ui/themes";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput, {
-  RuleCyclicResult,
+  type RuleCyclicResult,
 } from "@/components/Features/PrerequisiteInput";
 
 export interface TargetingFieldsGroupProps {

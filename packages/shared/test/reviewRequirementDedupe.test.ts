@@ -1,6 +1,6 @@
 import { getRevisionReviewRequirement } from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 
 const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
 

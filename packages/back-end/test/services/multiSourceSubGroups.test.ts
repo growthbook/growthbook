@@ -1,8 +1,8 @@
 import type { FactMetricInterface } from "shared/types/fact-table";
-import { buildMultiSourceSubGroups } from "back-end/src/services/experimentQueries/multiSourceSubGroups";
-import type {
-  MultiSourcePipelineRef,
-  MultiSourceGroupRef,
+import {
+  buildMultiSourceSubGroups,
+  type MultiSourcePipelineRef,
+  type MultiSourceGroupRef,
 } from "back-end/src/services/experimentQueries/multiSourceSubGroups";
 import type { MultiSourceGroup } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import {

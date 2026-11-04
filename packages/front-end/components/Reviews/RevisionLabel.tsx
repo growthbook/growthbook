@@ -1,4 +1,4 @@
-import { Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 
 export function revisionLabelText(

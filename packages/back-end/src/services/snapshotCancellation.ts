@@ -1,6 +1,6 @@
 import uniq from "lodash/uniq";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { Queries, QueryInterface } from "shared/types/query";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { Queries, QueryInterface } from "shared/types/query";
 import {
   deleteSnapshotIfRunning,
   errorSnapshotIfStillRunning,
@@ -20,7 +20,7 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { cancelExternalJobsForQueries } from "back-end/src/services/queryCancellation";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 
 export const SNAPSHOT_CANCELLED_ERROR = "Update cancelled by user";
 

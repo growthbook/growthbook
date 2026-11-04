@@ -1,9 +1,9 @@
-import {
+import type {
   SdkConnectionCacheAuditContext,
   SdkPayloadSize,
   SdkPayloadSizeAlert,
 } from "shared/validators";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   describeSdkPayloadSize,
   describeSdkPayloadSizeRecommendation,
@@ -28,7 +28,7 @@ import {
 } from "back-end/src/services/email";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { getMaxDocumentSizeBytes } from "back-end/src/util/mongo.util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 
 // Payload size only matters when payloads are cached as Mongo documents

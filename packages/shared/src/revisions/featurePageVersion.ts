@@ -1,4 +1,4 @@
-import { EventUser, eventUserPersonId } from "../validators/event-user";
+import { type EventUser, eventUserPersonId } from "../validators/event-user";
 
 // The version a flag page opens on, decided the same way by the server (so the
 // first response already includes it) and by the page itself.

@@ -12,8 +12,8 @@ import type {
 } from "shared/validators";
 import {
   apiMonitoringConfigToInternal,
-  AssignmentQueryScope,
-  AssignmentQuerySelection,
+  type AssignmentQueryScope,
+  type AssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
   resolveAssignmentQuerySelectionChange,

@@ -1,7 +1,7 @@
 import {
   createContext,
-  FC,
-  PropsWithChildren,
+  type FC,
+  type PropsWithChildren,
   useCallback,
   useContext,
   useEffect,

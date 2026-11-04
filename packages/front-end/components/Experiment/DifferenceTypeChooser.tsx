@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import {
+import type {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { DifferenceType } from "shared/types/stats";
+import type { DifferenceType } from "shared/types/stats";
 import { FaCheck } from "react-icons/fa";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";

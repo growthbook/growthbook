@@ -1,5 +1,5 @@
 import React from "react";
-import { dateGranularity, ExplorationDateRange } from "shared/validators";
+import type { dateGranularity, ExplorationDateRange } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,

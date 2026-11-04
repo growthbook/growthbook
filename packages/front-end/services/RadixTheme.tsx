@@ -1,5 +1,5 @@
 import { Theme } from "@radix-ui/themes";
-import { FC, PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 interface RadixThemeProps extends PropsWithChildren {

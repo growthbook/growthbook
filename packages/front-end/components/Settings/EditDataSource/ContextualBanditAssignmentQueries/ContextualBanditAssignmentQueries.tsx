@@ -1,7 +1,7 @@
 import { contextualBanditQueryEndpoints } from "shared/api-endpoints";
-import React, { FC, Fragment, useCallback, useState } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ApiContextualBanditQueryInterface } from "shared/validators";
+import React, { type FC, Fragment, useCallback, useState } from "react";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { ApiContextualBanditQueryInterface } from "shared/validators";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";

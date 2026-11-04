@@ -1,6 +1,6 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo } from "react";
-import {
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
@@ -38,7 +38,7 @@ import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorForChanges, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { ExpandableDiff } from "./RevisionDiffUtils";
 

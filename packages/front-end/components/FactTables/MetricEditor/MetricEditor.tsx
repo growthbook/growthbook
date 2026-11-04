@@ -1,11 +1,11 @@
-import { UseFormReturn } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
-import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
+import type { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
 import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { isExternallyManaged } from "shared/validators";
 import {
-  CreateFactMetricFormProps,
+  type CreateFactMetricFormProps,
   getInitialInlineFilters,
 } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,7 +43,7 @@ import {
 } from "@/components/FactTables/MetricEditor/previewSql";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
 import ThresholdBasisRow, {
-  ThresholdBasisValue,
+  type ThresholdBasisValue,
 } from "@/components/FactTables/MetricEditor/typeFields/ThresholdBasisRow";
 import RetentionFields from "@/components/FactTables/MetricEditor/typeFields/RetentionFields";
 import QuantileFields from "@/components/FactTables/MetricEditor/typeFields/QuantileFields";
@@ -51,11 +51,11 @@ import RatioFields from "@/components/FactTables/MetricEditor/typeFields/RatioFi
 import {
   applyFormType,
   formTypeFromStored,
-  FormMetricType,
+  type FormMetricType,
   onFactTableChange,
   onShapeChange,
   shapeForValueType,
-  UnrepresentableReason,
+  type UnrepresentableReason,
   windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 

@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import {
+import type {
   FactTableInterface,
   FactMetricInterface,
 } from "shared/types/fact-table";

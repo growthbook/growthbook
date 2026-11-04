@@ -1,9 +1,9 @@
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import { simpleSchemaFieldToJSONSchema } from "../features";
 import { normalizeField } from "./fields";
 import { jsonPointerEscape } from "./naming";
 import { jsonSchemaStringToFields } from "./json-schema";
-import {
+import type {
   SchemaConversionResult,
   SchemaConverter,
   SchemaProjection,

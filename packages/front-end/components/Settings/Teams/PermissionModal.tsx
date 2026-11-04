@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { MemberRoleWithProjects } from "shared/types/organization";
+import type { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
-import { Team } from "@/services/UserContext";
+import type { Team } from "@/services/UserContext";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 

@@ -1,9 +1,9 @@
 import { DEFAULT_ENVIRONMENT_IDS } from "../util";
 import { getValidDate } from "../dates";
 import {
-  AccountPlan,
-  CommercialFeature,
-  OrgLimits,
+  type AccountPlan,
+  type CommercialFeature,
+  type OrgLimits,
   accountFeatures,
 } from "./license-consts";
 

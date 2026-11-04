@@ -1,6 +1,6 @@
 import {
-  TColumnDesc,
-  TTableSchema,
+  type TColumnDesc,
+  type TTableSchema,
   TTypeId,
 } from "@databricks/sql/thrift/TCLIService_types";
 import { getDatabricksResultColumns } from "back-end/src/services/databricks";

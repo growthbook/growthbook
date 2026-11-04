@@ -1,17 +1,17 @@
-import {
+import type {
   MetricTimeSeries,
   MetricTimeSeriesDataPoint,
   SafeRolloutInterface,
 } from "shared/validators";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import type { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import {
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   isBinomialMetric,
 } from "shared/experiments";
 import {
-  DummyIssueProfile,
-  DummyScenario,
+  type DummyIssueProfile,
+  type DummyScenario,
   hashString,
   seededRandom,
 } from "@/components/RampSchedule/dummyMonitoringData";

@@ -20,7 +20,7 @@ import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSel
 import type { InterleavingRankers } from "@/components/Interleaving/InterleavingVariationsInput";
 import InterleavingAnalysisFields, {
   getAnalysisError,
-  InterleavingAnalysisValue,
+  type InterleavingAnalysisValue,
 } from "@/components/Interleaving/InterleavingAnalysisFields";
 import AddEditInterleavingExposureQueryModal from "@/components/Interleaving/AddEditInterleavingExposureQueryModal";
 import { rankersOf } from "@/components/Interleaving/EditInterleavingRankersModal";

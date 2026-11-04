@@ -1,4 +1,4 @@
-import { Fragment, ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Box, Grid } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 

@@ -1,9 +1,9 @@
 import {
-  FC,
+  type FC,
   useState,
   useEffect,
-  CSSProperties,
-  ReactElement,
+  type CSSProperties,
+  type ReactElement,
   isValidElement,
 } from "react";
 import clsx from "clsx";

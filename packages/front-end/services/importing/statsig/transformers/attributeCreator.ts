@@ -1,4 +1,4 @@
-import { SDKAttribute } from "shared/types/organization";
+import type { SDKAttribute } from "shared/types/organization";
 
 /**
  * Get the appropriate data type and format for an attribute based on its name and operators used

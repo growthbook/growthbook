@@ -1,14 +1,14 @@
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Response } from "express";
-import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { DataExportFileResponse } from "shared/types/data-exports";
+import type { EventUserForResponseLocals } from "shared/types/events/event-types";
+import type { DataExportFileResponse } from "shared/types/data-exports";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getEventsCursorForOrganization } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import type { PrivateApiErrorResponse } from "back-end/types/api";
 
 /**
  * GET /data-export/events

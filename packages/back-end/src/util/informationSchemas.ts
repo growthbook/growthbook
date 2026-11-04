@@ -1,5 +1,5 @@
 import uniqid from "uniqid";
-import {
+import type {
   InformationSchema,
   RawInformationSchema,
   Schema,

@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { useFormContext, UseFormReturn } from "react-hook-form";
+import { useFormContext, type UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
   AI_PROVIDER_META,
-  AIModelSettingKey,
+  type AIModelSettingKey,
   CLOUD_MANAGED_AI_MODEL,
-  AIPromptInterface,
-  AIModel,
-  AIPromptType,
-  AIProvider,
+  type AIPromptInterface,
+  type AIModel,
+  type AIPromptType,
+  type AIProvider,
   AUTOCOMPLETE_AI_MODEL,
   formatAIRateLimitRetryMessage,
   getProviderForAIModel,

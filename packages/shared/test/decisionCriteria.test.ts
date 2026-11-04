@@ -1,4 +1,4 @@
-import {
+import type {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
@@ -7,7 +7,7 @@ import {
   ExperimentDataForStatus,
   ExperimentHealthSettings,
 } from "shared/types/experiment";
-import { SnapshotVariation } from "shared/types/experiment-snapshot";
+import type { SnapshotVariation } from "shared/types/experiment-snapshot";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
@@ -21,8 +21,8 @@ import {
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
 import { getStatusIndicatorData } from "../src/enterprise/decision-criteria/statusIndicatorData";
-import { MetricGroupInterface } from "../types/metric-groups";
-import { SafeRolloutInterface } from "../types/safe-rollout";
+import type { MetricGroupInterface } from "../types/metric-groups";
+import type { SafeRolloutInterface } from "../types/safe-rollout";
 
 function shipNow(variationIds: string[]): ExperimentResultStatusData {
   return {

@@ -1,33 +1,33 @@
 import {
   createContext,
-  FC,
-  MouseEventHandler,
-  ReactNode,
+  type FC,
+  type MouseEventHandler,
+  type ReactNode,
   useContext,
   useMemo,
   useState,
 } from "react";
 import ReactSelect, {
   components,
-  CSSObjectWithLabel,
-  GroupBase,
-  MultiValueGenericProps,
-  MultiValueProps,
-  InputProps,
-  Props,
-  StylesConfig,
-  OptionProps,
-  FormatOptionLabelMeta,
-  ClearIndicatorProps,
-  DropdownIndicatorProps,
-  FilterOptionOption,
-  ActionMeta,
+  type CSSObjectWithLabel,
+  type GroupBase,
+  type MultiValueGenericProps,
+  type MultiValueProps,
+  type InputProps,
+  type Props,
+  type StylesConfig,
+  type OptionProps,
+  type FormatOptionLabelMeta,
+  type ClearIndicatorProps,
+  type DropdownIndicatorProps,
+  type FilterOptionOption,
+  type ActionMeta,
 } from "react-select";
 import {
   SortableContainer,
-  SortableContainerProps,
+  type SortableContainerProps,
   SortableElement,
-  SortEndHandler,
+  type SortEndHandler,
 } from "react-sortable-hoc";
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
@@ -36,20 +36,20 @@ import clsx from "clsx";
 import { PiCaretDown, PiX } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
-import Text, { TextSizes, TextWeights } from "@/ui/Text";
+import Text, { type TextSizes, type TextWeights } from "@/ui/Text";
 import { CopyIcon } from "@/ui/ActionIcons";
 import Badge from "@/ui/Badge";
 import {
   ReactSelectProps,
-  SingleValue,
-  Option,
-  GroupedValue,
+  type SingleValue,
+  type Option,
+  type GroupedValue,
   useSelectOptions,
 } from "@/components/Forms/SelectField";
-import Field, { FieldProps } from "@/components/Forms/Field";
+import Field, { type FieldProps } from "@/components/Forms/Field";
 import HelperText from "@/ui/HelperText";
-import { Size } from "@/ui/sizes";
-import { ColorOption } from "@/components/Tags/TagsInput";
+import type { Size } from "@/ui/sizes";
+import type { ColorOption } from "@/components/Tags/TagsInput";
 
 type MultiValueLabelStyle = {
   fontSize: string;

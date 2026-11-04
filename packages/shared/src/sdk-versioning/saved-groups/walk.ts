@@ -1,5 +1,5 @@
-import { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
-import { NodeHandler } from "../../util";
+import type { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
+import type { NodeHandler } from "../../util";
 import {
   MAX_SAVED_GROUP_DEPTH,
   SAVED_GROUP_ERROR_CYCLE,

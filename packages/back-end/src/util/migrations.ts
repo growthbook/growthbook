@@ -10,18 +10,21 @@ import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { stringifyFeatureValue } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
-import {
+import type {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
 } from "shared/types/report";
-import { LegacyMetricInterface, MetricInterface } from "shared/types/metric";
-import {
+import type {
+  LegacyMetricInterface,
+  MetricInterface,
+} from "shared/types/metric";
+import type {
   DataSourceInterface,
   DataSourceSettings,
   ExposureQuery,
 } from "shared/types/datasource";
-import {
+import type {
   FeatureDraftChanges,
   FeatureRule,
   JSONSchemaDef,
@@ -30,25 +33,28 @@ import {
   V1FeatureInterface,
   V1FeatureRule,
 } from "shared/types/feature";
-import { Namespaces, OrganizationInterface } from "shared/types/organization";
-import {
+import type {
+  Namespaces,
+  OrganizationInterface,
+} from "shared/types/organization";
+import type {
   ExperimentInterface,
   LegacyExperimentInterface,
 } from "shared/types/experiment";
-import {
+import type {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
 import {
-  AnalysisKeyType,
-  AnalysisMetaEntry,
+  type AnalysisKeyType,
+  type AnalysisMetaEntry,
   buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
+import type { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 import {

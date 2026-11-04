@@ -1,4 +1,4 @@
-import { Agenda } from "agenda";
+import type { Agenda } from "agenda";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 

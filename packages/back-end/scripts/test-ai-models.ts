@@ -15,7 +15,7 @@ import { z } from "zod";
 import {
   AI_PROVIDER_MODEL_MAP,
   getProviderFromModel,
-  AIProvider,
+  type AIProvider,
 } from "shared/ai";
 // eslint-disable-next-line no-restricted-imports
 import { logger } from "../src/util/logger";

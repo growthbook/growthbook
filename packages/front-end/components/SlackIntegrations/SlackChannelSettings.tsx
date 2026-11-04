@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { UseFormReturn } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 import { ago } from "shared/dates";
 import { missingSlackBotScopes } from "shared/slack-integration";
-import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   notificationCardFormats,
-  NotificationCardFormat,
+  type NotificationCardFormat,
   notificationFiltersSchema,
-  SlackWorkspaceConnectionFrontEndInterface,
+  type SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCircleFill, PiDotsThreeVertical, PiX } from "react-icons/pi";
@@ -16,7 +16,7 @@ import {
   notificationCategories,
   notificationEventMetadata,
   previewNotificationEventNames,
-  PreviewNotificationEventName,
+  type PreviewNotificationEventName,
   cardNotificationEventNames,
 } from "shared/notifications";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -37,7 +37,7 @@ import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
 import NotificationSubscriptionSettings from "@/components/Notifications/NotificationSubscriptionSettings";
 import NotificationSettingsCard from "@/components/Notifications/NotificationSettingsCard";
 import SlackEventPreview from "./SlackEventPreview";
-import { SlackChannelFormValues } from "./slackChannelForm";
+import type { SlackChannelFormValues } from "./slackChannelForm";
 
 const CARD_FORMAT_LABELS: Record<
   NotificationCardFormat,

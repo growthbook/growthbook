@@ -1,11 +1,11 @@
-import { ReactNode } from "react";
-import { FeatureInterface } from "shared/types/feature";
+import type { ReactNode } from "react";
+import type { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Text from "@/ui/Text";
 import ValueDisplay from "./ValueDisplay";
-import { ActionsOverlay } from "./CornerActions";
+import type { ActionsOverlay } from "./CornerActions";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 
 export default function ForceSummary({

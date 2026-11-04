@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import * as featuresController from "back-end/src/controllers/features";
 const { getFeaturesPublic } = featuresController;
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";

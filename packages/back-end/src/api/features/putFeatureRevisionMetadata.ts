@@ -2,7 +2,7 @@ import type { OrganizationInterface } from "shared/types/organization";
 import type { JSONSchemaDef } from "shared/types/feature";
 import { normalizeTargetingInUpdates } from "shared/util";
 import { putFeatureRevisionMetadataValidator } from "shared/validators";
-import { RevisionChanges } from "shared/types/feature-revision";
+import type { RevisionChanges } from "shared/types/feature-revision";
 import {
   assertTargetingDestination,
   withStagedTargeting,

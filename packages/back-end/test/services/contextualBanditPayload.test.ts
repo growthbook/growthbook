@@ -1,18 +1,18 @@
-import { ContextualBanditInterface } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
-import { FeatureDefinition } from "shared/types/sdk";
-import { GroupMap } from "shared/types/saved-group";
-import { SDKCapability } from "shared/sdk-versioning";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ContextualBanditInterface } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureDefinition } from "shared/types/sdk";
+import type { GroupMap } from "shared/types/saved-group";
+import type { SDKCapability } from "shared/sdk-versioning";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getFeatureDefinition } from "back-end/src/util/features";
-import { ApiReqContext } from "back-end/types/api";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   buildSDKPayloadForConnection,
   filterUsedContextualBandits,
   generateAutoExperimentsPayload,
 } from "back-end/src/services/features";
 import {
-  CbVisualExperiment,
+  type CbVisualExperiment,
   getContextualBanditPrerequisiteDependents,
   getCbVisualPrerequisiteIds,
   measureContextualBanditPayload,

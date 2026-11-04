@@ -1,4 +1,4 @@
-import { useState, useEffect, Dispatch, SetStateAction } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 
 const getValueFromSessionStorage = (key: string, defaultValue) => {
   let value = defaultValue;

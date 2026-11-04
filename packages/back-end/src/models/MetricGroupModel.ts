@@ -1,4 +1,4 @@
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import { metricGroupValidator } from "shared/validators";
 import { metricGroupApiSpec } from "back-end/src/api/specs/metric-group.spec";
 import { touchDefinitionsVersion } from "./DefinitionsVersionModel";

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import cloneDeep from "lodash/cloneDeep";
-import { Changeset } from "shared/types/experiment";
+import type { Changeset } from "shared/types/experiment";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";

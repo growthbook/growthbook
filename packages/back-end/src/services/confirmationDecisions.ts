@@ -1,6 +1,9 @@
 import type { ConfirmationInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
-import { dispatchInternal, HttpMethod } from "back-end/src/agent/dispatcher";
+import {
+  dispatchInternal,
+  type HttpMethod,
+} from "back-end/src/agent/dispatcher";
 import { getContextForApiKeyIdInOrg } from "back-end/src/services/organizations";
 import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { toApiConfirmation } from "back-end/src/services/confirmations";

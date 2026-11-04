@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box, Dialog, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   PresentationInterface,
   PresentationSlide,
   PresentationThemeInterface,

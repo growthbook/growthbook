@@ -1,4 +1,4 @@
-import { SchemaField } from "../types/feature";
+import type { SchemaField } from "../types/feature";
 import {
   canonicalSchemaString,
   collectInvalidConfigValueKeys,

@@ -1,18 +1,18 @@
 import type { Queries, QueryRunnerFailureCause } from "shared/types/query";
-import mongoose, { FilterQuery, PipelineStage } from "mongoose";
+import mongoose, { type FilterQuery, type PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
   snapshotSatisfiesBlock,
   blockHasFieldOfType,
-  DashboardInterface,
+  type DashboardInterface,
 } from "shared/enterprise";
 import {
   findAnalysisComputeFailure,
   getSnapshotAnalysis,
   isString,
 } from "shared/util";
-import {
+import type {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
@@ -21,8 +21,8 @@ import {
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import {
-  AnalysisKeyType,
-  AnalysisMetaEntry,
+  type AnalysisKeyType,
+  type AnalysisMetaEntry,
   buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
 import type { ExperimentSnapshotReportInterface } from "shared/types/report";
@@ -34,14 +34,14 @@ import { updateExperimentAnalysisSummary } from "back-end/src/services/experimen
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
 import {
-  ExperimentUpdateExecutionLogger,
+  type ExperimentUpdateExecutionLogger,
   logExperimentUpdated,
-  SnapshotConclusion,
+  type SnapshotConclusion,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
-import { Context } from "./BaseModel";
+import type { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
 const experimentSnapshotTrafficObject = {

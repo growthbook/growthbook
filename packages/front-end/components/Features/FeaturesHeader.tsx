@@ -7,12 +7,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
-import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  REVIEW_REQUESTED_STATUSES,
+  type HoldoutInterface,
+} from "shared/validators";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Text from "@/ui/Text";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import Heading from "@/ui/Heading";
@@ -35,7 +38,7 @@ import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEvent
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import { FeatureTab } from "@/pages/features/[fid]";
+import type { FeatureTab } from "@/pages/features/[fid]";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Owner from "@/components/Avatar/Owner";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";

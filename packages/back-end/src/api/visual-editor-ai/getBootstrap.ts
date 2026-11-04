@@ -15,7 +15,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import {
-  ChangesetOwner,
+  type ChangesetOwner,
   ContextualBanditChangesetOwner,
   ExperimentChangesetOwner,
 } from "back-end/src/services/changesetOwner";

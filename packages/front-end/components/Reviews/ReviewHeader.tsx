@@ -12,7 +12,7 @@ import RevisionLabel, {
   revisionLabelText,
 } from "@/components/Reviews/RevisionLabel";
 import RevisionStatusBadge, {
-  RevisionLike,
+  type RevisionLike,
   revisionStatusBadgeVariant,
   revisionStatusColor,
   revisionStatusLabel,

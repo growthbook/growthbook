@@ -1,15 +1,15 @@
 import { isEqual, pick } from "lodash";
-import {
+import type {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
 } from "shared/types/feature";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import {
+import type { SavedGroupInterface } from "shared/types/saved-group";
+import type {
   ColumnInterface,
   ColumnRef,
   CreateFactMetricProps,
@@ -20,11 +20,11 @@ import {
   MetricCappingSettings,
   MetricWindowSettings,
 } from "shared/types/fact-table";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { SDKAttribute } from "shared/types/organization";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { SDKAttribute } from "shared/types/organization";
 import {
-  ApiAutoRun,
-  AutoRunArtifact,
+  type ApiAutoRun,
+  type AutoRunArtifact,
   MAX_AUTO_RUN_ARTIFACTS,
 } from "shared/validators";
 import {

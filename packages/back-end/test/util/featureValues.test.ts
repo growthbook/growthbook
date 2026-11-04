@@ -1,6 +1,6 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { autoMerge } from "shared/util";
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import {
   FeatureValueError,
   getFeatureRevisionValueUpdatesForPublish,

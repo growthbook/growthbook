@@ -6,7 +6,7 @@ import {
   PiMagicWandFill,
   PiPencilSimple,
 } from "react-icons/pi";
-import { Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
 
 // Icons for small copy, fullscreen, edit and format buttons, scaled up since they read faint
 // at these sizes; the thin fullscreen corners are bold too. Scaling keeps each

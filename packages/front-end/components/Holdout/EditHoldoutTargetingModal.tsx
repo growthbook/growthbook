@@ -1,5 +1,5 @@
-import { useForm, UseFormReturn } from "react-hook-form";
-import {
+import { useForm, type UseFormReturn } from "react-hook-form";
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,

@@ -8,7 +8,7 @@ import {
 import {
   exchangeRefreshToken,
   mintAuthorizationCode,
-  OAuthError,
+  type OAuthError,
   revokeToken,
 } from "back-end/src/services/oauth";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";

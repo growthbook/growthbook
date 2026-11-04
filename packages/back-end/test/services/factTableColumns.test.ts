@@ -1,6 +1,6 @@
-import { ColumnInterface } from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { TestQueryResult } from "shared/types/integrations";
+import type { ColumnInterface } from "shared/types/fact-table";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { TestQueryResult } from "shared/types/integrations";
 import {
   mergeRefreshedTopValues,
   refreshColumnTopValues,
@@ -8,8 +8,8 @@ import {
   selectColumnsForTopValues,
 } from "back-end/src/services/factTableColumns";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { ReqContext } from "back-end/types/request";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/services/datasource", () => ({
   getSourceIntegrationObject: jest.fn(),

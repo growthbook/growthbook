@@ -1,4 +1,4 @@
-import { RequireReview } from "shared/types/organization";
+import type { RequireReview } from "shared/types/organization";
 import { getReviewSetting } from "../src/util/features";
 import { getApprovalFlowSettings } from "../src/revisions/helpers";
 

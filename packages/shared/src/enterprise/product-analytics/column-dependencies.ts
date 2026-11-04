@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { RowFilter } from "shared/types/fact-table";
-import { SqlIdentifierQuote } from "shared/types/sql";
-import {
+import type { z } from "zod";
+import type { RowFilter } from "shared/types/fact-table";
+import type { SqlIdentifierQuote } from "shared/types/sql";
+import type {
   dimensionValidator,
   factTableExplorationConfigValidator,
   funnelExplorationConfigValidator,

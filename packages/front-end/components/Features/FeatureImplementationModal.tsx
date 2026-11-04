@@ -1,6 +1,6 @@
-import { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface } from "shared/types/feature";
 import { useEffect, useState } from "react";
-import { SDKLanguage } from "shared/types/sdk-connection";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
@@ -8,7 +8,7 @@ import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snip
 import useSDKConnections from "@/hooks/useSDKConnections";
 import {
   getConnectionLanguageFilter,
-  LanguageFilter,
+  type LanguageFilter,
   languageMapping,
 } from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";

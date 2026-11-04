@@ -1,16 +1,16 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { ExperimentSnapshotReportInterface } from "shared/types/report";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getEffectiveLookbackOverride } from "shared/experiments";
 import {
   resolveAnalysisIdentifierType,
   getSnapshotAnalysis,
 } from "shared/util";
 import { ago, date, datetime } from "shared/dates";
-import React, { RefObject, useMemo, useState } from "react";
+import React, { type RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
 import { startCase } from "lodash";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";

@@ -8,13 +8,13 @@ import {
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
 import SelectField, {
-  GroupedValue,
-  SingleValue,
+  type GroupedValue,
+  type SingleValue,
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
 import {
-  FeatureOptionForTooltip,
+  type FeatureOptionForTooltip,
   FeatureOptionWithTooltip,
 } from "@/components/Features/FeatureOptionTooltip";
 import {

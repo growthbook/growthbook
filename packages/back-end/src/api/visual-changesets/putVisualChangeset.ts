@@ -4,7 +4,7 @@ import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
   updateVisualChangeset,
-  VisualChangesetUpdates,
+  type VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {

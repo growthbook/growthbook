@@ -1,6 +1,6 @@
 import React from "react";
 import { datetime } from "shared/dates";
-import { SourceSnapshotRef } from "shared/enterprise";
+import type { SourceSnapshotRef } from "shared/enterprise";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 

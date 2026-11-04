@@ -15,10 +15,10 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { MetricGroupInterface } from "shared/types/metric-groups";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import { CSS } from "@dnd-kit/utilities";
 import { GrDrag } from "react-icons/gr";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import type { ExperimentMetricDefinition } from "shared/experiments";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";

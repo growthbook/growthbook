@@ -1,5 +1,5 @@
 import {
-  OAuthRefreshTokenInterface,
+  type OAuthRefreshTokenInterface,
   oauthRefreshTokenValidator,
 } from "shared/validators";
 import { getCollection } from "back-end/src/util/mongo.util";

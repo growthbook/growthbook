@@ -1,11 +1,11 @@
 import { randomUUID } from "crypto";
 import type { ToolSet, TextStreamPart } from "ai";
-import type {
-  AIChatTextPart,
-  AIChatToolCallPart,
-  AIChatToolResultPart,
+import {
+  type AIChatTextPart,
+  type AIChatToolCallPart,
+  type AIChatToolResultPart,
+  stringifyToolResultForStorage,
 } from "shared/ai-chat";
-import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import { serializeUnknownForSSE } from "back-end/src/enterprise/services/sse-utils";
 

@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import isEqual from "lodash/isEqual";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 

@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import {
-  RampScheduleInterface,
+  type RampScheduleInterface,
   isAwaitingStartApproval,
 } from "shared/validators";
 import { PermissionError, isRampScheduleServing } from "shared/util";
@@ -11,7 +11,7 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   advanceScheduleManually,
   appendRampEvent,

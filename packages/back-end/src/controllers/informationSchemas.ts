@@ -1,4 +1,4 @@
-import { Response } from "express";
+import type { Response } from "express";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { queueUpdateInformationSchema } from "back-end/src/jobs/updateInformationSchema";
 import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
@@ -18,7 +18,7 @@ import {
   refreshInformationSchemaTable,
 } from "back-end/src/services/informationSchema";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 
 export async function getInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,

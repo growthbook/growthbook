@@ -1,18 +1,18 @@
 import React, { useMemo } from "react";
 import { v4 as uuid4 } from "uuid";
 import {
-  ExperimentMetricBlockInterface,
+  type ExperimentMetricBlockInterface,
   blockHasFieldOfType,
 } from "shared/enterprise";
 import { isString } from "shared/util";
 import { groupBy } from "lodash";
-import { MetricSnapshotSettings } from "shared/types/report";
+import type { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { SignificanceThresholds } from "shared/types/stats";
+import type { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -24,7 +24,7 @@ import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
-import { BlockProps } from ".";
+import type { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
   isTabActive,

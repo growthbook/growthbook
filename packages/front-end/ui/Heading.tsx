@@ -1,6 +1,8 @@
-import { Heading as RadixHeading } from "@radix-ui/themes";
-import type { HeadingProps as RadixHeadingProps } from "@radix-ui/themes";
-import { Size } from "@/ui/sizes";
+import {
+  Heading as RadixHeading,
+  type HeadingProps as RadixHeadingProps,
+} from "@radix-ui/themes";
+import type { Size } from "@/ui/sizes";
 
 type HeadingSizes = Size<"xs" | "sm" | "md" | "lg" | "xl" | "2xl">;
 type HeadingWeights = "medium" | "semibold";

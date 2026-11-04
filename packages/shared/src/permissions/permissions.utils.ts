@@ -1,5 +1,5 @@
 import { isEqual, pick } from "lodash";
-import {
+import type {
   Permission,
   UserPermissions,
   PermissionsObject,
@@ -15,7 +15,7 @@ import {
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,
   POLICY_PERMISSION_MAP,
-  Policy,
+  type Policy,
   READ_ONLY_PERMISSIONS,
   RESERVED_ROLE_IDS,
 } from "./permissions.constants";

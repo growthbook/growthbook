@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { FactMetricInterface } from "shared/types/fact-table";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   DefinitionsContext,
   useDefinitions,

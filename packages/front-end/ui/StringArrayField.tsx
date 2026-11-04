@@ -3,14 +3,14 @@ import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
 import {
   components as SelectComponents,
-  ClearIndicatorProps,
+  type ClearIndicatorProps,
 } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
 import { PiRepeatBold, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
-import Field, { FieldProps } from "@/components/Forms/Field";
+import Field, { type FieldProps } from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
-import { Size } from "@/ui/sizes";
+import type { Size } from "@/ui/sizes";
 import { CopyIcon } from "@/ui/ActionIcons";
 
 export type StringArrayFieldSize = Size<"md" | "lg">;

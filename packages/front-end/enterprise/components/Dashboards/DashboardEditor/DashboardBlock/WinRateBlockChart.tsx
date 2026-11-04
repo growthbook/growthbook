@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import {
+import type {
   DashboardBlockInterfaceOrData,
   ExperimentsWinRateBlockInterface,
 } from "shared/enterprise";
@@ -17,8 +17,8 @@ import Table, {
 } from "@/ui/Table";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import {
-  WinRateProjectRow,
-  WinRateSummary,
+  type WinRateProjectRow,
+  type WinRateSummary,
   computeWinRateByProject,
   computeWinRateSummary,
   rangeLabel,

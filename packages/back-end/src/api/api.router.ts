@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 import path from "path";
-import { Router, Request, RequestHandler } from "express";
+import { Router, type Request, type RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
@@ -21,9 +21,9 @@ import { LearningModel } from "back-end/src/models/LearningModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
 import { PopulationModel } from "back-end/src/models/PopulationModel";
-import { ModelClass } from "back-end/src/services/context";
+import type { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
-import { ApiRequestLocals } from "back-end/types/api";
+import type { ApiRequestLocals } from "back-end/types/api";
 import {
   API_RATE_LIMIT_MAX,
   API_RATE_LIMIT_MAX_BY_KEY,
@@ -33,7 +33,7 @@ import {
   SENTRY_DSN,
 } from "back-end/src/util/secrets";
 import {
-  ApiRateLimitSettings,
+  type ApiRateLimitSettings,
   getApiRateLimitBucket,
 } from "back-end/src/util/apiRateLimit";
 import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";

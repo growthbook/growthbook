@@ -11,8 +11,8 @@ import {
   interleavePlugin,
   teamDraft,
   EVENT_INTERLEAVE_EXPOSURE,
-  InterleaveConfig,
-  InterleaveExposure,
+  type InterleaveConfig,
+  type InterleaveExposure,
 } from "../../src/plugins/interleave";
 
 const configs: Record<string, InterleaveConfig> = {

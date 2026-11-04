@@ -1,6 +1,6 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useRouter } from "next/router";
-import React, { ReactElement, useMemo, useState } from "react";
+import React, { type ReactElement, useMemo, useState } from "react";
 import { canEditContextualBanditVisualChanges } from "shared/experiments";
 import { useRestApiCall } from "@/services/restApi";
 import { useAuth } from "@/services/auth";

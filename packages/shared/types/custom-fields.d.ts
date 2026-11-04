@@ -1,11 +1,11 @@
-import { z } from "zod";
-import {
+import type { z } from "zod";
+import type {
   customFieldTypes,
   customFieldSectionTypes,
   customFieldsPropsValidator,
   customFieldsValidator,
 } from "shared/validators";
-import { CreateProps } from "shared/types/base-model";
+import type { CreateProps } from "shared/types/base-model";
 
 export type CustomFieldTypes = z.infer<typeof customFieldTypes>;
 

@@ -1,5 +1,5 @@
-import { EventForwarderSinkType } from "shared/types/event-forwarder";
-import { DataRegion } from "./data-regions";
+import type { EventForwarderSinkType } from "shared/types/event-forwarder";
+import type { DataRegion } from "./data-regions";
 import { getEventForwarderWarehouseRegion } from "./event-forwarder-warehouse-region";
 
 // Snowflake CURRENT_REGION() returns cloud-prefixed ids such as AWS_US_WEST_2,

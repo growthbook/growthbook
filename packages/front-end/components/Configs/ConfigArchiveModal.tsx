@@ -1,5 +1,5 @@
-import { ConfigWithoutValue } from "shared/types/config";
-import { Revision } from "shared/enterprise";
+import type { ConfigWithoutValue } from "shared/types/config";
+import type { Revision } from "shared/enterprise";
 import { configPublishEnvironments } from "shared/util";
 import {
   canStageArchiveDraft,
@@ -9,7 +9,7 @@ import {
 } from "shared/permissions";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
-import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
+import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";

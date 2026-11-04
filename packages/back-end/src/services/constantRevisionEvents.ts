@@ -1,10 +1,10 @@
 import {
-  Revision,
-  JsonPatchOperation,
+  type Revision,
+  type JsonPatchOperation,
   getConstantRevisionChange,
 } from "shared/enterprise";
-import { ConstantInterface } from "shared/types/constant";
-import {
+import type { ConstantInterface } from "shared/types/constant";
+import type {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
@@ -14,9 +14,12 @@ import {
   revisionReference,
   webhookActor,
 } from "back-end/src/events/revisionReference";
-import { Context } from "back-end/src/models/BaseModel";
-import { ApiReqContext } from "back-end/types/api";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import type { Context } from "back-end/src/models/BaseModel";
+import type { ApiReqContext } from "back-end/types/api";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { toApiConstantRevision } from "back-end/src/api/constants/toApiConstantRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";

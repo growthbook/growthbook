@@ -1,6 +1,6 @@
-import { Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
 import { usingOpenId } from "back-end/src/services/auth";
-import { BaseScimRequest, ScimError } from "back-end/types/scim";
+import type { BaseScimRequest, ScimError } from "back-end/types/scim";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
 export default function scimMiddleware(

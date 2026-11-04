@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useMemo, ReactNode } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import React, { useEffect, useState, useMemo, type ReactNode } from "react";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
 } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DifferenceType } from "shared/types/stats";
+import type { DifferenceType } from "shared/types/stats";
 import { useRouter } from "next/router";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useExperiments } from "@/hooks/useExperiments";

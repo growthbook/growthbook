@@ -1,23 +1,26 @@
-import React, { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
-import {
+import type {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import {
+import type {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
+import type { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetric,
+} from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { MdSwapCalls } from "react-icons/md";
 import { PiInfo } from "react-icons/pi";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getVariationColor } from "@/services/features";
-import { getEffectLabel, RowResults } from "@/services/experiments";
+import { getEffectLabel, type RowResults } from "@/services/experiments";
 import {
   formatPercent,
   getExperimentMetricFormatter,

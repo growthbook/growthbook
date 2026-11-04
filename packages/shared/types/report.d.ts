@@ -1,14 +1,17 @@
-import { ExperimentMetricInterface, SliceLevelsData } from "shared/experiments";
-import {
+import type {
+  ExperimentMetricInterface,
+  SliceLevelsData,
+} from "shared/experiments";
+import type {
   ExperimentDecisionFrameworkSettings,
   ProjectInterface,
 } from "shared/validators";
-import { CommercialFeature } from "shared/enterprise";
-import { OrganizationSettings } from "shared/types/organization";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { DimensionInterface } from "shared/types/dimension";
-import { FactTableInterface, MetricPriorSettings } from "./fact-table";
-import {
+import type { CommercialFeature } from "shared/enterprise";
+import type { OrganizationSettings } from "shared/types/organization";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { DimensionInterface } from "shared/types/dimension";
+import type { FactTableInterface, MetricPriorSettings } from "./fact-table";
+import type {
   AttributionModel,
   ExperimentPhase,
   ExperimentType,
@@ -16,9 +19,9 @@ import {
   Variation,
   ExperimentAnalysisSettings,
 } from "./experiment";
-import { SnapshotVariation } from "./experiment-snapshot";
-import { Queries } from "./query";
-import { DifferenceType, StatsEngine } from "./stats";
+import type { SnapshotVariation } from "./experiment-snapshot";
+import type { Queries } from "./query";
+import type { DifferenceType, StatsEngine } from "./stats";
 
 export interface ReportInterfaceBase {
   id: string;

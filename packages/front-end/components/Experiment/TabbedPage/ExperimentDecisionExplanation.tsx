@@ -1,11 +1,11 @@
 import isEqual from "lodash/isEqual";
 import { Box, Flex } from "@radix-ui/themes";
-import { DecisionFrameworkExperimentRecommendationStatus } from "shared/types/experiment";
-import {
+import type { DecisionFrameworkExperimentRecommendationStatus } from "shared/types/experiment";
+import type {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
 } from "shared/enterprise";
-import { Fragment, ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   PiCheckCircleBold,
   PiMinusCircleBold,

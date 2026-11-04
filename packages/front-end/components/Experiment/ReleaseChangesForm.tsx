@@ -1,5 +1,5 @@
-import { UseFormReturn } from "react-hook-form";
-import {
+import type { UseFormReturn } from "react-hook-form";
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
@@ -7,16 +7,19 @@ import {
 import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useMemo } from "react";
 import clsx from "clsx";
-import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
+import type {
+  FeaturePrerequisite,
+  SavedGroupTargeting,
+} from "shared/types/feature";
 import { BsCheckCircle, BsExclamationCircle } from "react-icons/bs";
 import { PiArrowSquareOut, PiLightbulb } from "react-icons/pi";
 import {
   getNamespaceRanges,
   hasNarrowedRanges,
-  NamespaceValue,
+  type NamespaceValue,
 } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import {
+import type {
   ChangeType,
   ReleasePlan,
 } from "@/components/Experiment/MakeChangesFlow";

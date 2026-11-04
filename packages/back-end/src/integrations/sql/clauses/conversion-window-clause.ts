@@ -1,5 +1,5 @@
 import {
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   getDelayWindowHours,
   getMetricWindowHours,
 } from "shared/experiments";

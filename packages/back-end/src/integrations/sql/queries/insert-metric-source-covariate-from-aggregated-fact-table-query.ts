@@ -1,7 +1,9 @@
 import cloneDeep from "lodash/cloneDeep";
 import { format } from "shared/sql";
-import { isRatioMetric } from "shared/experiments";
-import type { ExperimentMetricInterface } from "shared/experiments";
+import {
+  isRatioMetric,
+  type ExperimentMetricInterface,
+} from "shared/experiments";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type {

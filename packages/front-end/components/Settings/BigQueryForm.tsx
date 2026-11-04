@@ -1,6 +1,12 @@
-import { ChangeEventHandler, FC, useEffect, useRef, useState } from "react";
+import {
+  type ChangeEventHandler,
+  type FC,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { stripLeadingUtf8ByteOrderMark } from "shared/util";
-import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

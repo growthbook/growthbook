@@ -1,4 +1,4 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { armedStartDate, scheduledTime } from "./statusSchedule";

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus, PiX } from "react-icons/pi";
-import {
+import type {
   ConversionWindow,
   FunnelSettings,
   FunnelStep,

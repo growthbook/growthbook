@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
-import * as echarts from "echarts/core";
+import type * as echarts from "echarts/core";
 import type {
   ComparisonMode,
   ExplorationConfig,

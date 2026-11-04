@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiFlagBold, PiFlaskBold } from "react-icons/pi";
 import { Popover } from "@/ui/Popover";
-import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
+import type { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import {
   dedupeImplementations,
   stateDots,

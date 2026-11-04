@@ -1,22 +1,22 @@
 import React, { useEffect, useCallback, useState, useMemo } from "react";
 import {
-  ExperimentMetricDefinition,
+  type ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { MetricGroupInterface } from "shared/types/metric-groups";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
 } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DifferenceType } from "shared/types/stats";
+import type { DifferenceType } from "shared/types/stats";
 import router, { useRouter } from "next/router";
 import Callout from "@/ui/Callout";
 import ScatterPlotGraph, {
-  ScatterPointData,
+  type ScatterPointData,
 } from "@/components/ScatterPlotGraph";
 import { useExperiments } from "@/hooks/useExperiments";
 import MetricSelector from "@/components/Experiment/MetricSelector";

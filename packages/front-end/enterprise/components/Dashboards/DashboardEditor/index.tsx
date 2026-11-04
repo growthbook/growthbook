@@ -9,15 +9,15 @@ import React, {
 import { PiCaretDownFill, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-  DashboardBlockType,
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
+  type DashboardBlockType,
   dashboardBlockHasIds,
   getBlockData,
-  DashboardEditLevel,
-  DashboardInterface,
-  DashboardShareLevel,
-  DashboardUpdateSchedule,
+  type DashboardEditLevel,
+  type DashboardInterface,
+  type DashboardShareLevel,
+  type DashboardUpdateSchedule,
   DASHBOARD_GRID_COLS,
   DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
   getBlockSizeBounds,
@@ -27,7 +27,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/nextjs";
 import {
-  LayoutItem,
+  type LayoutItem,
   ResponsiveGridLayout,
   verticalCompactor,
 } from "react-grid-layout";
@@ -60,7 +60,7 @@ import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 import { AddBlockDropdown } from "./DashboardBlockTypeMenu";
 import { getAvailableBlockTypes } from "./dashboardBlockTypes";
 import {
-  AddBlockOptions,
+  type AddBlockOptions,
   blockFitsGap,
   DASHBOARD_GRID_MARGIN,
   getHorizontalGridGaps,

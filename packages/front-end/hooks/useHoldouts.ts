@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { startCase } from "lodash";
 import { getHoldoutStage } from "shared/util";
-import { HoldoutInterface } from "shared/validators";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { HoldoutInterface } from "shared/validators";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { coveragePercentFormatter } from "@/services/utils";
 import useApi from "./useApi";
 

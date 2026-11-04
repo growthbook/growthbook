@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject, truncateString } from "shared/util";
-import {
+import type {
   SavedGroupInterface,
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";

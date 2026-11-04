@@ -1,5 +1,5 @@
-import { ExperimentReportResultDimension } from "shared/types/report";
-import { ExperimentMetricDefinition, isFactMetric } from "./experiments";
+import type { ExperimentReportResultDimension } from "shared/types/report";
+import { type ExperimentMetricDefinition, isFactMetric } from "./experiments";
 
 function snapshotHasMetric(
   results: ExperimentReportResultDimension[],

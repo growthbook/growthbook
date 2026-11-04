@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { CSSProperties, useMemo } from "react";
+import { type CSSProperties, useMemo } from "react";
 import type { Language } from "./Code";
 import { tokenizeSql } from "./sqlTokenizer";
 import styles from "./PrismFallback.module.scss";

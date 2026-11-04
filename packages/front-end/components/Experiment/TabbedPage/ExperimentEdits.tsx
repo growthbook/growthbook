@@ -1,8 +1,8 @@
 import {
   createContext,
-  Dispatch,
-  ReactNode,
-  SetStateAction,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
   useCallback,
   useContext,
   useEffect,
@@ -13,7 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import isEqual from "lodash/isEqual";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";

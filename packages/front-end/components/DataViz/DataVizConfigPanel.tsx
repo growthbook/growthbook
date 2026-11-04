@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
-import {
+import type {
   DataVizConfig,
   xAxisDateAggregationUnit,
   yAxisAggregationType,

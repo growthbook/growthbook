@@ -1,9 +1,9 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
-  ApiRampMonitoringConfigInput,
-  ApiRampScheduleTemplateInterface,
-  RampScheduleTemplateInterface,
+  type ApiRampMonitoringConfigInput,
+  type ApiRampScheduleTemplateInterface,
+  type RampScheduleTemplateInterface,
   rampScheduleTemplateValidator,
 } from "shared/validators";
 import { monitoringConfigToApi } from "shared/util";
@@ -13,8 +13,8 @@ import {
   withMonitoringDatasourceKey,
 } from "back-end/src/services/rampSchedule";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 import { migrateRampStepTriggers } from "./RampScheduleModel";

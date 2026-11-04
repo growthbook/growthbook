@@ -1,7 +1,7 @@
-import { Response } from "express";
+import type { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
 import { expandOrgMembers } from "back-end/src/services/organizations";
-import {
+import type {
   ScimListRequest,
   ScimListResponse,
   ScimUser,

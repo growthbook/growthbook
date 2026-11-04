@@ -1,45 +1,45 @@
-import { UpdateProps } from "shared/types/base-model";
+import type { UpdateProps } from "shared/types/base-model";
 import {
-  ExperimentMetricInterface,
+  type ExperimentMetricInterface,
   getFactTableIdsForMetrics,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
 } from "shared/experiments";
 import { lastMondayString } from "shared/dates";
-import { SegmentInterface } from "shared/types/segment";
-import {
+import type { SegmentInterface } from "shared/types/segment";
+import type {
   Dimension,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
 } from "shared/types/integrations";
-import { MetricInterface } from "shared/types/metric";
-import {
+import type { MetricInterface } from "shared/types/metric";
+import type {
   Queries,
   QueryPointer,
   QueryStatus,
   PopulationDataQuerySettings,
 } from "shared/types/query";
-import {
+import type {
   PopulationDataInterface,
   PopulationDataMetric,
 } from "shared/types/population-data";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
-import { ApiReqContext } from "back-end/types/api";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { ApiReqContext } from "back-end/types/api";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
-import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import type { FactTableMap } from "back-end/src/models/FactTableModel";
+import type SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import {
   QueryRunner,
-  QueryMap,
-  ProcessedRowsType,
-  RowsType,
-  StartQueryParams,
+  type QueryMap,
+  type ProcessedRowsType,
+  type RowsType,
+  type StartQueryParams,
 } from "./QueryRunner";
 
 export interface PopulationDataQueryParams {

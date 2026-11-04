@@ -1,10 +1,10 @@
-import { Response } from "express";
-import {
+import type { Response } from "express";
+import type {
   DecisionCriteriaInterface,
   CreateDecisionCriteriaProps,
   UpdateDecisionCriteriaProps,
 } from "shared/enterprise";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
 /**

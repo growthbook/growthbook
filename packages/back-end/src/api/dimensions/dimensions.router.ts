@@ -1,4 +1,4 @@
-import { OpenApiRoute } from "back-end/src/util/handler";
+import type { OpenApiRoute } from "back-end/src/util/handler";
 import { getDimension } from "./getDimension";
 import { postDimension } from "./postDimension";
 import { listDimensions } from "./listDimensions";

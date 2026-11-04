@@ -4,8 +4,8 @@ import "../../init/aliases";
 import "back-end/src/init/distrustRoots";
 import {
   sandboxEval,
-  SandboxEvalOptions,
-  SandboxEvalResult,
+  type SandboxEvalOptions,
+  type SandboxEvalResult,
 } from "./sandbox-core";
 
 interface WorkerJob {

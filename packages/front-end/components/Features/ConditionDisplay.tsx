@@ -1,11 +1,18 @@
 import stringify from "json-stringify-pretty-compact";
-import { ReactNode, useContext, useMemo, useRef } from "react";
-import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
+import { type ReactNode, useContext, useMemo, useRef } from "react";
+import type {
+  FeaturePrerequisite,
+  SavedGroupTargeting,
+} from "shared/types/feature";
 import { getMalformedPrereqConditionError, isDefined } from "shared/util";
-import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import type { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
+import {
+  type Condition,
+  jsonToConds,
+  useAttributeMap,
+} from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";

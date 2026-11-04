@@ -1,6 +1,6 @@
-import { ConfigInterface } from "shared/types/config";
-import { ConstantInterface } from "shared/types/constant";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import type { ConfigInterface } from "shared/types/config";
+import type { ConstantInterface } from "shared/types/constant";
+import type { SavedGroupInterface } from "shared/types/saved-group";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
@@ -17,8 +17,8 @@ import {
   collectSavedGroupScopeGate,
 } from "back-end/src/services/savedGroupProjectScope";
 import type { ReqContext } from "back-end/types/request";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
+  type PublishGate,
   gateOr5xx,
   makeBlockingGate,
 } from "back-end/src/revisions/publishGates";

@@ -1,7 +1,7 @@
 import {
   Children,
-  ReactElement,
-  ReactNode,
+  type ReactElement,
+  type ReactNode,
   Suspense,
   isValidElement,
   lazy,

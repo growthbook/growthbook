@@ -1,7 +1,7 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
-import { JsonPatchOperation, Revision } from "shared/enterprise";
-import { ConfigInterface } from "shared/types/config";
+import type { JsonPatchOperation, Revision } from "shared/enterprise";
+import type { ConfigInterface } from "shared/types/config";
 import {
   postConfigRevisionRevertValidator,
   configUpdatableFieldsSchema,

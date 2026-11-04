@@ -1,5 +1,5 @@
 import { AspectRatio, Box, Text } from "@radix-ui/themes";
-import { MouseEventHandler } from "react";
+import type { MouseEventHandler } from "react";
 import { PiArrowSquareOut, PiPlayFill } from "react-icons/pi";
 import styles from "./OverviewCard.module.scss";
 

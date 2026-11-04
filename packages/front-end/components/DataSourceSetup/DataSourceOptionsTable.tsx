@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useRouter } from "next/router";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -10,7 +10,7 @@ import {
   PiPaperPlaneTilt,
   PiSlidersHorizontal,
 } from "react-icons/pi";
-import { CommercialFeature } from "shared/enterprise";
+import type { CommercialFeature } from "shared/enterprise";
 import { supportsEventForwarder } from "shared/util";
 import Table, {
   TableBody,
@@ -26,13 +26,13 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { dataSourceConnections } from "@/services/eventSchema";
 import { isCloud } from "@/services/env";
-import { DocLink, DocSection } from "@/components/DocLink";
+import { DocLink, type DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import {
-  DataSourceOptionKey,
+  type DataSourceOptionKey,
   useDataSourceOptionEligibility,
 } from "./useDataSourceOptionEligibility";
 import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";

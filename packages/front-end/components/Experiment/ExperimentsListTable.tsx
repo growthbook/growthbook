@@ -1,10 +1,10 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { type FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { RxDesktop } from "react-icons/rx";
 import { Flex } from "@radix-ui/themes";
 import { BsFlag } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
-import { ComputedExperimentInterface } from "shared/types/experiment";
+import type { ComputedExperimentInterface } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import WatchButton from "@/components/WatchButton";

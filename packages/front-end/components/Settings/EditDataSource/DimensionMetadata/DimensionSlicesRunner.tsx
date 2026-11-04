@@ -1,12 +1,12 @@
-import React, { FC, Fragment, useState } from "react";
+import React, { type FC, Fragment, useState } from "react";
 import { ago } from "shared/dates";
-import { DimensionSlicesInterface } from "shared/types/dimension";
+import type { DimensionSlicesInterface } from "shared/types/dimension";
 import { BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { QueryStatus } from "shared/types/query";
-import { AppFeatures } from "shared/types/app-features";
+import type { QueryStatus } from "shared/types/query";
+import type { AppFeatures } from "shared/types/app-features";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";

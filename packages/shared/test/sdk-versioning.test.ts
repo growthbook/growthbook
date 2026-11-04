@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getConnectionSDKCapabilities,
   getConnectionsSDKCapabilities,

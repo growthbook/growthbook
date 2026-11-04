@@ -7,9 +7,9 @@ import {
   autoEnrollDashboardBlocksInDateControl,
   autoEnrollDashboardBlocksInGlobalFilter,
   DASHBOARD_GLOBAL_FILTER_KEYS,
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
   getDashboardGlobalControlApplicability,
   getDashboardExperimentFilterApplicability,
   isEnablingGlobalFilter,
@@ -26,7 +26,7 @@ import DashboardAddFilterDropdown from "./DashboardAddFilterDropdown";
 import DashboardExperimentSearchTermPill from "./DashboardExperimentSearchTermPill";
 import {
   DASHBOARD_OPTIONAL_FILTERS,
-  DashboardOptionalFilterKey,
+  type DashboardOptionalFilterKey,
   isOptionalFilterActive,
 } from "./dashboardFilterCatalog";
 import {

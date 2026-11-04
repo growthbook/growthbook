@@ -1,4 +1,4 @@
-import { Response } from "express";
+import type { Response } from "express";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
@@ -9,14 +9,17 @@ import {
   holdsAllSuperAdminPermissions,
   normalizeSuperAdmin,
 } from "shared/permissions";
-import { SuperAdminPermission, superAdminValidator } from "shared/validators";
-import { AdminOrgSummary, getAdminOrgSummary } from "shared/enterprise";
 import {
+  type SuperAdminPermission,
+  superAdminValidator,
+} from "shared/validators";
+import { type AdminOrgSummary, getAdminOrgSummary } from "shared/enterprise";
+import type {
   OrganizationInterface,
   OrganizationMessage,
 } from "shared/types/organization";
-import { UserInterface } from "shared/types/user";
-import { SSOConnectionInterface } from "shared/types/sso-connection";
+import type { UserInterface } from "shared/types/user";
+import type { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   _dangerousCreateSSOConnection,
   _dangerousUpdateSSOConnection,
@@ -32,7 +35,7 @@ import {
   getUsersByIds,
   updateUser,
 } from "back-end/src/models/UserModel";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   findAllOrganizations,
   findOrganizationsByMemberIds,

@@ -1,4 +1,4 @@
-import { ReqContext } from "back-end/types/request";
+import type { ReqContext } from "back-end/types/request";
 import { removeProjectFromDatasources } from "back-end/src/models/DataSourceModel";
 import { removeProjectFromMetrics } from "back-end/src/models/MetricModel";
 import { removeProjectFromFeatures } from "back-end/src/models/FeatureModel";

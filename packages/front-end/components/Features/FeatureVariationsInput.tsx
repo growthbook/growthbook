@@ -1,6 +1,6 @@
-import { FeatureInterface, FeatureValueType } from "shared/types/feature";
+import type { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
-import { ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import {
   PiArrowsClockwise,
@@ -32,7 +32,7 @@ import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
   SortableFeatureVariationRow,
   gridColumns,
-  SortableVariation,
+  type SortableVariation,
   valueColumnIsKey,
 } from "./SortableFeatureVariationRow";
 import SortableVariationsList from "./SortableVariationsList";

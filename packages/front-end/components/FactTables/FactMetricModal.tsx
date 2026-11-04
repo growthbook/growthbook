@@ -1,5 +1,5 @@
-import { useForm, UseFormReturn } from "react-hook-form";
-import { ReactElement, useEffect, useMemo, useState } from "react";
+import { useForm, type UseFormReturn } from "react-hook-form";
+import { type ReactElement, useEffect, useMemo, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
@@ -7,7 +7,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
-import {
+import type {
   FactMetricInterface,
   ColumnRef,
   CreateFactMetricProps,
@@ -33,11 +33,11 @@ import { isCappableFactMetric, isExternallyManaged } from "shared/validators";
 import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import {
-  CreateFactMetricFormProps,
+  type CreateFactMetricFormProps,
   formatNumber,
   getDefaultFactMetricProps,
   getFactMetricTrackProps,
@@ -52,8 +52,8 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField, {
-  GroupedValue,
-  SingleValue,
+  type GroupedValue,
+  type SingleValue,
 } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";

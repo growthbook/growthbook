@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import type { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Flex, Heading, Text } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";

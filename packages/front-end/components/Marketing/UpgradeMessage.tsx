@@ -1,4 +1,4 @@
-import { CommercialFeature } from "shared/enterprise";
+import type { CommercialFeature } from "shared/enterprise";
 import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";

@@ -1,7 +1,7 @@
 import {
-  ExperimentStatus,
+  type ExperimentStatus,
   getMetricUsageValidator,
-  ApiMetricUsage,
+  type ApiMetricUsage,
 } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentMetricById } from "back-end/src/services/experiments";

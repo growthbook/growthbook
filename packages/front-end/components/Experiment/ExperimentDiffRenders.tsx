@@ -1,7 +1,7 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   FeaturePrerequisite,
   NamespaceValue,
   SavedGroupTargeting,

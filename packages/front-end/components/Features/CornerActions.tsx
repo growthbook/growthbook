@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import styles from "./CornerActions.module.scss";
 

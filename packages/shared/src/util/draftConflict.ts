@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
-import { DraftConflict } from "shared/types/draft-conflict";
-import { threeWayMerge, ThreeWayMergeConfig } from "./threeWayMerge";
+import type { DraftConflict } from "shared/types/draft-conflict";
+import { threeWayMerge, type ThreeWayMergeConfig } from "./threeWayMerge";
 
 // One arrived as JSON, the other from Mongo.
 function matchesBaseline<T extends object>(baseline: T, current: T): boolean {

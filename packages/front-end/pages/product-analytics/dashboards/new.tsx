@@ -2,16 +2,16 @@ import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import {
   DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
-import {
+import type {
   SubmitDashboard,
   UpdateDashboardArgs,
 } from "@/enterprise/components/Dashboards/DashboardsTab";

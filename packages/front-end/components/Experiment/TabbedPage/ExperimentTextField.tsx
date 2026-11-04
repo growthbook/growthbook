@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { computeAIUsageData } from "shared/ai";
 import track from "@/services/track";
 import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothesis";
@@ -15,7 +15,7 @@ import QuickEditButton, {
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
 import ExperimentTextValue, {
   EXPERIMENT_TEXT_FIELDS,
-  ExperimentTextFieldKey,
+  type ExperimentTextFieldKey,
 } from "./ExperimentTextValue";
 
 export interface Props {

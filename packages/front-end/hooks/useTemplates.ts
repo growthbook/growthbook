@@ -1,4 +1,4 @@
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentTemplateInterface,
 } from "shared/types/experiment";

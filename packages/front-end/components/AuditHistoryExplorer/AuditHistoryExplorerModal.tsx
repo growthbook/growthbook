@@ -3,7 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { DiffMethod } from "react-diff-viewer-continued";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { PiArrowsClockwise } from "react-icons/pi";
-import { AuditInterface, EventType } from "shared/types/audit";
+import type { AuditInterface, EventType } from "shared/types/audit";
 import { datetime } from "shared/dates";
 import { auditUserToEventUser } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
@@ -15,15 +15,15 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import { AuditDiffConfig } from "./types";
+import type { AuditDiffConfig } from "./types";
 import { COMPACT_DIFF_STYLES } from "./CompareAuditEventsUtils";
 import {
   PAGE_LIMIT,
   useAuditEntries,
-  UseAuditEntriesResult,
+  type UseAuditEntriesResult,
 } from "./useAuditEntries";
 import CompareAuditEvents, {
-  CompareAuditEventsProps,
+  type CompareAuditEventsProps,
 } from "./CompareAuditEvents";
 
 // ---- Raw Audit Log Tab ----

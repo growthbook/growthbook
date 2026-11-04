@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 
 export function useIncrementalPipelineFallbackConfirm({

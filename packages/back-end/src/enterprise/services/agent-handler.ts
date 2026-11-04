@@ -2,8 +2,12 @@ import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
-import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
-import { getMessageText, stringifyToolResultForStorage } from "shared/ai-chat";
+import {
+  type AIChatMention,
+  type AIChatMessage,
+  getMessageText,
+  stringifyToolResultForStorage,
+} from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";

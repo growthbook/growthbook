@@ -1,38 +1,38 @@
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FactMetricInterface } from "shared/types/fact-table";
-import { ApiAutoRun } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ApiAutoRun } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
 import {
-  EppoAllocation,
-  EppoData,
-  EppoExperiment,
+  type EppoAllocation,
+  type EppoData,
+  type EppoExperiment,
   fetchEppoData,
   importableFlags,
   matchItems,
   buildImportData,
-  EppoFlag,
-  EppoMetric,
+  type EppoFlag,
+  type EppoMetric,
   getCappingSettings,
   getImportedIds,
   getVariationValue,
   runEppoImport,
-  EppoImportData,
-  ExistingIds,
+  type EppoImportData,
+  type ExistingIds,
   teardownRun,
   mergePhase,
   rulesToCondition,
   toEnvironmentId,
   toExperimentUpdate,
   toPhaseDate,
-  TransformContext,
+  type TransformContext,
   updatedByLaterRuns,
   transformExperiment,
   transformFactSource,
   transformFlag,
   transformMetric,
   widenValues,
-  ApiCall,
+  type ApiCall,
 } from "@/services/importing/eppo/eppo-importing";
 
 const EPPO: EppoData = {

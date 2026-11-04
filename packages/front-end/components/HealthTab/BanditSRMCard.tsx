@@ -1,10 +1,10 @@
-import { BanditEvent } from "shared/validators";
+import type { BanditEvent } from "shared/validators";
 import React, { useState } from "react";
-import {
+import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getBanditSRMValue } from "shared/health";
 import { DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -14,7 +14,7 @@ import { pValueFormatter } from "@/services/experiments";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import SRMCardShell, { SRMWarningFooter, useSrmHealth } from "./SRMCardShell";
-import { IssueValue } from "./IssueTags";
+import type { IssueValue } from "./IssueTags";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;

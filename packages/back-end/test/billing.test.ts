@@ -1,6 +1,6 @@
-import fetch, { Response } from "node-fetch";
+import fetch, { type Response } from "node-fetch";
 import * as Sentry from "@sentry/node";
-import { OrganizationInterface } from "shared/types/organization";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   backgroundUpdateUsageDataFromServerForTests,
   getUsage,

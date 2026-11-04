@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { NextPage } from "next";
+import type { NextPage } from "next";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import ImportFromEppo from "@/components/importing/ImportFromEppo/ImportFromEppo";
 import { EPPO_IMPORTER_FLAG } from "@/components/importing/ImportYourData/ImportYourData";

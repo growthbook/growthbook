@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
-import { ConfigWithoutValue } from "shared/types/config";
-import { Revision } from "shared/enterprise";
+import type { ConfigWithoutValue } from "shared/types/config";
+import type { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
 import {
   configPublishEnvironments,
@@ -29,7 +29,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
 import {
   useConstantDraftTarget,
-  ConstantRevisionContext,
+  type ConstantRevisionContext,
 } from "@/components/Constants/useConstantDraftTarget";
 
 // Empty context used on the create path, where there is no revision flow.

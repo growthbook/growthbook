@@ -4,8 +4,7 @@ import type {
   ProjectMemberRole,
   Role,
 } from "shared/types/organization";
-import type { RoleSourceTeam } from "shared/permissions";
-import { Permissions } from "shared/permissions";
+import { type RoleSourceTeam, Permissions } from "shared/permissions";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 
 /**

@@ -1,17 +1,17 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "shared/types/report";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { MetricSnapshotSettings } from "shared/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { SignificanceThresholds } from "shared/types/stats";
-import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import type { SignificanceThresholds } from "shared/types/stats";
+import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";

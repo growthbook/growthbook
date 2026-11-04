@@ -1,5 +1,5 @@
 import { GrowthBook } from "../src";
-import { Options } from "../src/types/growthbook";
+import type { Options } from "../src/types/growthbook";
 
 Object.defineProperty(window, "location", {
   value: {

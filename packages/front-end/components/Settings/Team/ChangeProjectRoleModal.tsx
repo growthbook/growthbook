@@ -1,6 +1,6 @@
-import React, { FC, useState } from "react";
+import React, { type FC, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { ProjectMemberRole } from "shared/types/organization";
+import type { ProjectMemberRole } from "shared/types/organization";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

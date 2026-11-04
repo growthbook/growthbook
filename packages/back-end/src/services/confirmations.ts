@@ -1,17 +1,20 @@
 import { createHash } from "crypto";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import type {
-  ContextualBanditInterface,
-  InterleavingInterface,
-  ExperimentInterface,
-  ExperimentPhase,
-  ApiConfirmation,
-  ConfirmationInterface,
-  ConfirmationNotice,
-  ConfirmAction,
-  ConfirmRule,
-  ConfirmationLink,
+import {
+  type ContextualBanditInterface,
+  type InterleavingInterface,
+  type ExperimentInterface,
+  type ExperimentPhase,
+  type ApiConfirmation,
+  type ConfirmationInterface,
+  type ConfirmationNotice,
+  type ConfirmAction,
+  type ConfirmRule,
+  type ConfirmationLink,
+  CONFIRM_OVERRIDE_FLAGS,
+  BYPASS_OVERRIDE_ACTIONS,
+  FEATURE_LANDING_ACTIONS,
 } from "shared/validators";
 import type { HttpVerb } from "shared/api-spec";
 import type { RevisionTargetType } from "shared/enterprise";
@@ -27,11 +30,6 @@ import {
   scheduleActions,
   stringToBoolean,
 } from "shared/util";
-import {
-  CONFIRM_OVERRIDE_FLAGS,
-  BYPASS_OVERRIDE_ACTIONS,
-  FEATURE_LANDING_ACTIONS,
-} from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type {
   BypassedGate,

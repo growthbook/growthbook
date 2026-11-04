@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import type { FeatureInterface } from "shared/types/feature";
+import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorForChanges, {
-  DraftMode,
+  type DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";

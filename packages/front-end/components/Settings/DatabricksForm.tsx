@@ -1,5 +1,5 @@
-import { FC, ChangeEventHandler } from "react";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import type { FC, ChangeEventHandler } from "react";
+import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import {

@@ -1,5 +1,5 @@
-import React, { FC } from "react";
-import { ApiKeyInterface } from "shared/types/apikey";
+import React, { type FC } from "react";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";

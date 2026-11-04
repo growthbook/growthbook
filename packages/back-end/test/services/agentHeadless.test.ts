@@ -6,7 +6,7 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import {
   runAgentTurnToCompletion,
-  AgentConfig,
+  type AgentConfig,
 } from "back-end/src/enterprise/services/agent-handler";
 import {
   LocalConversationBuffer,

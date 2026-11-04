@@ -1,5 +1,5 @@
-import { DOMMutation, VisualChange } from "shared/types/visual-changeset";
-import React, { FC, useCallback, useState } from "react";
+import type { DOMMutation, VisualChange } from "shared/types/visual-changeset";
+import React, { type FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";

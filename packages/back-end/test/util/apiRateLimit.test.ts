@@ -1,6 +1,6 @@
-import { EventUser } from "shared/types/events/event-types";
+import type { EventUser } from "shared/types/events/event-types";
 import {
-  ApiRateLimitSettings,
+  type ApiRateLimitSettings,
   getApiRateLimitBucket,
 } from "back-end/src/util/apiRateLimit";
 

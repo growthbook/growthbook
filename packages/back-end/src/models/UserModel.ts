@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import escapeRegExp from "lodash/escapeRegExp";
-import { UserInterface } from "shared/types/user";
+import type { UserInterface } from "shared/types/user";
 import {
   usingOpenId,
   validatePasswordFormat,
 } from "back-end/src/services/auth";
 import { hash } from "back-end/src/services/users";
 import {
-  ToInterface,
+  type ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";

@@ -1,4 +1,4 @@
-import { StatsigFeatureGate } from "@/services/importing/statsig/types";
+import type { StatsigFeatureGate } from "@/services/importing/statsig/types";
 import { transformStatsigFeatureGateToGB } from "@/services/importing/statsig/transformers/featureTransformer";
 
 // ---------------------------------------------------------------------------

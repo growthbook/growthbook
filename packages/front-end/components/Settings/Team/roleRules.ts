@@ -1,4 +1,4 @@
-import {
+import type {
   MemberRoleWithProjects,
   OrganizationInterface,
 } from "shared/types/organization";

@@ -1,4 +1,4 @@
-import { S3Client } from "@aws-sdk/client-s3";
+import type { S3Client } from "@aws-sdk/client-s3";
 import {
   UPLOAD_METHOD,
   S3_SESSION_REPLAY_BUCKET,

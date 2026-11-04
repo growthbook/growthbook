@@ -1,7 +1,7 @@
-import { SchemaField } from "shared/types/feature";
+import type { SchemaField } from "shared/types/feature";
 import { CONSTANT_EXTENDS_KEY } from "../../constants";
 import { blankField, JSON_SCHEMA_PRESETS } from "./fields";
-import { SchemaConverter } from "./types";
+import type { SchemaConverter } from "./types";
 
 // Schema inference from a concrete JSON value — the "language" backing the live
 // value→schema assist (and a useful default when no schema is provided).

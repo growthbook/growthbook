@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FeatureInterface } from "shared/types/feature";
-import { SavedGroupMetadata } from "shared/types/saved-group";
+import type { FeatureInterface } from "shared/types/feature";
+import type { SavedGroupMetadata } from "shared/types/saved-group";
 import {
   findAllReferencedSavedGroupIds,
   savedGroupIdsInTargeting,
@@ -22,18 +22,18 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type {
   FeatureRule,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
 } from "shared/validators";
-import {
+import type {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
+import type { Environment } from "shared/types/organization";
 import { getTargetingProjectIds, ruleProjectScope } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
@@ -41,10 +41,10 @@ import useApi from "@/hooks/useApi";
 import { getRules, isRuleInactive } from "@/services/features";
 import {
   buildConflictBanners,
-  ConflictBanner,
+  type ConflictBanner,
   getReachabilityCells,
   OTHER_PROJECT_BUCKET,
-  SavedGroupForConflicts,
+  type SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
