@@ -4,7 +4,7 @@ import {
   isApiKeyOnlyRole,
 } from "shared/permissions";
 import router from "next/router";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVertical } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
@@ -80,7 +80,7 @@ export default function RoleList() {
                           size="2"
                           highContrast
                         >
-                          <BsThreeDotsVertical size={18} />
+                          <PiDotsThreeVertical size={18} />
                         </IconButton>
                       }
                       menuPlacement="end"
