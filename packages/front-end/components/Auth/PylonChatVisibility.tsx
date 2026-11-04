@@ -9,29 +9,7 @@ const pylon: PylonApi = (...args) =>
 
 const isLoaded = () => !!(window as unknown as { Pylon?: PylonApi }).Pylon;
 
-// Several callers can request hiding at once; the attribute stays until the last one releases.
-let hideRequests = 0;
-
-export default function HelpLauncherVisibility({
-  hidden,
-}: {
-  hidden: boolean;
-}) {
-  // InAppHelp.module.scss hides our own launcher while this attribute is set.
-  useEffect(() => {
-    if (!hidden) return;
-    hideRequests += 1;
-    if (hideRequests === 1) {
-      document.documentElement.dataset.helpLauncherHidden = "";
-    }
-    return () => {
-      hideRequests -= 1;
-      if (hideRequests === 0) {
-        delete document.documentElement.dataset.helpLauncherHidden;
-      }
-    };
-  }, [hidden]);
-
+export default function PylonChatVisibility({ hidden }: { hidden: boolean }) {
   useEffect(() => {
     if (!isCloud()) return;
 
