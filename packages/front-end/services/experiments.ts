@@ -48,6 +48,7 @@ import {
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
+  isSubUnitClusterMetric,
   isSuspiciousUplift,
   quantileMetricType,
   expandMetricGroups,
@@ -745,6 +746,7 @@ export function getRowResults({
   isLatestPhase,
   experimentStatus,
   sampleSizeFrom,
+  clusterSettings,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -762,6 +764,10 @@ export function getRowResults({
   isLatestPhase: boolean;
   experimentStatus?: ExperimentStatus;
   sampleSizeFrom?: SampleSizeSource;
+  clusterSettings?: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -776,8 +782,11 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
+  // Subunit cluster metrics are analyzed as ratios, which can't be scaled.
   const hasScaledImpact =
-    !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
+    !isRatioMetric(metric, denominator) &&
+    !quantileMetricType(metric) &&
+    !(clusterSettings && isSubUnitClusterMetric(metric, clusterSettings));
   const metricSampleSize = getMetricSampleSize(
     baseline,
     stats,

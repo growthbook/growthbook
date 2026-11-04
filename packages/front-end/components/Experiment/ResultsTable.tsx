@@ -515,6 +515,7 @@ export default function ResultsTable({
             isLatestPhase,
             experimentStatus: status,
             sampleSizeFrom,
+            clusterSettings: snapshot?.settings,
           });
           rr[i].push(rowResults);
         });
@@ -540,6 +541,7 @@ export default function ResultsTable({
       ssrPolyfills,
       getExperimentMetricById,
       sampleSizeFrom,
+      snapshot?.settings,
     ]);
 
   const noRows = rows.length === 0;
