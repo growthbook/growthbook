@@ -94,14 +94,20 @@ export function getExperimentExposuresQuery(
   const timestampColumn = getExposureQueryTimestampColumn(exposureQuery);
   const experimentIdColumn = getExposureQueryExperimentIdColumn(exposureQuery);
   // Filters name roles canonically, but the query returns the mapped columns
+  const identifierTypes = [
+    exposureQuery.identifierType,
+    ...(params.subUnitIdentifierType ? [params.subUnitIdentifierType] : []),
+  ];
   const physicalColumns: Record<string, string> = {
     timestamp: timestampColumn,
     variation_id: getExposureQueryVariationIdColumn(exposureQuery),
-    [exposureQuery.identifierType]: getExposureQueryIdentifierColumn(
-      exposureQuery,
-      exposureQuery.identifierType,
-    ),
   };
+  identifierTypes.forEach((type) => {
+    physicalColumns[type] = getExposureQueryIdentifierColumn(
+      exposureQuery,
+      type,
+    );
+  });
   const toPhysical = (column: string) => physicalColumns[column] ?? column;
 
   // Ordering on every configured column keeps paging stable for rows that tie
@@ -110,7 +116,7 @@ export function getExperimentExposuresQuery(
   const filterableColumns = Array.from(
     new Set([
       "timestamp",
-      exposureQuery.identifierType,
+      ...identifierTypes,
       "variation_id",
       ...params.dimensions,
     ]),

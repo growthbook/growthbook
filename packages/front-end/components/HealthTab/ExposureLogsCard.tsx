@@ -64,6 +64,15 @@ function Empty() {
   );
 }
 
+function IdCell({ value }: { value: string | null }) {
+  if (!value) return <Empty />;
+  return (
+    <Text size="sm" mono title={value}>
+      {truncateString(value, 24)}
+    </Text>
+  );
+}
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   isTabActive: boolean;
@@ -93,6 +102,11 @@ export default function ExposureLogsCard({
       exposureQuery,
       experiment.exposureQueryIdentifierType,
     ) || DEFAULT_USER_ID_COLUMN;
+  // Cluster experiments randomize on the cluster (the identifier above) and
+  // analyze a nested sub-unit, so both are shown.
+  const subUnitIdColumn =
+    (experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier) ||
+    null;
 
   const canRun =
     !!datasource &&
@@ -171,16 +185,20 @@ export default function ExposureLogsCard({
       },
       {
         key: "userId",
-        header: "User ID",
-        render: (r) =>
-          r.userId ? (
-            <Text size="sm" mono title={r.userId}>
-              {truncateString(r.userId, 24)}
-            </Text>
-          ) : (
-            <Empty />
-          ),
+        header: subUnitIdColumn ? userIdColumn : "User ID",
+        render: (r) => <IdCell value={r.userId} />,
       },
+      ...(subUnitIdColumn
+        ? [
+            {
+              key: "subUnitId",
+              header: subUnitIdColumn,
+              render: (r: ExperimentExposureRecord) => (
+                <IdCell value={r.subUnitId} />
+              ),
+            },
+          ]
+        : []),
       {
         key: "variationId",
         header: "Variation",
@@ -208,7 +226,7 @@ export default function ExposureLogsCard({
           r.dimensions[dim] ? <>{r.dimensions[dim]}</> : <Empty />,
       })),
     ],
-    [dimensions, variationsById],
+    [dimensions, variationsById, subUnitIdColumn, userIdColumn],
   );
 
   // A filter names the warehouse column, because that is what the query has to
@@ -217,10 +235,11 @@ export default function ExposureLogsCard({
     (row: ExperimentExposureRecord, column: string) => {
       if (column === TIMESTAMP_COLUMN) return row.timestamp;
       if (column === userIdColumn) return row.userId;
+      if (column === subUnitIdColumn) return row.subUnitId;
       if (column === VARIATION_COLUMN) return row.variationId;
       return row.dimensions[column];
     },
-    [userIdColumn],
+    [userIdColumn, subUnitIdColumn],
   );
 
   const getSearchText = useCallback(
@@ -229,6 +248,7 @@ export default function ExposureLogsCard({
         row.timestamp,
         formatTimestamp(row.timestamp),
         row.userId ?? "",
+        row.subUnitId ?? "",
         row.variationId,
         variationsById.get(row.variationId)?.name ?? "",
         ...Object.values(row.dimensions).map((v) => v ?? ""),
@@ -241,6 +261,9 @@ export default function ExposureLogsCard({
   const columnSource: FilterColumnSource = useMemo(() => {
     const columnLabels: [string, string][] = [
       [userIdColumn, userIdColumn],
+      ...(subUnitIdColumn
+        ? [[subUnitIdColumn, subUnitIdColumn] as [string, string]]
+        : []),
       [VARIATION_COLUMN, "Variation"],
       ...dimensions.map((d): [string, string] => [d, d]),
     ];
@@ -272,7 +295,7 @@ export default function ExposureLogsCard({
         topValues: (column && topValues.get(column)) || [],
       }),
     };
-  }, [dimensions, experiment, query.rows, userIdColumn]);
+  }, [dimensions, experiment, query.rows, userIdColumn, subUnitIdColumn]);
 
   if (!canRun) return null;
 
@@ -341,7 +364,7 @@ export default function ExposureLogsCard({
       query={query}
       columns={columns}
       getRowId={(r, i) =>
-        `${r.timestamp}-${r.userId ?? ""}-${r.variationId}-${i}`
+        `${r.timestamp}-${r.userId ?? ""}-${r.subUnitId ?? ""}-${r.variationId}-${i}`
       }
       getSearchText={getSearchText}
       getFilterValue={getFilterValue}

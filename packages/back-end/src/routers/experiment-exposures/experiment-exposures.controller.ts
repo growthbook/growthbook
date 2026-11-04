@@ -12,6 +12,7 @@ import {
   formatQueryExecutionErrorForApi,
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
+  getExposureQueryIdentifierTypes,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
   parseOptionalInt,
@@ -128,6 +129,23 @@ export async function postExposures(
     return;
   }
 
+  // Cluster experiments randomize on the cluster but analyze a nested sub-unit,
+  // so the logs show both.
+  const subUnitIdentifierType =
+    (experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier) ||
+    null;
+  if (
+    subUnitIdentifierType &&
+    !getExposureQueryIdentifierTypes(exposureQuery).includes(
+      subUnitIdentifierType,
+    )
+  ) {
+    context.throwBadRequestError(
+      `Assignment query "${exposureQuery.name || exposureQuery.id}" doesn't declare the sub-unit identifier type "${subUnitIdentifierType}".`,
+    );
+    return;
+  }
+
   const windowMs =
     new Date(req.body.endDate).getTime() -
     new Date(req.body.startDate).getTime();
@@ -175,6 +193,7 @@ export async function postExposures(
     startDate,
     endDate,
     dimensions,
+    subUnitIdentifierType: subUnitIdentifierType ?? undefined,
     phase: { index: String(phaseIndex) },
     customFields: experiment.customFields,
     rowFilters,
@@ -197,6 +216,12 @@ export async function postExposures(
       resolvedExposureQuery,
       resolvedExposureQuery.identifierType,
     ),
+    subUnitIdColumn: subUnitIdentifierType
+      ? getExposureQueryIdentifierColumn(
+          resolvedExposureQuery,
+          subUnitIdentifierType,
+        )
+      : null,
     timestampColumn: getExposureQueryTimestampColumn(resolvedExposureQuery),
     variationIdColumn: getExposureQueryVariationIdColumn(resolvedExposureQuery),
   };
@@ -207,7 +232,13 @@ export async function postExposures(
     exposureQuerySql: resolvedExposureQuery.query,
     identifierType: resolvedExposureQuery.identifierType,
     columnMapping: {
-      ...columnMapping,
+      identifierColumn: columnMapping.identifierColumn,
+      timestampColumn: columnMapping.timestampColumn,
+      variationIdColumn: columnMapping.variationIdColumn,
+      // Only when set, so non-cluster cache keys stay unchanged
+      ...(columnMapping.subUnitIdColumn
+        ? { subUnitIdColumn: columnMapping.subUnitIdColumn }
+        : {}),
       experimentIdColumn: getExposureQueryExperimentIdColumn(
         resolvedExposureQuery,
       ),
