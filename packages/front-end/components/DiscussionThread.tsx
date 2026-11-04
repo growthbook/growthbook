@@ -11,7 +11,7 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
-import ScrollArea from "@/ui/ScrollArea";
+import ScrollArea, { pinnedTo } from "@/ui/ScrollArea";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import {
@@ -184,11 +184,11 @@ const DiscussionThread: FC<{
       minHeight={fillHeight ? "0" : undefined}
     >
       {fillHeight ? (
-        // The thread scrolls in whatever height the composer leaves, shadowed
-        // above the composer while more of it is below.
+        // The thread scrolls above the composer, which casts its shadow for
+        // more below.
         <ScrollArea
           edgeCue="deep-shadow"
-          skipEdges={["top"]}
+          skipEdges={["top", "bottom"]}
           style={{ flex: 1, minHeight: 0 }}
         >
           {/* Less on the left, where the avatars already set the cards in. */}
@@ -206,6 +206,7 @@ const DiscussionThread: FC<{
           px={fillHeight ? "5" : undefined}
           pb={fillHeight ? "5" : undefined}
           flexShrink={fillHeight ? "0" : undefined}
+          className={fillHeight ? pinnedTo.bottom : undefined}
           // Held to the window's bottom, over the thread's end, while a rail
           // still runs past it before sticking.
           style={
@@ -213,6 +214,7 @@ const DiscussionThread: FC<{
               ? {
                   position: "sticky",
                   bottom: 0,
+                  zIndex: 1,
                   background: "var(--color-panel-solid)",
                 }
               : undefined

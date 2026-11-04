@@ -228,6 +228,8 @@ const ScrollArea = forwardRef<
         className,
       )}
       style={style}
+      // For what's pinned beside the area, over its end.
+      data-under-pinned={underPinned.join(" ") || undefined}
     >
       {scrollArea}
       {marked.map((edge) => (
@@ -238,10 +240,15 @@ const ScrollArea = forwardRef<
 });
 
 /**
- * For content pinned (sticky) to the area's top or left edge, which then
- * shadows that edge past itself while more scrolls under it. The area skips
- * that edge (`skipEdges`).
+ * For content pinned (sticky) to an edge, which then shadows that edge past
+ * itself while more scrolls under it. The area skips that edge (`skipEdges`).
+ * Top and left are pinned inside the area. Bottom is the area's next sibling,
+ * held over its end (a shadowed `edgeCue`), as a composer under a thread.
  */
-export const pinnedTo = { top: styles.pinnedTop, left: styles.pinnedLeft };
+export const pinnedTo = {
+  top: styles.pinnedTop,
+  left: styles.pinnedLeft,
+  bottom: styles.pinnedBottom,
+};
 
 export default ScrollArea;

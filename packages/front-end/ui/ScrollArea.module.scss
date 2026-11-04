@@ -93,6 +93,26 @@
   }
 }
 
+// Held over the area's end from beside it, the shadow its bottom edge would
+// have, cast above itself; positioned, as anything pinned is.
+.shadowed[data-under-pinned~="bottom"] ~ .pinnedBottom::before {
+  --shadow-color: var(--gray-a2);
+  --shadow-size: 6px;
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--shadow-size);
+  pointer-events: none;
+  background: linear-gradient(to top, var(--shadow-color), 30%, transparent);
+}
+
+.deep[data-under-pinned~="bottom"] ~ .pinnedBottom::before {
+  --shadow-color: var(--gray-a4);
+  --shadow-size: 12px;
+}
+
 // A narrow shadow over an edge with more past it, as beside a pinned column;
 // most of it in the first third, so it reads as an edge, not a band.
 .shadow {
