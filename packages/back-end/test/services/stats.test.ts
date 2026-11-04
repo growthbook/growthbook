@@ -455,4 +455,25 @@ describe("selectAnalysisQueryData", () => {
       selectAnalysisQueryData(missingIsolated, clusterSettings, "exp:browser"),
     ).toThrow(/missing query results for dimension "exp:browser"/);
   });
+
+  it("uses bare breakdown queries directly for a standalone breakdown snapshot", () => {
+    // Exploratory snapshots compute the isolated dimension in their own queries
+    // under bare names (no `unitdim:` namespace). They must use those directly
+    // rather than throwing for missing isolated queries.
+    const standaloneMap: QueryMap = new Map([
+      ["statistics_group_0", parentGroup],
+      ["statistics_multi_group_0__group_1", parentMetric],
+    ]);
+    const result = selectAnalysisQueryData(
+      standaloneMap,
+      clusterSettings,
+      "exp:browser",
+      { isStandaloneBreakdown: true },
+    );
+    expect([...result.keys()].sort()).toEqual([
+      "statistics_group_0",
+      "statistics_multi_group_0__group_1",
+    ]);
+    expect(result.get("statistics_group_0")).toBe(parentGroup);
+  });
 });

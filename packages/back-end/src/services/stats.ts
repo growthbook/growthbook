@@ -775,8 +775,13 @@ export function selectAnalysisQueryData(
   queryData: QueryMap,
   snapshotSettings: ExperimentSnapshotSettings,
   dimensionId: string | undefined,
+  { isStandaloneBreakdown = false }: { isStandaloneBreakdown?: boolean } = {},
 ): QueryMap {
-  if (dimensionId && isIsolatedDimension(snapshotSettings, dimensionId)) {
+  if (
+    !isStandaloneBreakdown &&
+    dimensionId &&
+    isIsolatedDimension(snapshotSettings, dimensionId)
+  ) {
     const isolatedQueryData = buildUnitDimensionQueryMap(
       queryData,
       dimensionId,
@@ -797,12 +802,14 @@ export async function analyzeExperimentResults({
   snapshotSettings,
   variationNames,
   metricMap,
+  isStandaloneBreakdown,
 }: {
   queryData: QueryMap;
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  isStandaloneBreakdown?: boolean;
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
@@ -811,6 +818,7 @@ export async function analyzeExperimentResults({
     queryData,
     snapshotSettings,
     analysisSettings[0]?.dimensions[0],
+    { isStandaloneBreakdown },
   );
   const mdat = getMetricsAndQueryDataForStatsEngine(
     analysisQueryData,
