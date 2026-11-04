@@ -4,6 +4,9 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
+  ContextualBanditSnapshotInterface,
+  InterleavingSnapshotInterface,
+  SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import {
   errorSnapshotIfStillRunning,
@@ -80,21 +83,18 @@ const ORPHANED_QUERY_ERROR =
 const AGGREGATED_FACT_TABLE_RUN_COLLECTION = "aggregatedfacttableruns";
 const AGGREGATED_FACT_TABLE_COLLECTION = "aggregatedfacttables";
 
-// A model can join RAW_SNAPSHOT_FAMILIES if: it is created with status
-// "running" and the reaper may set "error"; `queries` are QueryModel pointers;
-// ids are globally unique (the guarded write has no org filter); and its
-// runner finalizes with an unguarded updateById or a CAS on dateUpdated.
-// An index covering { status, dateCreated } is desirable, but not required.
-type RawSnapshot = {
-  id: string;
-  organization: string;
-  dateCreated: Date;
-  queries: Queries;
-  // Exactly one is set per document, named by RawSnapshotFamily.parentIdField.
-  safeRolloutId?: string;
-  contextualBandit?: string;
-  interleavingId?: string;
-};
+type RawSnapshot = Pick<
+  | SafeRolloutSnapshotInterface
+  | ContextualBanditSnapshotInterface
+  | InterleavingSnapshotInterface,
+  "id" | "organization" | "dateCreated" | "queries"
+> &
+  // Only one exists, named by RawSnapshotFamily.parentIdField.
+  Partial<
+    Pick<SafeRolloutSnapshotInterface, "safeRolloutId"> &
+      Pick<ContextualBanditSnapshotInterface, "contextualBandit"> &
+      Pick<InterleavingSnapshotInterface, "interleavingId">
+  >;
 
 // Snapshot collections that are BaseModels. Those need an org-bound context,
 // which a cross-org job does not have, so it reaches them through getCollection.
@@ -649,10 +649,12 @@ export default async function (agenda: Agenda) {
   await job.save();
 }
 
-function findRunningRawSnapshotsByQueryId(
+async function findRunningRawSnapshotsByQueryId(
   family: RawSnapshotFamily,
   ids: string[],
 ): Promise<RawSnapshot[]> {
+  if (!ids.length) return [];
+
   return getCollection<RawSnapshot>(family.collection)
     .find({
       status: "running",
