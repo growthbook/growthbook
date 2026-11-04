@@ -170,6 +170,45 @@ describe("review authority footprint", () => {
     });
   });
 
+  it("a rule change bundled with an exempt metadata edit still names its environment", () => {
+    expect(
+      footprint(
+        base({
+          metadata: { description: "new" },
+          rules: [rule("production")],
+        }),
+        [base()],
+        metadataReviewOff,
+      ),
+    ).toEqual({ scope: "environments", environments: ["production"] });
+  });
+
+  it("a kill-switch flip bundled with an exempt metadata edit still names its environment", () => {
+    expect(
+      footprint(
+        base({
+          metadata: { description: "new" },
+          environmentsEnabled: { dev: true, staging: true, production: false },
+        }),
+        [base()],
+        metadataReviewOff,
+      ),
+    ).toEqual({ scope: "environments", environments: ["production"] });
+  });
+
+  it("rule changes in every environment bundled with an exempt metadata edit reach everywhere", () => {
+    expect(
+      footprint(
+        base({
+          metadata: { description: "new" },
+          rules: [rule("dev"), rule("staging"), rule("production")],
+        }),
+        [base()],
+        metadataReviewOff,
+      ),
+    ).toEqual({ scope: "everywhere" });
+  });
+
   it("a non-metadata global change outranks the metadata gate", () => {
     const live = base();
     const draft = base({
