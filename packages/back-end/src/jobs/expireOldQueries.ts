@@ -4,9 +4,10 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
-  SafeRolloutSnapshotInterface,
   ContextualBanditSnapshotInterface,
   InterleavingSnapshotInterface,
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import {
   errorSnapshotIfStillRunning,
@@ -102,12 +103,25 @@ type RawSnapshotFamily = {
   collection: string;
   label: string;
   parentIdField: "safeRolloutId" | "contextualBandit" | "interleavingId";
+  // Called after a snapshot is errored, for families whose scheduler defers
+  // while the latest snapshot is running and so needs a nudge to try again.
+  scheduleRetry?: (snapshot: RawSnapshot) => Promise<void>;
 };
 
 const SAFE_ROLLOUT_SNAPSHOTS: RawSnapshotFamily = {
   collection: "saferolloutsnapshots",
   label: "safe rollout snapshot",
   parentIdField: "safeRolloutId",
+  // Mirrors the experiment reaper's retry: addSafeRolloutSnapshotJob picks
+  // this up on its next minute tick, sees the errored snapshot, and starts a
+  // new one. nextSnapshotAttempt is excluded from the model's audit log and
+  // dateUpdated handling, so the raw write loses nothing.
+  scheduleRetry: async (snapshot) => {
+    await getCollection<SafeRolloutInterface>("saferollout").updateOne(
+      { id: snapshot.safeRolloutId, status: "running", autoSnapshots: true },
+      { $set: { nextSnapshotAttempt: new Date() } },
+    );
+  },
 };
 const CONTEXTUAL_BANDIT_SNAPSHOTS: RawSnapshotFamily = {
   collection: "contextualbanditsnapshots",
@@ -705,6 +719,36 @@ async function errorRawSnapshotIfStillRunning(
   return res.modifiedCount > 0;
 }
 
+function rawSnapshotName(family: RawSnapshotFamily, snapshot: RawSnapshot) {
+  return `${family.label} ${snapshot.id} (${family.parentIdField} ${snapshot[family.parentIdField]})`;
+}
+
+// Guarded error write, then log and nudge the family's scheduler if it has
+// one. Returns false when the runner finalized first, in which case nothing
+// is logged or scheduled.
+async function reapRawSnapshot(
+  family: RawSnapshotFamily,
+  snapshot: RawSnapshot,
+  updates: { error: string; queries?: Queries },
+  logLine: string,
+): Promise<boolean> {
+  const reaped = await errorRawSnapshotIfStillRunning(
+    family,
+    snapshot.id,
+    updates,
+  );
+  if (!reaped) return false;
+  logger.warn(logLine);
+  if (family.scheduleRetry) {
+    await family
+      .scheduleRetry(snapshot)
+      .catch((e) =>
+        logger.warn(e, `Failed to schedule retry after reaping ${snapshot.id}`),
+      );
+  }
+  return true;
+}
+
 // These families have no recovery path, so the only outcome is status "error".
 // Compare recoverOrErrorStalledExperimentSnapshots.
 async function errorStalledSnapshots(family: RawSnapshotFamily) {
@@ -723,7 +767,7 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
   );
 
   for await (const snapshot of candidates) {
-    const name = `${family.label} ${snapshot.id} (${family.parentIdField} ${snapshot[family.parentIdField]})`;
+    const name = rawSnapshotName(family, snapshot);
 
     if (!snapshot.queries.length) {
       if (
@@ -732,12 +776,15 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
       ) {
         continue;
       }
-      const reaped = await errorRawSnapshotIfStillRunning(family, snapshot.id, {
-        error:
-          "Snapshot stalled: its queries were never recorded. This can happen when the server restarts mid-refresh. Please try updating results again.",
-      });
-      if (!reaped) continue;
-      logger.warn(`Reaped ${name}: running with no queries recorded`);
+      await reapRawSnapshot(
+        family,
+        snapshot,
+        {
+          error:
+            "Snapshot stalled: its queries were never recorded. This can happen when the server restarts mid-refresh. Please try updating results again.",
+        },
+        `Reaped ${name}: running with no queries recorded`,
+      );
       continue;
     }
 
@@ -746,17 +793,15 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
     const { verdict, queryIds, queued, queries } = evaluated;
     const orphanedDag = verdict !== "stalled-terminal";
 
-    const reaped = await errorRawSnapshotIfStillRunning(family, snapshot.id, {
-      error: stalledSnapshotError(orphanedDag),
-      queries,
-    });
-    if (!reaped) continue;
-
-    logger.warn(
+    const reaped = await reapRawSnapshot(
+      family,
+      snapshot,
+      { error: stalledSnapshotError(orphanedDag), queries },
       orphanedDag
         ? `Reaped orphaned ${name}: ${verdict}, ${queryIds.length} queries with nothing running`
         : `Reaped stalled ${name}: all ${queryIds.length} queries terminal but status still running`,
     );
+    if (!reaped) continue;
 
     // Nothing ever dispatches a queued query doc from the collection, and the
     // stale sweep only looks at "running" ones, so without this they stay

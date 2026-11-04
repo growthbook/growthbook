@@ -102,8 +102,9 @@ const updateSingleSafeRolloutSnapshot = async (
     if (latestSnapshot?.status === "running") {
       // Query is still in-flight. Defer rather than stack — the effective
       // interval becomes max(configuredInterval, actualQueryDuration) naturally.
-      // A stalled snapshot is errored by expireOldQueries' stalled reaper, so
-      // this can't defer forever.
+      // If the snapshot is actually stalled, expireOldQueries errors it and
+      // pulls nextSnapshotAttempt back to now, so this never waits out a full
+      // interval on a dead snapshot.
       const intervalMs = (safeRollout.updateScheduleMinutes ?? 60) * 60 * 1000;
       await context.models.safeRollout.update(safeRollout, {
         nextSnapshotAttempt: new Date(Date.now() + intervalMs),

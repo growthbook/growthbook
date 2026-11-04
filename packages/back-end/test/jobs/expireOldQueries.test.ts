@@ -1210,6 +1210,65 @@ describe.each([
   });
 });
 
+// addSafeRolloutSnapshotJob defers a full interval while the latest snapshot
+// is running, so the reaper pulls the safe rollout's next attempt back to now
+// after erroring one. Mirrors the experiment reaper's retry.
+describe("expireOldQueries safe rollout retry", () => {
+  const HOUR = 60 * 60 * 1000;
+  const updateOne = jest.fn();
+  let srDocs: Record<string, unknown>[] = [];
+
+  // mockCollection only captures one collection; the retry writes to another.
+  function updateOneCallsFor(collection: string): unknown[][] {
+    const mock = getCollection as jest.Mock;
+    return mock.mock.calls.flatMap(([name], i) =>
+      name === collection
+        ? mock.mock.results[i].value.updateOne.mock.calls
+        : [],
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    srDocs = [
+      {
+        id: "srsnp_1",
+        organization: "org_1",
+        safeRolloutId: "sr_1",
+        status: "running",
+        dateCreated: new Date(Date.now() - 2 * HOUR),
+        queries: [],
+      },
+    ];
+    updateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockCollection("saferolloutsnapshots", () => srDocs, updateOne);
+    (getStaleQueries as jest.Mock).mockResolvedValue([]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([]);
+    (
+      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
+    ).mockResolvedValue([]);
+  });
+
+  it("schedules the safe rollout's next attempt for now after a reap", async () => {
+    await runJob();
+
+    expect(updateOneCallsFor("saferollout")).toEqual([
+      [
+        { id: "sr_1", status: "running", autoSnapshots: true },
+        { $set: { nextSnapshotAttempt: expect.any(Date) } },
+      ],
+    ]);
+  });
+
+  it("does not touch the safe rollout when the reap loses the race", async () => {
+    updateOne.mockResolvedValue({ modifiedCount: 0 });
+
+    await runJob();
+
+    expect(updateOneCallsFor("saferollout")).toEqual([]);
+  });
+});
+
 describe("expireOldQueries aggregated fact table runs", () => {
   const HOUR = 60 * 60 * 1000;
   const updateOne = jest.fn();
