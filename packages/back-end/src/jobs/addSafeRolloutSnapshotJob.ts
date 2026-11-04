@@ -109,10 +109,24 @@ const updateSingleSafeRolloutSnapshot = async (
       await context.models.safeRollout.update(safeRollout, {
         nextSnapshotAttempt: new Date(Date.now() + intervalMs),
       });
-      logger.debug(
-        `SafeRollout ${id}: snapshot still running, deferring next attempt by ${intervalMs / 60000}min`,
+      // The reaper errors the snapshot and then sets nextSnapshotAttempt. If
+      // its retry landed between the read above and this deferral, the
+      // snapshot already reads as errored now; refresh immediately rather
+      // than leave the overwritten retry waiting out the interval.
+      const recheck =
+        await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout({
+          safeRolloutId: id,
+          withResults: false,
+        });
+      if (recheck?.status === "running") {
+        logger.debug(
+          `SafeRollout ${id}: snapshot still running, deferring next attempt by ${intervalMs / 60000}min`,
+        );
+        return;
+      }
+      logger.warn(
+        `SafeRollout ${id}: snapshot ${latestSnapshot.id} was reaped during deferral; refreshing now`,
       );
-      return;
     }
 
     logger.info("Start Refreshing Results for SafeRollout " + id);
