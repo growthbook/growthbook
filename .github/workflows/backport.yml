@@ -23,7 +23,8 @@ permissions:
 jobs:
   backport:
     runs-on: ubuntu-latest
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    # The script copies the dispatching ref's release workflows onto the release branch, so only main's.
+    if: ${{ github.repository == 'growthbook/growthbook' && github.ref == 'refs/heads/main' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -48,10 +49,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
-          # Run a copy: the script checks out the release branch, which may not have it.
-          cp .github/scripts/backport.sh "$RUNNER_TEMP/backport.sh"
+          # Run copies: the script checks out the release branch, which may not have these scripts.
+          cp -r .github "$RUNNER_TEMP/main"
           # shellcheck disable=SC2086 # COMMITS is a list of words
-          bash "$RUNNER_TEMP/backport.sh" "$LINE" "$BRANCH" "$GITHUB_SHA" $COMMITS
+          bash "$RUNNER_TEMP/main/scripts/backport.sh" "$LINE" "$BRANCH" "$GITHUB_SHA" $COMMITS
           git push origin "release/$LINE" "$BRANCH"
 
       - name: Open the PR
@@ -61,6 +62,20 @@ jobs:
           COMMITS: ${{ inputs.commits }}
           BRANCH: backport/${{ inputs.line }}-${{ github.run_id }}
         run: |
+          # The squashed backport is the PR release-notes.yml finds, so it carries the picks' build impact notes.
+          impact=""
+          for sha in $(git log --reverse --format=%B "origin/release/$LINE..$BRANCH" | sed -n 's/^(cherry picked from commit \([0-9a-f]*\))$/\1/p'); do
+            [ -n "$("$RUNNER_TEMP/main/scripts/build-changes.sh" "$sha^" "$sha")" ] || continue
+            pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" --jq '.[0].number // empty')
+            note=""
+            if [ -n "$pr" ]; then
+              pr_json=$(gh pr view "$pr" --json body,labels)
+              if jq -e '.labels | any(.name == "no-build-impact")' <<< "$pr_json" > /dev/null; then continue; fi
+              note=$(jq -r .body <<< "$pr_json" | "$RUNNER_TEMP/main/scripts/build-impact-section.sh")
+            fi
+            impact+="- $(git log -1 --format=%s "$sha")"$'\n'
+            if [ -n "$note" ]; then impact+="$(sed 's/^/  /' <<< "$note")"$'\n'; fi
+          done
           {
             echo "### Features and Changes"
             echo
@@ -72,7 +87,7 @@ jobs:
             echo
             echo "### Self-hosted build impact"
             echo
-            echo "See the backported PRs above."
+            echo "${impact:-None.}"
           } > "$RUNNER_TEMP/body.md"
           gh pr create --base "release/$LINE" --head "$BRANCH" \
             --title "Backport to $LINE: $COMMITS" --body-file "$RUNNER_TEMP/body.md"
