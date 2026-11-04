@@ -3,12 +3,10 @@ import type {
   ConditionInterface,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
-import type {
-  ExperimentDependencyIndex,
-  NamespaceValue,
-  ReverseDependencyIndex,
-} from "shared/util";
 import {
+  type ExperimentDependencyIndex,
+  type NamespaceValue,
+  type ReverseDependencyIndex,
   buildExperimentDependencyIndex,
   buildReverseDependencyIndex,
   deepMergePatch,
@@ -53,11 +51,6 @@ import type {
   ContextualBanditInterface,
   VariationWeightPair,
 } from "shared/validators";
-import type {
-  ConstantValueMap,
-  SavedGroupPayloadStrategy,
-  SDKCapability,
-} from "shared/sdk-versioning";
 import {
   describeSavedGroupError,
   getJSONValue,
@@ -65,6 +58,9 @@ import {
   getSavedGroupPayloadStrategy,
   SAVED_GROUP_ERROR_UNKNOWN,
   resolveConstantRefs,
+  type ConstantValueMap,
+  type SavedGroupPayloadStrategy,
+  type SDKCapability,
 } from "shared/sdk-versioning";
 import type {
   OrganizationInterface,

@@ -22,8 +22,11 @@ import type {
 } from "shared/types/fact-table";
 import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import type { SDKAttribute } from "shared/types/organization";
-import type { ApiAutoRun, AutoRunArtifact } from "shared/validators";
-import { MAX_AUTO_RUN_ARTIFACTS } from "shared/validators";
+import {
+  type ApiAutoRun,
+  type AutoRunArtifact,
+  MAX_AUTO_RUN_ARTIFACTS,
+} from "shared/validators";
 import {
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_MIN_PERCENT_CHANGE,

@@ -20,9 +20,9 @@ import type {
 } from "shared/enterprise";
 import type { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useRouter } from "next/router";
-import type { ReactNode } from "react";
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -62,8 +62,7 @@ import {
   usingSSO,
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
-import type { UserOrganizations } from "@/services/auth";
-import { useAuth } from "@/services/auth";
+import { useAuth, type UserOrganizations } from "@/services/auth";
 import { ApiCallError } from "@/services/apiCallError";
 import { getJitsuClient, trackPageView } from "@/services/track";
 import { getOrGeneratePageId, growthbook } from "@/services/utils";

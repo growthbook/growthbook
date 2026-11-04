@@ -25,15 +25,13 @@ import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import { experimentVisualChangesetOwner } from "@/components/Experiment/visualChangesetOwner";
 import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
-import type {
-  ColumnLayout,
-  ShownVariation,
-} from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import {
   ColumnCell,
   ColumnFooter,
   ColumnHeader,
+  type ColumnLayout,
   HeaderText,
+  type ShownVariation,
   StagedNote,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import type {
@@ -48,8 +46,9 @@ import Link from "@/ui/Link";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import type { ChangeType, Humanized } from "./visualChangesetHumanize";
 import {
+  type ChangeType,
+  type Humanized,
   humanizeGlobalBlock,
   humanizeMutation,
 } from "./visualChangesetHumanize";

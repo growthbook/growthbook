@@ -32,8 +32,8 @@ import {
   collectValidateConfigRevisionHookResults,
   runValidateConfigRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
+  type PublishGate,
   hookResultsToGates,
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";

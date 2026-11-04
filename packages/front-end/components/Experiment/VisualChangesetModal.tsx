@@ -1,11 +1,9 @@
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaInfoCircle } from "react-icons/fa";
-import type { UrlTarget } from "@growthbook/growthbook";
-import { isURLTargeted } from "@growthbook/growthbook";
+import { isURLTargeted, type UrlTarget } from "@growthbook/growthbook";
 import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";

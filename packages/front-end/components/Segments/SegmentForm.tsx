@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useMemo, useState } from "react";
+import { type FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import type { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";

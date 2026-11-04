@@ -1,5 +1,11 @@
-import type { FC } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {

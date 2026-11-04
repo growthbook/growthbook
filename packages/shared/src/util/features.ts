@@ -1,5 +1,4 @@
-import type { ValidateFunction } from "ajv";
-import Ajv from "ajv";
+import Ajv, { type ValidateFunction } from "ajv";
 import { differenceInDays, subMonths, subWeeks } from "date-fns";
 import { jsonrepair } from "jsonrepair";
 import stringify from "json-stringify-pretty-compact";
@@ -50,12 +49,15 @@ import {
   describeSavedGroupError,
   EXTENDS_KEY,
 } from "../sdk-versioning";
-import type { ThreeWayMergeConfig, ThreeWayMergeResult } from "./threeWayMerge";
-import { threeWayMerge } from "./threeWayMerge";
-import type { RuleCombiners } from "./projectScopedRules";
+import {
+  threeWayMerge,
+  type ThreeWayMergeConfig,
+  type ThreeWayMergeResult,
+} from "./threeWayMerge";
 import {
   resolveProjectScopedRule,
   projectsWithOwnRule,
+  type RuleCombiners,
 } from "./projectScopedRules";
 import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";

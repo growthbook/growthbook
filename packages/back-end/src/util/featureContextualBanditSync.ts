@@ -1,8 +1,6 @@
-import type {
-  ContextualBanditLinkageDelta,
-  ContextualBanditLinkageState,
-} from "shared/util";
 import {
+  type ContextualBanditLinkageDelta,
+  type ContextualBanditLinkageState,
   computeContextualBanditLinkageDelta,
   getContextualBanditIdsFromRules,
 } from "shared/util";

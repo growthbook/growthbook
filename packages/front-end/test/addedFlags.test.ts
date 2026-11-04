@@ -1,6 +1,8 @@
 import type { FeatureInterface } from "shared/types/feature";
-import type { AddedFlag } from "@/components/Experiment/TabbedPage/addedFlags";
-import { addedFlagChanges } from "@/components/Experiment/TabbedPage/addedFlags";
+import {
+  type AddedFlag,
+  addedFlagChanges,
+} from "@/components/Experiment/TabbedPage/addedFlags";
 
 const added: AddedFlag = {
   feature: { id: "flag" } as FeatureInterface,

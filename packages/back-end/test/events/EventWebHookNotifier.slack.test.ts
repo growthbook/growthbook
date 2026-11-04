@@ -1,5 +1,7 @@
-import { eventWebHookPayloadTypes } from "shared/validators";
-import type { NotificationSettings } from "shared/validators";
+import {
+  eventWebHookPayloadTypes,
+  type NotificationSettings,
+} from "shared/validators";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 import { slackEventHandler } from "back-end/src/events/handlers/slack/slackEventHandler";
 import { getSlackIntegrationsForFilters } from "back-end/src/models/SlackIntegrationModel";

@@ -1,5 +1,4 @@
-import type { Job } from "agenda";
-import type Agenda from "agenda";
+import type { Agenda, Job } from "agenda";
 import { checkExperimentLifecycleReminders } from "back-end/src/services/experimentLifecycleReminders";
 
 const JOB_NAME = "checkExperimentLifecycleReminders";

@@ -26,9 +26,9 @@ import Callout from "@/ui/Callout";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
 import Frame from "@/ui/Frame";
-import type { StatsEngineSettingsWithAlpha } from "./PowerCalculationStatsEngineSettingsModal";
 import PowerCalculationStatsEngineSettingsModal, {
   alphaToChanceToWin,
+  type StatsEngineSettingsWithAlpha,
 } from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {

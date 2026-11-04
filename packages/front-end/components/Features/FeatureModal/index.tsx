@@ -10,8 +10,7 @@ import type {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import type { ReactElement } from "react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { type ReactElement, useEffect, useMemo, useState } from "react";
 import {
   validateFeatureValue,
   getConfigBackingKey,

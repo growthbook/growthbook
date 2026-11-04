@@ -1,6 +1,8 @@
 import type { UpdateProps } from "shared/types/base-model";
-import type { AggregatedFactTableRunInterface } from "shared/validators";
-import { aggregatedFactTableRunValidator } from "shared/validators";
+import {
+  type AggregatedFactTableRunInterface,
+  aggregatedFactTableRunValidator,
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "aggregatedfacttableruns";

@@ -1,9 +1,9 @@
 import { subDays } from "date-fns";
-import type { ResponseJSON } from "@clickhouse/client";
 import {
   ClickHouseError,
   ClickHouseLogLevel,
   createClient,
+  type ResponseJSON,
 } from "@clickhouse/client";
 import type {
   ExternalIdCallback,

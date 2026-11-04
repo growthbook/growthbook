@@ -1,16 +1,14 @@
 import escapeRegExp from "lodash/escapeRegExp";
-import type {
-  ApiRampScheduleInterface,
-  RampScheduleInterface,
-  RampScheduleStatus,
-  RampStartAction,
-  RampStepAction,
-  RampTarget,
-  StepHoldConditions,
-} from "shared/validators";
 import {
   eventUserToApiEventUser,
   ANCHORED_RAMP_SCHEDULE_STATUSES,
+  type ApiRampScheduleInterface,
+  type RampScheduleInterface,
+  type RampScheduleStatus,
+  type RampStartAction,
+  type RampStepAction,
+  type RampTarget,
+  type StepHoldConditions,
   isAwaitingStartApproval,
   isReadyForApproval,
   rampScheduleValidator,

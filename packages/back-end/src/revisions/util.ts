@@ -1,13 +1,12 @@
 import { projectScopeChanged, type ProjectScoped } from "shared/permissions";
-import { applyPatch } from "fast-json-patch";
-import type { Operation } from "fast-json-patch";
+import { applyPatch, type Operation } from "fast-json-patch";
 import { cloneDeep, isEqual } from "lodash";
-import type {
-  JsonPatchOperation,
-  Revision,
-  RevisionTargetType,
+import {
+  type JsonPatchOperation,
+  type Revision,
+  type RevisionTargetType,
+  normalizeProposedChanges,
 } from "shared/enterprise";
-import { normalizeProposedChanges } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";

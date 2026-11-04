@@ -1,14 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import { SLACK_BOT_SCOPES } from "shared/slack-integration";
 import { defaultSlackNotificationEvents } from "shared/notifications";
-import type {
-  SlackNotificationSettingsBody,
-  SlackWorkspaceConnectionFrontEndInterface,
-  SlackWorkspaceConnectionInterface,
-} from "shared/validators";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
   parseNotificationSettings,
+  type SlackNotificationSettingsBody,
+  type SlackWorkspaceConnectionFrontEndInterface,
+  type SlackWorkspaceConnectionInterface,
 } from "shared/validators";
 import { z } from "zod";
 import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useState } from "react";
+import React, { useState, type FC } from "react";
 import { PiDetective, PiMagnifyingGlass } from "react-icons/pi";
 import type { ProjectInterface } from "shared/types/project";
 import { ago } from "shared/dates";

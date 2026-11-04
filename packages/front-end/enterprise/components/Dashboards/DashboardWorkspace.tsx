@@ -1,13 +1,11 @@
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type {
-  BlockLayout,
-  DashboardInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-  DashboardBlockType,
-} from "shared/enterprise";
 import {
+  type BlockLayout,
+  type DashboardInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
+  type DashboardBlockType,
   CREATE_BLOCK_TYPE,
   getBlockData,
   getInitialConfigByBlockType,
@@ -51,8 +49,10 @@ import DashboardEditor, {
 import type { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import { isBlockTypeAllowed } from "./DashboardEditor/dashboardBlockTypes";
-import type { AddBlockOptions } from "./DashboardEditor/dashboardLayout";
-import { insertBlockAtIndex } from "./DashboardEditor/dashboardLayout";
+import {
+  type AddBlockOptions,
+  insertBlockAtIndex,
+} from "./DashboardEditor/dashboardLayout";
 import DashboardModal from "./DashboardModal";
 
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";

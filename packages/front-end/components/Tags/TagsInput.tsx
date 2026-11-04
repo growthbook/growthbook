@@ -2,8 +2,9 @@ import type { FC } from "react";
 import type { StylesConfig } from "react-select";
 import type { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { MultiSelectFieldSize } from "@/ui/MultiSelectField";
-import MultiSelectField from "@/ui/MultiSelectField";
+import MultiSelectField, {
+  type MultiSelectFieldSize,
+} from "@/ui/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
 import type { RadixColor } from "@/ui/HelperText";

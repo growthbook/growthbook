@@ -53,7 +53,6 @@ import type {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
-import type { SnapshotAnalysisParams } from "back-end/src/services/experiments";
 import {
   assertCanRunExperimentInAffectedEnvironments,
   assertCanRunLinkedChanges,
@@ -67,6 +66,7 @@ import {
   getExperimentAttributeScopeProjects,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
+  type SnapshotAnalysisParams,
   createExperimentSnapshot,
   updateExperimentBanditSettings,
   validateVariationIds,
@@ -181,15 +181,17 @@ import {
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
-import type { ExperimentChangesResult } from "back-end/src/services/experimentChanges/applyExperimentChanges";
-import { applyExperimentChanges } from "back-end/src/services/experimentChanges/applyExperimentChanges";
+import {
+  applyExperimentChanges,
+  type ExperimentChangesResult,
+} from "back-end/src/services/experimentChanges/applyExperimentChanges";
 import {
   errorStringFromZodResult,
   parseArrayIndex,
 } from "back-end/src/util/validation";
-import type { ExperimentUpdateInput } from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import {
   applyExperimentUpdatePlan,
+  type ExperimentUpdateInput,
   planExperimentUpdate,
 } from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";

@@ -1,6 +1,8 @@
 import { PermissionError } from "shared/util";
-import type { BulkImportError } from "shared/validators";
-import { postBulkImportFactsValidator } from "shared/validators";
+import {
+  type BulkImportError,
+  postBulkImportFactsValidator,
+} from "shared/validators";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
   AggregatedFactTableSettings,

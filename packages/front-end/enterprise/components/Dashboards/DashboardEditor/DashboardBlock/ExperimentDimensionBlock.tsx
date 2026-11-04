@@ -1,7 +1,9 @@
 import React, { useMemo } from "react";
 import { v4 as uuid4 } from "uuid";
-import type { ExperimentDimensionBlockInterface } from "shared/enterprise";
-import { blockHasFieldOfType } from "shared/enterprise";
+import {
+  type ExperimentDimensionBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import type { MetricSnapshotSettings } from "shared/types/report";
 import {
   getEffectiveLookbackOverride,

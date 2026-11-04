@@ -12,8 +12,9 @@ import EventUser from "@/components/Avatar/EventUser";
 import RevisionStatusBadge, {
   isRampGenerated,
 } from "@/components/Reviews/RevisionStatusBadge";
-import type { RevisionDropdownRow } from "@/components/Reviews/RevisionDropdown";
-import SharedRevisionDropdown from "@/components/Reviews/RevisionDropdown";
+import SharedRevisionDropdown, {
+  type RevisionDropdownRow,
+} from "@/components/Reviews/RevisionDropdown";
 
 export interface Props {
   feature: FeatureInterface;

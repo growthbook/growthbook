@@ -1,6 +1,7 @@
 import type { FC } from "react";
-import type { ReferenceSection } from "@/components/References/ReferencesList";
-import ReferencesList from "@/components/References/ReferencesList";
+import ReferencesList, {
+  type ReferenceSection,
+} from "@/components/References/ReferencesList";
 import type { ConstantReferences } from "@/hooks/useConstantReferences";
 
 // Features, constants, and configs that reference a constant via `@const:key`.

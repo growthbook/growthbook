@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
-import type {
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
+import {
+  DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
 } from "shared/enterprise";
-import { DEFAULT_DASHBOARD_GLOBAL_CONTROLS } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";

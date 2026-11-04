@@ -1,5 +1,4 @@
-import type { ReactElement } from "react";
-import React from "react";
+import React, { type ReactElement } from "react";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -10,8 +9,12 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import Callout from "@/ui/Callout";
-import type { ExperimentImpactData, ExperimentImpactType } from ".";
-import { NoExperimentsForImpactBanner, formatImpact } from ".";
+import {
+  type ExperimentImpactData,
+  type ExperimentImpactType,
+  NoExperimentsForImpactBanner,
+  formatImpact,
+} from ".";
 
 interface Props {
   experimentImpactData: ExperimentImpactData;

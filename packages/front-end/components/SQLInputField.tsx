@@ -1,6 +1,5 @@
 import type { UserIdType } from "shared/types/datasource";
-import type { ReactElement } from "react";
-import React, { useState } from "react";
+import React, { type ReactElement, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import type { TestQueryRow } from "shared/types/integrations";

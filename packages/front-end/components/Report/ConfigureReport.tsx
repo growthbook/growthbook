@@ -4,8 +4,7 @@ import {
   getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
 } from "shared/util";
-import type { RefObject } from "react";
-import React, { useCallback, useState } from "react";
+import React, { type RefObject, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, getValidDate } from "shared/dates";

@@ -1,5 +1,4 @@
-import type { Response } from "node-fetch";
-import fetch from "node-fetch";
+import fetch, { type Response } from "node-fetch";
 import * as Sentry from "@sentry/node";
 import type { OrganizationInterface } from "shared/types/organization";
 import {

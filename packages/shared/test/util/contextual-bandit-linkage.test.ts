@@ -1,5 +1,5 @@
-import type { ContextualBanditLinkageState } from "../../src/util/features";
 import {
+  type ContextualBanditLinkageState,
   computeContextualBanditLinkageDelta,
   getContextualBanditIdsFromRules,
 } from "../../src/util/features";

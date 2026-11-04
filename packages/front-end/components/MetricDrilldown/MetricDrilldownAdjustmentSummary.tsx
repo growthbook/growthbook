@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useMemo } from "react";
+import { type FC, useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type {
   DifferenceType,
@@ -15,12 +14,12 @@ import Text from "@/ui/Text";
 import type { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import type { ExperimentTableRow } from "@/services/experiments";
-import type {
-  AdjustmentEffectSize,
-  AdjustmentImpact,
-  SupplementalField,
+import {
+  type AdjustmentEffectSize,
+  type AdjustmentImpact,
+  getAdjustmentImpactSummary,
+  type SupplementalField,
 } from "./helpers";
-import { getAdjustmentImpactSummary } from "./helpers";
 
 interface MetricDrilldownAdjustmentSummaryProps {
   row: ExperimentTableRow;

@@ -1,5 +1,9 @@
-import type { CSSProperties, FC, ReactNode } from "react";
-import React, { Children } from "react";
+import React, {
+  Children,
+  type CSSProperties,
+  type FC,
+  type ReactNode,
+} from "react";
 import SortedTags from "@/components/Tags/SortedTags";
 
 const RightRailSectionGroup: FC<{

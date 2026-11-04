@@ -5,8 +5,7 @@ import type {
 } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
 import { hasEventTrackerSql } from "@/services/datasources";
-import type { eventSchema } from "@/services/eventSchema";
-import { eventSchemas } from "@/services/eventSchema";
+import { type eventSchema, eventSchemas } from "@/services/eventSchema";
 
 export const LLM_TRACING_FORMATS = ["langfuse", "phoenix"] as const;
 

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { type FC, useCallback, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiSparkleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -20,9 +19,9 @@ import ConfirmModal from "@/components/ConfirmModal";
 import CollapsibleDiscussion from "@/components/CollapsibleDiscussion";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
-import type { SearchFiltersItem } from "@/components/Search/SearchFilters";
 import {
   FilterDropdown,
+  type SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 import { useSearch } from "@/services/search";

@@ -24,8 +24,10 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
-import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
-import { useConstantDraftTarget } from "@/components/Constants/useConstantDraftTarget";
+import {
+  useConstantDraftTarget,
+  type ConstantRevisionContext,
+} from "@/components/Constants/useConstantDraftTarget";
 
 type FormValues = {
   value: string;

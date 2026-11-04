@@ -2,11 +2,11 @@ import type {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import type {
-  ExplorationConfig,
-  ProductAnalyticsResultRow,
+import {
+  type ExplorationConfig,
+  type ProductAnalyticsResultRow,
+  draftExplorationMetricValidator,
 } from "shared/validators";
-import { draftExplorationMetricValidator } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { isFactFunnelMetric } from "shared/experiments";
 import { funnelSettingsToFunnelDataset } from "shared/funnels";

@@ -2,10 +2,10 @@ import React, { useMemo, useCallback } from "react";
 import { Flex, Box, Heading } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { FactTableColumnType } from "shared/types/fact-table";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   parseSliceQueryString,
   isMetricGroupId,
+  type ExperimentMetricDefinition,
   isSliceTagSelectAll,
   generateSelectAllSliceString,
 } from "shared/experiments";

@@ -17,12 +17,12 @@ import {
 } from "react-icons/pi";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $setBlocksType } from "@lexical/selection";
-import type { HeadingTagType } from "@lexical/rich-text";
 import {
   $createHeadingNode,
   $createQuoteNode,
   $isHeadingNode,
   $isQuoteNode,
+  type HeadingTagType,
 } from "@lexical/rich-text";
 import {
   $isListNode,
@@ -32,7 +32,6 @@ import {
 } from "@lexical/list";
 import { $isLinkNode } from "@lexical/link";
 import { $findMatchingParent, mergeRegister } from "@lexical/utils";
-import type { TextFormatType, ElementNode } from "lexical";
 import {
   $createParagraphNode,
   $getSelection,
@@ -41,10 +40,12 @@ import {
   FORMAT_TEXT_COMMAND,
   SELECTION_CHANGE_COMMAND,
   COMMAND_PRIORITY_LOW,
+  type ElementNode,
+  type TextFormatType,
 } from "lexical";
 import Tooltip from "@/ui/Tooltip";
-import type { LinkTarget } from "./RichTextEditorLinkEditor";
 import RichTextEditorLinkEditor, {
+  type LinkTarget,
   useLinkTarget,
 } from "./RichTextEditorLinkEditor";
 import styles from "./RichTextEditor.module.scss";

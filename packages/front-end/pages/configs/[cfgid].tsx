@@ -16,14 +16,15 @@ import { useRouter } from "next/router";
 import type { ConstantInterface } from "shared/types/constant";
 import type { ConfigInterface } from "shared/types/config";
 import type { SchemaField, SimpleSchema } from "shared/types/feature";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   applyTopLevelPatchOps,
   getConstantRevisionChange,
 } from "shared/enterprise";
-import type { ConfigChainNode, SchemaProjection } from "shared/util";
 import {
   proposedArchivedValue,
+  type ConfigChainNode,
+  type SchemaProjection,
   computeConfigReconciliationPreview,
   configPublishEnvironments,
   constantRequiresReview,
@@ -42,10 +43,10 @@ import {
   restoredProjectScope,
   simpleToJSONSchema,
 } from "shared/util";
-import type { ConstantSource } from "shared/sdk-versioning";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
+  type ConstantSource,
 } from "shared/sdk-versioning";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -110,10 +111,10 @@ import {
   getConstantSchemaBadges,
 } from "@/components/Constants/ConstantDiffRenders";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
-import type { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import {
   useConfigFamilyReferences,
   useConfigKeyUsage,
+  type ConfigKeyImplementation,
 } from "@/hooks/useConstantReferences";
 import ConfigArchiveModal from "@/components/Configs/ConfigArchiveModal";
 import ConfigLockModal from "@/components/Configs/ConfigLockModal";
@@ -129,12 +130,10 @@ import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
 import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
 import ConfigUsageSection from "@/components/Configs/ConfigUsageSection";
-import type {
-  ResolvedField,
-  LineageNode,
-} from "@/components/Configs/fieldSchema";
 import {
   FIELD_GRID_TEMPLATE,
+  type ResolvedField,
+  type LineageNode,
   blankField,
   isJsonField,
   fieldValueType,

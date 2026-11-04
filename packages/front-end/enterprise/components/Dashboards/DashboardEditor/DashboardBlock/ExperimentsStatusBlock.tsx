@@ -1,5 +1,7 @@
-import type { ExperimentsStatusBlockInterface } from "shared/enterprise";
-import { getEffectiveExperimentBlock } from "shared/enterprise";
+import {
+  type ExperimentsStatusBlockInterface,
+  getEffectiveExperimentBlock,
+} from "shared/enterprise";
 import VelocityBlockChart from "./VelocityBlockChart";
 import type { BlockProps } from ".";
 

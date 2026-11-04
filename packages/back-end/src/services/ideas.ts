@@ -1,8 +1,7 @@
 import uniqid from "uniqid";
 import type { FilterQuery } from "mongoose";
 import type { IdeaInterface } from "shared/types/idea";
-import type { IdeaDocument } from "back-end/src/models/IdeasModel";
-import { IdeaModel } from "back-end/src/models/IdeasModel";
+import { type IdeaDocument, IdeaModel } from "back-end/src/models/IdeasModel";
 import { addTags } from "back-end/src/models/TagModel";
 
 export function getIdeasByOrganization(organization: string, project?: string) {

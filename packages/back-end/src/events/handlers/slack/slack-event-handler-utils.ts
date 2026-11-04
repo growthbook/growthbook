@@ -9,16 +9,17 @@ import type {
 } from "shared/types/events/notification-events";
 import type { EventInterface } from "shared/types/events/event";
 import type { SlackIntegrationInterface } from "shared/types/slack-integration";
-import type {
-  ExperimentWarningNotificationPayload,
-  ExperimentInfoSignificancePayload,
-  ExperimentInfoScheduledStatusUpdatePayload,
-  ExperimentDecisionNotificationPayload,
-  SafeRolloutDecisionNotificationPayload,
-  SafeRolloutUnhealthyNotificationPayload,
-  RampScheduleStepApprovalRequiredPayload,
+import {
+  type ExperimentWarningNotificationPayload,
+  type ExperimentInfoSignificancePayload,
+  type ExperimentInfoScheduledStatusUpdatePayload,
+  type ExperimentDecisionNotificationPayload,
+  type SafeRolloutDecisionNotificationPayload,
+  type SafeRolloutUnhealthyNotificationPayload,
+  type RampScheduleStepApprovalRequiredPayload,
+  eventUserLabel,
+  eventUserPerson,
 } from "shared/validators";
-import { eventUserLabel, eventUserPerson } from "shared/validators";
 import type {
   DiffResult,
   HierarchicalValue,
@@ -27,8 +28,10 @@ import type {
   ItemFieldChange,
   ModificationItem,
 } from "shared/types/events/diff";
-import type { FilterDataForNotificationEvent } from "back-end/src/events/handlers/utils";
-import { getFilterDataForNotificationEvent } from "back-end/src/events/handlers/utils";
+import {
+  type FilterDataForNotificationEvent,
+  getFilterDataForNotificationEvent,
+} from "back-end/src/events/handlers/utils";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";

@@ -11,8 +11,10 @@ import type {
 import { resolveTargetingProjectIds } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
-import type { CreateEventData } from "back-end/src/models/EventModel";
-import { createEvent } from "back-end/src/models/EventModel";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { toApiRevision } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";

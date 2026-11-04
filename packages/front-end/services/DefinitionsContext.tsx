@@ -4,12 +4,14 @@ import type { DimensionInterface } from "shared/types/dimension";
 import type { MetricDefinitionInterface } from "shared/types/metric";
 import type { SegmentInterface } from "shared/types/segment";
 import type { ProjectInterface } from "shared/types/project";
-import type { FC, ReactNode, ReactElement } from "react";
 import {
   useContext,
   useMemo,
   createContext,
+  type FC,
+  type ReactNode,
   useCallback,
+  type ReactElement,
   useEffect,
 } from "react";
 import type { TagInterface } from "shared/types/tag";
@@ -17,8 +19,10 @@ import type {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { isFactMetricId } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetricId,
+} from "shared/experiments";
 import type { SavedGroupForDefinitions } from "shared/types/saved-group";
 import type { ConstantWithoutValue } from "shared/types/constant";
 import type { ConfigWithoutValue } from "shared/types/config";

@@ -3,8 +3,12 @@ import { useFeatureValue } from "@growthbook/growthbook-react";
 import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
 import { useForm } from "react-hook-form";
-import type { NpsCategory } from "shared/nps";
-import { NPS_MAX_FEEDBACK_LENGTH, npsCategoryOf, npsValueOf } from "shared/nps";
+import {
+  type NpsCategory,
+  NPS_MAX_FEEDBACK_LENGTH,
+  npsCategoryOf,
+  npsValueOf,
+} from "shared/nps";
 import type { NpsDisposition, NpsSurveyStatus } from "shared/validators";
 import { hasSuperAdminPermission } from "shared/permissions";
 import Button from "@/ui/Button";

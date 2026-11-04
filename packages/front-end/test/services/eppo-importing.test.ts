@@ -3,38 +3,36 @@ import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { ApiAutoRun } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
-import type {
-  EppoAllocation,
-  EppoData,
-  EppoExperiment,
-  EppoFlag,
-  EppoMetric,
-  EppoImportData,
-  ExistingIds,
-  TransformContext,
-  ApiCall,
-} from "@/services/importing/eppo/eppo-importing";
 import {
+  type EppoAllocation,
+  type EppoData,
+  type EppoExperiment,
   fetchEppoData,
   importableFlags,
   matchItems,
   buildImportData,
+  type EppoFlag,
+  type EppoMetric,
   getCappingSettings,
   getImportedIds,
   getVariationValue,
   runEppoImport,
+  type EppoImportData,
+  type ExistingIds,
   teardownRun,
   mergePhase,
   rulesToCondition,
   toEnvironmentId,
   toExperimentUpdate,
   toPhaseDate,
+  type TransformContext,
   updatedByLaterRuns,
   transformExperiment,
   transformFactSource,
   transformFlag,
   transformMetric,
   widenValues,
+  type ApiCall,
 } from "@/services/importing/eppo/eppo-importing";
 
 const EPPO: EppoData = {

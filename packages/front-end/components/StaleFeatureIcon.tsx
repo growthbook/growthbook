@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import type { StaleFeatureReason } from "shared/util";
-import { OLD_TEMP_ROLLOUT_DAYS } from "shared/util";
+import { OLD_TEMP_ROLLOUT_DAYS, type StaleFeatureReason } from "shared/util";
 import type { FeatureValueType } from "shared/types/feature";
 import { ago } from "shared/dates";
 import { PiArrowClockwise } from "react-icons/pi";

@@ -20,8 +20,9 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import FeatureReferencesList from "./FeatureReferencesList";
 
 interface FeatureArchiveModalProps {

@@ -1,10 +1,10 @@
 import type { ExposureQuery } from "shared/types/datasource";
 import type { SDKAttributeSchema } from "shared/types/organization";
-import type {
-  ContextualBanditInterface,
-  ContextualBanditSnapshotInterface,
+import {
+  type ContextualBanditInterface,
+  type ContextualBanditSnapshotInterface,
+  contextualBanditSnapshotSettingsValidator,
 } from "shared/validators";
-import { contextualBanditSnapshotSettingsValidator } from "shared/validators";
 
 const schema = (...properties: string[]): SDKAttributeSchema =>
   properties.map((property) => ({ property })) as SDKAttributeSchema;

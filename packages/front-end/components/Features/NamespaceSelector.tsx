@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { UseFormReturn } from "react-hook-form";
-import { useWatch } from "react-hook-form";
+import { type UseFormReturn, useWatch } from "react-hook-form";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiWarningCircle, PiXBold } from "react-icons/pi";
@@ -13,8 +12,7 @@ import type { NamespaceApiResponse } from "@/pages/namespaces";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
-import type { SingleValue } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { type SingleValue } from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -22,12 +20,12 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
-import type { RangeTuple } from "./NamespaceSelectorUtils";
 import {
   normalizeRangeAfterLowerChange,
   normalizeRangeAfterUpperChange,
   findContainingGap,
   getLargestGap,
+  type RangeTuple,
   shiftDraftKeysAfterRangeRemoval,
   subtractSelectedRangesFromGaps,
   trimDraftKeysToRangeLength,

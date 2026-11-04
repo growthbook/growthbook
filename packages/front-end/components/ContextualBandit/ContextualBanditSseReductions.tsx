@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
-import { conditionFromLeafClauses } from "shared/experiments";
-import type { ContextualBanditSseStep } from "shared/experiments";
+import {
+  conditionFromLeafClauses,
+  type ContextualBanditSseStep,
+} from "shared/experiments";
 import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";

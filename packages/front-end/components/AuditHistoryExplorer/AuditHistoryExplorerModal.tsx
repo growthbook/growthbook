@@ -17,10 +17,14 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import type { AuditDiffConfig } from "./types";
 import { COMPACT_DIFF_STYLES } from "./CompareAuditEventsUtils";
-import type { UseAuditEntriesResult } from "./useAuditEntries";
-import { PAGE_LIMIT, useAuditEntries } from "./useAuditEntries";
-import type { CompareAuditEventsProps } from "./CompareAuditEvents";
-import CompareAuditEvents from "./CompareAuditEvents";
+import {
+  PAGE_LIMIT,
+  useAuditEntries,
+  type UseAuditEntriesResult,
+} from "./useAuditEntries";
+import CompareAuditEvents, {
+  type CompareAuditEventsProps,
+} from "./CompareAuditEvents";
 
 // ---- Raw Audit Log Tab ----
 

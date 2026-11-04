@@ -14,13 +14,12 @@ import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import type { TestQueryType } from "shared/types/query";
-import type { FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
 import {
   columnTypesToColumnSource,
+  type FilterColumnSource,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 import { useAuth } from "@/services/auth";
-import type { SourceTableTemplate } from "@/services/factTables";
 import {
   getDefaultPartitionColumn,
   getPartitionFormats,
@@ -29,6 +28,7 @@ import {
   getPickerTableSql,
   haveSameColumnNames,
   isPseudoColumn,
+  type SourceTableTemplate,
 } from "@/services/factTables";
 import type { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 import useApi from "@/hooks/useApi";

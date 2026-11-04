@@ -18,8 +18,11 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import type { SourceTableTemplate } from "@/services/factTables";
-import { isGA4EventsTable, shardFilter } from "@/services/factTables";
+import {
+  isGA4EventsTable,
+  shardFilter,
+  type SourceTableTemplate,
+} from "@/services/factTables";
 
 function camelToUnderscore(orig: string) {
   return orig

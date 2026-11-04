@@ -28,8 +28,8 @@ import SlackChannelSettings, {
 } from "./SlackChannelSettings";
 import { getSlackChannelSummary } from "./slackSetupUtils";
 import styles from "./SlackWorkspacePanel.module.scss";
-import type { SlackChannelFormValues } from "./slackChannelForm";
 import {
+  type SlackChannelFormValues,
   getSlackChannelFormValues,
   acknowledgeSlackChannelSave,
 } from "./slackChannelForm";

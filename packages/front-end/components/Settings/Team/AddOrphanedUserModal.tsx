@@ -1,6 +1,5 @@
 import { Box } from "@radix-ui/themes";
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import type { MemberRoleWithProjects } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useAuth } from "@/services/auth";

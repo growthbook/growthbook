@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { AnyBulkWriteOperation, Collection } from "mongodb";
-import type { Context } from "../../src/models/BaseModel";
-import { MakeModelClass } from "../../src/models/BaseModel";
+import { type Context, MakeModelClass } from "../../src/models/BaseModel";
 
 type WriteOptions = {
   option?: boolean;

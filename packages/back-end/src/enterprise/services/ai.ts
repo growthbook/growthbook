@@ -7,8 +7,10 @@ import {
   stepCountIs,
   NoObjectGeneratedError,
   NoOutputGeneratedError,
+  type ToolSet,
+  type ModelMessage,
+  type LanguageModelUsage,
 } from "ai";
-import type { ToolSet, ModelMessage, LanguageModelUsage } from "ai";
 import {
   createOpenAI,
   type OpenAIResponsesProviderOptions,
@@ -17,10 +19,15 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createXai } from "@ai-sdk/xai";
 import { createMistral } from "@ai-sdk/mistral";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import type { TiktokenModel } from "@dqbd/tiktoken";
-import { encoding_for_model, get_encoding } from "@dqbd/tiktoken";
-import type { AIModel, AIPromptType, AIProvider } from "shared/ai";
 import {
+  encoding_for_model,
+  get_encoding,
+  type TiktokenModel,
+} from "@dqbd/tiktoken";
+import {
+  type AIModel,
+  type AIPromptType,
+  type AIProvider,
   anthropicStructuredOutputMode,
   DEFAULT_MAX_OUTPUT_TOKENS,
   getProviderFromModel,
@@ -46,11 +53,15 @@ import {
   getAISettingsForOrg,
   getAllowedAIModel,
 } from "back-end/src/services/organizations";
-import type { AIKeySource } from "back-end/src/services/aiCredentials";
-import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
+import {
+  type AIKeySource,
+  missingAIKeyMessage,
+} from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
-import type { AIUsageOutcome } from "back-end/src/services/growthbook";
-import { trackAIUsage } from "back-end/src/services/growthbook";
+import {
+  type AIUsageOutcome,
+  trackAIUsage,
+} from "back-end/src/services/growthbook";
 import {
   addCompletionUsage,
   addUsd,

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useMemo } from "react";
+import { type FC, useMemo } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import type { DataSourceInterfaceWithParams } from "shared/types/datasource";

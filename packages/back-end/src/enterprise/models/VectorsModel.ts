@@ -1,7 +1,6 @@
 import type { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
-import type { Vectors } from "back-end/src/validators/vectors";
-import { vectors } from "back-end/src/validators/vectors";
+import { vectors, type Vectors } from "back-end/src/validators/vectors";
 
 const BaseClass = MakeModelClass({
   schema: vectors,

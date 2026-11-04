@@ -9,9 +9,9 @@ import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.j
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { amber } from "@radix-ui/colors";
-import type { ReactElement } from "react";
 import React, {
   forwardRef,
+  type ReactElement,
   useCallback,
   useEffect,
   useState,
@@ -23,8 +23,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import type { Size } from "@/ui/sizes";
-import { radixSize } from "@/ui/sizes";
+import { radixSize, type Size } from "@/ui/sizes";
 
 type AllowedChildren = string | React.ReactNode;
 

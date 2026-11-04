@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { FeatureInterface } from "shared/types/feature";
 import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -31,8 +30,9 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useAuth } from "@/services/auth";
 import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";

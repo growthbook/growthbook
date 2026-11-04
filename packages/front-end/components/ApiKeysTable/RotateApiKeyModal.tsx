@@ -1,9 +1,8 @@
-import type { ReactNode } from "react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { ApiKeyInterface } from "shared/types/apikey";
-import type { MaxLifetimeDays } from "shared/api-key-expiration";
 import {
+  type MaxLifetimeDays,
   previousKeyExpiration,
   ROTATION_GRACE_PRESET_HOURS,
   rotatedExpiration,

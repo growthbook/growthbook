@@ -1,8 +1,10 @@
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
-import type { DetailedHTMLProps, HTMLAttributes } from "react";
-import React from "react";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { hasEnoughData, isStatSig } from "shared/experiments";
+import React, { type DetailedHTMLProps, type HTMLAttributes } from "react";
+import {
+  type ExperimentMetricDefinition,
+  hasEnoughData,
+  isStatSig,
+} from "shared/experiments";
 import type {
   DifferenceType,
   SignificanceThresholds,

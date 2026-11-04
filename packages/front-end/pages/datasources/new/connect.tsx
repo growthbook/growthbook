@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { type FC, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
 import type {

@@ -25,8 +25,7 @@ import type {
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { Queries, QueryStatus } from "shared/types/query";
 import { getMetricWithFiltersApplied } from "back-end/src/services/metric-analysis";
-import type { QueryMap } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisInterface,

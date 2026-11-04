@@ -1,11 +1,12 @@
-import type {
-  FC,
-  ButtonHTMLAttributes,
-  DetailedHTMLProps,
-  ReactNode,
-  CSSProperties,
+import {
+  type FC,
+  useState,
+  type ButtonHTMLAttributes,
+  type DetailedHTMLProps,
+  type ReactNode,
+  type CSSProperties,
+  useEffect,
 } from "react";
-import { useState, useEffect } from "react";
 import clsx from "clsx";
 import LoadingSpinner from "./LoadingSpinner";
 

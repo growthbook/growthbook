@@ -14,8 +14,10 @@ import type {
 } from "shared/types/experiment-snapshot";
 import type { ExperimentReportResultDimension } from "shared/types/report";
 import type { MetricDefaults } from "shared/types/organization";
-import type { ExperimentTableRow } from "@/services/experiments";
-import { NO_DATA_ERROR_MESSAGE } from "@/services/experiments";
+import {
+  type ExperimentTableRow,
+  NO_DATA_ERROR_MESSAGE,
+} from "@/services/experiments";
 
 export function filterRowsForMetricDrilldown(
   rows: ExperimentTableRow[],

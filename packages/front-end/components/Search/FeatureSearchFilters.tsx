@@ -1,5 +1,11 @@
-import type { FC } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex, IconButton, TextField } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import Text from "@/ui/Text";
@@ -20,14 +26,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import type {
-  BaseSearchFiltersProps,
-  SearchFiltersItem,
-} from "@/components/Search/SearchFilters";
 import {
+  type BaseSearchFiltersProps,
   FilterHeading,
   FilterItem,
   FilterDropdown,
+  type SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 import { useUser } from "@/services/UserContext";

@@ -1,14 +1,15 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
-import type { AutoMergeResult, MatchingRule } from "shared/util";
 import {
   DRAFT_REVISION_STATUSES,
+  type AutoMergeResult,
   checkIfRevisionNeedsReview,
   getEffectiveRevisionHoldout,
   getMatchingRules,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
+  type MatchingRule,
   mergeResultHasChanges,
 } from "shared/util";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";

@@ -1,5 +1,8 @@
-import type { Revision, JsonPatchOperation } from "shared/enterprise";
-import { getConstantRevisionChange } from "shared/enterprise";
+import {
+  type Revision,
+  type JsonPatchOperation,
+  getConstantRevisionChange,
+} from "shared/enterprise";
 import type { ConstantInterface } from "shared/types/constant";
 import type {
   ResourceEvents,
@@ -13,8 +16,10 @@ import {
 } from "back-end/src/events/revisionReference";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { ApiReqContext } from "back-end/types/api";
-import type { CreateEventData } from "back-end/src/models/EventModel";
-import { createEvent } from "back-end/src/models/EventModel";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { toApiConstantRevision } from "back-end/src/api/constants/toApiConstantRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";

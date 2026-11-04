@@ -1,27 +1,25 @@
 import type { z } from "zod";
 import type { ExposureQuery } from "shared/types/datasource";
-import type { HoldoutStage } from "shared/util";
 import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
   getEnabledHoldoutEnvironments,
   getHoldoutStage,
+  type HoldoutStage,
   isHoldoutStageTransitionAllowed,
   stringToBoolean,
   parseAssignmentQueryInput,
   toApiAssignmentQueryRef,
 } from "shared/util";
 import { getActivePhase } from "shared/experiments";
-import type {
-  ApiHoldoutInterface,
-  apiHoldoutActionReturn,
-  apiHoldoutActionValidator,
-  HoldoutInterface,
-} from "shared/validators";
 import {
+  type ApiHoldoutInterface,
   apiCreateHoldoutBody,
+  type apiHoldoutActionReturn,
+  type apiHoldoutActionValidator,
   apiUpdateHoldoutBody,
   HOLDOUT_API_TARGETING_UPDATE_FIELDS,
+  type HoldoutInterface,
   holdoutValidator,
 } from "shared/validators";
 import type { UpdateProps } from "shared/types/base-model";

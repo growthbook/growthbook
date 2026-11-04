@@ -1,5 +1,4 @@
-import type { Job } from "agenda";
-import type Agenda from "agenda";
+import type { Agenda, Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import { isAutoSnapshotScheduled } from "shared/experiments";
 import {

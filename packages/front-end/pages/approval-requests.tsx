@@ -3,20 +3,23 @@ import {
   featureReviewCandidateProjects,
 } from "shared/util";
 import type { OrganizationSettings } from "shared/types/organization";
-import type { EventUser as EventUserType } from "shared/validators";
 import {
+  type EventUser as EventUserType,
   eventUserIdentity,
   eventUserLabel,
   revisionActor,
 } from "shared/validators";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import type { FC } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
-import type { Revision, RevisionStatus } from "shared/enterprise";
-import { getRevisionKey, isInReviewCycle } from "shared/enterprise";
+import {
+  type Revision,
+  type RevisionStatus,
+  getRevisionKey,
+  isInReviewCycle,
+} from "shared/enterprise";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
@@ -30,8 +33,11 @@ import EventUser from "@/components/Avatar/EventUser";
 import StatusDot from "@/components/Experiment/StatusDot";
 import Pagination from "@/ui/Pagination";
 import { DocLink } from "@/components/DocLink";
-import type { SyntaxFilter } from "@/services/search";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  type SyntaxFilter,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import {
   FilterDropdown,
   useSearchFiltersBase,

@@ -11,8 +11,10 @@ import type { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
-import type { HoldoutInterface } from "shared/validators";
-import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
+import {
+  REVIEW_REQUESTED_STATUSES,
+  type HoldoutInterface,
+} from "shared/validators";
 import type { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Text from "@/ui/Text";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";

@@ -1,6 +1,6 @@
 import stringify from "json-stringify-pretty-compact";
-import type { AttributeData } from "@/services/features";
 import {
+  type AttributeData,
   condToJson,
   getDefaultOperator,
   jsonToConds,

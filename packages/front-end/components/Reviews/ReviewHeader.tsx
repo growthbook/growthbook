@@ -11,8 +11,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionLabel, {
   revisionLabelText,
 } from "@/components/Reviews/RevisionLabel";
-import type { RevisionLike } from "@/components/Reviews/RevisionStatusBadge";
 import RevisionStatusBadge, {
+  type RevisionLike,
   revisionStatusBadgeVariant,
   revisionStatusColor,
   revisionStatusLabel,

@@ -28,11 +28,12 @@ import type {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
-import type { StagedTargetingScope, TargetingScopedEntity } from "./features";
 import {
   featureHasEnvironment,
   getAttributeScopeProjectIds,
   getTargetingProjectIds,
+  type StagedTargetingScope,
+  type TargetingScopedEntity,
 } from "./features";
 
 export * from "./strings";

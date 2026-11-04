@@ -1,8 +1,8 @@
-import type { Policy } from "shared/permissions";
 import {
   POLICY_DISPLAY_GROUPS,
   POLICY_METADATA_MAP,
   POLICY_PARTS,
+  type Policy,
   RESERVED_ROLE_IDS,
   DEPRECATED_POLICIES,
 } from "shared/permissions";

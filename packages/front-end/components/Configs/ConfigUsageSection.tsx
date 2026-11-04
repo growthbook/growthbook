@@ -4,11 +4,11 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import type { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
-import type { DedupedImplementation } from "./ConfigUsageTable";
 import {
   dedupeImplementations,
   ByKeyUsageTable,
   ByReferenceUsageTable,
+  type DedupedImplementation,
 } from "./ConfigUsageTable";
 
 // The feature-rule / default-value and experiment references that override keys

@@ -3,22 +3,22 @@ import {
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
 } from "shared/util";
-import type {
-  ExperimentInterfaceExcludingHoldouts,
-  ExperimentTemplateInterface,
+import {
+  type ExperimentInterfaceExcludingHoldouts,
+  type ExperimentTemplateInterface,
+  postExperimentValidator,
 } from "shared/validators";
-import { postExperimentValidator } from "shared/validators";
 import { omit } from "lodash";
 import {
   createExperiment,
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import type { PostExperimentApiPayload } from "back-end/src/services/experiments";
 import {
   assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
+  type PostExperimentApiPayload,
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";

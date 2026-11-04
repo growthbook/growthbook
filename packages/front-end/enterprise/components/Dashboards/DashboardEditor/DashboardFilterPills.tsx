@@ -1,11 +1,14 @@
 import { useMemo } from "react";
 import type { DashboardInterface } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { ChecklistOption } from "./DashboardChecklistFilter";
-import DashboardChecklistFilter from "./DashboardChecklistFilter";
+import DashboardChecklistFilter, {
+  type ChecklistOption,
+} from "./DashboardChecklistFilter";
 import DashboardExperimentCategoryPills from "./DashboardExperimentCategoryPills";
-import type { DashboardOptionalFilterKey } from "./dashboardFilterCatalog";
-import { getExperimentCategory } from "./dashboardFilterCatalog";
+import {
+  type DashboardOptionalFilterKey,
+  getExperimentCategory,
+} from "./dashboardFilterCatalog";
 import type { DashboardExperimentCategoryKey } from "./experimentSearchFilterString";
 
 type GlobalControls = DashboardInterface["globalControls"];

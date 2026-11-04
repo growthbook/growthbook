@@ -1,10 +1,10 @@
 import { putConfigRevisionValueValidator } from "shared/validators";
-import type { SchemaWarning } from "shared/util";
 import {
   stripConfigExtends,
   parsePlainJSONObject,
   inferFieldsFromValue,
   ancestorCollisionWarnings,
+  type SchemaWarning,
 } from "shared/util";
 import type { SimpleSchema } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";

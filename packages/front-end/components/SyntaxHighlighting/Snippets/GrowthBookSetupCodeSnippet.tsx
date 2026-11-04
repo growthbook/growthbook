@@ -16,8 +16,7 @@ import EventTrackerSelector, {
 } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import { getAppOrigin, isCloud } from "@/services/env";
-import type { DataRegion } from "@/services/dataRegions";
-import { getEventIngestorHost } from "@/services/dataRegions";
+import { type DataRegion, getEventIngestorHost } from "@/services/dataRegions";
 import Callout from "@/ui/Callout";
 
 function indentLines(code: string, indent: number | string = 2) {

@@ -1,11 +1,10 @@
-import type { FC } from "react";
-import React, { useMemo } from "react";
+import React, { type FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { SDKAttribute } from "shared/types/organization";
 import type { CustomField } from "shared/types/custom-fields";
 import { attributeDataTypes } from "shared/constants";
-import type { BaseSearchFiltersProps } from "@/components/Search/SearchFilters";
 import {
+  type BaseSearchFiltersProps,
   FilterDropdown,
   FilterItem,
   FilterHeading,

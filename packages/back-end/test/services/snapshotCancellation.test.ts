@@ -10,11 +10,11 @@ import {
   disconnectTestMongo,
 } from "back-end/test/test-helpers";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
-import type { SnapshotCancelAction } from "back-end/src/services/snapshotCancellation";
 import {
   cancelExperimentSnapshot,
   planSnapshotCancel,
   SNAPSHOT_CANCELLED_ERROR,
+  type SnapshotCancelAction,
 } from "back-end/src/services/snapshotCancellation";
 import {
   createExperimentSnapshotModel,

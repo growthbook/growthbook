@@ -8,18 +8,21 @@ import {
   parsePlainJSONObject,
   deepMergePatch,
 } from "shared/util";
-import type { ConstantValueMap, ConstantSource } from "shared/sdk-versioning";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
+  type ConstantValueMap,
+  type ConstantSource,
 } from "shared/sdk-versioning";
 import type { ConstantInterface } from "shared/types/constant";
 import type { ConfigInterface } from "shared/types/config";
 import type { FeatureInterface } from "shared/types/feature";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
-import type { ResolvableValue } from "back-end/src/services/resolvableValues";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  getResolvableValues,
+  type ResolvableValue,
+} from "back-end/src/services/resolvableValues";
 import {
   getArmAcknowledgment,
   type ArmGuardId,

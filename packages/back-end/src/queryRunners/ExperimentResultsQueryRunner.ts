@@ -8,8 +8,8 @@ import type {
 import { analyzeExperimentPower } from "shared/enterprise";
 import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getFactTableIdsForMetrics,
   quantileMetricType,
@@ -66,13 +66,13 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import type SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
-import type {
-  QueryMap,
-  ProcessedRowsType,
-  RowsType,
-  StartQueryParams,
+import {
+  QueryRunner,
+  type QueryMap,
+  type ProcessedRowsType,
+  type RowsType,
+  type StartQueryParams,
 } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 export type SnapshotResult = {

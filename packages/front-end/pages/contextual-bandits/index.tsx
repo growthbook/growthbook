@@ -8,8 +8,8 @@ import React, {
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { Box, Flex } from "@radix-ui/themes";
-import type { ComputedContextualBanditInterface } from "@/services/contextualBandits";
 import {
+  type ComputedContextualBanditInterface,
   contextualBanditStatusIndicatorData,
   useContextualBanditSearch,
 } from "@/services/contextualBandits";
@@ -35,8 +35,9 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import type { ContextualBanditEmptyStateKind } from "@/components/ContextualBandit/ContextualBanditEmptyState";
-import ContextualBanditEmptyState from "@/components/ContextualBandit/ContextualBanditEmptyState";
+import ContextualBanditEmptyState, {
+  type ContextualBanditEmptyStateKind,
+} from "@/components/ContextualBandit/ContextualBanditEmptyState";
 import Callout from "@/ui/Callout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";

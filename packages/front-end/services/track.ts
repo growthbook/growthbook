@@ -13,8 +13,7 @@ Track usage statistics
   DISABLE_TELEMETRY=true in your env.
 */
 
-import type { JitsuClient } from "@jitsu/sdk-js";
-import { jitsuClient } from "@jitsu/sdk-js";
+import { jitsuClient, type JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
 import type { StatsEngine } from "shared/types/stats";
 import type {

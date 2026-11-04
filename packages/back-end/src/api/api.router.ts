@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 import path from "path";
-import type { Request, RequestHandler } from "express";
-import { Router } from "express";
+import { Router, type Request, type RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
@@ -33,8 +32,10 @@ import {
   IS_CLOUD,
   SENTRY_DSN,
 } from "back-end/src/util/secrets";
-import type { ApiRateLimitSettings } from "back-end/src/util/apiRateLimit";
-import { getApiRateLimitBucket } from "back-end/src/util/apiRateLimit";
+import {
+  type ApiRateLimitSettings,
+  getApiRateLimitBucket,
+} from "back-end/src/util/apiRateLimit";
 import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
 import { getSavedGroupUploadFile } from "./saved-groups/getSavedGroupUploadFile";
 import { featureRoutes } from "./features/features.router";

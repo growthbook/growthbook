@@ -1,5 +1,4 @@
-import type { Experiment } from "../../src";
-import { GrowthBook } from "../../src";
+import { type Experiment, GrowthBook } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
 
 /**

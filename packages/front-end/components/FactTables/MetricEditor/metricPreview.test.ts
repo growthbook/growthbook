@@ -2,8 +2,10 @@ import type {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import type { ProductAnalyticsResultRow } from "shared/validators";
-import { factMetricValidator } from "shared/validators";
+import {
+  type ProductAnalyticsResultRow,
+  factMetricValidator,
+} from "shared/validators";
 import {
   getDefaultFactMetricProps,
   toFactMetricFormValues,

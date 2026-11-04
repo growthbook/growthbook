@@ -1,7 +1,7 @@
 import React from "react";
 import Text from "@/ui/Text";
-import type { OptionContext } from "@/components/Features/OptionTooltipShell";
 import {
+  type OptionContext,
   OptionLabel,
   OptionMenuRow,
   OptionPopover,

@@ -1,6 +1,5 @@
 import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
-import type { FilterQuery } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -17,11 +16,9 @@ import type {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
-import type {
-  ExperimentInterfaceExcludingHoldouts,
-  ExperimentStatus,
-} from "shared/validators";
 import {
+  type ExperimentInterfaceExcludingHoldouts,
+  type ExperimentStatus,
   SCHEDULE_STOP_AFTER_UNITS,
   SCHEDULED_STATUS_UPDATE_TYPES,
   SCHEDULED_STOP_MODES,
@@ -55,22 +52,24 @@ import {
 import { getOwnerEmail } from "back-end/src/services/owner";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
-import type { NamespaceUsageExperiment } from "back-end/src/util/namespaces";
-import { experimentAllocatesTrafficInNamespace } from "back-end/src/util/namespaces";
+import {
+  experimentAllocatesTrafficInNamespace,
+  type NamespaceUsageExperiment,
+} from "back-end/src/util/namespaces";
 import { validateMetricOverrides } from "back-end/src/util/priors";
-import type {
-  URLRedirectExperiment,
-  VisualExperiment,
+import {
+  queueSDKPayloadRefresh,
+  type URLRedirectExperiment,
+  type VisualExperiment,
 } from "back-end/src/services/features";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import type { ApiReqContext } from "back-end/types/api";
-import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
   getCollection,
   removeMongooseFields,
+  type ToInterface,
 } from "back-end/src/util/mongo.util";
 import {
   createVercelExperimentationItemFromExperiment,

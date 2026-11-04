@@ -7,8 +7,8 @@ import {
   parseIntWithDefault,
 } from "shared/util";
 import { format as formatDate, subDays } from "date-fns";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   getFactMetricFactTableIds,
   getFactTableTemplateVariables,
   isFactFunnelMetric,

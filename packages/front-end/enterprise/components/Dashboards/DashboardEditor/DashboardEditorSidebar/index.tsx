@@ -1,11 +1,11 @@
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import type {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-  DashboardBlockType,
-  DashboardInterface,
+import {
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
+  type DashboardBlockType,
+  type DashboardInterface,
+  dashboardBlockHasIds,
 } from "shared/enterprise";
-import { dashboardBlockHasIds } from "shared/enterprise";
 import React, { useMemo, useState } from "react";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDefined } from "shared/util";

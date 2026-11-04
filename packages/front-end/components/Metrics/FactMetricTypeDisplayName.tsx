@@ -1,5 +1,7 @@
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { isFactMetric } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetric,
+} from "shared/experiments";
 import type {
   FactMetricType,
   FactTableDefinition,

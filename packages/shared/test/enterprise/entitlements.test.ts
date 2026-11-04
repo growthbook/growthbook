@@ -4,8 +4,9 @@ import {
   FREE_ORG_LIMITS,
   PRO_ORG_LIMITS,
   PAID_PLAN_LIMITS_START_DATE,
+  type AccountPlan,
+  type OrgLimits,
 } from "shared/enterprise";
-import type { AccountPlan, OrgLimits } from "shared/enterprise";
 
 const FREE_LIMITS: OrgLimits = FREE_ORG_LIMITS;
 

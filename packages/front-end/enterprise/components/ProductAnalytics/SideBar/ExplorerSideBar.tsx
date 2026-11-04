@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import React from "react";
+import React, { type ReactNode } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import type {
   DatasetType,

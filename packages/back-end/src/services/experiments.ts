@@ -19,9 +19,7 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import type { ScopedSettings } from "shared/settings";
-import { getScopedSettings } from "shared/settings";
-import type { MatchingRule } from "shared/util";
+import { getScopedSettings, type ScopedSettings } from "shared/settings";
 import {
   mergeResultHasChanges,
   draftHasChangesOutsideTargetRef,
@@ -41,6 +39,7 @@ import {
   isAnalysisAllowed,
   isDefined,
   liveRevisionFromFeature,
+  type MatchingRule,
   naiveFlattenV1Rules,
   isRevisionEditLockedBySchedule,
   assertExposureQueryDeclaresIdentifierType,
@@ -54,10 +53,10 @@ import {
   getExperimentSRMValue,
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   needsPercentileCapSubquery,
   expandMetricGroups,
+  type ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
@@ -92,28 +91,28 @@ import { differenceInMinutes } from "date-fns";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { SegmentInterface } from "shared/types/segment";
-import type {
-  ExperimentAnalysisSummaryVariationStatus,
-  BanditResult,
-  ExperimentAnalysisSummary,
-  ExperimentAnalysisSummaryResultsStatus,
-  ApiVariationInput,
-  GoalMetricResult,
-  SafeRolloutInterface,
-  postExperimentValidator,
-  postMetricValidator,
-  putMetricValidator,
-  updateExperimentValidator,
-  SafeRolloutSnapshotAnalysis,
-  IncrementalRefreshInterface,
-  LookbackOverrideValueUnit,
-  ApiExperiment,
-  ApiExperimentMetric,
-  ApiExperimentResults,
-  ApiMetric,
-  ScheduledStopPlan,
+import {
+  type ExperimentAnalysisSummaryVariationStatus,
+  type BanditResult,
+  type ExperimentAnalysisSummary,
+  type ExperimentAnalysisSummaryResultsStatus,
+  type ApiVariationInput,
+  type GoalMetricResult,
+  type SafeRolloutInterface,
+  type postExperimentValidator,
+  type postMetricValidator,
+  type putMetricValidator,
+  type updateExperimentValidator,
+  type SafeRolloutSnapshotAnalysis,
+  type IncrementalRefreshInterface,
+  type LookbackOverrideValueUnit,
+  type ApiExperiment,
+  type ApiExperimentMetric,
+  type ApiExperimentResults,
+  type ApiMetric,
+  type ScheduledStopPlan,
+  resolveSavedGroupsInput,
 } from "shared/validators";
-import { resolveSavedGroupsInput } from "shared/validators";
 import type { ComboConstituent, Dimension } from "shared/types/integrations";
 import type {
   ConversionWindowUnit,
@@ -221,14 +220,18 @@ import {
 } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
+import {
+  type QueryMap,
+  getQueryMap,
+} from "back-end/src/queryRunners/QueryRunner";
 import {
   buildUnitDimensionQueryMap,
   filterParentQueryMap,
 } from "back-end/src/queryRunners/unitDimensionQueryNaming";
-import type { FactTableMap } from "back-end/src/models/FactTableModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  type FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 import {
   getFeatureProjectsByIds,
   getFeature,
@@ -273,8 +276,10 @@ import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
-import type { ExperimentUpdateLogPlan } from "back-end/src/services/experimentUpdateExecutionLogger";
-import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
+import {
+  type ExperimentUpdateLogPlan,
+  ExperimentUpdateExecutionLogger,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { getMetricForSnapshot } from "./reports";

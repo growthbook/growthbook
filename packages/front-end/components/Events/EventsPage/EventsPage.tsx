@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useRef, useState } from "react";
+import React, { type FC, useRef, useState } from "react";
 import type {
   EventInterface,
   NotificationEventName,

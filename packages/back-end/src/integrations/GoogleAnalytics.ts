@@ -1,5 +1,4 @@
-import type { analyticsreporting_v4 } from "googleapis";
-import { google } from "googleapis";
+import { type analyticsreporting_v4, google } from "googleapis";
 import cloneDeep from "lodash/cloneDeep";
 import type {
   MetricValueParams,

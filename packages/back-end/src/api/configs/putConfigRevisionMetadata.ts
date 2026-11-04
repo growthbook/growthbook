@@ -1,9 +1,9 @@
 import { isEqual } from "lodash";
 import { putConfigRevisionMetadataValidator } from "shared/validators";
-import type { SchemaWarning } from "shared/util";
 import {
   formatAncestorFieldConflictMessage,
   ancestorCollisionWarnings,
+  type SchemaWarning,
 } from "shared/util";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";

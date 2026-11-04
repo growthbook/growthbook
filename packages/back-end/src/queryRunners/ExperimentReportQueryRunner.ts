@@ -14,10 +14,11 @@ import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
-import type { ExperimentResultsQueryParams } from "./ExperimentResultsQueryRunner";
-import { startExperimentResultQueries } from "./ExperimentResultsQueryRunner";
-import type { QueryMap } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
+import {
+  type ExperimentResultsQueryParams,
+  startExperimentResultQueries,
+} from "./ExperimentResultsQueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];

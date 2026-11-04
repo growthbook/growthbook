@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useState } from "react";
+import React, { type FC, useState } from "react";
 import dynamic from "next/dynamic";
 import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, relativeDate } from "shared/dates";

@@ -1,10 +1,9 @@
 import { contextualBanditQueryEndpoints } from "shared/api-endpoints";
-import type { FC } from "react";
-import React, { useMemo, useState } from "react";
+import React, { type FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import type { ApiContextualBanditQueryInterface } from "shared/validators";
 import {
+  type ApiContextualBanditQueryInterface,
   formatInvalidTargetingAttributeColumnMessages,
   formatMalformedTargetingAttributeColumnMessages,
   getInvalidTargetingAttributeColumnsForExposureQueries,

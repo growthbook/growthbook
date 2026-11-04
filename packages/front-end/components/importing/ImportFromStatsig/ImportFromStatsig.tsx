@@ -6,13 +6,11 @@ import type { FeatureInterface } from "shared/types/feature";
 import type { ProjectInterface } from "shared/types/project";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type { SavedGroupWithoutValues } from "shared/types/saved-group";
-import type {
-  BuildImportedDataOptions,
-  RunImportOptions,
-} from "@/services/importing/statsig/statsig-importing";
 import {
   buildImportedData,
   runImport,
+  type BuildImportedDataOptions,
+  type RunImportOptions,
 } from "@/services/importing/statsig/statsig-importing";
 import type {
   ImportStatus,

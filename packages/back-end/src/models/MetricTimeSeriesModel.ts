@@ -3,15 +3,13 @@ import { formatISO } from "date-fns";
 import type { FilterQuery } from "mongoose";
 import { isValidDataPoint } from "shared/util";
 import { getValidDate } from "shared/dates";
-import type {
-  MetricTimeSeries,
-  CreateMetricTimeSeries,
-  CreateMetricTimeSeriesSingleDataPoint,
-} from "shared/validators";
 import {
   metricTimeSeriesSchema,
   metricTimeSeriesStripSchema,
   metricTimeSeriesBaseModelSchema,
+  type MetricTimeSeries,
+  type CreateMetricTimeSeries,
+  type CreateMetricTimeSeriesSingleDataPoint,
 } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";

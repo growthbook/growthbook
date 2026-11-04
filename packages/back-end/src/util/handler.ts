@@ -1,12 +1,11 @@
 import type { Request, RequestHandler } from "express";
-import type { ZodType, output, core } from "zod";
-import { z, ZodNever } from "zod";
+import { z, type ZodType, ZodNever, type output, type core } from "zod";
 import type {
   ApiPaginationFields,
   ApiErrorCode,
   ConfirmAction,
-  SuperAdminPermission,
   ConfirmationNotice,
+  SuperAdminPermission,
 } from "shared/validators";
 import { routeConfirmation } from "shared/util";
 import { hasSuperAdminPermission } from "shared/permissions";

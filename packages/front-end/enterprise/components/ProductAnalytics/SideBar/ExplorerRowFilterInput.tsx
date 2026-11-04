@@ -1,10 +1,15 @@
 import { Flex } from "@radix-ui/themes";
 import type { RowFilter } from "shared/types/fact-table";
-import type { ReactNode } from "react";
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  type ReactNode,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { isEqual } from "lodash";
 import Text from "@/ui/Text";
-import { type FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
+import type { FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
 import { ExplorerFilterRow, type ExplorerRowFilter } from "./ExplorerFilterRow";
 

@@ -36,8 +36,10 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import Tooltip from "@/ui/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import type { MetricModalState } from "@/components/FactTables/NewMetricModal";
-import { MetricModal } from "@/components/FactTables/NewMetricModal";
+import {
+  MetricModal,
+  type MetricModalState,
+} from "@/components/FactTables/NewMetricModal";
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";

@@ -1,10 +1,16 @@
-import type React from "react";
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import type {
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
+import {
+  type default as React,
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
+import {
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  blockHasFieldOfType,
 } from "shared/enterprise";
-import { blockHasFieldOfType } from "shared/enterprise";
 import type { DifferenceType } from "shared/types/stats";
 import { isNumber, isStringArray } from "shared/util";
 import type { ExperimentReportVariation } from "shared/types/report";

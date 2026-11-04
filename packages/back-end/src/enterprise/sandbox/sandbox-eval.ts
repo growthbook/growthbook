@@ -1,11 +1,9 @@
-import type {
-  EventUser,
-  CustomHookEntityType,
-  CustomHookErrorDetail,
-  CustomHookInterface,
-  CustomHookType,
-} from "shared/validators";
 import {
+  type EventUser,
+  type CustomHookEntityType,
+  type CustomHookErrorDetail,
+  type CustomHookInterface,
+  type CustomHookType,
   eventUserIdentity,
   hookEntityType,
   revisionActor,
@@ -36,8 +34,10 @@ import {
   expandOrgMembers,
   getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
-import type { ResolvableValue } from "back-end/src/services/resolvableValues";
-import { configToResolvable } from "back-end/src/services/resolvableValues";
+import {
+  configToResolvable,
+  type ResolvableValue,
+} from "back-end/src/services/resolvableValues";
 import type { SandboxEvalResult } from "./sandbox-core";
 import { runInSandbox } from "./sandbox-pool";
 

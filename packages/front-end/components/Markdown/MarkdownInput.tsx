@@ -1,5 +1,11 @@
-import type { DetailedHTMLProps, FC, HTMLAttributes } from "react";
-import { useEffect, useRef, useState } from "react";
+import {
+  type DetailedHTMLProps,
+  type FC,
+  type HTMLAttributes,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { BsStars } from "react-icons/bs";
 import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";

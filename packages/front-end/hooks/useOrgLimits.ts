@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useFeatureValue } from "@growthbook/growthbook-react";
-import type { OrgLimitsAccessor } from "shared/enterprise";
 import {
   DEFAULT_ORG_LIMITS,
   PRICING_PHASE_1_FLAG_KEY,
@@ -8,6 +7,7 @@ import {
   makeOrgLimits,
   planTierFor,
   resolveOrgLimitsConfig,
+  type OrgLimitsAccessor,
 } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 

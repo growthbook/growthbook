@@ -1,12 +1,12 @@
 import { Fragment } from "react";
 import { Box } from "@radix-ui/themes";
-import type { SdkPayloadSizeFix } from "shared/health";
 import {
   describeSdkPayloadSize,
   describeSdkPayloadSizeRecommendation,
   formatSdkPayloadBytes,
   getSdkPayloadSizeLevel,
   getSdkPayloadSizeRecommendations,
+  type SdkPayloadSizeFix,
   summarizeSdkPayloadSizeFixes,
   worstSdkPayloadSizeLevel,
 } from "shared/health";

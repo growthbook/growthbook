@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { FC } from "react";
-import { Fragment, useMemo, useState } from "react";
+import { type FC, Fragment, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";

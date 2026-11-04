@@ -1,5 +1,4 @@
-import type { ComponentPropsWithoutRef } from "react";
-import { forwardRef } from "react";
+import { type ComponentPropsWithoutRef, forwardRef } from "react";
 import { Box } from "@radix-ui/themes";
 import styles from "./VariationNumber.module.scss";
 

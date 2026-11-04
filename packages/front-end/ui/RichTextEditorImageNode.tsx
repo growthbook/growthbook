@@ -1,12 +1,12 @@
-import type {
-  DOMConversionMap,
-  DOMExportOutput,
-  LexicalNode,
-  NodeKey,
-  SerializedLexicalNode,
-  Spread,
+import {
+  DecoratorNode,
+  type DOMConversionMap,
+  type DOMExportOutput,
+  type LexicalNode,
+  type NodeKey,
+  type SerializedLexicalNode,
+  type Spread,
 } from "lexical";
-import { DecoratorNode } from "lexical";
 import type { ReactNode } from "react";
 import type { TextMatchTransformer } from "@lexical/markdown";
 import AuthorizedImage from "@/components/AuthorizedImage";

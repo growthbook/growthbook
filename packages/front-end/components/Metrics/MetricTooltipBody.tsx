@@ -1,8 +1,10 @@
 import clsx from "clsx";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { isFactMetric, quantileMetricType } from "shared/experiments";
-import type { ReactElement } from "react";
-import React from "react";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
+import React, { type ReactElement } from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import type { StatsEngine } from "shared/types/stats";
 import { MdSwapCalls } from "react-icons/md";

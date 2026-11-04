@@ -16,14 +16,11 @@ import type {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import type {
-  MergeResultChanges,
-  MergeStrategy,
-  FeatureHealthStateEntry,
-} from "shared/util";
 import {
   featureReviewCandidateProjects,
   ANY_REVIEW_FOOTPRINT,
+  type MergeResultChanges,
+  type MergeStrategy,
   assertSchemaMatchesValueType,
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -51,6 +48,7 @@ import {
   namespacesToMap,
   normalizeTargetingInUpdates,
   computeFeatureHealth,
+  type FeatureHealthStateEntry,
   rebasedRevisionChanges,
   getFeaturePageDefaultVersion,
   naiveFlattenV1Rules,
@@ -61,24 +59,25 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
-import type { SDKCapability } from "shared/sdk-versioning";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
+  type SDKCapability,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
-import type {
-  RampScheduleInterface,
-  RampStepAction,
-  RevisionMetadata,
-  RevisionRampAction,
-  RevisionRampCreateAction,
-  RevisionRampDetachAction,
-  RevisionRampUpdateAction,
-  SafeRolloutInterface,
-  SafeRolloutRule,
+import {
+  ACTIVE_DRAFT_STATUSES,
+  eventUserIdentity,
+  type RampScheduleInterface,
+  type RampStepAction,
+  type RevisionMetadata,
+  type RevisionRampAction,
+  type RevisionRampCreateAction,
+  type RevisionRampDetachAction,
+  type RevisionRampUpdateAction,
+  type SafeRolloutInterface,
+  type SafeRolloutRule,
 } from "shared/validators";
-import { ACTIVE_DRAFT_STATUSES, eventUserIdentity } from "shared/validators";
 import type { FeatureUsageLookback } from "shared/types/integrations";
 import type {
   ContextualBanditRefRule,
@@ -155,13 +154,13 @@ import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import { generateId } from "back-end/src/util/uuid";
 import { mergeSyncRules } from "back-end/src/util/flattenRules";
-import type { FeatureDefinitionSDKPayload } from "back-end/src/services/features";
 import {
   addIdsToFlatRules,
   inheritStoredRolloutSeeds,
   assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
+  type FeatureDefinitionSDKPayload,
   getFeatureDefinitions,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
@@ -220,10 +219,6 @@ import {
   getPublishedRevisionForEvents,
   recordRevisionUpdate,
 } from "back-end/src/services/featureRevisionEvents";
-import type {
-  DraftStatusCounts,
-  ReviewSubmittedType,
-} from "back-end/src/models/FeatureRevisionModel";
 import {
   deleteRevisionForFailedLanding,
   cleanUpPreviousRevisions,
@@ -235,6 +230,7 @@ import {
   undoReview,
   getActiveDraft,
   getActiveDraftStates,
+  type DraftStatusCounts,
   getMinimalRevisions,
   getRevision,
   getRevisionsByVersions,
@@ -243,6 +239,7 @@ import {
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
   prevalidateRevisionUpdate,
+  type ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
   RevisionContentChangedError,
@@ -300,10 +297,10 @@ import {
   approveScheduledExperimentStart,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import type { PendingDraftPublishResult } from "back-end/src/services/experiment-feature";
 import {
   formatPendingDraftFailureMessage,
   linkFeatureToExperiment,
+  type PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
@@ -345,9 +342,9 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
-import type { NewFeatureInput } from "back-end/src/services/featureCreate";
 import {
   insertNewFeature,
+  type NewFeatureInput,
   prepareNewFeature,
 } from "back-end/src/services/featureCreate";
 import {

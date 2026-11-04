@@ -1,8 +1,10 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import type { EventForwarderConfigInterface } from "shared/validators";
-import type { EventForwarderDatasourceParams } from "shared/util";
-import { getEventForwarderSinkTypeForDatasource } from "shared/util";
+import {
+  type EventForwarderDatasourceParams,
+  getEventForwarderSinkTypeForDatasource,
+} from "shared/util";
 import { usingFileConfig } from "back-end/src/init/config";
 import {
   getEventForwarderForDatasource,

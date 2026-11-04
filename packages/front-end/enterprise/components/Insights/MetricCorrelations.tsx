@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState, useMemo } from "react";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
 } from "shared/experiments";
@@ -15,8 +15,9 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import type { DifferenceType } from "shared/types/stats";
 import router, { useRouter } from "next/router";
 import Callout from "@/ui/Callout";
-import type { ScatterPointData } from "@/components/ScatterPlotGraph";
-import ScatterPlotGraph from "@/components/ScatterPlotGraph";
+import ScatterPlotGraph, {
+  type ScatterPointData,
+} from "@/components/ScatterPlotGraph";
 import { useExperiments } from "@/hooks/useExperiments";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";

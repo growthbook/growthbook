@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
 import RevisionLabel, {

@@ -1,13 +1,10 @@
-import type { FC } from "react";
-import { useState, useMemo, useEffect } from "react";
+import { type FC, useState, useMemo, useEffect } from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
-import type {
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
-} from "shared/experiments";
 import {
   getMetricLink,
+  type ExperimentMetricDefinition,
+  type ExperimentSortBy,
   isDimensionPrecomputed,
   isFactFunnelMetric,
 } from "shared/experiments";
@@ -29,8 +26,10 @@ import type {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import Modal from "@/components/Modal";
-import type { ExperimentTableRow } from "@/services/experiments";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import {
+  type ExperimentTableRow,
+  getHonoredPrecomputedUnitDimensionIds,
+} from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import MetricName from "@/components/Metrics/MetricName";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";

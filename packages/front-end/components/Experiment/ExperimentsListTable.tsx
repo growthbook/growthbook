@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useEffect, useState } from "react";
+import React, { type FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { RxDesktop } from "react-icons/rx";
 import { Flex } from "@radix-ui/themes";

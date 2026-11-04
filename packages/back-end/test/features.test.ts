@@ -1,8 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
 import type { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import type { SavedGroupFormat } from "shared/types/sdk-connection";
-import type { SavedGroupPayloadStrategy } from "shared/sdk-versioning";
-import { getSavedGroupPayloadStrategy } from "shared/sdk-versioning";
+import {
+  getSavedGroupPayloadStrategy,
+  type SavedGroupPayloadStrategy,
+} from "shared/sdk-versioning";
 import type { FeatureDefinition } from "shared/types/sdk";
 import type {
   FeatureInterface,

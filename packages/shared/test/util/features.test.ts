@@ -1,5 +1,4 @@
-import type { ConditionInterface } from "@growthbook/growthbook";
-import { evalCondition } from "@growthbook/growthbook";
+import { type ConditionInterface, evalCondition } from "@growthbook/growthbook";
 import type {
   FeatureInterface,
   FeatureRule,
@@ -11,7 +10,6 @@ import type {
   OrganizationSettings,
   RequireReview,
 } from "shared/types/organization";
-import type { RevisionFields, MergeConflict } from "../../src/util";
 import {
   rampPlanLacksHashAttribute,
   rampPlanControlledFields,
@@ -30,6 +28,8 @@ import {
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
   findPublishLockingScheduledRevision,
+  type RevisionFields,
+  type MergeConflict,
   validateCondition,
   validatePrerequisiteCondition,
   checkEnvironmentsMatch,

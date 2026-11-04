@@ -1,5 +1,10 @@
-import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { OrganizationInterface } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -13,8 +18,10 @@ import { isCloud, isMultiOrg } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
-import type { AdminMember } from "@/components/Admin/EditMember";
-import { formatSuperAdmin } from "@/components/Admin/EditMember";
+import {
+  type AdminMember,
+  formatSuperAdmin,
+} from "@/components/Admin/EditMember";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import useApi from "@/hooks/useApi";

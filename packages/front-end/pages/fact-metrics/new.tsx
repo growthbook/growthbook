@@ -19,8 +19,10 @@ import { useUser } from "@/services/UserContext";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
-import type { TemplateMetric } from "@/components/FactTables/MetricEditor/templateMetric";
-import { parseMetricTemplate } from "@/components/FactTables/MetricEditor/templateMetric";
+import {
+  parseMetricTemplate,
+  type TemplateMetric,
+} from "@/components/FactTables/MetricEditor/templateMetric";
 
 export default function NewFactMetricPage() {
   const router = useRouter();

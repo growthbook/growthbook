@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import type { DecisionCriteriaData } from "shared/types/experiment";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";

@@ -16,8 +16,10 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import type { CreateDashboardArgs } from "./DashboardsTab";
-import { autoUpdateDisabledMessage } from "./DashboardsTab";
+import {
+  autoUpdateDisabledMessage,
+  type CreateDashboardArgs,
+} from "./DashboardsTab";
 import { useCronValidation } from "./useCronValidation";
 import DashboardUpdateScheduleSelector from "./DashboardUpdateScheduleSelector";
 

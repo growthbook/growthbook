@@ -1,12 +1,11 @@
 import clsx from "clsx";
-import type { ForwardedRef } from "react";
-import { forwardRef } from "react";
-import type { LinkProps as NextLinkProps } from "next/link";
-import NextLink from "next/link";
-import type { LinkProps as RadixLinkProps } from "@radix-ui/themes";
-import { Link as RadixLink } from "@radix-ui/themes";
-import type { Size } from "@/ui/sizes";
-import { radixSize } from "@/ui/sizes";
+import { type ForwardedRef, forwardRef } from "react";
+import NextLink, { type LinkProps as NextLinkProps } from "next/link";
+import {
+  Link as RadixLink,
+  type LinkProps as RadixLinkProps,
+} from "@radix-ui/themes";
+import { radixSize, type Size } from "@/ui/sizes";
 import styles from "./Link.module.scss";
 
 type RadixProps = Omit<RadixLinkProps, "color" | "href" | "size"> & {

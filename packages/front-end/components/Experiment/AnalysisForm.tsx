@@ -1,7 +1,10 @@
-import type { FC } from "react";
-import React, { useCallback, useMemo, useState } from "react";
-import type { UseFormReturn } from "react-hook-form";
-import { useFieldArray, useForm, FormProvider } from "react-hook-form";
+import React, { type FC, useCallback, useMemo, useState } from "react";
+import {
+  type UseFormReturn,
+  useFieldArray,
+  useForm,
+  FormProvider,
+} from "react-hook-form";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate } from "shared/dates";
 import {
@@ -53,8 +56,8 @@ import Checkbox from "@/ui/Checkbox";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
-import type { EditMetricsFormInterface } from "./EditMetricsForm";
 import {
+  type EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";

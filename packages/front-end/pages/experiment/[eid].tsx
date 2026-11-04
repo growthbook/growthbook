@@ -6,8 +6,7 @@ import type {
 } from "shared/types/experiment";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import type { URLRedirectInterface } from "shared/types/url-redirect";
-import type { ReactElement } from "react";
-import React, { useEffect, useState } from "react";
+import React, { type ReactElement, useEffect, useState } from "react";
 import type { IdeaInterface } from "shared/types/idea";
 import { canEditDeliveryInPlace } from "shared/util";
 import useApi from "@/hooks/useApi";

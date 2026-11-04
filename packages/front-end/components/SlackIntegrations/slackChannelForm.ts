@@ -1,10 +1,10 @@
 import type { UseFormReturn } from "react-hook-form";
 import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import type {
-  NotificationSettings,
-  SlackNotificationSettingsBody,
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  type NotificationSettings,
+  type SlackNotificationSettingsBody,
 } from "shared/validators";
-import { DEFAULT_NOTIFICATION_SETTINGS } from "shared/validators";
 
 export type SlackChannelFormValues = SlackNotificationSettingsBody & {
   notificationSettings: NotificationSettings;

@@ -1,8 +1,8 @@
 import { isEqual } from "lodash";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { isDefined, toApiAssignmentQueryRef } from "shared/util";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   getFunnelStepMetric,
   isDimensionPrecomputed,
   isFactFunnelMetric,

@@ -3,8 +3,8 @@ import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { getDataSourceSqlDialect } from "shared/dialects";
-import type { DataRegion } from "shared/util";
 import {
+  type DataRegion,
   findEventForwarderManagedViolation,
   getExposureQueryProjectScopeError,
   getExposureQueryProjectScopeViolations,

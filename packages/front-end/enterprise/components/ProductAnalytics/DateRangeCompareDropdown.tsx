@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { BlockComparison } from "shared/enterprise";
 import {
+  type BlockComparison,
   calculateProductAnalyticsDateRange,
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
@@ -8,8 +8,9 @@ import {
 import type { ExplorationDateRange } from "shared/validators";
 import DateRangeTriggerPopover from "@/enterprise/components/ProductAnalytics/DateRangeTriggerPopover";
 import { formatCollapsedDateRange } from "@/enterprise/components/ProductAnalytics/comparison-chart";
-import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
-import DateRangeComparePanel from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
+import DateRangeComparePanel, {
+  type DateRangeCompareValue,
+} from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import {
   COMPARISON_MODE_LABELS,
   formatExplorationDateRange,

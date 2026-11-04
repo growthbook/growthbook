@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import React, { useState } from "react";
+import React, { type ReactNode, useState } from "react";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isAutoSnapshotScheduled } from "shared/experiments";
 import type { BanditEvent } from "shared/validators";

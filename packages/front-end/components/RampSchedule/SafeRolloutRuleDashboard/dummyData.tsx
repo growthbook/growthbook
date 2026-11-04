@@ -5,13 +5,13 @@ import type {
 } from "shared/validators";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { isBinomialMetric } from "shared/experiments";
-import type {
-  DummyIssueProfile,
-  DummyScenario,
-} from "@/components/RampSchedule/dummyMonitoringData";
 import {
+  type ExperimentMetricDefinition,
+  isBinomialMetric,
+} from "shared/experiments";
+import {
+  type DummyIssueProfile,
+  type DummyScenario,
   hashString,
   seededRandom,
 } from "@/components/RampSchedule/dummyMonitoringData";

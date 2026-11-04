@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import type { ExperimentReportVariation } from "shared/types/report";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";

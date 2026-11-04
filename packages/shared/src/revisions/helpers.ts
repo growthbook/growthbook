@@ -27,8 +27,10 @@ import {
 import { configUpdatableFieldsSchema } from "../validators/config";
 import { constantUpdatableFieldsSchema } from "../validators/constant";
 import { savedGroupUpdatableFieldsSchema } from "../validators/saved-group";
-import type { RuleCombiners } from "../util/projectScopedRules";
-import { resolveProjectScopedRule } from "../util/projectScopedRules";
+import {
+  resolveProjectScopedRule,
+  type RuleCombiners,
+} from "../util/projectScopedRules";
 
 // One project for a constant or config, several for a saved group.
 export const entityProjects = (snapshot: unknown): string[] => {

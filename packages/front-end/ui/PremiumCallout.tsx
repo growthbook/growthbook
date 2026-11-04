@@ -9,8 +9,7 @@ import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.j
 import { useState } from "react";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
-import type { DocSection } from "@/components/DocLink";
-import { DocLink } from "@/components/DocLink";
+import { DocLink, type DocSection } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { radixSize } from "@/ui/sizes";

@@ -1,5 +1,4 @@
-import type { ClipboardEvent } from "react";
-import { useEffect, useState } from "react";
+import { type ClipboardEvent, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import type { Screenshot } from "shared/types/experiment";
 import clsx from "clsx";

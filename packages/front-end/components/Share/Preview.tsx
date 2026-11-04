@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React from "react";
+import React, { type FC } from "react";
 import dynamic from "next/dynamic";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type {

@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import React, {
   createContext,
   useContext,
@@ -7,25 +6,24 @@ import React, {
   useCallback,
   useEffect,
   useRef,
+  type ReactNode,
 } from "react";
 import type {
   ColumnInterface,
   FullFactTableColumns,
 } from "shared/types/fact-table";
-import type {
-  ExplorationConfig,
-  ProductAnalyticsValue,
-  DatasetType,
-  ProductAnalyticsExploration,
-  ExplorationDateRange,
-  SqlValue,
-  ComparisonMode,
-  ProductAnalyticsRunComparisonPayload,
-} from "shared/validators";
 import {
+  type ExplorationConfig,
+  type ProductAnalyticsValue,
+  type DatasetType,
   datasetHasValues,
   datasetTypeHasValues,
+  type ProductAnalyticsExploration,
+  type ExplorationDateRange,
   MAX_JOURNEY_PATH_LENGTH,
+  type SqlValue,
+  type ComparisonMode,
+  type ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import type { QueryInterface } from "shared/types/query";
 import {
@@ -38,13 +36,13 @@ import {
 import { isEqual } from "lodash";
 import { isFactFunnelMetric } from "shared/experiments";
 import { isManagedWarehouseUnavailable } from "shared/util";
-import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
 import {
   cleanConfigForSubmission,
   compareConfig,
   explorationPollDelayMs,
   createEmptyDataset,
   createEmptyValue,
+  type ExplorerDraftConfig,
   generateUniqueValueName,
   getAvailableDimensionColumns,
   getInitialInlineFilters,
@@ -67,8 +65,7 @@ import useFullFactTables from "@/hooks/useFullFactTables";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SqlEditorProvider } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
-import type { CacheOption } from "./useExploreData";
-import { useExploreData } from "./useExploreData";
+import { useExploreData, type CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
 

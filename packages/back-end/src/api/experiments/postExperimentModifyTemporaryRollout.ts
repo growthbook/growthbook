@@ -1,5 +1,7 @@
-import type { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
-import { postExperimentModifyTemporaryRolloutValidator } from "shared/validators";
+import {
+  type ExperimentInterfaceExcludingHoldouts,
+  postExperimentModifyTemporaryRolloutValidator,
+} from "shared/validators";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { modifyTemporaryRollout } from "back-end/src/services/experimentChanges/changeExperimentStatus";

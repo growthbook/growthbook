@@ -7,8 +7,11 @@ import {
   NPS_MAX_FEEDBACK_LENGTH,
   npsCategoryOf,
 } from "shared/nps";
-import type { NpsDisposition, NpsResponseBody } from "shared/validators";
-import { npsResponseBodyValidator } from "shared/validators";
+import {
+  type NpsDisposition,
+  type NpsResponseBody,
+  npsResponseBodyValidator,
+} from "shared/validators";
 import type { KnownBlock } from "@slack/types";
 import { IS_CLOUD, NPS_SLACK_WEBHOOK } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";

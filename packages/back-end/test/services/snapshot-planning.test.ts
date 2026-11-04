@@ -1,5 +1,5 @@
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   expandDerivedMetricsInMap,
   getMetricSnapshotSettings,
 } from "shared/experiments";
@@ -49,8 +49,10 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
-import type { FactTableMap } from "back-end/src/models/FactTableModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  type FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 

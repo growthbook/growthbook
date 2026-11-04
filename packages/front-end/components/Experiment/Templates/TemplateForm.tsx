@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
-import type { FC } from "react";
-import React, { useState } from "react";
+import React, { type FC, useState } from "react";
 import type { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import {
@@ -15,8 +14,7 @@ import { useAttributeSchema, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import track from "@/services/track";
-import type { SingleValue } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { type SingleValue } from "@/components/Forms/SelectField";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useIncrementer } from "@/hooks/useIncrementer";

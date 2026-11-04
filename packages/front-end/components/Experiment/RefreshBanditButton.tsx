@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { type FC, useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowClockwise, PiCaretDownFill } from "react-icons/pi";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";

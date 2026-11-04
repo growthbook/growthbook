@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import type { MergeResultChanges } from "shared/util";
 import {
   checkIfRevisionNeedsReview,
   featureMetadataEnvelope,
@@ -12,6 +11,7 @@ import {
   getRevisionReviewRequirement,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
+  type MergeResultChanges,
   rebasedRevisionChanges,
   REBASED_REVISION_FIELDS,
 } from "shared/util";
@@ -41,18 +41,21 @@ import type {
   Environment,
   OrganizationInterface,
 } from "shared/types/organization";
-import type {
-  MinimalFeatureRevisionInterface,
-  ActiveDraftStatus,
-  RevisionMetadata,
-  RevisionRampAction,
-  RevisionReview,
+import {
+  type MinimalFeatureRevisionInterface,
+  type ActiveDraftStatus,
+  ACTIVE_DRAFT_STATUSES,
+  type RevisionMetadata,
+  type RevisionRampAction,
+  type RevisionReview,
+  eventUserIdentity,
 } from "shared/validators";
-import { ACTIVE_DRAFT_STATUSES, eventUserIdentity } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { editDisarmsFeatureDraft } from "back-end/src/services/confirmations";
-import type { Feature as SavedGroupScopeFeature } from "back-end/src/util/savedGroupProjectScope.util";
-import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
+import {
+  featureForSavedGroupValidation,
+  type Feature as SavedGroupScopeFeature,
+} from "back-end/src/util/savedGroupProjectScope.util";
 import { ConflictError } from "back-end/src/util/errors";
 import {
   getFeatureRevisionValueUpdatesForPublish,
@@ -60,13 +63,13 @@ import {
 } from "back-end/src/util/featureValues";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
-import type { V1RulesByEnv } from "back-end/src/util/flattenRules";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   isPlausibleFeatureRule,
   isV2RevisionRules,
   narrowRuleToApplicableEnvs,
+  type V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import {
   normalizeJsonSchemaDef,

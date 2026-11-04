@@ -1,6 +1,8 @@
 import type { CommercialFeature } from "shared/enterprise";
-import type { SDKCapability } from "shared/sdk-versioning";
-import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
+import {
+  type SDKCapability,
+  someConnectionSupportsCapabilities,
+} from "shared/sdk-versioning";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { ReactElement } from "react";
@@ -22,8 +24,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
-import type { LinkedChange } from "./constants";
-import { ICON_PROPERTIES } from "./constants";
+import { ICON_PROPERTIES, type LinkedChange } from "./constants";
 
 export const LINKED_CHANGES: Record<
   LinkedChange,

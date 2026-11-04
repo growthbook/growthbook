@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import React, { useCallback, useContext } from "react";
+import React, { type ReactNode, useCallback, useContext } from "react";
 import type {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,

@@ -23,8 +23,8 @@ import {
   withoutDeprecatedOverrideFields,
 } from "@/services/metricOverrides";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import type { EditMetricsFormInterface } from "./EditMetricsForm";
 import {
+  type EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";

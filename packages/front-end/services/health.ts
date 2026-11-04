@@ -1,12 +1,10 @@
 import { ago } from "shared/dates";
-import type {
-  FeatureHealthEntry,
-  FeatureHealthSeverity,
-  FeatureHealthSignal,
-} from "shared/util";
 import {
   FEATURE_HEALTH_SIGNAL_SEVERITY,
   FEATURE_HEALTH_SIGNALS,
+  type FeatureHealthEntry,
+  type FeatureHealthSeverity,
+  type FeatureHealthSignal,
   OLD_TEMP_ROLLOUT_DAYS,
 } from "shared/util";
 

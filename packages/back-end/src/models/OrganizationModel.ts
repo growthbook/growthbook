@@ -1,5 +1,4 @@
-import type { FilterQuery } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import escapeRegExp from "lodash/escapeRegExp";
 import { z } from "zod";
@@ -19,8 +18,8 @@ import type { ApiOrganization } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
+  type ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";

@@ -1,8 +1,8 @@
 import clsx from "clsx";
-import type { ReactElement, ReactNode } from "react";
-import { useState, forwardRef } from "react";
-import type { TextareaAutosizeProps } from "react-textarea-autosize";
-import TextareaAutosize from "react-textarea-autosize";
+import { type ReactElement, type ReactNode, useState, forwardRef } from "react";
+import TextareaAutosize, {
+  type TextareaAutosizeProps,
+} from "react-textarea-autosize";
 import HelperText from "@/ui/HelperText";
 
 export type FieldSize = "sm" | "md" | "legacy" | "lg";

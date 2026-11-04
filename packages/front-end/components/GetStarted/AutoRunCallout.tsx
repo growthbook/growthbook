@@ -1,5 +1,4 @@
-import type { ApiAutoRun } from "shared/validators";
-import { autoRunMetaString } from "shared/validators";
+import { type ApiAutoRun, autoRunMetaString } from "shared/validators";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";

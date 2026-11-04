@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import type { UseFormReturn } from "react-hook-form";
-import { useForm } from "react-hook-form";
-import type {
-  FullModalPowerCalculationParams,
-  PartialPowerCalculationParams,
-  StatsEngineSettings,
+import { useForm, type UseFormReturn } from "react-hook-form";
+import {
+  config,
+  type FullModalPowerCalculationParams,
+  type PartialPowerCalculationParams,
+  type StatsEngineSettings,
 } from "shared/power";
-import { config } from "shared/power";
 import type { MetricPriorSettings } from "shared/types/fact-table";
 import type { OrganizationSettings } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";

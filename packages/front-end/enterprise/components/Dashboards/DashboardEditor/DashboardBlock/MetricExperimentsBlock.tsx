@@ -1,5 +1,5 @@
-import type { MetricExperimentsBlockInterface } from "shared/enterprise";
 import {
+  type MetricExperimentsBlockInterface,
   calculateProductAnalyticsDateRange,
   getEffectiveExperimentBlock,
 } from "shared/enterprise";

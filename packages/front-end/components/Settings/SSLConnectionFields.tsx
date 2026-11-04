@@ -1,5 +1,4 @@
-import type { ChangeEventHandler } from "react";
-import { useState } from "react";
+import { type ChangeEventHandler, useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";

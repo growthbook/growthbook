@@ -10,8 +10,9 @@ import {
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import AnalysisForm, {
+  type AnalysisFormFocus,
+} from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";

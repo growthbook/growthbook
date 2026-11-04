@@ -8,21 +8,19 @@ import type { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { createV1SavedGroupsOperatorHandler } from "../sdk-versioning/saved-groups/strategy-references-v1";
 import { conditionHasSavedGroupErrors } from "../sdk-versioning/saved-groups/errors";
 import { forEachSavedGroupIdInCondition } from "../sdk-versioning/saved-groups/referenced-ids";
-import type { RampScheduleInterface } from "../validators/ramp-schedule";
 import {
+  type RampScheduleInterface,
   isReadyForApproval,
   isTerminalRampScheduleStatus,
 } from "../validators/ramp-schedule";
 import { getSafeRolloutResultStatus } from "../enterprise/decision-criteria/decisionCriteria";
-import type {
-  EnvStaleResult,
-  IsFeatureStaleResult,
-  TempRolloutStaleReason,
-} from "./features";
 import {
+  type EnvStaleResult,
   getMalformedPrereqConditionError,
   getTempRolloutStaleReason,
   isUnconditionalCatcher,
+  type IsFeatureStaleResult,
+  type TempRolloutStaleReason,
   validateFeatureValue,
 } from "./features";
 import {

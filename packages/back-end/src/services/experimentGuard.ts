@@ -1,13 +1,15 @@
 import type { ConfigInterface } from "shared/types/config";
 import type { ConstantInterface } from "shared/types/constant";
-import type { Revision } from "shared/enterprise";
-import { normalizeProposedChanges } from "shared/enterprise";
-import type { ScopedOverrideEntry } from "shared/util";
-import { getConfigSubtree, parsePlainJSONObject } from "shared/util";
+import { type Revision, normalizeProposedChanges } from "shared/enterprise";
+import {
+  getConfigSubtree,
+  parsePlainJSONObject,
+  type ScopedOverrideEntry,
+} from "shared/util";
 import { isEqual } from "lodash";
 import type { Context } from "back-end/src/models/BaseModel";
-import type { ConfigKeyImplementation } from "back-end/src/services/constants";
 import {
+  type ConfigKeyImplementation,
   findRunningExperimentRefsReferencingConstant,
   getConfigKeyImplementations,
   resolvableDependencyClosure,

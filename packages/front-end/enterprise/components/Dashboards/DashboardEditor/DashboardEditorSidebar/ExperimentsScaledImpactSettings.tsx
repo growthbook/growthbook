@@ -1,11 +1,11 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
-import type {
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-  ExperimentsScaledImpactBlockInterface,
+import {
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
+  type ExperimentsScaledImpactBlockInterface,
+  withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
-import { withBlockGlobalFilterFollowing } from "shared/enterprise";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
 import SidebarSettingField from "./SidebarSettingField";

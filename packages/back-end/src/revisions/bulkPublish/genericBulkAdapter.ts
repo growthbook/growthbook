@@ -1,6 +1,7 @@
 import { bypassApprovalPermission } from "shared/permissions";
-import type { Revision, RevisionTargetType } from "shared/enterprise";
 import {
+  type Revision,
+  type RevisionTargetType,
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";

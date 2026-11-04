@@ -1,6 +1,14 @@
 import clsx from "clsx";
-import type { HTMLAttributes, ReactElement, ReactNode } from "react";
-import { forwardRef, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  forwardRef,
+  type HTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -63,32 +71,30 @@ import {
   VARIATION_WEIGHT_DECIMALS,
 } from "@/services/utils";
 import { PercentField } from "@/components/Forms/PercentSliderField";
-import type {
-  ColumnLayout,
-  ColumnProblem,
-  ImplementationColumn,
-} from "./ImplementationColumn";
 import {
   ColumnCell,
   ColumnFooter,
   ColumnHeader,
+  type ColumnLayout,
+  type ColumnProblem,
   HeaderKind,
   HeaderText,
+  type ImplementationColumn,
   StagedNote,
 } from "./ImplementationColumn";
-import type { FlagEnvironmentsDraft } from "./ExperimentEdits";
 import {
+  type FlagEnvironmentsDraft,
   useExperimentEdits,
   useEditBase,
   useHoldEditBases,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
-import type { FlagDraftPicks } from "./draftPicks";
 import {
   canStartSeparateDraft,
   draftReviewHref,
   draftReviewState,
+  type FlagDraftPicks,
   resolveDraftPick,
   revisionHref,
 } from "./draftPicks";
@@ -101,8 +107,8 @@ import {
   variationLabel,
 } from "./variationValues";
 import styles from "./VariationValuesTable.module.scss";
-import type { AddedFlag } from "./addedFlags";
 import {
+  type AddedFlag,
   addedFlagChanges,
   addedFlagInfo,
   linkEditId,

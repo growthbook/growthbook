@@ -1,5 +1,11 @@
-import type { FC } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { extent } from "@visx/vendor/d3-array";
@@ -24,10 +30,10 @@ import {
   isOnMonitoredStep,
   useRampMonitoringSignals,
 } from "@/components/RampSchedule/RampMonitoringSignals";
-import type { DummyScenario } from "@/components/RampSchedule/dummyMonitoringData";
 import {
   buildDummyIssueProfile,
   buildDummyScenarios,
+  type DummyScenario,
   getDummySeed,
   seededRandom,
 } from "@/components/RampSchedule/dummyMonitoringData";

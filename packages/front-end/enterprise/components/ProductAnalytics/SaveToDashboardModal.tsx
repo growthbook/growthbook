@@ -4,14 +4,12 @@ import { useRouter } from "next/router";
 import { Flex, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
-import type {
-  DashboardInterface,
-  DashboardEditLevel,
-  DashboardShareLevel,
-  DashboardUpdateSchedule,
-} from "shared/enterprise";
 import {
   DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
+  type DashboardInterface,
+  type DashboardEditLevel,
+  type DashboardShareLevel,
+  type DashboardUpdateSchedule,
   getBlockData,
 } from "shared/enterprise";
 import type {

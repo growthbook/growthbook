@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { SlackTaskClaimInterface } from "shared/validators";
-import { slackTaskClaimSchema } from "shared/validators";
+import {
+  slackTaskClaimSchema,
+  type SlackTaskClaimInterface,
+} from "shared/validators";
 import {
   ensureIndexOnce,
   isDuplicateKeyError,

@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import type { IdeaInterface } from "shared/types/idea";
-import type { ReactElement } from "react";
-import { useState, useEffect } from "react";
+import { useState, type ReactElement, useEffect } from "react";
 import {
   FaAngleLeft,
   FaArchive,

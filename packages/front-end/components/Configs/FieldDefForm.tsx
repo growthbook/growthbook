@@ -21,12 +21,12 @@ import CodeTextArea, {
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import type { PresetKey } from "@/components/Configs/fieldSchema";
 import {
   FIELD_GRID_TEMPLATE,
   FIELD_TYPE_OPTIONS,
   JSON_SCHEMA_PRESETS,
   OTHER_TYPE_VALUE,
+  type PresetKey,
   fieldTypeSelectValue,
   fieldValueType,
   fieldIsNullable,

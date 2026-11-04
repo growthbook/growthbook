@@ -6,9 +6,9 @@ import { DocLink } from "@/components/DocLink";
 import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import type { LanguageFilter } from "./SDKConnections/SDKLanguageLogo";
 import {
   getConnectionLanguageFilter,
+  type LanguageFilter,
   languageMapping,
 } from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";

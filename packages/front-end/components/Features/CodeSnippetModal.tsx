@@ -1,5 +1,9 @@
-import type { ReactElement } from "react";
-import React, { useState, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  type ReactElement,
+  useCallback,
+} from "react";
 import type {
   SDKConnectionInterface,
   SDKLanguage,

@@ -1,5 +1,5 @@
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   needsPercentileCapSubquery,
   isFactMetric,
   isLegacyMetric,

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { Separator } from "@radix-ui/themes";
 import type {
   ExperimentInterfaceStringDates,
@@ -7,10 +6,10 @@ import type {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import type { NamespaceValue } from "shared/util";
 import {
   getNamespaceRanges,
   isMultiRangeNamespaceFormat,
+  type NamespaceValue,
   validateAndFixCondition,
 } from "shared/util";
 import {

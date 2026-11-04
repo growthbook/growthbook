@@ -8,12 +8,12 @@ import {
   getDatasourceTemplateResources,
   getDatasourceTemplateSettings,
 } from "@/services/initial-resources";
-import type { LlmTracingFormat } from "@/services/llmTracing";
 import {
   getLlmTracingProjectScope,
   getLlmTracingSchema,
   getLlmTracingSchemaOptionValues,
   hasLlmTracingSetup,
+  type LlmTracingFormat,
 } from "@/services/llmTracing";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";

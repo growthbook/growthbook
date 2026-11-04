@@ -23,8 +23,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import type { ResolvedField } from "@/components/Configs/fieldSchema";
 import {
+  type ResolvedField,
   FIELD_TYPE_OPTIONS,
   fieldForTypeToken,
   fieldIsNullable,

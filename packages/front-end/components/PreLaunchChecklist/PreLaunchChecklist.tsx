@@ -3,8 +3,7 @@ import type {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import type { FeatureInterface } from "shared/types/feature";
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { PiArrowSquareOut, PiCheckBold } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex, Separator } from "@radix-ui/themes";
@@ -24,11 +23,15 @@ import {
   useLaunchChecklistData,
   usePreLaunchChecklist,
 } from "./PreLaunchChecklistProvider";
-import type { ChecklistAction, CheckListItem } from "./PreLaunchChecklistItems";
-import { getChecklistItems } from "./PreLaunchChecklistItems";
-import type { ChecklistSummary, ChecklistTier } from "./checklistSummary";
+import {
+  type ChecklistAction,
+  type CheckListItem,
+  getChecklistItems,
+} from "./PreLaunchChecklistItems";
 import {
   CHECKLIST_TIERS,
+  type ChecklistSummary,
+  type ChecklistTier,
   getChecklistTier,
   summarizeChecklist,
 } from "./checklistSummary";

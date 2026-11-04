@@ -3,28 +3,26 @@ import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { getActivePhase } from "shared/experiments";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import type { HoldoutStage } from "shared/util";
 import {
   DEFAULT_HOLDOUT_SIZE,
   generateVariationId,
   getEnabledHoldoutEnvironments,
   getHoldoutStage,
   holdoutSizeToCoverage,
+  type HoldoutStage,
   validateCondition,
   getHoldoutLinkBlocker,
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
-import type {
-  ApiUpdateHoldoutBody,
-  CreateHoldoutInput,
-  HoldoutInterface,
-  HoldoutMissingLink,
-  HoldoutMissingLinkage,
-  HoldoutNextScheduledStatusUpdate,
-} from "shared/validators";
 import {
+  type ApiUpdateHoldoutBody,
+  type CreateHoldoutInput,
+  type HoldoutInterface,
+  type HoldoutMissingLink,
+  type HoldoutMissingLinkage,
+  type HoldoutNextScheduledStatusUpdate,
   HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS,
   HOLDOUT_API_TARGETING_UPDATE_FIELDS,
   HOLDOUT_API_UPDATE_FIELDS,

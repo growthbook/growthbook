@@ -55,9 +55,9 @@ import {
   PROVISIONING_TIMEOUT_MESSAGE,
   useEventForwarderProvisioningPoll,
 } from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
-import type { DataRegion } from "@/services/dataRegions";
 import {
   DEFAULT_DATA_REGION,
+  type DataRegion,
   getDataRegionLabel,
   useDataRegionOptions,
 } from "@/services/dataRegions";

@@ -1,9 +1,7 @@
-import type { ReactNode } from "react";
-import { useEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { ExperimentReportVariation } from "shared/types/report";
-import type { SRMHealthStatus } from "shared/health";
-import { getSRMHealthData } from "shared/health";
+import { getSRMHealthData, type SRMHealthStatus } from "shared/health";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import SRMWarning from "@/components/Experiment/SRMWarning";

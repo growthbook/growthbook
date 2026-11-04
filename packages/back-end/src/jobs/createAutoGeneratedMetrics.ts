@@ -1,5 +1,4 @@
-import type { Job } from "agenda";
-import type Agenda from "agenda";
+import type { Agenda, Job } from "agenda";
 import uniqid from "uniqid";
 import type { AutoMetricToCreate } from "shared/types/integrations";
 import type { AuditUserLoggedIn } from "shared/types/audit";

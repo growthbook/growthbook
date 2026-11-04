@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { Fragment, useState } from "react";
+import { type FC, Fragment, useState } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import type {
@@ -23,12 +22,10 @@ import type {
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import type {
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
-  SetExperimentSortBy,
-} from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
+  type ExperimentSortBy,
+  type SetExperimentSortBy,
   formatDimensionValueForDisplay,
   isFactFunnelMetric,
 } from "shared/experiments";
@@ -39,8 +36,9 @@ import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getDimensionDisplayName } from "@/components/Dimensions/DimensionChooser";
 import type { ExperimentTableRow } from "@/services/experiments";
-import type { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
-import ResultsTable from "@/components/Experiment/ResultsTable";
+import ResultsTable, {
+  type RESULTS_TABLE_COLUMNS,
+} from "@/components/Experiment/ResultsTable";
 import type { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";

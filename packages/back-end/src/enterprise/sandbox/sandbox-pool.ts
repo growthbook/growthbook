@@ -1,5 +1,4 @@
-import type { ChildProcess } from "child_process";
-import { fork } from "child_process";
+import { type ChildProcess, fork } from "child_process";
 import * as path from "path";
 import { parseEnvInt } from "shared/util";
 import { logger } from "back-end/src/util/logger";

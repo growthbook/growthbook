@@ -20,17 +20,17 @@ import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experi
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
-import type {
-  FunnelMetricForResolution,
-  FunnelMetricSteps,
-} from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import {
+  type FunnelMetricForResolution,
+  type FunnelMetricSteps,
   getFunnelResolutionCTEs,
   getFunnelUserMetricAggColumns,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
 import { getFlattenedUnitMetricsCTE } from "back-end/src/integrations/sql/ctes/flattened-unit-metrics-cte";
-import type { AggColumn } from "back-end/src/integrations/sql/columns/agg-column";
-import { renderAggColumns } from "back-end/src/integrations/sql/columns/agg-column";
+import {
+  type AggColumn,
+  renderAggColumns,
+} from "back-end/src/integrations/sql/columns/agg-column";
 import {
   funnelStepArrayColumn,
   funnelStepResolvedTsColumn,

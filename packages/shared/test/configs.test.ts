@@ -1,4 +1,3 @@
-import type { ConfigChainNode, ConfigFamilyMember } from "../src/util/configs";
 import {
   setOwnValueProperty,
   removeOwnValueProperty,
@@ -35,12 +34,14 @@ import {
   constantPublishEnvironments,
   computeConfigReconciliationPreview,
   isConfigLocked,
+  type ConfigChainNode,
   getAncestorSchemaFieldOwners,
   classifyAncestorOwnedFields,
   formatAncestorFieldConflictMessage,
   ancestorCollisionWarnings,
   findOrphanedConfigValueKeys,
   computeConfigSchemaChangeImpact,
+  type ConfigFamilyMember,
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
   getFeatureBaseConfigKey,

@@ -1,10 +1,15 @@
 import crypto from "crypto";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import type { IssuerMetadata, TokenSet, Client } from "openid-client";
-import { Issuer, generators, custom } from "openid-client";
+import {
+  Issuer,
+  type IssuerMetadata,
+  type TokenSet,
+  generators,
+  type Client,
+  custom,
+} from "openid-client";
 
-import type { GetVerificationKey } from "express-jwt";
-import { expressjwt } from "express-jwt";
+import { expressjwt, type GetVerificationKey } from "express-jwt";
 import type { Algorithm } from "jsonwebtoken";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "shared/enterprise";

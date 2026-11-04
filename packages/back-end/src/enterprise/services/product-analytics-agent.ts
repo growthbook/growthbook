@@ -6,15 +6,13 @@ import {
   type AIChatMention,
   type AIChatToolResultPart,
 } from "shared/ai-chat";
-import type {
-  ExplorationConfig,
-  ProductAnalyticsExploration,
-  ProductAnalyticsResultRow,
-} from "shared/validators";
 import {
   datasetHasValues,
   dateRangePredefined,
+  type ExplorationConfig,
   explorationConfigValidator,
+  type ProductAnalyticsExploration,
+  type ProductAnalyticsResultRow,
 } from "shared/validators";
 import type {
   ColumnInterface,

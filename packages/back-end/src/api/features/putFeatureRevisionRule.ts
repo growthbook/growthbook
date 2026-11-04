@@ -4,17 +4,17 @@ import {
   ruleAppliesToEnv,
   isScheduledRule,
 } from "shared/util";
-import type {
-  RevisionRampCreateAction,
-  RevisionRampUpdateAction,
-  ExperimentRefRule,
-  RolloutRule,
-  ForceRule,
-  SafeRolloutRule,
-  FeatureRule,
-  RulePatchInput,
+import {
+  type RevisionRampCreateAction,
+  type RevisionRampUpdateAction,
+  type ExperimentRefRule,
+  type RolloutRule,
+  type ForceRule,
+  type SafeRolloutRule,
+  type FeatureRule,
+  type RulePatchInput,
+  putFeatureRevisionRuleValidator,
 } from "shared/validators";
-import { putFeatureRevisionRuleValidator } from "shared/validators";
 import type { RevisionChanges } from "shared/types/feature-revision";
 import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
 import {

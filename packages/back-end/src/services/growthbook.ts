@@ -1,6 +1,9 @@
 import { createHash } from "crypto";
-import type { EventProperties } from "@growthbook/growthbook";
-import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
+import {
+  type EventProperties,
+  GrowthBookClient,
+  setPolyfills,
+} from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import type { NextFunction, Request, Response } from "express";

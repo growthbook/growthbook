@@ -7,13 +7,11 @@ import {
   getMetricPopulationViolations,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
-import type {
-  ExplorationDateRange,
-  MetricExplorationConfig,
-  ExplorationPopulation,
-  ProductAnalyticsDimension,
-} from "shared/validators";
 import {
+  type ExplorationDateRange,
+  type MetricExplorationConfig,
+  type ExplorationPopulation,
+  type ProductAnalyticsDimension,
   explorationPopulationValidator,
   metricTypeValidator,
   explorationConfigValidator,

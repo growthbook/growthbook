@@ -1,8 +1,7 @@
-import type { ReactNode } from "react";
-import { useMemo, useState, useEffect } from "react";
+import { type ReactNode, useMemo, useState, useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   applyTopLevelPatchOps,
   getLiveRevision,
   getRevisionNumberById,
@@ -23,12 +22,12 @@ import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import type { DraftMode } from "@/components/DraftSelector";
-import type { RevisionDropdownRow } from "@/components/Reviews/RevisionDropdown";
-import SharedRevisionDropdown from "@/components/Reviews/RevisionDropdown";
+import SharedRevisionDropdown, {
+  type RevisionDropdownRow,
+} from "@/components/Reviews/RevisionDropdown";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import { useUser } from "@/services/UserContext";
-import type { RevisionDiffConfig } from "./useRevisionDiff";
-import { useRevisionDiff } from "./useRevisionDiff";
+import { useRevisionDiff, type RevisionDiffConfig } from "./useRevisionDiff";
 import { RevisionDiff } from "./RevisionDiff";
 
 // Entities the revert flow supports carry an `archived` flag (optional) that is

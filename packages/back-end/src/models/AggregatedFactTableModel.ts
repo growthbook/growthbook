@@ -1,7 +1,9 @@
 import uniqid from "uniqid";
 import type { UpdateProps } from "shared/types/base-model";
-import type { AggregatedFactTableInterface } from "shared/validators";
-import { aggregatedFactTableValidator } from "shared/validators";
+import {
+  type AggregatedFactTableInterface,
+  aggregatedFactTableValidator,
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "aggregatedfacttables";

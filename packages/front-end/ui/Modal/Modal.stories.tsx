@@ -1,7 +1,6 @@
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
-import type { Size } from "@/ui/Modal";
-import Modal from "@/ui/Modal";
+import Modal, { type Size } from "@/ui/Modal";
 import Table, {
   TableBody,
   TableCell,

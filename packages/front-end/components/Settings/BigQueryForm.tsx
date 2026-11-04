@@ -1,5 +1,10 @@
-import type { ChangeEventHandler, FC } from "react";
-import { useEffect, useRef, useState } from "react";
+import {
+  type ChangeEventHandler,
+  type FC,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";

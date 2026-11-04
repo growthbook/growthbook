@@ -17,8 +17,8 @@ import type {
   UpdateSavedGroupProps,
   SavedGroupMetadata,
 } from "shared/types/saved-group";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   SAVED_GROUP_METADATA_FIELDS,
   getApprovalFlowSettings,
   normalizeProposedChanges,

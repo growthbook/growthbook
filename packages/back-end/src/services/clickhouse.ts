@@ -1,5 +1,4 @@
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import type { ManagedWarehouseIdAttributeIdentifier } from "shared/util";
 import {
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
@@ -11,6 +10,7 @@ import {
   isManagedWarehouseMigrating,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
+  type ManagedWarehouseIdAttributeIdentifier,
 } from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { SDKAttributeSchema } from "shared/types/organization";

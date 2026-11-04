@@ -1,11 +1,11 @@
 import type { ModelMessage, ToolResultPart } from "ai";
-import {
-  type AIChatAssistantContentPart,
-  type AIChatFilePart,
-  type AIChatImagePart,
-  type AIChatMention,
-  type AIChatMessage,
-  type AIChatUserContentPart,
+import type {
+  AIChatAssistantContentPart,
+  AIChatFilePart,
+  AIChatImagePart,
+  AIChatMention,
+  AIChatMessage,
+  AIChatUserContentPart,
 } from "shared/ai-chat";
 
 function mapMediaPart(p: AIChatImagePart | AIChatFilePart) {

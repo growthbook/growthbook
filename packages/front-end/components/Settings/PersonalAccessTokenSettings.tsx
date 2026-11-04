@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React from "react";
+import React, { type FC } from "react";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

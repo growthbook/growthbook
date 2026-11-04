@@ -26,10 +26,10 @@ import Table, {
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import styles from "./ConfirmRulesField.module.scss";
-import type { Category } from "./confirmRulesUtils";
 import {
   ALL,
   actionsOf,
+  type Category,
   CATEGORIES,
   CATEGORY_TITLES,
   categoryOf,

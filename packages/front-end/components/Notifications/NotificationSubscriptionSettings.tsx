@@ -2,15 +2,13 @@ import { useId, useState } from "react";
 import type { NotificationFilters } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
-import type {
-  NotificationLevel,
-  NotificationEventCategory,
-} from "shared/notifications";
 import {
   notificationEventOptions,
   notificationCategories,
   getNotificationLevel,
   applyNotificationLevel,
+  type NotificationLevel,
+  type NotificationEventCategory,
   notificationEventSelection,
   toggleNotificationEvents,
   matchesNotificationEvent,

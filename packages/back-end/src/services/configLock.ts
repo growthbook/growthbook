@@ -5,8 +5,10 @@ import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { makeBlockingGate } from "back-end/src/revisions/publishGates";
+import {
+  type PublishGate,
+  makeBlockingGate,
+} from "back-end/src/revisions/publishGates";
 
 type Context = ReqContext | ApiReqContext;
 

@@ -1,6 +1,9 @@
 import { useMemo } from "react";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { funnelStepMetricId, isFactFunnelMetric } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  funnelStepMetricId,
+  isFactFunnelMetric,
+} from "shared/experiments";
 import type {
   ExperimentReportResultDimension,
   ExperimentReportVariation,

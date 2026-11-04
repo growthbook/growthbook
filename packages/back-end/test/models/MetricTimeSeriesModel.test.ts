@@ -5,8 +5,7 @@ import {
   disconnectTestMongo,
 } from "back-end/test/test-helpers";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
-import { waitForIndexes } from "back-end/src/models/BaseModel";
-import type { Context } from "back-end/src/models/BaseModel";
+import { waitForIndexes, type Context } from "back-end/src/models/BaseModel";
 
 const context = {
   org: { id: "org_1" },

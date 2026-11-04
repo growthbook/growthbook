@@ -3,10 +3,10 @@ import type {
   MetricAnalysisSettings,
 } from "shared/types/metric-analysis";
 import { metricAnalysisInterfaceValidator } from "shared/validators";
-import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
   getCollection,
   removeMongooseFields,
+  type ToInterface,
 } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 

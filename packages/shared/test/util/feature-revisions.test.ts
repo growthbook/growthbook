@@ -4,7 +4,6 @@ import type {
   OrganizationSettings,
   RequireReview,
 } from "shared/types/organization";
-import type { RevisionFields } from "../../src/util";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -17,6 +16,7 @@ import {
   getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
   mergeRevision,
+  type RevisionFields,
   draftDiffersFromLive,
   liveRevisionFromFeature,
   reconcileMergeBaselines,

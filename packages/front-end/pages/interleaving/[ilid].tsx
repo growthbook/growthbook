@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
-import type { ReactElement } from "react";
-import React from "react";
+import React, { type ReactElement } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import type { AppFeatures } from "shared/types/app-features";
 import { isInterleavingEnabled } from "@/services/interleaving";

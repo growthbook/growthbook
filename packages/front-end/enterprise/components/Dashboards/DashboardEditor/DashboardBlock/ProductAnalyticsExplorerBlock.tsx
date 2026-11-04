@@ -1,14 +1,11 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { useMemo } from "react";
-import type {
-  MetricExplorationBlockInterface,
-  FactTableExplorationBlockInterface,
-  DataSourceExplorationBlockInterface,
-  SqlExplorationBlockInterface,
-  FunnelExplorationBlockInterface,
-  DashboardBlockInterfaceOrData,
-} from "shared/enterprise";
 import {
+  type MetricExplorationBlockInterface,
+  type FactTableExplorationBlockInterface,
+  type DataSourceExplorationBlockInterface,
+  type SqlExplorationBlockInterface,
+  type FunnelExplorationBlockInterface,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
@@ -16,6 +13,7 @@ import {
   resolveComparisonMode,
   getComparisonAlignmentStrategy,
   computeExplorationComparisonPayload,
+  type DashboardBlockInterfaceOrData,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import type { ProductAnalyticsExploration } from "shared/validators";

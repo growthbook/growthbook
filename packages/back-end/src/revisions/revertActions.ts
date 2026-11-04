@@ -1,5 +1,4 @@
-import type { RevisionModel } from "shared/permissions";
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { NO_ENVIRONMENT_BINDING, type RevisionModel } from "shared/permissions";
 import { isArchiveTransition } from "shared/util";
 import type { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
@@ -14,11 +13,11 @@ import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
-import type { buildPatchOps } from "back-end/src/revisions/util";
 import {
   ensureLiveRevisionExists,
   createOrUpdateRevision,
   applyPatchToSnapshot,
+  type buildPatchOps,
 } from "back-end/src/revisions/util";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import {

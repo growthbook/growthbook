@@ -3,7 +3,6 @@ import {
   notificationEventNames,
   zodNotificationEventNamesEnum,
 } from "../src/validators/events";
-import type { NotificationEventCategory } from "../src/notifications";
 import {
   defaultSlackNotificationEvents,
   notificationEventMetadata,
@@ -12,6 +11,7 @@ import {
   cardNotificationEventNames,
   initiallyEnabledNotificationCategories,
   notificationCategories,
+  type NotificationEventCategory,
   hasNotificationWildcard,
   notificationEventOptions,
   getNotificationLevel,

@@ -12,8 +12,7 @@ import type {
 import { snapToUtcDayStart } from "shared/dates";
 import type { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
-import type { QueryMap } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 
 export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
 

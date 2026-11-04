@@ -6,8 +6,8 @@ import type {
   RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   getAggregateFilters,
   isBinomialMetric,
   isFactMetric,

@@ -3,13 +3,12 @@ import crypto from "crypto";
 import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import type {
-  ErrorRequestHandler,
-  Request,
-  RequestHandler,
-  Response,
+import express, {
+  type ErrorRequestHandler,
+  type Request,
+  type RequestHandler,
+  type Response,
 } from "express";
-import express from "express";
 import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";

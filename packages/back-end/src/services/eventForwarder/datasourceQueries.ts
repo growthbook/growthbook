@@ -1,6 +1,8 @@
 import type { EventForwarderConfigInterface } from "shared/validators";
-import type { EventForwarderDatasourceParams } from "shared/util";
-import { buildEventForwarderFeatureUsageQuery } from "shared/util";
+import {
+  buildEventForwarderFeatureUsageQuery,
+  type EventForwarderDatasourceParams,
+} from "shared/util";
 import uniqid from "uniqid";
 import {
   getDataSourceById,

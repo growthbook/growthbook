@@ -2,12 +2,13 @@ import type { SimpleSchema, SchemaField } from "shared/types/feature";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
 import { NO_ENVIRONMENT_BINDING } from "../permissions/revisionPermissions";
 import { parsePlainJSONObject } from "./features";
-import type { InvariantViolation, SchemaWarning } from "./config-schema";
 import {
   collectInvalidConfigValueKeys,
   evaluateInvariants,
   fieldsContractEqual,
   invariantRuleFields,
+  type InvariantViolation,
+  type SchemaWarning,
   validateConfigValue,
   valueHasReferenceToken,
 } from "./config-schema";

@@ -6,8 +6,7 @@ export {
 export { ACTIVE_DRAFT_STATUSES as ACTIVE_STATUSES } from "shared/validators";
 import { validateResolvableValue } from "shared/validators";
 import type { ConstantInterface } from "shared/types/constant";
-import type { Revision } from "shared/enterprise";
-import { normalizeProposedChanges } from "shared/enterprise";
+import { type Revision, normalizeProposedChanges } from "shared/enterprise";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   applyPatchToSnapshot,

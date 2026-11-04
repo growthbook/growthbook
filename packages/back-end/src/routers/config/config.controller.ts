@@ -2,22 +2,19 @@ import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import type { z } from "zod";
-import type {
-  postConfigBodyValidator,
-  putConfigBodyValidator,
-} from "shared/validators";
 import {
+  type postConfigBodyValidator,
+  type putConfigBodyValidator,
   validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
 import type { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   normalizeProposedChanges,
   getConstantRevisionChange,
 } from "shared/enterprise";
-import type { ScopedOverrideEntry } from "shared/util";
 import {
   configRequiresReview,
   parsePlainJSONObject,
@@ -33,6 +30,7 @@ import {
   collectConfigInvariantViolations,
   stripConfigExtends,
   scopedOverridesFootprint,
+  type ScopedOverrideEntry,
   setOwnValueProperty,
   removeOwnValueProperty,
 } from "shared/util";
@@ -65,12 +63,10 @@ import {
   archiveServeFootprint,
   configPublishEnvironments,
 } from "back-end/src/revisions/revisionPublishEnvironments";
-import type {
-  ConstantReferences,
-  ConfigFamilyFeatureRef,
-  ConfigKeyImplementation,
-} from "back-end/src/services/constants";
 import {
+  type ConstantReferences,
+  type ConfigFamilyFeatureRef,
+  type ConfigKeyImplementation,
   loadConstantReferences,
   loadConfigFamilyFeatureReferences,
   getConfigKeyImplementations,

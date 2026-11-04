@@ -7,7 +7,6 @@ import type {
 } from "shared/types/fact-table";
 import type { IndexedPValue } from "shared/types/stats";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
-import type { ExperimentMetricInterface } from "../src/experiments";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
@@ -35,6 +34,7 @@ import {
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   isAutoSnapshotScheduled,
+  type ExperimentMetricInterface,
   withScheduledBy,
   areVariationWeightsValid,
   getMetricSampleSize,

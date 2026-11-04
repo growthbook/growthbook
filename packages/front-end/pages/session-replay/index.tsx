@@ -22,8 +22,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { FilterCondition } from "@/components/SessionReplay/FilterQueryPopover";
-import FilterQueryPopover from "@/components/SessionReplay/FilterQueryPopover";
+import FilterQueryPopover, {
+  type FilterCondition,
+} from "@/components/SessionReplay/FilterQueryPopover";
 import type { RrwebPlayerHandle } from "@/components/SessionReplay/player";
 import Custom404 from "@/pages/404";
 

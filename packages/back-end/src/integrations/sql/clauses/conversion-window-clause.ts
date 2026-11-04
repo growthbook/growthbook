@@ -1,5 +1,8 @@
-import type { ExperimentMetricInterface } from "shared/experiments";
-import { getDelayWindowHours, getMetricWindowHours } from "shared/experiments";
+import {
+  type ExperimentMetricInterface,
+  getDelayWindowHours,
+  getMetricWindowHours,
+} from "shared/experiments";
 import type { SqlDialect } from "shared/types/sql";
 
 import { addHours } from "back-end/src/integrations/sql/primitives/add-hours";

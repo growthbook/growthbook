@@ -1,14 +1,14 @@
-import type { AnalysisMetaEntry } from "shared/snapshot-analysis-chunks";
 import {
   encodeSnapshotAnalysisChunks,
   decodeSnapshotAnalysisChunks,
   buildMetricOrdering,
   migrateLegacySnapshotAnalysisChunkData,
   remapChunkDataPositionKeysToAnalysisKeys,
+  type AnalysisMetaEntry,
 } from "shared/snapshot-analysis-chunks";
-import type { ExperimentSnapshotAnalysisChunkInterface } from "shared/validators";
 import {
   experimentSnapshotAnalysisChunkValidator,
+  type ExperimentSnapshotAnalysisChunkInterface,
   validateExperimentSnapshotAnalysisChunkColumnLengths,
 } from "shared/validators";
 import type {

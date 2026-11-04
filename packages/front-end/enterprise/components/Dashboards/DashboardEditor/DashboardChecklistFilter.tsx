@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { PiCaretDown, PiCheck, PiX } from "react-icons/pi";
 import clsx from "clsx";

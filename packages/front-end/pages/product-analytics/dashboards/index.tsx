@@ -1,11 +1,11 @@
 import { ago } from "shared/dates";
 import { useCallback, useEffect, useState } from "react";
-import type {
-  DashboardInterface,
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
+import {
+  type DashboardInterface,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  getBlockData,
 } from "shared/enterprise";
-import { getBlockData } from "shared/enterprise";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";

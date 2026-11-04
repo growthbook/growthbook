@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import type { RnPStateInput } from "@/components/Reviews/reviewAndPublishState";
 import {
   checklistReadiness,
   getReviewAndPublishState,
+  type RnPStateInput,
 } from "@/components/Reviews/reviewAndPublishState";
 
 function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {

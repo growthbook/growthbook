@@ -12,8 +12,7 @@ import {
   SAVED_GROUP_SIZE_LIMIT_BYTES,
 } from "shared/util";
 import type { SavedGroupInterface } from "shared/types/saved-group";
-import type { Revision } from "shared/enterprise";
-import { normalizeProposedChanges } from "shared/enterprise";
+import { type Revision, normalizeProposedChanges } from "shared/enterprise";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   applyPatchToSnapshot,

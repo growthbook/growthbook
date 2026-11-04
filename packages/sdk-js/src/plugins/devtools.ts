@@ -6,8 +6,10 @@ import type {
   LogUnion,
   Plugin,
 } from "../types/growthbook";
-import type { GrowthBookClient } from "../GrowthBookClient";
-import { UserScopedGrowthBook } from "../GrowthBookClient";
+import {
+  type GrowthBookClient,
+  UserScopedGrowthBook,
+} from "../GrowthBookClient";
 
 export type DevtoolsState = {
   attributes?: Record<string, any>;

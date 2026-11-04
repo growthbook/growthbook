@@ -17,8 +17,8 @@ import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import type { DraftReviewState } from "./draftPicks";
 import {
+  type DraftReviewState,
   draftNextStep,
   draftReviewHref,
   draftReviewState,

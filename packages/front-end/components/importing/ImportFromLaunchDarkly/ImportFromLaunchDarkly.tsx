@@ -21,8 +21,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
-import type { ApiCallType } from "@/services/auth";
-import { useAuth } from "@/services/auth";
+import { type ApiCallType, useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -30,8 +29,8 @@ import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { isCloud } from "@/services/env";
-import type { FeatureVariationsMap } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import {
+  type FeatureVariationsMap,
   getLDEnvironments,
   getLDFeatureFlag,
   getLDFeatureFlags,

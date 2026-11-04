@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import type { CustomHookInterface, CustomHookType } from "shared/validators";
-import { hookEntityType } from "shared/validators";
+import {
+  type CustomHookInterface,
+  type CustomHookType,
+  hookEntityType,
+} from "shared/validators";
 import type { CreateProps } from "shared/types/base-model";
 import { Box, Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
@@ -23,8 +26,7 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import type { DocSection } from "@/components/DocLink";
-import { DocLink } from "@/components/DocLink";
+import { DocLink, type DocSection } from "@/components/DocLink";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 

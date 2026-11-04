@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   isBinomialMetric,
   isFactMetric,
@@ -8,8 +8,7 @@ import {
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
-import type { FullModalPowerCalculationParams } from "shared/power";
-import { config } from "shared/power";
+import { config, type FullModalPowerCalculationParams } from "shared/power";
 import {
   isProjectListValidForProject,
   resolveAnalysisIdentifierType,
@@ -20,8 +19,10 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Modal from "@/components/Modal";
-import type { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
-import { defaultValue } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import {
+  defaultValue,
+  type PowerCalculationForm,
+} from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import HelperText from "@/ui/HelperText";
 import RadioGroup from "@/ui/RadioGroup";
 import Tooltip from "@/components/Tooltip/Tooltip";

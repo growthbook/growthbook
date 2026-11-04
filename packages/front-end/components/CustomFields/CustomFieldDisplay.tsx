@@ -1,5 +1,4 @@
-import type { FC, ReactNode } from "react";
-import React, { useState } from "react";
+import React, { type FC, type ReactNode, useState } from "react";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type {
   CustomField,
@@ -20,8 +19,9 @@ import {
   customFieldDataListItems,
   renderCustomFieldValue,
 } from "./renderCustomFieldValue";
-import type { CustomFieldDraftInfo } from "./CustomFieldEditModal";
-import CustomFieldEditModal from "./CustomFieldEditModal";
+import CustomFieldEditModal, {
+  type CustomFieldDraftInfo,
+} from "./CustomFieldEditModal";
 
 const CustomFieldDisplay: FC<{
   label?: string;

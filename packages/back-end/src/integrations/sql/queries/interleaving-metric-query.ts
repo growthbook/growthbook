@@ -10,7 +10,6 @@ import {
   getFactTableTemplateVariables,
   getFactTableTimestampColumn,
 } from "shared/experiments";
-import type { InterleavingAnalysis } from "shared/validators";
 import {
   INTERLEAVING_EXPERIMENT_ID_COLUMN,
   INTERLEAVING_RANKING_ID_COLUMN,
@@ -20,6 +19,7 @@ import {
   INTERLEAVING_ITEM_ID_COLUMN,
   INTERLEAVING_ITEMS_COLUMN,
   INTERLEAVING_TIMESTAMP_COLUMN,
+  type InterleavingAnalysis,
 } from "shared/validators";
 import type {
   InterleavingMetricQueryMetric,

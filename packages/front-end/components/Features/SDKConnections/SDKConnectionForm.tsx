@@ -53,9 +53,10 @@ import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import SDKLanguageSelector from "./SDKLanguageSelector";
-import type { LanguageType, LanguageFilter } from "./SDKLanguageLogo";
 import {
+  type LanguageType,
   languageMapping,
+  type LanguageFilter,
   getConnectionLanguageFilter,
   getPackageRepositoryName,
 } from "./SDKLanguageLogo";

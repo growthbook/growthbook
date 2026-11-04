@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useMemo, useState } from "react";
+import React, { type FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   FaDatabase,

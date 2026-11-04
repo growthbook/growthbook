@@ -4,14 +4,15 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useExperimentFilterCategories } from "@/components/Search/experimentFilterCategories";
 import type { SearchFiltersItem } from "@/components/Search/SearchFilters";
 import Tag from "@/components/Tags/Tag";
-import type { ChecklistOption } from "./DashboardChecklistFilter";
-import DashboardChecklistFilter from "./DashboardChecklistFilter";
+import DashboardChecklistFilter, {
+  type ChecklistOption,
+} from "./DashboardChecklistFilter";
 import {
   EXPERIMENT_CATEGORY_LABELS,
   EXPERIMENT_CATEGORY_SEARCH_PLACEHOLDERS,
 } from "./dashboardFilterCatalog";
-import type { DashboardExperimentCategoryKey } from "./experimentSearchFilterString";
 import {
+  type DashboardExperimentCategoryKey,
   getExperimentCategoryValues,
   setExperimentCategoryValues,
 } from "./experimentSearchFilterString";

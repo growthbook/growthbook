@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type { ReactElement } from "react";
-import React, { useState } from "react";
+import React, { type ReactElement, useState } from "react";
 import { getHoldoutStage } from "shared/util";
 import type {
   HoldoutInterfaceStringDates,

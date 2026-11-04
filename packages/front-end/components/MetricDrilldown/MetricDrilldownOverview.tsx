@@ -22,7 +22,7 @@ import Link from "@/ui/Link";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
-import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
+import type { DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;

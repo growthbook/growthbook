@@ -1,5 +1,4 @@
-import type { FC, ReactElement } from "react";
-import React, { useState } from "react";
+import React, { type FC, type ReactElement, useState } from "react";
 import type { DimensionSlicesInterface } from "shared/types/dimension";
 import type {
   DataSourceInterfaceWithParams,
@@ -16,8 +15,10 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Modal from "@/components/Modal";
 import track, { trackSnapshot } from "@/services/track";
 import RadioGroup from "@/ui/RadioGroup";
-import type { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
-import { DimensionSlicesRunner } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import {
+  type CustomDimensionMetadata,
+  DimensionSlicesRunner,
+} from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 import Callout from "@/ui/Callout";
 
 type HealthTabOnboardingModalProps = {

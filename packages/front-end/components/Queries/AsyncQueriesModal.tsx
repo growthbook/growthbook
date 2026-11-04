@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { Fragment, useMemo, useState } from "react";
+import { type FC, Fragment, useMemo, useState } from "react";
 import type { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import type { SavedQuery } from "shared/validators";

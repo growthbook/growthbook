@@ -24,8 +24,9 @@ import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import PermissionBlocker from "@/ui/PermissionBlocker";
 

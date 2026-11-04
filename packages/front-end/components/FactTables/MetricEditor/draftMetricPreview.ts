@@ -1,8 +1,10 @@
 import { factMetricValidator } from "shared/validators";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
-import type { CreateFactMetricFormProps } from "@/services/metrics";
-import { fromFactMetricFormValues } from "@/services/metrics";
+import {
+  type CreateFactMetricFormProps,
+  fromFactMetricFormValues,
+} from "@/services/metrics";
 
 export function getDraftMetricPreview(
   draft: CreateFactMetricFormProps,

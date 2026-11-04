@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FormProvider, useForm } from "react-hook-form";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -29,8 +28,8 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { AssignmentQueryCopySource } from "@/services/datasources";
 import {
+  type AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
   getExposureQuery,
@@ -44,8 +43,10 @@ import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
-import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  type GroupedValue,
+  type SingleValue,
+} from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
 import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";

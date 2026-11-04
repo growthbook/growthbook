@@ -13,8 +13,9 @@ import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";

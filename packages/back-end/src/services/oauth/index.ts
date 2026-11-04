@@ -1,7 +1,10 @@
 import crypto from "crypto";
 import type { Request } from "express";
-import type { OAuthDcrRequest, OAuthTokenPermissions } from "shared/validators";
-import { isSafeOAuthRedirectUri } from "shared/validators";
+import {
+  isSafeOAuthRedirectUri,
+  type OAuthDcrRequest,
+  type OAuthTokenPermissions,
+} from "shared/validators";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   APP_ORIGIN,

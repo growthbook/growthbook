@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import type {
-  RampScheduleInterface,
-  SafeRolloutInterface,
+import {
+  isReadyForApproval,
+  type RampScheduleInterface,
+  type SafeRolloutInterface,
 } from "shared/validators";
-import { isReadyForApproval } from "shared/validators";
 import type { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import { getValidDate } from "shared/dates";
 import {
@@ -17,8 +17,7 @@ import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { expandMetricGroups } from "shared/experiments";
 import { isRampScheduleServing, pValueFormatter } from "shared/util";
 import Badge from "@/ui/Badge";
-import type { Size as ButtonSize } from "@/ui/Button";
-import Button from "@/ui/Button";
+import Button, { type Size as ButtonSize } from "@/ui/Button";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";

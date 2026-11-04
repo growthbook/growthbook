@@ -1,10 +1,5 @@
 import type { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
 import type { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
-import type {
-  MetricParamsMean,
-  MetricParams,
-  PowerCalculationParams,
-} from "../src/power";
 import {
   frequentistVariance,
   powerEstFrequentist,
@@ -14,11 +9,14 @@ import {
   calculatePriorVariance,
   powerEstBayesian,
   findMdeBayesian,
+  type MetricParamsMean,
+  type MetricParams,
+  type PowerCalculationParams,
 } from "../src/power";
-import type { MidExperimentPowerParamsSingle } from "../src/enterprise/power";
 import {
   calculateMidExperimentPowerSingle,
   getAverageExposureOverLastNDays,
+  type MidExperimentPowerParamsSingle,
 } from "../src/enterprise/power";
 
 describe("backend", () => {

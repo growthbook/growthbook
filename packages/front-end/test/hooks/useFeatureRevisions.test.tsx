@@ -4,8 +4,10 @@ import { SWRConfig } from "swr";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
-import type { FeatureRevisionsContextValue } from "@/contexts/FeatureRevisionsContext";
-import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import {
+  FeatureRevisionsContext,
+  type FeatureRevisionsContextValue,
+} from "@/contexts/FeatureRevisionsContext";
 import { useAuth } from "@/services/auth";
 
 vi.mock("@/services/auth", () => ({ useAuth: vi.fn() }));

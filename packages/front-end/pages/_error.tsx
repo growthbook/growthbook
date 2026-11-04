@@ -1,7 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import type { NextPageContext } from "next";
-import type { ErrorProps } from "next/error";
-import Error from "next/error";
+import Error, { type ErrorProps } from "next/error";
 
 const ErrorWrapper = (props: ErrorProps) => {
   return <Error {...props} />;

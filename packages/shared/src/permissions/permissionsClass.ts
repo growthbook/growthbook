@@ -49,26 +49,27 @@ import {
 } from "../util/";
 // Specific module, not the util barrel: the barrel imports back from
 // shared/permissions, and the require cycle leaves re-exports uninitialized.
-import { getTargetingProjectIds } from "../util/features";
-import type {
-  ReviewAuthorityFootprint,
-  TargetingScopedEntity,
+import {
+  getTargetingProjectIds,
+  type TargetingScopedEntity,
+  type ReviewAuthorityFootprint,
 } from "../util/features";
-import type { TeamAuthority } from "./permissions.utils";
 import {
   changedProjectRoleProjects,
   envsAllowedBy,
   hasUnrestrictedEnvAuthority,
   isProjectScopedTeam,
   sameRoleValue,
+  type TeamAuthority,
   teamProjects,
 } from "./permissions.utils";
 // Type-only: erased at runtime, so no cycle back through the util barrel.
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
-import type { RevisionAction, RevisionModel } from "./revisionPermissions";
 import {
   NO_ENVIRONMENT_BINDING,
   revisionActionPermission,
+  type RevisionAction,
+  type RevisionModel,
 } from "./revisionPermissions";
 
 type NotificationEvent = {

@@ -35,8 +35,10 @@ import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
-import type { CreateEventData } from "back-end/src/models/EventModel";
-import { createEvent } from "back-end/src/models/EventModel";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
 import { countVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { logger } from "back-end/src/util/logger";

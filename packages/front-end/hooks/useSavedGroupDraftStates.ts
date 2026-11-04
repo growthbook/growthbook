@@ -1,8 +1,8 @@
-import type {
-  UseEntityDraftStatesReturn,
-  DraftStatusCounts,
+import {
+  useEntityDraftStates,
+  type UseEntityDraftStatesReturn,
+  type DraftStatusCounts,
 } from "./useEntityDraftStates";
-import { useEntityDraftStates } from "./useEntityDraftStates";
 
 export type { DraftStatusCounts };
 export type UseSavedGroupDraftStatesReturn = UseEntityDraftStatesReturn;

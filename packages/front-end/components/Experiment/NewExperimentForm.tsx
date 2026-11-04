@@ -1,5 +1,10 @@
-import type { FC } from "react";
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  type FC,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import type {
   ExperimentInterfaceStringDates,
@@ -30,8 +35,10 @@ import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { AssignmentQueryCopySource } from "@/services/datasources";
-import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
+import {
+  type AssignmentQueryCopySource,
+  getNewExperimentDatasourceDefaults,
+} from "@/services/datasources";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
   generateVariationId,
@@ -62,8 +69,10 @@ import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
-import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  type GroupedValue,
+  type SingleValue,
+} from "@/components/Forms/SelectField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ConditionInput from "@/components/Features/ConditionInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";

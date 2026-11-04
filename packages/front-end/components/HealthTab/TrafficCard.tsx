@@ -13,8 +13,9 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import { formatNumber } from "@/services/metrics";
-import type { ExperimentDateGraphDataPoint } from "@/components/Experiment/ExperimentDateGraph";
-import ExperimentDateGraph from "@/components/Experiment/ExperimentDateGraph";
+import ExperimentDateGraph, {
+  type ExperimentDateGraphDataPoint,
+} from "@/components/Experiment/ExperimentDateGraph";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";

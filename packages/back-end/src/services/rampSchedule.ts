@@ -4,30 +4,28 @@ import type { EventUser } from "shared/types/events/event-types";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
-import type {
-  RampStartAction,
-  RampStartPatch,
-  LockdownConfig,
-  RampEvent,
-  RampEventType,
-  RampMonitoringConfig,
-  RampMonitoringMode,
-  RampScheduleInterface,
-  RampScheduleTemplateInterface,
-  RampStep,
-  RampStepAction,
-  RevisionRampDetachAction,
-  SafeRolloutInterface,
-} from "shared/validators";
 import {
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
+  type RampStartAction,
+  type RampStartPatch,
+  type LockdownConfig,
+  type RampEvent,
+  type RampEventType,
+  type RampMonitoringConfig,
+  type RampMonitoringMode,
+  type RampScheduleInterface,
+  type RampScheduleTemplateInterface,
+  type RampStep,
+  type RampStepAction,
+  type RevisionRampDetachAction,
+  type SafeRolloutInterface,
   isAwaitingStartApproval,
   startApprovalPending,
 } from "shared/validators";
 import type { ResourceEvents } from "shared/types/events/base-types";
-import type { MergeResultChanges } from "shared/util";
 import {
+  type MergeResultChanges,
   filterEnvironmentsByFeature,
   getApplicableEnvIds,
   getEnvsFromRampSchedule,
@@ -68,12 +66,14 @@ import {
   getRevision,
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
-import type { CreateEventData } from "back-end/src/models/EventModel";
-import { createEvent } from "back-end/src/models/EventModel";
-import type { RecordAssignmentQueryScope } from "back-end/src/services/assignmentQuerySelection";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import {
   assertValidAssignmentQuerySelectionChange,
   getExposureQueriesForDatasource,
+  type RecordAssignmentQueryScope,
 } from "back-end/src/services/assignmentQuerySelection";
 import {
   resolveRampTargets,

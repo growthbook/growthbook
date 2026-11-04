@@ -1,5 +1,6 @@
-import type { ChangeEvent, FC } from "react";
 import {
+  type ChangeEvent,
+  type FC,
   Fragment,
   useCallback,
   useEffect,

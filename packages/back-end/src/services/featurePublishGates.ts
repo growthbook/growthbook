@@ -1,6 +1,6 @@
-import type { AutoMergeResult, MergeResultChanges } from "shared/util";
 import {
   autoMerge,
+  type AutoMergeResult,
   reconcileMergeBaselines,
   getRevisionReviewRequirement,
   draftDiffersFromLive,
@@ -10,6 +10,7 @@ import {
   getEnvsFromRampSchedule,
   getLiveChangesSinceBase,
   liveRevisionFromFeature,
+  type MergeResultChanges,
   getReviewAuthorityFootprint,
   governingReviewProjectsForFeature,
 } from "shared/util";
@@ -64,8 +65,8 @@ import {
   collectSavedGroupScopeGate,
 } from "back-end/src/services/savedGroupProjectScope";
 import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
+  type PublishGate,
   hookResultsToGates,
   makeBlockingGate,
   schemaFailureGateOverride,

@@ -1,11 +1,13 @@
 import type { ConditionInterface } from "@growthbook/growthbook";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { GroupMap, SavedGroupForPayload } from "shared/types/saved-group";
-import type { NodeHandler } from "../../util";
-import { getSavedGroupsValuesFromInterfaces, recursiveWalk } from "../../util";
+import {
+  getSavedGroupsValuesFromInterfaces,
+  type NodeHandler,
+  recursiveWalk,
+} from "../../util";
 import type { SavedGroupPayloadStrategy } from "./types";
-import type { NestedGroupRenderer } from "./walk";
-import { walkSavedGroups } from "./walk";
+import { type NestedGroupRenderer, walkSavedGroups } from "./walk";
 
 /**
  * Builds the condition for one saved group. List groups become `$inGroup` or

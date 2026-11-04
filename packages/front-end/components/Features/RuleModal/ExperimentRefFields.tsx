@@ -19,10 +19,10 @@ import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
-import type { NewExperimentRefRule } from "@/services/features";
 import {
   getDefaultVariationValue,
   getFeatureDefaultValue,
+  type NewExperimentRefRule,
 } from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useExperiments } from "@/hooks/useExperiments";

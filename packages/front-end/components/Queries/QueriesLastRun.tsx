@@ -11,8 +11,10 @@ import { Text, Flex, Box, IconButton } from "@radix-ui/themes";
 import type { QueryStatus } from "shared/types/query";
 import type { SourceSnapshotRef } from "shared/enterprise";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import type { ResultsFreshness } from "@/services/snapshots";
-import { getResultsFreshness } from "@/services/snapshots";
+import {
+  getResultsFreshness,
+  type ResultsFreshness,
+} from "@/services/snapshots";
 
 const FAILED_STRING = `The most recent update failed. Click to view queries.`;
 const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partial results

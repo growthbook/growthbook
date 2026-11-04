@@ -3,8 +3,7 @@ import type { MouseEvent } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
-import type { TagProps } from "./Tag";
-import Tag from "./Tag";
+import Tag, { type TagProps } from "./Tag";
 
 type Props = Omit<TagProps, "label"> & {
   href: string;

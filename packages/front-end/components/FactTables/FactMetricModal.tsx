@@ -1,7 +1,5 @@
-import type { UseFormReturn } from "react-hook-form";
-import { useForm } from "react-hook-form";
-import type { ReactElement } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useForm, type UseFormReturn } from "react-hook-form";
+import { type ReactElement, useEffect, useMemo, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
@@ -38,8 +36,8 @@ import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
-import type { CreateFactMetricFormProps } from "@/services/metrics";
 import {
+  type CreateFactMetricFormProps,
   formatNumber,
   getDefaultFactMetricProps,
   getFactMetricTrackProps,
@@ -53,8 +51,10 @@ import track from "@/services/track";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  type GroupedValue,
+  type SingleValue,
+} from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";

@@ -1,9 +1,9 @@
 import { resolveAssignmentQuerySelectionChange } from "shared/util";
-import type {
-  CreateSafeRolloutInterface,
-  SafeRolloutInterface,
+import {
+  type CreateSafeRolloutInterface,
+  createSafeRolloutValidator,
+  type SafeRolloutInterface,
 } from "shared/validators";
-import { createSafeRolloutValidator } from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { BadRequestError } from "back-end/src/util/errors";

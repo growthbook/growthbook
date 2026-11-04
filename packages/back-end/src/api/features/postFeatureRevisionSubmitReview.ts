@@ -1,6 +1,7 @@
-import type { EventUser, FeatureRevisionInterface } from "shared/validators";
 import {
+  type EventUser,
   eventUserIdentity,
+  type FeatureRevisionInterface,
   postFeatureRevisionSubmitReviewValidator,
 } from "shared/validators";
 import { featureReviewCandidateProjects, getReviewSetting } from "shared/util";
@@ -16,9 +17,9 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
-import type { ReviewSubmittedType } from "back-end/src/models/FeatureRevisionModel";
 import {
   getRevision,
+  type ReviewSubmittedType,
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
 import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";

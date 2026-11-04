@@ -2,15 +2,13 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { DifferenceType } from "shared/types/stats";
-import type {
-  DashboardInterface,
-  DashboardEditLevel,
-  DashboardShareLevel,
-} from "shared/enterprise";
 import {
   DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
+  type DashboardInterface,
   getBlockData,
   CREATE_BLOCK_TYPE,
+  type DashboardEditLevel,
+  type DashboardShareLevel,
 } from "shared/enterprise";
 import type { ExperimentSortBy } from "shared/experiments";
 import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";

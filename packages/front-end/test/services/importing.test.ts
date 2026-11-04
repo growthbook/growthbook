@@ -1,6 +1,6 @@
 import type { FeatureInterface } from "shared/types/feature";
-import type { LDListFeatureFlagsResponse } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import {
+  type LDListFeatureFlagsResponse,
   transformLDEnvironmentsToGBEnvironment,
   transformLDFeatureFlagToGBFeature,
   transformLDProjectsToGBProject,

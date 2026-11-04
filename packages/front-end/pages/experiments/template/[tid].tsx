@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import type { ExperimentTemplateInterface } from "shared/types/experiment";

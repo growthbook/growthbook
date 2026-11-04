@@ -6,14 +6,13 @@ import {
   validateJSONFeatureValue,
   deepMergePatch,
 } from "shared/util";
-import type { ConstantSource } from "shared/sdk-versioning";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
+  type ConstantSource,
 } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
-import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { isEqual } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

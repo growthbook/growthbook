@@ -9,8 +9,8 @@ import {
 } from "shared/constants";
 
 import { parseEnvInt, putBaselineVariationFirst } from "shared/util";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   eligibleForUncappedMetric,
   getFunnelStepMetrics,
   isBinomialMetric,

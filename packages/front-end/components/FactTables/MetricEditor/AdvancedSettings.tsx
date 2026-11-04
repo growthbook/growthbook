@@ -22,9 +22,9 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
-import type { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import {
   cappingOk,
+  type FormMetricType,
   windowOk,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import styles from "./AdvancedSettings.module.scss";

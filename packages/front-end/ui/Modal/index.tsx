@@ -8,19 +8,19 @@ import {
 } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import type { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
-import type { ReactNode, ComponentProps } from "react";
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ComponentProps,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
-import type { TrackEventProps } from "@/services/track";
-import track from "@/services/track";
+import track, { type TrackEventProps } from "@/services/track";
 import type { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";

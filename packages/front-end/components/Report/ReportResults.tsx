@@ -10,8 +10,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import type { RefObject } from "react";
-import React from "react";
+import React, { type RefObject } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { SignificanceThresholds } from "shared/types/stats";

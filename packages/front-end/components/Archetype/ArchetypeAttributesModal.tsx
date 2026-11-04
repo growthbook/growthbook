@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React from "react";
+import React, { type FC } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import type { ArchetypeInterface } from "shared/types/archetype";

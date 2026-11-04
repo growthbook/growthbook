@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { useState, type FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { Namespaces, NamespaceUsage } from "shared/types/organization";
 import useApi from "@/hooks/useApi";

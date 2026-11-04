@@ -5,9 +5,9 @@ import { mapInterleavingVariations } from "shared/util";
 import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
-import type { InterleavingRankers } from "./InterleavingVariationsInput";
 import InterleavingVariationsInput, {
   getRankersError,
+  type InterleavingRankers,
 } from "./InterleavingVariationsInput";
 
 export function rankersOf(il: ApiInterleavingInterface): InterleavingRankers {

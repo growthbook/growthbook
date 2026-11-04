@@ -1,5 +1,4 @@
-import type { Policy } from "shared/permissions";
-import { POLICY_PARTS } from "shared/permissions";
+import { POLICY_PARTS, type Policy } from "shared/permissions";
 import {
   holdsPolicyPart,
   holdsWholePolicy,

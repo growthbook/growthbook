@@ -11,8 +11,8 @@ import {
   filterUsedContextualBandits,
   generateAutoExperimentsPayload,
 } from "back-end/src/services/features";
-import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import {
+  type CbVisualExperiment,
   getContextualBanditPrerequisiteDependents,
   getCbVisualPrerequisiteIds,
   measureContextualBanditPayload,

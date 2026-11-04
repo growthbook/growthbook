@@ -10,8 +10,8 @@ import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
-import type { HookScope } from "@/components/CustomHooks/CustomHooksTable";
 import CustomHooksTable, {
+  type HookScope,
   hookScopeColumn,
   isHookScopedTo,
 } from "@/components/CustomHooks/CustomHooksTable";

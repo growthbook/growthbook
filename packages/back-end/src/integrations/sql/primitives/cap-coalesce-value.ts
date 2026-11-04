@@ -1,8 +1,8 @@
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   getAggregateFilters,
   isCappableMetricType,
   getLowerCappingSettings,
+  type ExperimentMetricInterface,
 } from "shared/experiments";
 import type { ColumnRef } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";

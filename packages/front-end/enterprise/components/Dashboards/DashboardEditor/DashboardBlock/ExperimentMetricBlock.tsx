@@ -1,7 +1,9 @@
 import React, { useMemo } from "react";
 import { v4 as uuid4 } from "uuid";
-import type { ExperimentMetricBlockInterface } from "shared/enterprise";
-import { blockHasFieldOfType } from "shared/enterprise";
+import {
+  type ExperimentMetricBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import { isString } from "shared/util";
 import { groupBy } from "lodash";
 import type { MetricSnapshotSettings } from "shared/types/report";

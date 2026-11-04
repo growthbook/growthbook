@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useMemo, useState } from "react";
+import { type FC, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";

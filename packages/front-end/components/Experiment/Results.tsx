@@ -1,6 +1,5 @@
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type { FC } from "react";
-import React, { useState, useEffect } from "react";
+import React, { type FC, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import type {
   DifferenceType,

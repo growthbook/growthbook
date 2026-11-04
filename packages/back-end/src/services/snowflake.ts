@@ -1,7 +1,11 @@
 import { createPrivateKey } from "crypto";
 import { z } from "zod";
-import type { Column, Connection, QueryStatus } from "snowflake-sdk";
-import { createConnection } from "snowflake-sdk";
+import {
+  type Column,
+  type Connection,
+  type QueryStatus,
+  createConnection,
+} from "snowflake-sdk";
 import { version as SNOWFLAKE_SDK_VERSION } from "snowflake-sdk/package.json";
 import type {
   ExternalIdCallback,

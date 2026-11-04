@@ -16,11 +16,11 @@ import type {
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import type { EventForwarderConfigInterface } from "shared/validators";
-import type { EventForwarderDatasourceParams } from "shared/util";
 import {
   DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
   databricksParamsSupportEventForwarder,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
+  type EventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   normalizeBigQueryTablePrefixForEventForwarder,
   normalizeDatabricksEventForwarderZerobusEndpoint,

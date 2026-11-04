@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { Fragment, useState } from "react";
+import { type FC, Fragment, useState } from "react";
 import isEqual from "lodash/isEqual";
 import type {
   ExperimentReportResultDimension,

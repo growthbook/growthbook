@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import type { MemberRoleWithProjects } from "shared/types/organization";
 import { getRoleDisplayName, holdsGlobalAdmin } from "shared/permissions";
@@ -21,9 +20,10 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import EnvironmentCell from "./EnvironmentCell";
 import useRoleOptions from "./useRoleOptions";
-import type { RoleRule, TeamRuleSource } from "./roleRules";
 import {
   ALL_PROJECTS,
+  type RoleRule,
+  type TeamRuleSource,
   fromRules,
   inertRules,
   newRule,

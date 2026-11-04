@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import type { RichTextHeight } from "@/ui/RichTextEditor";
-import RichTextEditor from "@/ui/RichTextEditor";
+import RichTextEditor, { type RichTextHeight } from "@/ui/RichTextEditor";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 

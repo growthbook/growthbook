@@ -5,8 +5,7 @@ import {
 } from "shared/enterprise";
 
 import type { SafeRolloutRule } from "shared/validators";
-import type { Color, Variant } from "@/ui/Button";
-import Button from "@/ui/Button";
+import Button, { type Color, type Variant } from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 

@@ -24,8 +24,7 @@ import {
 } from "@/components/SyntaxHighlighting/codeTheme";
 import { darkCss } from "@/components/SyntaxHighlighting/darkColors";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
-import type { FieldProps } from "./Field";
-import Field from "./Field";
+import Field, { type FieldProps } from "./Field";
 import styles from "./CodeTextArea.module.scss";
 
 export type AceCompletion = {

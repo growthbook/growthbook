@@ -3,13 +3,13 @@ import { useRouter } from "next/router";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
-import type {
-  ComparisonMode,
-  DatasetType,
-  ExplorationConfig,
-  ExplorationDateRange,
+import {
+  type ComparisonMode,
+  type DatasetType,
+  datasetTypeHasValues,
+  type ExplorationConfig,
+  type ExplorationDateRange,
 } from "shared/validators";
-import { datasetTypeHasValues } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { isFactFunnelMetric } from "shared/experiments";
 import {
@@ -37,12 +37,12 @@ import ExplorerMainSection from "./MainSection/ExplorerMainSection";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 import ExplorerPageActions from "./ExplorerPageActions";
 import { useOptionalSqlEditorContext } from "./SqlEditorContext";
-import type { ExplorerDraftConfig } from "./util";
 import {
   createEmptyDataset,
   createEmptyValue,
   decodeExplorationConfig,
   explorationConfigParser,
+  type ExplorerDraftConfig,
   getInitialInlineFilters,
   previousTimeFrameQueryParser,
   comparisonModeQueryParser,

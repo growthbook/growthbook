@@ -1,10 +1,12 @@
 import type { Queries, QueryRunnerFailureCause } from "shared/types/query";
-import type { FilterQuery, PipelineStage } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery, type PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import type { DashboardInterface } from "shared/enterprise";
-import { snapshotSatisfiesBlock, blockHasFieldOfType } from "shared/enterprise";
+import {
+  snapshotSatisfiesBlock,
+  blockHasFieldOfType,
+  type DashboardInterface,
+} from "shared/enterprise";
 import {
   findAnalysisComputeFailure,
   getSnapshotAnalysis,
@@ -18,11 +20,11 @@ import type {
   ExperimentSnapshotSettings,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
-import type {
-  AnalysisKeyType,
-  AnalysisMetaEntry,
+import {
+  type AnalysisKeyType,
+  type AnalysisMetaEntry,
+  buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
-import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import type { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
 import { logger } from "back-end/src/util/logger";
@@ -31,11 +33,11 @@ import { notifyExperimentChange } from "back-end/src/services/experimentNotifica
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
-import type {
-  ExperimentUpdateExecutionLogger,
-  SnapshotConclusion,
+import {
+  type ExperimentUpdateExecutionLogger,
+  logExperimentUpdated,
+  type SnapshotConclusion,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
-import { logExperimentUpdated } from "back-end/src/services/experimentUpdateExecutionLogger";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";

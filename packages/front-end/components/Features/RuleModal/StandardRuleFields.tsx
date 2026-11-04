@@ -4,8 +4,10 @@ import { hasTargetingConfigured } from "shared/experiments";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import type { RampScheduleInterface } from "shared/validators";
-import { ANCHORED_RAMP_SCHEDULE_STATUSES } from "shared/validators";
+import {
+  ANCHORED_RAMP_SCHEDULE_STATUSES,
+  type RampScheduleInterface,
+} from "shared/validators";
 import {
   ensureConfigBacking,
   rampPlanControlledFields,
@@ -18,8 +20,8 @@ import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
-import type { NewExperimentRefRule } from "@/services/features";
 import {
+  type NewExperimentRefRule,
   useAttributeSchema,
   resolveAttributeFilter,
 } from "@/services/features";

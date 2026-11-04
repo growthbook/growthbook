@@ -1,5 +1,4 @@
-import type { ZodType } from "zod";
-import { z } from "zod";
+import { type ZodType, z } from "zod";
 import type { ReqContext } from "back-end/types/request";
 import type { OpenApiRoute } from "back-end/src/util/handler";
 import { MergeConflictError } from "back-end/src/util/errors";

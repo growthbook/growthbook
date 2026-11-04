@@ -1,9 +1,11 @@
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { expandMetricGroups, isFactMetric } from "shared/experiments";
+import {
+  expandMetricGroups,
+  type ExperimentMetricDefinition,
+  isFactMetric,
+} from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";

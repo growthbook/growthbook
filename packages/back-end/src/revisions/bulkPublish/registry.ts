@@ -17,8 +17,8 @@ import {
   collectSavedGroupScopeGate,
 } from "back-end/src/services/savedGroupProjectScope";
 import type { ReqContext } from "back-end/types/request";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
+  type PublishGate,
   gateOr5xx,
   makeBlockingGate,
 } from "back-end/src/revisions/publishGates";

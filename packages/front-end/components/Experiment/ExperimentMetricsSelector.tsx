@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useState, useMemo } from "react";
+import { type ReactNode, useState, useMemo } from "react";
 import { resolveAnalysisIdentifierType } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";

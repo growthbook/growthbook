@@ -1,15 +1,20 @@
-import type { CSSProperties, ReactNode } from "react";
-import React, { useCallback, useMemo, useRef } from "react";
+import React, {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { DifferenceType, StatsEngine } from "shared/types/stats";
 import type { ExperimentMetricDefinition } from "shared/experiments";
 import type { RowResults } from "@/services/experiments";
 import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import type { HoverAnchor } from "@/hooks/useHoverTooltip";
-import { useHoverTooltip } from "@/hooks/useHoverTooltip";
+import { type HoverAnchor, useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { PopoverContent } from "@/ui/Popover";
-import type { StatusLabels } from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
-import ExperimentResultTooltipContent from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
+import ExperimentResultTooltipContent, {
+  type StatusLabels,
+} from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
 
 interface ResultPopoverData {
   stats: SnapshotMetric;

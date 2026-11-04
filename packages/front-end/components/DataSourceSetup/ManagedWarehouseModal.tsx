@@ -5,9 +5,9 @@ import { PiGlobe } from "react-icons/pi";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import type { DataRegion } from "@/services/dataRegions";
 import {
   DEFAULT_DATA_REGION,
+  type DataRegion,
   useDataRegionOptions,
 } from "@/services/dataRegions";
 import { useDefinitions } from "@/services/DefinitionsContext";

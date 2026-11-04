@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { type FC, useCallback, useMemo, useState } from "react";
 import type { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";

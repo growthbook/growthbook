@@ -16,8 +16,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
-import type { RuleCardSideColor } from "@/components/Features/RuleCard";
-import RuleCard from "@/components/Features/RuleCard";
+import RuleCard, {
+  type RuleCardSideColor,
+} from "@/components/Features/RuleCard";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";

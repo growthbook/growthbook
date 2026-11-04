@@ -8,16 +8,14 @@ import type {
 } from "shared/types/stats";
 import type { ExperimentTableRow, RowResults } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
-import type {
-  LayoutX,
-  TooltipData,
-  TooltipHoverSettings,
-  YAlign,
-} from "./ResultsTableTooltip";
 import {
+  type LayoutX,
   TOOLTIP_HEIGHT,
   TOOLTIP_TIMEOUT,
   TOOLTIP_WIDTH,
+  type TooltipData,
+  type TooltipHoverSettings,
+  type YAlign,
 } from "./ResultsTableTooltip";
 
 export function useResultsTableTooltip({

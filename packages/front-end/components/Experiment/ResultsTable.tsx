@@ -1,6 +1,7 @@
 import clsx from "clsx";
-import type { CSSProperties, ReactElement } from "react";
 import React, {
+  type CSSProperties,
+  type ReactElement,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -28,19 +29,21 @@ import {
 import { getValidDate } from "shared/dates";
 import type { MetricTimeSeries } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
-import type {
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
-  SetExperimentSortBy,
-  SampleSizeSource,
-} from "shared/experiments";
-import { funnelStepMetricId, isFactMetric } from "shared/experiments";
-import { useAuth } from "@/services/auth";
-import type { ExperimentTableRow, RowResults } from "@/services/experiments";
 import {
+  type ExperimentMetricDefinition,
+  type ExperimentSortBy,
+  type SetExperimentSortBy,
+  funnelStepMetricId,
+  isFactMetric,
+  type SampleSizeSource,
+} from "shared/experiments";
+import { useAuth } from "@/services/auth";
+import {
+  type ExperimentTableRow,
   getComputeErrorMessage,
   getEffectLabel,
   getRowResults,
+  type RowResults,
   useDomain,
 } from "@/services/experiments";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";

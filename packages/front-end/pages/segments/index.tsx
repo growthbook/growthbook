@@ -1,5 +1,4 @@
-import type { FC, ReactElement } from "react";
-import React, { Fragment, useState } from "react";
+import React, { type FC, Fragment, type ReactElement, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import type { SegmentInterface } from "shared/types/segment";
 import type { IdeaInterface } from "shared/types/idea";

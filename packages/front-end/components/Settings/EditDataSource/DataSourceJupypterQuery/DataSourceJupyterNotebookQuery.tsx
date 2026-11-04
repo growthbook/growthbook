@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import { PiPlus } from "react-icons/pi";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import type { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";

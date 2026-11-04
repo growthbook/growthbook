@@ -7,8 +7,9 @@ import type {
 import { Separator } from "@radix-ui/themes";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import type { RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  type RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 
 export interface TargetingFieldsGroupProps {
   project: string;

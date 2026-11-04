@@ -21,10 +21,10 @@ import type {
 import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import type { EventForwarderDatasourceParams } from "shared/util";
 import {
   DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
   databricksParamsSupportEventForwarder,
+  type EventForwarderDatasourceParams,
   getEventForwarderDatasourceParams,
 } from "shared/util";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";

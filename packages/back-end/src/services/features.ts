@@ -7,19 +7,15 @@ import omit from "lodash/omit";
 import uniqBy from "lodash/uniqBy";
 import uniqWith from "lodash/uniqWith";
 import type { Request } from "express";
-import type {
-  AutoExperiment,
-  FeatureRule as FeatureDefinitionRule,
-} from "@growthbook/growthbook";
-import { GrowthBook } from "@growthbook/growthbook";
-import type {
-  MergeResultChanges,
-  NodeHandler,
-  PrerequisiteStateResult,
-  TargetingScopedEntity,
-  ReviewAuthorityFootprint,
-} from "shared/util";
 import {
+  type AutoExperiment,
+  type FeatureRule as FeatureDefinitionRule,
+  GrowthBook,
+} from "@growthbook/growthbook";
+import {
+  type MergeResultChanges,
+  type NodeHandler,
+  type PrerequisiteStateResult,
   buildReverseDependencyIndex,
   checkIfRevisionNeedsReview,
   entityTargetsProject,
@@ -39,6 +35,7 @@ import {
   namespacesToMap,
   recursiveWalk,
   ruleAppliesToEnv,
+  type TargetingScopedEntity,
   stemRuleId,
   stripConfigExtends,
   toApiNamespace,
@@ -55,13 +52,9 @@ import {
   governingReviewProjectsForFeature,
   getRevisionReviewRequirement,
   liveRevisionFromFeature,
+  type ReviewAuthorityFootprint,
   getEnvsForRampTarget,
 } from "shared/util";
-import type {
-  SavedGroupPayloadStrategy,
-  SDKCapability,
-  ConstantValueMap,
-} from "shared/sdk-versioning";
 import {
   getConnectionSDKCapabilities,
   getPayloadAllowedKeys,
@@ -73,7 +66,10 @@ import {
   parseDerivedGroupId,
   readSavedGroupReferenceId,
   savedGroupFormatFromConnection,
+  type SavedGroupPayloadStrategy,
+  type SDKCapability,
   buildConstantValueMap,
+  type ConstantValueMap,
 } from "shared/sdk-versioning";
 import type { ConstantInterface } from "shared/types/constant";
 import {
@@ -104,28 +100,26 @@ import type {
   InterleavingDefinitions,
 } from "shared/types/sdk";
 import type { ProjectInterface } from "shared/types/project";
-import type {
-  ApiFeatureEnvironment,
-  ApiFeatureEnvironmentV2,
-  apiFeatureRevisionV2Validator,
-  apiFeatureRevisionValidator,
-  ApiFeatureRule,
-  ApiFeatureRuleV2,
-  ApiFeatureWithRevisions,
-  ApiFeatureWithRevisionsV2,
-  ContextualBanditInterface,
-  EventUser,
-  HoldoutInterface,
-  InterleavingInterface,
-  RevisionRampAction,
-  SdkConnectionCacheAuditContext,
-  RampScheduleInterface,
-} from "shared/validators";
 import {
+  type ApiFeatureEnvironment,
+  type ApiFeatureEnvironmentV2,
+  type apiFeatureRevisionV2Validator,
+  type apiFeatureRevisionValidator,
+  type ApiFeatureRule,
+  type ApiFeatureRuleV2,
+  type ApiFeatureWithRevisions,
+  type ApiFeatureWithRevisionsV2,
+  type ContextualBanditInterface,
+  type EventUser,
   eventUserLegacyLabel,
   eventUserToApiEventUser,
+  type HoldoutInterface,
+  type InterleavingInterface,
   resolveSavedGroupsInput,
   eventUserIdentity,
+  type RevisionRampAction,
+  type SdkConnectionCacheAuditContext,
+  type RampScheduleInterface,
 } from "shared/validators";
 import type {
   AttributeMap,
@@ -161,19 +155,19 @@ import { measureSdkPayloadSize } from "shared/health";
 import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
-import type { FeatureDefinitionSources } from "back-end/src/util/featureDefinitionReferences.util";
 import {
+  type FeatureDefinitionSources,
   getSafeRolloutIdsForFeatureDefinitions,
   getSavedGroupIdsForFeatureDefinitions,
   loadSavedGroupsWithNested,
 } from "back-end/src/util/featureDefinitionReferences.util";
 import type { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import {
   buildCbVisualAutoExperiment,
   CB_PAYLOAD_WARN_BYTES,
   CB_PAYLOAD_WARN_FRACTION,
+  type CbVisualExperiment,
   filterCbVisualExperimentsByProject,
   getContextualBanditPrerequisiteDependents,
   filterServedCbVisualExperiments,
@@ -219,8 +213,11 @@ import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
-import type { Counter, Histogram } from "back-end/src/util/metrics";
-import { metrics } from "back-end/src/util/metrics";
+import {
+  type Counter,
+  type Histogram,
+  metrics,
+} from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import type { SDKPayloadKey } from "back-end/types/sdk-payload";

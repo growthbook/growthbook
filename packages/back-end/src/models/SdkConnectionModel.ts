@@ -2,15 +2,13 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { isEqual, isUndefined, omit, omitBy } from "lodash";
-import type {
-  ManagedBy,
-  ApiSdkConnection,
-  SdkPayloadSize,
-  SdkPayloadSizeLevel,
-} from "shared/validators";
 import {
   managedByValidator,
+  type ManagedBy,
+  type ApiSdkConnection,
   savedGroupFormatValidator,
+  type SdkPayloadSize,
+  type SdkPayloadSizeLevel,
 } from "shared/validators";
 import type {
   CreateSDKConnectionParams,

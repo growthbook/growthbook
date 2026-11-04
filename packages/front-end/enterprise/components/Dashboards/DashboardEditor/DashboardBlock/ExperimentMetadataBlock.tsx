@@ -1,5 +1,4 @@
-import type { ReactElement } from "react";
-import React, { Fragment } from "react";
+import React, { Fragment, type ReactElement } from "react";
 import type { ExperimentMetadataBlockInterface } from "shared/enterprise";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { ScrollArea, Separator, Text } from "@radix-ui/themes";

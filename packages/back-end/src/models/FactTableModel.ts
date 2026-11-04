@@ -1,5 +1,4 @@
-import type { FilterQuery } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
@@ -24,12 +23,13 @@ import type {
   UpdateFactTableProps,
   ColumnInterface,
 } from "shared/types/fact-table";
-import type {
-  ApiFactTable,
-  ApiFactTableColumn,
-  ApiFactTableFilter,
+import {
+  type ApiFactTable,
+  type ApiFactTableColumn,
+  type ApiFactTableFilter,
+  isExternallyManaged,
+  externallyManagedError,
 } from "shared/validators";
-import { isExternallyManaged, externallyManagedError } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";

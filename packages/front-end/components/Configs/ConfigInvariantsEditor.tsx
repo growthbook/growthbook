@@ -6,17 +6,15 @@ import {
   describeInvariantRule,
   invariantRuleFields,
   defaultInvariantMessage,
+  type ConfigInvariant,
 } from "shared/util";
-import type { ConfigInvariant } from "shared/util";
 import {
   ALL_OPS,
   isComp,
   conditionToMongo,
   parseCondition,
-} from "@/components/Configs/invariantConditions";
-import type {
-  CondOp,
-  Condition,
+  type CondOp,
+  type Condition,
 } from "@/components/Configs/invariantConditions";
 import {
   AddConditionButton,
@@ -35,8 +33,9 @@ import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import HelperText from "@/ui/HelperText";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
-import type { FormatOptionLabelType } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  type FormatOptionLabelType,
+} from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 
 type Props = {

@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import type { FeatureCodeRefsInterface } from "shared/types/code-refs";
 import type { ApiCodeRef } from "shared/validators";
 import type { OrganizationInterface } from "shared/types/organization";
-import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
+  type ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";

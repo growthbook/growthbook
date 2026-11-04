@@ -14,8 +14,8 @@ import type {
   UpdateFactMetricProps,
 } from "shared/types/fact-table";
 import Text from "@/ui/Text";
-import type { CreateFactMetricFormProps } from "@/services/metrics";
 import {
+  type CreateFactMetricFormProps,
   fromFactMetricFormValues,
   getDefaultFactMetricProps,
   getFactMetricTrackProps,

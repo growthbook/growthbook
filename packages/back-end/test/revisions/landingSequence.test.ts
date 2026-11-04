@@ -18,8 +18,7 @@ import {
   restoreEntityPreImage,
   tryRestoreEntityPreImage,
 } from "back-end/src/revisions/landingSequence";
-import type { Context } from "back-end/src/models/BaseModel";
-import { CasConflictError } from "back-end/src/models/BaseModel";
+import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
 
 /**
  * The write sequencing every landing shares, pinned as executable statements:

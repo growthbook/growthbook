@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useEffect, useState } from "react";
+import React, { type FC, useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";

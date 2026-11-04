@@ -8,18 +8,21 @@ import type {
   SavedGroupPayloadMap,
   SavedGroupType,
 } from "shared/types/saved-group";
-import type { NodeHandler } from "../../util";
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
+  type NodeHandler,
   recursiveWalk,
 } from "../../util";
 import type { SDKCapability } from "../types";
 import { SAVED_GROUP_ERROR_INVALID, SAVED_GROUP_ERROR_UNKNOWN } from "./errors";
 import type { SavedGroupPayloadStrategy } from "./types";
 import { parseDerivedGroupId } from "./derived";
-import type { NestedGroupRenderer } from "./walk";
-import { andConditionsInto, walkSavedGroups } from "./walk";
+import {
+  andConditionsInto,
+  type NestedGroupRenderer,
+  walkSavedGroups,
+} from "./walk";
 
 // The capability an SDK needs before we send a group of this type by
 // reference. Keyed by SavedGroupType, so adding a new type without gating it

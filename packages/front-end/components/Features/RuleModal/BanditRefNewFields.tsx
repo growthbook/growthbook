@@ -26,7 +26,7 @@ import {
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
-import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
+import type { RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -38,8 +38,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import type { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import type { AssignmentQueryCopySource } from "@/services/datasources";
 import {
+  type AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
 } from "@/services/datasources";

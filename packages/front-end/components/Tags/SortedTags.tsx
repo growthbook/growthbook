@@ -2,8 +2,7 @@ import { Text } from "@radix-ui/themes";
 import type { MouseEvent } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import type { TagProps } from "./Tag";
-import Tag from "./Tag";
+import Tag, { type TagProps } from "./Tag";
 import LinkedTag from "./LinkedTag";
 
 export type Props = {

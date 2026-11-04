@@ -22,10 +22,12 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { getMostRecentUpdateOccurrence } from "back-end/src/util/factTable";
-import type { AggregatedFactTableRunMode } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
-import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
-import type { AggregatedFactTableRestateReason } from "back-end/src/enterprise/services/data-pipeline";
 import {
+  AggregatedFactTableQueryRunner,
+  type AggregatedFactTableRunMode,
+} from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  type AggregatedFactTableRestateReason,
   buildAggregatedFactTableSchemaState,
   getAggregatedFactTableRestateReason,
 } from "back-end/src/enterprise/services/data-pipeline";

@@ -1,6 +1,8 @@
 import type { Response } from "express";
-import type { RampScheduleInterface } from "shared/validators";
-import { isAwaitingStartApproval } from "shared/validators";
+import {
+  type RampScheduleInterface,
+  isAwaitingStartApproval,
+} from "shared/validators";
 import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
   collectRampPlanActions,

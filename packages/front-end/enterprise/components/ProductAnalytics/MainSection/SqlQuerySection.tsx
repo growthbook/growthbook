@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";

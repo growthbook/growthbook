@@ -1,5 +1,5 @@
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
 } from "shared/experiments";

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import type {
   ExperimentInterfaceStringDates,

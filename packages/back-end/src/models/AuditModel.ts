@@ -1,8 +1,9 @@
-import type { FilterQuery, QueryOptions } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery, type QueryOptions } from "mongoose";
 import type { AuditInterface, EntityType } from "shared/types/audit";
-import type { ToInterface } from "back-end/src/util/mongo.util";
-import { removeMongooseFields } from "back-end/src/util/mongo.util";
+import {
+  removeMongooseFields,
+  type ToInterface,
+} from "back-end/src/util/mongo.util";
 import { generateId } from "back-end/src/util/uuid";
 
 const auditSchema = new mongoose.Schema({

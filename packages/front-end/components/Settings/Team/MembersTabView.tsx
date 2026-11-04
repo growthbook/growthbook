@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import InviteList from "@/components/Settings/Team/InviteList";

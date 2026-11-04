@@ -1,6 +1,5 @@
 import { interleavingExposureQueryEndpoints } from "shared/api-endpoints";
-import type { FC } from "react";
-import React, { useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import type { ApiInterleavingExposureQueryInterface } from "shared/validators";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";

@@ -14,9 +14,9 @@ import {
 } from "shared/experiments";
 import { getFunnelRuleViolations } from "shared/funnels";
 import type { UpdateProps } from "shared/types/base-model";
-import type { ApiFactMetric } from "shared/validators";
 import {
   factMetricValidator,
+  type ApiFactMetric,
   validateFactMetricCapping,
   isExternallyManaged,
   externallyManagedError,
@@ -45,8 +45,7 @@ import {
 } from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
-import type { Context } from "./BaseModel";
-import { CasConflictError, MakeModelClass } from "./BaseModel";
+import { CasConflictError, type Context, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
 

@@ -1,6 +1,10 @@
 import bodyParser from "body-parser";
-import type { NextFunction, Request, RequestHandler, Response } from "express";
-import express from "express";
+import express, {
+  type NextFunction,
+  type Request,
+  type RequestHandler,
+  type Response,
+} from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";

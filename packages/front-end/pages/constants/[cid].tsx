@@ -13,8 +13,8 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import type { ConstantInterface } from "shared/types/constant";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   applyTopLevelPatchOps,
   getConstantRestoreChange,
   getConstantRevisionChange,

@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
-import type { DocSection } from "@/components/docSections";
-import { docSections, docsOrigin } from "@/components/docSections";
+import {
+  type DocSection,
+  docSections,
+  docsOrigin,
+} from "@/components/docSections";
 import Link from "@/ui/Link";
 
 export type { DocSection };

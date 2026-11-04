@@ -5,8 +5,7 @@ import type {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
 } from "shared/enterprise";
-import type { ReactNode } from "react";
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   PiCheckCircleBold,
   PiMinusCircleBold,

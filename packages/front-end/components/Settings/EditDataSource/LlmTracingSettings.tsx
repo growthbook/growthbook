@@ -4,7 +4,6 @@ import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import type { FactTableDefinition } from "shared/types/fact-table";
 import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
 import AddLlmTracingModal from "@/components/Settings/EditDataSource/AddLlmTracingModal";
-import type { LlmTracingFormat } from "@/services/llmTracing";
 import {
   formatLlmTracingAddedDetail,
   getLlmTracingAddedAt,
@@ -13,6 +12,7 @@ import {
   getLlmTracingTools,
   isLlmTracingFormat,
   isLlmTracingToolAdded,
+  type LlmTracingFormat,
 } from "@/services/llmTracing";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";

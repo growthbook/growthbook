@@ -1,5 +1,8 @@
-import type { ExperimentStatus, ApiMetricUsage } from "shared/validators";
-import { getMetricUsageValidator } from "shared/validators";
+import {
+  type ExperimentStatus,
+  getMetricUsageValidator,
+  type ApiMetricUsage,
+} from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { getExperimentsUsingMetrics } from "back-end/src/models/ExperimentModel";

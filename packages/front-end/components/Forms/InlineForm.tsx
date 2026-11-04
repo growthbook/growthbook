@@ -1,6 +1,5 @@
 import clsx from "clsx";
-import type { ReactElement } from "react";
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";

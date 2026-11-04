@@ -1,22 +1,20 @@
 import isEqual from "lodash/isEqual";
 import { v4 as uuidv4 } from "uuid";
 import type { z } from "zod";
-import type {
-  apiInterleavingLifecycleReturn,
-  apiInterleavingResultsReturn,
-  apiInterleavingSnapshotReturn,
-  apiInterleavingSnapshotsReturn,
-  apiInterleavingStatusReturn,
-  ApiInterleavingInterface,
-  InterleavingInterface,
-} from "shared/validators";
 import {
   apiCreateInterleavingBody,
+  type apiInterleavingLifecycleReturn,
+  type apiInterleavingResultsReturn,
+  type apiInterleavingSnapshotReturn,
+  type apiInterleavingSnapshotsReturn,
+  type apiInterleavingStatusReturn,
   apiUpdateInterleavingBody,
+  type ApiInterleavingInterface,
   getInterleavingResultsEndpoint,
   getInterleavingSnapshotEndpoint,
   getInterleavingStatusEndpoint,
   INTERLEAVING_API_UPDATE_FIELDS,
+  type InterleavingInterface,
   interleavingApiSpec,
   interleavingValidator,
   listInterleavingSnapshotsEndpoint,

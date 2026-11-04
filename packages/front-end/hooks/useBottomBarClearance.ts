@@ -1,4 +1,4 @@
-import { RefCallback, useCallback, useRef } from "react";
+import { type RefCallback, useCallback, useRef } from "react";
 
 // Make the `?` help  launcher on bottom right not overlap with bottom bar actions
 const barHeights = new Map<Element, number>();

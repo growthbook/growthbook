@@ -5,10 +5,6 @@ import md5 from "md5";
 import mongoose from "mongoose";
 import intersection from "lodash/intersection";
 import type { NotificationEventName } from "shared/types/events/base-types";
-import type {
-  NotificationFilters,
-  NotificationDelivery,
-} from "shared/validators";
 import {
   zodNotificationEventNamesEnum,
   eventWebHookPayloadTypes,
@@ -16,6 +12,8 @@ import {
   notificationSettingsSchema,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
+  type NotificationFilters,
+  type NotificationDelivery,
 } from "shared/validators";
 import type { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";

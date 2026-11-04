@@ -1,7 +1,10 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
-import type { ExplorationDateRange } from "shared/validators";
-import { dateRangePredefined, lookbackUnit } from "shared/validators";
+import {
+  dateRangePredefined,
+  lookbackUnit,
+  type ExplorationDateRange,
+} from "shared/validators";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";

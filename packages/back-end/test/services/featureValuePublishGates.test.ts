@@ -1,8 +1,10 @@
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { ReqContext } from "back-end/types/request";
-import type { FeatureMergePlan } from "back-end/src/services/featurePublishGates";
-import { collectFeaturePublishGates } from "back-end/src/services/featurePublishGates";
+import {
+  collectFeaturePublishGates,
+  type FeatureMergePlan,
+} from "back-end/src/services/featurePublishGates";
 import { evaluatePublishGates } from "back-end/src/revisions/publishGates";
 
 jest.mock("back-end/src/enterprise/sandbox/sandbox-eval", () => ({

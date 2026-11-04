@@ -12,8 +12,7 @@ import { transformProductAnalyticsRowsToResult } from "shared/enterprise";
 import type { UpdateProps } from "shared/types/base-model";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import type { QueryMap } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 
 export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
   ProductAnalyticsExploration,

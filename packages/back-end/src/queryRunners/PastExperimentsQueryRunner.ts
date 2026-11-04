@@ -21,8 +21,7 @@ import {
   getPastExperimentsById,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import type { QueryMap } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 
 export type PastExperimentsAnalysis = Required<
   Pick<PastExperimentsInterface, "experiments" | "exposureQueryRuns">

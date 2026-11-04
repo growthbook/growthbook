@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { Fragment, useState } from "react";
+import React, { type FC, Fragment, useState } from "react";
 import type { ArchetypeInterface } from "shared/types/archetype";
 import type { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";

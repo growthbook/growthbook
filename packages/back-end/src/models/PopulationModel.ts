@@ -1,12 +1,10 @@
 import type { z } from "zod";
-import type {
-  ApiPopulation,
-  PopulationInterface,
-  PopulationStep,
-} from "shared/validators";
 import {
+  type ApiPopulation,
   apiCreatePopulationBody,
   apiUpdatePopulationBody,
+  type PopulationInterface,
+  type PopulationStep,
   populationApiSpec,
   populationValidator,
 } from "shared/validators";

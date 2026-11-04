@@ -1,5 +1,4 @@
-import type { UseFormReturn } from "react-hook-form";
-import { useWatch } from "react-hook-form";
+import { type UseFormReturn, useWatch } from "react-hook-form";
 import type {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -7,8 +6,7 @@ import type {
 import { areVariationWeightsValid } from "shared/experiments";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import type { ReactNode } from "react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -17,8 +15,7 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import { variationWeightsTotalPercent } from "@/services/utils";
-import type { RadioOptions } from "@/ui/RadioGroup";
-import RadioGroup from "@/ui/RadioGroup";
+import RadioGroup, { type RadioOptions } from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";

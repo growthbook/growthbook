@@ -62,11 +62,12 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useStartExperiment from "./useStartExperiment";
-import type { DetailsPanelTab } from "./ExperimentDetailsPanel";
-import ExperimentDetailsPanel from "./ExperimentDetailsPanel";
-import type { HoldoutDraft } from "./ExperimentEdits";
+import ExperimentDetailsPanel, {
+  type DetailsPanelTab,
+} from "./ExperimentDetailsPanel";
 import {
   ExperimentEditsProvider,
+  type HoldoutDraft,
   useExperimentEdits,
   useExperimentFieldEdit,
   useStagedState,
@@ -80,8 +81,12 @@ import Implementation, {
   withStagedVariations,
 } from "./Implementation";
 import type { TargetingDraft } from "./TrafficAllocationFunnel";
-import type { AddedFlag } from "./addedFlags";
-import { addedFlagChanges, linkEditId, useAddedFlags } from "./addedFlags";
+import {
+  type AddedFlag,
+  addedFlagChanges,
+  linkEditId,
+  useAddedFlags,
+} from "./addedFlags";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import RunningExperimentDecisionBanner from "./RunningExperimentDecisionBanner";

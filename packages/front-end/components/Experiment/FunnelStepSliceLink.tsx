@@ -1,11 +1,16 @@
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { getSliceDataForMetric, isFactFunnelMetric } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  getSliceDataForMetric,
+  isFactFunnelMetric,
+} from "shared/experiments";
 import type { CustomMetricSlice } from "shared/types/experiment";
 import type { FactTableDefinition } from "shared/types/fact-table";
 import Link from "@/ui/Link";
 import type { ExperimentTableRow } from "@/services/experiments";
-import type { DrilldownDimensionInfo } from "@/components/MetricDrilldown/useMetricDrilldownContext";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import {
+  type DrilldownDimensionInfo,
+  useMetricDrilldownContext,
+} from "@/components/MetricDrilldown/useMetricDrilldownContext";
 
 /**
  * A funnel's slices are per step and only shown in the metric drilldown, so a

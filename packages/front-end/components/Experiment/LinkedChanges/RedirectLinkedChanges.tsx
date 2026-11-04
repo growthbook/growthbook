@@ -1,10 +1,10 @@
 import type { LinkedChangeEnvStates } from "shared/types/experiment";
 import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
-import type { ColumnLayout } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import {
   ColumnCell,
   ColumnFooter,
   ColumnHeader,
+  type ColumnLayout,
   HeaderText,
   StagedNote,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";

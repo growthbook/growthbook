@@ -16,8 +16,10 @@ import type {
 } from "shared/types/organization";
 import { addTags } from "back-end/src/models/TagModel";
 import type { Context } from "back-end/src/models/BaseModel";
-import type { ScheduleUpdateInput } from "back-end/src/services/experimentScheduling";
-import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
+import {
+  type ScheduleUpdateInput,
+  validateScheduleUpdate,
+} from "back-end/src/services/experimentScheduling";
 import {
   assertValidBucketVersions,
   assertValidReleasedVariationId,

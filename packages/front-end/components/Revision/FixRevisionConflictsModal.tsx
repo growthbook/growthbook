@@ -3,9 +3,10 @@ import { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiCheckBold, PiGitMergeBold } from "react-icons/pi";
-import type { Revision, Conflict } from "shared/enterprise";
 import {
+  type Revision,
   checkMergeConflicts,
+  type Conflict,
   normalizeProposedChanges,
   patchOpsToPartial,
   getRevisionUpdatableFields,

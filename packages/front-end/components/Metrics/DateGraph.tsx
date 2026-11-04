@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { MetricType } from "shared/types/metric";
-import type { FC } from "react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { type FC, Fragment, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";

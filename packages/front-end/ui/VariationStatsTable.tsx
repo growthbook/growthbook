@@ -1,7 +1,10 @@
 import { Flex, Text } from "@radix-ui/themes";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { quantileMetricType, isFactMetric } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  quantileMetricType,
+  isFactMetric,
+} from "shared/experiments";
 import Table, {
   TableHeader,
   TableRow,

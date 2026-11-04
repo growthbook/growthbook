@@ -1,10 +1,9 @@
 import { interleavingExposureQueryEndpoints } from "shared/api-endpoints";
-import type { FC } from "react";
-import React, { useMemo, useState } from "react";
+import React, { type FC, useMemo, useState } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import type { ApiInterleavingExposureQueryInterface } from "shared/validators";
 import {
+  type ApiInterleavingExposureQueryInterface,
   INTERLEAVING_EXPOSURE_REQUIRED_COLUMNS,
   INTERLEAVING_ITEM_FIELD_COMPETITIVE,
   INTERLEAVING_ITEM_FIELD_ITEM_ID,

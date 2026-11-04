@@ -1,16 +1,18 @@
-import type { ReactNode } from "react";
-import React, { useMemo } from "react";
+import React, { type ReactNode, useMemo } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiInfo, PiXBold } from "react-icons/pi";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type { FieldValues, UseFormReturn } from "react-hook-form";
-import { useFieldArray } from "react-hook-form";
+import {
+  type FieldValues,
+  useFieldArray,
+  type UseFormReturn,
+} from "react-hook-form";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   expandMetricGroups,
   getDefaultRegressionAdjustmentDays,
   getMetricWindowHours,
@@ -37,8 +39,7 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
-import type { TextFieldProps } from "@/ui/TextField";
-import TextField from "@/ui/TextField";
+import TextField, { type TextFieldProps } from "@/ui/TextField";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { decimalToPercent } from "@/services/utils";

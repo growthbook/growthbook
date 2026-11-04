@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { ApiContextualBanditInterface } from "shared/validators";
 import type { ExperimentReportVariation } from "shared/types/report";

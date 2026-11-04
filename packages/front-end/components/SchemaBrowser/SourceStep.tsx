@@ -1,5 +1,11 @@
-import type { MutableRefObject, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type MutableRefObject,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   PiArrowClockwise,
   PiArrowRight,
@@ -23,10 +29,10 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import type { SchemaBrowserTable } from "@/services/schemaBrowserTables";
 import {
   getSchemaBrowserTables,
   getUnlistedTable,
+  type SchemaBrowserTable,
 } from "@/services/schemaBrowserTables";
 import useApi from "@/hooks/useApi";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -46,8 +52,10 @@ import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
-import type { SourceTable } from "@/components/SchemaBrowser/useSourceTable";
-import { SAMPLE_ROW_LIMIT } from "@/components/SchemaBrowser/useSourceTable";
+import {
+  SAMPLE_ROW_LIMIT,
+  type SourceTable,
+} from "@/components/SchemaBrowser/useSourceTable";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";

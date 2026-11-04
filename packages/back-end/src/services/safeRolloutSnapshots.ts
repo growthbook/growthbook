@@ -15,9 +15,9 @@ import {
   getSafeRolloutSnapshotAnalysis,
   isDefined,
 } from "shared/util";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   expandMetricGroups,
+  type ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
   isBinomialMetric,
@@ -56,13 +56,17 @@ import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
-import type { FactTableMap } from "back-end/src/models/FactTableModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  type FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import type { CreateEventData } from "back-end/src/models/EventModel";
-import { createEvent } from "back-end/src/models/EventModel";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getPValueThresholdForProject } from "back-end/src/services/organizations";

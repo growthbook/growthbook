@@ -14,8 +14,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 

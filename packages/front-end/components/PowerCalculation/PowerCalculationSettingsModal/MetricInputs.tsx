@@ -1,6 +1,9 @@
 import clsx from "clsx";
-import type { MetricParams, PartialMetricParams } from "shared/power";
-import { config } from "shared/power";
+import {
+  config,
+  type MetricParams,
+  type PartialMetricParams,
+} from "shared/power";
 import Field from "@/components/Forms/Field";
 import PercentField from "@/components/Forms/PercentField";
 import Switch from "@/ui/Switch";

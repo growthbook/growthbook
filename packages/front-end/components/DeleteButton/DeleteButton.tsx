@@ -1,5 +1,11 @@
-import type { FC, CSSProperties, ReactElement } from "react";
-import { useState, useEffect, isValidElement } from "react";
+import {
+  type FC,
+  useState,
+  useEffect,
+  type CSSProperties,
+  type ReactElement,
+  isValidElement,
+} from "react";
 import clsx from "clsx";
 import { PiTrashFill } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";

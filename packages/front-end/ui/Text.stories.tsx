@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
-import type { TextProps } from "./Text";
-import Text from "./Text";
+import Text, { type TextProps } from "./Text";
 import { Select, SelectItem } from "./Select";
 
 export default function TextStories() {

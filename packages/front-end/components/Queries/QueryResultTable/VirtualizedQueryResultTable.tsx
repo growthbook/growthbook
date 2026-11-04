@@ -1,10 +1,8 @@
-import type { CSSProperties, ReactNode } from "react";
-import { useMemo, useRef } from "react";
+import { type CSSProperties, type ReactNode, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import clsx from "clsx";
 import styles from "./QueryResultTable.module.scss";
-import type { GetCellText } from "./columnWidths";
-import { computeColumnWidths } from "./columnWidths";
+import { computeColumnWidths, type GetCellText } from "./columnWidths";
 import {
   CELL_BORDER,
   CELL_FONT_SIZE,

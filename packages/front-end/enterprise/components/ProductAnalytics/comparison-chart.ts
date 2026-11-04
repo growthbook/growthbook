@@ -5,8 +5,8 @@ import {
   buildComparisonDateRangeForMode,
   calculateProductAnalyticsDateRange,
   createComparisonAlignmentResolver,
+  type ComparisonAlignmentStrategy,
 } from "shared/enterprise";
-import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import type {
   ComparisonMode,
   ExplorationConfig,

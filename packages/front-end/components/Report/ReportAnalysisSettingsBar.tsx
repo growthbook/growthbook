@@ -6,8 +6,7 @@ import {
   getSnapshotAnalysis,
 } from "shared/util";
 import { ago, date, datetime } from "shared/dates";
-import type { RefObject } from "react";
-import React, { useMemo, useState } from "react";
+import React, { type RefObject, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
 import { startCase } from "lodash";

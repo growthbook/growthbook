@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { z } from "zod";
-import type { ApiAutoRun } from "shared/validators";
 import {
+  type ApiAutoRun,
   apiAppendAutoRunArtifactBody,
   apiCreateAutoRunBody,
   apiUpdateAutoRunBody,

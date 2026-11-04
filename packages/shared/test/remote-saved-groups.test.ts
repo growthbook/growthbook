@@ -1,14 +1,16 @@
-import type { EvalConditionOptions } from "@growthbook/growthbook";
-import { evalCondition } from "@growthbook/growthbook";
+import {
+  evalCondition,
+  type EvalConditionOptions,
+} from "@growthbook/growthbook";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import type { SDKCapability } from "../src/sdk-versioning";
 import {
   addRemoteGroupIdsGuard,
   createAttributeConditionFromGroupIds,
   getDerivedRemoteGroups,
   getSavedGroupPayloadStrategy,
   parseDerivedGroupId,
+  type SDKCapability,
 } from "../src/sdk-versioning";
 import { recursiveWalk, targetingReferencesSavedGroup } from "../util";
 

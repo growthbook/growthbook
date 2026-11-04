@@ -1,11 +1,10 @@
-import type { FC } from "react";
-import { useState, useMemo } from "react";
+import { type FC, useState, useMemo } from "react";
 import { PiInfo } from "react-icons/pi";
-import type {
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
+import {
+  type ExperimentMetricDefinition,
+  type ExperimentSortBy,
+  isFactFunnelMetric,
 } from "shared/experiments";
-import { isFactFunnelMetric } from "shared/experiments";
 import type {
   DifferenceType,
   StatsEngine,
@@ -32,7 +31,7 @@ import {
   buildFunnelStepSliceRows,
   filterRowsForMetricDrilldown,
 } from "./helpers";
-import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
+import type { DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricDefinition;

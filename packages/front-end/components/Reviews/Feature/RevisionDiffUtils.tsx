@@ -22,8 +22,11 @@ import {
 } from "react-icons/pi";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { datetime, getValidDate } from "shared/dates";
-import type { MergeConflict, MergeStrategy } from "shared/util";
-import { DRAFT_REVISION_STATUSES } from "shared/util";
+import {
+  type MergeConflict,
+  type MergeStrategy,
+  DRAFT_REVISION_STATUSES,
+} from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type {
   FeatureRevisionInterface,
@@ -54,9 +57,9 @@ import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import type { CopyDiffFormat } from "@/components/Reviews/diffCopyFormats";
 import {
   COPY_DIFF_FORMATS,
+  type CopyDiffFormat,
   formatDiffForCopy,
 } from "@/components/Reviews/diffCopyFormats";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
@@ -83,12 +86,10 @@ import {
 import { holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import { Popover } from "@/ui/Popover";
-import type {
-  AnchoredComment,
-  DiffCommentRef,
-  DiffRefSnapshot,
-} from "@/components/Reviews/diffCommentRefs";
 import {
+  type AnchoredComment,
+  type DiffCommentRef,
+  type DiffRefSnapshot,
   DIFF_FORMAT_EVENT,
   DIFF_SECTION_EXPAND_EVENT,
   buildDiffSnapshotEntries,

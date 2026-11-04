@@ -1,5 +1,4 @@
-import type { ReactNode, FC, ReactElement } from "react";
-import { useEffect } from "react";
+import { type ReactNode, type FC, type ReactElement, useEffect } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { trackPageView } from "@/services/track";
 

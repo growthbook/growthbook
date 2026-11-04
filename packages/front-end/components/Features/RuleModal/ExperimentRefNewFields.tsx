@@ -28,15 +28,15 @@ import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSe
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
-import type { NewExperimentRefRule } from "@/services/features";
 import {
   getFeatureDefaultValue,
+  type NewExperimentRefRule,
   useAttributeSchema,
   resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
-import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
+import type { RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
@@ -51,8 +51,8 @@ import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector"
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import type { AssignmentQueryCopySource } from "@/services/datasources";
 import {
+  type AssignmentQueryCopySource,
   getCopiedAssignmentQueryNotice,
   getCopySourceIdentifierType,
   getExposureQueriesForProject,

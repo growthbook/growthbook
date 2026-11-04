@@ -5,10 +5,10 @@ import {
   OAUTH_ACCESS_TOKEN_PREFIX,
   OAUTH_REFRESH_TOKEN_PREFIX,
 } from "back-end/src/util/oauth-token.util";
-import type { OAuthError } from "back-end/src/services/oauth";
 import {
   exchangeRefreshToken,
   mintAuthorizationCode,
+  type OAuthError,
   revokeToken,
 } from "back-end/src/services/oauth";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";

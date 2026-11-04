@@ -2,8 +2,8 @@ import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { ReqContext } from "back-end/types/organization";
 import type { ApiReqContext } from "back-end/types/api";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
-import type { ApiRuleV2Input } from "back-end/src/api/features/v2Shared";
 import {
+  type ApiRuleV2Input,
   assertCanUseRuleScheduling,
   assertUniqueRuleIds,
   assertUniqueRuleIdsByEnv,

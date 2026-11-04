@@ -1,10 +1,10 @@
 import type { z } from "zod";
-import type {
-  ExplorationConfig,
-  ApiAnalyticsExploration,
-  ProductAnalyticsExploration,
+import {
+  type ExplorationConfig,
+  type ApiAnalyticsExploration,
+  type ProductAnalyticsExploration,
+  productAnalyticsExplorationValidator,
 } from "shared/validators";
-import { productAnalyticsExplorationValidator } from "shared/validators";
 import md5 from "md5";
 import {
   calculateProductAnalyticsDateRange,

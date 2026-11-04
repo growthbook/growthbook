@@ -5,8 +5,10 @@ import type {
   DataSourceType,
 } from "shared/types/datasource";
 import type { EventForwarderConfigWithMetadata } from "shared/types/event-forwarder";
-import { getEventForwarderSinkTypeForDatasource } from "shared/util";
-import type { DataSourceParamsForType } from "shared/util";
+import {
+  getEventForwarderSinkTypeForDatasource,
+  type DataSourceParamsForType,
+} from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import {
   getNonSensitiveParams,

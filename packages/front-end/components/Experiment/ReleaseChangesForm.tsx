@@ -13,8 +13,11 @@ import type {
 } from "shared/types/feature";
 import { BsCheckCircle, BsExclamationCircle } from "react-icons/bs";
 import { PiArrowSquareOut, PiLightbulb } from "react-icons/pi";
-import type { NamespaceValue } from "shared/util";
-import { getNamespaceRanges, hasNarrowedRanges } from "shared/util";
+import {
+  getNamespaceRanges,
+  hasNarrowedRanges,
+  type NamespaceValue,
+} from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import type {
   ChangeType,

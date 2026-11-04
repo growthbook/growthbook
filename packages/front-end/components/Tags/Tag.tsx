@@ -2,8 +2,7 @@ import React from "react";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { Size as BadgeSize } from "@/ui/Badge";
-import Badge from "@/ui/Badge";
+import Badge, { type Size as BadgeSize } from "@/ui/Badge";
 import type { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 

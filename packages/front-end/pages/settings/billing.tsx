@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import type { LicenseInterface } from "shared/enterprise";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";

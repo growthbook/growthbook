@@ -4,10 +4,10 @@ import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { LegendItem, LegendLabel, LegendOrdinal } from "@visx/legend";
 import { AxisBottom, AxisLeft } from "@visx/axis";
-import type { ReactNode } from "react";
 import {
   createContext,
   Fragment,
+  type ReactNode,
   useContext,
   useEffect,
   useRef,

@@ -1,5 +1,4 @@
-import type { ReactNode, FC } from "react";
-import React, { useState } from "react";
+import React, { type ReactNode, type FC, useState } from "react";
 import uniqId from "uniqid";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {

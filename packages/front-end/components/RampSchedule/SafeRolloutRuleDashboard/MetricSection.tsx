@@ -22,10 +22,10 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import type { ExperimentTableRow } from "@/services/experiments";
-import { getRowResults } from "@/services/experiments";
-import type { TimeSeriesEventMarker } from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
-import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
+import { type ExperimentTableRow, getRowResults } from "@/services/experiments";
+import SafeRolloutTimeSeriesGraph, {
+  type TimeSeriesEventMarker,
+} from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
 import StatusColumn from "@/components/SafeRollout/Results/StatusColumn";
 import MetricName from "@/components/Metrics/MetricName";
 import Tooltip from "@/components/Tooltip/Tooltip";

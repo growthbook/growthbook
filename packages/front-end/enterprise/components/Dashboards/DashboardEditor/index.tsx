@@ -8,18 +8,16 @@ import React, {
 } from "react";
 import { PiCaretDownFill, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import type {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-  DashboardBlockType,
-  DashboardEditLevel,
-  DashboardInterface,
-  DashboardShareLevel,
-  DashboardUpdateSchedule,
-} from "shared/enterprise";
 import {
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
+  type DashboardBlockType,
   dashboardBlockHasIds,
   getBlockData,
+  type DashboardEditLevel,
+  type DashboardInterface,
+  type DashboardShareLevel,
+  type DashboardUpdateSchedule,
   DASHBOARD_GRID_COLS,
   DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
   getBlockSizeBounds,
@@ -28,8 +26,11 @@ import { isDefined } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/nextjs";
-import type { LayoutItem } from "react-grid-layout";
-import { ResponsiveGridLayout, verticalCompactor } from "react-grid-layout";
+import {
+  type LayoutItem,
+  ResponsiveGridLayout,
+  verticalCompactor,
+} from "react-grid-layout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -58,8 +59,8 @@ import DashboardBlock from "./DashboardBlock";
 import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 import { AddBlockDropdown } from "./DashboardBlockTypeMenu";
 import { getAvailableBlockTypes } from "./dashboardBlockTypes";
-import type { AddBlockOptions } from "./dashboardLayout";
 import {
+  type AddBlockOptions,
   blockFitsGap,
   DASHBOARD_GRID_MARGIN,
   getHorizontalGridGaps,

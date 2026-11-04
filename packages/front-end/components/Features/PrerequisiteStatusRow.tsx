@@ -27,15 +27,18 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
 import Text from "@/ui/Text";
-import type { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
-import { usePrerequisiteStates } from "@/hooks/usePrerequisiteStates";
+import {
+  type PrerequisiteStateResult,
+  usePrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { featureStatusColors } from "./FeaturesOverview";
 
 interface Props {

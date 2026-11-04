@@ -7,8 +7,7 @@ import {
   IncrementalRefreshModel,
   COLLECTION_NAME,
 } from "back-end/src/models/IncrementalRefreshModel";
-import { waitForIndexes } from "back-end/src/models/BaseModel";
-import type { Context } from "back-end/src/models/BaseModel";
+import { waitForIndexes, type Context } from "back-end/src/models/BaseModel";
 
 const context = {
   org: { id: "org_1" },

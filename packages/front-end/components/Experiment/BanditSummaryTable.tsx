@@ -4,8 +4,10 @@ import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { BanditEvent } from "shared/validators";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { getVariationColor } from "@/services/features";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";

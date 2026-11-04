@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useRouter } from "next/router";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -27,14 +26,15 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { dataSourceConnections } from "@/services/eventSchema";
 import { isCloud } from "@/services/env";
-import type { DocSection } from "@/components/DocLink";
-import { DocLink } from "@/components/DocLink";
+import { DocLink, type DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import type { DataSourceOptionKey } from "./useDataSourceOptionEligibility";
-import { useDataSourceOptionEligibility } from "./useDataSourceOptionEligibility";
+import {
+  type DataSourceOptionKey,
+  useDataSourceOptionEligibility,
+} from "./useDataSourceOptionEligibility";
 import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 import SampleDataSourceLink from "./SampleDataSourceLink";
 import ManagedWarehouseModal from "./ManagedWarehouseModal";

@@ -1,6 +1,14 @@
 import clsx from "clsx";
-import type { CSSProperties, ReactElement, ReactNode } from "react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { RxInfoCircled } from "react-icons/rx";
 import { Box, Flex, Popover } from "@radix-ui/themes";
 import { extent } from "@visx/vendor/d3-array";
@@ -15,13 +23,19 @@ import type {
 } from "shared/types/stats";
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { isFactMetric } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetric,
+} from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
-import type { ExperimentTableRow, RowResults } from "@/services/experiments";
-import { getComputeErrorMessage, getRowResults } from "@/services/experiments";
+import {
+  type ExperimentTableRow,
+  getComputeErrorMessage,
+  getRowResults,
+  type RowResults,
+} from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import type { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";

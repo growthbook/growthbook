@@ -1,5 +1,4 @@
-import type { DeclarativeMutation } from "dom-mutator";
-import mutate from "dom-mutator";
+import mutate, { type DeclarativeMutation } from "dom-mutator";
 import type {
   ApiHost,
   Attributes,

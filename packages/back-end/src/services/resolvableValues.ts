@@ -1,7 +1,10 @@
 import type { ConstantInterface } from "shared/types/constant";
 import type { ConfigInterface } from "shared/types/config";
-import type { ScopedOverrideEntry } from "shared/util";
-import { getConfigBaseKeys, withConfigExtends } from "shared/util";
+import {
+  getConfigBaseKeys,
+  withConfigExtends,
+  type ScopedOverrideEntry,
+} from "shared/util";
 import type { ConstantSource } from "shared/sdk-versioning";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";

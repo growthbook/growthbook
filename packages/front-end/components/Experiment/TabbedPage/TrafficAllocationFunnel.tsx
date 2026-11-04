@@ -1,6 +1,11 @@
 import clsx from "clsx";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useMemo,
+  useState,
+} from "react";
 import type {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -55,9 +60,10 @@ import { InfoTip } from "./SetupFieldRow";
 import type { DraftPick, FlagDraftPicks } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
 import useExperimentEditing from "./useExperimentEditing";
-import type { FlagEnvironmentsDraft, HoldoutDraft } from "./ExperimentEdits";
 import {
   experimentFieldChanges,
+  type FlagEnvironmentsDraft,
+  type HoldoutDraft,
   reviewAgainstCurrent,
   useEditBase,
   useExperimentEdits,

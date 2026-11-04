@@ -10,8 +10,10 @@ import type {
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { getAdjustedCI } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  getAdjustedCI,
+} from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -21,11 +23,10 @@ import {
 import { findTimeSeriesVariation } from "@/services/timeSeriesVariations";
 import { useCurrency } from "@/hooks/useCurrency";
 import type { GraphVariation } from "./ExperimentDateGraph";
-import type {
-  DataPointVariation,
-  ExperimentTimeSeriesGraphDataPoint,
+import ExperimentTimeSeriesGraph, {
+  type DataPointVariation,
+  type ExperimentTimeSeriesGraphDataPoint,
 } from "./ExperimentTimeSeriesGraph";
-import ExperimentTimeSeriesGraph from "./ExperimentTimeSeriesGraph";
 
 function getLiftSlice(
   variation: MetricTimeSeriesVariation,

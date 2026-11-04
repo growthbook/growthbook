@@ -20,8 +20,9 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import type { AnalysisBarSettings } from "@/components/Experiment/Results";
-import Results from "@/components/Experiment/Results";
+import Results, {
+  type AnalysisBarSettings,
+} from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";

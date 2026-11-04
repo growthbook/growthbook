@@ -32,9 +32,9 @@ import type {
   QueryType,
   TestQueryType,
 } from "shared/types/query";
-import type { DataSourceParamsForType } from "shared/util";
 import {
   formatQueryExecutionErrorForApi,
+  type DataSourceParamsForType,
   mergeDataSourceParams,
   redactSecretParams,
   getExposureQueryExperimentIdColumn,

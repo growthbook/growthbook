@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
-import type { AIModel, AIModelSettingKey, AIProvider } from "shared/ai";
 import {
+  type AIModel,
+  type AIModelSettingKey,
+  type AIProvider,
   AI_PROVIDERS,
   AI_PROVIDER_META,
   getAIModelSettingsUsingProvider,

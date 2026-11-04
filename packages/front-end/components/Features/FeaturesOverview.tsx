@@ -38,13 +38,13 @@ import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import type {
-  SafeRolloutInterface,
-  HoldoutInterface,
-  MinimalFeatureRevisionInterface,
-  RampScheduleInterface,
+import {
+  ACTIVE_DRAFT_STATUSES,
+  type SafeRolloutInterface,
+  type HoldoutInterface,
+  type MinimalFeatureRevisionInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import EventUser from "@/components/Avatar/EventUser";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
@@ -101,8 +101,10 @@ import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import type { FeatureTab } from "@/pages/features/[fid]";
-import type { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
-import { usePrerequisiteStates } from "@/hooks/usePrerequisiteStates";
+import {
+  type PrerequisiteStateResult,
+  usePrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import FeatureRules from "./FeatureRules";

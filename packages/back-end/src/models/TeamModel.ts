@@ -1,5 +1,4 @@
-import type { ApiDeleteTeamReturn } from "shared/validators";
-import { teamSchema } from "shared/validators";
+import { teamSchema, type ApiDeleteTeamReturn } from "shared/validators";
 import type { ApiTeamInterface, TeamInterface } from "shared/types/team";
 import type { UpdateProps } from "shared/types/base-model";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";

@@ -1,12 +1,10 @@
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type {
-  ServerChecklistItem,
-  StartActions,
-} from "@/components/Experiment/TabbedPage/startActions";
 import {
   getStartTitle,
   getStartActions,
   getStartSchedule,
+  type ServerChecklistItem,
+  type StartActions,
   withServerChecklist,
 } from "@/components/Experiment/TabbedPage/startActions";
 

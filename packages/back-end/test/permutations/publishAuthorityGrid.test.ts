@@ -4,8 +4,8 @@ import type { RequireReview, TeamInterface } from "shared/types/organization";
 import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureDraftAuthority";
 import type { Context } from "back-end/src/models/BaseModel";
-import type { Member } from "./grid.fixture";
 import {
+  type Member,
   GRID_TEAMS,
   buildGridOrg,
   buildGridPersonas,

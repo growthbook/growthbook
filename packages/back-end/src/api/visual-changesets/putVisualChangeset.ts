@@ -1,10 +1,10 @@
 import omit from "lodash/omit";
 import { putVisualChangesetValidator } from "shared/validators";
-import type { VisualChangesetUpdates } from "back-end/src/models/VisualChangesetModel";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
   updateVisualChangeset,
+  type VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {

@@ -1,14 +1,12 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type {
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardBlockType,
-  DashboardInterface,
-} from "shared/enterprise";
 import {
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockType,
   blockHasFieldOfType,
   blockUsesDashboardDateControl,
+  type DashboardInterface,
   isDashboardGlobalControlSupportedBlock,
   isDashboardExperimentBlock,
   experimentBlockOptedOutOfGlobalFilters,
@@ -24,8 +22,10 @@ import type {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import type { SavedQuery } from "shared/validators";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { expandMetricGroups } from "shared/experiments";
+import {
+  expandMetricGroups,
+  type ExperimentMetricDefinition,
+} from "shared/experiments";
 import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import type { MetricAnalysisInterface } from "shared/types/metric-analysis";

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useState } from "react";
+import React, { type FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import type { DimensionInterface } from "shared/types/dimension";
 import NextLink from "next/link";
@@ -16,8 +15,7 @@ import { envAllowsCreatingDimensions, hasFileConfig } from "@/services/env";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { DocLink } from "@/components/DocLink";
-import type { Language } from "@/components/SyntaxHighlighting/Code";
-import Code from "@/components/SyntaxHighlighting/Code";
+import Code, { type Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useSearch } from "@/services/search";

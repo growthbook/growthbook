@@ -1,5 +1,4 @@
-import type { FilterQuery } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import omit from "lodash/omit";
 import type { LicenseInterface } from "shared/enterprise";
 import type { LicenseRefs } from "back-end/src/util/adminOrgQuery";

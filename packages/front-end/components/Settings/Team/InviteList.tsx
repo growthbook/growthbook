@@ -1,5 +1,4 @@
-import type { FC, ReactElement } from "react";
-import React, { useState } from "react";
+import React, { type FC, useState, type ReactElement } from "react";
 import type { Invite, MemberRoleInfo } from "shared/types/organization";
 import { PiX } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";

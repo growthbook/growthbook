@@ -1,20 +1,25 @@
-import type { FC } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import type { Revision, RevisionStatus } from "shared/enterprise";
-import type { EventUser as EventUserType } from "shared/validators";
-import { eventUserLabel, revisionActor } from "shared/validators";
+import {
+  type EventUser as EventUserType,
+  eventUserLabel,
+  revisionActor,
+} from "shared/validators";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/ui/Pagination";
-import type { SyntaxFilter } from "@/services/search";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  type SyntaxFilter,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import {
   FilterDropdown,
   useSearchFiltersBase,

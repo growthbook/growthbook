@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight, PiChatCircle } from "react-icons/pi";
 import type {

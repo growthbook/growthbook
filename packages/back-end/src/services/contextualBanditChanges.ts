@@ -4,8 +4,10 @@ import type { ContextualBanditInterface } from "shared/validators";
 import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
-import type { ContextualBanditUpdate } from "back-end/src/services/contextualBanditSchedule";
-import { determineNextContextualBanditSchedule } from "back-end/src/services/contextualBanditSchedule";
+import {
+  type ContextualBanditUpdate,
+  determineNextContextualBanditSchedule,
+} from "back-end/src/services/contextualBanditSchedule";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAffectedSDKPayloadKeys,
@@ -14,12 +16,10 @@ import {
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import type {
-  PendingDraftFailure,
-  PendingDraftPublishResult,
-} from "back-end/src/services/experiment-feature";
 import {
   formatPendingDraftFailureMessage,
+  type PendingDraftFailure,
+  type PendingDraftPublishResult,
   publishPendingFeatureDraftsForContextualBandit,
 } from "back-end/src/services/experiment-feature";
 

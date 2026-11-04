@@ -5,8 +5,7 @@ import {
   PiCaretRight,
   PiCaretUp,
 } from "react-icons/pi";
-import type { ReactNode } from "react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import styles from "./CollapsibleSidePanel.module.scss";
 
 export default function CollapsibleSidePanel({

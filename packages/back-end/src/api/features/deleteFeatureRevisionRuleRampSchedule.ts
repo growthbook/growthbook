@@ -1,6 +1,8 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import type { RevisionRampDetachAction } from "shared/validators";
-import { deleteFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
+import {
+  type RevisionRampDetachAction,
+  deleteFeatureRevisionRuleRampScheduleValidator,
+} from "shared/validators";
 import { getApplicableEnvIds } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useState } from "react";
+import React, { type FC, useState } from "react";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import ImportExperimentList from "@/components/Experiment/ImportExperimentList";

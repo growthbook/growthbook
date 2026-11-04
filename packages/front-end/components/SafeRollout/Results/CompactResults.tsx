@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useMemo } from "react";
+import { type FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import type {
   ExperimentReportVariation,
@@ -17,9 +16,9 @@ import type {
 } from "shared/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   expandMetricGroups,
+  type ExperimentMetricDefinition,
   getMetricLink,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -27,9 +26,9 @@ import {
 import { isDefined } from "shared/util";
 import type { SafeRolloutReportResultDimension } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { ExperimentTableRow } from "@/services/experiments";
 import {
   applyMetricOverrides,
+  type ExperimentTableRow,
   NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";

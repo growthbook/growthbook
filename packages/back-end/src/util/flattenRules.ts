@@ -8,10 +8,12 @@ import {
   resolveRampTargets,
   ruleFootprint,
   type RampTargetQuery,
+  parseRuleId,
+  stemRuleId,
+  suffixRuleId,
 } from "shared/util";
 import isEqual from "lodash/isEqual";
 import type { FeatureRule, V1FeatureRule } from "shared/validators";
-import { parseRuleId, stemRuleId, suffixRuleId } from "shared/util";
 import { BadRequestError } from "back-end/src/util/errors";
 
 // Re-exported for back-end callers; new code should import from shared/validators.

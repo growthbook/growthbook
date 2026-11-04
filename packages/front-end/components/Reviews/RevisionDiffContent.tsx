@@ -1,17 +1,15 @@
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
-import type {
-  DiffCommentsProps,
-  DiffFormat,
-  FormattedChangeItem,
-} from "@/components/Reviews/Feature/RevisionDiffUtils";
 import {
   ExpandableDiff,
+  type DiffCommentsProps,
   DiffFormatToggle,
   CopyAsButton,
   FormattedChanges,
   useDiffFormat,
   stringifyForRawDiff,
+  type DiffFormat,
+  type FormattedChangeItem,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";

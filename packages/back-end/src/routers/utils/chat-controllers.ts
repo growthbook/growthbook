@@ -1,9 +1,9 @@
 import type { Response } from "express";
-import { type AIChatMessage } from "shared/ai-chat";
-import {
-  type AIChatFeedbackEntry,
-  type AIChatFeedbackRating,
-  type AIAgentPendingAction,
+import type { AIChatMessage } from "shared/ai-chat";
+import type {
+  AIChatFeedbackEntry,
+  AIChatFeedbackRating,
+  AIAgentPendingAction,
 } from "shared/validators";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";

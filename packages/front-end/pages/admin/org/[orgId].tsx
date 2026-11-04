@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
@@ -12,17 +11,20 @@ import type { SSOConnectionInterface } from "shared/types/sso-connection";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { SuperAdminPermission } from "shared/validators";
 import { getDefaultRole, hasSuperAdminPermission } from "shared/permissions";
-import type { AdminOrgSummary, LicenseInterface } from "shared/enterprise";
-import { getAdminOrgSummary } from "shared/enterprise";
+import {
+  type AdminOrgSummary,
+  getAdminOrgSummary,
+  type LicenseInterface,
+} from "shared/enterprise";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import type { DataRegion } from "@/services/dataRegions";
 import {
   DEFAULT_DATA_REGION,
+  type DataRegion,
   useDataRegionOptions,
 } from "@/services/dataRegions";
 import PageHead from "@/components/Layout/PageHead";
@@ -32,8 +34,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { GBEdit } from "@/components/Icons";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import EditOrganization from "@/components/Admin/EditOrganization";
-import type { AdminMember } from "@/components/Admin/EditMember";
-import EditMember from "@/components/Admin/EditMember";
+import EditMember, { type AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
 import KeyValues from "@/components/Admin/KeyValues";

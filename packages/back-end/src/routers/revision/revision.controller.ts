@@ -1,15 +1,13 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { proposedProjectScope } from "shared/util";
 import type { Response } from "express";
-import type {
-  Revision,
-  RevisionTargetType,
-  Conflict,
-  ReviewDecision,
-  JsonPatchOperation,
-} from "shared/enterprise";
 import {
+  type Revision,
+  type RevisionTargetType,
+  type Conflict,
+  type ReviewDecision,
   checkMergeConflicts,
+  type JsonPatchOperation,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   REVIEW_CYCLE_STATUSES,

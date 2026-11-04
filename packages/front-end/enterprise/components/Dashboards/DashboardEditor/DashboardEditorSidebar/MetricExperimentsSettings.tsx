@@ -1,9 +1,7 @@
-import type {
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-  MetricExperimentsBlockInterface,
-} from "shared/enterprise";
 import {
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
+  type MetricExperimentsBlockInterface,
   isDifferenceType,
   DIFFERENCE_TYPE_OPTIONS,
   blockUsesGlobalFilter,
@@ -18,8 +16,8 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
-import type { ExtraFilter } from "@/components/Search/SidebarExperimentFilters";
 import SidebarExperimentFilters, {
+  type ExtraFilter,
   experimentSearchIsActive,
 } from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";

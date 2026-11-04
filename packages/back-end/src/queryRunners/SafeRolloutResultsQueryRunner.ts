@@ -15,10 +15,9 @@ import {
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import { logger } from "back-end/src/util/logger";
-import type { QueryMap } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
-import type { ExperimentResultsQueryParams } from "./ExperimentResultsQueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 import {
+  type ExperimentResultsQueryParams,
   startExperimentResultQueries,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";

@@ -1,6 +1,5 @@
 import FormData from "form-data";
-import type { STTProvider } from "shared/ai";
-import { getProviderFromSTTModel } from "shared/ai";
+import { type STTProvider, getProviderFromSTTModel } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";

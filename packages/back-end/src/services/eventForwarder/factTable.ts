@@ -10,12 +10,12 @@ import type {
   CreateColumnProps,
 } from "shared/types/fact-table";
 import type { EventForwarderConfigInterface } from "shared/validators";
-import type { EventForwarderDatasourceParams } from "shared/util";
 import {
   buildEventForwarderEventsFactTableColumns,
   buildEventForwarderEventsFactTableSql,
   EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION,
   EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+  type EventForwarderDatasourceParams,
   getEventForwarderEventsFactTableId,
   getEventForwarderEventsFactTableName,
   getEventForwarderSinkTypeForDatasource,

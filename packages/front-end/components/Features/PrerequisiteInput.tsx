@@ -42,16 +42,21 @@ import {
   ConditionRow,
   ConditionRowHeader,
 } from "@/components/Features/TargetingConditionsCard";
-import type { FeatureOptionMeta } from "@/components/Features/PrerequisiteFeatureSelector";
-import PrerequisiteFeatureSelector from "@/components/Features/PrerequisiteFeatureSelector";
-import type { MinimalFeatureInfo } from "@/components/Features/PrerequisiteStatesTable";
-import PrerequisiteStatesTable from "@/components/Features/PrerequisiteStatesTable";
+import PrerequisiteFeatureSelector, {
+  type FeatureOptionMeta,
+} from "@/components/Features/PrerequisiteFeatureSelector";
+import PrerequisiteStatesTable, {
+  type MinimalFeatureInfo,
+} from "@/components/Features/PrerequisiteStatesTable";
 import PrerequisiteAlerts from "@/components/Features/PrerequisiteAlerts";
-import type { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
-import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
+import {
+  useBatchPrerequisiteStates,
+  type PrerequisiteStateResult,
+} from "@/hooks/usePrerequisiteStates";
 import { condToJson, jsonToConds } from "@/services/features";
-import type { FormatOptionLabelType } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  type FormatOptionLabelType,
+} from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/ui/StringArrayField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";

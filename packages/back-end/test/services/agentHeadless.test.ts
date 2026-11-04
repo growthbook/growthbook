@@ -4,8 +4,10 @@ import {
   assertAIAccess,
 } from "back-end/src/enterprise/services/ai-access";
 import type { ReqContext } from "back-end/types/request";
-import type { AgentConfig } from "back-end/src/enterprise/services/agent-handler";
-import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
+import {
+  runAgentTurnToCompletion,
+  type AgentConfig,
+} from "back-end/src/enterprise/services/agent-handler";
 import {
   LocalConversationBuffer,
   loadOrInitConversation,

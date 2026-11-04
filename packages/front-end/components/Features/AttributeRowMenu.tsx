@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useState } from "react";
+import React, { type FC, useState } from "react";
 import { IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical } from "react-icons/pi";
 import type { SDKAttribute } from "shared/types/organization";

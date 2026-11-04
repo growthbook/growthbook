@@ -1,6 +1,5 @@
 import { createHmac } from "crypto";
-import type { Job } from "agenda";
-import type Agenda from "agenda";
+import type { Agenda, Job } from "agenda";
 import type { ReqContext } from "back-end/types/request";
 import {
   getContextForAgendaJobByOrgId,

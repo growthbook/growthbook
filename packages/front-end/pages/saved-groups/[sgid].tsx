@@ -11,8 +11,8 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import type { SavedGroupInterface } from "shared/types/saved-group";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   applyTopLevelPatchOps,
   getLiveRevision,
   getRevisionNumber,
@@ -106,8 +106,9 @@ import ConflictCallout, {
   ConflictShell,
 } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
-import type { DraftMode } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
-import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
+import SavedGroupDraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 
 const NUM_PER_PAGE = 10;
 

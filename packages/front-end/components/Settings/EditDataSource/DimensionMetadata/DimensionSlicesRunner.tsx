@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { Fragment, useState } from "react";
+import React, { type FC, Fragment, useState } from "react";
 import { ago } from "shared/dates";
 import type { DimensionSlicesInterface } from "shared/types/dimension";
 import { BsGear } from "react-icons/bs";

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, type FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import type { SignedImageUrlResponse } from "shared/types/upload";
 import { useAuth } from "@/services/auth";

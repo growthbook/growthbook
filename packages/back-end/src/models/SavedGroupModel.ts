@@ -9,8 +9,7 @@ import type {
   SavedGroupForDefinitions,
   SavedGroupMetadata,
 } from "shared/types/saved-group";
-import type { ApiSavedGroup } from "shared/validators";
-import { savedGroupValidator } from "shared/validators";
+import { savedGroupValidator, type ApiSavedGroup } from "shared/validators";
 import type { UpdateProps } from "shared/types/base-model";
 import type { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";

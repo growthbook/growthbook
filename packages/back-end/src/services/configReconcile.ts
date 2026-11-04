@@ -1,20 +1,19 @@
-import type { ConfigSchemaChangeImpact } from "shared/util";
 import {
   getConfigSubtree,
   getAncestorSchemaKeys,
   stripAncestorOwnedFields,
   findSiblingSchemaConflicts,
   computeConfigSchemaChangeImpact,
+  type ConfigSchemaChangeImpact,
   isConfigLocked,
 } from "shared/util";
 import type { ConfigInterface } from "shared/types/config";
-import { CasConflictError } from "back-end/src/models/BaseModel";
+import { CasConflictError, type Context } from "back-end/src/models/BaseModel";
 import {
   BadRequestError,
   SoftWarningError,
   TerminalPublishError,
 } from "back-end/src/util/errors";
-import type { Context } from "back-end/src/models/BaseModel";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { logger } from "back-end/src/util/logger";
 

@@ -1,13 +1,11 @@
 import { Flex, Text, Checkbox as RadixCheckbox } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import clsx from "clsx";
-import type { ReactElement } from "react";
-import { forwardRef } from "react";
+import { forwardRef, type ReactElement } from "react";
 import HelperText, { getRadixColor } from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
-import type { Size as SharedSize } from "@/ui/sizes";
-import { radixSize } from "@/ui/sizes";
+import { radixSize, type Size as SharedSize } from "@/ui/sizes";
 
 export type Size = SharedSize<"sm" | "md" | "lg">;
 

@@ -1,6 +1,6 @@
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   expandDerivedMetricsInMap,
+  type ExperimentMetricInterface,
   funnelStepMetricId,
   getSliceDataForMetric,
 } from "shared/experiments";

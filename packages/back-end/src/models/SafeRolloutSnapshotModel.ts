@@ -1,6 +1,8 @@
 import type { FilterQuery } from "mongoose";
-import type { SafeRolloutSnapshotInterface } from "shared/validators";
-import { safeRolloutSnapshotInterface } from "shared/validators";
+import {
+  type SafeRolloutSnapshotInterface,
+  safeRolloutSnapshotInterface,
+} from "shared/validators";
 import {
   findAnalysisComputeFailure,
   getSafeRolloutSnapshotAnalysis,

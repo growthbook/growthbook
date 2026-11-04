@@ -1,5 +1,4 @@
-import type { AppNotice } from "@/components/Notices/notices";
-import { rankNotices } from "@/components/Notices/notices";
+import { type AppNotice, rankNotices } from "@/components/Notices/notices";
 
 const notice = (
   id: string,

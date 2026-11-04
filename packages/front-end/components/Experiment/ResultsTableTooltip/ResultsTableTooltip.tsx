@@ -1,5 +1,8 @@
-import type { DetailedHTMLProps, HTMLAttributes } from "react";
-import React, { useEffect } from "react";
+import React, {
+  type DetailedHTMLProps,
+  type HTMLAttributes,
+  useEffect,
+} from "react";
 import type {
   ExperimentReportVariation,
   MetricSnapshotSettings,

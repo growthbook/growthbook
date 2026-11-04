@@ -7,8 +7,8 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
 } from "shared/enterprise";

@@ -1,6 +1,6 @@
 import type { SavedGroupInterface } from "shared/types/saved-group";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   getApprovalFlowRules,
   entityProjects,
   isSavedGroupRevisionMetadataOnly,
@@ -13,16 +13,16 @@ import {
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { ReviewRequirement } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
-import type {
-  ApplyChangesResult,
-  EntityRevisionAdapter,
-} from "back-end/src/revisions/EntityRevisionAdapter";
 import {
+  type ApplyChangesResult,
+  type EntityRevisionAdapter,
   filterUpdatableChanges,
   revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
-import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
-import { buildArmAcknowledgments } from "back-end/src/services/armGuards";
+import {
+  type ArmAcknowledgments,
+  buildArmAcknowledgments,
+} from "back-end/src/services/armGuards";
 
 // The archive-dependents guard is imported lazily inside the methods below.
 // saved-group.adapter is the FIRST adapter loaded by revisions/index, and the

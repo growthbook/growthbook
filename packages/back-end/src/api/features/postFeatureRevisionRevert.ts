@@ -8,9 +8,9 @@ import {
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
-import type { MergeResultChanges } from "shared/util";
 import {
   filterEnvironmentsByFeature,
+  type MergeResultChanges,
   checkIfRevisionNeedsReview,
   getRevertTargetArchived,
   getRevertTargetHoldout,

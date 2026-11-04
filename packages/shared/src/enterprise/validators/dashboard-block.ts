@@ -4,7 +4,6 @@ import {
   metricAnalysisSettingsStringDatesValidator,
   metricAnalysisSettingsValidator,
 } from "../../validators/metric-analysis";
-import type { ExplorationDateRange } from "../../validators/product-analytics";
 import {
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
@@ -14,6 +13,7 @@ import {
   explorationDateRangeValidator,
   comparisonModeValidator,
   dateGranularity,
+  type ExplorationDateRange,
 } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange } from "../product-analytics/sql";
 import { hasTimestampColumn } from "../product-analytics/utils";

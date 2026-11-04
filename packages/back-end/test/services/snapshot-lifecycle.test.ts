@@ -10,8 +10,10 @@ import type {
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import type { MetricSnapshotSettings } from "shared/types/report";
 import type { ApiReqContext } from "back-end/types/api";
-import type { PlannedExperimentSnapshot } from "back-end/src/services/experiments";
-import { createSnapshotFromPlan } from "back-end/src/services/experiments";
+import {
+  createSnapshotFromPlan,
+  type PlannedExperimentSnapshot,
+} from "back-end/src/services/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";

@@ -21,8 +21,10 @@ import {
 import { getValidDate } from "shared/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  type GroupedValue,
+  type SingleValue,
+} from "@/components/Forms/SelectField";
 import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { analysisUpdate } from "@/services/snapshots";
@@ -32,11 +34,9 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import type {
-  CustomDimensionDraft,
-  CustomDimensionKind,
-} from "@/components/Dimensions/CustomDimensionFields";
 import CustomDimensionFields, {
+  type CustomDimensionDraft,
+  type CustomDimensionKind,
   isCustomDimensionDraftValid,
 } from "@/components/Dimensions/CustomDimensionFields";
 import CustomDimensionModal from "@/components/Dimensions/CustomDimensionModal";

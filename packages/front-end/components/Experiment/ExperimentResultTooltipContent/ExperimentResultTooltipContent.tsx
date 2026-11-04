@@ -5,8 +5,10 @@ import { PiWarningCircle } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import type { DifferenceType, StatsEngine } from "shared/types/stats";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { isFactMetric } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetric,
+} from "shared/experiments";
 import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";

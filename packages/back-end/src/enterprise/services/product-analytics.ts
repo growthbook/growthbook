@@ -1,13 +1,11 @@
-import type {
-  ExplorationConfig,
-  ProductAnalyticsExploration,
-  ExplorationCacheQuery,
-  PopulationStep,
-} from "shared/validators";
 import {
+  type ExplorationConfig,
   explorationConfigValidator,
   internalExplorationConfigValidator,
+  type ProductAnalyticsExploration,
+  type ExplorationCacheQuery,
   factMetricValidator,
+  type PopulationStep,
 } from "shared/validators";
 import {
   getPopulationFactTableIds,

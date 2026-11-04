@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { type AIChatMessage } from "shared/ai-chat";
+import type { AIChatMessage } from "shared/ai-chat";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,

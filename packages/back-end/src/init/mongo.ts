@@ -1,5 +1,4 @@
-import type { ConnectOptions } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type ConnectOptions } from "mongoose";
 import bluebird from "bluebird";
 import { MONGODB_URI } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";

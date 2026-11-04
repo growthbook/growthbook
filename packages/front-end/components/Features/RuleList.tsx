@@ -39,14 +39,12 @@ import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { getRules, isRuleInactive } from "@/services/features";
-import type {
-  ConflictBanner,
-  SavedGroupForConflicts,
-} from "@/services/rule-conflicts";
 import {
   buildConflictBanners,
+  type ConflictBanner,
   getReachabilityCells,
   OTHER_PROJECT_BUCKET,
+  type SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";

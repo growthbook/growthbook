@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useMemo, useState } from "react";
+import { type FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { CustomFieldSection } from "shared/types/custom-fields";
@@ -14,8 +13,9 @@ import {
 } from "@/services/customFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import CustomFieldInput from "./CustomFieldInput";
 
 /** Optional draft-mode context for feature metadata approval flows. */

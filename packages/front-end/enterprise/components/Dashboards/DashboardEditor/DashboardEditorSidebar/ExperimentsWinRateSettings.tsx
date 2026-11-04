@@ -1,11 +1,11 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
-import type {
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-  ExperimentsWinRateBlockInterface,
+import {
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
+  type ExperimentsWinRateBlockInterface,
+  withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
-import { withBlockGlobalFilterFollowing } from "shared/enterprise";
 import Switch from "@/ui/Switch";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
 

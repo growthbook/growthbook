@@ -1,5 +1,4 @@
-import type { Revision } from "shared/enterprise";
-import { applyTopLevelPatchOps } from "shared/enterprise";
+import { type Revision, applyTopLevelPatchOps } from "shared/enterprise";
 import type { SavedGroupInterface } from "shared/types/saved-group";
 import type { ApiSavedGroupUpload } from "shared/validators";
 import useApi from "@/hooks/useApi";

@@ -1,12 +1,11 @@
-import type { FC, ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { type FC, type ReactNode, useCallback, useMemo, useState } from "react";
 import {
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
 import type { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   getFactMetricFactTableIds,
   isFactMetric,
   isFactMetricJoinable,
@@ -25,11 +24,16 @@ import type { MetricOverride } from "shared/validators";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
-import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import SelectField, { ReactSelectProps } from "@/components/Forms/SelectField";
+import SelectField, {
+  ReactSelectProps,
+  type GroupedValue,
+  type SingleValue,
+} from "@/components/Forms/SelectField";
 import { OptionPopover } from "@/components/Features/OptionTooltipShell";
-import type { MetricSettingsScope } from "@/components/Experiment/MetricOverrideTooltip";
-import { MetricOverrideTooltipContent } from "@/components/Experiment/MetricOverrideTooltip";
+import {
+  MetricOverrideTooltipContent,
+  type MetricSettingsScope,
+} from "@/components/Experiment/MetricOverrideTooltip";
 import {
   getOverriddenMetricIds,
   METRIC_OVERRIDE_BORDER_COLOR,

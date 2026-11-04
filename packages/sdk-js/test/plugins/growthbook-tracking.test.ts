@@ -1,8 +1,8 @@
 import { growthbookTrackingPlugin } from "../../src/plugins/growthbook-tracking";
-import type { Experiment } from "../../src";
 import {
   EVENT_EXPERIMENT_VIEWED,
   EVENT_FEATURE_EVALUATED,
+  type Experiment,
   GrowthBook,
   GrowthBookClient,
 } from "../../src";

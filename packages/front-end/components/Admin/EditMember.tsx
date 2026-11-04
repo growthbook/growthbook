@@ -1,10 +1,12 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { ExpandedMember } from "shared/types/organization";
 import type { UserInterface } from "shared/types/user";
-import type { SuperAdmin, SuperAdminPermission } from "shared/validators";
-import { SUPER_ADMIN_PERMISSIONS } from "shared/validators";
+import {
+  SUPER_ADMIN_PERMISSIONS,
+  type SuperAdmin,
+  type SuperAdminPermission,
+} from "shared/validators";
 import {
   canChangeSuperAdmin,
   hasSuperAdminPermission,

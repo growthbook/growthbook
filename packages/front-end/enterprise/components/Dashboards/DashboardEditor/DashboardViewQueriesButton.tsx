@@ -4,10 +4,8 @@ import { PiFileSqlLight, PiWarningFill } from "react-icons/pi";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
-import type { Props as ButtonProps } from "@/ui/Button";
-import Button from "@/ui/Button";
-import type { TextProps } from "@/ui/Text";
-import Text from "@/ui/Text";
+import Button, { type Props as ButtonProps } from "@/ui/Button";
+import Text, { type TextProps } from "@/ui/Text";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 
 interface Props {

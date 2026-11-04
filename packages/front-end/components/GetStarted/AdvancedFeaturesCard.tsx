@@ -1,8 +1,7 @@
 import { AspectRatio, Box, Text } from "@radix-ui/themes";
 import type { CommercialFeature } from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import type { DocSection } from "@/components/DocLink";
-import { DocLink } from "@/components/DocLink";
+import { type DocSection, DocLink } from "@/components/DocLink";
 import Link from "@/ui/Link";
 import styles from "./AdvancedFeaturesCard.module.scss";
 

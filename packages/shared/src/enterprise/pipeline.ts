@@ -1,10 +1,10 @@
 import { getValidDate } from "shared/dates";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   getExperimentOutdatedReasonLabel,
   isFactMetric,
   isExperimentOutdatedReasonField,
   quantileMetricType,
+  type ExperimentMetricDefinition,
 } from "shared/experiments";
 import type {
   DataSourceType,

@@ -1,5 +1,8 @@
-import type { DetailedHTMLProps, FC, HTMLAttributes } from "react";
-import React from "react";
+import React, {
+  type DetailedHTMLProps,
+  type FC,
+  type HTMLAttributes,
+} from "react";
 import { GridColumns } from "@visx/grid";
 import { Axis, Orientation, AxisLeft } from "@visx/axis";
 import { scaleLinear } from "@visx/scale";

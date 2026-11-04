@@ -1,5 +1,4 @@
-import type { ReactElement } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 
 export default function Portal({ children }: { children: ReactElement }) {

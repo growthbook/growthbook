@@ -1,5 +1,4 @@
-import type { CSSProperties } from "react";
-import React, { useState } from "react";
+import React, { type CSSProperties, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 

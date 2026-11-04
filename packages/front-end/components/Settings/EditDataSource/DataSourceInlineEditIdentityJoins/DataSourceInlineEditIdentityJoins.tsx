@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { type FC, useCallback, useMemo, useState } from "react";
 import { PiCaretRight, PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
 import type {

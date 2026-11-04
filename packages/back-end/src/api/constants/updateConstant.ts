@@ -1,6 +1,5 @@
 import { isEqual } from "lodash";
-import type { Revision } from "shared/enterprise";
-import { getConstantRevisionChange } from "shared/enterprise";
+import { type Revision, getConstantRevisionChange } from "shared/enterprise";
 import {
   updateConstantValidator,
   validateResolvableValue,

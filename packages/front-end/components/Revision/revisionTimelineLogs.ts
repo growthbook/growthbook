@@ -1,7 +1,6 @@
 import type { Revision } from "shared/enterprise";
 import type { RevisionLog } from "shared/types/feature-revision";
-import type { EventUser } from "shared/validators";
-import { eventUser } from "shared/validators";
+import { type EventUser, eventUser } from "shared/validators";
 
 type ResolveUser = (id: string) => { name?: string; email?: string };
 

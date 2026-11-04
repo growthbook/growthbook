@@ -1,9 +1,8 @@
 import { PiCaretLeft, PiCaretRight, PiTimer, PiX } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Flex, IconButton } from "@radix-ui/themes";
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import clsx from "clsx";
-import type { CSSProperties, ReactNode } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import Code from "@/components/SyntaxHighlighting/Code";

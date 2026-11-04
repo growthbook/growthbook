@@ -6,10 +6,10 @@ import intersection from "lodash/intersection";
 import { z } from "zod";
 import type { SlackIntegrationInterface } from "shared/types/slack-integration";
 import type { NotificationEventName } from "shared/types/events/base-types";
-import type { NotificationEventNameOrWildcard } from "shared/validators";
 import {
   zodNotificationEventNamesEnum,
   isEventWebhookWildcard,
+  type NotificationEventNameOrWildcard,
   getWildcardPatternsForEvent,
 } from "shared/validators";
 import type { OrganizationInterface } from "shared/types/organization";

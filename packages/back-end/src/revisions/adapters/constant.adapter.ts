@@ -3,8 +3,8 @@ import {
   NO_ENVIRONMENT_BINDING,
   bypassApprovalPermission,
 } from "shared/permissions";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   constantPublishFootprint,
   getConstantRevisionApprovalChange,
   getConstantRevisionChange,
@@ -21,18 +21,21 @@ import {
   constantValidator,
   constantUpdatableFieldsSchema,
 } from "shared/validators";
-import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
-import type { Context } from "back-end/src/models/BaseModel";
-import type {
-  ApplyChangesResult,
-  EntityRevisionAdapter,
-} from "back-end/src/revisions/EntityRevisionAdapter";
 import {
+  type PublishFootprint,
+  constantPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
+import type { Context } from "back-end/src/models/BaseModel";
+import {
+  type ApplyChangesResult,
+  type EntityRevisionAdapter,
   filterUpdatableChanges,
   revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
-import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
-import { buildArmAcknowledgments } from "back-end/src/services/armGuards";
+import {
+  type ArmAcknowledgments,
+  buildArmAcknowledgments,
+} from "back-end/src/services/armGuards";
 import {
   captureConstantExperimentGuardAcknowledgment,
   constantChangeAffectsServedValue,
@@ -55,13 +58,12 @@ import {
   archiveDependentsGateMessage,
 } from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
-import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
+  type PublishGate,
   makeBlockingGate,
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
-import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { logger } from "back-end/src/util/logger";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema

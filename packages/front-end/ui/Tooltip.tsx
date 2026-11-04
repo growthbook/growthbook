@@ -1,7 +1,14 @@
-import type { PointerEvent } from "react";
-import { cloneElement, forwardRef, isValidElement, useState } from "react";
-import type { TooltipProps as RadixTooltipProps } from "@radix-ui/themes";
-import { Tooltip as RadixTooltip } from "@radix-ui/themes";
+import {
+  cloneElement,
+  forwardRef,
+  isValidElement,
+  type PointerEvent,
+  useState,
+} from "react";
+import {
+  Tooltip as RadixTooltip,
+  type TooltipProps as RadixTooltipProps,
+} from "@radix-ui/themes";
 
 type TooltipProps = RadixTooltipProps & {
   enabled?: boolean;

@@ -13,8 +13,10 @@ import {
   normalizeRetentionWindow,
   retentionModeFromWindow,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
-import type { ThresholdBasisValue } from "./ThresholdBasisRow";
-import { ThresholdBasisRow } from "./ThresholdBasisRow";
+import {
+  ThresholdBasisRow,
+  type ThresholdBasisValue,
+} from "./ThresholdBasisRow";
 
 const UNIT_OPTIONS = [
   { value: "minutes", label: "minutes" },

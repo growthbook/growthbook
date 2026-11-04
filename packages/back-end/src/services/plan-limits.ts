@@ -1,6 +1,7 @@
-import type { OrgLimits, OrgLimitsAccessor } from "shared/enterprise";
 import {
   DEFAULT_ORG_LIMITS,
+  type OrgLimits,
+  type OrgLimitsAccessor,
   PRICING_PHASE_1_FLAG_KEY,
   isLimitsFlagDisabled,
   makeOrgLimits,

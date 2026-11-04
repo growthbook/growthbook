@@ -30,8 +30,9 @@ import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import EditSchemaField from "@/components/Features/EditSchemaField";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 export interface Props {
   feature: FeatureInterface;

@@ -1,10 +1,11 @@
 import type { ExperimentPhaseStringDates } from "shared/types/experiment";
-import type { ReactNode } from "react";
-import React from "react";
+import React, { type ReactNode } from "react";
 import qs from "query-string";
 import { getEqualWeights } from "shared/experiments";
-import type { Context } from "@growthbook/growthbook-react";
-import { BrowserCookieStickyBucketService } from "@growthbook/growthbook-react";
+import {
+  BrowserCookieStickyBucketService,
+  type Context,
+} from "@growthbook/growthbook-react";
 import { GrowthBook } from "@growthbook/growthbook";
 import Cookies from "js-cookie";
 import md5 from "md5";

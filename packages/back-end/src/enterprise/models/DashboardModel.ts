@@ -4,33 +4,31 @@ import uniqid from "uniqid";
 import type { UpdateProps } from "shared/types/base-model";
 import { Permissions } from "shared/permissions";
 import { isString, PermissionError } from "shared/util";
-import type {
-  ApiCreateDashboardBlockInterface,
-  ApiDashboardBlockInterface,
-  DashboardBlockRef,
-  ApiCreateDashboardBody,
-  DashboardBlockWithAnalysisId,
-  ApiDashboardInterface,
-  ApiGetDashboardsForExperimentReturn,
-  ApiUpdateDashboardBody,
-  DashboardInterface,
-  CreateDashboardBlockInterface,
-  DashboardBlockInterface,
-  LegacyDashboardBlockInterface,
-  BlockLayout,
-} from "shared/enterprise";
 import {
+  type ApiCreateDashboardBlockInterface,
+  type ApiDashboardBlockInterface,
   blockHasFieldOfType,
   blockUsesDashboardDateControl,
   resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
   isDashboardBlockRef,
+  type DashboardBlockRef,
   apiCreateDashboardBody,
   apiCreateDashboardBodyV2,
+  type ApiCreateDashboardBody,
+  type DashboardBlockWithAnalysisId,
+  type ApiDashboardInterface,
+  type ApiGetDashboardsForExperimentReturn,
   apiUpdateDashboardBody,
+  type ApiUpdateDashboardBody,
   dashboardInterface,
+  type DashboardInterface,
+  type CreateDashboardBlockInterface,
+  type DashboardBlockInterface,
+  type LegacyDashboardBlockInterface,
   convertPinnedSlicesToSliceTags,
   isDifferenceType,
+  type BlockLayout,
   DASHBOARD_GRID_COLS,
   getBlockSizeBounds,
 } from "shared/enterprise";
@@ -41,15 +39,17 @@ import type {
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
-import type { ScopedFilterQuery } from "back-end/src/models/BaseModel";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import {
+  MakeModelClass,
+  type ScopedFilterQuery,
+} from "back-end/src/models/BaseModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
   getCollection,
   removeMongooseFields,
+  type ToInterface,
 } from "back-end/src/util/mongo.util";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {

@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from "react";
-import type {
-  Experiment,
-  Result,
-  FeatureResult,
-  JSONValue,
-  FeatureDefinition,
-  Context,
-  WidenPrimitives,
+import {
+  type Experiment,
+  type Result,
+  type FeatureResult,
+  type JSONValue,
+  type FeatureDefinition,
+  type Context,
+  type WidenPrimitives,
+  GrowthBook,
 } from "@growthbook/growthbook";
-import { GrowthBook } from "@growthbook/growthbook";
 
 export type GrowthBookContextValue = {
   growthbook: GrowthBook;

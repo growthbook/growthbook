@@ -1,5 +1,5 @@
-import type { baseDialect } from "shared/dialects";
 import {
+  type baseDialect,
   bigQueryDialect,
   snowflakeDialect,
   databricksDialect,

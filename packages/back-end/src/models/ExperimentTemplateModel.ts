@@ -1,9 +1,9 @@
-import type {
-  ApiAssignmentQueryRefInput,
-  ApiExperimentTemplateInterface,
-  ExperimentTemplateInterface,
+import {
+  type ApiAssignmentQueryRefInput,
+  type ApiExperimentTemplateInterface,
+  experimentTemplateInterface,
+  type ExperimentTemplateInterface,
 } from "shared/validators";
-import { experimentTemplateInterface } from "shared/validators";
 import {
   flattenExposureQueryInput,
   toApiAssignmentQueryRef,

@@ -29,16 +29,14 @@ import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
-import type {
-  CreateSafeRolloutInterface,
-  RampScheduleInterface,
-  RampScheduleTemplateInterface,
-  RampStepAction,
-  SafeRolloutInterface,
-  SafeRolloutRule,
-} from "shared/validators";
 import {
   ACTIVE_DRAFT_STATUSES,
+  type CreateSafeRolloutInterface,
+  type RampScheduleInterface,
+  type RampScheduleTemplateInterface,
+  type RampStepAction,
+  type SafeRolloutInterface,
+  type SafeRolloutRule,
   stripUnknownRuleFields,
 } from "shared/validators";
 import type {
@@ -53,8 +51,8 @@ import type {
 import { withStagedTargeting } from "shared/permissions";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import type { NewExperimentRefRule } from "@/services/features";
 import {
+  type NewExperimentRefRule,
   getDefaultRuleValue,
   getFeatureDefaultValue,
   useAttributeSchema,
@@ -94,14 +92,12 @@ import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
 import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
-import type {
-  ConflictResolution,
-  ContestedChunk,
-} from "@/components/DraftConflicts/ConflictContext";
 import {
   ConflictCalloutRow,
   WholeConflictCallout,
   ConflictProvider,
+  type ConflictResolution,
+  type ContestedChunk,
 } from "@/components/DraftConflicts/ConflictContext";
 import { decimalToPercent } from "@/services/utils";
 import {
@@ -121,13 +117,13 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
-import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
-import {
+import RampScheduleSection, {
   type RampSectionState,
   defaultRampSectionState,
   rampScheduleToSectionState,

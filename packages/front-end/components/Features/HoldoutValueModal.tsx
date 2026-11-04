@@ -14,8 +14,9 @@ import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useEnvironments } from "@/services/features";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import UiText from "@/ui/Text";
 import RuleEnvScopeBadges from "./RuleEnvScopeBadges";
 import FeatureValueField from "./FeatureValueField";

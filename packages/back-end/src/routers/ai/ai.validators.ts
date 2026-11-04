@@ -1,9 +1,9 @@
 import { z } from "zod";
-import type { AIModel } from "shared/ai";
 import {
   AI_PROMPT_TYPES,
   AI_PROVIDER_MODEL_MAP,
   AI_PROVIDERS,
+  type AIModel,
 } from "shared/ai";
 
 export const aiPromptTypeValidator = z.enum(AI_PROMPT_TYPES);

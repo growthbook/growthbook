@@ -1,12 +1,10 @@
 import { Box, Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
-import type {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-  DashboardBlockType,
-  DashboardInterface,
-  SqlExplorationBlockInterface,
-} from "shared/enterprise";
 import {
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
+  type DashboardBlockType,
+  type DashboardInterface,
+  type SqlExplorationBlockInterface,
   blockHasFieldOfType,
   isDifferenceType,
   isDashboardExperimentBlock,
@@ -58,12 +56,12 @@ import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { SingleValue } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { type SingleValue } from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
-import type { SqlExplorerModalInitial } from "@/components/SchemaBrowser/SqlExplorerModal";
-import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
+import SqlExplorerModal, {
+  type SqlExplorerModalInitial,
+} from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import {
   CUSTOM_COMBO_OPTION,
@@ -74,11 +72,9 @@ import {
   getDimensionDisplayName,
   getDimensionOptions,
 } from "@/components/Dimensions/DimensionChooser";
-import type {
-  CustomDimensionDraft,
-  CustomDimensionKind,
-} from "@/components/Dimensions/CustomDimensionFields";
 import CustomDimensionFields, {
+  type CustomDimensionDraft,
+  type CustomDimensionKind,
   isCustomDimensionDraftValid,
 } from "@/components/Dimensions/CustomDimensionFields";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";

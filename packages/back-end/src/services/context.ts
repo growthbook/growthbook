@@ -18,8 +18,11 @@ import type {
 } from "shared/types/organization";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import type { EventUser } from "shared/types/events/event-types";
-import type { SuperAdmin } from "shared/validators";
-import { eventUserIdentity, eventUserPerson } from "shared/validators";
+import {
+  type SuperAdmin,
+  eventUserIdentity,
+  eventUserPerson,
+} from "shared/validators";
 import type { TeamInterface } from "shared/types/team";
 import type { ProjectInterface } from "shared/types/project";
 import type { ExperimentInterface } from "shared/types/experiment";

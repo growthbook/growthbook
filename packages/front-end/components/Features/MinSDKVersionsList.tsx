@@ -1,5 +1,7 @@
-import type { SDKCapability } from "shared/sdk-versioning";
-import { getMinSupportedSDKVersions } from "shared/sdk-versioning";
+import {
+  type SDKCapability,
+  getMinSupportedSDKVersions,
+} from "shared/sdk-versioning";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
 export default function MinSDKVersionsList({

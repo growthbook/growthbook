@@ -1,9 +1,9 @@
 import { DBSQLClient } from "@databricks/sql";
-import type {
-  TColumnDesc,
-  TTableSchema,
+import {
+  type TColumnDesc,
+  type TTableSchema,
+  TTypeId,
 } from "@databricks/sql/thrift/TCLIService_types";
-import { TTypeId } from "@databricks/sql/thrift/TCLIService_types";
 import type {
   QueryResponse,
   QueryResponseColumnData,

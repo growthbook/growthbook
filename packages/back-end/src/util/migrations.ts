@@ -46,11 +46,11 @@ import type {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import type {
-  AnalysisKeyType,
-  AnalysisMetaEntry,
+import {
+  type AnalysisKeyType,
+  type AnalysisMetaEntry,
+  buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
-import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";

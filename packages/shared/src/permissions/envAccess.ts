@@ -1,7 +1,9 @@
 import type { OrganizationInterface } from "../../types/organization";
 import { envScopedPermissionsForRole } from "./permissions.utils";
-import type { RevisionAction } from "./revisionPermissions";
-import { REVISION_PERMISSIONS } from "./revisionPermissions";
+import {
+  REVISION_PERMISSIONS,
+  type RevisionAction,
+} from "./revisionPermissions";
 
 // The env-scoped atoms that aren't revision actions get spelled out; the rest
 // reuse the revision action names.

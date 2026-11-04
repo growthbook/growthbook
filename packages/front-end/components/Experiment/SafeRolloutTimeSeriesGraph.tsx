@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import React, { useMemo } from "react";
+import React, { type ReactNode, useMemo } from "react";
 import { extent } from "@visx/vendor/d3-array";
 import { Group } from "@visx/group";
 import { Line, LinePath } from "@visx/shape";

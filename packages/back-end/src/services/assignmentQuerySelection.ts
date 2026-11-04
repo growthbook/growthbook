@@ -10,12 +10,10 @@ import type {
   ApiAssignmentQueryRefInput,
   RampMonitoringConfig,
 } from "shared/validators";
-import type {
-  AssignmentQueryScope,
-  AssignmentQuerySelection,
-} from "shared/util";
 import {
   apiMonitoringConfigToInternal,
+  type AssignmentQueryScope,
+  type AssignmentQuerySelection,
   isSameAssignmentQuerySelection,
   parseAssignmentQuerySelection,
   resolveAssignmentQuerySelectionChange,

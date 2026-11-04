@@ -1,6 +1,5 @@
 import { z } from "zod";
-import type { ClientOptions, QueryOptions } from "presto-client";
-import { Client } from "presto-client";
+import { Client, type ClientOptions, type QueryOptions } from "presto-client";
 import { format } from "shared/sql";
 import { parseIntWithDefault } from "shared/util";
 import { prestoCreateTablePartitions } from "shared/enterprise";

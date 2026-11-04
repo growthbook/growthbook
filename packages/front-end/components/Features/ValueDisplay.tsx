@@ -3,14 +3,22 @@ import type {
   FeatureTestResult,
   FeatureValueType,
 } from "shared/types/feature";
-import type { CSSProperties, ReactNode } from "react";
-import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  type CSSProperties,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import stringify from "json-stringify-pretty-compact";
 import { IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
-import type { LinkifyConfig } from "@/components/SyntaxHighlighting/InlineCode";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import InlineCode, {
+  type LinkifyConfig,
+} from "@/components/SyntaxHighlighting/InlineCode";
 import VirtualizedCode, {
   isLongCode,
   RenderInFullContext,
@@ -25,8 +33,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import ScrollArea from "@/ui/ScrollArea";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
-import type { ActionsOverlay } from "./CornerActions";
-import CornerActions from "./CornerActions";
+import CornerActions, { type ActionsOverlay } from "./CornerActions";
 import { useValueDiff } from "./ValueDiffContext";
 import { getFieldLineNumbers } from "./jsonFieldLines";
 

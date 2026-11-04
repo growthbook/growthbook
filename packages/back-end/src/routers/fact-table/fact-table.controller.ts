@@ -76,8 +76,8 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { columnNamesMatch, getColumnByName } from "back-end/src/util/sql";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
-import type { AggregatedFactTableStatus } from "back-end/src/services/aggregatedFactTables";
 import {
+  type AggregatedFactTableStatus,
   buildAggregatedFactTableStatus,
   deriveAggregatedFactTableRunStatus,
   getAggregatedFactTableMetrics,

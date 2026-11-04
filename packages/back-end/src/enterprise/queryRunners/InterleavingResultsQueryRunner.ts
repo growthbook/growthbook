@@ -7,8 +7,10 @@ import type {
 } from "shared/validators";
 import type { InterleavingMetricQueryResponseRows } from "shared/types/integrations";
 import { preferenceSignTest, pairedDeltaTest } from "stats-ts";
-import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { QueryRunner } from "back-end/src/queryRunners/QueryRunner";
+import {
+  type QueryMap,
+  QueryRunner,
+} from "back-end/src/queryRunners/QueryRunner";
 import { markPendingQueriesAsFailed } from "back-end/src/models/QueryModel";
 import { cancelExternalJobsForQueries } from "back-end/src/services/queryCancellation";
 import type { ResolvedInterleavingMetric } from "back-end/src/enterprise/services/interleavingMetrics";

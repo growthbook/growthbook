@@ -1,11 +1,11 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
-import type {
-  ApiRampMonitoringConfigInput,
-  ApiRampScheduleTemplateInterface,
-  RampScheduleTemplateInterface,
+import {
+  type ApiRampMonitoringConfigInput,
+  type ApiRampScheduleTemplateInterface,
+  type RampScheduleTemplateInterface,
+  rampScheduleTemplateValidator,
 } from "shared/validators";
-import { rampScheduleTemplateValidator } from "shared/validators";
 import { monitoringConfigToApi } from "shared/util";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
 import {

@@ -20,13 +20,11 @@ import {
 } from "back-end/src/revisions/util";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
-import type {
-  PublishGate,
-  BypassedGate,
-} from "back-end/src/revisions/publishGates";
 import {
   evaluatePublishGates,
   PublishBlockedError,
+  type PublishGate,
+  type BypassedGate,
 } from "back-end/src/revisions/publishGates";
 import {
   confirmationLink,

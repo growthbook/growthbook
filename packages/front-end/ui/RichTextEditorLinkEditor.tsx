@@ -2,8 +2,7 @@ import { useRef, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { PiGlobeSimpleBold, PiTrashBold } from "react-icons/pi";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import type { LinkNode } from "@lexical/link";
-import { $isLinkNode, $toggleLink } from "@lexical/link";
+import { $isLinkNode, $toggleLink, type LinkNode } from "@lexical/link";
 import { $findMatchingParent } from "@lexical/utils";
 import {
   $createTextNode,

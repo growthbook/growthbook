@@ -1,15 +1,15 @@
 import cloneDeep from "lodash/cloneDeep";
 import { v4 as uuidv4 } from "uuid";
-import { postFeatureRevisionRuleAddValidator } from "shared/validators";
-import type {
-  ExperimentRefRule,
-  FeatureRule,
-  ForceRule,
-  RolloutRule,
-  SafeRolloutRule,
-  RevisionRampCreateAction,
-  RuleCreateInput,
-  SafeRolloutInterface,
+import {
+  type RevisionRampCreateAction,
+  postFeatureRevisionRuleAddValidator,
+  type RuleCreateInput,
+  type SafeRolloutInterface,
+  type ExperimentRefRule,
+  type FeatureRule,
+  type ForceRule,
+  type RolloutRule,
+  type SafeRolloutRule,
 } from "shared/validators";
 import {
   getRuleAttributeScopeProjectIds,

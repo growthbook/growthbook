@@ -1,5 +1,11 @@
-import type { FC, ReactElement } from "react";
-import { useMemo, useState, useEffect, useRef } from "react";
+import {
+  type FC,
+  type ReactElement,
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import type {
   ExperimentReportResultDimension,
@@ -30,21 +36,21 @@ import {
   PiCaretCircleDown,
   PiFunnelSimple,
 } from "react-icons/pi";
-import type {
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
-  SetExperimentSortBy,
-} from "shared/experiments";
 import {
   expandMetricGroups,
+  type ExperimentMetricDefinition,
   getMetricLink,
+  type ExperimentSortBy,
+  type SetExperimentSortBy,
   isFactFunnelMetric,
 } from "shared/experiments";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { ExperimentTableRow } from "@/services/experiments";
-import { excludeFunnelSliceRows } from "@/services/experiments";
+import {
+  excludeFunnelSliceRows,
+  type ExperimentTableRow,
+} from "@/services/experiments";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
 import FunnelStepSliceLink, {
   funnelMetricHasSlices,

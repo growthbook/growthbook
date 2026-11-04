@@ -1,5 +1,4 @@
-import type { FilterQuery } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import { evalCondition } from "@growthbook/growthbook";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import isEqual from "lodash/isEqual";
@@ -16,8 +15,8 @@ import { validatePriorSettings } from "back-end/src/util/priors";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
-import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
+  type ToInterface,
   getCollection,
   projectFilterQuery,
   removeMongooseFields,

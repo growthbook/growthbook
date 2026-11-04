@@ -1,9 +1,10 @@
-import type {
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardBlockType,
+import {
+  DASHBOARD_GRID_COLS,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockType,
+  getBlockSizeBounds,
 } from "shared/enterprise";
-import { DASHBOARD_GRID_COLS, getBlockSizeBounds } from "shared/enterprise";
 import type { LayoutItem } from "react-grid-layout";
 
 export const DASHBOARD_GRID_MARGIN = 12;

@@ -1,5 +1,4 @@
-import type { RefObject } from "react";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 
 // Whether the tab bar has scrolled up under the fixed page header. Place the

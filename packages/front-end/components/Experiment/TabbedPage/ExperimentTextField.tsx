@@ -13,9 +13,9 @@ import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
-import type { ExperimentTextFieldKey } from "./ExperimentTextValue";
 import ExperimentTextValue, {
   EXPERIMENT_TEXT_FIELDS,
+  type ExperimentTextFieldKey,
 } from "./ExperimentTextValue";
 
 export interface Props {

@@ -1,5 +1,7 @@
-import type { SlackUserLinkInterface } from "shared/validators";
-import { slackUserLinkSchema } from "shared/validators";
+import {
+  slackUserLinkSchema,
+  type SlackUserLinkInterface,
+} from "shared/validators";
 import { PermissionError } from "shared/util";
 import {
   getCollection,

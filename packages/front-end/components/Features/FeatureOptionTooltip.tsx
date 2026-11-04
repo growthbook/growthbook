@@ -5,8 +5,8 @@ import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDispl
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import type { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
-import type { OptionContext } from "@/components/Features/OptionTooltipShell";
 import {
+  type OptionContext,
   OptionPopover,
   OptionTooltipDescription,
   OptionTooltipProjectsRow,

@@ -1,9 +1,9 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import type { GroupMap } from "shared/types/saved-group";
-import type { NodeHandler } from "../../util";
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
+  type NodeHandler,
   recursiveWalk,
 } from "../../util";
 // Inlining builds the same conditions as v1, then rewrites them below.

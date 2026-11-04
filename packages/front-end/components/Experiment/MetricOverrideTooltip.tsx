@@ -5,8 +5,8 @@ import {
   PiPlusBold,
   PiSlidersHorizontal,
 } from "react-icons/pi";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   getMetricLink,
   getMetricSnapshotSettings,
   isFactMetric,
@@ -21,11 +21,11 @@ import { getScopedSettings } from "shared/settings";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { metricTypeLabel } from "@/components/Metrics/FactMetricTypeDisplayName";
-import type { OverrideRow } from "@/services/metricOverrides";
 import {
   describeMetricOverride,
   describeMetricSettings,
   METRIC_OVERRIDE_COLOR,
+  type OverrideRow,
 } from "@/services/metricOverrides";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";

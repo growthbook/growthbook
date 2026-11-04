@@ -5,7 +5,6 @@ import {
   getConstantReferenceKeys,
   getCyclicConstantRefs,
 } from "shared/validators";
-import type { ScopedOverrideEntry } from "shared/util";
 import {
   getConfigParentKey,
   getConfigSubtree,
@@ -14,6 +13,7 @@ import {
   getFeatureBaseConfigKey,
   parsePlainJSONObject,
   findScopedOverrideStructuralErrors,
+  type ScopedOverrideEntry,
   constantRequiresReview,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
@@ -29,8 +29,7 @@ import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureMo
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import type { ResolvableValue } from "./resolvableValues";
-import { getResolvableValues } from "./resolvableValues";
+import { getResolvableValues, type ResolvableValue } from "./resolvableValues";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 

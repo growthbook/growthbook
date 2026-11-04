@@ -1,18 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type {
-  Context,
-  Experiment,
-  FeatureApiResponse,
-  FeatureResult,
-  PayloadFilters,
-  Result,
-} from "../src";
 import {
   clearCache,
+  type Context,
+  type Experiment,
+  type FeatureApiResponse,
+  type FeatureResult,
   GrowthBook,
   GrowthBookClient,
   LocalStorageStickyBucketService,
+  type PayloadFilters,
+  type Result,
 } from "../src";
 import { evalCondition, pruneCondition } from "../src/mongrule";
 import type {

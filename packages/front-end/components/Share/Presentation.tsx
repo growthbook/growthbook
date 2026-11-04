@@ -1,5 +1,4 @@
-import type { ReactElement } from "react";
-import React, { Fragment, useEffect } from "react";
+import React, { Fragment, type ReactElement, useEffect } from "react";
 import type {
   PresentationInterface,
   PresentationCustomTheme,

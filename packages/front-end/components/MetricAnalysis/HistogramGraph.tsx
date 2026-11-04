@@ -1,5 +1,10 @@
-import type { FC } from "react";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";

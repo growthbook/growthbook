@@ -1,24 +1,21 @@
-import type { Job } from "agenda";
-import type Agenda from "agenda";
+import type { Agenda, Job } from "agenda";
 import { z } from "zod";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
-import type { SlackAppHomeOpened } from "back-end/src/services/slack/slackAppHome";
 import {
   handleSlackAppHomeOpened,
+  type SlackAppHomeOpened,
   slackAppHomeOpenedSchema,
 } from "back-end/src/services/slack/slackAppHome";
 import {
   slackTaskKey,
   SlackThreadBusyError,
 } from "back-end/src/services/slack/slackTaskSafety";
-import type {
-  SlackAssistantMention,
-  SlackAssistantConfirmation,
-} from "back-end/src/services/slack/slackAssistant";
 import {
   handleSlackAssistantMention,
   handleSlackAssistantConfirmation,
+  type SlackAssistantMention,
+  type SlackAssistantConfirmation,
   slackAssistantMentionSchema,
   slackAssistantConfirmationSchema,
 } from "back-end/src/services/slack/slackAssistant";

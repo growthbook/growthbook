@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, type FC, useCallback, useEffect } from "react";
 import isEqual from "lodash/isEqual";
 import type { OrganizationInterface } from "shared/types/organization";
 import type {

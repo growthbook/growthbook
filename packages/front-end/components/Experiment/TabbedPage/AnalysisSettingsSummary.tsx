@@ -11,7 +11,6 @@ import type { OrganizationSettings } from "shared/types/organization";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { DifferenceType, StatsEngine } from "shared/types/stats";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -20,17 +19,18 @@ import {
   isFactMetricJoinable,
   isMetricJoinable,
   expandDerivedMetricsInMap,
+  type ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
   isAutoSnapshotScheduled,
 } from "shared/experiments";
-import type { IncrementalFullRefreshComparable } from "shared/enterprise";
 import {
   isNewerOverallResultsDataAvailable,
   getIncrementalFullRefreshReasons,
   overallResultsBuiltWithoutIncrementalPipeline,
   OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
+  type IncrementalFullRefreshComparable,
 } from "shared/enterprise";
 import {
   resolveAnalysisIdentifierType,

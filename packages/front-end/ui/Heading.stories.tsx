@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Flex, Grid, Separator } from "@radix-ui/themes";
-import type { HeadingProps } from "./Heading";
-import Heading from "./Heading";
+import Heading, { type HeadingProps } from "./Heading";
 import { Select, SelectItem } from "./Select";
 import Text from "./Text";
 import Callout from "./Callout";

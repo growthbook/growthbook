@@ -7,15 +7,17 @@ import type {
   TrackingCallback,
 } from "./types/growthbook";
 import { GrowthBook } from "./GrowthBook";
-import type { StickyBucketService } from "./sticky-bucket-service";
 import {
   BrowserCookieStickyBucketService,
   LocalStorageStickyBucketService,
+  type StickyBucketService,
 } from "./sticky-bucket-service";
 import { autoAttributesPlugin } from "./plugins/auto-attributes";
 import { growthbookTrackingPlugin } from "./plugins/growthbook-tracking";
-import type { Trackers } from "./plugins/third-party-tracking";
-import { thirdPartyTrackingPlugin } from "./plugins/third-party-tracking";
+import {
+  thirdPartyTrackingPlugin,
+  type Trackers,
+} from "./plugins/third-party-tracking";
 
 type WindowContext = Context & {
   uuidCookieName?: string;

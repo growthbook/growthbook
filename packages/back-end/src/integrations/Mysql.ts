@@ -1,5 +1,4 @@
-import type { RowDataPacket } from "mysql2/promise";
-import mysql from "mysql2/promise";
+import mysql, { type RowDataPacket } from "mysql2/promise";
 import type { ConnectionOptions } from "mysql2";
 import type { QueryResponse } from "shared/types/integrations";
 import type { MysqlConnectionParams } from "shared/types/integrations/mysql";

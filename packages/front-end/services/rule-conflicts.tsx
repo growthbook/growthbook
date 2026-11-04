@@ -8,8 +8,11 @@ import { ruleProjectScope } from "shared/util";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import type { RadixColor } from "@/ui/HelperText";
-import { getRadixColor, RadixStatusIcon } from "@/ui/HelperText";
+import {
+  getRadixColor,
+  type RadixColor,
+  RadixStatusIcon,
+} from "@/ui/HelperText";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { isRuleInactive } from "@/services/features";
 

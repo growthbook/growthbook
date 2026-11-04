@@ -27,8 +27,8 @@ import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { toOptionalNumber } from "back-end/src/util/integration";
-import type { BigQueryDataType } from "back-end/src/services/bigquery";
 import {
+  type BigQueryDataType,
   getFactTableTypeFromBigQueryType,
   sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";

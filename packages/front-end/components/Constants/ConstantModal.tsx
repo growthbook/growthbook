@@ -21,8 +21,10 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ConstantDraftSelectorForChanges from "@/components/Constants/ConstantDraftSelectorForChanges";
-import type { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
-import { useConstantDraftTarget } from "@/components/Constants/useConstantDraftTarget";
+import {
+  useConstantDraftTarget,
+  type ConstantRevisionContext,
+} from "@/components/Constants/useConstantDraftTarget";
 
 // Empty context used on the create path, where there is no revision flow.
 const EMPTY_REVISION_CTX: ConstantRevisionContext = {

@@ -7,8 +7,8 @@ import {
   validatePasswordFormat,
 } from "back-end/src/services/auth";
 import { hash } from "back-end/src/services/users";
-import type { ToInterface } from "back-end/src/util/mongo.util";
 import {
+  type ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";

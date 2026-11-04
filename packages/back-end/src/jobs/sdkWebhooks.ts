@@ -1,6 +1,5 @@
 import { createHmac } from "crypto";
-import type { Job } from "agenda";
-import type Agenda from "agenda";
+import type { Agenda, Job } from "agenda";
 import md5 from "md5";
 import { Promise as BluebirdPromise } from "bluebird";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -14,9 +13,9 @@ import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel"
 import { logger } from "back-end/src/util/logger";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
-import type { CancellableFetchReturn } from "back-end/src/util/http.util";
 import {
   cancellableFetch,
+  type CancellableFetchReturn,
   getWebhookTimeoutMs,
 } from "back-end/src/util/http.util";
 import {

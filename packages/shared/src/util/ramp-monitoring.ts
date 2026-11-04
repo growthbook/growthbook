@@ -4,8 +4,8 @@ import type {
   ApiRampMonitoringConfig,
   RampMonitoringConfig,
 } from "../validators/ramp-schedule";
-import type { AssignmentQuerySelection } from "./exposure-queries";
 import {
+  type AssignmentQuerySelection,
   flattenExposureQueryInput,
   toApiAssignmentQueryRef,
 } from "./exposure-queries";

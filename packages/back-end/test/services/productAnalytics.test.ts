@@ -1,5 +1,5 @@
-import type { ExplorationConfig } from "shared/validators";
 import {
+  type ExplorationConfig,
   draftExplorationMetricValidator,
   explorationConfigValidator,
   internalExplorationConfigValidator,

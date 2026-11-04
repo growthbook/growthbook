@@ -1,5 +1,4 @@
-import type { FC, ReactNode } from "react";
-import { useCallback } from "react";
+import { type FC, type ReactNode, useCallback } from "react";
 import type { QueryInterface } from "shared/types/query";
 import { formatDistanceStrict } from "date-fns";
 import {

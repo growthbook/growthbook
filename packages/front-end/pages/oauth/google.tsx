@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DataSourceForm from "@/components/Settings/DataSourceForm";

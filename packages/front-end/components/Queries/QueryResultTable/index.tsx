@@ -1,7 +1,5 @@
-import type { ReactNode } from "react";
-import { useMemo } from "react";
-import type { GetCellText } from "./columnWidths";
-import { cellText } from "./columnWidths";
+import { type ReactNode, useMemo } from "react";
+import { cellText, type GetCellText } from "./columnWidths";
 import {
   RESULT_TABLE_COLUMN_VIRTUALIZATION_THRESHOLD,
   RESULT_TABLE_ROW_VIRTUALIZATION_THRESHOLD,

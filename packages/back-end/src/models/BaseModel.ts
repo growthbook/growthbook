@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { v4 as uuidv4 } from "uuid";
-import type { FilterQuery } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import type {
   AnyBulkWriteOperation,
   Collection,
@@ -38,8 +37,8 @@ import type {
 import type { ApiRequest } from "back-end/src/util/handler";
 import type { ApiModelConfig } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
-import type { DefinitionsVersionScope } from "back-end/src/models/DefinitionsVersionModel";
 import {
+  type DefinitionsVersionScope,
   definitionsScope,
   touchDefinitionsVersion,
 } from "back-end/src/models/DefinitionsVersionModel";

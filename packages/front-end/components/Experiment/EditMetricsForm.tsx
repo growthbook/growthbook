@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import type {
   ExperimentInterfaceStringDates,
@@ -8,8 +7,10 @@ import type {
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import type { OrganizationSettings } from "shared/types/organization";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { getDefaultRegressionAdjustmentDays } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  getDefaultRegressionAdjustmentDays,
+} from "shared/experiments";
 import type { CustomMetricSlice } from "shared/validators";
 import { Box, Separator } from "@radix-ui/themes";
 import { getScopedSettings } from "shared/settings";

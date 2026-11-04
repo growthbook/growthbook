@@ -1,11 +1,10 @@
-import type { FC } from "react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { type FC, useEffect, useMemo, useState } from "react";
 import { PiTrophyDuotone } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   getLatestPhaseVariations,
   getMetricResultStatus,
   isFactMetric,
@@ -33,8 +32,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useSignificanceThresholdsByProject from "@/hooks/useSignificanceThresholdsByProject";
-import type { RowResults } from "@/services/experiments";
-import { experimentDate } from "@/services/experiments";
+import { experimentDate, type RowResults } from "@/services/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
 import track from "@/services/track";

@@ -7,13 +7,13 @@ import {
   getFeaturePageDefaultVersion,
   mergeRevision,
 } from "shared/util";
-import type {
-  SafeRolloutInterface,
-  HoldoutInterface,
-  MinimalFeatureRevisionInterface,
-  RampScheduleInterface,
+import {
+  ACTIVE_DRAFT_STATUSES,
+  type SafeRolloutInterface,
+  type HoldoutInterface,
+  type MinimalFeatureRevisionInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";

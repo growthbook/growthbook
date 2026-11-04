@@ -8,19 +8,17 @@ import {
   DEFAULT_TARGET_MDE,
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
 } from "shared/constants";
-import type {
-  ExperimentMetricInterface,
-  SliceLevelsData,
-} from "shared/experiments";
 import {
   isFactMetric,
   isBinomialMetric,
+  type ExperimentMetricInterface,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
   generateSliceString,
   expandDerivedMetricsInMap,
   parseSliceMetricId,
+  type SliceLevelsData,
   getEffectiveLookbackOverride,
   getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
@@ -64,15 +62,16 @@ import type {
 import type { MetricGroupInterface } from "shared/types/metric-groups";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ProjectInterface } from "shared/types/project";
-import type { CommercialFeature } from "shared/enterprise";
-import { accountFeatures } from "shared/enterprise";
+import { accountFeatures, type CommercialFeature } from "shared/enterprise";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { generateId } from "back-end/src/util/uuid";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
-import type { FactTableMap } from "back-end/src/models/FactTableModel";
-import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
+import {
+  type FactTableMap,
+  getFactTablesByIds,
+} from "back-end/src/models/FactTableModel";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";

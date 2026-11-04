@@ -9,10 +9,11 @@ import {
   holdsAllSuperAdminPermissions,
   normalizeSuperAdmin,
 } from "shared/permissions";
-import type { SuperAdminPermission } from "shared/validators";
-import { superAdminValidator } from "shared/validators";
-import type { AdminOrgSummary } from "shared/enterprise";
-import { getAdminOrgSummary } from "shared/enterprise";
+import {
+  type SuperAdminPermission,
+  superAdminValidator,
+} from "shared/validators";
+import { type AdminOrgSummary, getAdminOrgSummary } from "shared/enterprise";
 import type {
   OrganizationInterface,
   OrganizationMessage,

@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { expandMetricGroups } from "shared/experiments";

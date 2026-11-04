@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useState } from "react";
+import React, { useState, type FC } from "react";
 import type { TagInterface } from "shared/types/tag";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";

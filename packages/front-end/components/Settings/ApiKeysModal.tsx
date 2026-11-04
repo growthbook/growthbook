@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useRef, useState } from "react";
+import { type FC, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import {

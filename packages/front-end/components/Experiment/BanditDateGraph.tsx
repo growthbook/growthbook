@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { FC } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { type FC, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -17,8 +16,10 @@ import {
 import { datetime } from "shared/dates";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { ScaleLinear } from "d3-scale";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import type { BanditEvent } from "shared/validators";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import cloneDeep from "lodash/cloneDeep";

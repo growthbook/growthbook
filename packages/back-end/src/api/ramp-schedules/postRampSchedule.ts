@@ -1,16 +1,14 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import type {
-  RampScheduleInterface,
-  RampScheduleTemplateInterface,
-  RampStartAction,
-  RampStepAction,
-} from "shared/validators";
 import {
   apiRampScheduleInterface,
   experimentHealthAction,
   featureRulePatch,
   rampStartPatch,
+  type RampScheduleInterface,
+  type RampScheduleTemplateInterface,
+  type RampStartAction,
+  type RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
   apiAssignmentQueryInputFields,

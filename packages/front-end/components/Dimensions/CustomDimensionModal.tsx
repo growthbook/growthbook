@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import type { SingleValue } from "@/components/Forms/SelectField";
-import type { CustomDimensionDraft } from "@/components/Dimensions/CustomDimensionFields";
 import CustomDimensionFields, {
+  type CustomDimensionDraft,
   customDimensionDraftError,
 } from "@/components/Dimensions/CustomDimensionFields";
 

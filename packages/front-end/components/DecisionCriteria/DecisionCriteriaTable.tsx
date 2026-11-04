@@ -1,5 +1,4 @@
-import type { FC, MouseEvent } from "react";
-import { useState } from "react";
+import { type FC, useState, type MouseEvent } from "react";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaCheck } from "react-icons/fa";
 import type { DecisionCriteriaData } from "shared/types/experiment";

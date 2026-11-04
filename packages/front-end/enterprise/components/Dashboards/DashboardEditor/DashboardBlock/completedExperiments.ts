@@ -1,10 +1,8 @@
 import { useMemo } from "react";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type {
-  BlockComparison,
-  CompletedExperimentsBlockFilters,
-} from "shared/enterprise";
 import {
+  type BlockComparison,
+  type CompletedExperimentsBlockFilters,
   calculateProductAnalyticsDateRange,
   resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
@@ -12,8 +10,10 @@ import {
 } from "shared/enterprise";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useExperimentSearch } from "@/services/experiments";
-import type { Window } from "./completedExperimentsData";
-import { filterCompletedExperiments } from "./completedExperimentsData";
+import {
+  filterCompletedExperiments,
+  type Window,
+} from "./completedExperimentsData";
 
 // localStorage key for the search hook's sort state. Sort output is unused here
 // (we consume the pre-sort filtered list), so a single shared key is fine.

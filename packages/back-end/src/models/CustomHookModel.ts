@@ -1,9 +1,10 @@
-import type {
-  ApiCustomHook,
-  CustomHookInterface,
-  CustomHookType,
+import {
+  type ApiCustomHook,
+  type CustomHookInterface,
+  type CustomHookType,
+  customHookValidator,
+  hookEntityType,
 } from "shared/validators";
-import { customHookValidator, hookEntityType } from "shared/validators";
 import { getConfigAncestorKeys } from "shared/util";
 import type { UpdateProps } from "shared/types/base-model";
 import type { ExperimentInterface } from "shared/types/experiment";

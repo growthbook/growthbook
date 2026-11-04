@@ -1,6 +1,8 @@
 import type { FunnelFactMetricInterface } from "shared/types/fact-table";
-import type { ExperimentTableRow } from "@/services/experiments";
-import { excludeFunnelSliceRows } from "@/services/experiments";
+import {
+  excludeFunnelSliceRows,
+  type ExperimentTableRow,
+} from "@/services/experiments";
 
 const funnelMetric = {
   id: "fact__funnel",

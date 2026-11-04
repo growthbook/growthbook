@@ -1,10 +1,8 @@
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiBracketsCurly, PiMagicWand } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import type { SchemaField, SimpleSchema } from "shared/types/feature";
-import type { SchemaConversionResult, SchemaProjection } from "shared/util";
 import {
   fieldsToTsType,
   fieldsToProto,
@@ -18,6 +16,8 @@ import {
   jsonSchemaStringToFields,
   protoToFields,
   reconcileSchemaFields,
+  type SchemaConversionResult,
+  type SchemaProjection,
   simpleToJSONSchema,
   stripConfigExtends,
   tsTypesToFields,

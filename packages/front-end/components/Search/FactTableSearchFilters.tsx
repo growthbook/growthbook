@@ -1,13 +1,12 @@
-import type { FC } from "react";
-import React, { useMemo } from "react";
+import React, { type FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { FactTableInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Tag from "@/components/Tags/Tag";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import type { BaseSearchFiltersProps } from "@/components/Search/SearchFilters";
 import {
+  type BaseSearchFiltersProps,
   FilterDropdown,
   FilterHeading,
   FilterItem,

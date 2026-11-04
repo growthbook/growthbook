@@ -1,6 +1,9 @@
 import { HiBadgeCheck } from "react-icons/hi";
-import type { ExperimentMetricDefinition } from "shared/experiments";
-import { isFactMetric, quantileMetricType } from "shared/experiments";
+import {
+  type ExperimentMetricDefinition,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import React from "react";
 import clsx from "clsx";
 import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";

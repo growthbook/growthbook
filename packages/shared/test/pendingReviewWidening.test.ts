@@ -1,5 +1,4 @@
-import type { RevisionFields } from "shared/util";
-import { getReviewAuthorityFootprint } from "shared/util";
+import { getReviewAuthorityFootprint, type RevisionFields } from "shared/util";
 import { assessApprovalCoverage } from "shared/permissions";
 import type { OrganizationInterface } from "shared/types/organization";
 

@@ -1,5 +1,4 @@
-import type { CSSProperties, ReactElement } from "react";
-import React from "react";
+import React, { type CSSProperties, type ReactElement } from "react";
 import clsx from "clsx";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";

@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { Box } from "@radix-ui/themes";
-import {
-  type InterleavingAnalysis,
-  type InterleavingMetricConfig,
+import type {
+  InterleavingAnalysis,
+  InterleavingMetricConfig,
 } from "shared/validators";
 import { isFactMetric } from "shared/experiments";
 import { getInterleavingMetricIssue } from "shared/util";

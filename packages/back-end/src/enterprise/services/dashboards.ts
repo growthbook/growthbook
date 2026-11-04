@@ -2,21 +2,19 @@ import { isEqual, omit, uniqWith } from "lodash";
 import { getSnapshotCutoffDate, isString } from "shared/util";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
-import type {
-  BlockSnapshotSettings,
-  DashboardBlockWithAnalysisId,
-  DashboardInterface,
-  MetricExplorerBlockInterface,
-  DashboardBlockInterface,
-} from "shared/enterprise";
 import {
   blockHasFieldOfType,
   buildComparisonExplorationConfig,
+  type BlockSnapshotSettings,
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
   getEffectiveExplorationConfig,
   snapshotSatisfiesBlock,
+  type DashboardBlockWithAnalysisId,
+  type DashboardInterface,
+  type MetricExplorerBlockInterface,
+  type DashboardBlockInterface,
   resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";

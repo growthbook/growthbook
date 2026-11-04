@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type { TagInterface } from "shared/types/tag";

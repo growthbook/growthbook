@@ -1,10 +1,10 @@
 import type { CookieOptions } from "express";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import type {
-  AttributionCookie,
-  SignupAttributionPayload,
+import {
+  attributionCookieSchema,
+  type AttributionCookie,
+  type SignupAttributionPayload,
 } from "shared/validators";
-import { attributionCookieSchema } from "shared/validators";
 import {
   callLicenseServer,
   LICENSE_SERVER_URL,

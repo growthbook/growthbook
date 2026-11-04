@@ -37,8 +37,9 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { ExpandableDiff } from "./RevisionDiffUtils";
 
 export interface Props {

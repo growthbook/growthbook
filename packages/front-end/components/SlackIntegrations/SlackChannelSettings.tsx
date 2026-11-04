@@ -3,22 +3,20 @@ import type { UseFormReturn } from "react-hook-form";
 import { ago } from "shared/dates";
 import { missingSlackBotScopes } from "shared/slack-integration";
 import type { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import type {
-  NotificationCardFormat,
-  SlackWorkspaceConnectionFrontEndInterface,
-} from "shared/validators";
 import {
   notificationCardFormats,
+  type NotificationCardFormat,
   notificationFiltersSchema,
+  type SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCircleFill, PiDotsThreeVertical, PiX } from "react-icons/pi";
-import type { PreviewNotificationEventName } from "shared/notifications";
 import {
   notificationEventOptions,
   notificationCategories,
   notificationEventMetadata,
   previewNotificationEventNames,
+  type PreviewNotificationEventName,
   cardNotificationEventNames,
 } from "shared/notifications";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";

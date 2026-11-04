@@ -7,8 +7,9 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 interface Props {
   feature: FeatureInterface;

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState, useRef, useEffect } from "react";
+import { type FC, useState, useRef, useEffect } from "react";
 
 const CopyToClipboard: FC<{
   text: string;

@@ -12,13 +12,13 @@ import { useCallback, useState } from "react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
-import type { NewExperimentRefRule } from "@/services/features";
 import {
+  type NewExperimentRefRule,
   useAttributeSchema,
   resolveAttributeFilter,
 } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
-import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
+import type { RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/ui/Checkbox";

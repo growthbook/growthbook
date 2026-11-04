@@ -1,5 +1,4 @@
-import type { FilterQuery } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import type { ArchetypeInterface } from "shared/types/archetype";

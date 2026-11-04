@@ -8,10 +8,10 @@ import type {
   ExperimentSnapshotInterface,
   SnapshotQueryRunnerKind,
 } from "shared/types/experiment-snapshot";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
+  type ExperimentMetricInterface,
 } from "shared/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";

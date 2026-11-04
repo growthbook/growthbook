@@ -1,6 +1,5 @@
 import React from "react";
-import type { UseFormReturn } from "react-hook-form";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, type UseFormReturn } from "react-hook-form";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_P_VALUE_THRESHOLD,

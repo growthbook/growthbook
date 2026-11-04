@@ -6,8 +6,7 @@ import type {
 } from "shared/types/experiment";
 import type { ExperimentRuleEnvironments } from "shared/validators";
 import { PiArrowRight, PiCaretDown, PiCaretRight } from "react-icons/pi";
-import type { ReactNode } from "react";
-import { Fragment, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import {
   FaCircleCheck,
   FaCircleXmark,

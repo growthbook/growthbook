@@ -21,8 +21,10 @@ import {
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseUserIdTypes,
 } from "shared/util";
-import type { CreateStandardFactMetricProps } from "@/services/metrics";
-import { getDefaultFactMetricProps } from "@/services/metrics";
+import {
+  type CreateStandardFactMetricProps,
+  getDefaultFactMetricProps,
+} from "@/services/metrics";
 import type { ApiCallType } from "@/services/auth";
 import { eventSchemas } from "@/services/eventSchema";
 import {

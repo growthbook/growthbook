@@ -7,9 +7,9 @@ import {
   subWeeks,
 } from "date-fns";
 import type { RampScheduleInterface } from "shared/validators";
-import type { EnvStaleResult } from "shared/util";
 import {
   computeFeatureHealth,
+  type EnvStaleResult,
   getTempRolloutStaleReason,
   isFeatureStale,
 } from "shared/util";

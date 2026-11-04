@@ -9,13 +9,10 @@ import type {
 } from "shared/types/experiment";
 import type { PValueCorrection, StatsEngine } from "shared/types/stats";
 import type { FactTableDefinition } from "shared/types/fact-table";
-import type {
-  ExperimentMetricDefinition,
-  ExperimentSortBy,
-  SliceDataForMetric,
-} from "shared/experiments";
 import {
   expandMetricGroups,
+  type ExperimentMetricDefinition,
+  type ExperimentSortBy,
   quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -25,11 +22,12 @@ import {
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
   getSliceDataForMetric,
+  type SliceDataForMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { ExperimentTableRow } from "@/services/experiments";
 import {
   applyMetricOverrides,
+  type ExperimentTableRow,
   compareRows,
   NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";

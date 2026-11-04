@@ -1,6 +1,8 @@
 import { useState } from "react";
-import type { ExperimentsScaledImpactBlockInterface } from "shared/enterprise";
-import { getEffectiveExperimentBlock } from "shared/enterprise";
+import {
+  type ExperimentsScaledImpactBlockInterface,
+  getEffectiveExperimentBlock,
+} from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import ExecExperimentImpact from "@/enterprise/components/ExecReports/ExecExperimentImpact";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";

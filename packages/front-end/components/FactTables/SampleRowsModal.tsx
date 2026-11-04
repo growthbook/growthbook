@@ -13,8 +13,11 @@ import { TestQueryResultsTable } from "@/components/Settings/DisplayTestQueryRes
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import type { FilterColumnSource } from "./rowFilterUtils";
-import { factTableToColumnSource, isRowFilterComplete } from "./rowFilterUtils";
+import {
+  factTableToColumnSource,
+  type FilterColumnSource,
+  isRowFilterComplete,
+} from "./rowFilterUtils";
 import { RowFilterEditorRows } from "./RowFilterFields";
 import { RowFilterActions } from "./RowFilterActions";
 

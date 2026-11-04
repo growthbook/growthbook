@@ -1,5 +1,4 @@
-import type { ClientConfig } from "pg";
-import { Client } from "pg";
+import { Client, type ClientConfig } from "pg";
 import type { QueryResponse } from "shared/types/integrations";
 import type { FactTableColumnType } from "shared/types/fact-table";
 import type { PostgresConnectionParams } from "shared/types/integrations/postgres";

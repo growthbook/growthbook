@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowsSplitBold,

@@ -1,5 +1,10 @@
-import type { FC } from "react";
-import React, { Fragment, useCallback, useMemo, useState } from "react";
+import React, {
+  type FC,
+  Fragment,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import type {
   DataSourceInterfaceWithParams,
   ExposureQuery,

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
 import { PiUserCheck } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import type { PendingMember } from "shared/types/organization";

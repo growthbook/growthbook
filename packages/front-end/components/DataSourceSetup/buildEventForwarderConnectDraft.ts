@@ -6,8 +6,8 @@ import type {
 import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import type { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import type { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import type { DataRegion } from "shared/util";
 import {
+  type DataRegion,
   stripLeadingUtf8ByteOrderMark,
   tryDeriveSnowflakeAccessUrlFromAccount,
 } from "shared/util";

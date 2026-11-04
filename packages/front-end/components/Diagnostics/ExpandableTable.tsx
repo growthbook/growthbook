@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import Table, {
   TableBody,
@@ -10,8 +9,7 @@ import Table, {
 } from "@/ui/Table";
 import Button from "@/ui/Button";
 import RecordDetail from "./RecordDetail";
-import type { RecordsColumn } from "./types";
-import { flattenRecord } from "./types";
+import { flattenRecord, type RecordsColumn } from "./types";
 
 export interface ExpandableTableProps<T extends object> {
   rows: T[];

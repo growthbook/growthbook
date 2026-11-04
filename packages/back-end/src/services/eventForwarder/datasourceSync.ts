@@ -1,5 +1,5 @@
-import type { EventForwarderDatasourceParams } from "shared/util";
 import {
+  type EventForwarderDatasourceParams,
   getEventForwarderHashAttributes,
   reconcileEventForwarderManagedExposureQueries,
   resolveEventForwarderManagedUserIdTypes,

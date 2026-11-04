@@ -1,5 +1,7 @@
-import type { NamespaceUsageExperiment } from "back-end/src/util/namespaces";
-import { experimentAllocatesTrafficInNamespace } from "back-end/src/util/namespaces";
+import {
+  experimentAllocatesTrafficInNamespace,
+  type NamespaceUsageExperiment,
+} from "back-end/src/util/namespaces";
 
 // A running, feature-linked experiment whose latest phase is in `ns_checkout`.
 function experiment(

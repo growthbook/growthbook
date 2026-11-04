@@ -1,8 +1,7 @@
 import { publicNotificationEventNames } from "shared/notifications";
 import type { NotificationEventNameOrWildcard } from "shared/validators";
 import { DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS } from "shared/constants";
-import type { ReactNode } from "react";
-import React, { useMemo } from "react";
+import React, { type ReactNode, useMemo } from "react";
 import clsx from "clsx";
 import {
   PiQuestionLight,

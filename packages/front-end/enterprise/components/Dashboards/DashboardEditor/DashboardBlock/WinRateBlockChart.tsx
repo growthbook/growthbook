@@ -16,11 +16,9 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import type {
-  WinRateProjectRow,
-  WinRateSummary,
-} from "./completedExperimentsData";
 import {
+  type WinRateProjectRow,
+  type WinRateSummary,
   computeWinRateByProject,
   computeWinRateSummary,
   rangeLabel,

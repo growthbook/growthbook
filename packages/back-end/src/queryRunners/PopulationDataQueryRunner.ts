@@ -1,6 +1,6 @@
 import type { UpdateProps } from "shared/types/base-model";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   getFactTableIdsForMetrics,
   isBinomialMetric,
   isFactMetric,
@@ -34,13 +34,13 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import type SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
-import type {
-  QueryMap,
-  ProcessedRowsType,
-  RowsType,
-  StartQueryParams,
+import {
+  QueryRunner,
+  type QueryMap,
+  type ProcessedRowsType,
+  type RowsType,
+  type StartQueryParams,
 } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
 
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;

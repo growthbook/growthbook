@@ -5,15 +5,15 @@ import {
   getConfigBackingPatch,
   isScheduledRule,
 } from "shared/util";
-import type {
-  RevisionRampCreateAction,
-  RevisionRampUpdateAction,
-  SafeRolloutRule,
-  FeatureRule,
-  RulePatchInput,
-  RulePatchInputV2,
+import {
+  type RevisionRampCreateAction,
+  type RevisionRampUpdateAction,
+  type SafeRolloutRule,
+  type FeatureRule,
+  type RulePatchInput,
+  putFeatureRevisionRuleV2Validator,
+  type RulePatchInputV2,
 } from "shared/validators";
-import { putFeatureRevisionRuleV2Validator } from "shared/validators";
 import type { RevisionChanges } from "shared/types/feature-revision";
 import {
   addIdsToFlatRules,

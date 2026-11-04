@@ -1,5 +1,4 @@
-import type { FC, PropsWithChildren } from "react";
-import React, { useMemo } from "react";
+import React, { type FC, type PropsWithChildren, useMemo } from "react";
 
 type SimpleTooltipProps = PropsWithChildren<{
   position: "top" | "right" | "bottom" | "left";

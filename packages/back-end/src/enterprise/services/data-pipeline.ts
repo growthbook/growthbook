@@ -1,7 +1,7 @@
 import md5 from "md5";
 import { isEqual } from "lodash";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,

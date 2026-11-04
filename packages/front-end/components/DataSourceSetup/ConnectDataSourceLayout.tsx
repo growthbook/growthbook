@@ -1,5 +1,11 @@
-import type { ChangeEventHandler } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ChangeEventHandler,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiArrowClockwise,
@@ -14,11 +20,9 @@ import type {
   SchemaFormat,
 } from "shared/types/datasource";
 import type { EventForwarderSinkType } from "shared/types/event-forwarder";
-import type {
-  EventForwarderWarehouseArea,
-  EventForwarderWarehouseRegion,
-} from "shared/util";
 import {
+  type EventForwarderWarehouseArea,
+  type EventForwarderWarehouseRegion,
   getGrowthBookRegionForWarehouseRegion,
   listEventForwarderWarehouseRegions,
 } from "shared/util";
@@ -33,8 +37,8 @@ import EditSchemaOptions from "@/components/Settings/EditSchemaOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { DataRegion } from "@/services/dataRegions";
 import {
+  type DataRegion,
   DEFAULT_DATA_REGION,
   useDataRegionOptions,
 } from "@/services/dataRegions";
@@ -58,19 +62,21 @@ import {
   withGeneratedSnowflakeKey,
 } from "./connectDataSourceHelpers";
 import DataSourceTypeIcon from "./DataSourceTypeIcon";
-import type { ConnectSetupKind } from "./DataSourceConnectInstructions";
-import DataSourceConnectInstructions from "./DataSourceConnectInstructions";
+import DataSourceConnectInstructions, {
+  type ConnectSetupKind,
+} from "./DataSourceConnectInstructions";
 import EventForwarderDestinationFields, {
   defaultEventForwarderDestination,
   eventDestinationEntryHint,
   eventDestinationWithConnectionSchema,
   eventForwarderDestinationFromDatasource,
 } from "./EventForwarderDestinationFields";
-import type { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
-import { generateSnowflakeKeyPair } from "./generateSnowflakeKeyPair";
+import {
+  generateSnowflakeKeyPair,
+  type SnowflakeKeyPair,
+} from "./generateSnowflakeKeyPair";
 import { hasConnectionTestInputs } from "./hasConnectionTestInputs";
-import type { TestStatus } from "./overallTestStatus";
-import { overallTestStatus } from "./overallTestStatus";
+import { overallTestStatus, type TestStatus } from "./overallTestStatus";
 
 function isEventForwarderSink(
   type: DataSourceType | undefined,

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useRef, useState } from "react";
+import { type FC, useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { ProjectInterface } from "shared/types/project";
 import type { ExpandedMember } from "shared/types/organization";

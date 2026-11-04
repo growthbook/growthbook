@@ -1,10 +1,11 @@
-import type {
-  ExplorationConfig,
-  ExplorationDateRange,
-  ProductAnalyticsExploration,
-  ProductAnalyticsResultRow,
+import {
+  type ExplorationConfig,
+  type ExplorationDateRange,
+  type ProductAnalyticsExploration,
+  type ProductAnalyticsResultRow,
+  comparisonMode,
+  dateRangePredefined,
 } from "shared/validators";
-import { comparisonMode, dateRangePredefined } from "shared/validators";
 import {
   buildAlignedComparisonRowLookup,
   buildComparisonDateRange,

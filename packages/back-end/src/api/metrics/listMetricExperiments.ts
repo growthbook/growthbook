@@ -4,11 +4,11 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import type { StructuredExperimentFilters } from "back-end/src/services/experimentFilters";
 import {
   getFilteredExperimentsUsingMetric,
   parseExperimentSearchString,
   splitCsv,
+  type StructuredExperimentFilters,
 } from "back-end/src/services/experimentFilters";
 import {
   _getSnapshots,

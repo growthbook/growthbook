@@ -7,8 +7,10 @@ import {
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SavedGroupInterface } from "shared/types/saved-group";
-import type { V1FeatureRule } from "back-end/src/util/flattenRules";
-import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
+import {
+  flattenV1ToV2Rules,
+  type V1FeatureRule,
+} from "back-end/src/util/flattenRules";
 import { unclearedGates } from "back-end/src/revisions/publishGates";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -29,8 +31,10 @@ import {
   collectHoldoutChangeGates,
   computeProposedFeatureForValidation,
 } from "back-end/src/models/FeatureModel";
-import type { FeatureMergePlan } from "back-end/src/services/featurePublishGates";
-import { collectFeaturePublishGates } from "back-end/src/services/featurePublishGates";
+import {
+  collectFeaturePublishGates,
+  type FeatureMergePlan,
+} from "back-end/src/services/featurePublishGates";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 
 jest.mock("back-end/src/services/organizations", () => ({

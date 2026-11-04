@@ -17,7 +17,6 @@ import {
 } from "back-end/src/services/files";
 import { queueValidateRemoteSavedGroupUpload } from "back-end/src/jobs/validateRemoteSavedGroupUpload";
 import { BadRequestError } from "back-end/src/util/errors";
-import type { RemoteSavedGroupsContext } from "back-end/src/services/remoteSavedGroups";
 import {
   assertUsableUploadVersion,
   collectRemoteSavedGroupGate,
@@ -30,6 +29,7 @@ import {
   getRemoteSavedGroupUploadDownloadUrl,
   getRemoteSavedGroupUploadUrl,
   listRemoteSavedGroupUploads,
+  type RemoteSavedGroupsContext,
   toApiSavedGroupsWithUploads,
   validateRemoteSavedGroupUpload,
 } from "back-end/src/services/remoteSavedGroups";

@@ -10,8 +10,10 @@ import {
 } from "back-end/src/events/revisionReference";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { ApiReqContext } from "back-end/types/api";
-import type { CreateEventData } from "back-end/src/models/EventModel";
-import { createEvent } from "back-end/src/models/EventModel";
+import {
+  createEvent,
+  type CreateEventData,
+} from "back-end/src/models/EventModel";
 import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";

@@ -1,5 +1,10 @@
-import type { FC, ChangeEventHandler, ReactElement } from "react";
-import { useState, useEffect } from "react";
+import {
+  type FC,
+  useState,
+  useEffect,
+  type ChangeEventHandler,
+  type ReactElement,
+} from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isSampleDatasource } from "shared/demo-datasource";
@@ -9,8 +14,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { getInitialSettings } from "@/services/datasources";
-import type { DocSection } from "@/components/DocLink";
-import { DocLink } from "@/components/DocLink";
+import { DocLink, type DocSection } from "@/components/DocLink";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Modal from "@/components/Modal";

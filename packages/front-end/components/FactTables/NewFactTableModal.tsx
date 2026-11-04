@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { isEqual } from "lodash";
 import { Box, Flex, IconButton } from "@radix-ui/themes";

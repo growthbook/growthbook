@@ -10,10 +10,10 @@ import type {
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { FeatureInterface } from "shared/types/feature";
 import type { EventUserForResponseLocals } from "shared/types/events/event-types";
-import type { HoldoutStage } from "shared/util";
 import {
   getApplicableEnvIds,
   getEnabledHoldoutEnvironments,
+  type HoldoutStage,
   PermissionError,
 } from "shared/util";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";

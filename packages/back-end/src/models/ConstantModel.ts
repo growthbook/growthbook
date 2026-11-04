@@ -4,8 +4,11 @@ import type {
   ConstantInterface,
   ConstantWithoutValue,
 } from "shared/types/constant";
-import type { ApiConstant } from "shared/validators";
-import { constantValidator, getCyclicConstantRefs } from "shared/validators";
+import {
+  type ApiConstant,
+  constantValidator,
+  getCyclicConstantRefs,
+} from "shared/validators";
 import type { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";

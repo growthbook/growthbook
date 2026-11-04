@@ -6,15 +6,17 @@ import type {
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
-import type { ContextualBanditQueryRunResult } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
   CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
   CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
   CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
+  type ContextualBanditQueryRunResult,
   ContextualBanditResultsQueryRunner,
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
-import type { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
-import { runContextualStatsEngine } from "back-end/src/enterprise/services/contextualBanditStats";
+import {
+  type ContextualBanditResult,
+  runContextualStatsEngine,
+} from "back-end/src/enterprise/services/contextualBanditStats";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ReqContext } from "back-end/types/api";

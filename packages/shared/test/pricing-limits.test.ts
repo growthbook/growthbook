@@ -1,7 +1,7 @@
-import type { OrgLimits } from "shared/enterprise";
 import {
   FREE_ORG_LIMITS,
   PRO_ORG_LIMITS,
+  type OrgLimits,
   isLimitsFlagDisabled,
   resolveOrgLimitsConfig,
 } from "shared/enterprise";

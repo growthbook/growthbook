@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useId, useState } from "react";
+import { type FC, useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";

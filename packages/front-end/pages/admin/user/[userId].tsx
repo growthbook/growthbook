@@ -9,8 +9,10 @@ import { isCloud } from "@/services/env";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CopyableCode from "@/components/Settings/CopyableCode";
-import type { AdminMember } from "@/components/Admin/EditMember";
-import EditMember, { formatSuperAdmin } from "@/components/Admin/EditMember";
+import EditMember, {
+  type AdminMember,
+  formatSuperAdmin,
+} from "@/components/Admin/EditMember";
 import KeyValues from "@/components/Admin/KeyValues";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";

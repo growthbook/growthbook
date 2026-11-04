@@ -1,14 +1,12 @@
 import { omit } from "lodash";
 import type { z } from "zod";
-import type {
-  customFieldsPropsValidator,
-  ApiCustomField,
-} from "shared/validators";
 import {
+  type customFieldsPropsValidator,
   customFieldsValidator,
   customFieldSectionValues,
   apiCreateCustomFieldBody,
   apiUpdateCustomFieldBody,
+  type ApiCustomField,
 } from "shared/validators";
 import type { CustomFieldSection } from "shared/types/custom-fields";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";

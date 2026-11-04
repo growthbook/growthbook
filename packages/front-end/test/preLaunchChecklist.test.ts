@@ -5,8 +5,10 @@ import type {
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
 import type { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
-import { getChecklistItems } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
+import {
+  type CheckListItem,
+  getChecklistItems,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import {
   getChecklistTier,
   isBypassableStartItem,

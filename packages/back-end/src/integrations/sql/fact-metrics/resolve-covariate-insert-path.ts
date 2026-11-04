@@ -1,6 +1,8 @@
 import cloneDeep from "lodash/cloneDeep";
-import type { ExperimentMetricInterface } from "shared/experiments";
-import { parseSliceMetricId } from "shared/experiments";
+import {
+  type ExperimentMetricInterface,
+  parseSliceMetricId,
+} from "shared/experiments";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type {
   FactMetricInterface,

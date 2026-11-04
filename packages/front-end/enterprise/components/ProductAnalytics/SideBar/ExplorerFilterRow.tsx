@@ -5,7 +5,7 @@ import Collapsible from "react-collapsible";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
-import { type FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
+import type { FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { RowFilterFields } from "@/components/FactTables/RowFilterFields";
 
 /** Front-end only: extends RowFilter with UI state for the explorer. */

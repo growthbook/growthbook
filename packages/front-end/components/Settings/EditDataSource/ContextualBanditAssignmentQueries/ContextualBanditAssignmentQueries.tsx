@@ -1,6 +1,5 @@
 import { contextualBanditQueryEndpoints } from "shared/api-endpoints";
-import type { FC } from "react";
-import React, { Fragment, useCallback, useState } from "react";
+import React, { type FC, Fragment, useCallback, useState } from "react";
 import type { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import type { ApiContextualBanditQueryInterface } from "shared/validators";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";

@@ -1,21 +1,17 @@
-import type { CSSProperties, ReactNode } from "react";
-import { useId, useState } from "react";
+import { type CSSProperties, type ReactNode, useId, useState } from "react";
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { format, startOfMonth, subMonths } from "date-fns";
-import type { DateRange } from "react-day-picker";
-import { DayPicker } from "react-day-picker";
+import { type DateRange, DayPicker } from "react-day-picker";
 import {
   comparisonMode as comparisonModes,
   dateRangePredefined,
   lookbackUnit,
+  type ComparisonMode,
+  type dateGranularity,
+  type ExplorationDateRange,
 } from "shared/validators";
-import type {
-  ComparisonMode,
-  dateGranularity,
-  ExplorationDateRange,
-} from "shared/validators";
-import type { BlockComparison } from "shared/enterprise";
 import {
+  type BlockComparison,
   calculateProductAnalyticsDateRange,
   getOverlappingComparisonModes,
   getPrimaryUtcDayBounds,

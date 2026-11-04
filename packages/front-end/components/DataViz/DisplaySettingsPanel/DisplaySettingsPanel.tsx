@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import React from "react";
+import React, { type ReactNode } from "react";
 import { Box, Text, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";

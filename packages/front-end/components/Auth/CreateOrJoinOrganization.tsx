@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import { PiPlusBold } from "react-icons/pi";

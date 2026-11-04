@@ -20,10 +20,12 @@ import {
 } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
-import type { LicenseInterface } from "shared/enterprise";
-import { accountFeatures } from "shared/enterprise";
-import type { AgreementType, ConfirmRule } from "shared/validators";
-import { updateSdkWebhookValidator } from "shared/validators";
+import { type LicenseInterface, accountFeatures } from "shared/enterprise";
+import {
+  type AgreementType,
+  type ConfirmRule,
+  updateSdkWebhookValidator,
+} from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { AI_PROVIDERS } from "shared/ai";
 import type { UpdateSdkWebhookProps } from "shared/types/webhook";
@@ -122,8 +124,7 @@ import {
   activateRoleById,
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
-import type { ConfigFile } from "back-end/src/init/config";
-import { getConfigFileHash } from "back-end/src/init/config";
+import { type ConfigFile, getConfigFileHash } from "back-end/src/init/config";
 import { getDefinitionsData } from "back-end/src/services/definitions";
 import { getDefinitionsVersionState } from "back-end/src/models/DefinitionsVersionModel";
 import {

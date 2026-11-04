@@ -1,5 +1,7 @@
-import type { ExperimentsWinRateBlockInterface } from "shared/enterprise";
-import { getEffectiveExperimentBlock } from "shared/enterprise";
+import {
+  type ExperimentsWinRateBlockInterface,
+  getEffectiveExperimentBlock,
+} from "shared/enterprise";
 import WinRateBlockChart from "./WinRateBlockChart";
 import type { BlockProps } from ".";
 

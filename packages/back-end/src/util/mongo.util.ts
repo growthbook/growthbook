@@ -6,8 +6,7 @@ import type {
   Collection,
   IndexSpecification,
 } from "mongodb";
-import type { Document as MongooseDocument } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type Document as MongooseDocument } from "mongoose";
 import { promiseAllChunks } from "./promise";
 
 /**

@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useMemo } from "react";
+import React, { type FC, useMemo } from "react";
 import { format } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";

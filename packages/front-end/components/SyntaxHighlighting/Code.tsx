@@ -1,6 +1,12 @@
 import clsx from "clsx";
-import type { CSSProperties, ReactElement } from "react";
-import React, { Suspense, lazy, useMemo, useState } from "react";
+import React, {
+  type CSSProperties,
+  type ReactElement,
+  Suspense,
+  lazy,
+  useMemo,
+  useState,
+} from "react";
 import { FaCompressAlt, FaExpandAlt } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";

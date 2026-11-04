@@ -1,11 +1,17 @@
-import type { FC, ReactNode, CSSProperties } from "react";
-import { useRef, useEffect, useState, useCallback } from "react";
+import {
+  type FC,
+  useRef,
+  useEffect,
+  useState,
+  type ReactNode,
+  type CSSProperties,
+  useCallback,
+} from "react";
 import clsx from "clsx";
 import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { Flex, Text } from "@radix-ui/themes";
-import type { TrackEventProps } from "@/services/track";
-import track from "@/services/track";
+import track, { type TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
@@ -16,8 +22,7 @@ import { StopSubmit } from "@/ui/Modal/StopSubmit";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
-import type { DocSection } from "./DocLink";
-import { DocLink } from "./DocLink";
+import { DocLink, type DocSection } from "./DocLink";
 import styles from "./Modal.module.scss";
 
 type ModalProps = {

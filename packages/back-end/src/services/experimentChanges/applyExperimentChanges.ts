@@ -16,7 +16,6 @@ import {
   setPendingFeatureUnlink,
 } from "back-end/src/models/ExperimentModel";
 import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
-import type { RevisionSnapshot } from "back-end/src/models/FeatureRevisionModel";
 import {
   deleteRevisionForFailedLanding,
   getLinkageSyncRevisionSummaries,
@@ -24,6 +23,7 @@ import {
   getRevisionSnapshot,
   prevalidateRevisionUpdate,
   restoreRevisionSnapshot,
+  type RevisionSnapshot,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
@@ -31,11 +31,9 @@ import {
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
-import type {
-  ExperimentFeatureUpdatePlan,
-  ExperimentLinkedFeatureValueUpdate,
-} from "back-end/src/services/experiment-feature";
 import {
+  type ExperimentFeatureUpdatePlan,
+  type ExperimentLinkedFeatureValueUpdate,
   planExperimentRuleEnvironments,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdate,
@@ -69,14 +67,17 @@ import {
   insertNewFeature,
   prepareNewFeature,
 } from "back-end/src/services/featureCreate";
-import type { ExperimentUpdatePlan } from "./planExperimentUpdate";
 import {
+  type ExperimentUpdatePlan,
   finishExperimentUpdate,
   planExperimentUpdate,
   writeExperimentUpdatePlan,
 } from "./planExperimentUpdate";
-import type { LinkedChangesPlan } from "./linkedChanges";
-import { planLinkedChanges, writeLinkedChanges } from "./linkedChanges";
+import {
+  type LinkedChangesPlan,
+  planLinkedChanges,
+  writeLinkedChanges,
+} from "./linkedChanges";
 import {
   asJson,
   assertBaseCoversChanges,

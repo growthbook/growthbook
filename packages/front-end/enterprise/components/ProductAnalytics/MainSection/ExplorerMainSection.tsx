@@ -6,8 +6,12 @@ import {
   type ReactNode,
 } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import type { ImperativePanelHandle } from "react-resizable-panels";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+  type ImperativePanelHandle,
+} from "react-resizable-panels";
 import { PiArrowsClockwise, PiChartLineUp, PiDotsSix } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";

@@ -1,16 +1,13 @@
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { isEqual } from "lodash";
-import type {
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-  SqlExplorationBlockInterface,
-} from "shared/enterprise";
 import {
   blockUsesDashboardDateControl,
   buildComparisonDateRange,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
   getEffectiveExplorationConfig,
   restoreBlockLocalDateControls,
+  type SqlExplorationBlockInterface,
 } from "shared/enterprise";
 import type {
   ExplorationConfig,
@@ -34,8 +31,10 @@ import {
 } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { ExplorerContent } from "@/enterprise/components/ProductAnalytics/Explorer";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
-import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
-import { cleanConfigForSubmission } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  cleanConfigForSubmission,
+  type ExplorerDraftConfig,
+} from "@/enterprise/components/ProductAnalytics/util";
 
 function SqlExplorationEditorModal({
   close,

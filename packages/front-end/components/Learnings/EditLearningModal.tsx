@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useMemo, useState } from "react";
+import { type FC, useMemo, useState } from "react";
 import { Box, Grid } from "@radix-ui/themes";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { LearningInterfaceStringDates } from "shared/validators";

@@ -49,10 +49,10 @@ import {
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
 } from "back-end/src/services/experiments";
-import type { PendingDraftPublishResult } from "back-end/src/services/experiment-feature";
 import {
   formatPendingDraftFailureMessage,
   getLaunchDrafts,
+  type PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";

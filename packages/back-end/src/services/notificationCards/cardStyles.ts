@@ -1,5 +1,7 @@
-import type { NotificationCardFormat } from "shared/validators";
-import { DEFAULT_NOTIFICATION_SETTINGS } from "shared/validators";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  type NotificationCardFormat,
+} from "shared/validators";
 import {
   renderDarkCard,
   renderLightCard,

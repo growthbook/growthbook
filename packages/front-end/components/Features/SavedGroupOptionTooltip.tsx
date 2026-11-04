@@ -4,8 +4,8 @@ import type { SavedGroupForDefinitions } from "shared/types/saved-group";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import { AttributeOptionProjectsLabel } from "./AttributeOptionTooltip";
-import type { OptionContext } from "./OptionTooltipShell";
 import {
+  type OptionContext,
   OptionLabel,
   OptionMenuRow,
   OptionPopover,

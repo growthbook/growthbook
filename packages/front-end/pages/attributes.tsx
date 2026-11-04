@@ -1,5 +1,10 @@
-import type { FC, ReactNode } from "react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  type FC,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -29,11 +34,11 @@ import Table, {
 import Heading from "@/ui/Heading";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import type {
-  ResolvedTableColumn,
-  TableColumnDef,
+import {
+  columnWidthBounds,
+  type ResolvedTableColumn,
+  type TableColumnDef,
 } from "@/services/tableColumns";
-import { columnWidthBounds } from "@/services/tableColumns";
 import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { useUser } from "@/services/UserContext";

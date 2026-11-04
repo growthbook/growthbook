@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useState } from "react";
+import React, { type FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type {
   AttributionModel,

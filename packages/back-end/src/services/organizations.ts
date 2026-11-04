@@ -40,14 +40,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import type {
-  AIModel,
-  AIModelKind,
-  AIProvider,
-  EmbeddingModel,
-  STTModel,
-} from "shared/ai";
 import {
+  type AIModel,
+  type AIModelKind,
+  type AIProvider,
   AI_PROVIDERS,
   CLOUD_MANAGED_AI_MODEL,
   SELF_HOSTED_DEFAULT_AI_MODELS,
@@ -55,6 +51,8 @@ import {
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   AUTOCOMPLETE_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
+  type EmbeddingModel,
+  type STTModel,
   resolveDefaultSTTModel,
   getProviderForAIModel,
 } from "shared/ai";
@@ -106,8 +104,8 @@ import {
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
 import { loginMethodOwnsOrg } from "back-end/src/services/auth/authChecks";
-import type { AIKeySource } from "back-end/src/services/aiCredentials";
 import {
+  type AIKeySource,
   canOrgChooseProviderModels,
   getResolvedAIKeys,
 } from "back-end/src/services/aiCredentials";
@@ -138,8 +136,8 @@ import {
 } from "back-end/src/util/errors";
 import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
 import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
-import type { ArmingOAuthSignIn } from "back-end/src/util/armingApiKeyId";
 import {
+  type ArmingOAuthSignIn,
   decodeArmingApiKeyId,
   isArmingApiKeyId,
   SECRET_API_KEY_ID,

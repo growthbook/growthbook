@@ -6,8 +6,8 @@ import type {
   QueryPointer,
   QueryStatus,
 } from "shared/types/query";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   getFactMetricFactTableIds,
   isFactFunnelMetric,
   isFactMetric,
@@ -47,13 +47,13 @@ import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import type {
-  QueryMap,
-  ProcessedRowsType,
-  RowsType,
-  StartQueryParams,
+import {
+  QueryRunner,
+  type QueryMap,
+  type ProcessedRowsType,
+  type RowsType,
+  type StartQueryParams,
 } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
 import type { SnapshotResult } from "./ExperimentResultsQueryRunner";
 
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {

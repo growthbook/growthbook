@@ -2,8 +2,11 @@
 import "../../init/aliases";
 // Forked process, so the server's trust-store change doesn't carry over.
 import "back-end/src/init/distrustRoots";
-import type { SandboxEvalOptions, SandboxEvalResult } from "./sandbox-core";
-import { sandboxEval } from "./sandbox-core";
+import {
+  sandboxEval,
+  type SandboxEvalOptions,
+  type SandboxEvalResult,
+} from "./sandbox-core";
 
 interface WorkerJob {
   id: number;

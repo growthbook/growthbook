@@ -1,5 +1,4 @@
-import type { CSSProperties } from "react";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, type CSSProperties } from "react";
 import { Box } from "@radix-ui/themes";
 
 interface ShadowedScrollAreaProps {

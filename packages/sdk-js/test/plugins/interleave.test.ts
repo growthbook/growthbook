@@ -6,15 +6,13 @@ import type {
   FeatureApiResponse,
   FeatureDefinition,
 } from "../../src/types/growthbook";
-import type {
-  InterleaveConfig,
-  InterleaveExposure,
-} from "../../src/plugins/interleave";
 import {
   interleave,
   interleavePlugin,
   teamDraft,
   EVENT_INTERLEAVE_EXPOSURE,
+  type InterleaveConfig,
+  type InterleaveExposure,
 } from "../../src/plugins/interleave";
 
 const configs: Record<string, InterleaveConfig> = {

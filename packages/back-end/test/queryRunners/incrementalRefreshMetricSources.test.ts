@@ -1,7 +1,9 @@
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type { FactMetricInterface } from "shared/types/fact-table";
-import type { MetricSourceGroups } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import {
+  getIncrementalRefreshMetricSources,
+  type MetricSourceGroups,
+} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
 // `getIncrementalRefreshMetricSources` only reaches into the integration for

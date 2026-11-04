@@ -40,12 +40,11 @@ import {
   DiffFormatToggle,
   stringifyForRawDiff,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
-import type { UseAuditEntriesResult } from "./useAuditEntries";
-import { PAGE_LIMIT } from "./useAuditEntries";
+import { PAGE_LIMIT, type UseAuditEntriesResult } from "./useAuditEntries";
 import type { AuditDiffConfig, CoarsenedAuditEntry } from "./types";
-import type { LeftColItem } from "./CompareAuditEventsUtils";
 import {
   COMPACT_DIFF_STYLES,
+  type LeftColItem,
   getSeparatorBucketKey,
   getSeparatorLabel,
 } from "./CompareAuditEventsUtils";

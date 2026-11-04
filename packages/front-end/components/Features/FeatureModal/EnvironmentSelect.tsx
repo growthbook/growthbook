@@ -1,5 +1,11 @@
-import type { FC } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { Environment } from "shared/types/organization";
 import type { FeatureEnvironment } from "shared/types/feature";
 import { filterProjectsByEnvironment } from "shared/util";

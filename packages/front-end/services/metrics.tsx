@@ -15,9 +15,9 @@ import {
   validateCappingSettingsIgnoreZerosConsistency,
   validateCappingSettingsOrdering,
 } from "shared/validators";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
   getInlineFilterPromptColumns,
+  type ExperimentMetricDefinition,
   isEmptyInlineFilterPlaceholder,
 } from "shared/experiments";
 import {

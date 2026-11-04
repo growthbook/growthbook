@@ -32,21 +32,21 @@ import type {
   DataSourceSettings,
   DataSourceType,
 } from "shared/types/datasource";
-import type {
-  ProductAnalyticsDimension,
-  ProductAnalyticsDynamicDimension,
-  ProductAnalyticsStaticDimension,
-  FactTableDataset,
-  ExplorationConfig,
-  DataSourceDataset,
-  SqlDataset,
-  ProductAnalyticsResult,
-  ProductAnalyticsResultRow,
-  FunnelDataset,
-  PopulationDataset,
-  ExplorationPopulation,
+import {
+  type ProductAnalyticsDimension,
+  type ProductAnalyticsDynamicDimension,
+  type ProductAnalyticsStaticDimension,
+  type FactTableDataset,
+  type ExplorationConfig,
+  type DataSourceDataset,
+  type SqlDataset,
+  type ProductAnalyticsResult,
+  type ProductAnalyticsResultRow,
+  type FunnelDataset,
+  type PopulationDataset,
+  type ExplorationPopulation,
+  dateGranularity,
 } from "../../validators/product-analytics";
-import { dateGranularity } from "../../validators/product-analytics";
 import {
   getRowFilterSQL,
   getColumnExpression,
@@ -55,8 +55,10 @@ import {
   getFactTableTimestampColumn,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
-import type { FunnelStep } from "../../validators/fact-table";
-import { getCappingTailState } from "../../validators/fact-table";
+import {
+  getCappingTailState,
+  type FunnelStep,
+} from "../../validators/fact-table";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 import { factTableHasResolvableColumn } from "./columns";

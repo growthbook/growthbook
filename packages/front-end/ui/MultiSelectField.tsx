@@ -1,26 +1,34 @@
-import type { FC, MouseEventHandler, ReactNode } from "react";
-import { createContext, useContext, useMemo, useState } from "react";
-import type {
-  CSSObjectWithLabel,
-  GroupBase,
-  MultiValueGenericProps,
-  MultiValueProps,
-  InputProps,
-  Props,
-  StylesConfig,
-  OptionProps,
-  FormatOptionLabelMeta,
-  ClearIndicatorProps,
-  DropdownIndicatorProps,
-  FilterOptionOption,
-  ActionMeta,
+import {
+  createContext,
+  type FC,
+  type MouseEventHandler,
+  type ReactNode,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import ReactSelect, {
+  components,
+  type CSSObjectWithLabel,
+  type GroupBase,
+  type MultiValueGenericProps,
+  type MultiValueProps,
+  type InputProps,
+  type Props,
+  type StylesConfig,
+  type OptionProps,
+  type FormatOptionLabelMeta,
+  type ClearIndicatorProps,
+  type DropdownIndicatorProps,
+  type FilterOptionOption,
+  type ActionMeta,
 } from "react-select";
-import ReactSelect, { components } from "react-select";
-import type {
-  SortableContainerProps,
-  SortEndHandler,
+import {
+  SortableContainer,
+  type SortableContainerProps,
+  SortableElement,
+  type SortEndHandler,
 } from "react-sortable-hoc";
-import { SortableContainer, SortableElement } from "react-sortable-hoc";
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
@@ -28,21 +36,17 @@ import clsx from "clsx";
 import { PiCaretDown, PiX } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
-import type { TextSizes, TextWeights } from "@/ui/Text";
-import Text from "@/ui/Text";
+import Text, { type TextSizes, type TextWeights } from "@/ui/Text";
 import { CopyIcon } from "@/ui/ActionIcons";
 import Badge from "@/ui/Badge";
-import type {
-  SingleValue,
-  Option,
-  GroupedValue,
-} from "@/components/Forms/SelectField";
 import {
   ReactSelectProps,
+  type SingleValue,
+  type Option,
+  type GroupedValue,
   useSelectOptions,
 } from "@/components/Forms/SelectField";
-import type { FieldProps } from "@/components/Forms/Field";
-import Field from "@/components/Forms/Field";
+import Field, { type FieldProps } from "@/components/Forms/Field";
 import HelperText from "@/ui/HelperText";
 import type { Size } from "@/ui/sizes";
 import type { ColorOption } from "@/components/Tags/TagsInput";

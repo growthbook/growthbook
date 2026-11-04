@@ -1,24 +1,22 @@
 import type { ExperimentInterface } from "shared/types/experiment";
-import type {
-  FeatureRule,
-  FeaturePrerequisite,
-  FeatureRulePatch,
-  apiRevisionRampCreateAction,
-  RampMonitoringConfig,
-  RevisionRampCreateAction,
-} from "shared/validators";
 import {
+  type FeatureRule,
+  type FeaturePrerequisite,
+  type FeatureRulePatch,
+  type apiRevisionRampCreateAction,
+  type RampMonitoringConfig,
+  type RevisionRampCreateAction,
   ACTIVE_DRAFT_STATUSES,
   inlineRampScheduleInput,
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import type { z } from "zod";
-import type { FeatureRuleScope } from "shared/util";
 import {
   rampPlanLacksHashAttribute,
   getRuleAttributeScopeProjectIds,
   findStoredRuleCounterpart,
   getNewlyUnscopedRules,
+  type FeatureRuleScope,
   stemRuleId,
   validateCondition,
   validatePrerequisiteCondition,

@@ -3,8 +3,7 @@ import type { HoldoutInterfaceStringDates } from "shared/validators";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getHoldoutStage } from "shared/util";
 import { format, differenceInMinutes } from "date-fns";
-import type { Segment } from "@/ui/ProgressBar";
-import { ProgressBar } from "@/ui/ProgressBar";
+import { ProgressBar, type Segment } from "@/ui/ProgressBar";
 import Text from "@/ui/Text";
 import styles from "./HoldoutSchedule.module.scss";
 

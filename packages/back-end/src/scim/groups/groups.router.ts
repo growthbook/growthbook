@@ -1,5 +1,4 @@
-import type { RequestHandler } from "express";
-import { Router } from "express";
+import { type RequestHandler, Router } from "express";
 import { listGroups } from "./listGroups";
 import { createGroup } from "./createGroup";
 import { getGroup } from "./getGroup";

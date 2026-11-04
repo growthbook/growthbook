@@ -1,5 +1,4 @@
-import type { HelperOptions } from "handlebars";
-import Handlebars from "handlebars";
+import Handlebars, { type HelperOptions } from "handlebars";
 import { helpers } from "back-end/src/util/handlebarsHelpers"; // Replace '../src/helpers' with the correct path to the helpers module.
 
 // Register all the helpers from handlebarsHelpers

@@ -1,5 +1,7 @@
-import type { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
-import { postExperimentStopValidator } from "shared/validators";
+import {
+  type ExperimentInterfaceExcludingHoldouts,
+  postExperimentStopValidator,
+} from "shared/validators";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { stopExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";

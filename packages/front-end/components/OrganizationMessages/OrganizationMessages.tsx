@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useMemo } from "react";
+import React, { type FC, useMemo } from "react";
 import md5 from "md5";
 import type { OrganizationMessage } from "shared/types/organization";
 import { useUser } from "@/services/UserContext";

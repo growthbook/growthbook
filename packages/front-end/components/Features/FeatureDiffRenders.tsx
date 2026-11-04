@@ -1,5 +1,4 @@
-import type { ReactNode, ReactElement } from "react";
-import { useRef } from "react";
+import { type ReactNode, type ReactElement, useRef } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
 import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";

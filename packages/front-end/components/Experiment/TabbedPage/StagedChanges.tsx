@@ -13,8 +13,11 @@ import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { ApiCallError } from "@/services/apiCallError";
-import type { StagedReview } from "./ExperimentEdits";
-import { incompatibleNote, useExperimentEdits } from "./ExperimentEdits";
+import {
+  incompatibleNote,
+  type StagedReview,
+  useExperimentEdits,
+} from "./ExperimentEdits";
 
 type SaveCheck = { status: "ready" } | { status: "refused"; reason: string };
 

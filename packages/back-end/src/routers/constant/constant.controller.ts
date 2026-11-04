@@ -2,11 +2,9 @@ import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import type { z } from "zod";
-import type {
-  postConstantBodyValidator,
-  putConstantBodyValidator,
-} from "shared/validators";
 import {
+  type postConstantBodyValidator,
+  type putConstantBodyValidator,
   validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
@@ -15,8 +13,8 @@ import type {
   ConstantInterface,
   ConstantWithoutValue,
 } from "shared/types/constant";
-import type { Revision } from "shared/enterprise";
 import {
+  type Revision,
   normalizeProposedChanges,
   getConstantRevisionChange,
 } from "shared/enterprise";
@@ -47,8 +45,8 @@ import {
   archiveServeFootprint,
   constantPublishEnvironments,
 } from "back-end/src/revisions/revisionPublishEnvironments";
-import type { ConstantReferences } from "back-end/src/services/constants";
 import {
+  type ConstantReferences,
   loadConstantReferences,
   assertKeyAvailable,
 } from "back-end/src/services/constants";

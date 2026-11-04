@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useMemo, useState } from "react";
+import React, { type FC, useMemo, useState } from "react";
 import type { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
 import type { ApiKeyInterface } from "shared/types/apikey";

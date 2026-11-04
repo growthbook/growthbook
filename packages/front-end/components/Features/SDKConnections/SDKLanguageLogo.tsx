@@ -18,8 +18,7 @@ import {
   SiNextdotjs,
   SiRoku,
 } from "react-icons/si";
-import type { ReactElement } from "react";
-import React from "react";
+import React, { type ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { BsFiletypeHtml } from "react-icons/bs";

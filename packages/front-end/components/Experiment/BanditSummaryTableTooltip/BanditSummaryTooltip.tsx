@@ -1,5 +1,8 @@
-import type { DetailedHTMLProps, HTMLAttributes } from "react";
-import React, { useEffect } from "react";
+import React, {
+  type DetailedHTMLProps,
+  type HTMLAttributes,
+  useEffect,
+} from "react";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { BsXCircle } from "react-icons/bs";
 import clsx from "clsx";

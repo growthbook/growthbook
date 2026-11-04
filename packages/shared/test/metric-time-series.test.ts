@@ -1,5 +1,7 @@
-import { metricTimeSeriesSchema } from "../src/validators/metric-time-series";
-import type { MetricTimeSeries } from "../src/validators/metric-time-series";
+import {
+  metricTimeSeriesSchema,
+  type MetricTimeSeries,
+} from "../src/validators/metric-time-series";
 import {
   isValidDataPoint,
   filterInvalidMetricTimeSeries,

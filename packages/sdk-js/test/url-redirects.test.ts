@@ -1,5 +1,4 @@
-import type { AutoExperiment } from "../src";
-import { GrowthBook } from "../src";
+import { type AutoExperiment, GrowthBook } from "../src";
 
 function sleep(ms = 20) {
   return new Promise((res) => setTimeout(res, ms));

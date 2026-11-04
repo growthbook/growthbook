@@ -1,11 +1,9 @@
 import type { Response } from "express";
-import type {
-  AIModel,
-  AIPromptInterface,
-  AIPromptType,
-  AIProvider,
-} from "shared/ai";
 import {
+  type AIModel,
+  type AIPromptInterface,
+  type AIPromptType,
+  type AIProvider,
   AI_PROVIDERS,
   AI_PROVIDER_META,
   getAIModelSettingsUsingProvider,

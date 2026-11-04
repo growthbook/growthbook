@@ -8,8 +8,10 @@ import {
 } from "shared/permissions";
 import { eventUserIdentity } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
-import type { FeatureRevisionLogInterface } from "back-end/src/validators/feature-revision-log";
-import { featureRevisionLogValidator } from "back-end/src/validators/feature-revision-log";
+import {
+  type FeatureRevisionLogInterface,
+  featureRevisionLogValidator,
+} from "back-end/src/validators/feature-revision-log";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";

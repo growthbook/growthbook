@@ -2,8 +2,7 @@ import { useRef, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import type { RichTextEditorHandle } from "./RichTextEditor";
-import RichTextEditor from "./RichTextEditor";
+import RichTextEditor, { type RichTextEditorHandle } from "./RichTextEditor";
 
 const SAMPLE = `## Hypothesis
 

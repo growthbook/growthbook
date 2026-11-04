@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React from "react";
+import React, { type FC } from "react";
 import { useRouter } from "next/router";
 import type { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";

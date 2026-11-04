@@ -1,8 +1,8 @@
 import { z } from "zod";
-import type { RampScheduleInterface } from "shared/validators";
 import {
   apiPaginationFieldsValidator,
   apiRampScheduleInterface,
+  type RampScheduleInterface,
 } from "shared/validators";
 import {
   applyPagination,

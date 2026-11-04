@@ -1,10 +1,10 @@
-import type {
-  FeatureInterface,
-  RampScheduleInterface,
-  SafeRolloutInterface,
-  SafeRolloutRule,
+import {
+  type FeatureInterface,
+  isTerminalRampScheduleStatus,
+  type RampScheduleInterface,
+  type SafeRolloutInterface,
+  type SafeRolloutRule,
 } from "shared/validators";
-import { isTerminalRampScheduleStatus } from "shared/validators";
 import { getRulesForEnvironment } from "shared/util";
 
 export function getSafeRolloutRuleFromFeature(

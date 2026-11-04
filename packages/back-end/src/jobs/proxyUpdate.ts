@@ -1,6 +1,5 @@
 import { createHmac } from "crypto";
-import type { Job } from "agenda";
-import type Agenda from "agenda";
+import type { Agenda, Job } from "agenda";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";

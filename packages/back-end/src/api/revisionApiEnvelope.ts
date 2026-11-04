@@ -1,10 +1,10 @@
-import type {
-  Revision,
-  Review,
-  ActivityLogEntry,
-  JsonPatchOperation,
+import {
+  type Revision,
+  type Review,
+  type ActivityLogEntry,
+  type JsonPatchOperation,
+  normalizeProposedChanges,
 } from "shared/enterprise";
-import { normalizeProposedChanges } from "shared/enterprise";
 import { revisionActor, eventUserToApiEventUser } from "shared/validators";
 import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 import type { ApiReqContext } from "back-end/types/api";

@@ -1,5 +1,7 @@
-import type { ContextualBanditEventInterface } from "shared/validators";
-import { contextualBanditEventValidator } from "shared/validators";
+import {
+  type ContextualBanditEventInterface,
+  contextualBanditEventValidator,
+} from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({

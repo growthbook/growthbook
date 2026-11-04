@@ -1,12 +1,10 @@
 import type { Response } from "express";
-import type {
-  LearningInterface,
-  LearningRefreshSuggestion,
-  AiLearningSuggestion,
-} from "shared/validators";
 import {
+  type LearningInterface,
+  type LearningRefreshSuggestion,
   aiLearningRefreshValidator,
   aiLearningSuggestionsResponseValidator,
+  type AiLearningSuggestion,
 } from "shared/validators";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";

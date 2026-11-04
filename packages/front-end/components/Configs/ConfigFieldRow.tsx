@@ -29,9 +29,9 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import type { ResolvedField } from "@/components/Configs/fieldSchema";
 import {
   FIELD_GRID_TEMPLATE,
+  type ResolvedField,
   fieldTypeLabel,
   fieldValueType,
   fieldIsNullable,

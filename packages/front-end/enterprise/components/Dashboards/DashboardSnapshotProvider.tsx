@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import React, {
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -9,17 +9,15 @@ import React, {
 } from "react";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-  DashboardInterface,
-} from "shared/enterprise";
 import {
+  type DashboardBlockInterfaceOrData,
+  type DashboardBlockInterface,
   blockHasFieldOfType,
   getBlockSnapshotAnalysis,
   getBlockAnalysisSettings,
   snapshotSatisfiesBlock,
   resolveBlockComparison,
+  type DashboardInterface,
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import type { Queries, QueryStatus } from "shared/types/query";

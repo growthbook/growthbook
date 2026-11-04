@@ -1,9 +1,9 @@
 import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
-import type {
-  ResultSet,
-  StartQueryExecutionCommandInput,
+import {
+  Athena,
+  type ResultSet,
+  type StartQueryExecutionCommandInput,
 } from "@aws-sdk/client-athena";
-import { Athena } from "@aws-sdk/client-athena";
 import type {
   ExternalIdCallback,
   QueryResponse,

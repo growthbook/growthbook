@@ -11,8 +11,9 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import type { DraftMode } from "@/components/Features/DraftSelectorForChanges";
-import DraftSelectorForChanges from "@/components/Features/DraftSelectorForChanges";
+import DraftSelectorForChanges, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";

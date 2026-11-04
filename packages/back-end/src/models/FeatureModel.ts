@@ -1,11 +1,10 @@
-import type { FilterQuery } from "mongoose";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import type { MergeResultChanges } from "shared/util";
 import {
+  type MergeResultChanges,
   PermissionError,
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -26,20 +25,20 @@ import {
   toMonitoringSelection,
   withKeptIdentifierType,
 } from "shared/util";
-import type {
-  SafeRolloutInterface,
-  SafeRolloutRule,
-  RampScheduleInterface,
-  RampScheduleTemplateInterface,
-  RevisionRampAction,
-  RevisionRampDetachAction,
-  RevisionRampCreateAction,
-  RevisionRampUpdateAction,
-  RampStartAction,
-  RampStepAction,
-  RampMonitoringConfig,
+import {
+  type SafeRolloutInterface,
+  type SafeRolloutRule,
+  type RampScheduleInterface,
+  type RampScheduleTemplateInterface,
+  type RevisionRampAction,
+  type RevisionRampDetachAction,
+  type RevisionRampCreateAction,
+  type RevisionRampUpdateAction,
+  type RampStartAction,
+  type RampStepAction,
+  resolveStartApproval,
+  type RampMonitoringConfig,
 } from "shared/validators";
-import { resolveStartApproval } from "shared/validators";
 import type { UpdateProps } from "shared/types/base-model";
 import type {
   FeatureEnvironment,
@@ -87,16 +86,14 @@ import {
   assertConfigBackedFeatureValuesValid,
   configCheckedRuleValues,
 } from "back-end/src/services/configValidation";
-import type {
-  RampBaseStatePreImage,
-  RampBaseStateRefusal,
-} from "back-end/src/services/rampSchedule";
 import {
   appendRampEvent,
   applyRampBaseStateSync,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
   planRampBaseStateSyncForPublish,
+  type RampBaseStatePreImage,
+  type RampBaseStateRefusal,
   restoreRampBaseStates,
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
@@ -118,12 +115,12 @@ import {
   upgradeFeatureRule,
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
-import type { V1RulesByEnv } from "back-end/src/util/flattenRules";
 import {
   resolveRampTargets,
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   isPlausibleFeatureRule,
+  type V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import type { ReqContext } from "back-end/types/request";
@@ -183,8 +180,12 @@ import {
   runValidateFeatureRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { settleFeatureRemovalsAfterPublish } from "back-end/src/util/featureExperimentSync";
-import type { CreateEventData, CreateEventParams } from "./EventModel";
-import { createEvent, hasPreviousObject } from "./EventModel";
+import {
+  createEvent,
+  hasPreviousObject,
+  type CreateEventData,
+  type CreateEventParams,
+} from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
   clearPendingFeatureDraftsForRevision,

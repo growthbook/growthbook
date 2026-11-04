@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import type {
   ExperimentInterfaceStringDates,

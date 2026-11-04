@@ -1,11 +1,11 @@
 import cloneDeep from "lodash/cloneDeep";
-import type { FeatureApiResponse } from "../src";
 import {
   configureCache,
   GrowthBook,
   GrowthBookClient,
   clearCache,
   setPolyfills,
+  type FeatureApiResponse,
   prefetchPayload,
   onHidden,
   onVisible,

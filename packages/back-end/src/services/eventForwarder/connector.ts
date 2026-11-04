@@ -15,10 +15,6 @@ import type {
   EventForwarderStatusResponse,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import type {
-  EventForwarderLicenseConnectorPhase,
-  EventForwarderLicenseConnectorStatus,
-} from "back-end/src/enterprise/licenseUtil";
 import {
   postPauseEventForwarderToLicenseServer,
   postProvisionEventForwarderToLicenseServer,
@@ -26,6 +22,8 @@ import {
   postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
+  type EventForwarderLicenseConnectorPhase,
+  type EventForwarderLicenseConnectorStatus,
   postEventForwarderStatusToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
 import {

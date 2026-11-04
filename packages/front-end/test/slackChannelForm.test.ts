@@ -1,9 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { useForm } from "react-hook-form";
-import type { SlackChannelFormValues } from "@/components/SlackIntegrations/slackChannelForm";
 import {
   acknowledgeSlackChannelSave,
   getSlackChannelFormValues,
+  type SlackChannelFormValues,
 } from "@/components/SlackIntegrations/slackChannelForm";
 
 const initial: SlackChannelFormValues = {

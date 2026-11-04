@@ -14,8 +14,7 @@ import type { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getIdeasByQuery } from "back-end/src/services/ideas";
-import type { IdeaDocument } from "back-end/src/models/IdeasModel";
-import { IdeaModel } from "back-end/src/models/IdeasModel";
+import { type IdeaDocument, IdeaModel } from "back-end/src/models/IdeasModel";
 import {
   getMetricsUsingSegment,
   removeSegmentFromAllMetrics,

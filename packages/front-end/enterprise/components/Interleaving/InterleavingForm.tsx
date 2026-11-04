@@ -18,9 +18,9 @@ import SelectOwner from "@/components/Owner/SelectOwner";
 import TagsInput from "@/components/Tags/TagsInput";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import type { InterleavingRankers } from "@/components/Interleaving/InterleavingVariationsInput";
-import type { InterleavingAnalysisValue } from "@/components/Interleaving/InterleavingAnalysisFields";
 import InterleavingAnalysisFields, {
   getAnalysisError,
+  type InterleavingAnalysisValue,
 } from "@/components/Interleaving/InterleavingAnalysisFields";
 import AddEditInterleavingExposureQueryModal from "@/components/Interleaving/AddEditInterleavingExposureQueryModal";
 import { rankersOf } from "@/components/Interleaving/EditInterleavingRankersModal";

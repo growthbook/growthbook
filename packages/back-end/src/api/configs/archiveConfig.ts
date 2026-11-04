@@ -10,13 +10,11 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import type {
-  PublishGate,
-  BypassedGate,
-} from "back-end/src/revisions/publishGates";
 import {
   evaluatePublishGates,
   PublishBlockedError,
+  type PublishGate,
+  type BypassedGate,
 } from "back-end/src/revisions/publishGates";
 import {
   buildPatchOps,

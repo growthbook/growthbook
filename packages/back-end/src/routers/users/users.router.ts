@@ -1,5 +1,4 @@
-import type { Request } from "express";
-import express from "express";
+import express, { type Request } from "express";
 import rateLimit from "express-rate-limit";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import { wrapController } from "back-end/src/routers/wrapController";

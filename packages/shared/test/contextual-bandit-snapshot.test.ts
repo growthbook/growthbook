@@ -1,5 +1,7 @@
-import type { ContextualBanditSnapshotSettings } from "../src/validators/contextual-bandit-snapshot";
-import { contextualBanditSnapshotSettingsValidator } from "../src/validators/contextual-bandit-snapshot";
+import {
+  contextualBanditSnapshotSettingsValidator,
+  type ContextualBanditSnapshotSettings,
+} from "../src/validators/contextual-bandit-snapshot";
 
 function buildSettings(
   overrides: Partial<ContextualBanditSnapshotSettings> = {},

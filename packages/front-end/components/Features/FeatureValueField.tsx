@@ -5,13 +5,16 @@ import type {
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import type {
-  ComponentProps,
-  MouseEvent,
-  ReactElement,
-  ReactNode,
+import {
+  type ComponentProps,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
 } from "react";
-import { useEffect, useId, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
 import type { ConstantWithoutValue } from "shared/types/constant";
 import {

@@ -34,12 +34,8 @@ import type {
   FactTableDefinition,
   FactTableColumnType,
 } from "shared/types/fact-table";
-import type {
-  ExperimentMetricDefinition,
-  SampleSizeSource,
-  SliceDataForMetric,
-} from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
   getFunnelStepMetric,
@@ -60,12 +56,16 @@ import {
   parseFunnelStepMetricId,
   parseSliceMetricId,
   parseSliceQueryString,
+  type SampleSizeSource,
+  type SliceDataForMetric,
 } from "shared/experiments";
 import type { MetricGroupInterface } from "shared/types/metric-groups";
-import type { ReactElement } from "react";
-import { useMemo } from "react";
-import type { TempRolloutHealthState } from "@/services/health";
-import { expandTempRolloutToken, TEMP_ROLLOUT_HEALTH } from "@/services/health";
+import { type ReactElement, useMemo } from "react";
+import {
+  expandTempRolloutToken,
+  TEMP_ROLLOUT_HEALTH,
+  type TempRolloutHealthState,
+} from "@/services/health";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -73,8 +73,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import type { RowError } from "@/components/Experiment/ResultsTable";
-import type { NewExperimentRefRule } from "./features";
-import { getDefaultRuleValue } from "./features";
+import { getDefaultRuleValue, type NewExperimentRefRule } from "./features";
 
 export const NO_DATA_ERROR_MESSAGE = "No data";
 

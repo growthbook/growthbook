@@ -1,7 +1,9 @@
-import type { Job } from "agenda";
-import type Agenda from "agenda";
-import type { HoldoutStage } from "shared/util";
-import { getHoldoutStage, isHoldoutStageTransitionAllowed } from "shared/util";
+import type { Agenda, Job } from "agenda";
+import {
+  getHoldoutStage,
+  type HoldoutStage,
+  isHoldoutStageTransitionAllowed,
+} from "shared/util";
 import type {
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,

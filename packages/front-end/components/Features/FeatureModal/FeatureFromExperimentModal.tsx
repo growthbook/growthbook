@@ -29,8 +29,8 @@ import {
 import { getLatestPhaseVariations } from "shared/experiments";
 import type { ExperimentChangesBody } from "shared/validators";
 import type { SaveRefusal } from "@/components/Experiment/TabbedPage/ExperimentEdits";
-import type { AddedFlag } from "@/components/Experiment/TabbedPage/addedFlags";
 import {
+  type AddedFlag,
   addedFlagChanges,
   useFlagCreated,
 } from "@/components/Experiment/TabbedPage/addedFlags";
@@ -59,8 +59,9 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/ui/Tooltip";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
-import type { DraftMode } from "@/components/Features/DraftSelectorDropdown";
-import DraftSelectorDropdown from "@/components/Features/DraftSelectorDropdown";
+import DraftSelectorDropdown, {
+  type DraftMode,
+} from "@/components/Features/DraftSelectorDropdown";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";

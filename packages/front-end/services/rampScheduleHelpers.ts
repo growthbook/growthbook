@@ -1,8 +1,9 @@
-import type {
-  RampScheduleInterface,
-  RampScheduleForDisplay,
+import {
+  type RampScheduleInterface,
+  type RampScheduleForDisplay,
+  ACTIVE_DRAFT_STATUSES,
+  resolveStartApproval,
 } from "shared/validators";
-import { ACTIVE_DRAFT_STATUSES, resolveStartApproval } from "shared/validators";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 
 // Builds a `ruleId → RampScheduleInterface` map for one rendering pass of a

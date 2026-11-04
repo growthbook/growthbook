@@ -17,8 +17,10 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Field from "@/components/Forms/Field";
-import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  type GroupedValue,
+  type SingleValue,
+} from "@/components/Forms/SelectField";
 import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";

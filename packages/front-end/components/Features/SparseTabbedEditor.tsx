@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
 import { Box, Flex } from "@radix-ui/themes";
 import type { FeatureValueType } from "shared/types/feature";

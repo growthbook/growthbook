@@ -1,12 +1,10 @@
 import type { z } from "zod";
-import type {
-  DashboardInterface,
-  DashboardBlockInterface,
-} from "shared/enterprise";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
   snapshotSatisfiesBlock,
+  type DashboardInterface,
+  type DashboardBlockInterface,
   resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";

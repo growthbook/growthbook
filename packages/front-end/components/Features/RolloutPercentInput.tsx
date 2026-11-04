@@ -1,6 +1,5 @@
 import { Slider, Flex, Box } from "@radix-ui/themes";
-import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { PiCaretRight } from "react-icons/pi";
 import type { SDKAttributeSchema } from "shared/types/organization";
 import type { RampScheduleInterface } from "shared/validators";

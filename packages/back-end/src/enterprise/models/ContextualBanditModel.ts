@@ -1,40 +1,36 @@
 import type { z } from "zod";
 import isEqual from "lodash/isEqual";
 import { v4 as uuidv4 } from "uuid";
-import type {
-  apiContextualBanditCancelReturn,
-  apiContextualBanditLifecycleReturn,
-  apiContextualBanditListVisualChangesetsReturn,
-  apiContextualBanditPostVisualChangesetsReturn,
-  apiContextualBanditRefreshReturn,
-  apiContextualBanditVariationsReturn,
-  ApiContextualBanditInterface,
-  ContextualBanditAnalysisSummary,
-  ContextualBanditInterface,
-  ContextualBanditVariation,
-  LeafWeight,
-  VariationWeightPair,
-} from "shared/validators";
 import {
+  type apiContextualBanditCancelReturn,
+  type apiContextualBanditLifecycleReturn,
+  type apiContextualBanditListVisualChangesetsReturn,
+  type apiContextualBanditPostVisualChangesetsReturn,
+  type apiContextualBanditRefreshReturn,
+  type apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
+  type ApiContextualBanditInterface,
   assertContextualAttributesValid,
   cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
+  type ContextualBanditAnalysisSummary,
   contextualBanditApiSpec,
+  type ContextualBanditInterface,
+  type ContextualBanditVariation,
   contextualBanditValidator,
+  type LeafWeight,
   listContextualBanditVisualChangesetsEndpoint,
   postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
   updateVariationsContextualBanditEndpoint,
+  type VariationWeightPair,
 } from "shared/validators";
-import type {
-  ContextualBanditLinkageDelta,
-  ContextualBanditLinkageState,
-} from "shared/util";
 import {
+  type ContextualBanditLinkageDelta,
+  type ContextualBanditLinkageState,
   generateVariationId,
   getContextualBanditIdsFromRules,
 } from "shared/util";

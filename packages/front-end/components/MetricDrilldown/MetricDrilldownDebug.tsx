@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useMemo, useRef, useState } from "react";
+import { type FC, useMemo, useRef, useState } from "react";
 import type { ExperimentMetricDefinition } from "shared/experiments";
 import type {
   DifferenceType,

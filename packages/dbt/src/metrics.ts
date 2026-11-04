@@ -15,7 +15,6 @@ import type {
   TranslateOptions,
   TranslateWarning,
 } from "./types";
-import type { Window } from "./util";
 import {
   dimSql,
   filtersOf,
@@ -30,6 +29,7 @@ import {
   tagsOf,
   toWindow,
   Unsupported,
+  type Window,
 } from "./util";
 
 // Read-only indexes over the manifest, plus the warnings every stage appends to.

@@ -1,9 +1,9 @@
-import type { ConfigInvariant } from "../src/util/config-schema/invariants";
 import {
   evaluateInvariants,
   invariantRuleFields,
   describeInvariantRule,
   apiInvariantsToStored,
+  type ConfigInvariant,
 } from "../src/util/config-schema/invariants";
 
 // Contract for the mongrule-backed invariants engine. Each rule is a mongo

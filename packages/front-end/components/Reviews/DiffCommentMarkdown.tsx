@@ -3,11 +3,9 @@ import { PiGitDiff, PiArrowBendUpRight } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Markdown from "@/components/Markdown/Markdown";
-import type {
-  DiffCommentRef,
-  DiffRefSnapshot,
-} from "@/components/Reviews/diffCommentRefs";
 import {
+  type DiffCommentRef,
+  type DiffRefSnapshot,
   scrollToDiffRef,
   splitDiffRefSegments,
 } from "@/components/Reviews/diffCommentRefs";

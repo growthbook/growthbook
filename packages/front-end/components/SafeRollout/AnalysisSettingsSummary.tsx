@@ -1,6 +1,5 @@
 import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
-import type { ReactElement } from "react";
-import React, { useState } from "react";
+import React, { type ReactElement, useState } from "react";
 import clsx from "clsx";
 import { expandMetricGroups } from "shared/experiments";
 import type { SafeRolloutInterface } from "shared/validators";

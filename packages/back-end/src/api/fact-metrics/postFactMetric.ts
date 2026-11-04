@@ -7,8 +7,8 @@ import {
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_PROPER_PRIOR_STDDEV,
 } from "shared/constants";
-import type { postFactMetricBodyFields } from "shared/validators";
 import {
+  type postFactMetricBodyFields,
   postFactMetricValidator,
   resolveCappingSettingsPatch,
   validateFactMetricCapping,

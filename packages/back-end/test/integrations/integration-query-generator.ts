@@ -1,6 +1,9 @@
 import fs from "fs";
-import type { ExperimentMetricInterface } from "shared/experiments";
-import { isFactMetric, quantileMetricType } from "shared/experiments";
+import {
+  type ExperimentMetricInterface,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import type { SegmentInterface } from "shared/types/segment";
 import type {

@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import type { dateGranularity, ExplorationDateRange } from "shared/validators";
-import type { BlockComparison, DashboardInterface } from "shared/enterprise";
-import { globalFilterIsSet } from "shared/enterprise";
+import {
+  type BlockComparison,
+  type DashboardInterface,
+  globalFilterIsSet,
+} from "shared/enterprise";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";

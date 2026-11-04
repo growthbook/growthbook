@@ -11,8 +11,7 @@ import type {
 } from "shared/types/metric";
 import type { Queries, QueryStatus } from "shared/types/query";
 import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
-import type { QueryMap } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
+import { QueryRunner, type QueryMap } from "./QueryRunner";
 
 export class LegacyMetricAnalysisQueryRunner extends QueryRunner<
   MetricInterface,

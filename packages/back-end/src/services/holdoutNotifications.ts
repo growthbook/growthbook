@@ -1,6 +1,5 @@
 import type { HoldoutInterface } from "shared/validators";
-import type { HoldoutStage } from "shared/util";
-import { getEnabledHoldoutEnvironments } from "shared/util";
+import { getEnabledHoldoutEnvironments, type HoldoutStage } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import { createEvent } from "back-end/src/models/EventModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";

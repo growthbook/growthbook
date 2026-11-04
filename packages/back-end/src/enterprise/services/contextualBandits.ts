@@ -14,26 +14,25 @@ import type {
   FeatureRule,
 } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import type {
-  ContextualBanditEventInterface,
-  ContextualBanditInterface,
-  ContextualBanditQueryInterface,
-  ContextualBanditSnapshotInterface,
-  ContextualBanditSnapshotSettings,
-  ContextualBanditVariation,
-  LeafWeight,
-  Variation,
-  VariationWeightPair,
-  RevisionRampAction,
+import {
+  type ContextualBanditEventInterface,
+  type ContextualBanditInterface,
+  type ContextualBanditQueryInterface,
+  type ContextualBanditSnapshotInterface,
+  type ContextualBanditSnapshotSettings,
+  type ContextualBanditVariation,
+  getEffectiveContextualAttributes,
+  type LeafWeight,
+  type Variation,
+  type VariationWeightPair,
+  type RevisionRampAction,
 } from "shared/validators";
-import { getEffectiveContextualAttributes } from "shared/validators";
 import {
   generateVariationId,
   validateFeatureValue,
   visualChangeHasContent,
   orgRequiresAnyReview,
 } from "shared/util";
-import type { WeightReconcileMode } from "shared/experiments";
 import {
   assertAtLeastTwoVariations,
   assertUniqueVariationIds,
@@ -46,6 +45,7 @@ import {
   isPendingVariation,
   nextContextualBanditVariationKey,
   reconcileVariationWeights,
+  type WeightReconcileMode,
 } from "shared/experiments";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
 import type { SDKAttributeSchema } from "shared/types/organization";
@@ -94,8 +94,10 @@ import {
   scopeLinkedRefRule,
 } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import type { ContextualBanditSrmResult } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
-import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
+import {
+  ContextualBanditResultsQueryRunner,
+  type ContextualBanditSrmResult,
+} from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import type {
   ContextualBanditResult,
   ContextualBanditStatsSettings,

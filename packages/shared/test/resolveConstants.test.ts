@@ -1,10 +1,8 @@
-import type {
-  ConstantValueMap,
-  ConstantValueMapEntry,
-} from "../src/sdk-versioning/resolveConstants";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
+  type ConstantValueMap,
+  type ConstantValueMapEntry,
 } from "../src/sdk-versioning/resolveConstants";
 import {
   getConfigBaseKeys,

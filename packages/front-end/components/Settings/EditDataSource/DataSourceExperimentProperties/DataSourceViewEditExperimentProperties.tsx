@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import React, { useCallback, useState } from "react";
+import React, { type FC, useCallback, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import type {
   DataSourceEvents,

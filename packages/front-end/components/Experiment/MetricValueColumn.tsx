@@ -5,8 +5,8 @@ import type {
   ReactElement,
   TdHTMLAttributes,
 } from "react";
-import type { ExperimentMetricDefinition } from "shared/experiments";
 import {
+  type ExperimentMetricDefinition,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,

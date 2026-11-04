@@ -11,11 +11,11 @@ import type {
   UserPermission,
 } from "shared/types/organization";
 import { hasNoDuplicateProjects } from "../validators/organization";
-import type { Policy } from "./permissions.constants";
 import {
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,
   POLICY_PERMISSION_MAP,
+  type Policy,
   READ_ONLY_PERMISSIONS,
   RESERVED_ROLE_IDS,
 } from "./permissions.constants";

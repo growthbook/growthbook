@@ -1,10 +1,13 @@
-import type { FeatureStaleEntry } from "shared/validators";
 import {
   getFeatureStaleValidator,
   ACTIVE_DRAFT_STATUSES,
+  type FeatureStaleEntry,
 } from "shared/validators";
-import type { TempRolloutStaleReason } from "shared/util";
-import { getApplicableEnvIds, isFeatureStale } from "shared/util";
+import {
+  getApplicableEnvIds,
+  isFeatureStale,
+  type TempRolloutStaleReason,
+} from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";

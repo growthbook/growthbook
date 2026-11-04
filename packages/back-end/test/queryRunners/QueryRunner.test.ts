@@ -1,12 +1,10 @@
 import type { Queries, QueryInterface, QueryStatus } from "shared/types/query";
 import type { ExternalIdCallback } from "shared/types/integrations";
 import type { ReqContext } from "back-end/types/request";
-import type {
-  QueryMap,
-  InterfaceWithQueries,
-} from "back-end/src/queryRunners/QueryRunner";
 import {
   QueryRunner,
+  type QueryMap,
+  type InterfaceWithQueries,
   assertQueryMapComplete,
   rollupQueryStatus,
   getQueryFailureError,

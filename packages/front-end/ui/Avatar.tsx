@@ -1,11 +1,8 @@
-import type { AvatarProps } from "@radix-ui/themes";
-import { Avatar as RadixAvatar } from "@radix-ui/themes";
+import { Avatar as RadixAvatar, type AvatarProps } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import clsx from "clsx";
-import type { ReactNode } from "react";
-import { forwardRef } from "react";
-import type { Size as SharedSize } from "@/ui/sizes";
-import { radixSize } from "@/ui/sizes";
+import { forwardRef, type ReactNode } from "react";
+import { radixSize, type Size as SharedSize } from "@/ui/sizes";
 import styles from "./Avatar.module.scss";
 
 // xs is Radix "1" shrunk in Avatar.module.scss.

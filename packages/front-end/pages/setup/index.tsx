@@ -17,9 +17,9 @@ import { useAuth } from "@/services/auth";
 import VerifyConnectionPage from "@/components/InitialSetup/VerifyConnectionPage";
 import PageHead from "@/components/Layout/PageHead";
 import SetupCompletedPage from "@/components/InitialSetup/SetupCompletedPage";
-import type { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import {
   getConnectionLanguageFilter,
+  type LanguageFilter,
   languageMapping,
 } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { useEnvironments } from "@/services/features";

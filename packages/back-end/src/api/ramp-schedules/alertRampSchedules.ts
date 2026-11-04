@@ -9,11 +9,9 @@ import {
   rampAlertBodyValidator,
   rampAlertQueryValidator,
   rampAlertResponseValidator,
-} from "shared/validators";
-import type {
-  RampAlertFilters,
-  RampScheduleInterface,
-  RampScheduleStatus,
+  type RampAlertFilters,
+  type RampScheduleInterface,
+  type RampScheduleStatus,
 } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import {

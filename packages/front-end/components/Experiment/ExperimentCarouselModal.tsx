@@ -1,5 +1,10 @@
-import type { FC, CSSProperties } from "react";
-import { useState, useEffect, useRef } from "react";
+import {
+  type FC,
+  useState,
+  useEffect,
+  useRef,
+  type CSSProperties,
+} from "react";
 import clsx from "clsx";
 import { getLatestPhaseVariations } from "shared/experiments";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";

@@ -1,5 +1,4 @@
-import type { ReactElement } from "react";
-import React, { useState } from "react";
+import React, { type ReactElement, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
   PiCheck,

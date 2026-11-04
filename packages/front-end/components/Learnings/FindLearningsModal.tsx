@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type FC, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { AiLearningSuggestion } from "shared/validators";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";

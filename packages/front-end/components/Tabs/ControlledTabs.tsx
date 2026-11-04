@@ -1,5 +1,12 @@
-import type { FC, ReactNode, ReactElement } from "react";
-import { Children, useState, isValidElement, useEffect } from "react";
+import {
+  type FC,
+  Children,
+  useState,
+  isValidElement,
+  type ReactNode,
+  type ReactElement,
+  useEffect,
+} from "react";
 import clsx from "clsx";
 import TabButton from "./TabButton";
 import TabButtons from "./TabButtons";

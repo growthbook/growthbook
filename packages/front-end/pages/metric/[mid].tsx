@@ -1,6 +1,12 @@
 import { useRouter } from "next/router";
-import type { FC, ReactNode, ReactElement } from "react";
-import React, { useState, useEffect, Fragment } from "react";
+import React, {
+  type FC,
+  useState,
+  useEffect,
+  Fragment,
+  type ReactNode,
+  type ReactElement,
+} from "react";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
 import type { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";

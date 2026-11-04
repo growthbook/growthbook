@@ -1,5 +1,7 @@
-import type { CustomHookInterface } from "shared/validators";
-import { updateCustomHookValidator } from "shared/validators";
+import {
+  type CustomHookInterface,
+  updateCustomHookValidator,
+} from "shared/validators";
 import type { UpdateProps } from "shared/types/base-model";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";

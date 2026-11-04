@@ -4,20 +4,16 @@ export {
   buildRevisionStatusFilter,
 } from "back-end/src/api/revisionValidations";
 export { ACTIVE_DRAFT_STATUSES as ACTIVE_STATUSES } from "shared/validators";
-import type {
-  configSchemaFormatValidator,
-  ConfigSchemaSource,
-} from "shared/validators";
 import {
   validateResolvableValue,
   simpleSchemaValidator,
+  type configSchemaFormatValidator,
+  type ConfigSchemaSource,
 } from "shared/validators";
 import type { ConfigInterface } from "shared/types/config";
 import type { SimpleSchema } from "shared/types/feature";
 import type { z } from "zod";
-import type { Revision } from "shared/enterprise";
-import { normalizeProposedChanges } from "shared/enterprise";
-import type { SchemaWarning, SchemaProjection } from "shared/util";
+import { type Revision, normalizeProposedChanges } from "shared/enterprise";
 import {
   parsePlainJSONObject,
   inferFieldsFromValue,
@@ -27,6 +23,8 @@ import {
   golangToFields,
   rustToFields,
   pythonToFields,
+  type SchemaWarning,
+  type SchemaProjection,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import {

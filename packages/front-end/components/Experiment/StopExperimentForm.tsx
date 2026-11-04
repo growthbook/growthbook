@@ -1,5 +1,4 @@
-import type { FC } from "react";
-import { useRef } from "react";
+import { type FC, useRef } from "react";
 import { getAllVariations } from "shared/experiments";
 import type {
   DecisionCriteriaData,

@@ -1,8 +1,11 @@
 import { performance } from "node:perf_hooks";
 import type { Job, JobAttributesData } from "agenda";
 import { logger } from "back-end/src/util/logger";
-import type { Counter, Histogram } from "back-end/src/util/metrics";
-import { metrics } from "back-end/src/util/metrics";
+import {
+  metrics,
+  type Counter,
+  type Histogram,
+} from "back-end/src/util/metrics";
 
 const disableJobLogs = process.env.GB_DISABLE_JOB_LOGS === "1";
 

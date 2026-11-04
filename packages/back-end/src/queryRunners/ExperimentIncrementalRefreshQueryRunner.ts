@@ -7,8 +7,8 @@ import type {
   RunQueryMetadata,
 } from "shared/types/query";
 import { tabulateCovariateImbalance } from "shared/health";
-import type { ExperimentMetricInterface } from "shared/experiments";
 import {
+  type ExperimentMetricInterface,
   getFactMetricFactTableIds,
   isFactMetric,
   isRegressionAdjusted,
@@ -77,15 +77,17 @@ import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark
 import type { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import type { SnapshotResult } from "./ExperimentResultsQueryRunner";
-import { TRAFFIC_QUERY_NAME } from "./ExperimentResultsQueryRunner";
-import type {
-  QueryMap,
-  ProcessedRowsType,
-  RowsType,
-  StartQueryParams,
+import {
+  type SnapshotResult,
+  TRAFFIC_QUERY_NAME,
+} from "./ExperimentResultsQueryRunner";
+import {
+  QueryRunner,
+  type QueryMap,
+  type ProcessedRowsType,
+  type RowsType,
+  type StartQueryParams,
 } from "./QueryRunner";
-import { QueryRunner } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";

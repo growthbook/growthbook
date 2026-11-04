@@ -14,8 +14,14 @@ import {
   getExperimentLinkageBlocker,
   type LinkedChangesResolution,
 } from "shared/util";
-import type { CSSProperties, ReactNode } from "react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  Fragment,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import {
@@ -81,18 +87,20 @@ import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import EditExperimentInfoModal from "./EditExperimentInfoModal";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import type { StartExperiment } from "./useStartExperiment";
-import { RUN_PERMISSION_REASON } from "./useStartExperiment";
+import {
+  RUN_PERMISSION_REASON,
+  type StartExperiment,
+} from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
 import useStartGate from "./useStartGate";
 import { StartBlockers } from "./StartSections";
-import type { LabeledDate } from "./statusSchedule";
 import {
   armedStartDate,
   hasStatusSchedule,
   allDates,
   headerDates,
   headerDetails,
+  type LabeledDate,
   scheduledTime,
 } from "./statusSchedule";
 import { getStartTitle } from "./startActions";

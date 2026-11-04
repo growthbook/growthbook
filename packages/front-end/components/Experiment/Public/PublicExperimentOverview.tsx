@@ -5,10 +5,9 @@ import VariationsTable from "@/components/Experiment/VariationsTable";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
-import type {
-  ExperimentTextFieldKey} from "@/components/Experiment/TabbedPage/ExperimentTextValue";
 import ExperimentTextValue, {
-  EXPERIMENT_TEXT_FIELDS
+  EXPERIMENT_TEXT_FIELDS,
+  type ExperimentTextFieldKey,
 } from "@/components/Experiment/TabbedPage/ExperimentTextValue";
 import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Heading from "@/ui/Heading";

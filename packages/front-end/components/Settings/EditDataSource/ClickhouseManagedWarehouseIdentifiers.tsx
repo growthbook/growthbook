@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { GrowthbookClickhouseDataSourceWithParams } from "shared/types/datasource";
-import type { ManagedWarehouseIdAttributeIdentifier } from "shared/util";
-import { getManagedWarehouseUserIdTypes } from "shared/util";
+import {
+  getManagedWarehouseUserIdTypes,
+  type ManagedWarehouseIdAttributeIdentifier,
+} from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Badge from "@/ui/Badge";

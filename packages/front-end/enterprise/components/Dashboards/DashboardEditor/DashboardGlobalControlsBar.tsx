@@ -2,16 +2,14 @@ import { useContext, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import { isEqual } from "lodash";
-import type {
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
-  DashboardInterface,
-} from "shared/enterprise";
 import {
   canAutoRefreshDashboard,
   autoEnrollDashboardBlocksInDateControl,
   autoEnrollDashboardBlocksInGlobalFilter,
   DASHBOARD_GLOBAL_FILTER_KEYS,
+  type DashboardBlockInterface,
+  type DashboardBlockInterfaceOrData,
+  type DashboardInterface,
   getDashboardGlobalControlApplicability,
   getDashboardExperimentFilterApplicability,
   isEnablingGlobalFilter,
@@ -26,9 +24,9 @@ import DashboardDateControlsDropdown from "./DashboardDateControlsDropdown";
 import DashboardFilterPills from "./DashboardFilterPills";
 import DashboardAddFilterDropdown from "./DashboardAddFilterDropdown";
 import DashboardExperimentSearchTermPill from "./DashboardExperimentSearchTermPill";
-import type { DashboardOptionalFilterKey } from "./dashboardFilterCatalog";
 import {
   DASHBOARD_OPTIONAL_FILTERS,
+  type DashboardOptionalFilterKey,
   isOptionalFilterActive,
 } from "./dashboardFilterCatalog";
 import {

@@ -1,7 +1,6 @@
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiDetective } from "react-icons/pi";
-import type { FC } from "react";
-import React, { useEffect, useState } from "react";
+import React, { type FC, useEffect, useState } from "react";
 import router from "next/router";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";

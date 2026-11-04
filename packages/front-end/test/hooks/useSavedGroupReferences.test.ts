@@ -1,5 +1,7 @@
-import type { SavedGroupReferences } from "@/hooks/useSavedGroupReferences";
-import { totalSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
+import {
+  type SavedGroupReferences,
+  totalSavedGroupReferences,
+} from "@/hooks/useSavedGroupReferences";
 
 const empty: SavedGroupReferences = {
   features: [],

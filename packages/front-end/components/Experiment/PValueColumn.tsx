@@ -8,8 +8,7 @@ import type {
 } from "shared/types/stats";
 import type { ExperimentMetricDefinition } from "shared/experiments";
 import { PiWarningCircle } from "react-icons/pi";
-import type { RowResults } from "@/services/experiments";
-import { pValueFormatter } from "@/services/experiments";
+import { pValueFormatter, type RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 import type { SSRPolyfills } from "@/hooks/useSSRPolyfills";

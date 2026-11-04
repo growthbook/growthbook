@@ -2,9 +2,9 @@ import { IconButton } from "@radix-ui/themes";
 import type { PopulationDataInterface } from "shared/types/population-data";
 import { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import type { FullModalPowerCalculationParams } from "shared/power";
 import {
   ensureAndReturnPowerCalculationParams,
+  type FullModalPowerCalculationParams,
   isValidPowerCalculationParams,
 } from "shared/power";
 import Field from "@/components/Forms/Field";
