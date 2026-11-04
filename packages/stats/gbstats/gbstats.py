@@ -90,6 +90,7 @@ from gbstats.models.tests import EffectMomentsResult
 SUM_COLS = [
     "users",
     "count",
+    "sub_count",
     "main_sum",
     "main_sum_squares",
     "denominator_sum",
@@ -738,6 +739,7 @@ def get_metric_response(
         count=count,
         stddev=statistic.stddev,
         mean=statistic.unadjusted_mean,
+        sub_count=int(metric_row[f"{prefix}_sub_count"].sum()),
     )
     return BaselineResponse(
         cr=statistic.unadjusted_mean,

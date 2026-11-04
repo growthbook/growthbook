@@ -404,9 +404,25 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      srmTotalUnits: Number,
       covariateImbalance: {
         _id: false,
         isImbalanced: Boolean,
+      },
+      clusterAssignment: {
+        _id: false,
+        totalClusters: Number,
+        mixedClusters: Number,
+      },
+      clusterSubUnitMapping: {
+        _id: false,
+        totalUnits: Number,
+        multiClusterUnits: Number,
+      },
+      subUnitMultipleExposures: {
+        _id: false,
+        totalSubUnits: Number,
+        multipleExposedSubUnits: Number,
       },
       power: {
         _id: false,

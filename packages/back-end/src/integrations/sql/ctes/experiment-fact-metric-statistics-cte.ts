@@ -143,6 +143,7 @@ export function getExperimentFactMetricStatisticsCTE(
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
         , COUNT(*) AS users
+        ${useClusterRollup ? `, SUM(COALESCE(m.sub_count, 0)) AS sub_count` : ""}
         ${metricData
           .map((data) => {
             // A funnel emits its own set of statistics

@@ -173,6 +173,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       decisionFrameworkSettings: fields.decisionFrameworkSettings,
       metricOverrides: fields.metricOverrides,
       defaultDashboardId: fields.defaultDashboardId,
+      isClusterExperiment: fields.isClusterExperiment,
     });
 
     const datasource = fields.datasourceId

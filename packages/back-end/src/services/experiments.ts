@@ -53,6 +53,7 @@ import {
 import {
   getBanditSRMValue,
   getExperimentSRMValue,
+  getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import {
@@ -4822,6 +4823,14 @@ export type PostExperimentApiPayload = z.infer<
   assignmentQueryIdentifierType?: string;
 };
 
+export function assertCanEnableClusterExperiment(context: ReqContext) {
+  if (!context.hasPremiumFeature("cluster-experiments")) {
+    context.throwPlanDoesNotAllowError(
+      "Cluster experiments require a Pro plan or higher.",
+    );
+  }
+}
+
 export function assertClusterExperimentMetricsSupported({
   goalMetrics,
   secondaryMetrics,
@@ -6349,16 +6358,36 @@ export async function getExperimentAnalysisSummary({
       0,
     ) ?? null;
 
+  const srmTotalUnits =
+    getExperimentSRMVariationUnits(experimentSnapshot)?.reduce(
+      (acc, a) => acc + a,
+      0,
+    ) ?? null;
+
   const srm =
     experiment.type === "multi-armed-bandit"
       ? getBanditSRMValue(experimentSnapshot)
       : getExperimentSRMValue(experimentSnapshot);
 
-  if (srm !== undefined) {
+  const clusterAssignment = experimentSnapshot.health?.clusterAssignment;
+  const clusterSubUnitMapping =
+    experimentSnapshot.health?.clusterSubUnitMapping;
+  const subUnitMultipleExposures =
+    experimentSnapshot.health?.subUnitMultipleExposures;
+  const hasClusterHealthIssue =
+    (!!clusterAssignment &&
+      !clusterAssignment.error &&
+      clusterAssignment.mixedClusters > 0) ||
+    (!!clusterSubUnitMapping &&
+      !clusterSubUnitMapping.error &&
+      clusterSubUnitMapping.multiClusterUnits > 0);
+
+  if (srm !== undefined || hasClusterHealthIssue) {
     analysisSummary.health = {
-      srm,
+      srm: srm ?? 1,
       multipleExposures: experimentSnapshot.multipleExposures,
       totalUsers,
+      srmTotalUnits,
     };
 
     if (snapshotHealthPower?.type === "error") {
@@ -6382,6 +6411,26 @@ export async function getExperimentAnalysisSummary({
     if (snapshotCovariateImbalance) {
       analysisSummary.health.covariateImbalance = {
         isImbalanced: snapshotCovariateImbalance.isImbalanced,
+      };
+    }
+
+    if (clusterAssignment && !clusterAssignment.error) {
+      analysisSummary.health.clusterAssignment = {
+        totalClusters: clusterAssignment.totalClusters,
+        mixedClusters: clusterAssignment.mixedClusters,
+      };
+    }
+    if (clusterSubUnitMapping && !clusterSubUnitMapping.error) {
+      analysisSummary.health.clusterSubUnitMapping = {
+        totalUnits: clusterSubUnitMapping.totalUnits,
+        multiClusterUnits: clusterSubUnitMapping.multiClusterUnits,
+      };
+    }
+    if (subUnitMultipleExposures && !subUnitMultipleExposures.error) {
+      analysisSummary.health.subUnitMultipleExposures = {
+        totalSubUnits: subUnitMultipleExposures.totalSubUnits,
+        multipleExposedSubUnits:
+          subUnitMultipleExposures.multipleExposedSubUnits,
       };
     }
   }

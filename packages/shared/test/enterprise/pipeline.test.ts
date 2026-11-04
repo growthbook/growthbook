@@ -639,7 +639,7 @@ describe("getIncrementalFullRefreshReasons", () => {
       ),
     ).toEqual([
       "Cluster analysis setting changed",
-      "Cluster sub-unit identifier changed",
+      "Cluster subunit identifier changed",
     ]);
   });
 
@@ -664,7 +664,7 @@ describe("getIncrementalFullRefreshReasons", () => {
           clusterSubUnitIdentifier: "user_id",
         }),
       ),
-    ).toEqual(["Cluster sub-unit identifier changed"]);
+    ).toEqual(["Cluster subunit identifier changed"]);
   });
 
   it("ignores a sub-unit left on the experiment after cluster mode is turned off", () => {

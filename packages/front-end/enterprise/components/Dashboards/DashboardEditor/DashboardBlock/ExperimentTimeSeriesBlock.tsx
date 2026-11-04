@@ -208,6 +208,7 @@ export default function ExperimentTimeSeriesBlock({
                         experimentId={experiment.id}
                         pValueThreshold={pValueThreshold}
                         phase={snapshot.phase}
+                        snapshotSettings={snapshot.settings}
                         metric={metric}
                         differenceType={
                           analysis?.settings.differenceType || "relative"
@@ -260,6 +261,7 @@ export default function ExperimentTimeSeriesBlock({
                             experimentId={experiment.id}
                             pValueThreshold={pValueThreshold}
                             phase={snapshot.phase}
+                            snapshotSettings={snapshot.settings}
                             metric={sliceRow.metric}
                             differenceType={
                               analysis?.settings.differenceType || "relative"

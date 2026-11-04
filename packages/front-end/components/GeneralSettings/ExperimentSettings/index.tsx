@@ -424,7 +424,7 @@ export default function ExperimentSettings() {
         id="exp-health"
         title="Health Checks"
         description="Checks that flag problems with traffic and assignment."
-        keywords="health traffic query srm sample ratio mismatch multiple exposures"
+        keywords="health traffic query srm sample ratio mismatch multiple exposures cluster"
       >
         <UnsavedMark name="runHealthTrafficQuery">
           <Checkbox
@@ -499,6 +499,35 @@ export default function ExperimentSettings() {
             />
           </Box>
         </SettingsField>
+
+        {hasCommercialFeature("cluster-experiments") ? (
+          <SettingsField
+            name="clusterIssueMinPercent"
+            htmlFor="settings-clusterIssueMinPercent"
+            label="Cluster experiment warning"
+            help="Warn when at least this share of clusters saw more than one variation, or of units appeared in more than one cluster."
+          >
+            <Box width="150px">
+              <Field
+                id="settings-clusterIssueMinPercent"
+                size="md"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                append="%"
+                containerClassName="mb-0"
+                disabled={hasFileConfig()}
+                placeholder={defaultFor("clusterIssueMinPercent")}
+                {...form.register("clusterIssueMinPercent", {
+                  valueAsNumber: true,
+                  min: 0,
+                  max: 100,
+                })}
+              />
+            </Box>
+          </SettingsField>
+        ) : null}
       </SettingsGroup>
 
       <SettingsGroup
