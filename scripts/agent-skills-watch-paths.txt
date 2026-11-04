@@ -1,0 +1,8 @@
+# Changes to the external REST API, which the growthbook/skills skills call.
+# The Cursor skills-sync automation only does work for merges that touch one
+# of these paths; internal API, front-end, and docs-only merges are skipped.
+# spec.yaml captures every contract change (CI keeps it regenerated);
+# src/api holds the external handlers. Keep .claude/rules/agent-skills.md in
+# step.
+packages/back-end/generated/spec.yaml
+packages/back-end/src/api

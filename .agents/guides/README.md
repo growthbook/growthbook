@@ -8,5 +8,6 @@ This directory is the canonical home for detailed repository guidance shared by 
 - `permissions.md` — permission and commercial-feature patterns
 - `ui-copy-style.md` — casing and phrasing for all user-facing copy (front-end UI and back-end/API messages)
 - `docs.md` — Mintlify MDX frontmatter (quote YAML values that contain a colon)
+- `agent-skills.md` — keeping growthbook/skills in sync with REST API and docs changes
 - `frontend/` — React and data-fetching patterns
 - `backend/` — API, model, and legacy-model migration patterns
