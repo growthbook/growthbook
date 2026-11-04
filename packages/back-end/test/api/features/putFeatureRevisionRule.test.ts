@@ -65,4 +65,17 @@ describe("applyPatch — force/rollout seed stamping", () => {
     expect(updated.type).toBe("force");
     expect(updated).not.toHaveProperty("coverage");
   });
+
+  it("treats a rollout with no coverage as full coverage", () => {
+    const rollout = {
+      ...force,
+      type: "rollout",
+      coverage: null,
+      hashAttribute: "id",
+    } as unknown as FeatureRule;
+
+    const updated = applyPatch(rollout, patch({ enabled: true }));
+    expect(updated.type).toBe("force");
+    expect(updated).not.toHaveProperty("coverage");
+  });
 });

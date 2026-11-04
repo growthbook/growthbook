@@ -151,17 +151,18 @@ export function applyPatch(
     }
 
     // A force rule has no coverage, so only the patch can make it a rollout;
-    // anything stored on one (e.g. a null) is ignored.
+    // anything stored on one is ignored. Unset coverage means 100%.
     const effectiveCoverage =
       patch.coverage ??
-      (type === "rollout" ? (existing as RolloutRule).coverage : undefined);
+      (type === "rollout" ? (existing as RolloutRule).coverage : null) ??
+      1;
     const effectiveHashAttr =
       patch.hashAttribute ?? (existing as RolloutRule).hashAttribute;
     const effectiveValue =
       patch.value ?? (existing as ForceRule | RolloutRule).value;
 
     // coverage < 1 → rollout (requires hashAttribute); else → force.
-    const isRollout = effectiveCoverage !== undefined && effectiveCoverage < 1;
+    const isRollout = effectiveCoverage < 1;
 
     if (isRollout) {
       if (!effectiveHashAttr) {
