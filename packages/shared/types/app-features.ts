@@ -15,7 +15,9 @@
  *
  * Exception: "trace-ingest" is added ahead of the flag's creation. It shows
  * the "Trace ingest key" option when creating an org secret key and the
- * traces usage notice.
+ * traces usage notice, and the back end refuses to create trace ingest keys
+ * while it's off. Target it by org (cloudOrgId), since the back end only
+ * evaluates it with org attributes.
  */
 export type AppFeatures = {
   // Added ahead of the flag's creation in GrowthBook's own account

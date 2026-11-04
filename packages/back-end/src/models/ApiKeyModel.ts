@@ -17,6 +17,7 @@ import {
   getRoleDisplayName,
   apiKeyOnlyRoleProblem,
   apiKeyPrefixRole,
+  TRACE_INGEST_ROLE_ID,
 } from "shared/permissions";
 import {
   addDays,
@@ -36,6 +37,10 @@ import {
   generateSigningKey,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
+import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+} from "back-end/src/services/growthbook";
 import {
   assertProjectRulesReferenceProjects,
   getEnvironmentIdsFromOrg,
@@ -284,6 +289,19 @@ export class ApiKeyModel extends BaseClass {
     const problem = apiKeyOnlyRoleProblem(doc, previousDoc);
     if (problem) this.context.throwBadRequestError(problem);
     if (!doc.role || !isApiKeyOnlyRole(doc.role)) return false;
+    if (
+      !previousDoc &&
+      doc.role === TRACE_INGEST_ROLE_ID &&
+      !getBackendFeatureValue(
+        "trace-ingest",
+        false,
+        getTrustedOrgAttributes(this.context.org),
+      )
+    ) {
+      this.context.throwBadRequestError(
+        "Trace ingest keys aren't available for this organization.",
+      );
+    }
     // Skips the plan's admin-only gate: it grants nothing on the REST API, so
     // it's narrower than the admin key the plan would otherwise require.
     this.validateRole(doc.role);
