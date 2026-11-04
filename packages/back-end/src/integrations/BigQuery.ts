@@ -35,6 +35,12 @@ import {
 import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import SqlIntegration from "./SqlIntegration";
 
+const GA4_DATASET_RE = /^analytics_\d+$/;
+const GA4_EVENTS_SHARD_RE = /^events_(intraday_)?\d{8}$/;
+// Each dataset is one table-listing call, so a project with many GA4
+// properties is only partly checked rather than flooding the API.
+const MAX_GA4_DATASETS = 25;
+
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
   escapePathCharacter = "`";
@@ -233,6 +239,39 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return datasetNames;
+  }
+
+  // GA4's BigQuery export: an analytics_<property id> dataset of daily
+  // events_YYYYMMDD shards. Table metadata isn't billed and doesn't wait on
+  // the information schema, so this is quick enough for a connection test.
+  async listGoogleAnalytics4Exports(): Promise<string[]> {
+    // The project GrowthBook queries, which can differ from the service
+    // account's own project. Auto-discovery only has this one.
+    const projectId = this.params.defaultProject || this.params.projectId;
+    const [datasets] = await this.getClient().getDatasets({ projectId });
+    const paths = await Promise.all(
+      datasets
+        .filter((dataset) => dataset.id && GA4_DATASET_RE.test(dataset.id))
+        .slice(0, MAX_GA4_DATASETS)
+        .map(async (dataset) => {
+          // One unreadable dataset shouldn't hide the exports in the others.
+          try {
+            // Tables list by name, so any events_ shards are on the first page.
+            const [tables] = await dataset.getTables({
+              maxResults: 100,
+              autoPaginate: false,
+            });
+            if (!tables.some((t) => t.id && GA4_EVENTS_SHARD_RE.test(t.id))) {
+              return null;
+            }
+            return `\`${projectId}.${dataset.id}.events_*\``;
+          } catch (e) {
+            logger.warn(e, `Could not list tables in ${dataset.id}`);
+            return null;
+          }
+        }),
+    );
+    return paths.filter((path): path is string => path !== null);
   }
 
   async getInformationSchema(): Promise<InformationSchema[]> {
