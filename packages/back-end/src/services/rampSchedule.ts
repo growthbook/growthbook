@@ -681,7 +681,13 @@ export function applyPatchToRule(
 ): FeatureRule {
   const updated = { ...existing };
   if ("coverage" in patch) {
-    (updated as { coverage?: number }).coverage = patch.coverage ?? undefined;
+    // Delete rather than assign undefined, which Mongo would store as null.
+    const nextCoverage = patch.coverage ?? null;
+    if (nextCoverage === null) {
+      delete (updated as { coverage?: number }).coverage;
+    } else {
+      (updated as { coverage?: number }).coverage = nextCoverage;
+    }
   }
   if ("condition" in patch) {
     updated.condition = patch.condition ?? undefined;

@@ -991,7 +991,7 @@ const matchesEveryone = (rule: FeatureRule): boolean =>
 export const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
   if (!matchesEveryone(rule)) return false;
   if (isForceRule(rule)) return true;
-  if (isRolloutRule(rule)) return rule.coverage >= 1;
+  if (isRolloutRule(rule)) return (rule.coverage ?? 1) >= 1;
   return false;
 };
 
@@ -1031,7 +1031,9 @@ const areRulesOneSided = (
   // Prerequisites target too: the rule serves only when the parent passes.
   const rolloutRulesOnesided =
     !rolloutRules.length ||
-    rolloutRules.every((r) => r.coverage === 1 && !hasTargetingConfigured(r));
+    rolloutRules.every(
+      (r) => (r.coverage ?? 1) === 1 && !hasTargetingConfigured(r),
+    );
 
   const forceRulesOnesided =
     !forceRules.length || forceRules.every((r) => !hasTargetingConfigured(r));

@@ -21,6 +21,14 @@ import {
   getAllVariations,
   canEditContextualBanditVisualChanges,
 } from "shared/experiments";
+import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  experimentChangesBody,
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureValueType,
+  isUnsupportedClusterBanditCombination,
+} from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { IdeaInterface } from "shared/types/idea";
@@ -44,12 +52,6 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import {
-  experimentChangesBody,
-  ExperimentRefVariation,
-  FeatureInterface,
-  FeatureValueType,
-} from "shared/validators";
-import {
   ContextualBanditChangesetOwner,
   ExperimentChangesetOwner,
   contextualBanditVisualChangesBlocked,
@@ -68,6 +70,8 @@ import {
   assertVisualChangesEditable,
   getExperimentAffectedEnvs,
   _getSnapshots,
+  assertCanEnableClusterExperiment,
+  assertValidClusterExperimentConfig,
   assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -1381,6 +1385,8 @@ export async function postExperiments(
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     exposureQueryIdentifierType: data.exposureQueryIdentifierType,
+    isClusterExperiment: data.isClusterExperiment,
+    clusterSubUnitIdentifier: data.clusterSubUnitIdentifier,
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
     phases: data.phases
@@ -1470,6 +1476,15 @@ export async function postExperiments(
   try {
     validateVariationIds(obj.variations);
 
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: experimentType,
+        isClusterExperiment: obj.isClusterExperiment,
+      })
+    ) {
+      throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+    }
+
     if (datasource && obj.exposureQueryId) {
       const parsed = parseAssignmentQuerySelection(
         datasource.settings.queries?.exposure ?? [],
@@ -1486,6 +1501,24 @@ export async function postExperiments(
       if (!parsed.ok) throw new Error(parsed.error);
       obj.exposureQueryIdentifierType = parsed.identifierType;
     }
+
+    if (obj.isClusterExperiment) {
+      assertCanEnableClusterExperiment(context);
+    }
+    await assertValidClusterExperimentConfig({
+      context,
+      datasource,
+      current: {
+        isClusterExperiment: obj.isClusterExperiment,
+        exposureQueryId: obj.exposureQueryId,
+        exposureQueryIdentifierType: obj.exposureQueryIdentifierType,
+        clusterSubUnitIdentifier: obj.clusterSubUnitIdentifier,
+        goalMetrics: obj.goalMetrics,
+        secondaryMetrics: obj.secondaryMetrics,
+        guardrailMetrics: obj.guardrailMetrics,
+        activationMetric: obj.activationMetric,
+      },
+    });
 
     if (data.precomputedUnitDimensionIds !== undefined) {
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({

@@ -883,6 +883,7 @@ function TabbedPageContents({
                         ? () => setTabAndScroll("health")
                         : null
                     }
+                    isClusterExperiment={!!experiment.isClusterExperiment}
                     {...bannerMargin}
                   />
                 ) : null}

@@ -265,6 +265,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialHashAttribute,
         isImport,
       }),
+      isClusterExperiment: initialValue?.isClusterExperiment,
+      clusterSubUnitIdentifier: initialValue?.clusterSubUnitIdentifier,
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
       implementationType: initialValue?.implementationType ?? "none",
