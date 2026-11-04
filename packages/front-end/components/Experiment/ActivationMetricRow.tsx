@@ -15,7 +15,6 @@ export default function ActivationMetricRow({
   onChange,
   disabled = false,
   incrementalRefresh = false,
-  isClusterExperiment = false,
 }: {
   datasource?: string;
   exposureQueryId?: string;
@@ -26,21 +25,16 @@ export default function ActivationMetricRow({
   disabled?: boolean;
   // Activation metrics can't be used with it, so the selector locks.
   incrementalRefresh?: boolean;
-  isClusterExperiment?: boolean;
 }) {
-  // Reasons the picker is locked, in precedence order. `null` means unlocked.
-  const lockReason = incrementalRefresh
-    ? "Activation metrics are not yet supported with Incremental Refresh."
-    : isClusterExperiment
-      ? "Activation metrics aren't supported for cluster experiments."
-      : null;
-
   return (
     <SetupFieldRow
       label="Activation metric"
       tooltip="Users must convert on this metric before being included. Only proportion metrics from this Data Source are listed, not funnels."
     >
-      <Tooltip content={lockReason ?? ""} enabled={!!lockReason}>
+      <Tooltip
+        content="Activation metrics are not yet supported with Incremental Refresh."
+        enabled={incrementalRefresh}
+      >
         <Box>
           <MetricSelector
             datasource={datasource}
@@ -53,11 +47,11 @@ export default function ActivationMetricRow({
             filterFactFunnelMetrics
             value={value}
             onChange={onChange}
-            disabled={disabled || !!lockReason}
+            disabled={disabled || incrementalRefresh}
           />
         </Box>
       </Tooltip>
-      {lockReason && value !== "" && !disabled ? (
+      {incrementalRefresh && value !== "" && !disabled ? (
         <Callout
           status="warning"
           contentAlign="center"
@@ -68,7 +62,7 @@ export default function ActivationMetricRow({
             </Button>
           }
         >
-          {lockReason}
+          Activation metrics are not yet supported with Incremental Refresh.
         </Callout>
       ) : null}
     </SetupFieldRow>

@@ -932,7 +932,6 @@ const AnalysisForm: FC<{
                 value={form.watch("activationMetric")}
                 onChange={(metric) => form.setValue("activationMetric", metric)}
                 incrementalRefresh={isExperimentIncludedInIncrementalRefresh}
-                isClusterExperiment={experiment.isClusterExperiment}
               />
             )}
 
