@@ -2,6 +2,13 @@
   padding-top: 28px;
   // Clears the fixed top nav when scrolled to.
   scroll-margin-top: 64px;
+
+  // Anchors inside a section (cards and their fields) also clear the section's
+  // sticky header, which sits below the top nav. Kept under header + card gap
+  // so the card above doesn't peek out under the header.
+  [id] {
+    scroll-margin-top: 112px;
+  }
 }
 
 .header {
