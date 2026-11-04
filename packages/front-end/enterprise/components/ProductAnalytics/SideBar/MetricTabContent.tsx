@@ -76,21 +76,13 @@ export default function MetricTabContent() {
     return getLockedMixClass(otherTypes);
   };
 
-  // A ratio/quantile chart can only grow with metrics of that same class; when
-  // none are left to pick, adding a slot would just show an all-disabled list.
-  const chartLockedClass = getLockedMixClass(
-    values.map((v) => getFactMetricById(v.metricId ?? "")?.metricType),
-  );
-  const usedMetricIds = new Set(values.map((v) => v.metricId));
-  const noCompatibleMetricLeft =
-    !!chartLockedClass &&
-    !factMetrics.some(
-      (m) =>
-        m.datasource === draftExploreState.datasource &&
-        m.metricType !== "funnel" &&
-        !usedMetricIds.has(m.id) &&
-        getMetricMixClass(m.metricType) === chartLockedClass,
-    );
+  // Ratio/quantile metrics chart alone: no second slot once one is picked.
+  const exclusiveClass =
+    values
+      .map((v) =>
+        getMetricMixClass(getFactMetricById(v.metricId ?? "")?.metricType),
+      )
+      .find((c) => c === "ratio" || c === "quantile") ?? null;
 
   const mixTooltip = (locked: Exclude<MetricMixClass, "unknown">) =>
     locked === "ratio"
@@ -192,18 +184,18 @@ export default function MetricTabContent() {
       })}
       <Tooltip
         body={
-          noCompatibleMetricLeft && chartLockedClass
-            ? mixTooltip(chartLockedClass)
-            : ""
+          exclusiveClass === "ratio"
+            ? "Ratio metrics can't be combined with other metrics."
+            : "Quantile metrics can't be combined with other metrics."
         }
-        shouldDisplay={noCompatibleMetricLeft}
+        shouldDisplay={exclusiveClass !== null}
         tipPosition="top"
       >
         <Button
           size="md"
           variant="outline"
           style={{ width: "100%" }}
-          disabled={noCompatibleMetricLeft}
+          disabled={exclusiveClass !== null}
           onClick={() => addValueToDataset("metric")}
         >
           <Flex align="center" gap="2">

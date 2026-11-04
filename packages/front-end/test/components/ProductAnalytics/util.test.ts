@@ -11,8 +11,10 @@ import {
 } from "shared/validators";
 import {
   applyTimestampColumn,
+  createEmptyFunnelStep,
   getAvailableDimensionColumns,
   getColumnTopValues,
+  normalizeFirstStep,
   normalizeTimelessSqlConfig,
   resolveSqlPreviewTimestamp,
   validateDimensions,
@@ -706,5 +708,30 @@ describe("resolveSqlPreviewTimestamp", () => {
         inferredTimestamp: "created_at",
       }),
     ).toBe(null);
+  });
+});
+
+describe("normalizeFirstStep", () => {
+  const step = (name: string) => createEmptyFunnelStep({ name });
+
+  it("clears optional and conversion window on the first step only", () => {
+    const later = {
+      ...step("b"),
+      optional: true,
+      conversionWindow: { unit: "days" as const, value: 2 },
+    };
+    const result = normalizeFirstStep([{ ...later, name: "a" }, later]);
+    expect(result[0]).toMatchObject({
+      name: "a",
+      optional: false,
+      conversionWindow: null,
+    });
+    expect(result[1]).toBe(later);
+  });
+
+  it("returns the same array when nothing needs clearing", () => {
+    const steps = [step("a"), step("b")];
+    expect(normalizeFirstStep(steps)).toBe(steps);
+    expect(normalizeFirstStep([])).toEqual([]);
   });
 });

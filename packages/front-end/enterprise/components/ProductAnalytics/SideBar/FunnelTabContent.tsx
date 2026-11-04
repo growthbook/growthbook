@@ -23,11 +23,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { PiFunnelBold, PiPlus } from "react-icons/pi";
-import {
-  ExplorationConfig,
-  FunnelDataset,
-  FunnelStep,
-} from "shared/validators";
+import { ExplorationConfig, FunnelDataset } from "shared/validators";
 import { isFactFunnelMetric } from "shared/experiments";
 import {
   deriveFunnelUnit,
@@ -44,6 +40,7 @@ import {
   createEmptyFunnelStep,
   getFunnelUnitOptions,
   getInitialInlineFilters,
+  normalizeFirstStep,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import FunnelStepCard from "./FunnelStepCard";
@@ -67,14 +64,6 @@ function SortableFunnelStepCard({
       />
     </Box>
   );
-}
-
-/** Step 1 hides optional/conversion window (they anchor on a prior step), so
- *  clear them on whichever step lands first after a reorder. */
-function normalizeFirstStep(steps: FunnelStep[]): FunnelStep[] {
-  const [first, ...rest] = steps;
-  if (!first || (!first.optional && !first.conversionWindow)) return steps;
-  return [{ ...first, optional: false, conversionWindow: null }, ...rest];
 }
 
 /**
