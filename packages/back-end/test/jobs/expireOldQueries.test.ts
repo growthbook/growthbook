@@ -1052,6 +1052,56 @@ describe.each([
     );
   });
 
+  it("errors a stalled snapshot whose query doc is missing", async () => {
+    familyDocs = [
+      snapshot({
+        queries: [
+          { name: "ft_cart", query: "qry_1", status: "running" },
+          { name: "ft_gone", query: "qry_gone", status: "running" },
+        ],
+      }),
+    ];
+    // qry_gone has no doc: it can never finish, so after the legacy age +
+    // grace it is treated as failed rather than skipped forever.
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "succeeded",
+        finishedAt: new Date(Date.now() - HOUR),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_1", status: "running" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "error",
+          error: expect.stringContaining("never finalized"),
+          queries: [
+            { name: "ft_cart", query: "qry_1", status: "succeeded" },
+            { name: "ft_gone", query: "qry_gone", status: "failed" },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("leaves a snapshot with a missing query doc alone until the full stall threshold", async () => {
+    familyDocs = [
+      snapshot({
+        dateCreated: new Date(Date.now() - 30 * 60 * 1000),
+        queries: [{ name: "ft_gone", query: "qry_gone", status: "running" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([]);
+
+    await runJob();
+
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+
   it("errors a snapshot whose queries the stale-query sweep just failed", async () => {
     familyDocs = [
       snapshot({

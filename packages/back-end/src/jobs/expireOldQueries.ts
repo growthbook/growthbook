@@ -369,8 +369,22 @@ async function evaluateStalledCandidate(
   const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
   if (!queryIds.length) return null;
 
-  const statuses = await getQueryStatusesByIds(snapshot.organization, queryIds);
-  if (statuses.length !== queryIds.length) return null;
+  const found = await getQueryStatusesByIds(snapshot.organization, queryIds);
+  // Query docs are inserted before their id is ever written into a snapshot
+  // and nothing deletes them, so a missing doc can never finish: count it as
+  // failed and let the legacy age + grace criteria decide when to give up.
+  const foundIds = new Set(found.map((s) => s.id));
+  const statuses: StalledQueryStatus[] = [
+    ...found,
+    ...queryIds
+      .filter((id) => !foundIds.has(id))
+      .map((id) => ({
+        id,
+        status: "failed" as const,
+        createdAt: snapshot.dateCreated,
+        heartbeat: snapshot.dateCreated,
+      })),
+  ];
 
   const verdict = classifyStalledSnapshot({
     queryStatuses: statuses,
