@@ -4133,3 +4133,10 @@ input:disabled {
 .replayer-mouse::after {
   background: var(--accent-9) !important;
 }
+
+// Pylon's launcher and chat window rise above a bottom bar, like ours (see
+// useBottomBarClearance). A margin shifts them without restating Pylon's offsets.
+.PylonChat-bubbleFrameContainer,
+.PylonChat-chatWindowFrameContainer {
+  margin-bottom: var(--bottom-bar-clearance, 0px) !important;
+}

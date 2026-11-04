@@ -107,7 +107,7 @@ export default function InAppHelp() {
               showFreeHelpWidget ? styles.closeLauncher : styles.chatLauncher
             }
             style={{
-              bottom: LAUNCHER_BOTTOM_PX,
+              bottom: `calc(var(--bottom-bar-clearance, 0px) + ${LAUNCHER_BOTTOM_PX}px)`,
               width: LAUNCHER_SIZE_PX,
               height: LAUNCHER_SIZE_PX,
             }}
