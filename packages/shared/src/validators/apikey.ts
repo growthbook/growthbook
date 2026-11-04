@@ -204,8 +204,14 @@ export const apiApiKeyValidator = namedSchema(
       .describe("Absent for an unscoped personal access token."),
     limitAccessByEnvironment: z.boolean(),
     environments: z.array(z.string()),
-    additionalRoles: z.array(roleRule).optional(),
-    projectRoles: z.array(apiProjectRoleRule).optional(),
+    additionalRoles: z
+      .array(roleRule)
+      .optional()
+      .describe("`[]` for none. Absent for an unscoped personal access token."),
+    projectRoles: z
+      .array(apiProjectRoleRule)
+      .optional()
+      .describe("`[]` for none. Absent for an unscoped personal access token."),
     actAs: actAsValidator
       .optional()
       .describe(

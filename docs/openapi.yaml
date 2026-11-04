@@ -87270,6 +87270,7 @@ components:
           items:
             type: string
         additionalRoles:
+          description: '`[]` for none. Absent for an unscoped personal access token.'
           type: array
           items:
             type: object
@@ -87288,6 +87289,7 @@ components:
               - environments
             additionalProperties: false
         projectRoles:
+          description: '`[]` for none. Absent for an unscoped personal access token.'
           type: array
           items:
             type: object
