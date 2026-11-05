@@ -3,7 +3,6 @@ import {
   TRACE_INGEST_ROLE_ID,
   getRoleDisplayName,
 } from "shared/permissions";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
@@ -17,16 +16,11 @@ export default function useRoleOptions({
 } = {}): SingleValue[] | GroupedValue[] {
   const { roles, hasCommercialFeature, organization } = useUser();
   const { orgSupportsRoles } = useOrgLimits();
-  const traceIngest = useFeatureIsOn("trace-ingest");
 
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
   const deactivatedRoles = organization.deactivatedRoles || [];
 
-  let roleOptions = [...roles];
-
-  if (!traceIngest) {
-    roleOptions = roleOptions.filter((r) => r.id !== TRACE_INGEST_ROLE_ID);
-  }
+  let roleOptions = roles.filter((r) => r.id !== TRACE_INGEST_ROLE_ID);
   if (!hasCommercialFeature("no-access-role")) {
     roleOptions = roleOptions.filter((r) => r.id !== "noaccess");
   }
