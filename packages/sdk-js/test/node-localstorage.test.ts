@@ -4,9 +4,13 @@
 
 describe("localStorage detection in Node", () => {
   const originalExecArgv = process.execArgv;
+  const originalNodeOptions = process.env.NODE_OPTIONS;
   let getter: jest.Mock;
 
   beforeEach(() => {
+    // Isolate from flags inherited by the test runner
+    process.execArgv = [];
+    delete process.env.NODE_OPTIONS;
     // Mimic Node 25+, where reading globalThis.localStorage without
     // --localstorage-file logs an ExperimentalWarning
     getter = jest.fn(() => undefined);
@@ -18,11 +22,12 @@ describe("localStorage detection in Node", () => {
 
   afterEach(() => {
     process.execArgv = originalExecArgv;
+    if (originalNodeOptions === undefined) delete process.env.NODE_OPTIONS;
+    else process.env.NODE_OPTIONS = originalNodeOptions;
     delete (globalThis as { localStorage?: unknown }).localStorage;
   });
 
   it("does not read localStorage without --localstorage-file", () => {
-    process.execArgv = [];
     jest.isolateModules(() => {
       require("../src/feature-repository");
     });
@@ -37,8 +42,15 @@ describe("localStorage detection in Node", () => {
     expect(getter).toHaveBeenCalled();
   });
 
+  it("reads localStorage when --localstorage-file is in NODE_OPTIONS", () => {
+    process.env.NODE_OPTIONS = "--localstorage-file=/tmp/gb.localstorage";
+    jest.isolateModules(() => {
+      require("../src/feature-repository");
+    });
+    expect(getter).toHaveBeenCalled();
+  });
+
   it("uses an app-supplied localStorage without --localstorage-file", async () => {
-    process.execArgv = [];
     const storage = { getItem: jest.fn(), setItem: jest.fn() };
     Object.defineProperty(globalThis, "localStorage", {
       value: storage,
