@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { IconButton, VisuallyHidden } from "@radix-ui/themes";
@@ -43,7 +43,6 @@ import {
   DropdownEntries,
   InPlaceMenu,
   MenuItemContent,
-  SIDEBAR_ICON_SIZE,
   SidebarItemLook,
   SidebarMenuEntry,
   SidebarMenuInPlace,
@@ -305,15 +304,23 @@ export default function ProfileMenu({
     ),
   ];
 
-  // With several organizations the tooltip always shows "Name (Org)";
-  // otherwise just the name, and only when collapsed.
-  const sidebarName = name || email || "Account";
+  // Full name, else the first name (some users only have that), else email.
+  // UserAvatar's initials follow the same order: two, one, the email's first.
+  const displayName = name?.trim() || "";
+  const sidebarName = displayName || email || "Account";
   const sidebarOrgName =
     sidebarItem && showOrgPicker && orgName ? orgName : null;
+  // State, not a ref, so it re-measures when the label comes back on expanding.
+  const [labelEl, setLabelEl] = useState<HTMLSpanElement | null>(null);
+  const labelTruncated = useIsTruncated(labelEl, sidebarName);
+  // With several organizations the tooltip always shows "Name (Org)";
+  // otherwise just the name, when collapsed or cut off.
   const tooltip = useMenuTriggerTooltip({
     label: sidebarOrgName ? `${sidebarName} (${sidebarOrgName})` : sidebarName,
-    enabled: !inPlace && (!!sidebarItem?.collapsed || !!sidebarOrgName),
-    menuOpen: open,
+    enabled: inPlace
+      ? labelTruncated
+      : !!sidebarItem?.collapsed || !!sidebarOrgName || labelTruncated,
+    menuOpen: open || !!inPlace?.open,
   });
 
   const reviewDot =
@@ -339,16 +346,19 @@ export default function ProfileMenu({
           }
         : {})}
     >
-      <span className={styles.avatarWrap}>
-        <ProfileIcon
-          size={SIDEBAR_ICON_SIZE}
-          className={sidebarItem.iconClassName}
-          aria-hidden="true"
+      <span className={styles.avatarWrap} aria-hidden="true">
+        <UserAvatar
+          name={displayName}
+          email={email || ""}
+          size="sm"
+          variant="soft"
         />
         {reviewDot}
       </span>
       {sidebarItem.collapsed ? null : (
-        <span className={sidebarItem.labelClassName}>{sidebarName}</span>
+        <span ref={setLabelEl} className={sidebarItem.labelClassName}>
+          {sidebarName}
+        </span>
       )}
       {tooltip.anchor}
     </button>
@@ -416,4 +426,21 @@ export default function ProfileMenu({
       </DropdownMenu>
     </>
   );
+}
+
+/** Whether the element's text is cut off by its ellipsis. */
+function useIsTruncated(el: HTMLElement | null, text: string): boolean {
+  const [truncated, setTruncated] = useState(false);
+  useEffect(() => {
+    if (!el) {
+      setTruncated(false);
+      return;
+    }
+    const check = () => setTruncated(el.scrollWidth > el.clientWidth);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el, text]);
+  return truncated;
 }

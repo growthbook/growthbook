@@ -37,9 +37,19 @@
 // Two layered shadows in every state, the top one clear at rest, so the
 // ring fades with the row's translucent highlight instead of flashing.
 .sidebarItem {
+  // The 24px avatar, centred on the other rows' 18px icons so the names line
+  // up with their labels; it spills 3px each side.
+  .avatarWrap {
+    width: 18px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  // On the avatar's corner: its 3px spill plus the icon's 1px.
   .reviewDot {
-    top: -1px;
-    right: -1px;
+    top: -4px;
+    right: -4px;
     width: 7px;
     height: 7px;
     border: 0;
