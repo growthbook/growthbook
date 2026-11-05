@@ -126,7 +126,8 @@ export default function PermissionsField({
         <Text as="div" size="md" weight="semibold">
           Permissions
         </Text>
-        {(value.customizing || canCustomize(allowed)) && (
+        {(value.customizing ||
+          (canCustomize(allowed) && value.preset !== "traces")) && (
           <Link
             weight="medium"
             onClick={() =>

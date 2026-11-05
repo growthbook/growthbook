@@ -116,7 +116,7 @@ const ApiKeysModal: FC<{
     ...plan,
     roles: plan.roles || !!source?.scoped,
     confirmations: plan.confirmations || !!existingKey?.confirmRules,
-    traces: plan.traces || source?.role === TRACE_INGEST_ROLE_ID,
+    traces: plan.traces || existingKey?.role === TRACE_INGEST_ROLE_ID,
   };
   const [permissions, setPermissions] = useState(() =>
     initialPermissions(source, holder, allowed),
