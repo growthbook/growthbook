@@ -199,11 +199,11 @@
 
   // Text sets its own letter-spacing. 10px is deliberately below Text's
   // smallest size: the label is part of the logo lockup, not body text.
-  // gray-11, not Text's text-low, which is under 4.5:1 at this size.
+  // slate-11, not Text's text-low, which is under 4.5:1 at this size.
   & > * {
     font-size: 10px;
     letter-spacing: 0.08em;
-    color: var(--gray-11);
+    color: var(--slate-11);
   }
 }
 
