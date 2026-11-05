@@ -1,7 +1,10 @@
 import type { Response } from "express";
 import { z } from "zod";
 import { isEqual } from "lodash";
-import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
+import {
+  DEFAULT_ENVIRONMENT_IDS,
+  guessIsProductionEnvironment,
+} from "shared/util";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { Environment } from "shared/types/organization";
 import {
@@ -45,6 +48,11 @@ type DeleteEnvironmentProps = z.infer<typeof deleteEnvValidator>;
 type CreateEnvironmentResponse = {
   environment: Environment;
 };
+
+const withIsProduction = (env: Environment): Environment => ({
+  ...env,
+  isProduction: env.isProduction ?? guessIsProductionEnvironment(env.id),
+});
 
 export const putEnvironmentOrder = async (
   req: AuthRequest<UpdateEnvOrderProps>,
@@ -130,7 +138,7 @@ export const putEnvironments = async (
   const updatedEnvironments = environments.reduce((acc, environment) => {
     return addEnvironmentToOrganizationEnvironments(
       context,
-      environment,
+      withIsProduction(environment),
       acc,
       false,
     );
@@ -191,8 +199,14 @@ export const putEnvironment = async (
     context.permissions.throwPermissionError();
   }
 
+  // Merge so fields the edit form doesn't send (parent, isProduction) survive
+  const updatedEnv: Environment = {
+    ...envsArr[existingEnvIndex],
+    ...environment,
+    id,
+  };
   const updatedEnvs = [...envsArr];
-  updatedEnvs[existingEnvIndex] = { ...environment, id };
+  updatedEnvs[existingEnvIndex] = updatedEnv;
 
   try {
     await updateOrganization(org.id, {
@@ -232,15 +246,12 @@ export const putEnvironment = async (
         object: "environment",
         id,
       },
-      details: auditDetailsUpdate(envsArr[existingEnvIndex], {
-        ...environment,
-        id,
-      }),
+      details: auditDetailsUpdate(envsArr[existingEnvIndex], updatedEnv),
     });
 
     res.status(200).json({
       status: 200,
-      environment,
+      environment: updatedEnv,
     });
   } catch (e) {
     res.status(400).json({
@@ -265,7 +276,7 @@ export const postEnvironment = async (
     EventUserForResponseLocals
   >,
 ) => {
-  const { environment } = req.body;
+  const environment = withIsProduction(req.body.environment);
 
   const context = getContextFromReq(req);
   const { org, environments } = context;

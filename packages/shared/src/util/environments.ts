@@ -8,3 +8,18 @@ export const NON_PRODUCTION_ENV_PATTERNS: RegExp[] = [
 export function isEnvironmentDevLike(envId: string): boolean {
   return NON_PRODUCTION_ENV_PATTERNS.some((re) => re.test(envId));
 }
+
+// Exact-match only. Prefix matching would mark things like `dev-prod` as
+// non-production, and this flag gates production safeguards.
+export const NON_PRODUCTION_ENVIRONMENT_IDS = ["dev", "staging", "test"];
+
+export function guessIsProductionEnvironment(envId: string): boolean {
+  return !NON_PRODUCTION_ENVIRONMENT_IDS.includes(envId.toLowerCase());
+}
+
+export function isProductionEnvironment(env: {
+  id: string;
+  isProduction?: boolean;
+}): boolean {
+  return env.isProduction ?? guessIsProductionEnvironment(env.id);
+}

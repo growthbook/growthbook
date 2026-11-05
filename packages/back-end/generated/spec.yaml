@@ -21956,6 +21956,9 @@ paths:
                     An environment that the new environment should inherit
                     feature rules from. Requires an enterprise license
                   type: string
+                isProduction:
+                  description: Whether this is a production environment
+                  type: boolean
               required:
                 - id
               additionalProperties: false
@@ -22012,6 +22015,9 @@ paths:
                   type: array
                   items:
                     type: string
+                isProduction:
+                  description: Whether this is a production environment
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -74254,12 +74260,15 @@ components:
             type: string
         parent:
           type: string
+        isProduction:
+          type: boolean
       required:
         - id
         - description
         - toggleOnList
         - defaultState
         - projects
+        - isProduction
       additionalProperties: false
     Attribute:
       type: object

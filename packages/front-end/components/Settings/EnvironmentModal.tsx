@@ -1,7 +1,11 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
-import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
+import {
+  DEFAULT_ENVIRONMENT_IDS,
+  guessIsProductionEnvironment,
+  isProductionEnvironment,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -35,6 +39,9 @@ export default function EnvironmentModal({
       defaultState: existing.defaultState ?? true,
       projects: existing.projects || [],
       parent: existing.parent,
+      isProduction: existing.id
+        ? isProductionEnvironment({ ...existing, id: existing.id })
+        : true,
     },
   });
   const { apiCall } = useAuth();
@@ -118,6 +125,7 @@ export default function EnvironmentModal({
                 toggleOnList: value.toggleOnList,
                 defaultState: value.defaultState,
                 projects: value.projects,
+                isProduction: value.isProduction,
               },
             }),
           });
@@ -137,6 +145,7 @@ export default function EnvironmentModal({
             defaultState: value.defaultState,
             projects: value.projects,
             parent: value.parent,
+            isProduction: value.isProduction,
           };
           await apiCall(`/environment`, {
             method: "POST",
@@ -165,6 +174,7 @@ export default function EnvironmentModal({
           }
           onChange={(value) => {
             form.setValue("id", value);
+            form.setValue("isProduction", guessIsProductionEnvironment(value));
             if (!DEFAULT_ENVIRONMENT_IDS.includes(value)) {
               form.setValue("parent", undefined);
             }
@@ -270,6 +280,16 @@ export default function EnvironmentModal({
         value={!!form.watch("toggleOnList")}
         onChange={(value) => {
           form.setValue("toggleOnList", value);
+        }}
+        mb="3"
+      />
+      <Switch
+        id={"isProduction"}
+        label="This is a production environment"
+        description="Production environments get extra safeguards, for example QA overrides aren't allowed."
+        value={!!form.watch("isProduction")}
+        onChange={(value) => {
+          form.setValue("isProduction", value);
         }}
       />
     </Modal>

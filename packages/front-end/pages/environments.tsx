@@ -1,6 +1,9 @@
 import { useState, FC, useMemo } from "react";
 import { Environment } from "shared/types/organization";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProductionEnvironment,
+  isProjectListValidForProject,
+} from "shared/util";
 import { BiShow } from "react-icons/bi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
@@ -18,6 +21,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import EnvironmentConnectionsList from "@/components/Settings/EnvironmentConnectionsList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
@@ -124,6 +128,7 @@ const EnvironmentsPage: FC = () => {
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Environment</TableColumnHeader>
+              <TableColumnHeader>Production</TableColumnHeader>
               <TableColumnHeader>Description</TableColumnHeader>
               <TableColumnHeader>Projects</TableColumnHeader>
               <TableColumnHeader>SDK Connections</TableColumnHeader>
@@ -157,6 +162,11 @@ const EnvironmentsPage: FC = () => {
               return (
                 <TableRow key={e.id}>
                   <TableCell>{e.id}</TableCell>
+                  <TableCell>
+                    {isProductionEnvironment(e) ? (
+                      <Badge label="Production" />
+                    ) : null}
+                  </TableCell>
                   <TableCell>{e.description}</TableCell>
                   <TableCell>
                     {(e?.projects?.length || 0) > 0 ? (
