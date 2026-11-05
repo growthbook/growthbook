@@ -1,3 +1,4 @@
+import { useState } from "react";
 import useSWR from "swr";
 import { Flex } from "@radix-ui/themes";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
@@ -47,6 +48,9 @@ export default function EventForwarders({ orgId }: { orgId: string }) {
       await mutate();
     };
 
+  // Controlled, so Pause and Resume can stay open to show a failed request
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+
   if (error) {
     return <Text color="text-mid">Couldn&apos;t load: {error.message}</Text>;
   }
@@ -70,6 +74,8 @@ export default function EventForwarders({ orgId }: { orgId: string }) {
               <MoreMenuTrigger size="sm" label={`Actions for ${row.name}`} />
             }
             menuPlacement="end"
+            open={openMenu === row.id}
+            onOpenChange={(open) => setOpenMenu(open ? row.id : null)}
           >
             {/* Server rejects migrating a paused row, so don't offer it */}
             {!row.inHouseConsumer && row.status !== "paused" && (
@@ -87,10 +93,14 @@ export default function EventForwarders({ orgId }: { orgId: string }) {
             )}
             {(row.status === "ready" || row.status === "paused") && (
               <DropdownMenuItem
-                onClick={run(
-                  row.id,
-                  row.status === "ready" ? "/pause" : "/resume",
-                )}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await run(
+                    row.id,
+                    row.status === "ready" ? "/pause" : "/resume",
+                  )();
+                  setOpenMenu(null);
+                }}
               >
                 {row.status === "ready" ? "Pause" : "Resume"}
               </DropdownMenuItem>

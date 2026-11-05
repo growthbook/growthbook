@@ -118,6 +118,10 @@ function generateSSOConnection(
   return res;
 }
 
+type SSOFormValues = Omit<SSOConnectionInterface, "metadata"> & {
+  metadata: string;
+};
+
 function jsonSafeParse(str: string) {
   if (!str) return null;
   try {
@@ -159,11 +163,7 @@ export default function EditSSOModal({
       : null,
   );
 
-  const form = useForm<
-    Omit<SSOConnectionInterface, "metadata"> & {
-      metadata: string;
-    }
-  >({
+  const form = useForm<SSOFormValues>({
     defaultValues: {
       id: currentSSO?.id || "",
       organization: org.id,
@@ -179,6 +179,16 @@ export default function EditSSOModal({
       audience: currentSSO?.audience || "",
     },
   });
+
+  const toConnection = (values: SSOFormValues) =>
+    generateSSOConnection({
+      ...values,
+      metadata: jsonSafeParse(values.metadata) || {},
+    });
+  // Snapshot from the first render, so an untouched connection isn't re-saved
+  const [initialConnection] = useState(() =>
+    sortObj(toConnection(form.getValues())),
+  );
 
   const currentValue = {
     id: form.watch("id"),
@@ -203,16 +213,22 @@ export default function EditSSOModal({
     <ModalStandard
       trackingEventModalType=""
       submit={validatedSubmit(form, async (data) => {
+        // Without a provider, the only thing to save is a required connection
+        if (enableSSO && !data.idpType && !requireSSO) {
+          throw new Error(
+            "Select an identity provider, or uncheck Enable SSO.",
+          );
+        }
         // First, so a required connection exists by the time it's set below
-        if (enableSSO && data.idpType) {
+        const connection = toConnection(data);
+        if (
+          enableSSO &&
+          data.idpType &&
+          sortObj(connection) !== initialConnection
+        ) {
           await apiCall(`/admin/sso-connection`, {
             method: "POST",
-            body: JSON.stringify(
-              generateSSOConnection({
-                ...data,
-                metadata: jsonSafeParse(data.metadata) || {},
-              }),
-            ),
+            body: JSON.stringify(connection),
           });
         }
 
