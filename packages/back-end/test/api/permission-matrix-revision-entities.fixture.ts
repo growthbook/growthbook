@@ -1,3 +1,4 @@
+import http from "http";
 import request from "supertest";
 import type { OrganizationInterface } from "shared/types/organization";
 import { setupApp } from "./api.setup";
@@ -25,6 +26,14 @@ import {
 
 const org: OrganizationInterface = buildOrg("org_perm_matrix_entities");
 const { app, setReqContext } = setupApp();
+// One server per suite: request(app) opens and closes a server on a fresh
+// port per request, and keep-alive sockets to those recycled ports reset or
+// land on another worker's server.
+const server = http.createServer(app);
+beforeAll(
+  () => new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve)),
+);
+afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
 let seq = 0;
 const uniq = (p: string) => `${p}_${++seq}`;
@@ -38,9 +47,9 @@ export function as(persona: Persona | "admin", envLimited = false) {
 
 export const api = {
   post: (path: string, body: Record<string, unknown> = {}) =>
-    request(app).post(path).send(body).set("Authorization", "Bearer x"),
+    request(server).post(path).send(body).set("Authorization", "Bearer x"),
   put: (path: string, body: Record<string, unknown> = {}) =>
-    request(app).put(path).send(body).set("Authorization", "Bearer x"),
+    request(server).put(path).send(body).set("Authorization", "Bearer x"),
 };
 
 export type Entity = {

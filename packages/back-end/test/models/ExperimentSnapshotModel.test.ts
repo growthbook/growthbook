@@ -432,6 +432,36 @@ describe("ExperimentSnapshotModel", () => {
         ).rejects.toThrow("Snapshot already has chunked analyses.");
       },
     );
+
+    // Creating a report re-inserts a loaded snapshot (postReportFromSnapshot),
+    // so a schema path that loads in a shape it can't be saved in hangs reports.
+    it("re-inserts a loaded minimal snapshot as a report copy", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_round_trip_source");
+      snapshot.status = "success";
+      snapshot.analyses = [
+        makeAnalysis({ settings: makeAnalysisSettings(), value: 10 }),
+      ];
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const loaded = await findSnapshotById(context, snapshot.id);
+      if (!loaded) throw new Error("expected source snapshot");
+      const reportCopy = {
+        ...loaded,
+        id: "snp_round_trip_copy",
+        type: "report" as const,
+        report: "rep_1",
+      };
+      // Same repair postReportFromSnapshot applies before re-inserting.
+      if (reportCopy.health?.traffic && !reportCopy.health.traffic.dimension) {
+        reportCopy.health.traffic.dimension = {};
+      }
+
+      await createExperimentSnapshotModel({ data: reportCopy, context });
+      await expect(
+        findSnapshotById(context, "snp_round_trip_copy"),
+      ).resolves.toEqual(reportCopy);
+    });
   });
 
   describe("getLatestSnapshotStatus", () => {
