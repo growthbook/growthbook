@@ -23,6 +23,7 @@ import { AppFeatures } from "shared/types/app-features";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import { isInterleavingEnabled } from "@/services/interleaving";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import ManagedWarehouseActivity from "@/components/ManagedWarehouse/ManagedWarehouseActivity";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -658,6 +659,9 @@ const DataSourcePage: FC = () => {
                 with instructions on how to send events from your app to
                 GrowthBook.
               </Text>
+              <Box mt="4">
+                <ManagedWarehouseActivity dataSource={d} />
+              </Box>
             </Frame>
           ))}
 
