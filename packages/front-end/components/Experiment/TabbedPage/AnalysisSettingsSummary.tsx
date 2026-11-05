@@ -1031,7 +1031,7 @@ export default function AnalysisSettingsSummary({
                 content={STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE}
                 enabled={resultsLocked}
               >
-                <span style={{ display: "inline-flex" }}>
+                <Flex display="inline-flex">
                   <RefreshResultsButton
                     entityType={
                       experiment.type === "holdout" ? "holdout" : "experiment"
@@ -1074,7 +1074,7 @@ export default function AnalysisSettingsSummary({
                     }
                     fullRefreshReasons={fullRefreshReasons}
                   />
-                </span>
+                </Flex>
               </Tooltip>
             ) : null}
 
