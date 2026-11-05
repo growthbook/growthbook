@@ -213,8 +213,9 @@ export default function EditSSOModal({
     <ModalStandard
       trackingEventModalType=""
       submit={validatedSubmit(form, async (data) => {
-        // Without a provider, the only thing to save is a required connection
-        if (enableSSO && !data.idpType && !requireSSO) {
+        // A new connection needs a provider, unless the org only requires
+        // another one. Older connections may have no provider saved.
+        if (enableSSO && !currentSSO && !data.idpType && !requireSSO) {
           throw new Error(
             "Select an identity provider, or uncheck Enable SSO.",
           );
