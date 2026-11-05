@@ -67,6 +67,8 @@ type Props = {
   dataSource: DataSourceInterfaceWithParams;
   canEdit?: boolean;
   onRefresh: () => Promise<void>;
+  /** Title the section when it isn't on its own Event Forwarder tab. */
+  showTitle?: boolean;
 };
 
 type EventForwarderDatasourceDraft = {
@@ -613,6 +615,7 @@ export default function EventForwarder({
   dataSource,
   canEdit = true,
   onRefresh,
+  showTitle = false,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -689,13 +692,17 @@ export default function EventForwarder({
 
   return (
     <Box>
-      {eventForwarderConfig ? (
+      {showTitle || eventForwarderConfig ? (
         <Flex align="center" justify="between" gap="3" mb="2">
           <Flex align="center" gap="2">
-            <Heading as="h3" size="md" mb="0">
-              Status
-            </Heading>
-            {isProvisioning ? (
+            {showTitle ? (
+              <Heading as="h3" size="md" mb="0">
+                Event Forwarder
+              </Heading>
+            ) : (
+              <Text weight="semibold">Status</Text>
+            )}
+            {!eventForwarderConfig ? null : isProvisioning ? (
               <EventForwarderSetupIndicator />
             ) : (
               <>
@@ -823,6 +830,34 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
+      {eventForwarderConfig && isProvisioning ? (
+        <Callout status="info" mb="3">
+          <Text color="text-mid" size="md">
+            This page will update automatically once provisioning completes.
+          </Text>
+        </Callout>
+      ) : null}
+
+      {eventForwarderConfig &&
+      showProvisioningError &&
+      primaryConnectorErrorMessage ? (
+        <Callout status="error" mb="3">
+          <Box style={{ whiteSpace: "pre-wrap" }}>
+            {primaryConnectorErrorMessage}
+          </Box>
+        </Callout>
+      ) : null}
+
+      {eventForwarderConfig && typeof forwarderLimit === "number" ? (
+        <Box mb="4">
+          <UsageMeter
+            used={forwardedThisMonth}
+            limit={forwarderLimit}
+            noun="events"
+          />
+        </Box>
+      ) : null}
+
       {(isReady || isPaused) && !isProvisioning ? (
         <EventForwarderActivity
           dataSource={dataSource}
@@ -924,31 +959,6 @@ export default function EventForwarder({
                 )}
               />
             </Flex>
-
-            {typeof forwarderLimit === "number" ? (
-              <UsageMeter
-                used={forwardedThisMonth}
-                limit={forwarderLimit}
-                noun="events"
-              />
-            ) : null}
-
-            {isProvisioning ? (
-              <Callout status="info">
-                <Text color="text-mid" size="md">
-                  This page will update automatically once provisioning
-                  completes.
-                </Text>
-              </Callout>
-            ) : null}
-
-            {showProvisioningError && primaryConnectorErrorMessage ? (
-              <Callout status="error" mb="0">
-                <Box style={{ whiteSpace: "pre-wrap" }}>
-                  {primaryConnectorErrorMessage}
-                </Box>
-              </Callout>
-            ) : null}
           </Flex>
         </Card>
       ) : null}

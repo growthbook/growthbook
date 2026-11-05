@@ -19,7 +19,6 @@ import PreviewExplorer, {
 import {
   getEventForwarderActivityConfig,
   getEventForwarderDailyCounts,
-  getEventForwarderExplorerConfig,
   getEventForwarderNoEventsMessage,
 } from "@/components/Settings/EditDataSource/EventForwarder/eventForwarderActivityConfig";
 import Callout from "@/ui/Callout";
@@ -115,9 +114,7 @@ export default function EventForwarderActivity({
             renderChart={({ exploration }) => (
               <EventsChart
                 exploration={exploration}
-                explorerHref={`/product-analytics/explore/fact-table?config=${encodeExplorationConfig(
-                  getEventForwarderExplorerConfig(config),
-                )}`}
+                explorerHref={`/product-analytics/explore/fact-table?config=${encodeExplorationConfig(config)}`}
                 noEventsMessage={getEventForwarderNoEventsMessage({
                   isPaused,
                   isOverLimit,

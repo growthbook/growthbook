@@ -41,23 +41,6 @@ export function getEventForwarderActivityConfig({
   };
 }
 
-// The same query in the Explorer, over a rolling window so a shared link
-// stays current.
-export function getEventForwarderExplorerConfig(
-  config: FactTableExplorationConfig,
-): FactTableExplorationConfig {
-  return {
-    ...config,
-    dateRange: {
-      predefined: "last7Days",
-      lookbackValue: 7,
-      lookbackUnit: "day",
-      startDate: null,
-      endDate: null,
-    },
-  };
-}
-
 // One entry per UTC day in the range; days without rows count as zero.
 export function getEventForwarderDailyCounts(
   exploration: Pick<

@@ -1,7 +1,6 @@
 import {
   getEventForwarderActivityConfig,
   getEventForwarderDailyCounts,
-  getEventForwarderExplorerConfig,
   getEventForwarderNoEventsMessage,
 } from "./eventForwarderActivityConfig";
 
@@ -31,25 +30,6 @@ describe("getEventForwarderActivityConfig", () => {
         values: [{ valueType: "count", valueColumn: null, unit: null }],
       },
     });
-  });
-});
-
-describe("getEventForwarderExplorerConfig", () => {
-  it("swaps the fixed preview range for a rolling 7 days", () => {
-    const config = getEventForwarderActivityConfig({
-      datasourceId: "ds_1",
-      factTableId: "ds_1_events",
-      dateRange,
-    });
-    const explorerConfig = getEventForwarderExplorerConfig(config);
-    expect(explorerConfig.dateRange).toEqual({
-      predefined: "last7Days",
-      lookbackValue: 7,
-      lookbackUnit: "day",
-      startDate: null,
-      endDate: null,
-    });
-    expect(explorerConfig.dataset).toEqual(config.dataset);
   });
 });
 
