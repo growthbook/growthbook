@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { TRACE_INGEST_ROLE_ID } from "shared/permissions";
 import { PiInfo } from "react-icons/pi";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
@@ -72,7 +73,9 @@ export function useAllowedPermissions(): Allowed {
   const { organization, hasCommercialFeature } = useUser();
   const { orgSupportsRoles } = useOrgLimits();
   const roles = orgSupportsRoles();
-  const traces = useFeatureIsOn("trace-ingest");
+  const traces =
+    useFeatureIsOn("trace-ingest") &&
+    !organization.deactivatedRoles?.includes(TRACE_INGEST_ROLE_ID);
   return {
     roles,
     readonly: roles && !organization.deactivatedRoles?.includes("readonly"),

@@ -4,6 +4,7 @@ import {
   getRolePermissions,
   hasPermission,
   hasSuperAdminPermission,
+  TRACE_INGEST_ROLE_ID,
 } from "shared/permissions";
 import { SuperAdmin } from "shared/validators";
 import {
@@ -251,6 +252,12 @@ function authenticateWithApiKey(
       );
       if (disabled) {
         throw new Error("This API key has been disabled");
+      }
+      // Some endpoints don't check permissions, so a role with none isn't enough.
+      if (role === TRACE_INGEST_ROLE_ID) {
+        throw new Error(
+          "This API key has the Trace Ingest role and can't be used with the GrowthBook API.",
+        );
       }
       // Expiry is enforced at lookup; this lets clients warn before it lands.
       if (expiresAt && !apiKeyDoc.oauthClientId) {
