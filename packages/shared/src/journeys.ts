@@ -684,55 +684,42 @@ export function journeyDisplayLookaheadDepth(
   return depth;
 }
 
-/**
- * Carries each requested value's `name` and `showAs` onto a cached config. The
- * cache match ignores both (see `toValueQueryKey`), so a cache hit's values
- * line up with the request's index for index.
- */
-function withRequestedValueDisplay(
-  cached: ExplorationConfig,
-  requested: ExplorationConfig,
-): ExplorationConfig {
-  if (cached.type === "metric" && requested.type === "metric") {
-    const values = cached.dataset.values.map((value, i) => ({
-      ...value,
-      name: requested.dataset.values[i].name,
-      showAs: requested.dataset.values[i].showAs,
-    }));
-    return { ...cached, dataset: { ...cached.dataset, values } };
-  }
-  if (datasetHasValues(cached.dataset) && datasetHasValues(requested.dataset)) {
-    const requestedValues = requested.dataset.values;
-    const values = cached.dataset.values.map((value, i) => ({
-      ...value,
-      name: requestedValues[i].name,
-    }));
-    return {
-      ...cached,
-      dataset: { ...cached.dataset, values },
-    } as ExplorationConfig;
-  }
-  return cached;
-}
-
 /** Overlay the requested path and collapse cached lookahead to the display frontier. */
 export function toClientJourneyExploration(
   exploration: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
   if (exploration.config.type !== "journey" || requested.type !== "journey") {
+    const { dataset } = exploration.config;
+    const requestedDataset = requested.dataset;
     return {
       ...exploration,
-      config: withRequestedValueDisplay(
-        {
-          ...exploration.config,
-          chartType: requested.chartType,
-          showAs: requested.showAs,
-          chartSettings: requested.chartSettings,
-          dateRange: requested.dateRange,
-        },
-        requested,
-      ),
+      config: {
+        ...exploration.config,
+        chartType: requested.chartType,
+        showAs: requested.showAs,
+        chartSettings: requested.chartSettings,
+        dateRange: requested.dateRange,
+        ...(datasetHasValues(dataset) && datasetHasValues(requestedDataset)
+          ? {
+              dataset: {
+                ...dataset,
+                values: dataset.values.map((value, i) => {
+                  const requestedValue = requestedDataset.values[i];
+                  return {
+                    ...value,
+                    name: requestedValue.name,
+                    // Copied even when absent: no `showAs` means the default.
+                    showAs:
+                      "showAs" in requestedValue
+                        ? requestedValue.showAs
+                        : undefined,
+                  };
+                }),
+              },
+            }
+          : {}),
+      } as ExplorationConfig,
     };
   }
   const cachedDataset = exploration.config.dataset;
