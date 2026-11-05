@@ -129,6 +129,47 @@ function newAssignmentQuery(
   };
 }
 
+// Returns null when the sent list matches the stored one.
+function mergeIdentityJoins(
+  stored: IdentityJoinQuery[],
+  sent: NonNullable<PutDataSourceSettingsBody["identifierJoinQueries"]>,
+): { joins: IdentityJoinQuery[]; added: IdentityJoinQuery[] } | null {
+  const joins = sent.map((j) => ({ ids: j.identifierTypes, query: j.sql }));
+  const storedAsSent = stored.map((j) => ({ ids: j.ids, query: j.query }));
+  if (isEqual(joins, storedAsSent)) return null;
+  return {
+    joins,
+    added: joins.filter((j) => !storedAsSent.some((s) => isEqual(s, j))),
+  };
+}
+
+function mergeAssignmentQueries(
+  stored: ExposureQuery[],
+  sent: NonNullable<PutDataSourceSettingsBody["assignmentQueries"]>,
+  generateId?: () => string,
+): { queries: ExposureQuery[]; changed: ExposureQuery[] } {
+  const queries = [...stored];
+  const changed: ExposureQuery[] = [];
+  for (const query of sent) {
+    const index = stored.findIndex((q) => q.id === query.id);
+    if (index === -1) {
+      const added = newAssignmentQuery(
+        query,
+        generateId ? generateId() : query.id,
+      );
+      queries.push(added);
+      changed.push(added);
+      continue;
+    }
+    const merged = mergeAssignmentQuery(stored[index], query);
+    if (merged !== stored[index]) {
+      queries[index] = merged;
+      changed.push(merged);
+    }
+  }
+  return { queries, changed };
+}
+
 /**
  * Applies a `PUT /data-sources/:id/settings` body to the stored settings.
  * Identifier types and join queries replace the stored lists. Assignment
@@ -143,6 +184,8 @@ export function mergeDataSourceSettingsBody(
 ): MergedDataSourceSettings {
   const settings: DataSourceSettings = { ...stored };
   let changed = false;
+  let newIdentityJoins: IdentityJoinQuery[] = [];
+  let changedExposureQueries: ExposureQuery[] = [];
 
   if (body.identifierTypes) {
     const storedTypes = stored.userIdTypes ?? [];
@@ -153,49 +196,27 @@ export function mergeDataSourceSettingsBody(
     }
   }
 
-  let newIdentityJoins: IdentityJoinQuery[] = [];
   if (body.identifierJoinQueries) {
-    const storedJoins = stored.queries?.identityJoins ?? [];
-    const next = body.identifierJoinQueries.map((j) => ({
-      ids: j.identifierTypes,
-      query: j.sql,
-    }));
-    const storedAsSent = storedJoins.map((j) => ({
-      ids: j.ids,
-      query: j.query,
-    }));
-    if (!isEqual(next, storedAsSent)) {
-      settings.queries = { ...settings.queries, identityJoins: next };
+    const next = mergeIdentityJoins(
+      stored.queries?.identityJoins ?? [],
+      body.identifierJoinQueries,
+    );
+    if (next) {
+      settings.queries = { ...settings.queries, identityJoins: next.joins };
+      newIdentityJoins = next.added;
       changed = true;
-      newIdentityJoins = next.filter(
-        (j) => !storedAsSent.some((s) => isEqual(s, j)),
-      );
     }
   }
 
-  const changedExposureQueries: ExposureQuery[] = [];
   if (body.assignmentQueries) {
-    const storedQueries = stored.queries?.exposure ?? [];
-    const next = [...storedQueries];
-    for (const sent of body.assignmentQueries) {
-      const index = storedQueries.findIndex((q) => q.id === sent.id);
-      if (index === -1) {
-        const query = newAssignmentQuery(
-          sent,
-          generateId ? generateId() : sent.id,
-        );
-        next.push(query);
-        changedExposureQueries.push(query);
-        continue;
-      }
-      const merged = mergeAssignmentQuery(storedQueries[index], sent);
-      if (merged !== storedQueries[index]) {
-        next[index] = merged;
-        changedExposureQueries.push(merged);
-      }
-    }
-    if (changedExposureQueries.length) {
-      settings.queries = { ...settings.queries, exposure: next };
+    const next = mergeAssignmentQueries(
+      stored.queries?.exposure ?? [],
+      body.assignmentQueries,
+      generateId,
+    );
+    if (next.changed.length) {
+      settings.queries = { ...settings.queries, exposure: next.queries };
+      changedExposureQueries = next.changed;
       changed = true;
     }
   }
@@ -232,8 +253,9 @@ export async function testDataSourceSettingsQueries(
     testDays?: number;
   },
 ): Promise<string | null> {
-  const { getTestValidityQuery } = integration;
-  if (!getTestValidityQuery || !integration.runTestQuery) return null;
+  if (!integration.getTestValidityQuery || !integration.runTestQuery) {
+    return null;
+  }
   // Matches the dashboard's save, which can't test while the Managed
   // Warehouse's tables aren't there
   if (isManagedWarehouseUnavailable(datasource)) return null;
@@ -241,8 +263,7 @@ export async function testDataSourceSettingsQueries(
   const compileErrors: string[] = [];
   for (const query of exposureQueries) {
     try {
-      getTestValidityQuery.call(
-        integration,
+      integration.getTestValidityQuery(
         query.query,
         testDays,
         undefined,
@@ -254,7 +275,7 @@ export async function testDataSourceSettingsQueries(
   }
   for (const join of identityJoins) {
     try {
-      getTestValidityQuery.call(integration, join.query, testDays);
+      integration.getTestValidityQuery(join.query, testDays);
     } catch (e) {
       compileErrors.push(identityJoinLine(join, e.message));
     }

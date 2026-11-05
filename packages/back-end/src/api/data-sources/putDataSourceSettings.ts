@@ -61,14 +61,15 @@ export const putDataSourceSettings = createApiRequestHandler(
     // Analysis looks queries up by id, so a change reaches every stored query
     // that shares it
     const storedQueries = datasource.settings?.queries?.exposure ?? [];
-    for (const query of merged.changedExposureQueries) {
-      if (
-        storedQueries
-          .filter((q) => q.id === query.id)
-          .some((q) => !permissions.canUpdateExposureQuery(q, datasource))
-      ) {
-        permissions.throwPermissionError();
-      }
+    const changedIds = new Set(merged.changedExposureQueries.map((q) => q.id));
+    if (
+      storedQueries.some(
+        (q) =>
+          changedIds.has(q.id) &&
+          !permissions.canUpdateExposureQuery(q, datasource),
+      )
+    ) {
+      permissions.throwPermissionError();
     }
 
     const updates = { settings: merged.settings };
