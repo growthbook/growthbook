@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { reconcileInlineFilterPrompts } from "shared/experiments";
-import { Box, Flex, TextField } from "@radix-ui/themes";
+import { Box, Flex, IconButton, TextField } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretRight,
@@ -18,7 +18,6 @@ import {
   FunnelStep,
 } from "shared/validators";
 import { RowFilter } from "shared/types/fact-table";
-import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -26,7 +25,6 @@ import Text from "@/ui/Text";
 import {
   DropdownMenu,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -37,9 +35,40 @@ import {
   getFunnelStepPreview,
   getInitialInlineFilters,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { factTableToColumnSource } from "@/components/FactTables/rowFilterUtils";
+import {
+  factTableToColumnSource,
+  isRowFilterComplete,
+} from "@/components/FactTables/rowFilterUtils";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
+
+// Radix ghost buttons pull in with negative margins, so their hover circles
+// touch; zero them so the header's 4px gap shows.
+const HEADER_BUTTON_STYLE: React.CSSProperties = { margin: 0 };
+
+// Tighter than the default menu item padding for the narrow sidebar.
+const MENU_ITEM_STYLE: React.CSSProperties = {
+  height: 28,
+  paddingLeft: 8,
+  paddingRight: 8,
+};
+
+/** Edge-to-edge menu divider; the shared separator insets by item padding. */
+function MenuDivider() {
+  const bleed = "calc(-1 * var(--base-menu-content-padding))";
+  return (
+    <Box
+      role="separator"
+      my="1"
+      style={{
+        height: 1,
+        marginLeft: bleed,
+        marginRight: bleed,
+        backgroundColor: "var(--gray-a6)",
+      }}
+    />
+  );
+}
 
 const CONVERSION_WINDOW_UNITS: ConversionWindow["unit"][] = [
   "minutes",
@@ -112,6 +141,8 @@ export default function FunnelStepCard({
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(step.name);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   // For follow-on steps: when the step inherits, we hide the picker until the
   // user clicks "Override". Once they're overriding (or the step was loaded
   // with an override already), we show the picker inline.
@@ -204,9 +235,15 @@ export default function FunnelStepCard({
     [step, factTable, isInherited, index, steps],
   );
 
-  const maxStepsReason = canAddStep
-    ? undefined
-    : `Funnels are limited to ${MAX_FUNNEL_STEPS} steps.`;
+  // Menu actions are hidden, not disabled, when they don't apply.
+  // Step 1 is pinned (it owns the funnel's fact table): nothing above it, no moves.
+  const canInsertAbove = canAddStep && index > 0;
+  const canInsertBelow = canAddStep;
+  const canMoveUp = index > 1;
+  const canMoveDown = index > 0 && index < steps.length - 1;
+  const canDelete = steps.length > 1;
+  const hasInsertGroup = canInsertAbove || canInsertBelow;
+  const hasMoveGroup = canMoveUp || canMoveDown;
 
   const funnelUnit =
     draftExploreState.dataset.type === "funnel"
@@ -241,7 +278,7 @@ export default function FunnelStepCard({
         backgroundColor: "var(--color-panel-translucent)",
       }}
     >
-      <Flex justify="between" align="center">
+      <Flex justify="between" align="center" gap="1">
         <Flex
           align="center"
           gap="2"
@@ -296,75 +333,128 @@ export default function FunnelStepCard({
                   {step.name}
                 </Text>
               </Box>
-              <Button
+              <IconButton
                 className={styles.editBtn}
                 variant="ghost"
-                size="sm"
+                size="1"
+                radius="full"
+                style={HEADER_BUTTON_STYLE}
                 onClick={handleStartNameEdit}
+                aria-label="Edit name"
                 title="Edit name"
               >
                 <PiPencilSimple size={14} />
-              </Button>
+              </IconButton>
             </>
           )}
         </Flex>
-        <Flex align="center" style={{ flexShrink: 0 }}>
-          <Button
+        <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
+          <IconButton
             variant="ghost"
-            size="sm"
+            size="1"
+            radius="full"
+            style={HEADER_BUTTON_STYLE}
             onClick={onToggleCollapsed}
+            aria-label={isCollapsed ? "Expand" : "Collapse"}
             title={isCollapsed ? "Expand" : "Collapse"}
           >
             {isCollapsed ? <PiCaretDown size={14} /> : <PiCaretUp size={14} />}
-          </Button>
-          <DropdownMenu
-            menuPlacement="end"
-            trigger={<MoreMenuTrigger label="Step actions" size="sm" />}
-          >
-            {/* Step 1 owns the funnel's fact table; nothing goes above it. */}
-            {index > 0 && (
-              <DropdownMenuItem
-                disabled={!canAddStep}
-                tooltip={maxStepsReason}
-                onClick={() => onInsert(index)}
-              >
-                Insert step above
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              disabled={!canAddStep}
-              tooltip={maxStepsReason}
-              onClick={() => onInsert(index + 1)}
+          </IconButton>
+          {(hasInsertGroup || hasMoveGroup || canDelete) && (
+            <DropdownMenu
+              menuPlacement="end"
+              open={menuOpen}
+              onOpenChange={(open) => {
+                setMenuOpen(open);
+                if (!open) setConfirmingDelete(false);
+              }}
+              trigger={
+                <MoreMenuTrigger
+                  label="Step actions"
+                  size="sm"
+                  style={HEADER_BUTTON_STYLE}
+                />
+              }
             >
-              Insert step below
-            </DropdownMenuItem>
-            {index > 0 && (
-              <>
-                <DropdownMenuSeparator />
+              {canInsertAbove && (
                 <DropdownMenuItem
-                  disabled={index === 1}
-                  tooltip={index === 1 ? "Step 1 stays first." : undefined}
+                  style={MENU_ITEM_STYLE}
+                  onClick={() => onInsert(index)}
+                >
+                  Insert step above
+                </DropdownMenuItem>
+              )}
+              {canInsertBelow && (
+                <DropdownMenuItem
+                  style={MENU_ITEM_STYLE}
+                  onClick={() => onInsert(index + 1)}
+                >
+                  Insert step below
+                </DropdownMenuItem>
+              )}
+              {hasInsertGroup && hasMoveGroup && <MenuDivider />}
+              {canMoveUp && (
+                <DropdownMenuItem
+                  style={MENU_ITEM_STYLE}
                   onClick={() => onMove(index, index - 1)}
                 >
                   Move up
                 </DropdownMenuItem>
+              )}
+              {canMoveDown && (
                 <DropdownMenuItem
-                  disabled={index === steps.length - 1}
+                  style={MENU_ITEM_STYLE}
                   onClick={() => onMove(index, index + 1)}
                 >
                   Move down
                 </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              color="red"
-              disabled={steps.length === 1}
-              onClick={() => onDelete(index)}
-            >
-              Delete step
-            </DropdownMenuItem>
-          </DropdownMenu>
+              )}
+              {canDelete && (hasInsertGroup || hasMoveGroup) && <MenuDivider />}
+              {!canDelete ? null : confirmingDelete ? (
+                <Flex align="center" justify="between" gap="3" px="2" py="1">
+                  <Text size="sm" weight="medium">
+                    Delete?
+                  </Text>
+                  <Flex gap="2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      color="gray"
+                      onClick={() => setConfirmingDelete(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      color="red"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onDelete(index);
+                      }}
+                    >
+                      Confirm
+                    </Button>
+                  </Flex>
+                </Flex>
+              ) : (
+                <DropdownMenuItem
+                  style={MENU_ITEM_STYLE}
+                  color="red"
+                  onClick={(event) => {
+                    // Empty steps go right away; anything with a filter asks first.
+                    if (!step.rowFilters.some(isRowFilterComplete)) {
+                      onDelete(index);
+                      return;
+                    }
+                    event.preventDefault(); // keep the menu open for the confirm row
+                    setConfirmingDelete(true);
+                  }}
+                >
+                  Delete step
+                </DropdownMenuItem>
+              )}
+            </DropdownMenu>
+          )}
         </Flex>
       </Flex>
       {isCollapsed && collapsedSubline && (

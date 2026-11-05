@@ -29,6 +29,7 @@ import {
   MAX_FUNNEL_STEPS,
 } from "shared/funnels";
 import { isProjectListValidForProject } from "shared/util";
+import { CSS } from "@dnd-kit/utilities";
 import Button from "@/ui/Button";
 import useSortableItem from "@/hooks/useSortableItem";
 import Text from "@/ui/Text";
@@ -54,10 +55,15 @@ function SortableFunnelStepCard({
   FunnelStepCardProps,
   "dragHandleProps"
 >) {
-  const { setNodeRef, style, handle } = useSortableItem(id);
+  const { setNodeRef, style, handle, transform } = useSortableItem(id);
   if (pinned) return <FunnelStepCard {...props} />;
   return (
-    <Box ref={setNodeRef} style={style}>
+    // Translate only: the default transform also scales to the hovered card,
+    // which stretches/squishes cards of different heights.
+    <Box
+      ref={setNodeRef}
+      style={{ ...style, transform: CSS.Translate.toString(transform) }}
+    >
       <FunnelStepCard {...props} dragHandleProps={handle} />
     </Box>
   );
