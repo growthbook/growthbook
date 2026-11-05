@@ -52,23 +52,41 @@ export const apiTargetingReviewRule = namedSchema(
     .strict(),
 );
 
+const approvalFlowRuleFields = {
+  required: z.boolean(),
+  projects: z.array(z.string()).optional(),
+  resetReviewOnChange: z.boolean().optional(),
+  requireMetadataReview: z.boolean().optional(),
+  blockSelfApproval: z.boolean().optional(),
+  autopublishOnApproval: z.boolean().optional(),
+  requiredApproverTeams: z.array(z.string()).optional(),
+};
+
 export const apiSavedGroupApprovalRule = namedSchema(
   "SavedGroupApprovalRule",
+  z.object(approvalFlowRuleFields).strict(),
+);
+
+export const apiSdkConnectionApprovalRule = namedSchema(
+  "SdkConnectionApprovalRule",
   z
     .object({
-      required: z.boolean(),
-      projects: z.array(z.string()).optional(),
-      resetReviewOnChange: z.boolean().optional(),
-      requireMetadataReview: z.boolean().optional(),
-      blockSelfApproval: z.boolean().optional(),
-      autopublishOnApproval: z.boolean().optional(),
-      requiredApproverTeams: z.array(z.string()).optional(),
+      ...approvalFlowRuleFields,
+      environments: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Environment IDs this rule applies to. Omitted or empty means every environment.",
+        ),
     })
     .strict(),
 );
 
 export const apiApprovalFlows = z
-  .object({ savedGroups: z.array(apiSavedGroupApprovalRule) })
+  .object({
+    savedGroups: z.array(apiSavedGroupApprovalRule),
+    sdkConnections: z.array(apiSdkConnectionApprovalRule).optional(),
+  })
   .strict();
 
 // Corresponds to schemas/Settings.yaml

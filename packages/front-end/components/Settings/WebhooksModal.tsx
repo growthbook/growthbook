@@ -129,12 +129,14 @@ export function CreateSDKWebhookModal({
   language,
   close,
   onSave,
+  onOverrideCreate,
 }: {
   sdkConnectionId: string;
   sdkConnectionKey: string;
   language?: SDKLanguage;
   close: () => void;
   onSave: () => void;
+  onOverrideCreate?: (data: CreateSdkWebhookProps) => Promise<void>;
 }) {
   const { apiCall } = useAuth();
   const { webhookSecrets } = useDefinitions();
@@ -254,10 +256,14 @@ export function CreateSDKWebhookModal({
             throw new Error("Invalid URL");
           }
 
-          await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
-            method: "POST",
-            body: JSON.stringify(data),
-          });
+          if (onOverrideCreate) {
+            await onOverrideCreate(data);
+          } else {
+            await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
+              method: "POST",
+              body: JSON.stringify(data),
+            });
+          }
 
           track("Create Webhook", {
             type: webhookType,
@@ -545,7 +551,11 @@ const EditSDKWebhooksModal: FC<{
   onSave: () => void;
   current: Partial<WebhookInterface>;
   sdkConnectionId: string;
-}> = ({ close, onSave, current, sdkConnectionId }) => {
+  onOverrideSubmit?: (
+    data: UpdateSdkWebhookProps,
+    id: string | undefined,
+  ) => Promise<void>;
+}> = ({ close, onSave, current, sdkConnectionId, onOverrideSubmit }) => {
   const { apiCall } = useAuth();
   const [validHeaders, setValidHeaders] = useState(true);
 
@@ -574,31 +584,24 @@ const EditSDKWebhooksModal: FC<{
       throw new Error(timeoutError(value.timeoutSeconds));
     }
 
-    if (current.id) {
-      const data: UpdateSdkWebhookProps = {
-        name: value.name,
-        endpoint: value.endpoint,
-        httpMethod: value.httpMethod,
-        headers: value.headers,
-        payloadFormat: value.payloadFormat,
-        payloadKey: value.payloadKey,
-        timeoutSeconds: value.timeoutSeconds,
-      };
+    const data: UpdateSdkWebhookProps = {
+      name: value.name,
+      endpoint: value.endpoint,
+      httpMethod: value.httpMethod,
+      headers: value.headers,
+      payloadFormat: value.payloadFormat,
+      payloadKey: value.payloadKey,
+      timeoutSeconds: value.timeoutSeconds,
+    };
 
+    if (onOverrideSubmit) {
+      await onOverrideSubmit(data, current.id);
+    } else if (current.id) {
       await apiCall(`/sdk-webhooks/${current.id}`, {
         method: "PUT",
         body: JSON.stringify(data),
       });
     } else {
-      const data: CreateSdkWebhookProps = {
-        name: value.name,
-        endpoint: value.endpoint,
-        httpMethod: value.httpMethod,
-        headers: value.headers,
-        payloadFormat: value.payloadFormat,
-        payloadKey: value.payloadKey,
-        timeoutSeconds: value.timeoutSeconds,
-      };
       await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
         method: "POST",
         body: JSON.stringify(data),

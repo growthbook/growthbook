@@ -22,16 +22,19 @@ import {
 type SaveCheck = { status: "ready" } | { status: "refused"; reason: string };
 
 // Why the marked changes can't be saved, in the terms of where they were made.
-function StagedChange({
+export function StagedChange({
   label,
   review,
   discard,
   keepMine,
   incompatible,
   saving,
+  format,
 }: {
   label: string;
   review: StagedReview | null;
+  // Text to diff each side as; raw JSON when absent.
+  format?: (value: unknown) => string;
   discard: () => void;
   // Set while someone else's save conflicts with this edit.
   keepMine: (() => void) | null;
@@ -42,8 +45,10 @@ function StagedChange({
 }) {
   const [open, setOpen] = useState(false);
   // Shown as a change is judged, so key order and empty fields aren't diffs.
-  const before = stringifyForRawDiff(canonicalValue(review?.before));
-  const after = stringifyForRawDiff(canonicalValue(review?.after));
+  const asText = (value: unknown) =>
+    format ? format(value) : stringifyForRawDiff(canonicalValue(value));
+  const before = asText(review?.before);
+  const after = asText(review?.after);
   const hasDiff = before !== after;
   const link = (text: string, onClick: () => void) => (
     <Link

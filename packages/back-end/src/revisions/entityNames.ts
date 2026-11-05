@@ -14,6 +14,8 @@ export function displayEntityName(entityType: RevisionedEntityType): string {
       return "Config";
     case "constant":
       return "Constant";
+    case "sdk-connection":
+      return "SDK Connection";
     default:
       return entityType;
   }

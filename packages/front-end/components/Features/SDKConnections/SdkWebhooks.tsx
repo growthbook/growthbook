@@ -1,32 +1,49 @@
 import React, { ReactElement, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import {
   PiCheck,
+  PiDotsThreeVertical,
   PiInfo,
-  PiPaperPlaneTilt,
   PiWarningFill,
 } from "react-icons/pi";
-import { WebhookInterface } from "shared/types/webhook";
+import {
+  WebhookInterface,
+  CreateSdkWebhookProps,
+  UpdateSdkWebhookProps,
+} from "shared/types/webhook";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { Revision, patchOpsToPartial } from "shared/enterprise";
+import {
+  parseSdkWebhookSnapshot,
+  SDKWebhookRevisionSnapshot,
+} from "shared/validators";
+import isEqual from "lodash/isEqual";
 import useApi from "@/hooks/useApi";
 import EditSDKWebhooksModal, {
   CreateSDKWebhookModal,
 } from "@/components/Settings/WebhooksModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
-import OldButton from "@/components/Button";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Callout from "@/ui/Callout";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import { isDraftRevision } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import WebhookErrorDetails from "./WebhookErrorDetails";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
@@ -44,10 +61,31 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
   none: "none",
 };
 
+// Rows predating `httpMethod` default to POST, and a default timeout is
+// omitted, both as the server snapshots them.
+function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
+  return parseSdkWebhookSnapshot({
+    ...wh,
+    httpMethod: wh.httpMethod ?? "POST",
+  });
+}
+
+type WebhookRow = {
+  snapshot: SDKWebhookRevisionSnapshot;
+  live?: WebhookInterface;
+  staged: "added" | "changed" | null;
+};
+
 export default function SdkWebhooks({
   connection,
+  approvalRequired,
+  onRevisionCreated,
+  selectedRevision,
 }: {
   connection: SDKConnectionInterface;
+  approvalRequired?: boolean;
+  onRevisionCreated?: (revision: Revision) => void;
+  selectedRevision?: Revision | null;
 }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/sdk-connections/${connection.id}/webhooks`,
@@ -64,157 +102,348 @@ export default function SdkWebhooks({
   const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook(connection);
   const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook(connection);
   const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook(connection);
-  const hasWebhooks = !!data?.webhooks?.length;
+
+  const selectedDraft = isDraftRevision(selectedRevision)
+    ? selectedRevision
+    : null;
+  // Writing straight to live while viewing a draft would diverge from it.
+  const useRevisionFlow = !!approvalRequired || !!selectedDraft;
+
+  const liveWebhooks = data?.webhooks ?? [];
+  const liveById = new Map(liveWebhooks.map((wh) => [wh.id, wh]));
+
+  const draftWebhookSnapshots = ((): SDKWebhookRevisionSnapshot[] | null => {
+    if (!selectedDraft) return null;
+    const proposed = patchOpsToPartial(
+      selectedDraft.target.proposedChanges,
+    ) as { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
+    const baseline = selectedDraft.target.snapshot as {
+      sdkWebhooks?: SDKWebhookRevisionSnapshot[];
+    };
+    return (proposed.sdkWebhooks ?? baseline?.sdkWebhooks ?? []).map((wh) =>
+      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
+    );
+  })();
+
+  const rows: WebhookRow[] = draftWebhookSnapshots
+    ? draftWebhookSnapshots.map((snapshot) => {
+        const live = liveById.get(snapshot.id);
+        return {
+          snapshot,
+          live,
+          staged: !live
+            ? "added"
+            : isEqual(snapshot, toSnapshot(live))
+              ? null
+              : "changed",
+        };
+      })
+    : liveWebhooks.map((live) => ({
+        snapshot: toSnapshot(live),
+        live,
+        staged: null,
+      }));
+
+  const hasWebhooks = rows.length > 0;
   const disableWebhookCreate =
     !canCreateWebhooks ||
     (hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks"));
 
-  const renderTableRows = () => {
-    // only render table if there is data to show
-    return data?.webhooks?.map((webhook) => (
-      <tr key={webhook.name}>
-        <td style={{ minWidth: 150 }}>
-          {webhook.name}
-          {webhook.managedBy?.type ? (
-            <div>
-              <Badge
-                label={`Managed by ${capitalizeFirstLetter(
-                  webhook.managedBy.type,
-                )}`}
-              />
-            </div>
-          ) : null}
-        </td>
-        <td
-          style={{
-            wordBreak: "break-word",
-            overflowWrap: "anywhere",
-          }}
-        >
-          {webhook.managedBy?.type ? (
-            <em className="text-muted">hidden</em>
-          ) : (
-            <code className="text-main small">{webhook.endpoint}</code>
-          )}
-        </td>
-        <td className="text-main">
-          {webhook.managedBy?.type ? (
-            <em className="text-muted">hidden</em>
-          ) : (
-            <span className="small">{webhook.httpMethod}</span>
-          )}
-        </td>
-        <td className="text-main">
-          {webhook.managedBy?.type ? (
-            <em className="text-muted">hidden</em>
-          ) : (
-            <span className="small">
-              {payloadFormatLabels?.[webhook?.payloadFormat ?? "standard"]}
-            </span>
-          )}
-        </td>
-        <td className="nowrap">
-          {webhook.signingKey && !webhook.managedBy?.type ? (
-            <ClickToReveal
-              valueWhenHidden="wk_abc123def456ghi789"
-              getValue={async () => webhook.signingKey}
-            />
-          ) : (
-            <em className="text-muted">hidden</em>
-          )}
-        </td>
-        <td>
-          {webhook.disabled || webhook.error ? (
-            <Popover
-              openOnHover
-              side="bottom"
-              contentStyle={{ maxWidth: 420 }}
-              trigger={
-                <Flex
-                  display="inline-flex"
-                  align="center"
-                  gap="1"
-                  style={{ color: "var(--red-11)", cursor: "default" }}
-                >
+  function buildRevisionUrl() {
+    if (selectedDraft) {
+      return `/sdk-connections/${connection.id}?revisionId=${selectedDraft.id}`;
+    }
+    return `/sdk-connections/${connection.id}?forceCreateRevision=1`;
+  }
+
+  async function submitWebhookRevision(
+    newSnapshots: SDKWebhookRevisionSnapshot[],
+  ) {
+    const res = await apiCall<{
+      status: number;
+      requiresApproval?: boolean;
+      revision?: Revision;
+    }>(buildRevisionUrl(), {
+      method: "PUT",
+      body: JSON.stringify({ sdkWebhooks: newSnapshots }),
+    });
+    if (res?.revision) {
+      onRevisionCreated?.(res.revision);
+    }
+    await mutate();
+  }
+
+  const currentWebhookSnapshots = (): SDKWebhookRevisionSnapshot[] =>
+    draftWebhookSnapshots ?? liveWebhooks.map(toSnapshot);
+
+  const handleCreateViaRevision = async (
+    formData: CreateSdkWebhookProps,
+  ): Promise<void> => {
+    const currentSnapshots = currentWebhookSnapshots();
+    const tempId = `temp_${Date.now()}`;
+    const newSnapshot: SDKWebhookRevisionSnapshot = {
+      id: tempId,
+      name: formData.name,
+      endpoint: formData.endpoint,
+      httpMethod: formData.httpMethod ?? "POST",
+      ...(formData.headers !== undefined && { headers: formData.headers }),
+      ...(formData.payloadFormat !== undefined && {
+        payloadFormat: formData.payloadFormat,
+      }),
+      ...(formData.payloadKey !== undefined && {
+        payloadKey: formData.payloadKey,
+      }),
+      ...((formData.timeoutSeconds ?? null) !== null && {
+        timeoutSeconds: formData.timeoutSeconds,
+      }),
+    };
+    await submitWebhookRevision([...currentSnapshots, newSnapshot]);
+  };
+
+  const handleEditViaRevision = async (
+    formData: UpdateSdkWebhookProps,
+    id: string | undefined,
+  ): Promise<void> => {
+    const currentSnapshots = currentWebhookSnapshots();
+    if (!id) {
+      await handleCreateViaRevision(formData as CreateSdkWebhookProps);
+      return;
+    }
+    if (!currentSnapshots.some((s) => s.id === id)) {
+      throw new Error(
+        "This webhook is not part of the selected draft, so the edit cannot be staged there. Switch to the live version or another draft and try again.",
+      );
+    }
+    const updated = currentSnapshots.map((s) => {
+      if (s.id !== id) return s;
+      // A blank timeout (null) clears it back to the default.
+      const { timeoutSeconds: currentTimeout, ...rest } = s;
+      const timeoutSeconds =
+        formData.timeoutSeconds === undefined
+          ? currentTimeout
+          : formData.timeoutSeconds;
+      return {
+        ...rest,
+        name: formData.name ?? s.name,
+        endpoint: formData.endpoint ?? s.endpoint,
+        httpMethod: formData.httpMethod ?? s.httpMethod,
+        ...(formData.headers !== undefined && {
+          headers: formData.headers,
+        }),
+        ...(formData.payloadFormat !== undefined && {
+          payloadFormat: formData.payloadFormat,
+        }),
+        ...(formData.payloadKey !== undefined && {
+          payloadKey: formData.payloadKey,
+        }),
+        ...((timeoutSeconds ?? null) !== null && { timeoutSeconds }),
+      };
+    });
+    await submitWebhookRevision(updated);
+  };
+
+  const handleDeleteViaRevision = async (webhookId: string): Promise<void> => {
+    await submitWebhookRevision(
+      currentWebhookSnapshots().filter((s) => s.id !== webhookId),
+    );
+  };
+
+  const renderStatus = (live: WebhookInterface | undefined) => {
+    if (!live) {
+      return <Badge label="Never fired" color="gray" variant="soft" />;
+    }
+    if (live.disabled || live.error) {
+      return (
+        <Popover
+          openOnHover
+          side="bottom"
+          contentStyle={{ maxWidth: 420 }}
+          trigger={
+            <Badge
+              label={
+                <>
                   <PiWarningFill />
-                  {webhook.disabled ? "disabled" : "error"}
-                </Flex>
+                  {live.disabled ? "Disabled" : "Error"}
+                </>
               }
-              content={
-                <Flex direction="column" gap="2">
-                  {webhook.disabled ? (
-                    <Text weight="semibold">
-                      Disabled after {webhook.consecutiveFailures} consecutive
-                      failures.
-                    </Text>
-                  ) : null}
-                  {webhook.error ? (
-                    <WebhookErrorDetails error={webhook.error} />
-                  ) : null}
-                </Flex>
-              }
+              color="red"
+              variant="soft"
+              style={{ cursor: "default" }}
             />
-          ) : webhook.lastSuccess ? (
-            <em className="small">
-              <PiCheck className="text-success" /> {ago(webhook.lastSuccess)}
-            </em>
-          ) : (
-            <em>never fired</em>
-          )}
-        </td>
-        <td>
-          <OldButton
-            color="outline-primary"
-            className="btn-sm"
-            style={{ width: 80 }}
-            disabled={!canUpdateWebhook}
-            onClick={async () => {
-              await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
-                method: "post",
-              });
-              mutate();
+          }
+          content={
+            <Flex direction="column" gap="2">
+              {live.disabled ? (
+                <Text weight="semibold">
+                  Disabled after {live.consecutiveFailures} consecutive
+                  failures.
+                </Text>
+              ) : null}
+              {live.error ? <WebhookErrorDetails error={live.error} /> : null}
+            </Flex>
+          }
+        />
+      );
+    }
+    if (live.lastSuccess) {
+      return (
+        <Badge
+          label={
+            <>
+              <PiCheck />
+              {ago(live.lastSuccess)}
+            </>
+          }
+          color="green"
+          variant="soft"
+        />
+      );
+    }
+    return <Badge label="Never fired" color="gray" variant="soft" />;
+  };
+
+  const renderTableRows = () => {
+    return rows.map(({ snapshot, live, staged }) => {
+      const managedBy = live?.managedBy?.type;
+      return (
+        <TableRow key={snapshot.id}>
+          <TableCell style={{ minWidth: 150 }}>
+            <div>
+              {snapshot.name}
+              {managedBy ? (
+                <div>
+                  <Badge
+                    label={`Managed by ${capitalizeFirstLetter(managedBy)}`}
+                  />
+                </div>
+              ) : null}
+              {staged ? (
+                <div>
+                  <Badge
+                    label={
+                      staged === "added" ? "Added in draft" : "Changed in draft"
+                    }
+                    color="violet"
+                    variant="soft"
+                  />
+                </div>
+              ) : null}
+            </div>
+          </TableCell>
+          <TableCell
+            style={{
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
             }}
           >
-            <PiPaperPlaneTilt className="mr-1" />
-            Test
-          </OldButton>
-        </td>
-        <td className="px-0">
-          {!webhook.managedBy?.type ? (
-            <div className="col-auto mr-1">
-              <MoreMenu useRadix={false}>
-                {canUpdateWebhook ? (
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditWebhookData(webhook);
-                    }}
+            {managedBy ? (
+              <em className="text-muted">hidden</em>
+            ) : (
+              <code className="text-main small">{snapshot.endpoint}</code>
+            )}
+          </TableCell>
+          <TableCell>
+            {managedBy ? (
+              <em className="text-muted">hidden</em>
+            ) : (
+              <span className="small">{snapshot.httpMethod}</span>
+            )}
+          </TableCell>
+          <TableCell>
+            {managedBy ? (
+              <em className="text-muted">hidden</em>
+            ) : (
+              <span className="small">
+                {payloadFormatLabels?.[snapshot.payloadFormat ?? "standard"]}
+              </span>
+            )}
+          </TableCell>
+          <TableCell>
+            {live?.signingKey && !managedBy ? (
+              <ClickToReveal
+                valueWhenHidden="wk_abc123def456ghi789"
+                getValue={async () => live.signingKey}
+              />
+            ) : (
+              <em className="text-muted">hidden</em>
+            )}
+          </TableCell>
+          <TableCell>{renderStatus(live)}</TableCell>
+          <TableCell>
+            {live || !managedBy ? (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
                   >
-                    Edit
-                  </button>
-                ) : null}
-                {canDeleteWebhook ? (
-                  <DeleteButton
-                    useRadix={false}
-                    className="dropdown-item"
-                    displayName="SDK Connection"
-                    text="Delete"
-                    useIcon={false}
+                    <PiDotsThreeVertical size={16} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+              >
+                {live ? (
+                  <DropdownMenuItem
+                    disabled={!canUpdateWebhook}
                     onClick={async () => {
-                      await apiCall(`/sdk-webhooks/${webhook.id}`, {
-                        method: "DELETE",
+                      await apiCall(`/sdk-webhooks/${live.id}/test`, {
+                        method: "post",
                       });
                       mutate();
                     }}
-                  />
+                  >
+                    Test
+                  </DropdownMenuItem>
                 ) : null}
-              </MoreMenu>
-            </div>
-          ) : null}
-        </td>
-      </tr>
-    ));
+                {!managedBy && canUpdateWebhook ? (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setEditWebhookData({
+                        id: snapshot.id,
+                        name: snapshot.name,
+                        endpoint: snapshot.endpoint,
+                        httpMethod: snapshot.httpMethod,
+                        headers: snapshot.headers,
+                        payloadFormat: snapshot.payloadFormat,
+                        payloadKey: snapshot.payloadKey,
+                        timeoutSeconds: snapshot.timeoutSeconds ?? null,
+                      })
+                    }
+                  >
+                    Edit
+                  </DropdownMenuItem>
+                ) : null}
+                {!managedBy && canDeleteWebhook ? (
+                  <DropdownMenuItem
+                    color="red"
+                    confirmation={{
+                      confirmationTitle: "Delete SDK Webhook",
+                      cta: "Delete",
+                      ctaColor: "red",
+                      submit: async () => {
+                        if (useRevisionFlow) {
+                          await handleDeleteViaRevision(snapshot.id);
+                        } else {
+                          await apiCall(`/sdk-webhooks/${snapshot.id}`, {
+                            method: "DELETE",
+                          });
+                          mutate();
+                        }
+                      },
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenu>
+            ) : null}
+          </TableCell>
+        </TableRow>
+      );
+    });
   };
   const renderAddWebhookButton = () => (
     <>
@@ -263,35 +492,44 @@ export default function SdkWebhooks({
 
   const renderTable = () => {
     return (
-      <div className="gb-webhook-table-container mb-2">
-        <table className="table appbox gbtable mb-0">
-          <thead>
-            <tr>
-              <th>Webhook</th>
-              <th>Endpoint</th>
-              <th>Method</th>
-              <th style={{ width: 130 }}>Format</th>
-              <th>Shared Secret</th>
-              <th style={{ width: 125 }}>Last Success</th>
-              <th />
-              <th className="px-0" style={{ width: 35 }} />
-            </tr>
-          </thead>
-          <tbody>{renderTableRows()}</tbody>
-        </table>
+      <div className="mb-2">
+        <Table variant="list">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Webhook</TableColumnHeader>
+              <TableColumnHeader>Endpoint</TableColumnHeader>
+              <TableColumnHeader>Method</TableColumnHeader>
+              <TableColumnHeader style={{ width: 130 }}>
+                Format
+              </TableColumnHeader>
+              <TableColumnHeader>Shared Secret</TableColumnHeader>
+              <TableColumnHeader style={{ width: 125 }}>
+                Last Success
+              </TableColumnHeader>
+              <TableColumnHeader style={{ width: 35 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>{renderTableRows()}</TableBody>
+        </Table>
       </div>
     );
   };
-  const isEmpty = data?.webhooks?.length === 0;
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
       <h2 className="mb-2">SDK Webhooks</h2>
+      {selectedDraft && (
+        <Callout status="info" mb="3">
+          Showing the webhooks as staged in this draft. Changes here are added
+          to the draft and apply when it is published.
+        </Callout>
+      )}
       {editWebhookData && (
         <EditSDKWebhooksModal
           close={() => setEditWebhookData(null)}
           onSave={mutate}
           current={editWebhookData}
           sdkConnectionId={connection.id}
+          onOverrideSubmit={useRevisionFlow ? handleEditViaRevision : undefined}
         />
       )}
       {createWebhookModalOpen && (
@@ -301,9 +539,12 @@ export default function SdkWebhooks({
           sdkConnectionId={connection.id}
           sdkConnectionKey={connection.key}
           language={connection.languages?.[0]}
+          onOverrideCreate={
+            useRevisionFlow ? handleCreateViaRevision : undefined
+          }
         />
       )}
-      {!isEmpty && renderTable()}
+      {hasWebhooks && renderTable()}
       {renderAddWebhookButton()}
     </div>
   );

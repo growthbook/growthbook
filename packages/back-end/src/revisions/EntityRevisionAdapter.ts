@@ -189,6 +189,14 @@ export interface EntityRevisionAdapter<
     proposedChanges: unknown,
   ): PublishFootprint;
 
+  // The live and proposed `archived` values, for entities that don't keep it at
+  // the snapshot's top level (e.g. a composite snapshot). When absent, the
+  // top-level `archived` field and `/archived` patch op are read.
+  archivedState?(
+    snapshot: TSnapshot,
+    proposedChanges: unknown,
+  ): { current: boolean | undefined; proposed: boolean | undefined };
+
   // ---------- Approval flow ----------
 
   /** Whether this org requires approval before a revision can be merged. */

@@ -249,10 +249,14 @@ export type ApprovalFlowConfiguration = {
   blockSelfApproval?: boolean;
   autopublishOnApproval?: boolean;
   resetReviewOnChange?: boolean;
+  // Empty or omitted means all.
+  projects?: string[];
+  environments?: string[];
 };
 
 export type ApprovalFlowConfigurations = {
   savedGroups: ApprovalFlowConfiguration[];
+  sdkConnections?: ApprovalFlowConfiguration[];
 };
 
 // Team requirements are deliberately absent here: a multi-project entity has

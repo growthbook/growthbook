@@ -12,12 +12,18 @@ import {
   applyTopLevelPatchOps,
   patchOpsToPartial,
   getApprovalFlowSettings,
-  isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   isSavedGroupRevisionMetadataOnly,
   isSavedGroupRevisionArchiveOnly,
   isConstantRevisionMetadataOnly,
+  isSdkConnectionRevisionMetadataOnly,
+  isSdkConnectionRevisionReviewExempt,
+  getSdkConnectionGoverningRules,
+  getSdkConnectionReviewRules,
+  isUserBlockedFromApproving,
+  mergeNestedBranch,
 } from "../../../src/revisions/helpers";
+import { entityPublishFootprint } from "../../../src/revisions/entityPublishFootprint";
 import type {
   RevisionTargetType,
   Revision,
@@ -1070,6 +1076,430 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/value", value: "v" },
         ]),
       ).toBe(false);
+    });
+  });
+
+  describe("getSdkConnectionGoverningRules", () => {
+    const base = { required: true, projects: [] as string[] };
+    const flows = (
+      sdkConnections: Record<string, unknown>[],
+    ): ApprovalFlowConfigurations =>
+      ({ savedGroups: [], sdkConnections }) as ApprovalFlowConfigurations;
+
+    it("applies the all-projects rule when no project rule exists", () => {
+      expect(
+        getSdkConnectionGoverningRules(flows([base]), {
+          projects: ["p1"],
+          environment: "production",
+        }),
+      ).toEqual([base]);
+    });
+
+    it("lets a project override switch approval off for its projects", () => {
+      const off = { required: false, projects: ["p1"] };
+      expect(
+        getSdkConnectionGoverningRules(flows([base, off]), {
+          projects: ["p1"],
+          environment: "production",
+        }),
+      ).toEqual([]);
+      expect(
+        getSdkConnectionGoverningRules(flows([base, off]), {
+          projects: ["p2"],
+          environment: "production",
+        }),
+      ).toEqual([base]);
+    });
+
+    it("uses the override's environments in place of the base rule's", () => {
+      const prodOnly = {
+        required: true,
+        projects: ["p1"],
+        environments: ["production"],
+      };
+      const rules = flows([base, prodOnly]);
+      expect(
+        getSdkConnectionGoverningRules(rules, {
+          projects: ["p1"],
+          environment: "production",
+        }),
+      ).toEqual([prodOnly]);
+      expect(
+        getSdkConnectionGoverningRules(rules, {
+          projects: ["p1"],
+          environment: "dev",
+        }),
+      ).toEqual([]);
+    });
+
+    it("keeps other projects gated when one project's override is off", () => {
+      const off = { required: false, projects: ["p1"] };
+      expect(
+        getSdkConnectionGoverningRules(flows([base, off]), {
+          projects: ["p1", "p2"],
+          environment: "production",
+        }),
+      ).toEqual([base]);
+    });
+
+    it("folds toggles only from rules covering the connection's environment", () => {
+      const prod = { required: true, environments: ["production"] };
+      const staging = {
+        required: true,
+        environments: ["staging"],
+        blockSelfApproval: true,
+      };
+      const rules = getSdkConnectionGoverningRules(flows([prod, staging]), {
+        projects: [],
+        environment: "production",
+      });
+      expect(rules).toHaveLength(1);
+      expect(rules[0].blockSelfApproval).toBeFalsy();
+    });
+
+    it("treats a connection with no projects as all-projects only", () => {
+      const p1 = { required: true, projects: ["p1"] };
+      expect(
+        getSdkConnectionGoverningRules(flows([p1]), {
+          projects: [],
+          environment: "production",
+        }),
+      ).toEqual([]);
+    });
+  });
+
+  describe("isSdkConnectionRevisionReviewExempt", () => {
+    const baseline = {
+      sdkConnection: {
+        name: "Prod",
+        environment: "production",
+        projects: [] as string[],
+        eventTracker: "segment",
+      },
+      sdkWebhooks: [],
+    };
+    const replaceSettings = (
+      value: Record<string, unknown>,
+    ): JsonPatchOperation[] => [
+      { op: "replace", path: "/sdkConnection", value },
+    ];
+
+    it("exempts a change to the event tracker alone", () => {
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({ ...baseline.sdkConnection, eventTracker: "ga4" }),
+          baseline,
+        ),
+      ).toBe(true);
+    });
+
+    it("does not exempt the event tracker changed with anything else", () => {
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({
+            ...baseline.sdkConnection,
+            eventTracker: "ga4",
+            name: "Renamed",
+          }),
+          baseline,
+        ),
+      ).toBe(false);
+    });
+
+    it("does not exempt a rename, a no-op, or a webhook change", () => {
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
+          baseline,
+        ),
+      ).toBe(false);
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({ ...baseline.sdkConnection }),
+          baseline,
+        ),
+      ).toBe(false);
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          [{ op: "replace", path: "/sdkWebhooks", value: [] }],
+          baseline,
+        ),
+      ).toBe(false);
+    });
+
+    it("is conservative without a baseline", () => {
+      expect(
+        isSdkConnectionRevisionReviewExempt(
+          replaceSettings({ ...baseline.sdkConnection, eventTracker: "ga4" }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("isSdkConnectionRevisionMetadataOnly", () => {
+    const baseline = {
+      sdkConnection: {
+        name: "Prod",
+        environment: "production",
+        projects: [] as string[],
+        encryptPayload: false,
+        proxyHost: "",
+      },
+      sdkWebhooks: [],
+    };
+    const replaceSettings = (
+      value: Record<string, unknown>,
+    ): JsonPatchOperation[] => [
+      { op: "replace", path: "/sdkConnection", value },
+    ];
+
+    it("returns false without a baseline snapshot", () => {
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
+        ),
+      ).toBe(false);
+    });
+
+    it("returns true for a name-only change", () => {
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
+          baseline,
+        ),
+      ).toBe(true);
+    });
+
+    it("treats false / empty string / empty array as equal to absent", () => {
+      // A draft built elsewhere (REST) omits fields the live connection
+      // stores as `false`, `""` or `[]`.
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ name: "Renamed", environment: "production" }),
+          baseline,
+        ),
+      ).toBe(true);
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({
+            ...baseline.sdkConnection,
+            name: "Renamed",
+            encryptPayload: null,
+            proxyHost: undefined,
+          }),
+          baseline,
+        ),
+      ).toBe(true);
+    });
+
+    it("returns false when a setting really changes alongside the name", () => {
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({
+            ...baseline.sdkConnection,
+            name: "Renamed",
+            encryptPayload: true,
+          }),
+          baseline,
+        ),
+      ).toBe(false);
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ ...baseline.sdkConnection, projects: ["p1"] }),
+          baseline,
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false when nothing changed or a webhook op is present", () => {
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          replaceSettings({ ...baseline.sdkConnection }),
+          baseline,
+        ),
+      ).toBe(false);
+      expect(
+        isSdkConnectionRevisionMetadataOnly(
+          [
+            ...replaceSettings({ ...baseline.sdkConnection, name: "Renamed" }),
+            { op: "replace", path: "/sdkWebhooks", value: [] },
+          ],
+          baseline,
+        ),
+      ).toBe(false);
+    });
+  });
+});
+
+describe("SDK connection nested merges", () => {
+  const fields = new Set(["sdkConnection", "sdkWebhooks"]);
+  const wh = (id: string, name: string) => ({
+    id,
+    name,
+    endpoint: "https://x",
+  });
+  const base = {
+    sdkConnection: {
+      name: "A",
+      includeRuleIds: false,
+      hashSecureAttributes: true,
+    },
+    sdkWebhooks: [wh("w1", "one"), wh("w2", "two")],
+  };
+
+  it("auto-merges a draft and a live edit to different settings", () => {
+    const live = {
+      ...base,
+      sdkConnection: { ...base.sdkConnection, includeRuleIds: true },
+    };
+    const ops = [
+      {
+        op: "replace" as const,
+        path: "/sdkConnection",
+        value: { ...base.sdkConnection, name: "B" },
+      },
+    ];
+    const result = checkMergeConflicts(base, live, ops, fields);
+    expect(result.success).toBe(true);
+    expect(result.mergedChanges.sdkConnection).toEqual({
+      name: "B",
+      includeRuleIds: true,
+      hashSecureAttributes: true,
+    });
+  });
+
+  it("conflicts only when both sides changed the same setting, proposing just the draft's edits", () => {
+    const live = {
+      ...base,
+      sdkConnection: {
+        ...base.sdkConnection,
+        name: "Live",
+        includeRuleIds: true,
+      },
+    };
+    const ops = [
+      {
+        op: "replace" as const,
+        path: "/sdkConnection",
+        value: { ...base.sdkConnection, name: "Draft" },
+      },
+    ];
+    const result = checkMergeConflicts(base, live, ops, fields);
+    expect(result.success).toBe(false);
+    expect(result.conflicts[0].proposedValue).toEqual({
+      name: "Draft",
+      includeRuleIds: true,
+      hashSecureAttributes: true,
+    });
+  });
+
+  it("merges webhooks by id so a live-added webhook survives a draft edit", () => {
+    const live = {
+      ...base,
+      sdkWebhooks: [...base.sdkWebhooks, wh("w3", "new")],
+    };
+    const ops = [
+      {
+        op: "replace" as const,
+        path: "/sdkWebhooks",
+        value: [wh("w1", "one renamed")],
+      },
+    ];
+    const result = checkMergeConflicts(base, live, ops, fields);
+    expect(result.success).toBe(true);
+    expect(result.mergedChanges.sdkWebhooks).toEqual([
+      wh("w1", "one renamed"),
+      wh("w3", "new"),
+    ]);
+  });
+
+  it("keeps live on colliding keys when preferring live", () => {
+    expect(
+      mergeNestedBranch(
+        "sdkConnection",
+        { name: "A", tags: false },
+        { name: "Live", tags: false },
+        { name: "Draft", tags: true },
+        "live",
+      ),
+    ).toEqual({ merged: { name: "Live", tags: true }, conflicts: ["name"] });
+  });
+
+  it("ignores fields that aren't nested branches", () => {
+    expect(mergeNestedBranch("values", [], [], [], "proposed")).toBeNull();
+  });
+});
+
+describe("SDK connection review rules", () => {
+  const flows = (
+    sdkConnections: Record<string, unknown>[],
+  ): ApprovalFlowConfigurations =>
+    ({ savedGroups: [], sdkConnections }) as ApprovalFlowConfigurations;
+  const snapshot = {
+    sdkConnection: {
+      name: "A",
+      projects: [],
+      environment: "production",
+      includeRuleIds: false,
+    },
+    sdkWebhooks: [],
+  };
+  const rename = [
+    {
+      op: "replace" as const,
+      path: "/sdkConnection",
+      value: { ...snapshot.sdkConnection, name: "B" },
+    },
+  ];
+
+  it("drops rules that skip metadata review for a rename", () => {
+    const rule = { required: true, requireMetadataReview: false };
+    expect(
+      getSdkConnectionReviewRules(flows([rule]), snapshot, rename),
+    ).toEqual([]);
+  });
+
+  it("blocks self-approval only from the rule governing the environment", () => {
+    const settings = {
+      approvalFlows: flows([
+        { required: true, environments: ["production"] },
+        {
+          required: true,
+          environments: ["staging"],
+          blockSelfApproval: true,
+        },
+      ]),
+    } as OrganizationSettings;
+    expect(
+      isUserBlockedFromApproving({
+        settings,
+        entityType: "sdk-connection",
+        revision: {
+          authorId: "u1",
+          contributors: ["u1"],
+          target: {
+            type: "sdk-connection",
+            id: "sdk-1",
+            snapshot,
+            proposedChanges: rename,
+          },
+        } as unknown as Revision,
+        userId: "u1",
+      }),
+    ).toBe(false);
+  });
+
+  it("scopes the publish footprint to the connection's environments", () => {
+    const move = [
+      {
+        op: "replace" as const,
+        path: "/sdkConnection",
+        value: { ...snapshot.sdkConnection, environment: "staging" },
+      },
+    ];
+    expect(entityPublishFootprint("sdk-connection", snapshot, move)).toEqual({
+      scope: "environments",
+      environments: ["production", "staging"],
     });
   });
 });

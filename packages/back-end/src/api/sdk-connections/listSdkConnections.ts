@@ -35,7 +35,8 @@ export const listSdkConnections = createApiRequestHandler(
       )
       .filter((c) => {
         if (!req.query.withProxy) return true;
-        return c.proxy?.enabled;
+        // An archived connection serves nothing, so the proxy drops it.
+        return c.proxy?.enabled && !c.archived;
       })
       .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
     req.query,

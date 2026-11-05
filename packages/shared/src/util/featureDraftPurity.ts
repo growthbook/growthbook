@@ -264,6 +264,10 @@ export function isPureFeatureArchive({
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 // Proposed project scope after applying revision changes.
 export function proposedProjectScope(proposedChanges: unknown): {
   project?: string;
@@ -277,6 +281,14 @@ export function proposedProjectScope(proposedChanges: unknown): {
     }
     if (op.path === "/projects" && Array.isArray(op.value)) {
       scope.projects = op.value as string[];
+    }
+    // SDK connections move projects inside the whole-settings replace.
+    if (
+      op.path === "/sdkConnection" &&
+      isRecord(op.value) &&
+      Array.isArray(op.value.projects)
+    ) {
+      scope.projects = op.value.projects as string[];
     }
   }
   return scope;
