@@ -1,3 +1,4 @@
+import Router from "next/router";
 import type { PageLoadReport, PageLoadRequestKey } from "shared/validators";
 import {
   getApiHost,
@@ -5,13 +6,16 @@ import {
   isPageLoadTimingEnabled,
 } from "@/services/env";
 
-// Timings for one full document load, sent to the back end's log at most once.
-
 export type PageLoadMarkName = "pageMounted" | "pageReady";
 
 type ResourceEntry = Pick<
   PerformanceResourceTiming,
   "name" | "startTime" | "responseEnd" | "transferSize"
+>;
+
+type NavigationEntry = Pick<
+  PerformanceNavigationTiming,
+  "type" | "responseStart" | "domContentLoadedEventEnd"
 >;
 
 // The back end refuses times over ten minutes
@@ -24,12 +28,16 @@ const API_PATHS: Record<string, PageLoadRequestKey> = {
   "/organization/definitions": "definitions",
 };
 
+function pathOf(url: string): string {
+  return url.split(/[?#]/)[0];
+}
+
 export function getRequestKey(
   url: string,
   appOrigin: string,
   apiHost: string,
 ): PageLoadRequestKey | null {
-  const path = url.split(/[?#]/)[0];
+  const path = pathOf(url);
   if (path === `${appOrigin}/api/init`) return "init";
   if (!apiHost || !path.startsWith(`${apiHost}/`)) return null;
   const apiPath = path.slice(apiHost.length);
@@ -38,7 +46,6 @@ export function getRequestKey(
   return null;
 }
 
-// The first call to each path the report covers
 export function getRequestTimings(
   entries: ResourceEntry[],
   appOrigin: string,
@@ -59,11 +66,71 @@ export function getRequestTimings(
   return requests;
 }
 
-const startPath =
-  typeof window !== "undefined" ? window.location.pathname : null;
-const marks: Partial<Record<PageLoadMarkName, number>> = {};
-let hiddenAt: number | undefined;
-let done = false;
+export type PageLoadReporterDeps = {
+  startPath: string;
+  appOrigin: string;
+  now: () => number;
+  enabled: () => boolean;
+  build: () => string;
+  apiHost: () => string;
+  hiddenAt: () => number | undefined;
+  navigation: () => NavigationEntry | undefined;
+  resources: () => ResourceEntry[];
+};
+
+export function createPageLoadReporter(deps: PageLoadReporterDeps) {
+  const marks: Partial<Record<PageLoadMarkName, number>> = {};
+  let done = false;
+
+  return {
+    // Leaving the start path, even briefly, means the document no longer
+    // shows one uninterrupted full load
+    routeChangeStart(url: string) {
+      if (pathOf(url) !== deps.startPath) done = true;
+    },
+
+    mark(
+      name: PageLoadMarkName,
+      route: string,
+      last: boolean,
+      send: (report: PageLoadReport) => void,
+    ) {
+      if (done) return;
+      const now = deps.now();
+      marks[name] ??= now;
+      if (!last) return;
+      done = true;
+      // A page that shows its content on its first render can mark ready
+      // before the layout marks it mounted
+      const pageMounted = marks.pageMounted ?? now;
+
+      if (!deps.enabled() || now > MAX_MS) return;
+      const nav = deps.navigation();
+      if (!nav) return;
+      const hiddenAt = deps.hiddenAt();
+
+      send({
+        route,
+        navigationType: nav.type,
+        build: deps.build(),
+        ...(hiddenAt !== undefined ? { hiddenAt } : {}),
+        responseStart: Math.round(nav.responseStart),
+        domContentLoaded: Math.round(nav.domContentLoadedEventEnd),
+        pageMounted,
+        ...(marks.pageReady !== undefined
+          ? { pageReady: marks.pageReady }
+          : {}),
+        requests: getRequestTimings(
+          deps.resources(),
+          deps.appOrigin,
+          deps.apiHost(),
+        ),
+      });
+    },
+  };
+}
+
+let reporter: ReturnType<typeof createPageLoadReporter> | null = null;
 
 if (typeof window !== "undefined") {
   try {
@@ -71,6 +138,8 @@ if (typeof window !== "undefined") {
   } catch (e) {
     // Not supported; the default buffer is still read
   }
+
+  let hiddenAt: number | undefined;
   if (document.visibilityState === "hidden") {
     hiddenAt = 0;
   } else {
@@ -81,48 +150,30 @@ if (typeof window !== "undefined") {
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
   }
+
+  reporter = createPageLoadReporter({
+    startPath: window.location.pathname,
+    appOrigin: window.location.origin,
+    now: () => Math.round(performance.now()),
+    enabled: isPageLoadTimingEnabled,
+    build: () => getGrowthBookBuild().sha.slice(0, 7),
+    apiHost: getApiHost,
+    hiddenAt: () => hiddenAt,
+    navigation: () =>
+      performance.getEntriesByType("navigation")[0] as
+        | PerformanceNavigationTiming
+        | undefined,
+    resources: () =>
+      performance.getEntriesByType("resource") as PerformanceResourceTiming[],
+  });
+  Router.events.on("routeChangeStart", reporter.routeChangeStart);
 }
 
-// Records a mark, and with `last` sends the report. Nothing is sent if the
-// path changed since the document loaded.
 export function markPageLoad(
   name: PageLoadMarkName,
   route: string,
   last: boolean,
   send: (report: PageLoadReport) => void,
 ) {
-  if (done || typeof window === "undefined") return;
-  if (window.location.pathname !== startPath) {
-    done = true;
-    return;
-  }
-  const now = Math.round(performance.now());
-  marks[name] ??= now;
-  if (!last) return;
-  done = true;
-  // A page that shows its content on its first render can mark ready before
-  // the layout marks it mounted
-  const pageMounted = marks.pageMounted ?? now;
-
-  if (!isPageLoadTimingEnabled() || now > MAX_MS) return;
-  const nav = performance.getEntriesByType("navigation")[0] as
-    | PerformanceNavigationTiming
-    | undefined;
-  if (!nav) return;
-
-  send({
-    route,
-    navigationType: nav.type,
-    build: getGrowthBookBuild().sha.slice(0, 7),
-    ...(hiddenAt !== undefined ? { hiddenAt } : {}),
-    responseStart: Math.round(nav.responseStart),
-    domContentLoaded: Math.round(nav.domContentLoadedEventEnd),
-    pageMounted,
-    ...(marks.pageReady !== undefined ? { pageReady: marks.pageReady } : {}),
-    requests: getRequestTimings(
-      performance.getEntriesByType("resource") as PerformanceResourceTiming[],
-      window.location.origin,
-      getApiHost(),
-    ),
-  });
+  reporter?.mark(name, route, last, send);
 }

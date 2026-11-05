@@ -609,7 +609,6 @@ if (OAUTH_AS_ENABLED) {
 // Organization and Settings
 app.use(organizationsRouter);
 
-// Browser page load timings, written to the log
 app.use("/page-load", pageLoadRouter);
 
 app.use("/environment", environmentRouter);

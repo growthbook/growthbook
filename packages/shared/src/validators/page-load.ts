@@ -10,7 +10,6 @@ const requestTimingValidator = z.strictObject({
   bytes: z.number().int().min(0).max(1_000_000_000).optional(),
 });
 
-// A browser's timings for one full page load of the dashboard
 export const pageLoadValidator = z.strictObject({
   // Next.js route pattern such as "/features/[fid]", not the URL
   route: z
