@@ -21,7 +21,7 @@ export const LOCK_LOST_ERROR =
   "Another update took over this experiment while this one was running, so it stopped.";
 export const RESULTS_SUPERSEDED_ERROR =
   "Another update took over this experiment before this one finished, so this update's results were not saved.";
-// Why a stopped run's marks lead to a rebuild or a full refresh.
+// Shown as the reason when marks force a rebuild or a full refresh.
 export const INTERRUPTED_UPDATE_REASON = "An earlier update stopped part-way";
 
 export function isIncrementalRefreshRun(

@@ -451,9 +451,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   const saveRunState = async (write: () => Promise<boolean>) => {
     if (!(await write())) throw new Error(LOCK_LOST_ERROR);
   };
-  // Marks precede writes, both fenced on the lock: a table is marked before a
-  // statement may change it, and unmarked only with its new watermark. A
-  // marked table is rebuilt by the next refresh.
+  // Marks precede writes; see services/interruptedRefresh.ts.
   const markUnitsDirty = () =>
     saveRunState(() =>
       context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
@@ -868,7 +866,8 @@ export const startExperimentIncrementalRefreshQueries = async (
         ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
         alterUnitsTableQuery.query,
       ],
-      // A table the tables' state already lists is marked before the insert.
+      // A new source isn't listed until its watermark is saved, so only a
+      // listed one needs marking before the insert.
       run: async (query, setExternalId, queryMetadata) => {
         if (existingSource) {
           runningSourceData = runningSourceData.map((s) =>
