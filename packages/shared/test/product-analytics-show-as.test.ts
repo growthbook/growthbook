@@ -261,6 +261,27 @@ describe("getDefaultValueAxisName", () => {
     ).toBe("Total");
   });
 
+  it("is empty when a per-unit value shares the axis with a proportion", () => {
+    expect(
+      getDefaultValueAxisName(
+        metricConfig([
+          metricValue("revenue", "per_unit"),
+          metricValue("converted"),
+        ]),
+        getFactMetricById,
+      ),
+    ).toBe("");
+  });
+
+  it("is empty when no value offers options", () => {
+    expect(
+      getDefaultValueAxisName(
+        metricConfig([metricValue("converted")]),
+        getFactMetricById,
+      ),
+    ).toBe("");
+  });
+
   it("is empty when values render in different modes", () => {
     expect(
       getDefaultValueAxisName(
@@ -314,7 +335,7 @@ describe("seriesNameByIndex", () => {
   const names = (config: ExplorationConfig) =>
     getExplorationRenderOpts(config, getFactMetricById).seriesNameByIndex;
 
-  it("suffixes per-unit values when the axis mixes modes", () => {
+  it("annotates every value when the axis mixes modes", () => {
     expect(
       names(
         metricConfig([
@@ -323,7 +344,22 @@ describe("seriesNameByIndex", () => {
           metricValue("converted"),
         ]),
       ),
-    ).toEqual(["revenue per user_id", "maxOrder", "converted"]);
+    ).toEqual([
+      "revenue (per user_id)",
+      "maxOrder (total)",
+      "converted (total)",
+    ]);
+  });
+
+  it("annotates a proportion that shares the axis with a per-unit value", () => {
+    expect(
+      names(
+        metricConfig([
+          metricValue("revenue", "per_unit"),
+          metricValue("converted"),
+        ]),
+      ),
+    ).toEqual(["revenue (per user_id)", "converted (total)"]);
   });
 
   it("keeps plain names when the axis title names the shared unit", () => {
@@ -337,7 +373,7 @@ describe("seriesNameByIndex", () => {
     ).toEqual(["revenue", "maxOrder"]);
   });
 
-  it("suffixes each value when per-unit values use different units", () => {
+  it("annotates each value when per-unit values use different units", () => {
     expect(
       names(
         metricConfig([
@@ -345,15 +381,26 @@ describe("seriesNameByIndex", () => {
           metricValue("maxOrder", "per_unit", "device_id"),
         ]),
       ),
-    ).toEqual(["revenue per user_id", "maxOrder per device_id"]);
+    ).toEqual(["revenue (per user_id)", "maxOrder (per device_id)"]);
   });
 
-  it("suffixes per-unit values under a custom axis title", () => {
+  it("keeps plain names when every value is a total", () => {
+    expect(
+      names(
+        metricConfig([
+          metricValue("revenue", "total"),
+          metricValue("converted"),
+        ]),
+      ),
+    ).toEqual(["revenue", "converted"]);
+  });
+
+  it("annotates per-unit values under a custom axis title", () => {
     expect(
       names({
         ...metricConfig([metricValue("revenue", "per_unit")]),
         chartSettings: { valueAxisLabel: "Revenue" },
       }),
-    ).toEqual(["revenue per user_id"]);
+    ).toEqual(["revenue (per user_id)"]);
   });
 });

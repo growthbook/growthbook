@@ -159,7 +159,7 @@ runExploration returns resultCsv, config, snapshotId, and rowCount. Use resultCs
 getSnapshot retrieves config and CSV for older/compacted snapshots by snapshotId. Prefer the runExploration return value for the current run.
 
 resultCsv column conventions (so you describe the same numbers the user sees on the chart):
-- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> per <unit>" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
+- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> (per <unit>)" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
 - Ratio metric columns: three columns — "<name> Numerator", "<name> Denominator", "<name> Value" (= N/D). Ratio metrics always render as N/D.
 - The column headers reflect each value's effective showAs (explicit if you set it, otherwise the UI-inferred default). Never assume a different mode than what the header says.
 </tool_notes>

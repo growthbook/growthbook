@@ -469,7 +469,7 @@ export function getSharedUnit(config: ExplorationConfig | null): string | null {
 
 /**
  * Value-axis title when no custom `valueAxisLabel` is set. Empty unless every
- * value that offers Show as options renders the same way.
+ * value on the axis renders the same way (see `getSharedShowAs`).
  */
 export function getDefaultValueAxisName(
   config: ExplorationConfig | null,
@@ -484,31 +484,44 @@ export function getDefaultValueAxisName(
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
 }
 
-/** The mode every value with Show as options renders in; null when they differ or none have options. */
+/**
+ * The mode every value renders in, counting values without Show as options as
+ * the `total` they render. Null when modes differ — e.g. a per-unit mean next
+ * to a proportion, which plots raw counts — or when no value offers options,
+ * since Total/Per unit then describes no choice.
+ */
 function getSharedShowAs(showAsByIndex: ValueShowAs[]): ShowAs | null {
-  const modes = new Set(
-    showAsByIndex.filter((v) => v.options.length > 0).map((v) => v.showAs),
-  );
+  if (!showAsByIndex.some((v) => v.options.length > 0)) return null;
+  const modes = new Set(showAsByIndex.map((v) => v.showAs));
   return modes.size === 1 ? [...modes][0] : null;
 }
 
-/** A value's name with its per-unit suffix, e.g. "Revenue per user_id". */
-function getPerUnitName(
+/**
+ * A value's name annotated with how it renders, e.g. "Revenue (per user_id)"
+ * or "Revenue (total)". Parenthesized so it reads as a note, not part of a
+ * name that may already say "per user".
+ */
+function getAnnotatedName(
   value: ProductAnalyticsValue,
+  showAs: ShowAs,
   sharedUnit: string | null,
 ): string {
+  if (showAs === "total") return `${value.name} (total)`;
   const unit =
     ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
     sharedUnit ||
     "unit";
-  return `${value.name} per ${unit}`;
+  return `${value.name} (per ${unit})`;
 }
 
 /**
- * Chart series names (legend and tooltip) for each dataset value. A per-unit
- * value gets the same "per {unit}" suffix as its table column, unless the
- * default value-axis title already says it — every value shares per unit and
- * one named unit. A custom axis title never says it, so values keep the suffix.
+ * Chart series names (legend and tooltip) for each dataset value, annotated
+ * whenever the default value-axis title can't say how they render:
+ * - modes are mixed on the axis (no title): every value is annotated,
+ *   including values without Show as options, which render as totals;
+ * - every value is per unit but the title doesn't name one unit (units
+ *   differ, or a custom title is set): each gets "(per {unit})".
+ * When every value is a total, names stay plain.
  */
 function getSeriesNameByIndex(
   config: ExplorationConfig | null,
@@ -516,13 +529,16 @@ function getSeriesNameByIndex(
 ): string[] {
   if (!datasetHasValues(config?.dataset)) return [];
   const sharedUnit = getSharedUnit(config);
-  const axisTitleSaysPerUnit =
-    config.chartSettings?.valueAxisLabel === undefined &&
-    getSharedShowAs(showAsByIndex) === "per_unit" &&
-    sharedUnit !== null;
+  const sharedShowAs = getSharedShowAs(showAsByIndex);
+  const modesAreMixed =
+    sharedShowAs === null && showAsByIndex.some((v) => v.options.length > 0);
+  const axisTitleNamesUnit =
+    config.chartSettings?.valueAxisLabel === undefined && sharedUnit !== null;
+  const annotate =
+    modesAreMixed || (sharedShowAs === "per_unit" && !axisTitleNamesUnit);
   return config.dataset.values.map((value, i) =>
-    showAsByIndex[i]?.showAs === "per_unit" && !axisTitleSaysPerUnit
-      ? getPerUnitName(value, sharedUnit)
+    annotate
+      ? getAnnotatedName(value, showAsByIndex[i]?.showAs ?? "total", sharedUnit)
       : value.name,
   );
 }
@@ -656,7 +672,7 @@ export function buildExplorationColumns(
 
   // Keys are stable, machine-oriented identifiers that stay unique even when
   // two metrics resolve to the same display label (e.g. "revenue" and
-  // "revenue per user_id" in per_unit mode). Labels carry the display string.
+  // "revenue (per user_id)" in per_unit mode). Labels carry the display string.
   const dimLabels = getDimensionLabels(config);
   dimLabels.forEach((label, i) => {
     cols.push({ kind: "dimension", key: `__dim_${i}__`, label, dimIndex: i });
@@ -703,9 +719,10 @@ export function buildExplorationColumns(
       return;
     }
 
+    // Only per-unit columns are annotated, so a plain header means totals.
     const singleLabel =
       showAsByIndex[metricIndex]?.showAs === "per_unit"
-        ? getPerUnitName(v, sharedUnit)
+        ? getAnnotatedName(v, "per_unit", sharedUnit)
         : name;
     cols.push({
       kind: "metric",
