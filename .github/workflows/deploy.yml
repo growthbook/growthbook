@@ -1,4 +1,6 @@
 name: Deploy
+# workflow_run runs record main's HEAD, not the CI commit they deploy, so keep the deployed SHA here for the next run's diff.
+run-name: Deploy ${{ github.event.workflow_run.head_sha }}
 
 # After CI passes on main. A workflow_run run isn't a check on the commit, so a
 # failed deploy doesn't mark the commit red; notify-on-failure still alerts Slack.
@@ -8,8 +10,9 @@ on:
     branches: [main]
     types: [completed]
 
+# Runs that will skip (failed CI, PR CI) get their own group so they can't replace a queued deploy.
 concurrency:
-  group: deploy-production
+  group: ${{ github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && 'deploy-production' || format('deploy-skip-{0}', github.run_id) }}
   cancel-in-progress: false
 
 # Read-only token by default; a job that needs more declares it itself.
@@ -18,8 +21,8 @@ permissions:
 
 jobs:
   # workflow_run has no `paths` filter, so apply it here. Diffing from the last
-  # successful Deploy or Rollback (not the parent commit) means a deployable
-  # commit whose queued run was superseded still ships with the next one.
+  # successful Deploy (not the parent commit) means a deployable commit whose
+  # queued run was superseded still ships with the next one.
   changes:
     runs-on: ubuntu-latest
     if: >-
@@ -45,12 +48,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          # A Rollback also counts, so a docs-only commit can't roll prod forward past it.
-          latest() { gh run list --workflow "$1" --branch main --status success --limit 1 --json createdAt,headSha --jq '.[] | "\(.createdAt) \(.headSha)"'; }
-          BASE=$({ latest deploy.yml; latest rollback.yml; } | sort -r | head -1 | cut -d' ' -f2)
+          # Newest first: createdAt, conclusion, deployed SHA (run-name; push-era runs used headSha).
+          RUNS=$(gh run list --workflow deploy.yml --branch main --limit 100 \
+            --json createdAt,conclusion,displayTitle,event,headSha \
+            --jq '.[] | select(.conclusion != "" and .conclusion != "skipped")
+              | [.createdAt, .conclusion, (if .event == "workflow_run" then (.displayTitle | split(" ") | last) else .headSha end)] | @tsv')
+          LAST_OK=$(awk -F'\t' '$2 == "success"' <<<"$RUNS" | head -1)
+          BASE=$(cut -f3 <<<"$LAST_OK")
+          # After a Rollback, count the Deploy it cancelled too, so a docs-only commit can't roll prod forward past it.
+          ROLLBACK_AT=$(gh run list --workflow rollback.yml --branch main --status success --limit 1 --json createdAt --jq '.[0].createdAt // ""')
+          if [ -n "$ROLLBACK_AT" ] && [[ "$ROLLBACK_AT" > "$(cut -f1 <<<"$LAST_OK")" ]]; then
+            BASE=$(awk -F'\t' -v r="$ROLLBACK_AT" '$1 < r' <<<"$RUNS" | head -1 | cut -f3)
+          fi
           if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
             echo "No usable last-deployed commit; deploying."
             echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # CI can finish out of order; never roll prod back to a commit a newer deploy already includes.
+          if git merge-base --is-ancestor "$SHA" "$BASE"; then
+            echo "${SHA::7} is already included in deployed ${BASE::7}; skipping."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           CHANGED=$(git diff --name-only "$BASE" "$SHA" -- \
