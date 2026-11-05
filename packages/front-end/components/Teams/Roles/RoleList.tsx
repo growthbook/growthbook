@@ -3,7 +3,6 @@ import {
   TRACE_INGEST_ROLE_ID,
   getRoleDisplayName,
 } from "shared/permissions";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import router from "next/router";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -27,10 +26,7 @@ import {
 
 export default function RoleList() {
   const { roles: allRoles, refreshOrganization, organization } = useUser();
-  const traceIngest = useFeatureIsOn("trace-ingest");
-  const roles = traceIngest
-    ? allRoles
-    : allRoles.filter((r) => r.id !== TRACE_INGEST_ROLE_ID);
+  const roles = allRoles.filter((r) => r.id !== TRACE_INGEST_ROLE_ID);
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 

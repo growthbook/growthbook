@@ -73,9 +73,7 @@ export function useAllowedPermissions(): Allowed {
   const { organization, hasCommercialFeature } = useUser();
   const { orgSupportsRoles } = useOrgLimits();
   const roles = orgSupportsRoles();
-  const traces =
-    useFeatureIsOn("trace-ingest") &&
-    !organization.deactivatedRoles?.includes(TRACE_INGEST_ROLE_ID);
+  const traces = useFeatureIsOn("trace-ingest");
   return {
     roles,
     readonly: roles && !organization.deactivatedRoles?.includes("readonly"),
