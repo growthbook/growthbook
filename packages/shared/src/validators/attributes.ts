@@ -58,16 +58,22 @@ const postAttributeBody = z
       ])
       .describe("The attribute datatype"),
     description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
-    archived: z.boolean().describe("The attribute is archived").optional(),
+    archived: z
+      .boolean()
+      .describe("The attribute is archived")
+      .optional()
+      .meta({ "x-growthbook-default": false }),
     hashAttribute: z
       .boolean()
       .describe("Shall the attribute be hashed")
-      .optional(),
+      .optional()
+      .meta({ "x-growthbook-default": false }),
     enum: z.string().describe(enumFieldDescription).optional(),
     format: z
       .enum(["", "version", "date", "isoCountryCode"])
       .describe("The attribute's format")
-      .optional(),
+      .optional()
+      .meta({ "x-growthbook-default": "" }),
     projects: z.array(z.string()).describe(PROJECTS_DESCRIPTION).optional(),
     tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     customFields: z

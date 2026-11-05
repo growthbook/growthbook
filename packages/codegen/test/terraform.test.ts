@@ -10,14 +10,21 @@ describe("renderResource", () => {
     expect(go).toContain(
       'update:              &operation{method: "PUT", path: "/v1/widgets/{id}", responseKey: "widget"},',
     );
-    expect(go).toContain('createFields:        []string{"kind", "name"},');
+    expect(go).toContain(
+      'createFields:        []string{"kind", "name", "slug"},',
+    );
     expect(go).toContain('jsonAttributes:      []string{"value"},');
+    expect(go).toContain('clearableAttributes: []string{"kind"},');
   });
 
-  it("emits plan modifiers and only the imports it uses", () => {
+  it("emits plan modifiers, defaults and only the imports it uses", () => {
     expect(go).toContain(
-      "PlanModifiers: []planmodifier.String{stateForUnknown{}, stringplanmodifier.RequiresReplace()},",
+      "PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},",
     );
+    expect(go).toContain(
+      "PlanModifiers: []planmodifier.String{stateForUnknown{}},",
+    );
+    expect(go).toContain("Default: booldefault.StaticBool(true),");
     expect(go).toContain("ElementType: types.StringType,");
     expect(go).toContain(
       '"github.com/hashicorp/terraform-plugin-framework/types"',

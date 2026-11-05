@@ -130,7 +130,8 @@ export const apiCreateCustomFieldBody = z.strictObject({
     .optional()
     .describe(
       "For enum and multiselect fields, allow users to enter values beyond the predefined list",
-    ),
+    )
+    .meta({ "x-growthbook-default": false }),
   required: z.boolean(),
   projects: z.array(z.string()).optional(),
   sections: z
@@ -142,5 +143,7 @@ export const apiCreateCustomFieldBody = z.strictObject({
 
 export const apiUpdateCustomFieldBody = apiCreateCustomFieldBody
   .omit({ id: true, type: true })
-  .extend({ active: z.boolean().optional() })
+  .extend({
+    active: z.boolean().optional().meta({ "x-growthbook-default": true }),
+  })
   .partial();

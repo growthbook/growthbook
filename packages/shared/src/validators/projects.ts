@@ -102,7 +102,8 @@ const postProjectBody = z
       .describe(
         "URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided.",
       )
-      .optional(),
+      .optional()
+      .meta({ "x-growthbook-server-default": true }),
     settings: z
       .object({
         statsEngine: z.string().describe("Stats engine.").optional(),
@@ -126,13 +127,15 @@ const postProjectBody = z
       .describe(
         "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
       )
-      .optional(),
+      .optional()
+      .meta({ "x-growthbook-default": false }),
     allowTargeting: z
       .boolean()
       .describe(
         "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
       )
-      .optional(),
+      .optional()
+      .meta({ "x-growthbook-default": true }),
   })
   .strict();
 

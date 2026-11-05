@@ -61,10 +61,15 @@ class GoFile {
     if (type.kind === "object") {
       lines.push(`Attributes: ${this.attributes(type.fields, true)},`);
     }
+    if (field.defaultValue !== undefined) {
+      lines.push(`Default: ${this.defaultValue(field)},`);
+    }
 
     const modifiers: string[] = [];
     const pkg = `${kinds[type.kind].modifier}planmodifier`;
-    if (!nested && field.computed) modifiers.push("stateForUnknown{}");
+    if (!nested && field.computed && field.defaultValue === undefined) {
+      modifiers.push("stateForUnknown{}");
+    }
     if (!nested && field.replace) {
       this.imports.add(`${framework}/resource/schema/${pkg}`);
       modifiers.push(`${pkg}.RequiresReplace()`);
@@ -77,6 +82,27 @@ class GoFile {
       );
     }
     return `schema.${name}Attribute{\n${indent(lines.join("\n"), 1)}\n}`;
+  }
+
+  defaultValue({ json, type, defaultValue }: Field): string {
+    const value =
+      type.kind === "json" ? JSON.stringify(defaultValue) : defaultValue;
+    const constructors: Partial<Record<FieldType["kind"], string>> = {
+      string: "StaticString",
+      json: "StaticString",
+      bool: "StaticBool",
+      int64: "StaticInt64",
+      float64: "StaticFloat64",
+    };
+    const constructor = constructors[type.kind];
+    if (!constructor) {
+      throw new Error(
+        `Defaults aren't supported on ${type.kind} field ${json}`,
+      );
+    }
+    const pkg = `${kinds[type.kind].modifier}default`;
+    this.imports.add(`${framework}/resource/schema/${pkg}`);
+    return `${pkg}.${constructor}(${JSON.stringify(value)})`;
   }
 
   elementType(type: FieldType): string {
@@ -146,6 +172,7 @@ export function renderResource(model: ResourceModel): string {
 	updateFields:        ${attributes((field) => field.inUpdate)},
 	jsonAttributes:      ${attributes((field) => field.type.kind === "json")},
 	writeOnlyAttributes: ${attributes((field) => !field.inModel)},
+	clearableAttributes: ${attributes((field) => field.clearable)},
 	schema: schema.Schema{
 		Description: ${goString(`Manages a GrowthBook ${model.name.replace(/_/g, " ")}.`)},
 		Attributes: ${indent(file.attributes(model.fields, false), 2).trimStart()},

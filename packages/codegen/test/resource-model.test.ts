@@ -29,15 +29,26 @@ describe("analyzeResource", () => {
       replace: false,
       description: "Display name",
     });
-    expect(field("kind")).toMatchObject({
-      optional: true,
-      computed: true,
-      replace: true,
-    });
-    expect(field("active")).toMatchObject({ inUpdate: true, replace: false });
+    expect(field("kind")).toMatchObject({ optional: true, replace: true });
     expect(field("id")).toMatchObject({ computed: true, optional: false });
     expect(field("secret")?.sensitive).toBe(true);
     expect(field("dateUpdated")).toBeUndefined();
+  });
+
+  it("decides what removing an optional field from config does", () => {
+    expect(field("kind")).toMatchObject({ computed: false, clearable: true });
+    expect(field("active")).toMatchObject({
+      inUpdate: true,
+      replace: false,
+      computed: true,
+      defaultValue: true,
+      clearable: false,
+    });
+    expect(field("slug")).toMatchObject({
+      computed: true,
+      serverDefault: true,
+      clearable: false,
+    });
   });
 
   it("maps schema types, falling back to JSON for unions", () => {
@@ -51,6 +62,17 @@ describe("analyzeResource", () => {
       kind: "object",
       fields: [{ attribute: "max_count", type: { kind: "int64" } }],
     });
+  });
+
+  it("refuses a default on a field updates can't change", () => {
+    const withDefault = structuredClone(spec);
+    const body = withDefault.paths["/v1/widgets"].post?.requestBody?.content?.[
+      "application/json"
+    ]?.schema as { properties: Record<string, Record<string, unknown>> };
+    body.properties.kind["x-growthbook-default"] = "basic";
+    expect(analyzeResource(withDefault, "widget").problems).toEqual([
+      "default on a field updates can't change: kind (use x-growthbook-server-default)",
+    ]);
   });
 
   it("reports what the generator cannot handle", () => {

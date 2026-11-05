@@ -26,7 +26,11 @@ export const spec: Spec = {
       post: op(
         "postWidget",
         wrapped,
-        { name: { type: "string" }, kind: { type: "string" } },
+        {
+          name: { type: "string" },
+          kind: { type: "string" },
+          slug: { type: "string", "x-growthbook-server-default": true },
+        },
         ["name"],
       ),
       get: op("listWidgets", {}),
@@ -35,7 +39,8 @@ export const spec: Spec = {
       get: op("getWidget", wrapped),
       put: op("putWidget", wrapped, {
         name: { type: "string" },
-        active: { type: "boolean" },
+        slug: { type: "string", "x-growthbook-server-default": true },
+        active: { type: "boolean", "x-growthbook-default": true },
       }),
       delete: op("deleteWidget", {}),
     },
@@ -55,6 +60,7 @@ export const spec: Spec = {
           dateUpdated: { type: "string" },
           name: { type: "string", description: "Display name" },
           kind: { type: "string" },
+          slug: { type: "string" },
           active: { type: "boolean" },
           secret: { type: "string", "x-growthbook-sensitive": true },
           value: { anyOf: [{ type: "string" }, { type: "number" }] },
