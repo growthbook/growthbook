@@ -14,6 +14,32 @@ const variationColumns: HeatmapColumn[] = [
   { key: "v4", header: "Variation 4" },
 ];
 
+const roundedColumns: HeatmapColumn[] = [
+  { key: "a", header: "A" },
+  { key: "b", header: "B" },
+  { key: "c", header: "C" },
+];
+
+function makeRoundedRows(): HeatmapRow[] {
+  const data: { key: string; label: string; values: number[] }[] = [
+    // All three read "17%" (0.1665/0.1666/0.1667) -> one uniform shade.
+    {
+      key: "uniform",
+      label: "17%, 17%, 17%",
+      values: [0.1666, 0.1667, 0.1665],
+    },
+    // 0.104 reads "10%"; 0.106 and 0.110 both read "11%" -> last two match.
+    { key: "two-labels", label: "10%, 11%, 11%", values: [0.104, 0.106, 0.11] },
+    // Same labels reordered -> same shades follow the labels, not the columns.
+    { key: "reordered", label: "11%, 11%, 10%", values: [0.11, 0.106, 0.104] },
+  ];
+  return data.map(({ key, label, values }) => ({
+    key,
+    label: <Badge color="gray" label={label} />,
+    cells: values.map((value) => ({ value })),
+  }));
+}
+
 function makeRows(): HeatmapRow[] {
   const data: { label: string; values: number[]; units: number }[] = [
     {
@@ -104,6 +130,37 @@ export default function HeatmapStories() {
             />
           </Flex>
         ))}
+      </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Rounded-equal values share a shade (row-normalized)
+        </Text>
+        <Text size="1" style={{ color: "var(--gray-9)" }}>
+          Raw values differ below display precision, so cells with the same
+          label get the same shade (e.g. 0.106 and 0.110 both read 11%).
+        </Text>
+        <Heatmap
+          labelHeader="Context"
+          columns={roundedColumns}
+          rows={makeRoundedRows()}
+        />
+      </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Rounded-equal values share a shade (global normalization)
+        </Text>
+        <Text size="1" style={{ color: "var(--gray-9)" }}>
+          With normalize=&quot;all&quot; the same label maps to the same shade
+          across every row, not just within one.
+        </Text>
+        <Heatmap
+          labelHeader="Context"
+          columns={roundedColumns}
+          rows={makeRoundedRows()}
+          normalize="all"
+        />
       </Flex>
 
       <Flex direction="column" gap="2">
