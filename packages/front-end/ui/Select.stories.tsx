@@ -1,6 +1,31 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import { Select, SelectItem, SelectSeparator } from "./Select";
+
+export const meta: StoryMeta = {
+  name: "Select",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Radix-based single-value select with items, groups, labels, and separators.",
+  useWhen: ["Picking one value from a short, known list of options."],
+  avoidWhen: [
+    {
+      reason: "Searching a long list for a single value.",
+      use: "SelectField",
+    },
+    {
+      reason: "Picking several values.",
+      use: "MultiSelectField",
+    },
+    {
+      reason: "Two to five options that should all stay visible.",
+      use: "RadioGroup",
+    },
+  ],
+  related: ["SelectField", "MultiSelectField", "SegmentedControl"],
+};
 
 const ITEMS = (
   <>

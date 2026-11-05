@@ -1,5 +1,21 @@
 import { Flex, Text } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import VariationNumber from "./VariationNumber";
+
+export const meta: StoryMeta = {
+  name: "VariationNumber",
+  category: "experimentation",
+  status: "stable",
+  summary: "Colored badge with a variation's index.",
+  useWhen: ["Compact references to a variation where the name does not fit."],
+  avoidWhen: [
+    {
+      reason: "There is room for the variation name.",
+      use: "VariationLabel",
+    },
+  ],
+  related: ["VariationLabel"],
+};
 
 const VARIATION_COUNT = 9;
 

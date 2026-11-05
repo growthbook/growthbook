@@ -9,6 +9,30 @@ import Button, { Size } from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SplitButton from "@/ui/SplitButton";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "Button",
+  category: "actions",
+  status: "stable",
+  summary:
+    "Design system button with variants, sizes, colors, and built-in async loading and error handling.",
+  useWhen: [
+    "Triggering an action such as save, submit, or open a modal.",
+    "Running an async onClick that should show a loading state.",
+  ],
+  avoidWhen: [
+    {
+      reason: "The click only navigates to another page.",
+      use: "LinkButton",
+    },
+    {
+      reason: "A primary action needs attached secondary actions.",
+      use: "SplitButton",
+    },
+  ],
+  related: ["LinkButton", "SplitButton", "DropdownMenu"],
+};
 
 export default function ButtonStories() {
   const [size, setSize] = useState<Size>("md");

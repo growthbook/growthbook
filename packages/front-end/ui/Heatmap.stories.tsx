@@ -1,10 +1,27 @@
 import { Flex, Text } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Badge from "./Badge";
 import Heatmap, {
   HeatmapColorScale,
   HeatmapColumn,
   HeatmapRow,
 } from "./Heatmap";
+
+export const meta: StoryMeta = {
+  name: "Heatmap",
+  category: "experimentation",
+  status: "stable",
+  summary:
+    "Table whose value cells are tinted by magnitude using theme color scales.",
+  useWhen: ["Comparing a grid of numeric values at a glance."],
+  avoidWhen: [
+    {
+      reason: "Plain records without a value scale.",
+      use: "Table",
+    },
+  ],
+  related: ["Table"],
+};
 
 const variationColumns: HeatmapColumn[] = [
   { key: "control", header: "Control" },

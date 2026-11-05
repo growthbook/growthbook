@@ -1,6 +1,7 @@
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
 import Modal, { Size } from "@/ui/Modal";
+import { StoryMeta } from "@/ui/storyMeta";
 import Table, {
   TableBody,
   TableCell,
@@ -13,6 +14,29 @@ import { Select, SelectItem } from "../Select";
 import Text from "../Text";
 import Checkbox from "../Checkbox";
 import ModalForm, { useModalForm } from "./ModalForm";
+
+export const meta: StoryMeta = {
+  name: "Modal",
+  category: "overlays",
+  status: "stable",
+  summary:
+    "The design-system dialog for forms and multi-step flows, with a header, body, and footer actions.",
+  useWhen: [
+    "Collect input or run a flow without leaving the page.",
+    "Show content that needs the user's full attention.",
+  ],
+  avoidWhen: [
+    {
+      reason: "You only need a yes or no confirmation.",
+      use: "ConfirmDialog",
+    },
+    {
+      reason: "The content is small and anchored to a trigger.",
+      use: "Popover",
+    },
+  ],
+  related: ["ConfirmDialog", "Popover"],
+};
 
 function SubmitButton() {
   const { loading } = useModalForm();

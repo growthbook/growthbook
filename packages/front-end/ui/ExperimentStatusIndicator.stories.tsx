@@ -1,5 +1,22 @@
 import { Flex } from "@radix-ui/themes";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "ExperimentStatusIndicator",
+  category: "experimentation",
+  status: "stable",
+  summary:
+    "Badge for an experiment's lifecycle status, such as draft, running, or stopped.",
+  useWhen: ["Showing where an experiment is in its lifecycle."],
+  avoidWhen: [
+    {
+      reason: "Showing the final result.",
+      use: "ExperimentResultIndicator",
+    },
+  ],
+  related: ["ExperimentResultIndicator"],
+};
 
 export default function ExperimentStatusIndicatorStories() {
   return (

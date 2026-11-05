@@ -1,6 +1,30 @@
 import { FormEvent, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import TextField from "./TextField";
+
+export const meta: StoryMeta = {
+  name: "TextField",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Radix-based single-line text input with design system sizing, labels, and validation states. Supports native input types and standard HTML validation attributes.",
+  useWhen: [
+    "Any single-line text, number, email, or password input in new code.",
+    "Plain multi-line text, with the `multiline` prop.",
+  ],
+  avoidWhen: [
+    {
+      reason: "Formatted text or Markdown.",
+      use: "RichTextEditor",
+    },
+    {
+      reason: "Entering a list of strings.",
+      use: "StringArrayField",
+    },
+  ],
+  related: ["HelperText", "Field"],
+};
 
 export default function TextFieldStories() {
   const [value, setValue] = useState("");

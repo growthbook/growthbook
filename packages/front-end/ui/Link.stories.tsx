@@ -1,5 +1,28 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Link from "./Link";
+
+export const meta: StoryMeta = {
+  name: "Link",
+  category: "navigation",
+  status: "stable",
+  summary: "A styled text link for navigation or inline actions.",
+  useWhen: [
+    "Navigate to another page or external doc.",
+    "Add a light inline action inside text.",
+  ],
+  avoidWhen: [
+    {
+      reason: "The link should look like a button.",
+      use: "LinkButton",
+    },
+    {
+      reason: "The action is a primary call to action.",
+      use: "Button",
+    },
+  ],
+  related: ["LinkButton", "Button"],
+};
 
 export default function LinkStories() {
   return (

@@ -1,6 +1,23 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Pagination from "./Pagination";
+
+export const meta: StoryMeta = {
+  name: "Pagination",
+  category: "navigation",
+  status: "stable",
+  summary:
+    "Page controls for moving through a long list or table one page at a time.",
+  useWhen: ["Split a long table or list into pages."],
+  avoidWhen: [
+    {
+      reason: "The content fits on one page or in a scroll area.",
+      use: "ScrollArea",
+    },
+  ],
+  related: ["Table"],
+};
 
 export default function PaginationStories() {
   const [tenPageCurrentPage, setTenPageCurrentPage] = useState(1);

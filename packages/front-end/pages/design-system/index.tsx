@@ -1,61 +1,70 @@
 import React, { useMemo } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
+import { PiCheckCircleFill, PiXCircleFill } from "react-icons/pi";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
+import {
+  StoryMeta,
+  StoryModule,
+  StoryStatus,
+  slugify,
+  storyCategories,
+} from "@/ui/storyMeta";
 
-import AnalysisResultSummaryStories from "@/ui/AnalysisResultSummary.stories";
-import SizeCohesionStories from "@/ui/SizeCohesion.stories";
-import AvatarStories from "@/ui/Avatar.stories";
-import BadgeStories from "@/ui/Badge.stories";
-import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
-import ButtonStories from "@/ui/Button.stories";
-import CalloutStories from "@/ui/Callout.stories";
-import ColumnResizeHandleStories from "@/ui/ColumnResizeHandle.stories";
-import ColumnSettingsStories from "@/ui/ColumnSettings.stories";
-import ColumnSettingsButtonStories from "@/ui/ColumnSettingsButton.stories";
-import CheckboxStories from "@/ui/Checkbox.stories";
-import CollapseStories from "@/ui/Collapse.stories";
-import DataListStories from "@/ui/DataList.stories";
-import DatePickerStories from "@/ui/DatePicker.stories";
-import DropdownMenuStories from "@/ui/DropdownMenu.stories";
-import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.stories";
-import FieldStories from "@/ui/Field.stories";
-import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
-import TextStories from "@/ui/Text.stories";
-import TruncatedTextStories from "@/ui/TruncatedText.stories";
-import TextFieldStories from "@/ui/TextField.stories";
-import HeadingStories from "@/ui/Heading.stories";
-import HelperTextStories from "@/ui/HelperText.stories";
-import LinkStories from "@/ui/Link.stories";
-import MetadataStories from "@/ui/Metadata.stories";
-import PaginationStories from "@/ui/Pagination.stories";
-import PopoverStories from "@/ui/Popover.stories";
-import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
-import RadioCardsStories from "@/ui/RadioCards.stories";
-import RadioGroupStories from "@/ui/RadioGroup.stories";
-import ScrollAreaStories from "@/ui/ScrollArea.stories";
-import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
-import SegmentedControlStories from "@/ui/SegmentedControl.stories";
-import SelectStories from "@/ui/Select.stories";
-import SelectFieldStories from "@/ui/SelectField.stories";
-import SliderStories from "@/ui/Slider.stories";
-import StepperStories from "@/ui/Stepper.stories";
-import SwitchStories from "@/ui/Switch.stories";
-import TableStories from "@/ui/Table.stories";
-import TabsStories from "@/ui/Tabs.stories";
-import ProgressBarStories from "@/ui/ProgressBar.stories";
-import RichTextEditorStories from "@/ui/RichTextEditor.stories";
-import VariationLabelStories from "@/ui/VariationLabel.stories";
-import VariationNumberStories from "@/ui/VariationNumber.stories";
-import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
-import ModalStories from "@/ui/Modal/Modal.stories";
+// Every *.stories.tsx under ui/ is picked up automatically. Its `meta` export
+// places it on this page; test/designSystemStories.test.ts fails CI when a file
+// has no valid meta.
+const storyModules = import.meta.glob<StoryModule>("/ui/**/*.stories.tsx", {
+  eager: true,
+});
 
-type StoryEntry = {
-  name: string;
-  description?: React.ReactNode;
-  Stories: () => React.ReactNode;
+type Entry = {
+  id: string;
+  meta: StoryMeta;
+  Stories: () => React.ReactElement | null;
 };
+
+const STATUS_ORDER: Record<StoryStatus, number> = {
+  stable: 0,
+  beta: 1,
+  legacy: 2,
+  deprecated: 3,
+};
+
+const STATUS_BADGE: Record<
+  Exclude<StoryStatus, "stable">,
+  React.ComponentProps<typeof Badge>["color"]
+> = {
+  beta: "violet",
+  legacy: "amber",
+  deprecated: "red",
+};
+
+// Runs at render, not module scope: during Turbopack SSR the globbed modules
+// are still empty objects while this module evaluates.
+function buildSections() {
+  const entries: Entry[] = Object.values(storyModules)
+    .map(({ meta, default: Stories }) => ({
+      id: slugify(meta.name),
+      meta,
+      Stories,
+    }))
+    .sort(
+      (a, b) =>
+        STATUS_ORDER[a.meta.status] - STATUS_ORDER[b.meta.status] ||
+        a.meta.name.localeCompare(b.meta.name),
+    );
+
+  return storyCategories
+    .map((category) => ({
+      ...category,
+      entries: entries.filter((e) => e.meta.category === category.id),
+    }))
+    .filter((s) => s.entries.length > 0);
+}
 
 const TOP_NAV_HEIGHT = 56;
 const PAGE_TOP_PADDING = 24;
@@ -66,96 +75,9 @@ const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
 }px)`;
 
 export default function DesignSystemPage() {
-  const components = [
-    {
-      name: "AnalysisResultSummary",
-      description: (
-        <>
-          This displays the results of an analysis in a compact way. It is
-          usually rendered inside of a Tooltip or Popover when hovering over
-          Experiment results.
-        </>
-      ),
-      Stories: AnalysisResultSummaryStories,
-    },
-    { name: "Avatar", Stories: AvatarStories },
-    { name: "Badge", Stories: BadgeStories },
-    { name: "Breadcrumbs", Stories: BreadcrumbsStories },
-    { name: "Button", Stories: ButtonStories },
-    { name: "Callout", Stories: CalloutStories },
-    { name: "ColumnResizeHandle", Stories: ColumnResizeHandleStories },
-    { name: "ColumnSettings", Stories: ColumnSettingsStories },
-    {
-      name: "ColumnSettingsButton",
-      Stories: ColumnSettingsButtonStories,
-    },
-    { name: "Checkbox", Stories: CheckboxStories },
-    { name: "Collapse", Stories: CollapseStories },
-    { name: "DataList", Stories: DataListStories },
-    { name: "DatePicker", Stories: DatePickerStories },
-    { name: "DropdownMenu", Stories: DropdownMenuStories },
-    {
-      name: "ExperimentResultIndicator",
-      Stories: ExperimentResultIndicatorStories,
-    },
-    {
-      name: "ExperimentStatusIndicator",
-      Stories: ExperimentStatusIndicatorStories,
-    },
-    { name: "VariationLabel", Stories: VariationLabelStories },
-    { name: "VariationNumber", Stories: VariationNumberStories },
-    { name: "VariationStatsTable", Stories: VariationStatsTableStories },
-    { name: "Text", Stories: TextStories },
-    { name: "TruncatedText", Stories: TruncatedTextStories },
-    {
-      name: "TextField",
-      description:
-        "Radix-based single-line text input with design system sizing, labels, and validation states. Supports native input types (text, number, password, email, etc.) and standard HTML validation attributes (required, min, max, pattern, minLength, maxLength, step, …).",
-      Stories: TextFieldStories,
-    },
-    { name: "Heading", Stories: HeadingStories },
-    { name: "HelperText", Stories: HelperTextStories },
-    { name: "Link", Stories: LinkStories },
-    { name: "Metadata", Stories: MetadataStories },
-    { name: "Pagination", Stories: PaginationStories },
-    { name: "Popover", Stories: PopoverStories },
-    { name: "PremiumCallout", Stories: PremiumCalloutStories },
-    { name: "ProgressBar", Stories: ProgressBarStories },
-    { name: "RadioCards", Stories: RadioCardsStories },
-    { name: "RadioGroup", Stories: RadioGroupStories },
-    { name: "ScrollArea", Stories: ScrollAreaStories },
-    { name: "SegmentedControl", Stories: SegmentedControlStories },
-    { name: "Select", Stories: SelectStories },
-    {
-      name: "Field (legacy text input)",
-      description:
-        "Bootstrap-based text input. Prefer TextField for new work; this component remains for legacy forms and textareas.",
-      Stories: FieldStories,
-    },
-    { name: "SelectField (legacy)", Stories: SelectFieldStories },
-    { name: "MultiSelectField", Stories: MultiSelectFieldStories },
-    { name: "Slider", Stories: SliderStories },
-    { name: "Stepper", Stories: StepperStories },
-    { name: "Switch", Stories: SwitchStories },
-    { name: "Table", Stories: TableStories },
-    { name: "Tabs", Stories: TabsStories },
-    { name: "Modal", Stories: ModalStories },
-    { name: "RichTextEditor", Stories: RichTextEditorStories },
-  ] satisfies StoryEntry[];
-
-  const entries = useMemo(
-    () =>
-      components
-        .map((c) => ({
-          ...c,
-          id: `${slugify(c.name)}-story`,
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [components],
-  );
-
+  const sections = useMemo(buildSections, []);
   return (
-    <div className="pt-4 pb-3">
+    <Box pt="5" pb="4">
       <Flex gap="6">
         <nav
           aria-label="Components"
@@ -165,77 +87,223 @@ export default function DesignSystemPage() {
             alignSelf: "flex-start",
             minWidth: 220,
             maxHeight: SIDEBAR_MAX_HEIGHT,
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
+            overflowY: "auto",
+            paddingRight: 8,
           }}
         >
-          <Text as="div" weight="semibold" mb="2">
-            Components
-          </Text>
-          <ul
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              overflowY: "auto",
-              minHeight: 0,
-              paddingRight: 8,
-            }}
-          >
-            <li style={{ marginBottom: 8 }}>
-              <Link href="#size-cohesion">Size cohesion</Link>
-            </li>
-            {entries.map(({ name, id }) => (
-              <li key={id} style={{ marginBottom: 8 }}>
-                <Link href={`#${id}`}>{name}</Link>
-              </li>
-            ))}
-          </ul>
+          {sections.map((section) => (
+            <Box key={section.id} mb="4">
+              <Text as="div" weight="semibold" mb="2">
+                <Link href={`#${section.id}`}>{section.label}</Link>
+              </Text>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {section.entries.map(({ id, meta }) => (
+                  <li key={id} style={{ marginBottom: 6 }}>
+                    <Link href={`#${id}`}>
+                      <Text color={isRetired(meta) ? "text-low" : undefined}>
+                        {meta.name}
+                      </Text>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Box>
+          ))}
         </nav>
 
-        <div className="container-fluid" style={{ flex: 1 }}>
-          <h1 className="mb-4">GrowthBook Design System</h1>
-          <div className="pagecontents">
-            <Flex gap="4" direction="column">
-              <Frame id="size-cohesion" style={{ scrollMarginTop: 90 }}>
-                <Flex direction="column" gap="3">
-                  <h3 className="mb-1">Size cohesion</h3>
-                  <Text>
-                    Every @/ui component takes a t-shirt size. sm / md / lg / xl
-                    map to Radix 1 / 2 / 3 / 4 through one shared map in
-                    ui/sizes.ts, and xs and 2xl are names with no shared
-                    meaning. A component supports a subset of the ladder and
-                    never renames it, so the gaps listed under each step are
-                    real. The break-outs at the end keep their own map; Heading
-                    and Modal are the two that matter.
-                  </Text>
-                  <SizeCohesionStories />
-                </Flex>
-              </Frame>
-              {entries.map(({ name, description, Stories, id }) => (
-                <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
-                  <Flex direction="column" gap="3">
-                    <h3 className="mb-1">{name}</h3>
-                    <Text>{description}</Text>
-                    <Stories />
-                  </Flex>
-                </Frame>
-              ))}
-            </Flex>
-          </div>
+        <div style={{ flex: 1, minWidth: 0, maxWidth: 1080 }}>
+          <Heading as="h1" size="2xl" mb="4">
+            GrowthBook Design System
+          </Heading>
+          <Flex gap="6" direction="column">
+            {sections.map((section) => (
+              <Flex
+                key={section.id}
+                id={section.id}
+                direction="column"
+                gap="7"
+                style={{ scrollMarginTop: 80 }}
+              >
+                <Heading as="h2" size="xl">
+                  {section.label}
+                </Heading>
+                {section.entries.map((entry) => (
+                  <StoryFrame key={entry.id} {...entry} />
+                ))}
+              </Flex>
+            ))}
+          </Flex>
         </div>
       </Flex>
-    </div>
+    </Box>
   );
+}
+
+function StoryFrame({ id, meta, Stories }: Entry) {
+  return (
+    <Box
+      id={id}
+      pb="7"
+      style={{
+        scrollMarginTop: 80,
+        borderBottom: "1px solid var(--gray-a4)",
+      }}
+    >
+      <Flex direction="column" gap="2" mb="4" style={{ maxWidth: 760 }}>
+        <Flex align="center" gap="2">
+          <Heading as="h3" size="lg" mb="0">
+            {meta.name}
+          </Heading>
+          {meta.status !== "stable" && (
+            <Badge
+              label={meta.status}
+              color={STATUS_BADGE[meta.status]}
+              variant="soft"
+            />
+          )}
+        </Flex>
+        <Text color="text-mid">{inline(meta.summary)}</Text>
+        {"replacedBy" in meta && (
+          <Text weight="medium">
+            Use{" "}
+            <Link href={`#${slugify(meta.replacedBy)}`}>{meta.replacedBy}</Link>{" "}
+            in new code.
+          </Text>
+        )}
+      </Flex>
+
+      <Frame>
+        <Stories />
+      </Frame>
+
+      <Guidance meta={meta} />
+    </Box>
+  );
+}
+
+function Guidance({ meta }: { meta: StoryMeta }) {
+  const hasRules = meta.useWhen.length > 0 || meta.avoidWhen.length > 0;
+  return (
+    <Flex direction="column" gap="3">
+      {hasRules && (
+        <Grid columns={{ initial: "1", md: "2" }} gap="3">
+          <RuleCard
+            tone="do"
+            title="Use when"
+            items={meta.useWhen.map((u) => ({ key: u, body: inline(u) }))}
+          />
+          <RuleCard
+            tone="dont"
+            title="Don't use when"
+            items={meta.avoidWhen.map((a) => ({
+              key: a.reason,
+              body: (
+                <>
+                  {inline(a.reason)}
+                  {a.use && (
+                    <>
+                      {" "}
+                      Use <Link href={`#${slugify(a.use)}`}>{a.use}</Link>.
+                    </>
+                  )}
+                </>
+              ),
+            }))}
+          />
+        </Grid>
+      )}
+      {meta.examples && meta.examples.length > 0 && (
+        <Text size="sm" color="text-mid">
+          In the codebase:{" "}
+          {meta.examples.map((e, i) => (
+            <React.Fragment key={e}>
+              {i > 0 && " · "}
+              <code style={CODE_STYLE} title={e}>
+                {e.split("/").pop()}
+              </code>
+            </React.Fragment>
+          ))}
+        </Text>
+      )}
+      {meta.related && meta.related.length > 0 && (
+        <Text size="sm" color="text-mid">
+          Related:{" "}
+          {meta.related.map((r, i) => (
+            <React.Fragment key={r}>
+              {i > 0 && " · "}
+              <Link href={`#${slugify(r)}`}>{r}</Link>
+            </React.Fragment>
+          ))}
+        </Text>
+      )}
+    </Flex>
+  );
+}
+
+function RuleCard({
+  tone,
+  title,
+  items,
+}: {
+  tone: "do" | "dont";
+  title: string;
+  items: { key: string; body: React.ReactNode }[];
+}) {
+  if (!items.length) return <Box />;
+  const accent = tone === "do" ? "var(--green-9)" : "var(--red-9)";
+  const Icon = tone === "do" ? PiCheckCircleFill : PiXCircleFill;
+  return (
+    <Box
+      p="4"
+      style={{
+        borderTop: `3px solid ${accent}`,
+        borderRadius: "var(--radius-3)",
+        background: "var(--gray-a2)",
+      }}
+    >
+      <Text as="div" weight="semibold" mb="2">
+        {title}
+      </Text>
+      <Flex direction="column" gap="2">
+        {items.map(({ key, body }) => (
+          <Flex key={key} gap="2" align="start">
+            <Icon
+              aria-hidden
+              style={{ color: accent, flexShrink: 0, marginTop: 3 }}
+            />
+            <Text>{body}</Text>
+          </Flex>
+        ))}
+      </Flex>
+    </Box>
+  );
+}
+
+const CODE_STYLE: React.CSSProperties = {
+  fontFamily: "var(--code-font-family)",
+  fontSize: "0.9em",
+  padding: "1px 5px",
+  borderRadius: "var(--radius-2)",
+  background: "var(--gray-a3)",
+  color: "var(--color-text-high)",
+};
+
+/** Renders `backticked` spans in guidance copy as inline code. */
+function inline(text: string): React.ReactNode {
+  return text.split(/(`[^`]+`)/).map((part, i) =>
+    part.startsWith("`") && part.endsWith("`") ? (
+      <code key={i} style={CODE_STYLE}>
+        {part.slice(1, -1)}
+      </code>
+    ) : (
+      part
+    ),
+  );
+}
+
+function isRetired(meta: StoryMeta) {
+  return meta.status === "legacy" || meta.status === "deprecated";
 }
 
 DesignSystemPage.preAuth = true;
 DesignSystemPage.preAuthTopNav = true;
-
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}

@@ -1,6 +1,23 @@
 import { useState } from "react";
 import { Flex, Text } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Collapse, { CollapseTrigger } from "./Collapse";
+
+export const meta: StoryMeta = {
+  name: "Collapse",
+  category: "layout",
+  status: "stable",
+  summary:
+    "Content that slides open and shut, with an optional caret trigger. Content mounts on first open.",
+  useWhen: ["Hide advanced or secondary content until the user asks for it."],
+  avoidWhen: [
+    {
+      reason: "The sections are peers the user switches between.",
+      use: "Tabs",
+    },
+  ],
+  related: ["Frame"],
+};
 
 export default function CollapseStories() {
   const [closed, setClosed] = useState(false);

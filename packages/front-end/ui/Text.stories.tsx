@@ -1,7 +1,27 @@
 import { useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Text, { TextProps } from "./Text";
 import { Select, SelectItem } from "./Select";
+
+export const meta: StoryMeta = {
+  name: "Text",
+  category: "typography",
+  status: "stable",
+  summary: "Body and label text with design-system sizes, weights, and colors.",
+  useWhen: ["Any inline or block copy, labels, and values."],
+  avoidWhen: [
+    {
+      reason: "Titling a page or section.",
+      use: "Heading",
+    },
+    {
+      reason: "Long text that must stay on one line.",
+      use: "TruncatedText",
+    },
+  ],
+  related: ["Heading", "TruncatedText"],
+};
 
 export default function TextStories() {
   const [textColor, setTextColor] = useState<TextProps["color"]>("text-mid");

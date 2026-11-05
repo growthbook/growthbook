@@ -1,5 +1,28 @@
 import { Flex, Text } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Badge from "./Badge";
+
+export const meta: StoryMeta = {
+  name: "Badge",
+  category: "feedback",
+  status: "stable",
+  summary: "A small colored label for status, type, or counts.",
+  useWhen: [
+    "Tag an item with a status or category.",
+    "Show a short count or label next to a title.",
+  ],
+  avoidWhen: [
+    {
+      reason: "The label is an experiment status.",
+      use: "ExperimentStatusIndicator",
+    },
+    {
+      reason: "The text needs to be clickable.",
+      use: "Link",
+    },
+  ],
+  related: ["ExperimentStatusIndicator"],
+};
 
 export default function BadgeStories() {
   return (

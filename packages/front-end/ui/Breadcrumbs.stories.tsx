@@ -1,5 +1,22 @@
 import { Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import Breadcrumbs from "./Breadcrumbs";
+
+export const meta: StoryMeta = {
+  name: "Breadcrumbs",
+  category: "navigation",
+  status: "stable",
+  summary:
+    "A trail of links that shows where the current page sits in the hierarchy.",
+  useWhen: ["Show the path back to parent pages on a detail page."],
+  avoidWhen: [
+    {
+      reason: "You need to move between peer sections.",
+      use: "Tabs",
+    },
+  ],
+  related: ["Link"],
+};
 
 export default function BreadcrumbsStories() {
   return (

@@ -1,6 +1,30 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { StoryMeta } from "@/ui/storyMeta";
 import MultiSelectField from "./MultiSelectField";
+
+export const meta: StoryMeta = {
+  name: "MultiSelectField",
+  category: "inputs",
+  status: "stable",
+  summary:
+    "Searchable multi-value select built on react-select, with sortable chips and optional custom values.",
+  useWhen: [
+    "Picking several values from a list.",
+    "The option list is long enough to need search.",
+  ],
+  avoidWhen: [
+    {
+      reason: "Only one value can be chosen.",
+      use: "Select",
+    },
+    {
+      reason: "Free-form strings with no predefined options.",
+      use: "StringArrayField",
+    },
+  ],
+  related: ["Select", "StringArrayField"],
+};
 
 const FRUIT_OPTIONS = [
   { label: "Apple", value: "apple" },

@@ -1,6 +1,23 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import Frame from "@/ui/Frame";
 import VariationStatsTable from "@/ui/VariationStatsTable";
+import { StoryMeta } from "@/ui/storyMeta";
+
+export const meta: StoryMeta = {
+  name: "VariationStatsTable",
+  category: "experimentation",
+  status: "stable",
+  summary:
+    "Table of per-variation metric stats such as value, change, and probability.",
+  useWhen: ["Detailing one metric's results across variations."],
+  avoidWhen: [
+    {
+      reason: "A compact summary in a tooltip.",
+      use: "AnalysisResultSummary",
+    },
+  ],
+  related: ["AnalysisResultSummary", "VariationLabel"],
+};
 
 const metric = {
   id: "m_bin",
