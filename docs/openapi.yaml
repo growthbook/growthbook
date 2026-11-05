@@ -91850,6 +91850,33 @@ x-tagGroups:
       - VisualChangeset_model
       - VisualEditorCbExperimentStub_model
 x-growthbook-resources:
+  project:
+    operations:
+      create: postProject
+      list: listProjects
+      get: getProject
+      update: putProject
+      delete: deleteProject
+  attribute:
+    operations:
+      create: postAttribute
+      list: listAttributes
+      update: putAttribute
+      delete: deleteAttribute
+  sdk_connection:
+    operations:
+      create: postSdkConnection
+      list: listSdkConnections
+      get: getSdkConnection
+      update: putSdkConnection
+      delete: deleteSdkConnection
+  feature:
+    operations:
+      create: postFeatureV2
+      list: listFeaturesV2
+      get: getFeatureV2
+      update: updateFeatureV2
+      delete: deleteFeatureV2
   dashboard:
     operations:
       create: createDashboard
