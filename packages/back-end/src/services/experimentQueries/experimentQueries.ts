@@ -377,8 +377,12 @@ export function getFactMetricGroups(
       skipPartialData: !!settings.skipPartialData,
     });
     if (group) {
-      groups[group] = groups[group] || [];
-      groups[group].push(m);
+      // Cluster-level metrics join on a different unit, so they can't share a query.
+      const key = settings.clusterLevelMetricIds?.includes(m.id)
+        ? `cluster:${group}`
+        : group;
+      groups[key] = groups[key] || [];
+      groups[key].push(m);
     }
   });
 

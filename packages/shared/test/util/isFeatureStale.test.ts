@@ -1,7 +1,11 @@
 import { subWeeks } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FeatureInterface, ExperimentRefRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  ExperimentRefRule,
+  FeatureRule,
+} from "shared/types/feature";
 
 import {
   isFeatureStale,
@@ -358,6 +362,34 @@ describe("isFeatureStale", () => {
               stale: true,
               reason: "rules-one-sided",
             });
+          });
+        });
+      });
+
+      describe("and one has no coverage stored", () => {
+        it("treats it as 100% and is stale", () => {
+          feature.environmentSettings = {
+            development: {
+              enabled: true,
+              rules: [
+                {
+                  coverage: null,
+                  enabled: true,
+                  hashAttribute: "id",
+                  value: "2",
+                  description: "",
+                  id: "fr_1xx71305loywqomm",
+                  type: "rollout",
+                } as unknown as FeatureRule,
+              ],
+            },
+            staging: { enabled: false, rules: [] },
+            production: { enabled: false, rules: [] },
+          };
+          feature.dateUpdated = subWeeks(new Date(), 3);
+          expect(testStale({ feature })).toMatchObject({
+            stale: true,
+            reason: "rules-one-sided",
           });
         });
       });

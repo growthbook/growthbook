@@ -34,6 +34,8 @@ export const experimentTemplateInterface = baseSchema
     datasource: z.string(),
     exposureQueryId: z.string(),
     exposureQueryIdentifierType: z.string().optional(),
+    isClusterExperiment: z.boolean().optional(),
+    clusterSubUnitIdentifier: z.string().optional(),
 
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -82,6 +84,8 @@ export const apiExperimentTemplateValidator = namedSchema(
 
     datasource: z.string(),
     ...apiAssignmentQueryResponseFields("exposureQuery"),
+    isClusterExperiment: z.boolean().optional(),
+    clusterSubUnitIdentifier: z.string().optional(),
 
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -148,6 +152,8 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
 
   datasource: z.string(),
   ...apiAssignmentQueryInputFields("exposureQuery"),
+  isClusterExperiment: z.boolean().optional(),
+  clusterSubUnitIdentifier: z.string().optional(),
 
   hashAttribute: z.string().optional(),
   fallbackAttribute: z.string().optional(),
