@@ -983,12 +983,7 @@ export default function Sidebar() {
                 } as CSSProperties
               }
             >
-              <Text
-                size="sm"
-                weight="medium"
-                color="text-low"
-                textTransform="uppercase"
-              >
+              <Text size="sm" weight="medium" textTransform="uppercase">
                 {planLabel}
               </Text>
             </div>
