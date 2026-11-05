@@ -824,7 +824,11 @@ export default function EventForwarder({
       ) : null}
 
       {(isReady || isPaused) && !isProvisioning ? (
-        <EventForwarderActivity dataSource={dataSource} />
+        <EventForwarderActivity
+          dataSource={dataSource}
+          isPaused={isPaused}
+          isOverLimit={isOverLimit}
+        />
       ) : null}
       {eventForwarderConfig ? (
         <Card>

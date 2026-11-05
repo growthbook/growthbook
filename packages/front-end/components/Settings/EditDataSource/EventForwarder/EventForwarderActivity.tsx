@@ -20,7 +20,9 @@ import {
   getEventForwarderActivityConfig,
   getEventForwarderDailyCounts,
   getEventForwarderExplorerConfig,
+  getEventForwarderNoEventsMessage,
 } from "@/components/Settings/EditDataSource/EventForwarder/eventForwarderActivityConfig";
+import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import PermissionBlocker from "@/ui/PermissionBlocker";
@@ -29,9 +31,11 @@ import Text from "@/ui/Text";
 function EventsChart({
   exploration,
   explorerHref,
+  noEventsMessage,
 }: {
   exploration: ProductAnalyticsExploration;
   explorerHref: string;
+  noEventsMessage: string;
 }) {
   const { dailyValues, total } = getEventForwarderDailyCounts(exploration);
   return (
@@ -56,9 +60,7 @@ function EventsChart({
         integerYAxis
         height={160}
       />
-      {total === 0 && (
-        <Text color="text-mid">No events were tracked during this period.</Text>
-      )}
+      {total === 0 && <Text color="text-mid">{noEventsMessage}</Text>}
     </>
   );
 }
@@ -66,8 +68,12 @@ function EventsChart({
 // Daily volume of the events the Event Forwarder has written to the warehouse.
 export default function EventForwarderActivity({
   dataSource,
+  isPaused,
+  isOverLimit,
 }: {
   dataSource: DataSourceInterfaceWithParams;
+  isPaused: boolean;
+  isOverLimit: boolean;
 }) {
   const { getFactTableById } = useDefinitions();
   const permissions = usePermissionsUtil();
@@ -87,42 +93,46 @@ export default function EventForwarderActivity({
     [dataSource.id, factTableId, dateRange],
   );
 
-  if (!config) return null;
-
   const canRunQueries = permissions.canRunFactQueries(dataSource);
-  const explorerHref = `/product-analytics/explore/fact-table?config=${encodeExplorationConfig(
-    getEventForwarderExplorerConfig(config),
-  )}`;
 
   return (
     <Card mb="4">
-      <Box p="2">
-        <Flex direction="column" gap="3" minWidth="0">
-          <Heading as="h4" size="sm" mb="0">
-            Recent Forwarded Events
-          </Heading>
-          {canRunQueries ? (
-            <PreviewExplorer
-              config={config}
-              trackingSource="event-forwarder-activity"
-              emptyDescription="Run the query to see daily event counts for the last 7 complete days."
-              warehouseUnavailableText="Event counts will be available when the warehouse is ready."
-              renderChart={({ exploration }) => (
-                <EventsChart
-                  exploration={exploration}
-                  explorerHref={explorerHref}
-                />
-              )}
-            />
-          ) : (
-            <DisabledPreview description="Daily event counts for the last 7 complete days appear here.">
-              <PermissionBlocker>
-                You don’t have permission to run queries on this Data Source.
-              </PermissionBlocker>
-            </DisabledPreview>
-          )}
-        </Flex>
-      </Box>
+      <Flex direction="column" gap="3" p="2" minWidth="0">
+        <Heading as="h4" size="sm" mb="0">
+          Recent Forwarded Events
+        </Heading>
+        {!config ? (
+          <Callout status="warning">
+            Event counts are unavailable because the Event Forwarder&apos;s
+            events Fact Table wasn&apos;t found.
+          </Callout>
+        ) : canRunQueries ? (
+          <PreviewExplorer
+            config={config}
+            trackingSource="event-forwarder-activity"
+            emptyDescription="Run the query to see daily event counts for the last 7 complete days."
+            warehouseUnavailableText="Event counts will be available when the warehouse is ready."
+            renderChart={({ exploration }) => (
+              <EventsChart
+                exploration={exploration}
+                explorerHref={`/product-analytics/explore/fact-table?config=${encodeExplorationConfig(
+                  getEventForwarderExplorerConfig(config),
+                )}`}
+                noEventsMessage={getEventForwarderNoEventsMessage({
+                  isPaused,
+                  isOverLimit,
+                })}
+              />
+            )}
+          />
+        ) : (
+          <DisabledPreview description="Daily event counts for the last 7 complete days appear here.">
+            <PermissionBlocker>
+              You don’t have permission to run queries on this Data Source.
+            </PermissionBlocker>
+          </DisabledPreview>
+        )}
+      </Flex>
     </Card>
   );
 }
