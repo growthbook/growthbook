@@ -54,7 +54,7 @@ export const apiSdkConnectionValidator = namedSchema(
         ),
       projects: z.array(z.string()).optional(),
       encryptPayload: z.boolean(),
-      encryptionKey: z.string(),
+      encryptionKey: z.string().meta({ "x-growthbook-sensitive": true }),
       includeVisualExperiments: z.boolean().optional(),
       includeDraftExperiments: z.boolean().optional(),
       includeDraftExperimentRefs: z
@@ -80,7 +80,7 @@ export const apiSdkConnectionValidator = namedSchema(
       key: z.string(),
       proxyEnabled: z.boolean(),
       proxyHost: z.string(),
-      proxySigningKey: z.string(),
+      proxySigningKey: z.string().meta({ "x-growthbook-sensitive": true }),
       sseEnabled: z.boolean().optional(),
       hashSecureAttributes: z.boolean().optional(),
       remoteEvalEnabled: z.boolean().optional(),
