@@ -350,7 +350,7 @@ export default function ProfileMenu({
         <UserAvatar
           name={displayName}
           email={email || ""}
-          size="sm"
+          size="xs"
           variant="soft"
         />
         {reviewDot}
