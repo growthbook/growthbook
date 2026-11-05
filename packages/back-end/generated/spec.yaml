@@ -20200,6 +20200,7 @@ paths:
                   items:
                     type: string
                 archived:
+                  x-growthbook-default: false
                   type: boolean
                 behavior:
                   type: object
@@ -21181,6 +21182,7 @@ paths:
                     - SQL
                     - FACT
                 query:
+                  x-growthbook-server-default: true
                   description: >-
                     SQL query that defines the Segment. This is required for SQL
                     segments.
@@ -21310,6 +21312,7 @@ paths:
                     - SQL
                     - FACT
                 query:
+                  x-growthbook-server-default: true
                   description: >-
                     SQL query that defines the Segment. This is required for SQL
                     segments.
@@ -21942,9 +21945,11 @@ paths:
                   description: Put context here, not in the name.
                   type: string
                 toggleOnList:
+                  x-growthbook-default: false
                   description: Show on feature list page
                   type: boolean
                 defaultState:
+                  x-growthbook-default: false
                   description: Default state for new features
                   type: boolean
                 projects:
@@ -23606,6 +23611,7 @@ paths:
                     - list
                     - remote
                 condition:
+                  x-growthbook-server-default: true
                   description: >-
                     When type = 'condition', this is the JSON-encoded condition
                     for the group
@@ -40249,6 +40255,7 @@ paths:
                   description: Put context here, not in the name.
                   type: string
                 status:
+                  x-growthbook-default: active
                   type: string
                   enum:
                     - active
@@ -40258,11 +40265,13 @@ paths:
                     Namespace format. Defaults to 'multiRange', which supports
                     multiple ranges per experiment and a configurable hash
                     attribute.
+                  x-growthbook-server-default: true
                   type: string
                   enum:
                     - legacy
                     - multiRange
                 hashAttribute:
+                  x-growthbook-server-default: true
                   description: >-
                     Required when format is 'multiRange'. The user attribute
                     (e.g. 'id', 'device_id') used to assign users to namespace
@@ -47655,7 +47664,10 @@ paths:
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. Omit
-                    to leave the current owner unchanged.
+                    to leave the current owner unchanged. A private dashboard
+                    owned by another member can only be retrieved or updated
+                    using its owner's Personal Access Token (PAT), not an
+                    organization secret API key.
                   type: string
                   minLength: 1
               additionalProperties: false
@@ -57619,6 +57631,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 archived:
+                  x-growthbook-default: false
                   type: boolean
               additionalProperties: false
       responses:
@@ -57690,6 +57703,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 archived:
+                  x-growthbook-default: false
                   type: boolean
               required:
                 - name
@@ -57805,6 +57819,7 @@ paths:
                   description: The global role for members of this team
                   type: string
                 limitAccessByEnvironment:
+                  x-growthbook-default: false
                   type: boolean
                 environments:
                   description: An empty array means 'all environments'
@@ -57948,6 +57963,7 @@ paths:
                   description: The global role for members of this team
                   type: string
                 limitAccessByEnvironment:
+                  x-growthbook-default: false
                   type: boolean
                 environments:
                   description: An empty array means 'all environments'
@@ -91926,6 +91942,75 @@ x-growthbook-resources:
       get: getFeatureV2
       update: updateFeatureV2
       delete: deleteFeatureV2
+  environment:
+    operations:
+      create: postEnvironment
+      list: listEnvironments
+      update: putEnvironment
+      delete: deleteEnvironment
+  archetype:
+    operations:
+      create: postArchetype
+      list: listArchetypes
+      get: getArchetype
+      update: putArchetype
+      delete: deleteArchetype
+  dimension:
+    operations:
+      create: postDimension
+      list: listDimensions
+      get: getDimension
+      update: updateDimension
+      delete: deleteDimension
+  segment:
+    operations:
+      create: postSegment
+      list: listSegments
+      get: getSegment
+      update: updateSegment
+      delete: deleteSegment
+  namespace:
+    operations:
+      create: postNamespace
+      list: listNamespaces
+      get: getNamespace
+      update: putNamespace
+      delete: deleteNamespace
+  metric:
+    operations:
+      create: postMetric
+      list: listMetrics
+      get: getMetric
+      update: putMetric
+      delete: deleteMetric
+  saved_group:
+    operations:
+      create: postSavedGroup
+      list: listSavedGroups
+      get: getSavedGroup
+      update: updateSavedGroup
+      delete: deleteSavedGroup
+  fact_table:
+    operations:
+      create: postFactTable
+      list: listFactTables
+      get: getFactTable
+      update: updateFactTable
+      delete: deleteFactTable
+  fact_table_filter:
+    operations:
+      create: postFactTableFilter
+      list: listFactTableFilters
+      get: getFactTableFilter
+      update: updateFactTableFilter
+      delete: deleteFactTableFilter
+  fact_metric:
+    operations:
+      create: postFactMetric
+      list: listFactMetrics
+      get: getFactMetric
+      update: updateFactMetric
+      delete: deleteFactMetric
   dashboard:
     operations:
       create: createDashboard

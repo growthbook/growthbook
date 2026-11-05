@@ -17,6 +17,16 @@ export const legacyApiResources: ApiResourceEntry[] = [
   { name: "attribute", path: "/attributes" },
   { name: "sdk_connection", path: "/sdk-connections" },
   { name: "feature", path: "/features", version: "v2" },
+  { name: "environment", path: "/environments" },
+  { name: "archetype", path: "/archetypes" },
+  { name: "dimension", path: "/dimensions" },
+  { name: "segment", path: "/segments" },
+  { name: "namespace", path: "/namespaces" },
+  { name: "metric", path: "/metrics" },
+  { name: "saved_group", path: "/saved-groups" },
+  { name: "fact_table", path: "/fact-tables" },
+  { name: "fact_table_filter", path: "/fact-tables/:factTableId/filters" },
+  { name: "fact_metric", path: "/fact-metrics" },
 ];
 
 // Collection routes sit at `path`, item routes at `path/:param`.

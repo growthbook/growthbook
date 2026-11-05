@@ -50,9 +50,65 @@ export const spec: Spec = {
     "/v1/things/{id}": { get: op("getThingV1", {}) },
     "/v2/things": { post: op("postThing", {}) },
     "/v2/things/{id}": { get: op("getThing", {}) },
+    "/v1/widgets/{widgetId}/parts": {
+      post: op(
+        "postPart",
+        {
+          type: "object",
+          properties: { part: { $ref: "#/components/schemas/Part" } },
+        },
+        {
+          name: { type: "string" },
+          owner: { type: "string" },
+          legacy: { type: "string", deprecated: true },
+          bounds: {
+            type: "object",
+            properties: { low: { type: "number" }, high: { type: "number" } },
+            required: ["low"],
+          },
+          limits: {
+            type: "object",
+            properties: { min: { type: "number" } },
+            required: ["min"],
+          },
+        },
+        ["name", "bounds"],
+      ),
+    },
+    "/v1/widgets/{widgetId}/parts/{id}": {
+      get: op("getPart", {
+        type: "object",
+        properties: { part: { $ref: "#/components/schemas/Part" } },
+      }),
+      put: op(
+        "putPart",
+        { type: "object", properties: { updatedId: { type: "string" } } },
+        { name: { type: "string" } },
+      ),
+      delete: op("deletePart", {}),
+    },
   },
   components: {
     schemas: {
+      Part: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          owner: { type: "string" },
+          ownerEmail: { type: "string" },
+          legacy: { type: "string", deprecated: true },
+          bounds: {
+            type: "object",
+            properties: {
+              low: { type: "number" },
+              high: { type: "number" },
+              computedAt: { type: "string" },
+            },
+          },
+          limits: { type: "object", properties: { min: { type: "number" } } },
+        },
+      },
       Widget: {
         type: "object",
         properties: {
@@ -85,5 +141,13 @@ export const spec: Spec = {
       },
     },
     gadget: { operations: { create: "postGadget", get: "getGadget" } },
+    part: {
+      operations: {
+        create: "postPart",
+        get: "getPart",
+        update: "putPart",
+        delete: "deletePart",
+      },
+    },
   },
 };
