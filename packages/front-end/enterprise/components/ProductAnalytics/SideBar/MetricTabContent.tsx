@@ -176,12 +176,11 @@ export default function MetricTabContent() {
           <ValueCard
             key={idx}
             index={idx}
-            footer={
+            filterActions={
               showAsOptions.length > 0 && (
                 <ShowAsInput
                   options={showAsOptions}
                   value={showAs}
-                  unit={v.unit}
                   setValue={(next) =>
                     updateValueInDataset(idx, { ...v, showAs: next })
                   }

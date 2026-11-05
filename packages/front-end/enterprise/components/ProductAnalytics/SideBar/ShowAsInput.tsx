@@ -1,35 +1,52 @@
-import { Flex } from "@radix-ui/themes";
+import { useState } from "react";
+import { PiCaretDown } from "react-icons/pi";
 import type { ShowAs } from "shared/validators";
+import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
-import RadioGroup from "@/ui/RadioGroup";
+
+// Keyed by every ShowAs so a new option can't ship without a label.
+const LABELS: Record<ShowAs, string> = {
+  total: "Event totals",
+  per_unit: "Per unit",
+};
 
 export default function ShowAsInput({
   options,
   value,
-  unit,
   setValue,
 }: {
   options: readonly ShowAs[];
   value: ShowAs;
-  unit: string | null;
   setValue: (value: ShowAs) => void;
 }) {
-  // Keyed by every ShowAs so a new option can't ship without a label.
-  const labels: Record<ShowAs, string> = {
-    total: "Event totals",
-    per_unit: `Per ${unit ?? "unit"}`,
-  };
+  const [open, setOpen] = useState(false);
   return (
-    <Flex direction="column" gap="2">
-      <Text weight="medium">Show as</Text>
-      <RadioGroup
-        options={options.map((option) => ({
-          label: labels[option],
-          value: option,
-        }))}
-        value={value}
-        setValue={(v) => setValue(v as ShowAs)}
-      />
-    </Flex>
+    <DropdownMenu
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={<PiCaretDown />}
+          iconPosition="right"
+        >
+          Show as {LABELS[value].toLowerCase()}
+        </Button>
+      }
+    >
+      {options.map((option) => (
+        <DropdownMenuItem
+          key={option}
+          onClick={() => {
+            setValue(option);
+            setOpen(false);
+          }}
+        >
+          <Text>{LABELS[option]}</Text>
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenu>
   );
 }
