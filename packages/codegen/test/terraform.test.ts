@@ -53,6 +53,21 @@ describe("renderResource", () => {
     );
   });
 
+  it("emits parents, and leaves objects unknown on update", () => {
+    const part = renderResource(analyzeResource(spec, "part"));
+    expect(part).toContain('parentAttributes:    []string{"widget_id"},');
+    expect(part).not.toContain("planmodifier.Object{stateForUnknown{}}");
+    expect(go).not.toContain("parentAttributes");
+  });
+
+  it("only keeps response-only values from state when they can't change", () => {
+    const part = renderResource(analyzeResource(spec, "part"));
+    const attribute = (name: string) =>
+      part.slice(part.indexOf(`"${name}": schema.`)).split("\n\t\t\t},")[0];
+    expect(attribute("id")).toContain("stateForUnknown{}");
+    expect(attribute("owner_email")).not.toContain("stateForUnknown{}");
+  });
+
   it("lists generated resources in the registry", () => {
     expect(renderRegistry([analyzeResource(spec, "widget")])).toContain(
       "\twidgetResource,\n",

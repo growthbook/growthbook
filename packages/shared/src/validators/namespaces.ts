@@ -109,19 +109,26 @@ const postNamespaceBody = z
         "Human-readable display name. Must be unique within the organization.",
       ),
     description: z.string().describe(PLAIN_DESCRIPTION).optional(),
-    status: z.enum(["active", "inactive"]).optional(),
+    status: z
+      .enum(["active", "inactive"])
+      .optional()
+      .meta({ "x-growthbook-default": "active" }),
     format: z
       .enum(["legacy", "multiRange"])
       .optional()
       .describe(
         "Namespace format. Defaults to 'multiRange', which supports multiple ranges per experiment and a configurable hash attribute.",
-      ),
+      )
+      // Not updatable, so a declared default would replace imported legacy namespaces.
+      .meta({ "x-growthbook-server-default": true }),
     hashAttribute: z
       .string()
       .describe(
         "Required when format is 'multiRange'. The user attribute (e.g. 'id', 'device_id') used to assign users to namespace buckets.",
       )
-      .optional(),
+      .optional()
+      // Required by multiRange namespaces, so updates keep it rather than clear it.
+      .meta({ "x-growthbook-server-default": true }),
   })
   .strict();
 

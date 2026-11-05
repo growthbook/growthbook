@@ -20,6 +20,7 @@ const schemaNodeValidator = z.looseObject({
   anyOf: z.array(z.unknown()).optional(),
   oneOf: z.array(z.unknown()).optional(),
   enum: z.array(z.unknown()).optional(),
+  deprecated: z.boolean().optional(),
   "x-growthbook-sensitive": z.boolean().optional(),
   "x-growthbook-default": z.unknown().optional(),
   "x-growthbook-server-default": z.boolean().optional(),

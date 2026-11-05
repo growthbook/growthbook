@@ -64,6 +64,61 @@ describe("analyzeResource", () => {
     });
   });
 
+  describe("nested resources", () => {
+    const part = analyzeResource(spec, "part");
+    const partField = (json: string) =>
+      part.fields.find((f) => f.json === json);
+    const nested = (json: string, child: string) => {
+      const type = partField(json)?.type;
+      return type?.kind === "object"
+        ? type.fields.find((f) => f.json === child)
+        : undefined;
+    };
+
+    it("take the parent's id from the path", () => {
+      expect(part.problems).toEqual([]);
+      expect(part.parentAttributes).toEqual(["widget_id"]);
+      expect(partField("widgetId")).toMatchObject({
+        required: true,
+        replace: true,
+        parent: true,
+        inCreate: false,
+      });
+    });
+
+    it("re-read after an update that only acknowledges", () => {
+      expect(part.operations.update?.responseKey).toBe("");
+    });
+
+    it("treat owner as filled in by the server", () => {
+      expect(partField("owner")).toMatchObject({
+        serverDefault: true,
+        computed: true,
+        clearable: false,
+      });
+    });
+
+    it("leave out deprecated fields", () => {
+      expect(partField("legacy")).toBeUndefined();
+    });
+
+    it("require nested fields only under a required parent", () => {
+      expect(nested("bounds", "low")).toMatchObject({ required: true });
+      expect(nested("bounds", "high")).toMatchObject({
+        optional: true,
+        computed: true,
+      });
+      expect(nested("bounds", "computedAt")).toMatchObject({
+        optional: false,
+        computed: true,
+      });
+      expect(nested("limits", "min")).toMatchObject({
+        required: false,
+        optional: true,
+      });
+    });
+  });
+
   it("refuses a default on a field updates can't change", () => {
     const withDefault = structuredClone(spec);
     const body = withDefault.paths["/v1/widgets"].post?.requestBody?.content?.[
@@ -85,5 +140,11 @@ describe("attribute names", () => {
     for (const json of ["id", "displayName", "includeProjectIdInMetadata"]) {
       expect(jsonName(attributeName(json))).toBe(json);
     }
+  });
+
+  it("keep acronyms as one word", () => {
+    expect(attributeName("targetMDE")).toBe("target_mde");
+    expect(attributeName("conversionSQL")).toBe("conversion_sql");
+    expect(attributeName("userSQLColumn")).toBe("user_sql_column");
   });
 });

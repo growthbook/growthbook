@@ -219,7 +219,9 @@ const postSavedGroupBody = z
       .describe(
         "When type = 'condition', this is the JSON-encoded condition for the group",
       )
-      .optional(),
+      .optional()
+      // Updates treat an empty condition as unset, so it can't be cleared.
+      .meta({ "x-growthbook-server-default": true }),
     attributeKey: z
       .string()
       .describe(

@@ -28,6 +28,8 @@ export type Field = {
   inCreate: boolean;
   inUpdate: boolean;
   inModel: boolean;
+  // The id of an object this one's paths nest under, e.g. a filter's fact table.
+  parent: boolean;
   defaultValue?: unknown;
   serverDefault: boolean;
   // Removing it from config clears it, instead of keeping the server's value.
@@ -44,19 +46,41 @@ export type ModelOperation = {
 export type ResourceModel = {
   name: string;
   idAttribute: string;
+  parentAttributes: string[];
   operations: Partial<Record<CrudAction, ModelOperation>>;
   fields: Field[];
   problems: string[];
 };
 
-// Changes on every write, so tracking it would show a diff after each apply.
-const volatileFields = ["dateUpdated"];
+// The API fills these in with the requesting member (a PAT's user) when omitted.
+const requesterDefaults = ["owner", "createdBy"];
 
+// Response-only values that never change once created, so updates can keep
+// them from state; other response-only values may change with any update.
+export const stableComputedFields = [
+  "id",
+  "dateCreated",
+  "uid",
+  "key",
+  "encryptionKey",
+  "proxySigningKey",
+  "seed",
+  "creator",
+];
+
+// dateUpdated changes on every write, so tracking it would show a diff after
+// each apply; the org id is implied by the API key.
+const volatileFields = ["dateUpdated", "organization"];
+
+// Acronyms stay one word: `targetMDE` is `target_mde`, not `target_m_d_e`.
 export function attributeName(field: string): string {
-  return field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+  return field
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([A-Z])([A-Z][a-z])/g, "$1_$2")
+    .toLowerCase();
 }
 
-// Mirrors jsonName in the provider's convert.go.
+// Mirrors jsonName in the provider's convert.go, before its overrides.
 export function jsonName(attribute: string): string {
   return attribute.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 }
@@ -67,17 +91,27 @@ function nonNullBranches(spec: Spec, node: SchemaNode): unknown[] | null {
   return branches.filter((branch) => schemaNode(spec, branch).type !== "null");
 }
 
-function fieldType(spec: Spec, value: unknown, optional: boolean): FieldType {
-  const node = schemaNode(spec, value);
-  const branches = nonNullBranches(spec, node);
-  if (branches) {
-    return branches.length === 1
-      ? fieldType(spec, branches[0], optional)
-      : { kind: "json" };
-  }
+// The one non-null branch of a nullable schema, or the schema itself.
+function single(spec: Spec, value: unknown): unknown {
+  const branches = nonNullBranches(spec, schemaNode(spec, value));
+  return branches?.length === 1 ? single(spec, branches[0]) : value;
+}
+
+// `input` is the request's schema for the same value, absent for response-only
+// values; nested fields take required and optional from it.
+function fieldType(
+  spec: Spec,
+  value: unknown,
+  input?: unknown,
+  required = false,
+): FieldType {
+  const node = schemaNode(spec, single(spec, value));
+  if (nonNullBranches(spec, node)) return { kind: "json" };
   const type = Array.isArray(node.type)
     ? node.type.find((t) => t !== "null")
     : node.type;
+  const inputNode =
+    input === undefined ? undefined : schemaNode(spec, single(spec, input));
   switch (type) {
     case "string":
       return { kind: "string" };
@@ -88,7 +122,7 @@ function fieldType(spec: Spec, value: unknown, optional: boolean): FieldType {
     case "number":
       return { kind: "float64" };
     case "array": {
-      const element = fieldType(spec, node.items, optional);
+      const element = fieldType(spec, node.items, inputNode?.items, required);
       return element.kind === "json" || element.kind === "list"
         ? { kind: "json" }
         : { kind: "list", element };
@@ -97,38 +131,64 @@ function fieldType(spec: Spec, value: unknown, optional: boolean): FieldType {
       if (!node.properties) return { kind: "json" };
       return {
         kind: "object",
-        fields: Object.entries(node.properties).map(([json, child]) =>
-          nestedField(spec, json, child, optional),
-        ),
+        fields: nestedFields(spec, node, inputNode, required),
       };
   }
   return { kind: "json" };
 }
 
-// Nested settings are all optional with server defaults.
-function nestedField(
+// Response-only nested fields are computed; the rest may be set in config.
+// Fields are only Required under a required parent: Terraform can't keep an
+// omitted Optional+Computed object whose fields are Required.
+function nestedFields(
   spec: Spec,
-  json: string,
-  value: unknown,
-  optional: boolean,
-): Field {
-  const node = schemaNode(spec, value);
-  return {
-    json,
-    attribute: attributeName(json),
-    type: fieldType(spec, value, optional),
-    description: node.description,
-    required: false,
-    optional,
-    computed: true,
-    replace: false,
-    sensitive: !!node["x-growthbook-sensitive"],
-    inCreate: optional,
-    inUpdate: optional,
-    inModel: true,
-    serverDefault: false,
-    clearable: false,
-  };
+  model: SchemaNode,
+  input: SchemaNode | undefined,
+  parentRequired: boolean,
+): Field[] {
+  const modelProperties = model.properties ?? {};
+  const inputProperties = input?.properties ?? {};
+  const required = new Set(input?.required ?? []);
+  const names = [
+    ...new Set([
+      ...Object.keys(modelProperties),
+      ...Object.keys(inputProperties),
+    ]),
+  ];
+  return names
+    .filter(
+      (json) =>
+        !schemaNode(spec, modelProperties[json] ?? inputProperties[json])
+          .deprecated,
+    )
+    .map((json): Field => {
+      const inInput = json in inputProperties;
+      const source = modelProperties[json] ?? inputProperties[json];
+      const node = schemaNode(spec, source);
+      const isRequired = parentRequired && inInput && required.has(json);
+      return {
+        json,
+        attribute: attributeName(json),
+        type: fieldType(
+          spec,
+          source,
+          inInput ? inputProperties[json] : undefined,
+          isRequired,
+        ),
+        description: node.description,
+        required: isRequired,
+        optional: inInput && !isRequired,
+        computed: !isRequired,
+        replace: false,
+        sensitive: !!node["x-growthbook-sensitive"],
+        inCreate: inInput,
+        inUpdate: inInput,
+        inModel: json in modelProperties,
+        parent: false,
+        serverDefault: false,
+        clearable: false,
+      };
+    });
 }
 
 // Only strings and lists have an empty value the API accepts as "unset".
@@ -146,10 +206,31 @@ function wrappedKey(
 ): string | null {
   const envelope = schemaProperties(spec, responseSchema(operation.operation));
   const keys = Object.keys(envelope ?? {}).filter(
-    (key) => !isList || schemaNode(spec, envelope?.[key]).type === "array",
+    (key) =>
+      schemaNode(spec, single(spec, envelope?.[key])).type ===
+      (isList ? "array" : "object"),
   );
   if (!isList && keys.includes(resourceKey)) return resourceKey;
   return keys.length === 1 ? keys[0] : null;
+}
+
+// Fields whose JSON name can't be derived from the attribute name, for the
+// provider's override map.
+export function jsonNameOverrides(fields: Field[]): Map<string, string> {
+  const overrides = new Map<string, string>();
+  const visit = (list: Field[]) => {
+    for (const field of list) {
+      if (jsonName(field.attribute) !== field.json) {
+        overrides.set(field.attribute, field.json);
+      }
+      if (field.type.kind === "object") visit(field.type.fields);
+      if (field.type.kind === "list" && field.type.element.kind === "object") {
+        visit(field.type.element.fields);
+      }
+    }
+  };
+  visit(fields);
+  return overrides;
 }
 
 export function analyzeResource(spec: Spec, name: string): ResourceModel {
@@ -175,14 +256,15 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
       action === "delete"
         ? ""
         : wrappedKey(spec, operation, jsonName(name), action === "list");
-    if (responseKey === null) {
+    // An update that only acknowledges (`{updatedId}`) is followed by a read.
+    if (responseKey === null && action !== "update") {
       problems.push(`${action} response is not one wrapped model`);
       continue;
     }
     operations[action as CrudAction] = {
       method: operation.method.toUpperCase(),
       path: operation.path,
-      responseKey,
+      responseKey: responseKey ?? "",
       paginated: !!operation.operation.parameters?.some(
         (p) => p.name === "limit" || p.$ref?.endsWith("/limit"),
       ),
@@ -190,7 +272,9 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
   }
 
   const itemPath = (get ?? update ?? del)?.path ?? "";
-  const idAttribute = attributeName(itemPath.match(/\{(\w+)\}$/)?.[1] ?? "id");
+  const params = [...itemPath.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+  const idAttribute = attributeName(params.pop() ?? "id");
+  const parentAttributes = params.map(attributeName);
 
   const readOperation = get ?? create;
   const readKey = operations[get ? "get" : "create"]?.responseKey;
@@ -213,7 +297,14 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
       ...Object.keys(createBody),
       ...Object.keys(updateBody),
     ]),
-  ].filter((json) => !volatileFields.includes(json));
+  ].filter(
+    (json) =>
+      !volatileFields.includes(json) &&
+      // New Terraform configs shouldn't start on fields the API is retiring.
+      ![model, createBody, updateBody].some(
+        (fields) => json in fields && schemaNode(spec, fields[json]).deprecated,
+      ),
+  );
 
   const fields = names.map((json): Field => {
     const inModel = json in model;
@@ -232,9 +323,16 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
     );
     const required = inCreate && requiredOnCreate.has(json);
     const optional = (inCreate || inUpdate) && !required;
-    const type = fieldType(spec, source, optional);
+    const type = fieldType(
+      spec,
+      source,
+      inCreate ? createBody[json] : inUpdate ? updateBody[json] : undefined,
+      required,
+    );
     const defaultValue = input["x-growthbook-default"];
-    const serverDefault = !!input["x-growthbook-server-default"];
+    const serverDefault =
+      !!input["x-growthbook-server-default"] ||
+      requesterDefaults.includes(json);
     const clearable =
       optional &&
       defaultValue === undefined &&
@@ -244,7 +342,8 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
       json,
       attribute: attributeName(json),
       type,
-      description: node.description,
+      // A request's description is written for whoever sets the value.
+      description: input.description ?? node.description,
       required,
       optional,
       computed:
@@ -254,11 +353,34 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
       inCreate,
       inUpdate,
       inModel,
+      parent: false,
       defaultValue,
       serverDefault,
       clearable,
     };
   });
+
+  for (const json of params) {
+    const parent = {
+      json,
+      attribute: attributeName(json),
+      type: { kind: "string" } as const,
+      required: true,
+      optional: false,
+      computed: false,
+      replace: true,
+      sensitive: false,
+      inCreate: false,
+      inUpdate: false,
+      inModel: false,
+      parent: true,
+      serverDefault: false,
+      clearable: false,
+    };
+    const existing = fields.findIndex((field) => field.json === json);
+    if (existing === -1) fields.push(parent);
+    else fields[existing] = { ...parent, inModel: fields[existing].inModel };
+  }
 
   for (const field of fields) {
     if (field.replace && field.defaultValue !== undefined) {
@@ -271,9 +393,6 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
   const walk = (list: Field[], prefix: string) => {
     for (const field of list) {
       const path = prefix + field.json;
-      if (jsonName(field.attribute) !== field.json) {
-        problems.push(`field name does not round-trip: ${path}`);
-      }
       if (field.type.kind === "object") walk(field.type.fields, `${path}.`);
       if (prefix && field.type.kind === "json") {
         problems.push(`nested JSON field: ${path}`);
@@ -285,5 +404,5 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
     problems.push(`no ${idAttribute} field`);
   }
 
-  return { name, idAttribute, operations, fields, problems };
+  return { name, idAttribute, parentAttributes, operations, fields, problems };
 }
