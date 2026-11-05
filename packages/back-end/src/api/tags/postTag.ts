@@ -3,9 +3,7 @@ import { PostTagBody, postTagValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { addTag, getAllTags } from "back-end/src/models/TagModel";
 
-// A field left out is empty on a new tag and keeps its value on an existing
-// one. The existing values come from the list, so an existing tag with no
-// stored color gets the list's default color.
+// `existing` comes from getAllTags, so a tag with no stored color keeps its default
 export function resolveTagWrite(
   body: PostTagBody,
   existing: TagInterface | undefined,
