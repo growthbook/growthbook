@@ -11,6 +11,7 @@ import type {
   ProductAnalyticsResultRow,
 } from "./validators/product-analytics";
 import {
+  datasetHasValues,
   DEFAULT_JOURNEY_OPTIONS_PER_STEP,
   MAX_JOURNEY_LOOKAHEAD_DEPTH,
   MAX_JOURNEY_OPTIONS_PER_STEP,
@@ -684,15 +685,55 @@ export function journeyDisplayLookaheadDepth(
 }
 
 /**
- * Overlays the requested path on a cached journey and collapses its lookahead
- * to the display frontier. Other explorations are returned unchanged.
+ * Carries each requested value's `name` and `showAs` onto a cached config. The
+ * cache match ignores both (see `toValueQueryKey`), so a cache hit's values
+ * line up with the request's index for index.
  */
+function withRequestedValueDisplay(
+  cached: ExplorationConfig,
+  requested: ExplorationConfig,
+): ExplorationConfig {
+  if (cached.type === "metric" && requested.type === "metric") {
+    const values = cached.dataset.values.map((value, i) => ({
+      ...value,
+      name: requested.dataset.values[i].name,
+      showAs: requested.dataset.values[i].showAs,
+    }));
+    return { ...cached, dataset: { ...cached.dataset, values } };
+  }
+  if (datasetHasValues(cached.dataset) && datasetHasValues(requested.dataset)) {
+    const requestedValues = requested.dataset.values;
+    const values = cached.dataset.values.map((value, i) => ({
+      ...value,
+      name: requestedValues[i].name,
+    }));
+    return {
+      ...cached,
+      dataset: { ...cached.dataset, values },
+    } as ExplorationConfig;
+  }
+  return cached;
+}
+
+/** Overlay the requested path and collapse cached lookahead to the display frontier. */
 export function toClientJourneyExploration(
   exploration: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
   if (exploration.config.type !== "journey" || requested.type !== "journey") {
-    return exploration;
+    return {
+      ...exploration,
+      config: withRequestedValueDisplay(
+        {
+          ...exploration.config,
+          chartType: requested.chartType,
+          showAs: requested.showAs,
+          chartSettings: requested.chartSettings,
+          dateRange: requested.dateRange,
+        },
+        requested,
+      ),
+    };
   }
   const cachedDataset = exploration.config.dataset;
   const requestedDataset = requested.dataset;
@@ -705,6 +746,10 @@ export function toClientJourneyExploration(
     ...exploration,
     config: {
       ...exploration.config,
+      chartType: requested.chartType,
+      showAs: requested.showAs,
+      chartSettings: requested.chartSettings,
+      dateRange: requested.dateRange,
       dataset: {
         ...cachedDataset,
         path: requestedDataset.path,

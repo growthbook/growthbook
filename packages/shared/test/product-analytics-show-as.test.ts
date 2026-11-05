@@ -6,7 +6,13 @@ import {
   getShowAsOptions,
   normalizeShowAs,
 } from "shared/enterprise";
-import type { ExplorationConfig, MetricValue, ShowAs } from "shared/validators";
+import { toClientJourneyExploration } from "shared/journeys";
+import type {
+  ExplorationConfig,
+  MetricValue,
+  ProductAnalyticsExploration,
+  ShowAs,
+} from "shared/validators";
 import { toValueQueryKey } from "shared/validators";
 import type { FactMetricInterface } from "shared/types/fact-table";
 
@@ -306,6 +312,25 @@ describe("getRenderedMetricValue", () => {
     expect([0, 1, 2].map((i) => getRenderedMetricValue(cell, opts, i))).toEqual(
       [100, 25, 100],
     );
+  });
+});
+
+describe("toClientJourneyExploration", () => {
+  it("serves a cached result with the requested names and showAs", () => {
+    const cached = {
+      config: metricConfig([
+        { ...metricValue("revenue", "per_unit"), name: "Old name" },
+        metricValue("maxOrder"),
+      ]),
+      result: { rows: [] },
+    } as unknown as ProductAnalyticsExploration;
+    const requested = metricConfig([
+      { ...metricValue("revenue"), name: "New name" },
+      metricValue("maxOrder", "total"),
+    ]);
+    expect(
+      toClientJourneyExploration(cached, requested).config.dataset,
+    ).toEqual(requested.dataset);
   });
 });
 
