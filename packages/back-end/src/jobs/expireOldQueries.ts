@@ -71,10 +71,13 @@ const HEARTBEAT_MIN_GAP_MS = 1000;
 const STALLED_SNAPSHOT_REAP_LIMIT = 50;
 const STALLED_SNAPSHOT_REAP_MAX_PER_TICK = 500;
 
-const INTERRUPTED_QUERIES_ERROR =
-  "Queries were interrupted. Please try updating results again.";
+const MANUAL_RETRY_HINT = "Please try updating results again.";
+const SCHEDULED_RETRY_HINT = "A retry has been scheduled.";
+const INTERRUPTED_QUERIES_ERROR = `Queries were interrupted. ${MANUAL_RETRY_HINT}`;
 const ORPHANED_SNAPSHOT_ERROR =
   "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh.";
+const NO_QUERIES_RECORDED_ERROR =
+  "Snapshot stalled: its queries were never recorded. This can happen when the server restarts mid-refresh.";
 const NOT_FINALIZED_SNAPSHOT_ERROR =
   "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 const ORPHANED_QUERY_ERROR =
@@ -422,10 +425,15 @@ async function evaluateStalledCandidate(
   };
 }
 
-function stalledSnapshotError(orphaned: boolean): string {
-  return orphaned
-    ? `${ORPHANED_SNAPSHOT_ERROR} Please try updating results again.`
+function stalledSnapshotError(
+  orphaned: boolean,
+  retryScheduled = false,
+): string {
+  const base = orphaned
+    ? ORPHANED_SNAPSHOT_ERROR
     : NOT_FINALIZED_SNAPSHOT_ERROR;
+  if (retryScheduled) return `${base} ${SCHEDULED_RETRY_HINT}`;
+  return orphaned ? `${base} ${MANUAL_RETRY_HINT}` : base;
 }
 
 // Oldest-first pages of running snapshots older than the heartbeat window,
@@ -580,9 +588,7 @@ async function recoverOrErrorStalledExperimentSnapshots() {
       snapshot.triggeredBy === "schedule";
 
     const error = isOrphanedDag
-      ? shouldScheduleSnapshotRetry
-        ? `${ORPHANED_SNAPSHOT_ERROR} A retry has been scheduled.`
-        : stalledSnapshotError(true)
+      ? stalledSnapshotError(true, shouldScheduleSnapshotRetry)
       : stalledSnapshotError(false) +
         (recoverError ? ` Automatic recovery failed: ${recoverError}` : "");
 
@@ -780,8 +786,7 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
         family,
         snapshot,
         {
-          error:
-            "Snapshot stalled: its queries were never recorded. This can happen when the server restarts mid-refresh. Please try updating results again.",
+          error: `${NO_QUERIES_RECORDED_ERROR} ${family.scheduleRetry ? SCHEDULED_RETRY_HINT : MANUAL_RETRY_HINT}`,
         },
         `Reaped ${name}: running with no queries recorded`,
       );
@@ -796,7 +801,10 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
     const reaped = await reapRawSnapshot(
       family,
       snapshot,
-      { error: stalledSnapshotError(orphanedDag), queries },
+      {
+        error: stalledSnapshotError(orphanedDag, !!family.scheduleRetry),
+        queries,
+      },
       orphanedDag
         ? `Reaped orphaned ${name}: ${verdict}, ${queryIds.length} queries with nothing running`
         : `Reaped stalled ${name}: all ${queryIds.length} queries terminal but status still running`,

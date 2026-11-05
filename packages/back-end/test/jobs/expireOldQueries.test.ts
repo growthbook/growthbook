@@ -1252,6 +1252,14 @@ describe("expireOldQueries safe rollout retry", () => {
   it("schedules the safe rollout's next attempt for now after a reap", async () => {
     await runJob();
 
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "srsnp_1", status: "running" },
+      {
+        $set: expect.objectContaining({
+          error: expect.stringContaining("A retry has been scheduled."),
+        }),
+      },
+    );
     expect(updateOneCallsFor("saferollout")).toEqual([
       [
         { id: "sr_1", status: "running", autoSnapshots: true },
