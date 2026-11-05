@@ -23,12 +23,10 @@ import {
 } from "./sdkWebhooks";
 import { queueLegacySdkWebhooks } from "./webhooks";
 
-// Whether anything would be notified by triggerWebhookJobs for this org: the
-// cloud proxy, global SDK webhooks, a Fastly CDN purge, an env-configured
-// proxy, or an enabled SDK or legacy webhook. Environment checks run first so
-// the database is only read when none of them apply. Per-connection proxy
-// settings aren't read since outside cloud they are overwritten from the
-// environment (see addEnvProxySettings).
+// Whether triggerWebhookJobs would notify anything for this org. Env checks go
+// first so the database is only read when none apply. Per-connection proxy
+// settings are skipped: outside cloud they're overwritten from the environment
+// (see addEnvProxySettings).
 export async function hasSdkPayloadListeners(
   context: ReqContext | ApiReqContext,
 ): Promise<boolean> {
