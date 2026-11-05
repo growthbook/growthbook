@@ -197,8 +197,10 @@
 .planLabel {
   padding-left: calc(5px + var(--wordmark-inset));
 
-  // Text sets its own letter-spacing.
+  // Text sets its own letter-spacing. 10px is deliberately below Text's
+  // smallest size: the label is part of the logo lockup, not body text.
   & > * {
+    font-size: 10px;
     letter-spacing: 0.08em;
   }
 }
