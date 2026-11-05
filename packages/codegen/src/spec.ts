@@ -12,7 +12,10 @@ export type CrudAction = z.infer<typeof crudActionValidator>;
 const schemaNodeValidator = z.looseObject({
   $ref: z.string().optional(),
   type: z.unknown().optional(),
+  description: z.string().optional(),
   properties: z.record(z.string(), z.unknown()).optional(),
+  required: z.array(z.string()).optional(),
+  items: z.unknown().optional(),
   allOf: z.array(z.unknown()).optional(),
   anyOf: z.array(z.unknown()).optional(),
   oneOf: z.array(z.unknown()).optional(),
@@ -30,6 +33,14 @@ const jsonContentValidator = z.looseObject({
 
 const operationValidator = z.looseObject({
   operationId: z.string(),
+  parameters: z
+    .array(
+      z.looseObject({
+        name: z.string().optional(),
+        $ref: z.string().optional(),
+      }),
+    )
+    .optional(),
   requestBody: jsonContentValidator.optional(),
   responses: z.record(z.string(), z.unknown()),
 });

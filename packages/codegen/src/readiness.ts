@@ -1,12 +1,5 @@
-import {
-  indexOperations,
-  LocatedOperation,
-  requestSchema,
-  responseSchema,
-  schemaNode,
-  schemaProperties,
-  Spec,
-} from "./spec";
+import { analyzeResource, Field } from "./resource-model";
+import { Spec } from "./spec";
 
 export type ReadinessStatus =
   | "generated"
@@ -20,101 +13,48 @@ export type ReadinessRow = {
   notes: string[];
 };
 
-function isUnion(spec: Spec, value: unknown): boolean {
-  const node = schemaNode(spec, value);
-  const branches = node.anyOf ?? node.oneOf;
-  if (!branches) return false;
-  const nonNull = branches.filter(
-    (branch) => schemaNode(spec, branch).type !== "null",
-  );
-  return nonNull.length > 1;
-}
+const named = (fields: Field[], test: (field: Field) => boolean) =>
+  fields
+    .filter(test)
+    .map((field) => field.json)
+    .join(", ");
 
-// The model a single-resource response wraps, e.g. `{ project: Project }`.
-function wrappedModel(
-  spec: Spec,
-  operation: LocatedOperation | undefined,
-): Record<string, unknown> | null {
-  if (!operation) return null;
-  const envelope = schemaProperties(spec, responseSchema(operation.operation));
-  const keys = Object.keys(envelope ?? {});
-  if (!envelope || keys.length !== 1) return null;
-  return schemaProperties(spec, envelope[keys[0]]);
-}
-
-function bodyFields(
-  spec: Spec,
-  operation: LocatedOperation | undefined,
-): string[] {
-  if (!operation) return [];
-  return Object.keys(
-    schemaProperties(spec, requestSchema(operation.operation)) ?? {},
-  );
-}
-
-function assessDescribed(
-  spec: Spec,
-  name: string,
-  operations: Record<string, LocatedOperation | undefined>,
-): ReadinessRow {
-  const { create, get, list, update, delete: del } = operations;
-  const reasons: string[] = [];
+function assessDescribed(spec: Spec, name: string): ReadinessRow {
+  const { operations, fields, problems } = analyzeResource(spec, name);
   const notes: string[] = [];
-
-  if (!create) reasons.push("no create");
-  if (!del) reasons.push("no delete");
-  if (!get && !list) reasons.push("no read");
-  if (!get && list) notes.push("read via list");
-
-  const model = wrappedModel(spec, get ?? create);
-  if (!model) {
-    reasons.push("response is not one wrapped model");
-  } else {
-    const createFields = bodyFields(spec, create);
-    const updateFields = bodyFields(spec, update);
-    const unions = [
-      ...Object.entries(model),
-      ...Object.entries(
-        schemaProperties(spec, create && requestSchema(create.operation)) ?? {},
-      ),
-    ]
-      .filter(([, value]) => isUnion(spec, value))
-      .map(([field]) => field);
-    if (unions.length) {
-      reasons.push(`union fields: ${[...new Set(unions)].join(", ")}`);
-    }
-
-    const replaced = update
-      ? createFields.filter((field) => !updateFields.includes(field))
-      : createFields;
-    if (!update) notes.push("no update: every change replaces");
-    else if (replaced.length)
-      notes.push(`replace on change: ${replaced.join(", ")}`);
-
-    const sensitive = Object.entries(model)
-      .filter(([, value]) => schemaNode(spec, value)["x-growthbook-sensitive"])
-      .map(([field]) => field);
-    if (sensitive.length) notes.push(`sensitive: ${sensitive.join(", ")}`);
-
-    const computed = Object.keys(model).filter(
-      (field) => !createFields.includes(field) && !updateFields.includes(field),
-    );
-    notes.push(`${computed.length} computed`);
+  if (!operations.get && operations.list) notes.push("read via list");
+  if (!operations.update) notes.push("no update: every change replaces");
+  for (const [label, test] of [
+    ["replace on change", (f: Field) => f.replace && !!operations.update],
+    ["JSON", (f: Field) => f.type.kind === "json"],
+    ["sensitive", (f: Field) => f.sensitive],
+    ["write-only", (f: Field) => !f.computed && !f.required && f.optional],
+  ] as const) {
+    const list = named(fields, test);
+    if (list) notes.push(`${label}: ${list}`);
   }
+  notes.push(
+    `${fields.filter((f) => f.computed && !f.inCreate && !f.inUpdate).length} computed`,
+  );
 
   return {
     resource: name,
-    status: reasons.length ? "needs-override" : "generated",
-    reasons,
+    status: problems.length ? "needs-override" : "generated",
+    reasons: problems,
     notes,
   };
 }
 
 // Collections with a POST and item routes that no resource claims yet.
-function undescribedCandidates(
-  spec: Spec,
-  claimed: Set<string>,
-): ReadinessRow[] {
+function undescribedCandidates(spec: Spec): ReadinessRow[] {
+  const claimed = new Set<string>();
+  for (const name of Object.keys(spec["x-growthbook-resources"])) {
+    for (const operation of Object.values(
+      analyzeResource(spec, name).operations,
+    )) {
+      claimed.add(operation.path);
+    }
+  }
   const paths = Object.keys(spec.paths);
   const supersededByV2 = (path: string) =>
     path.startsWith("/v1/") && path.replace(/^\/v1\//, "/v2/") in spec.paths;
@@ -135,21 +75,12 @@ function undescribedCandidates(
 }
 
 export function assessReadiness(spec: Spec): ReadinessRow[] {
-  const index = indexOperations(spec);
-  const claimed = new Set<string>();
-  const described = Object.entries(spec["x-growthbook-resources"]).map(
-    ([name, { operations }]) => {
-      const located = Object.fromEntries(
-        Object.entries(operations).map(([action, operationId]) => {
-          const operation = operationId ? index.get(operationId) : undefined;
-          if (operation) claimed.add(operation.path);
-          return [action, operation];
-        }),
-      );
-      return assessDescribed(spec, name, located);
-    },
-  );
-  return [...described, ...undescribedCandidates(spec, claimed)];
+  return [
+    ...Object.keys(spec["x-growthbook-resources"]).map((name) =>
+      assessDescribed(spec, name),
+    ),
+    ...undescribedCandidates(spec),
+  ];
 }
 
 export function formatReadiness(rows: ReadinessRow[]): string {
