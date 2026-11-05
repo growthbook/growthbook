@@ -150,3 +150,48 @@ describe('shared representatives across the grid (normalize="all")', () => {
     expect(intensitiesA).toEqual(intensitiesB);
   });
 });
+
+describe('per-row representatives (normalize="row")', () => {
+  // Regression: in row mode a row's colors must depend only on its own values.
+  // Both rows display "32%, 33%, 35%", but their raw "33%" differs (0.326 vs
+  // 0.334). Building representatives per row keeps each row's shading stable
+  // regardless of sibling rows or their order (ContextualBanditResultsTable
+  // re-sorts leaves by sample size, which must not recolor an unchanged leaf).
+  const rowA = [0.324, 0.326, 0.35];
+  const rowB = [0.316, 0.334, 0.35];
+
+  // Mirrors the component's normalize="row" path: representatives come from the
+  // row itself, and the row is normalized against its own min/max.
+  const rowIntensities = (row: number[]): (number | null)[] => {
+    const keys = keysFor(row);
+    return normalizeValues(
+      quantizeByDisplay(row, keys, buildDisplayRepresentatives(row, keys)),
+    );
+  };
+
+  it("colors each row from its own values", () => {
+    expect(rowIntensities(rowA)).toEqual([
+      0,
+      (0.326 - 0.324) / (0.35 - 0.324),
+      1,
+    ]);
+    expect(rowIntensities(rowB)).toEqual([
+      0,
+      (0.334 - 0.316) / (0.35 - 0.316),
+      1,
+    ]);
+  });
+
+  it("is independent of sibling rows, unlike a shared grid-wide map", () => {
+    // A grid-wide map (first-seen = rowA) would remap rowB's cells onto rowA's
+    // values, so rowB would be colored as if its values were rowA's. Per-row
+    // representatives avoid that borrowing.
+    const gridKeys = keysFor([...rowA, ...rowB]);
+    const gridReps = buildDisplayRepresentatives([...rowA, ...rowB], gridKeys);
+    const rowBWithGridMap = normalizeValues(
+      quantizeByDisplay(rowB, keysFor(rowB), gridReps),
+    );
+
+    expect(rowBWithGridMap).not.toEqual(rowIntensities(rowB));
+  });
+});

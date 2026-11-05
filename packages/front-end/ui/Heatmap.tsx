@@ -176,21 +176,24 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
     () => allCells.map((c) => cellShadeKey(c, formatValue)),
     [allCells, formatValue],
   );
-  const displayRepresentatives = useMemo(
-    () => buildDisplayRepresentatives(allValues, shadeKeys),
-    [allValues, shadeKeys],
+  const gridRepresentatives = useMemo(
+    () =>
+      normalize === "all"
+        ? buildDisplayRepresentatives(allValues, shadeKeys)
+        : null,
+    [normalize, allValues, shadeKeys],
   );
 
   const globalBounds = useMemo(() => {
-    if (normalize !== "all") return undefined;
+    if (normalize !== "all" || !gridRepresentatives) return undefined;
     const numeric = quantizeByDisplay(
       allValues,
       shadeKeys,
-      displayRepresentatives,
+      gridRepresentatives,
     ).filter((v): v is number => v !== null && !Number.isNaN(v));
     if (numeric.length === 0) return undefined;
     return { min: Math.min(...numeric), max: Math.max(...numeric) };
-  }, [normalize, allValues, shadeKeys, displayRepresentatives]);
+  }, [normalize, allValues, shadeKeys, gridRepresentatives]);
 
   return (
     <div ref={ref} {...marginProps}>
@@ -225,12 +228,14 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
         </TableHeader>
         <TableBody>
           {rows.map((row) => {
+            const rowValues = row.cells.map((c) => c.value);
+            const rowKeys = row.cells.map((c) => cellShadeKey(c, formatValue));
+            const representatives =
+              normalize === "all" && gridRepresentatives
+                ? gridRepresentatives
+                : buildDisplayRepresentatives(rowValues, rowKeys);
             const intensities = normalizeValues(
-              quantizeByDisplay(
-                row.cells.map((c) => c.value),
-                row.cells.map((c) => cellShadeKey(c, formatValue)),
-                displayRepresentatives,
-              ),
+              quantizeByDisplay(rowValues, rowKeys, representatives),
               normalize === "all" ? globalBounds : undefined,
             );
             return (
