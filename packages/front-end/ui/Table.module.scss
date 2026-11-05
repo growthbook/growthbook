@@ -15,6 +15,28 @@
   min-width: var(--table-min-width, 0);
 }
 
+// A scroll box can't let its header stick to the window, so it doesn't.
+// The outline moves onto the box, so it stays whole as the table scrolls.
+.wrapper[data-table-list][data-auto-scroll="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12)) !important;
+  border-radius: var(--radius-4);
+
+  :global(.rt-TableRootTable) {
+    border: none;
+    border-radius: 0;
+  }
+
+  :global(.rt-TableHeader) {
+    position: static !important;
+  }
+
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+    box-shadow: inset 0 -1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12));
+  }
+}
+
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
 .wrapper[data-table-list] {
   max-width: 100%;

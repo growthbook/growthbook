@@ -153,7 +153,8 @@ export default function ExecExperimentsGraph({
       justify="center"
       style={{ width: "100%", height: "100%" }}
     >
-      <Box flexGrow="1">
+      {/* Shrinkable, so the chart re-measures when the card narrows. */}
+      <Box flexGrow="1" minWidth="0">
         <Heading size="3">Experiment Status</Heading>
         <ParentSizeModern>
           {({ width }) => {

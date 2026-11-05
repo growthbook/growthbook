@@ -32,7 +32,11 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
-import { AGENT_PANEL_PORTAL_Z_INDEX } from "@/components/Agent/AgentPanelContext";
+import {
+  AGENT_PANEL_PORTAL_Z_INDEX,
+  AGENT_DOCK_MOTION_MS,
+  useAgentPanel,
+} from "@/components/Agent/AgentPanelContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useMediaQuery from "@/hooks/useMediaQuery";
@@ -106,6 +110,8 @@ const BREAKPOINT_SWITCH_CLASS = "app-breakpoint-switch";
  * are off.
  */
 const BREAKPOINT_SWITCH_MS = 150;
+/** Below this width, opening the docked AI Assistant panel collapses the sidebar. */
+const AUTO_COLLAPSE_MAX_WIDTH = "(max-width: 1599px)";
 /**
  * Turns transitions off while a saved collapsed sidebar is restored, so it
  * doesn't slide shut on load (global.scss).
@@ -568,6 +574,9 @@ export default function Sidebar() {
   const route = router.route.substring(1);
   const { open: drawerOpen, setOpen: setDrawerOpen } = useSidebarOpen();
   const [collapsedPref, toggleCollapsed] = useSidebarCollapsed();
+  // Not saved as your preference.
+  const [autoCollapsed, setAutoCollapsed] = useState(false);
+  const sidebarCollapsed = collapsedPref || autoCollapsed;
 
   // Below 1180px the sidebar is a drawer, always expanded.
   const isNarrow = useMediaQuery(
@@ -590,7 +599,7 @@ export default function Sidebar() {
       root.classList.remove(BREAKPOINT_SWITCH_CLASS);
     };
   }, [isNarrow]);
-  const collapsed = collapsedPref && !isNarrow;
+  const collapsed = sidebarCollapsed && !isNarrow;
 
   const navRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -717,8 +726,11 @@ export default function Sidebar() {
   }, [drawer, setDrawerOpen]);
 
   useIsomorphicLayoutEffect(() => {
-    document.documentElement.classList.toggle(COLLAPSED_CLASS, collapsedPref);
-  }, [collapsedPref]);
+    document.documentElement.classList.toggle(
+      COLLAPSED_CLASS,
+      sidebarCollapsed,
+    );
+  }, [sidebarCollapsed]);
   useEffect(
     () => () => document.documentElement.classList.remove(COLLAPSED_CLASS),
     [],
@@ -734,8 +746,25 @@ export default function Sidebar() {
     // Before the width changes, so the page's padding moves with it
     // (global.scss); cleared once the sidebar stops (below).
     document.documentElement.classList.add("app-sidebar-motion");
-    toggleCollapsed();
+    // Collapsed for the AI Assistant panel: expanding keeps your saved choice.
+    if (autoCollapsed) setAutoCollapsed(false);
+    else toggleCollapsed();
   };
+
+  // Once per opening, and not saved: after a reload, your saved choice
+  // applies.
+  const { open: agentOpen } = useAgentPanel();
+  const panelDocked = agentOpen && !isNarrow;
+  const wasPanelDocked = useRef(panelDocked);
+  // Before paint, so it collapses in the same frame the panel starts sliding.
+  useIsomorphicLayoutEffect(() => {
+    const opened = panelDocked && !wasPanelDocked.current;
+    wasPanelDocked.current = panelDocked;
+    if (!opened || sidebarCollapsed) return;
+    if (!window.matchMedia(AUTO_COLLAPSE_MAX_WIDTH).matches) return;
+    userToggled.current = true;
+    setAutoCollapsed(true);
+  }, [panelDocked, sidebarCollapsed]);
   const [contentCollapsed, setContentCollapsed] = useState(collapsed);
   // While the sidebar's width moves, the section rows' chevrons hide, so they
   // never slide over the icons as the rows resize (Sidebar.module.scss).
@@ -762,10 +791,16 @@ export default function Sidebar() {
       return;
     }
     setResizing(true);
-    const timer = setTimeout(() => {
-      setContentCollapsed(collapsed);
-      setResizing(false);
-    }, SIDEBAR_WIDTH_TRANSITION_MS);
+    // Collapsing for the docked panel, it moves on the panel's timing.
+    const timer = setTimeout(
+      () => {
+        setContentCollapsed(collapsed);
+        setResizing(false);
+      },
+      document.documentElement.classList.contains("agent-dock-motion")
+        ? AGENT_DOCK_MOTION_MS
+        : SIDEBAR_WIDTH_TRANSITION_MS,
+    );
     return () => clearTimeout(timer);
   }, [collapsed]);
 

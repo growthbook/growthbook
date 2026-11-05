@@ -1,13 +1,21 @@
 .wrapper {
   position: fixed;
-  right: 24px;
+  // Clear of the docked AI Assistant panel while it's open (AgentPanel.tsx).
+  right: calc(24px + var(--agent-rail-width, 0px));
+  transition: right var(--agent-dock-duration) var(--agent-dock-easing);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
   // Clears whichever help launcher owns this corner: it publishes the room it
   // takes (see PylonLoader). At 24px the card buried it, so Help couldn't be
   // clicked until the survey was answered or dismissed.
   bottom: calc(var(--help-launcher-clearance, 70px) + 18px);
   // Below modals (bootstrap 1050, 1550 with increasedElevation) so the card
-  // can never cover a dialog's footer buttons, but above ordinary page content.
-  z-index: 1040;
+  // can never cover a dialog's footer buttons, but above ordinary page content
+  // and the header (1010). Under the AI Assistant panel (1020), which can cover
+  // the page (focus mode, and the whole window below 1024px).
+  z-index: 1019;
   width: 384px;
   max-width: calc(100vw - 32px);
   animation: nps-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);

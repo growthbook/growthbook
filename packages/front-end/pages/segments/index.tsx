@@ -234,130 +234,132 @@ const SegmentPage: FC = () => {
               &quot;annual subscribers&quot; or &quot;left-handed people from
               France.&quot;
             </p>
-            <table
-              className={clsx("table appbox gbtable", {
-                "table-hover": !hasFileConfig(),
-              })}
-            >
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Owner</th>
-                  <th>Projects</th>
-                  <th className="d-none d-sm-table-cell">Data Source</th>
-                  <th className="d-none d-md-table-cell">Identifier Type</th>
-                  <th>Date Updated</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {segments.map((s) => {
-                  const datasource = getDatasourceById(s.datasource);
-                  const userIdType = datasource?.properties?.userIds
-                    ? s.userIdType || "user_id"
-                    : "";
-                  return (
-                    <tr key={s.id}>
-                      <td>
-                        <>
-                          <OfficialBadge
-                            type="Segment"
-                            managedBy={s.managedBy}
-                          />
-                          {s.name}{" "}
-                          {s.description ? (
-                            <Tooltip body={s.description} />
-                          ) : null}
-                        </>
-                      </td>
-                      <td>{getOwnerDisplay(s.owner)}</td>
-                      <td className="col-2">
-                        {s && (s.projects || []).length > 0 ? (
-                          <ProjectBadges
-                            resourceType="segment"
-                            projectIds={s.projects}
-                          />
-                        ) : (
-                          <ProjectBadges resourceType="segment" />
-                        )}
-                      </td>
-                      <td className="d-none d-sm-table-cell">
-                        {datasource && (
+            <div style={{ overflowX: "auto" }}>
+              <table
+                className={clsx("table appbox gbtable", {
+                  "table-hover": !hasFileConfig(),
+                })}
+              >
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Owner</th>
+                    <th>Projects</th>
+                    <th className="d-none d-sm-table-cell">Data Source</th>
+                    <th className="d-none d-md-table-cell">Identifier Type</th>
+                    <th>Date Updated</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {segments.map((s) => {
+                    const datasource = getDatasourceById(s.datasource);
+                    const userIdType = datasource?.properties?.userIds
+                      ? s.userIdType || "user_id"
+                      : "";
+                    return (
+                      <tr key={s.id}>
+                        <td>
                           <>
-                            <Link href={`/datasources/${datasource.id}`}>
-                              {datasource.name}
-                            </Link>{" "}
-                            {datasource.description ? (
-                              <Tooltip body={datasource.description} />
+                            <OfficialBadge
+                              type="Segment"
+                              managedBy={s.managedBy}
+                            />
+                            {s.name}{" "}
+                            {s.description ? (
+                              <Tooltip body={s.description} />
                             ) : null}
                           </>
-                        )}
-                      </td>
-                      <td className="d-none d-md-table-cell">
-                        <span
-                          className="badge badge-secondary mr-1"
-                          key={`${s.id}-${userIdType}`}
-                        >
-                          {userIdType}
-                        </span>
-                      </td>
-                      <td>
-                        {s.managedBy !== "config" ? (
-                          <>{ago(s.dateUpdated)}</>
-                        ) : (
-                          <>-</>
-                        )}
-                      </td>
-                      <td>
-                        <MoreMenu useRadix={false}>
-                          {/* If the user has permission & the segment isn't externally managed, show edit icon,
+                        </td>
+                        <td>{getOwnerDisplay(s.owner)}</td>
+                        <td className="col-2">
+                          {s && (s.projects || []).length > 0 ? (
+                            <ProjectBadges
+                              resourceType="segment"
+                              projectIds={s.projects}
+                            />
+                          ) : (
+                            <ProjectBadges resourceType="segment" />
+                          )}
+                        </td>
+                        <td className="d-none d-sm-table-cell">
+                          {datasource && (
+                            <>
+                              <Link href={`/datasources/${datasource.id}`}>
+                                {datasource.name}
+                              </Link>{" "}
+                              {datasource.description ? (
+                                <Tooltip body={datasource.description} />
+                              ) : null}
+                            </>
+                          )}
+                        </td>
+                        <td className="d-none d-md-table-cell">
+                          <span
+                            className="badge badge-secondary mr-1"
+                            key={`${s.id}-${userIdType}`}
+                          >
+                            {userIdType}
+                          </span>
+                        </td>
+                        <td>
+                          {s.managedBy !== "config" ? (
+                            <>{ago(s.dateUpdated)}</>
+                          ) : (
+                            <>-</>
+                          )}
+                        </td>
+                        <td>
+                          <MoreMenu useRadix={false}>
+                            {/* If the user has permission & the segment isn't externally managed, show edit icon,
                           otherwise the cta should be `View Details`. This is because Segment's don't have an id page,
                          in order for the user to see the sql that powers the segment, we need to show the edit form, but in read only mode */}
-                          <button
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSegmentForm(s);
-                            }}
-                          >
-                            {permissionsUtil.canUpdateSegment(s, {}) &&
-                            !s.managedBy ? (
-                              <>
-                                <FaPencilAlt /> Edit
-                              </>
-                            ) : (
-                              <>View Details</>
-                            )}
-                          </button>
-                          {permissionsUtil.canDeleteSegment(s) &&
-                          canStoreSegmentsInMongo &&
-                          // if the segment has a managedBy value, it can't be deleted in the UI
-                          !s.managedBy ? (
-                            <DeleteButton
-                              useRadix={false}
+                            <button
                               className="dropdown-item"
-                              displayName={s.name}
-                              text="Delete"
-                              getConfirmationContent={getSegmentUsage(s)}
-                              onClick={async () => {
-                                await apiCall<{
-                                  status: number;
-                                  message?: string;
-                                }>(`/segments/${s.id}`, {
-                                  method: "DELETE",
-                                  body: JSON.stringify({ id: s.id }),
-                                });
-                                await mutate({});
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSegmentForm(s);
                               }}
-                            />
-                          ) : null}
-                        </MoreMenu>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            >
+                              {permissionsUtil.canUpdateSegment(s, {}) &&
+                              !s.managedBy ? (
+                                <>
+                                  <FaPencilAlt /> Edit
+                                </>
+                              ) : (
+                                <>View Details</>
+                              )}
+                            </button>
+                            {permissionsUtil.canDeleteSegment(s) &&
+                            canStoreSegmentsInMongo &&
+                            // if the segment has a managedBy value, it can't be deleted in the UI
+                            !s.managedBy ? (
+                              <DeleteButton
+                                useRadix={false}
+                                className="dropdown-item"
+                                displayName={s.name}
+                                text="Delete"
+                                getConfirmationContent={getSegmentUsage(s)}
+                                onClick={async () => {
+                                  await apiCall<{
+                                    status: number;
+                                    message?: string;
+                                  }>(`/segments/${s.id}`, {
+                                    method: "DELETE",
+                                    body: JSON.stringify({ id: s.id }),
+                                  });
+                                  await mutate({});
+                                }}
+                              />
+                            ) : null}
+                          </MoreMenu>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
