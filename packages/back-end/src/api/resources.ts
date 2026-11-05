@@ -27,6 +27,9 @@ export const legacyApiResources: ApiResourceEntry[] = [
   { name: "fact_table", path: "/fact-tables" },
   { name: "fact_table_filter", path: "/fact-tables/:factTableId/filters" },
   { name: "fact_metric", path: "/fact-metrics" },
+  // Read-only through the REST API, so Terraform gets data sources only.
+  { name: "member", path: "/members" },
+  { name: "data_source", path: "/data-sources" },
 ];
 
 // Collection routes sit at `path`, item routes at `path/:param`.

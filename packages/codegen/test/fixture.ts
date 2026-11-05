@@ -50,6 +50,20 @@ export const spec: Spec = {
     "/v1/things/{id}": { get: op("getThingV1", {}) },
     "/v2/things": { post: op("postThing", {}) },
     "/v2/things/{id}": { get: op("getThing", {}) },
+    "/v1/badges": {
+      get: op("listBadges", {
+        type: "object",
+        properties: {
+          badges: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { id: { type: "string" }, name: { type: "string" } },
+            },
+          },
+        },
+      }),
+    },
     "/v1/widgets/{widgetId}/parts": {
       post: op(
         "postPart",
@@ -141,6 +155,7 @@ export const spec: Spec = {
       },
     },
     gadget: { operations: { create: "postGadget", get: "getGadget" } },
+    badge: { operations: { list: "listBadges" } },
     part: {
       operations: {
         create: "postPart",

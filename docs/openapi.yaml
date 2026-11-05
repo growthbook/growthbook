@@ -95678,6 +95678,14 @@ x-growthbook-resources:
       get: getFactMetric
       update: updateFactMetric
       delete: deleteFactMetric
+  member:
+    operations:
+      list: listMembers
+      delete: deleteMember
+  data_source:
+    operations:
+      list: listDataSources
+      get: getDataSource
   dashboard:
     operations:
       create: createDashboard

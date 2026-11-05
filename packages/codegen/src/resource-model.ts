@@ -47,6 +47,8 @@ export type ResourceModel = {
   name: string;
   idAttribute: string;
   parentAttributes: string[];
+  // Readable but not creatable (members, data sources): data sources only.
+  dataOnly: boolean;
   operations: Partial<Record<CrudAction, ModelOperation>>;
   fields: Field[];
   problems: string[];
@@ -205,11 +207,12 @@ function wrappedKey(
   isList: boolean,
 ): string | null {
   const envelope = schemaProperties(spec, responseSchema(operation.operation));
-  const keys = Object.keys(envelope ?? {}).filter(
-    (key) =>
-      schemaNode(spec, single(spec, envelope?.[key])).type ===
-      (isList ? "array" : "object"),
-  );
+  const keys = Object.keys(envelope ?? {}).filter((key) => {
+    const node = schemaNode(spec, single(spec, envelope?.[key]));
+    return isList
+      ? node.type === "array"
+      : node.type === "object" || !!node.allOf;
+  });
   if (!isList && keys.includes(resourceKey)) return resourceKey;
   return keys.length === 1 ? keys[0] : null;
 }
@@ -242,20 +245,27 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
     if (operation) located[action as CrudAction] = operation;
   }
   const { create, get, list, update, delete: del } = located;
+  const dataOnly = !create && !!(get || list);
+  if (dataOnly) {
+    delete located.update;
+    delete located.delete;
+  }
 
   const problems: string[] = [];
-  if (!create) problems.push("no create");
-  if (!del) problems.push("no delete");
   if (!get && !list) problems.push("no read");
+  else if (!dataOnly) {
+    if (!create) problems.push("no create");
+    if (!del) problems.push("no delete");
+  }
 
   const operations: ResourceModel["operations"] = {};
-  // The engine only reads the list when there's no single-item GET.
-  if (get) delete located.list;
   for (const [action, operation] of Object.entries(located)) {
     const responseKey =
       action === "delete"
         ? ""
         : wrappedKey(spec, operation, jsonName(name), action === "list");
+    // A list is optional when there's a GET; it only backs the plural data source.
+    if (responseKey === null && action === "list" && get) continue;
     // An update that only acknowledges (`{updatedId}`) is followed by a read.
     if (responseKey === null && action !== "update") {
       problems.push(`${action} response is not one wrapped model`);
@@ -271,7 +281,7 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
     };
   }
 
-  const itemPath = (get ?? update ?? del)?.path ?? "";
+  const itemPath = (get ?? located.update ?? located.delete)?.path ?? "";
   const params = [...itemPath.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
   const idAttribute = attributeName(params.pop() ?? "id");
   const parentAttributes = params.map(attributeName);
@@ -281,8 +291,16 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
   const envelope =
     readOperation &&
     schemaProperties(spec, responseSchema(readOperation.operation));
+  const listKey = operations.list?.responseKey;
+  const listEnvelope =
+    list && schemaProperties(spec, responseSchema(list.operation));
   const model =
-    (readKey && envelope && schemaProperties(spec, envelope[readKey])) || {};
+    (readKey && envelope && schemaProperties(spec, envelope[readKey])) ||
+    // Only a list to read from: the model is its items.
+    (listKey &&
+      listEnvelope &&
+      schemaProperties(spec, schemaNode(spec, listEnvelope[listKey]).items)) ||
+    {};
   const createNode =
     create && schemaNode(spec, requestSchema(create.operation));
   const createBody =
@@ -404,5 +422,13 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
     problems.push(`no ${idAttribute} field`);
   }
 
-  return { name, idAttribute, parentAttributes, operations, fields, problems };
+  return {
+    name,
+    idAttribute,
+    parentAttributes,
+    dataOnly,
+    operations,
+    fields,
+    problems,
+  };
 }

@@ -19,11 +19,32 @@ const named = (fields: Field[], test: (field: Field) => boolean) =>
     .map((field) => field.json)
     .join(", ");
 
+// Terraform docs show these as bare names, nested fields as `parent.child`.
+function undescribed(fields: Field[], prefix = ""): string[] {
+  return fields.flatMap((field) => {
+    const path = prefix + field.json;
+    const own = field.description || field.parent ? [] : [path];
+    const nested =
+      field.type.kind === "object"
+        ? field.type.fields
+        : field.type.kind === "list" && field.type.element.kind === "object"
+          ? field.type.element.fields
+          : [];
+    return [...own, ...undescribed(nested, `${path}.`)];
+  });
+}
+
 function assessDescribed(spec: Spec, name: string): ReadinessRow {
-  const { operations, fields, problems } = analyzeResource(spec, name);
+  const { operations, fields, problems, dataOnly } = analyzeResource(
+    spec,
+    name,
+  );
   const notes: string[] = [];
-  if (!operations.get && operations.list) notes.push("read via list");
-  if (!operations.update) notes.push("no update: every change replaces");
+  if (dataOnly) notes.push("data sources only");
+  else if (!operations.get && operations.list) notes.push("read via list");
+  if (!dataOnly && !operations.update) {
+    notes.push("no update: every change replaces");
+  }
   for (const [label, test] of [
     ["replace on change", (f: Field) => f.replace && !!operations.update],
     ["JSON", (f: Field) => f.type.kind === "json"],
@@ -45,6 +66,8 @@ function assessDescribed(spec: Spec, name: string): ReadinessRow {
   notes.push(
     `${fields.filter((f) => f.computed && !f.inCreate && !f.inUpdate).length} computed`,
   );
+  const missing = undescribed(fields);
+  if (missing.length) notes.push(`no description: ${missing.join(", ")}`);
 
   return {
     resource: name,

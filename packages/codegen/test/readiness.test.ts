@@ -15,6 +15,7 @@ describe("assessReadiness", () => {
         "JSON: value",
         "sensitive: secret",
         "6 computed",
+        "no description: id, kind, slug, active, secret, value, note, tags, settings, settings.maxCount",
       ],
     });
   });
