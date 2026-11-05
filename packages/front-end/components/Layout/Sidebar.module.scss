@@ -20,7 +20,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-2) var(--space-3);
+  // 32px under the Collapse button, so the browser's link preview in the
+  // bottom-left corner doesn't cover it while hovering the links above.
+  padding: var(--space-2) var(--space-2) var(--space-6);
   box-sizing: border-box;
   overflow: hidden;
   background: var(--sidebar-bg);
@@ -34,6 +36,8 @@
   @media (max-width: 1180px) {
     z-index: 1030;
     width: 240px;
+    // The drawer has no Collapse button.
+    padding-bottom: var(--space-3);
     left: -240px;
     visibility: hidden;
     transition:
