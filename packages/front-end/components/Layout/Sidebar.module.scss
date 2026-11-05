@@ -173,6 +173,13 @@
   border-radius: var(--radius-3);
   text-decoration: none;
 
+  // Over the global a:hover underline, which would underline the plan label.
+  &:hover,
+  &:focus,
+  &:focus-visible {
+    text-decoration: none;
+  }
+
   .collapsed & {
     width: 32px;
     overflow: hidden;
