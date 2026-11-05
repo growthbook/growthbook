@@ -1,4 +1,8 @@
-import { Permissions } from "../../src/permissions";
+import {
+  canRunInterleavingControl,
+  holdsInterleavingMoveDestination,
+  Permissions,
+} from "../../src/permissions";
 
 const scope = (
   permissions: Record<string, boolean>,
@@ -11,6 +15,9 @@ const scope = (
 
 const RUN = { readData: true, runExperiments: true };
 const NO_RUN = { readData: true };
+// The default Engineer shape: publish experiments, but no analysis authoring.
+const ENGINEER = { readData: true, runExperiments: true };
+const ANALYST = { readData: true, runExperiments: true, createAnalyses: true };
 
 const user = (
   global: Record<string, boolean>,
@@ -79,5 +86,83 @@ describe("canRunInterleavingUpdate", () => {
       true,
     );
     expect(devOnlyInBoth.canRunInterleavingUpdate(inA, inB, envs)).toBe(false);
+  });
+});
+
+describe("canRunInterleavingControl", () => {
+  const live = { ...inA, archived: false };
+
+  it("refuses run permission without the update atom", () => {
+    expect(canRunInterleavingControl(user(ENGINEER), live, envs)).toBe(false);
+    expect(canRunInterleavingControl(user(ANALYST), live, envs)).toBe(true);
+  });
+
+  it("refuses the update atom without run permission", () => {
+    expect(
+      canRunInterleavingControl(
+        user({ readData: true, createAnalyses: true }),
+        live,
+        envs,
+      ),
+    ).toBe(false);
+  });
+
+  it("needs only the update atom when no environment is affected", () => {
+    expect(
+      canRunInterleavingControl(
+        user({ readData: true, createAnalyses: true }),
+        live,
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  it("refuses an archived experiment outright", () => {
+    expect(
+      canRunInterleavingControl(
+        user(ANALYST),
+        { ...inA, archived: true },
+        envs,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("holdsInterleavingMoveDestination", () => {
+  const serving = { ...inA, archived: false, serving: true };
+  const draft = { ...inA, archived: false, serving: false };
+  // createAnalyses everywhere, runExperiments only in prj_a.
+  const runInAOnly = user(
+    { readData: true, createAnalyses: true },
+    { prj_a: { ...RUN, createAnalyses: true } },
+  );
+
+  it("allows staying put", () => {
+    expect(
+      holdsInterleavingMoveDestination(runInAOnly, serving, "prj_a", envs),
+    ).toBe(true);
+  });
+
+  it("refuses moving a serving experiment where run permission is missing", () => {
+    expect(
+      holdsInterleavingMoveDestination(runInAOnly, serving, "prj_b", envs),
+    ).toBe(false);
+  });
+
+  it("allows the same move for a draft, which does not serve", () => {
+    expect(
+      holdsInterleavingMoveDestination(runInAOnly, draft, "prj_b", envs),
+    ).toBe(true);
+  });
+
+  it("refuses without the update atom in the destination", () => {
+    expect(
+      holdsInterleavingMoveDestination(
+        user(ANALYST, { prj_b: NO_RUN }),
+        draft,
+        "prj_b",
+        envs,
+      ),
+    ).toBe(false);
   });
 });

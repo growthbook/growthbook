@@ -15,6 +15,7 @@ import type {
 } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getIdentifierDisplayName } from "@/services/experiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -24,12 +25,13 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import RecordsPanel from "@/components/Diagnostics/RecordsPanel";
 import useRecordsQuery from "@/components/Diagnostics/useRecordsQuery";
 import { formatTimestamp } from "@/components/Diagnostics/format";
-import { RecordsColumn } from "@/components/Diagnostics/types";
+import RecordDetail from "@/components/Diagnostics/RecordDetail";
+import { flattenRecord, RecordsColumn } from "@/components/Diagnostics/types";
 import type {
   ColumnTopValue,
   FilterColumnSource,
 } from "@/components/FactTables/rowFilterUtils";
-import { datasourcesWithoutHealthData } from "./constants";
+import { hasHealthData } from "./constants";
 import {
   entirePhaseRange,
   getPhaseBounds,
@@ -64,6 +66,15 @@ function Empty() {
   );
 }
 
+function IdCell({ value }: { value?: string | null }) {
+  if (!value) return <Empty />;
+  return (
+    <Text size="sm" mono title={value}>
+      {truncateString(value, 24)}
+    </Text>
+  );
+}
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   isTabActive: boolean;
@@ -88,15 +99,18 @@ export default function ExposureLogsCard({
     () => exposureQuery?.dimensions ?? [],
     [exposureQuery?.dimensions],
   );
-  const userIdColumn =
+  const unitIdColumn =
     resolveAnalysisIdentifierType(
       exposureQuery,
       experiment.exposureQueryIdentifierType,
     ) || DEFAULT_USER_ID_COLUMN;
+  const subUnitIdColumn =
+    (experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier) ||
+    null;
 
   const canRun =
     !!datasource &&
-    !datasourcesWithoutHealthData.has(datasource.type) &&
+    hasHealthData(datasource) &&
     !isManagedWarehouseUnavailable(datasource) &&
     !!exposureQuery &&
     permissionsUtil.canRunHealthQueries(datasource);
@@ -170,17 +184,21 @@ export default function ExposureLogsCard({
         ),
       },
       {
-        key: "userId",
-        header: "User ID",
-        render: (r) =>
-          r.userId ? (
-            <Text size="sm" mono title={r.userId}>
-              {truncateString(r.userId, 24)}
-            </Text>
-          ) : (
-            <Empty />
-          ),
+        key: "unitId",
+        header: getIdentifierDisplayName(unitIdColumn),
+        render: (r) => <IdCell value={r.unitId} />,
       },
+      ...(subUnitIdColumn
+        ? [
+            {
+              key: "subUnitId",
+              header: getIdentifierDisplayName(subUnitIdColumn),
+              render: (r: ExperimentExposureRecord) => (
+                <IdCell value={r.subUnitId} />
+              ),
+            },
+          ]
+        : []),
       {
         key: "variationId",
         header: "Variation",
@@ -208,7 +226,7 @@ export default function ExposureLogsCard({
           r.dimensions[dim] ? <>{r.dimensions[dim]}</> : <Empty />,
       })),
     ],
-    [dimensions, variationsById],
+    [dimensions, variationsById, subUnitIdColumn, unitIdColumn],
   );
 
   // A filter names the warehouse column, because that is what the query has to
@@ -216,11 +234,12 @@ export default function ExposureLogsCard({
   const getFilterValue = useCallback(
     (row: ExperimentExposureRecord, column: string) => {
       if (column === TIMESTAMP_COLUMN) return row.timestamp;
-      if (column === userIdColumn) return row.userId;
+      if (column === unitIdColumn) return row.unitId;
+      if (column === subUnitIdColumn) return row.subUnitId ?? null;
       if (column === VARIATION_COLUMN) return row.variationId;
       return row.dimensions[column];
     },
-    [userIdColumn],
+    [unitIdColumn, subUnitIdColumn],
   );
 
   const getSearchText = useCallback(
@@ -228,7 +247,8 @@ export default function ExposureLogsCard({
       [
         row.timestamp,
         formatTimestamp(row.timestamp),
-        row.userId ?? "",
+        row.unitId ?? "",
+        row.subUnitId ?? "",
         row.variationId,
         variationsById.get(row.variationId)?.name ?? "",
         ...Object.values(row.dimensions).map((v) => v ?? ""),
@@ -240,7 +260,10 @@ export default function ExposureLogsCard({
   // actually holds — the same values the table is showing.
   const columnSource: FilterColumnSource = useMemo(() => {
     const columnLabels: [string, string][] = [
-      [userIdColumn, userIdColumn],
+      [unitIdColumn, unitIdColumn],
+      ...(subUnitIdColumn
+        ? [[subUnitIdColumn, subUnitIdColumn] as [string, string]]
+        : []),
       [VARIATION_COLUMN, "Variation"],
       ...dimensions.map((d): [string, string] => [d, d]),
     ];
@@ -272,7 +295,30 @@ export default function ExposureLogsCard({
         topValues: (column && topValues.get(column)) || [],
       }),
     };
-  }, [dimensions, experiment, query.rows, userIdColumn]);
+  }, [dimensions, experiment, query.rows, unitIdColumn, subUnitIdColumn]);
+
+  // Keyed by identifier type to match the column headers
+  const renderDetail = useCallback(
+    (row: ExperimentExposureRecord) => (
+      <RecordDetail
+        title="Full exposure record"
+        fields={flattenRecord(
+          {
+            [TIMESTAMP_COLUMN]: row.timestamp,
+            [unitIdColumn]: row.unitId,
+            ...(subUnitIdColumn
+              ? { [subUnitIdColumn]: row.subUnitId ?? null }
+              : {}),
+            [VARIATION_COLUMN]: row.variationId,
+            dimensions: row.dimensions,
+            extra: row.extra,
+          },
+          { flattenKeys: ["dimensions", "extra"] },
+        )}
+      />
+    ),
+    [unitIdColumn, subUnitIdColumn],
+  );
 
   if (!canRun) return null;
 
@@ -341,13 +387,12 @@ export default function ExposureLogsCard({
       query={query}
       columns={columns}
       getRowId={(r, i) =>
-        `${r.timestamp}-${r.userId ?? ""}-${r.variationId}-${i}`
+        `${r.timestamp}-${r.unitId ?? ""}-${r.subUnitId ?? ""}-${r.variationId}-${i}`
       }
       getSearchText={getSearchText}
       getFilterValue={getFilterValue}
       columnSource={columnSource}
-      detailFlattenKeys={["dimensions", "extra"]}
-      detailTitle="Full exposure record"
+      renderDetail={renderDetail}
       searchPlaceholder="Search exposures..."
       emptyMessage="No exposures found for this time range."
       idleMessage="No recent results. Click Refresh to load exposure records."

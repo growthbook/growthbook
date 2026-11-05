@@ -1,0 +1,8 @@
+.rows {
+  color: var(--color-text-high);
+
+  > * {
+    min-height: 28px;
+    align-items: center;
+  }
+}

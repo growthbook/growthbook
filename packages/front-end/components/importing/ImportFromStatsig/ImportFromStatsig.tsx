@@ -15,7 +15,7 @@ import {
 import { ImportStatus, ImportData } from "@/services/importing/statsig/types";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -1128,14 +1128,12 @@ export default function ImportFromStatsig() {
           padding-bottom: 0.25rem !important;
         }
       `}</style>
-      <h1>Statsig Importer</h1>
       <div className="appbox p-3">
         <div className="row">
           <div className="col">
             <div className="row">
               <div className="col">
                 <Field
-                  size="legacy"
                   label="API Token"
                   value={token}
                   type="password"
@@ -1145,7 +1143,6 @@ export default function ImportFromStatsig() {
               </div>
               <div className="col-auto">
                 <Field
-                  size="legacy"
                   label="Max requests per 10 secs"
                   type="number"
                   value={intervalCap}
@@ -1171,7 +1168,6 @@ export default function ImportFromStatsig() {
               )}
               <div className="col-auto" style={{ maxWidth: 350 }}>
                 <Field
-                  size="legacy"
                   label="GrowthBook Project"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
@@ -1181,7 +1177,6 @@ export default function ImportFromStatsig() {
               </div>
               <div className="col-auto">
                 <SelectField
-                  size="legacy"
                   label="Data Source"
                   initialOption="Select..."
                   options={dataSourceOptions}
@@ -1193,7 +1188,7 @@ export default function ImportFromStatsig() {
             </div>
             <Button
               type="button"
-              color={step === 1 ? "primary" : "outline-primary"}
+              variant={step === 1 ? "solid" : "outline"}
               disabled={factTablesLoading || savedGroupsLoading}
               onClick={async () => {
                 if (!token) return;
@@ -1264,8 +1259,8 @@ export default function ImportFromStatsig() {
               Step 1: Fetch from StatSig
             </Button>
             <Button
-              className="ml-2"
-              color={step === 2 ? "primary" : "outline-primary"}
+              ml="2"
+              variant={step === 2 ? "solid" : "outline"}
               disabled={step < 2 || data.status === "importing"}
               onClick={async () => {
                 if (!featuresMap) {
@@ -1278,22 +1273,28 @@ export default function ImportFromStatsig() {
                   step: 2,
                 });
 
-                const projectId = await getOrCreateProject(projectName);
-                const runOptions: RunImportOptions = {
-                  data,
-                  existingAttributeSchema: attributeSchema,
-                  apiCall,
-                  callback: (d) => setData(d),
-                  featuresMap,
-                  project: projectId,
-                  itemEnabled,
-                  skipAttributeMapping,
-                  existingSavedGroups: savedGroups,
-                  existingExperiments: experiments || [],
-                  existingFactTables: factTables,
-                  datasource: getDatasourceById(dataSource || ""),
-                };
-                await runImport(runOptions);
+                // Shown in the error callout; the button has nowhere to surface it.
+                try {
+                  const projectId = await getOrCreateProject(projectName);
+                  const runOptions: RunImportOptions = {
+                    data,
+                    existingAttributeSchema: attributeSchema,
+                    apiCall,
+                    callback: (d) => setData(d),
+                    featuresMap,
+                    project: projectId,
+                    itemEnabled,
+                    skipAttributeMapping,
+                    existingSavedGroups: savedGroups,
+                    existingExperiments: experiments || [],
+                    existingFactTables: factTables,
+                    datasource: getDatasourceById(dataSource || ""),
+                  };
+                  await runImport(runOptions);
+                } catch (e) {
+                  setData({ ...data, status: "error", error: e.message });
+                  return;
+                }
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();

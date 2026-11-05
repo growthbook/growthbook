@@ -284,6 +284,7 @@ export default function ReportResults({
                 experimentId={snapshot.experiment}
                 significanceThresholds={significanceThresholds}
                 variations={variations}
+                snapshot={snapshot}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}

@@ -52,6 +52,10 @@ export const updateContextualBandit = crudEndpoint(
   contextualBanditApiSpec,
   "update",
 );
+export const deleteContextualBandit = crudEndpoint(
+  contextualBanditApiSpec,
+  "delete",
+);
 export const startContextualBandit = customEndpoint(
   contextualBanditApiSpec,
   startContextualBanditEndpoint,

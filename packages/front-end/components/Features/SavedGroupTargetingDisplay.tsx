@@ -5,6 +5,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";
 import Text from "@/ui/Text";
+import ValueGroup from "@/components/Features/ValueGroup";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];
@@ -45,8 +46,7 @@ export default function SavedGroupTargetingDisplay({
             {i === 0 && prefix}
             {i || initialAnd ? <Text weight="medium">AND</Text> : null}
             <Text>{getDescription(s)}</Text>
-            <Flex wrap="wrap" gap="2">
-              {s.ids.length > 1 && "("}
+            <ValueGroup parens={s.ids.length > 1}>
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
                 if (!group) {
@@ -60,8 +60,7 @@ export default function SavedGroupTargetingDisplay({
                   />
                 );
               })}
-              {s.ids.length > 1 && ")"}
-            </Flex>
+            </ValueGroup>
           </Flex>
         );
       })}

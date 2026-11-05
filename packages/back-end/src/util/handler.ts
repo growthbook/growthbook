@@ -20,6 +20,7 @@ import {
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import {
+  formatGateLine,
   hookErrorText,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
@@ -33,6 +34,7 @@ import {
   ApiError,
   BulkImportPartialFailureError,
   BulkPublishCommitError,
+  ChecklistIncompleteError,
   ConfirmationRequiredError,
   CustomHookError,
   DraftLimitError,
@@ -247,6 +249,7 @@ export async function runApiHandler(
       return { status: 202, body: e.body, headers: e.headers };
     }
     const body: ApiErrorResponse = { message: e.message };
+    const { isJwtAuth } = req as unknown as ApiRequestLocals;
     if (e instanceof ApiError) {
       body.code = e.code;
       body.details = e.details;
@@ -264,6 +267,13 @@ export async function runApiHandler(
       body.gates = e.gates;
       body.warnings = e.warnings;
     }
+    // An experiment start's blockers, on the same model.
+    if (e instanceof ChecklistIncompleteError) {
+      body.gates = e.gates;
+      if (!isJwtAuth) {
+        body.message = [e.message, ...e.gates.map(formatGateLine)].join("\n");
+      }
+    }
     // Bulk-publish commit failures carry per-item outcomes so callers can see
     // which entities compensated cleanly.
     if (e instanceof BulkPublishCommitError) {
@@ -276,14 +286,13 @@ export async function runApiHandler(
     if (e instanceof SoftWarningError) {
       body.warnings = e.warnings;
       // Front-end shows a "Save anyway" dialog and doesn't need a retry hint
-      const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
       if (!isJwtAuth) {
         body.message =
           e.message +
           '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
       }
     }
-    if (!(req as unknown as ApiRequestLocals).isJwtAuth) {
+    if (!isJwtAuth) {
       if (e instanceof UnscopedRuleError) {
         body.message =
           e.message +
@@ -306,6 +315,7 @@ export async function runApiHandler(
 
 function refusalNotices(e: Error): ConfirmationNotice[] {
   if (e instanceof PublishBlockedError) return gateNotices(e.gates);
+  if (e instanceof ChecklistIncompleteError) return gateNotices(e.gates);
   if (e instanceof SoftWarningError) {
     return [
       { severity: "warning", messages: [e.message, ...e.warnings], via: null },
@@ -636,6 +646,34 @@ export function applyPagination<T>(
       hasMore,
       nextOffset: hasMore ? nextOffset : null,
     },
+  };
+}
+
+/**
+ * Like applyPagination, but pages lightweight keys and only loads the full
+ * items for the requested page. Items are returned in key order; keys whose
+ * item no longer loads are dropped, so `count` can be lower than `limit`.
+ */
+export async function applyPaginationAndLoad<T extends { id: string }>(
+  keys: { id: string }[],
+  query: PaginationQuery,
+  load: (ids: string[]) => Promise<T[]>,
+): Promise<{
+  filtered: T[];
+  returnFields: ApiPaginationFields;
+}> {
+  const { filtered: pageKeys, returnFields } = applyPagination(keys, query);
+  const ids = pageKeys.map((k) => k.id);
+  const byId = new Map(
+    (ids.length ? await load(ids) : []).map((item) => [item.id, item]),
+  );
+  const filtered = ids
+    .map((id) => byId.get(id))
+    .filter((item): item is T => item !== undefined);
+
+  return {
+    filtered,
+    returnFields: { ...returnFields, count: filtered.length },
   };
 }
 

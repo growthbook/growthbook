@@ -42,6 +42,12 @@ describe("experimentChangeActions", () => {
     ).toEqual(["experiment.other"]);
   });
 
+  it("names a live tracking key change as re-randomizing", () => {
+    expect(
+      experimentChangeActions(running, { trackingKey: "renamed" }),
+    ).toEqual(["experiment.phases"]);
+  });
+
   it("names an edit to a draft armed to start as the start", () => {
     const draft = {
       ...running,
@@ -148,9 +154,6 @@ describe("experimentChangeActions", () => {
       "experiment.other",
     ]);
     expect(
-      experimentChangeActions(running, { trackingKey: "new-key" }),
-    ).toEqual(["experiment.other"]);
-    expect(
       experimentChangeActions(
         { ...running, status: "draft" },
         { archived: true },
@@ -202,6 +205,24 @@ describe("contextualBanditChangeActions", () => {
     ).toEqual(["experiment.start"]);
     expect(
       contextualBanditChangeActions(bandit("draft"), { maxLeaves: 6 }),
+    ).toEqual(["experiment.draft"]);
+  });
+
+  it("holds archiving a running bandit as a stop and unarchiving it as a start", () => {
+    expect(
+      contextualBanditChangeActions(bandit("running"), { archived: true }),
+    ).toEqual(["experiment.stop"]);
+    expect(
+      contextualBanditChangeActions(
+        { ...bandit("running"), archived: true },
+        { archived: false },
+      ),
+    ).toEqual(["experiment.start"]);
+    expect(
+      contextualBanditChangeActions(bandit("stopped"), { archived: true }),
+    ).toEqual(["experiment.other"]);
+    expect(
+      contextualBanditChangeActions(bandit("draft"), { archived: true }),
     ).toEqual(["experiment.draft"]);
   });
 });

@@ -102,6 +102,7 @@ export const testQueryTypeValidator = z.enum([
   "factTableTest",
   "exposureQueryTest",
   "contextualBanditQueryTest",
+  "interleavingExposureQueryTest",
   "identityJoinTest",
   "featureUsageQueryTest",
   "metricTest",

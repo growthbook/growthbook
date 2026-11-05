@@ -5,6 +5,13 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
     "src"
@@ -18,6 +25,7 @@
     "url": "https://github.com/growthbook/growthbook",
     "directory": "packages/remote-saved-groups-csv-parser"
   },
+  "author": "GrowthBook",
   "scripts": {
     "prepare": "[ -n \"$GB_SKIP_PREPARE\" ] || tsc",
     "build:clean": "rimraf dist tsconfig.tsbuildinfo",

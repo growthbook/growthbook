@@ -8,6 +8,7 @@ import {
 import { FeatureDefinition } from "shared/types/sdk";
 import {
   FeatureInterface,
+  FeatureRule,
   SavedGroupTargeting,
   ScheduleRule,
 } from "shared/types/feature";
@@ -3312,6 +3313,7 @@ describe("SDK Payloads", () => {
         id: "2",
         coverage: 0.8,
         hashAttribute: "id",
+        fallbackAttribute: "device_id",
         value: "false",
         enabled: true,
       },
@@ -3358,6 +3360,7 @@ describe("SDK Payloads", () => {
           coverage: 0.8,
           force: false,
           hashAttribute: "id",
+          fallbackAttribute: "device_id",
         },
         {
           coverage: 1,
@@ -3369,6 +3372,32 @@ describe("SDK Payloads", () => {
         },
       ],
     });
+  });
+
+  it("Serves a rollout with no coverage to everyone", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings.dev.rules = [
+      {
+        type: "rollout",
+        description: "",
+        id: "1",
+        coverage: null,
+        hashAttribute: "id",
+        value: "false",
+        enabled: true,
+      } as unknown as FeatureRule,
+    ];
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "dev",
+        groupMap,
+        experimentMap,
+        safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+      })?.rules,
+    ).toEqual([{ force: false }]);
   });
 
   describe("Saved Groups", () => {
@@ -4022,6 +4051,26 @@ describe("validateFeatureRuleValues", () => {
         ],
       } as never),
     ).toThrow();
+  });
+
+  it("refuses JSON that only parses after repair, naming the fix, and passes valid JSON", () => {
+    const jsonFeature = { valueType: "json" as const };
+    const rule = (value: string) =>
+      ({
+        id: "a",
+        type: "experiment-ref",
+        experimentId: "exp",
+        variations: [
+          { variationId: "0", value: "{}" },
+          { variationId: "1", value },
+        ],
+      }) as never;
+    expect(() =>
+      validateFeatureRuleValues(jsonFeature, rule('{"layout":"grid"}}')),
+    ).toThrow(/Variation 2: invalid JSON\. Did you mean/);
+    expect(() =>
+      validateFeatureRuleValues(jsonFeature, rule('{\n  "layout": "grid"\n}')),
+    ).not.toThrow();
   });
 });
 

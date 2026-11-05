@@ -1,7 +1,9 @@
 import md5 from "md5";
 import { isEqual } from "lodash";
 import {
+  ClusterMetricAnalysisLevel,
   ExperimentMetricInterface,
+  getAggregateFilters,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,
@@ -156,12 +158,22 @@ type HashExposureQuery = Pick<
   "id" | "userIdType" | "userIdTypes" | "columnMapping"
 >;
 
-// The assignment query columns an incremental units table is built from
+// The assignment query columns an incremental units table is built from.
+// Cluster experiments key the table on the sub-unit, so its column counts too.
 const getUnitsTableColumns = (
   query: Pick<ExposureQuery, "columnMapping">,
   identifierType: string,
+  subUnitIdentifierType?: string,
 ) => ({
   identifier: getExposureQueryIdentifierColumn(query, identifierType),
+  ...(subUnitIdentifierType
+    ? {
+        subUnitIdentifier: getExposureQueryIdentifierColumn(
+          query,
+          subUnitIdentifierType,
+        ),
+      }
+    : {}),
   timestamp: getExposureQueryTimestampColumn(query),
   experimentId: getExposureQueryExperimentIdColumn(query),
   variationId: getExposureQueryVariationIdColumn(query),
@@ -186,6 +198,12 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     settingsForHash.exposureQueryIdentifierType = identifierType;
   }
 
+  if (snapshotSettings.isClusterExperiment) {
+    settingsForHash.isClusterExperiment = true;
+    settingsForHash.clusterSubUnitIdentifier =
+      snapshotSettings.clusterSubUnitIdentifier ?? null;
+  }
+
   // Remapping a column the units table reads means rebuilding it. Other
   // mapped columns (names, other identifiers) don't touch it, and while every
   // units column keeps its standard name the hash is unchanged, so existing
@@ -198,12 +216,19 @@ export function getExperimentSettingsHashForIncrementalRefresh(
       exposureQuery,
       snapshotSettings.exposureQueryIdentifierType,
     );
+    const subUnitIdentifierType = snapshotSettings.isClusterExperiment
+      ? (snapshotSettings.clusterSubUnitIdentifier ?? undefined)
+      : undefined;
     const unitsColumns = getUnitsTableColumns(
       exposureQuery,
       analysisIdentifierType,
+      subUnitIdentifierType,
     );
     if (
-      !isEqual(unitsColumns, getUnitsTableColumns({}, analysisIdentifierType))
+      !isEqual(
+        unitsColumns,
+        getUnitsTableColumns({}, analysisIdentifierType, subUnitIdentifierType),
+      )
     ) {
       settingsForHash.unitsColumns = unitsColumns;
     }
@@ -287,10 +312,12 @@ export function getMetricSettingsHashForIncrementalRefresh({
   factMetric,
   factTableMap,
   metricSettings,
+  clusterMetricLevel,
 }: {
   factMetric: FactMetricInterface;
   factTableMap: Map<string, FactTableInterface>;
   metricSettings?: MetricForSnapshot;
+  clusterMetricLevel?: ClusterMetricAnalysisLevel;
 }): string {
   const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
   const numeratorFactTable = numeratorFactTableId
@@ -322,6 +349,8 @@ export function getMetricSettingsHashForIncrementalRefresh({
     ...(isFactFunnelMetric(factMetric)
       ? { funnelSettings: factMetric.funnelSettings }
       : {}),
+    // Only present for cluster experiments, so non-cluster hashes are unchanged.
+    ...(clusterMetricLevel ? { clusterMetricLevel } : {}),
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,
@@ -444,17 +473,28 @@ export function getMetricSettingsHashForAggregatedFactTable({
     factMetric.denominator.factTableId === factTableId;
 
   // Only the column-ref parts that change stored data type / column name. The
-  // aggregate-filter threshold is omitted (it changes values, not schema).
+  // aggregate-filter threshold is omitted (it changes values, not schema); the
+  // filter column is what gets summed and stored, so it's included while a
+  // filter is active and left undefined otherwise to keep older hashes stable.
   const schemaBreakingColumnRef = (
     ref: FactMetricInterface["numerator"] | null | undefined,
-  ) =>
-    ref
-      ? {
-          factTableId: ref.factTableId,
-          column: ref.column,
-          aggregation: ref.aggregation,
-        }
-      : null;
+  ) => {
+    if (!ref) return null;
+    const hasAggregateFilter =
+      getAggregateFilters({
+        columnRef: ref,
+        column: ref.column,
+        ignoreInvalid: true,
+      }).length > 0;
+    return {
+      factTableId: ref.factTableId,
+      column: ref.column,
+      aggregation: ref.aggregation,
+      aggregateFilterColumn: hasAggregateFilter
+        ? ref.aggregateFilterColumn
+        : undefined,
+    };
+  };
 
   return hashObject({
     metricType: factMetric.metricType,

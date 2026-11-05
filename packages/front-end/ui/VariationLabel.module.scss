@@ -1,0 +1,8 @@
+// A cut-off name stops at the edge without an ellipsis and fades out there.
+.fadeOverflow :global(.rt-truncate) {
+  text-overflow: clip;
+}
+
+.fadeOverflow.truncated {
+  mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+}

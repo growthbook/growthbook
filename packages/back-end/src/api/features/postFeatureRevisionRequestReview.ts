@@ -17,6 +17,7 @@ import {
 import { canAdvanceFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
+  assertArmDoesNotLaunchExperiments,
   canEnableFeatureAutoPublishOnApproval,
   canScheduleFeaturePublish,
   parseScheduledPublishDate,
@@ -104,6 +105,9 @@ export async function requestReview(
     !(await canScheduleFeaturePublish(req.context, feature, revision))
   ) {
     req.context.permissions.throwPermissionError();
+  }
+  if (enableAutoPublish || scheduledDate !== null) {
+    await assertArmDoesNotLaunchExperiments(req.context, feature, revision);
   }
 
   // A scheduled publish runs as a resolvable dashboard user at fire time. Reject

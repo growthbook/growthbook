@@ -2,7 +2,11 @@ import type { Response } from "express";
 import isEqual from "lodash/isEqual";
 import { omit } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
-import { CreateHoldoutInput, HoldoutInterface } from "shared/validators";
+import {
+  CreateHoldoutInput,
+  HoldoutInterface,
+  HoldoutMissingLinkage,
+} from "shared/validators";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
@@ -21,7 +25,6 @@ import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   getAllExperiments,
   getExperimentById,
-  getExperimentsByIds,
   hasArchivedExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
@@ -32,13 +35,14 @@ import {
   assertValidHoldoutEnvironments,
   createHoldoutWithExperiment,
   deleteHoldoutAndExperiment,
+  getHoldoutLinkage,
   normalizeHoldoutScheduleUpdates,
   refreshHoldoutPayload,
+  removeHoldoutMissingLink,
 } from "back-end/src/services/holdouts";
 import {
   assertNoLinkedHoldoutExperiments,
   getFeature,
-  getFeaturesByIds,
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { logger } from "back-end/src/util/logger";
@@ -63,6 +67,7 @@ export const getHoldout = async (
     experiment?: ExperimentInterface;
     linkedFeatures?: FeatureInterface[];
     linkedExperiments?: ExperimentInterface[];
+    missingLinkage?: HoldoutMissingLinkage;
     envs?: string[];
     message?: string;
   }>,
@@ -100,21 +105,15 @@ export const getHoldout = async (
     });
   }
 
-  const linkedFeatureIds = Object.keys(holdout.linkedFeatures);
-  const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-  const linkedExperiments = await getExperimentsByIds(
-    context,
-    linkedExperimentIds,
-  );
+  const linkage = await getHoldoutLinkage(context, holdout);
 
   res.status(200).json({
     status: 200,
     holdout,
     experiment: holdoutExperiment,
-    linkedFeatures,
-    linkedExperiments,
+    linkedFeatures: linkage.features,
+    linkedExperiments: linkage.experiments,
+    missingLinkage: linkage.missing,
     envs,
   });
 };
@@ -505,3 +504,30 @@ export const deleteHoldoutFeature = async (
 };
 
 // endregion DELETE /holdout/:id/feature/:featureId
+
+// region DELETE /holdout/:id/missing/:kind/:itemId
+
+export const deleteHoldoutMissingLink = async (
+  req: AuthRequest<
+    null,
+    { id: string; kind: "experiment" | "feature"; itemId: string }
+  >,
+  res: Response<{ status: 200 | 404; message?: string }>,
+) => {
+  const context = getContextFromReq(req);
+  const { id, kind, itemId } = req.params;
+  if (kind !== "experiment" && kind !== "feature") {
+    return res.status(404).json({ status: 404, message: "Not found" });
+  }
+
+  const holdout = await context.models.holdout.getById(id);
+  if (!holdout) {
+    return res.status(404).json({ status: 404, message: "Holdout not found" });
+  }
+
+  await removeHoldoutMissingLink(context, holdout, kind, itemId);
+
+  return res.status(200).json({ status: 200 });
+};
+
+// endregion DELETE /holdout/:id/missing/:kind/:itemId
