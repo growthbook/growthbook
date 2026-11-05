@@ -86,20 +86,20 @@ The metric picker groups your metrics by the identifier they are analyzed on, an
 For subunit metrics, GrowthBook:
 
 1. Computes each subunit's metric value, applying any [capping](/app/metrics#capped-value) at the subunit level.
-2. Aggregate subunit values to the cluster level, for both a numerator metric and a denominator metric.
+2. Aggregates subunit values to the cluster level, for both a numerator metric and a denominator metric.
    - Using revenue as an example (i.e., a mean metric, and the approach is the same for proportion and retention metrics), sum subunit revenues to get the cluster-level total revenue (numerator metric). Cluster-level sample sizes are the denominator metric.
    - If revenue-per-purchase is the metric (i.e., a ratio metric), we construct the numerator metric as above, but the cluster-level denominator metric is the cluster-level total number of purchases.
 3. Analyzes the cluster totals as a [ratio metric](/statistics/details#ratio-metrics), with the cluster as the unit of analysis.
 
-Compared to a user-randomized experiment, the lift estimate is unchanged. This is because summing over subunits within cluster, then summing over clusters is the same as summing over users. Only the uncertainty of the lift estimate is affected. For details see Section 3.2 of [Deng, Knoblich, and Lu 2018](https://alexdeng.github.io/public/files/kdd2018-dm.pdf).
+Compared to a user-randomized experiment, the lift estimate is unchanged. This is because summing over subunits within a cluster, then summing over clusters is the same as summing over users. Only the uncertainty of the lift estimate is affected. For details see Section 3.2 of [Deng, Knoblich, and Lu 2018](https://alexdeng.github.io/public/files/kdd2018-dm.pdf).
 
 [CUPED](/statistics/cuped) works with cluster experiments. Pre-exposure covariates are rolled up to the cluster the same way as above.
 
 ### What counts as a unit
 
-Because we randomize at the cluster level, unit counts and the Sample Ratio Mismatch check use the number of clusters in each variation. The **Health** tab's traffic chart can switch between cluster and subunit counts.
+Due to cluster-level randomization, unit counts and the Sample Ratio Mismatch check use the number of clusters in each variation. The **Health** tab's traffic chart can switch between cluster and subunit counts.
 
-Unlike user-randomized designs, dimension breakdowns are computed in their own query for each dimension. Ths is because query results using the (browser, device type) totals can split a single cluster's data across multiple dimensions, and reaggregation can produce different results.
+Unlike user-randomized designs, each dimension breakdown is computed in its own query. A single cluster's subunits can land in several cells of a breakdown (for example, across browser × device type), and re-aggregating those cells doesn't reproduce the correct cluster-robust variance — it can understate uncertainty.
 
 ### Data quality checks
 
