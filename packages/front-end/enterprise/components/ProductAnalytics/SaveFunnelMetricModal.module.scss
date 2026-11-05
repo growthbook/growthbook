@@ -1,0 +1,5 @@
+// Legacy form fields carry their own bottom margin (some via Bootstrap's
+// !important mb-* utilities); the Flex gap spaces them here instead.
+.body :global(.form-group) {
+  margin-bottom: 0 !important;
+}

@@ -51,6 +51,7 @@ const MENU_ITEM_STYLE: React.CSSProperties = {
   height: 28,
   paddingLeft: 8,
   paddingRight: 8,
+  fontSize: "var(--font-size-1)",
 };
 
 /** Edge-to-edge menu divider; the shared separator insets by item padding. */
@@ -419,32 +420,39 @@ export default function FunnelStepCard({
               {canDelete && (hasInsertGroup || hasMoveGroup) && <MenuDivider />}
               {!canDelete ? null : confirmingDelete ? (
                 // Menu items (not plain buttons) so arrow keys reach them.
-                <Flex align="center" gap="2" pl="2">
-                  <Box flexGrow="1">
-                    <Text size="sm" weight="medium">
-                      Delete?
-                    </Text>
-                  </Box>
-                  <DropdownMenuItem
-                    className={cancelDeleteClass}
-                    style={MENU_ITEM_STYLE}
-                    onClick={(event) => {
-                      event.preventDefault(); // stay open, back to "Delete step"
-                      setConfirmingDelete(false);
-                    }}
-                  >
-                    Cancel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    style={{
-                      ...MENU_ITEM_STYLE,
-                      backgroundColor: "var(--red-9)",
-                      color: "var(--red-contrast)",
-                    }}
-                    onClick={() => onDelete(index)}
-                  >
-                    Confirm
-                  </DropdownMenuItem>
+                <Flex align="center" justify="between" gap="5" pl="2">
+                  <Text size="sm" weight="medium">
+                    Delete?
+                  </Text>
+                  <Flex align="center" gap="2">
+                    <DropdownMenuItem
+                      className={cancelDeleteClass}
+                      // Gray outline; inline bg/color also beat the purple
+                      // highlight Radix gives the focused item.
+                      style={{
+                        ...MENU_ITEM_STYLE,
+                        backgroundColor: "transparent",
+                        color: "var(--gray-12)",
+                        boxShadow: "inset 0 0 0 1px var(--gray-a7)",
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault(); // stay open, back to "Delete step"
+                        setConfirmingDelete(false);
+                      }}
+                    >
+                      Cancel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      style={{
+                        ...MENU_ITEM_STYLE,
+                        backgroundColor: "var(--red-9)",
+                        color: "var(--red-contrast)",
+                      }}
+                      onClick={() => onDelete(index)}
+                    >
+                      Confirm
+                    </DropdownMenuItem>
+                  </Flex>
                 </Flex>
               ) : (
                 <DropdownMenuItem
