@@ -46,8 +46,6 @@ describe("trace ingest role", () => {
 
   it("is reserved, so custom roles can't take the id", () => {
     expect(RESERVED_ROLE_IDS).toContain("gbDefault_traceIngest");
-    // Custom role ids can never start with gbDefault_, so no existing custom
-    // role can share it.
     expect(TRACE_INGEST_ROLE_ID.startsWith("gbDefault_")).toBe(true);
   });
 
@@ -72,7 +70,6 @@ describe("trace ingest role", () => {
       DEFAULT_ROLES.gbDefault_traceIngest,
     );
     expect(isRoleValid("gbDefault_traceIngest", org)).toBe(false);
-    // Other default roles, including the visual editor one, are unaffected.
     expect(isRoleValid("visualEditor", org)).toBe(true);
     expect(isRoleValid("readonly", org)).toBe(true);
   });

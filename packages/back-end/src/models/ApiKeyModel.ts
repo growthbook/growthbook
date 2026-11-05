@@ -280,8 +280,6 @@ export class ApiKeyModel extends BaseClass {
     await this.validateScope(doc, previousDoc);
   }
 
-  // API-key-only roles (e.g. trace ingest) are single-purpose org secret keys.
-  // Returns true when `doc` is one and has been fully validated.
   private validateApiKeyOnlyRole(
     doc: ApiKeyInterface,
     previousDoc?: ApiKeyInterface,
@@ -302,8 +300,7 @@ export class ApiKeyModel extends BaseClass {
         "Trace ingest keys aren't available for this organization.",
       );
     }
-    // Skips the plan's admin-only gate: it grants nothing on the REST API, so
-    // it's narrower than the admin key the plan would otherwise require.
+    // Skips the plan's admin-only gate: this role grants nothing on the REST API.
     this.validateRole(doc.role);
     return true;
   }
@@ -489,8 +486,6 @@ export class ApiKeyModel extends BaseClass {
     return { updated, expiresAt };
   }
 
-  // `extraRule`: an additional or project-scoped rule, where API-key-only
-  // roles aren't allowed (they're only meaningful as the key's base role).
   private validateRole(
     role: string | undefined,
     { extraRule = false }: { extraRule?: boolean } = {},

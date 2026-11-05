@@ -254,9 +254,7 @@ function authenticateWithApiKey(
       if (disabled) {
         throw new Error("This API key has been disabled");
       }
-      // Single-purpose keys (e.g. trace ingest) have no policies, so every
-      // permission check would fail anyway; reject them outright so endpoints
-      // that don't check permissions can't be reached either.
+      // Reject outright so endpoints without permission checks can't be reached either.
       if (role && isApiKeyOnlyRole(role)) {
         throw new Error(
           `This API key has the ${getRoleDisplayName(role, {})} role and can't be used with the GrowthBook API.`,

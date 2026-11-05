@@ -20,8 +20,6 @@ export default function useRoleOptions({
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
   const deactivatedRoles = organization.deactivatedRoles || [];
 
-  // API-key-only roles (e.g. trace ingest) are never offered in role pickers;
-  // ApiKeysModal offers them as a separate key type.
   let roleOptions = roles.filter((r) => !isApiKeyOnlyRole(r.id));
 
   if (!hasCommercialFeature("no-access-role")) {

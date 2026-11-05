@@ -94,9 +94,6 @@ export function isApiKeyOnlyRole(roleId: string): boolean {
   return API_KEY_ONLY_ROLE_IDS.includes(roleId);
 }
 
-// Whether a role can be given to a member, invite, team, SCIM user/group, or be
-// the org default role. API-key-only roles exist but aren't valid here; API
-// keys validate their role with getRoleById instead.
 export function isRoleValid(role: string, org: Partial<OrganizationInterface>) {
   if (isApiKeyOnlyRole(role)) return false;
   return !!getRoleById(role, org);

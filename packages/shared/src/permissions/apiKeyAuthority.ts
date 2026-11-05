@@ -18,11 +18,8 @@ function roleName(role: string): string {
   return DEFAULT_ROLES[role as keyof typeof DEFAULT_ROLES]?.displayName ?? role;
 }
 
-// Why a key with an API-key-only role (e.g. trace ingest), or one changing to
-// or from such a role, can't be saved; null otherwise. Such a key is pasted
-// into many service configs and is the only kind the license server shares
-// with the ingestor, so converting one would widen a widely-distributed key
-// or start sharing a broad one. Rotate instead.
+// Converting to or from an API-key-only role would widen a widely distributed key
+// or start sharing a broad one with the ingestor, so we make people rotate instead.
 export function apiKeyOnlyRoleProblem(
   doc: ApiKeyScope,
   previousDoc?: ApiKeyScope,
@@ -49,7 +46,6 @@ export function apiKeyOnlyRoleProblem(
   return null;
 }
 
-// The role in a secret key's cosmetic `secret_<role>_` prefix.
 export function apiKeyPrefixRole(role: string): string {
   return (
     isApiKeyOnlyRole(role) ? role.replace(/^gbDefault_/, "") : role
