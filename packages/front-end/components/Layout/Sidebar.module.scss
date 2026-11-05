@@ -161,13 +161,19 @@
   align-items: flex-start;
 }
 
+.brand {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-bottom: 5px;
+}
+
 .logo {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
   align-self: flex-start;
   padding: 3px 5px;
-  margin-bottom: 5px;
   border-radius: var(--radius-3);
   text-decoration: none;
 
@@ -186,13 +192,25 @@
   flex-shrink: 0;
 }
 
+// Under the logo, starting where "GrowthBook" does (the logo's 5px padding
+// plus the wordmark's inset, set in Sidebar.tsx).
+.planLabel {
+  padding-left: calc(5px + var(--wordmark-inset));
+
+  // Text sets its own letter-spacing.
+  & > * {
+    letter-spacing: 0.08em;
+  }
+}
+
 .brandWordmark {
   fill: #151e3d;
 }
 
 // Fades out before the narrowing sidebar's edge cuts into it. Only while the
 // sidebar moves, so reduced motion stays instant.
-.collapsing .brandWordmark {
+.collapsing .brandWordmark,
+.collapsing .planLabel {
   opacity: 0;
   transition: opacity 80ms ease-out;
 }

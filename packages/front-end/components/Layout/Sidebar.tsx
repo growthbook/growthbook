@@ -1,4 +1,5 @@
 import {
+  CSSProperties,
   Dispatch,
   MouseEvent as ReactMouseEvent,
   ReactNode,
@@ -43,9 +44,11 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import { planNameFromAccountPlan } from "@/services/utils";
 import { TooltipContainerContext } from "@/ui/Tooltip";
 import { BOTTOM_TOOLTIP_DELAY_MS, SidebarTooltip } from "./SidebarTooltip";
-import GrowthBookLogo from "./GrowthBookLogo";
+import GrowthBookLogo, { WORDMARK_INSET_PX } from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
 import SidebarProjectSelector from "./SidebarProjectSelector";
@@ -804,7 +807,19 @@ export default function Sidebar() {
     return () => clearTimeout(timer);
   }, [collapsed]);
 
-  const { permissions, superAdmin, organization, canSubscribe } = useUser();
+  const {
+    permissions,
+    superAdmin,
+    organization,
+    canSubscribe,
+    effectiveAccountPlan,
+  } = useUser();
+  // Paid plans only. The effective plan: an expired or invalid license shows none.
+  const planLabel =
+    effectiveAccountPlan &&
+    ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan)
+      ? planNameFromAccountPlan(effectiveAccountPlan)
+      : null;
   const { project, segments } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
   const permissionsUtils = usePermissionsUtil();
@@ -939,24 +954,46 @@ export default function Sidebar() {
           }
         }}
       >
-        <Link
-          href="/"
-          className={clsx(styles.logo, logoPlaying && styles.logoPlaying)}
-          aria-label="GrowthBook home"
-          onMouseEnter={() => setLogoPlaying(true)}
-          onFocus={(e) => {
-            if (e.currentTarget.matches(":focus-visible")) setLogoPlaying(true);
-          }}
-          onAnimationEnd={() => setLogoPlaying(false)}
-        >
-          <GrowthBookLogo
-            showWordmark={!contentCollapsed}
-            className={styles.brandLogo}
-            markClassName={styles.brandMark}
-            wordmarkClassName={styles.brandWordmark}
-            sweepClassName={styles.sweep}
-          />
-        </Link>
+        <div className={styles.brand}>
+          <Link
+            href="/"
+            className={clsx(styles.logo, logoPlaying && styles.logoPlaying)}
+            aria-label="GrowthBook home"
+            onMouseEnter={() => setLogoPlaying(true)}
+            onFocus={(e) => {
+              if (e.currentTarget.matches(":focus-visible"))
+                setLogoPlaying(true);
+            }}
+            onAnimationEnd={() => setLogoPlaying(false)}
+          >
+            <GrowthBookLogo
+              showWordmark={!contentCollapsed}
+              className={styles.brandLogo}
+              markClassName={styles.brandMark}
+              wordmarkClassName={styles.brandWordmark}
+              sweepClassName={styles.sweep}
+            />
+          </Link>
+          {planLabel && !contentCollapsed ? (
+            <div
+              className={styles.planLabel}
+              style={
+                {
+                  "--wordmark-inset": `${WORDMARK_INSET_PX}px`,
+                } as CSSProperties
+              }
+            >
+              <Text
+                size="sm"
+                weight="medium"
+                color="text-low"
+                textTransform="uppercase"
+              >
+                {planLabel}
+              </Text>
+            </div>
+          ) : null}
+        </div>
         {isNarrow ? (
           <IconButton
             ref={closeRef}
