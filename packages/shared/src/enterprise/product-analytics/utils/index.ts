@@ -3,6 +3,7 @@ import { parseWarehouseDate } from "shared/dates";
 import { omit } from "lodash";
 import type {
   FactMetricInterface,
+  FactMetricType,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import { datasetHasValues } from "../../../validators/product-analytics";
@@ -304,26 +305,39 @@ export function getMetricMixClass(
 }
 
 /**
- * True when the per-unit branch of `showAs` produces a meaningful value for
- * this metric type (i.e. the emitted denominator isn't a trivial function of
- * the numerator).
+ * The Show as options each metric type offers, in display order. A type that
+ * isn't listed offers no choice and renders its raw value (`total`; ratios
+ * always render numerator/denominator).
  *
- * - mean: yes. Numerator sums the column across units; denominator counts units
- *   with activity; per_unit = real average per unit.
- * - proportion / retention / dailyParticipation: no. These metrics emit one row
- *   per qualifying unit, so denominator (COUNT of numerator rows) == numerator
- *   and per_unit degenerates to ~1. Only totals make sense for these in PA.
- * - ratio / quantile: N/A, handled separately (ratios self-contain N/D, quantiles
- *   have no denominator emitted).
- * - unknown: assume yes so we don't hide the control while a metric is loading.
+ * - mean: the numerator sums each unit's value, so dividing by the unit count
+ *   gives a real per-unit average.
+ * - proportion / retention / dailyParticipation: not listed. They emit one row
+ *   per qualifying unit, so the unit count equals the numerator and per unit
+ *   would always be ~1.
+ * - ratio / quantile: not listed. Ratios already divide by their own
+ *   denominator, and quantiles emit no denominator.
  */
-export function metricHasMeaningfulPerUnit(
-  metricType: string | null | undefined,
-): boolean {
-  if (!metricType) return true;
-  if (metricType === "mean") return true;
-  return false;
+const SHOW_AS_OPTIONS_BY_METRIC_TYPE: Partial<
+  Record<FactMetricType, readonly ShowAs[]>
+> = {
+  mean: ["total", "per_unit"],
+};
+
+/** The Show as options a metric type offers; empty when it offers none. */
+export function getShowAsOptions(
+  metricType: FactMetricType | undefined,
+): readonly ShowAs[] {
+  return (metricType && SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType]) ?? [];
 }
+
+/** How one dataset value renders, and which Show as options it offers. */
+export type ValueShowAs = {
+  /** Empty when the value's metric type offers no choice. */
+  options: readonly ShowAs[];
+  showAs: ShowAs;
+};
+
+const NO_SHOW_AS_OPTIONS: ValueShowAs = { options: [], showAs: "total" };
 
 /** The parts of a metric definition that decide how its values can render. */
 type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
@@ -352,39 +366,45 @@ export function inferShowAs(metric: ShowAsMetric | null): ShowAs {
 }
 
 /**
- * The `showAs` each dataset value renders with, index-aligned with
- * `dataset.values`. `null` marks values the choice doesn't apply to: every
- * value of a non-metric dataset, metric slots with nothing selected, and
- * metric types without a meaningful per-unit view (see
- * `metricHasMeaningfulPerUnit`).
+ * The Show as options and rendered mode of each dataset value, index-aligned
+ * with `dataset.values`. Use this at every read site so the chart, table,
+ * sidebar and agent CSV agree.
  *
- * A value's own choice wins, then the deprecated config-level `showAs` (configs
- * saved before the per-value field existed), then the inferred default. Use
- * this at every read site so the chart, table, sidebar and agent CSV agree.
+ * A value whose metric type offers options (see `getShowAsOptions`) renders
+ * with the first of these that is one of its options: its own `showAs`, the
+ * deprecated config-level `showAs` (configs saved before the per-value field
+ * existed), then the inferred default. Every other value — non-metric
+ * datasets, empty or unresolved metric slots, metric types without options —
+ * offers no options and renders as `total`.
  */
 export function getShowAsByIndex(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-): (ShowAs | null)[] {
+): ValueShowAs[] {
   if (!datasetHasValues(config?.dataset)) return [];
   if (config.dataset.type !== "metric") {
-    return config.dataset.values.map(() => null);
+    return config.dataset.values.map(() => NO_SHOW_AS_OPTIONS);
   }
   const legacyShowAs = config.showAs;
   return config.dataset.values.map((value) => {
-    if (!value.metricId && !value.draftMetric) return null;
     const metric = resolveValueMetric(value, getFactMetricById);
-    if (!metricHasMeaningfulPerUnit(metric?.metricType)) return null;
-    return value.showAs ?? legacyShowAs ?? inferShowAs(metric);
+    const options = getShowAsOptions(metric?.metricType);
+    if (!options.length) return NO_SHOW_AS_OPTIONS;
+    const showAs =
+      [value.showAs, legacyShowAs, inferShowAs(metric)].find(
+        (candidate): candidate is ShowAs =>
+          candidate !== undefined && options.includes(candidate),
+      ) ?? options[0];
+    return { options, showAs };
   });
 }
 
 /**
  * Write-time counterpart to `getShowAsByIndex`: moves the deprecated
- * config-level `showAs` onto the metric values it applies to and strips
- * `showAs` from values whose metric doesn't support it, so a stored config
+ * config-level `showAs` onto the metric values that offer it as an option and
+ * strips `showAs` that isn't one of the value's options, so a stored config
  * never claims a mode that won't render. Values whose metric hasn't resolved
- * yet keep theirs. Call it alongside the other write-time normalizers
+ * yet keep theirs until their options are known. Call it alongside the other write-time normalizers
  * (validateDimensions, fillMissingUnits).
  *
  * Returns the same reference when nothing changed so callers can use identity
@@ -403,8 +423,12 @@ export function normalizeShowAs<T extends ExplorationConfig>(
   let changed = legacyShowAs !== undefined;
   const values = config.dataset.values.map((value) => {
     const metric = resolveValueMetric(value, getFactMetricById);
-    const applies = !metric || metricHasMeaningfulPerUnit(metric.metricType);
-    const showAs = applies ? (value.showAs ?? legacyShowAs) : undefined;
+    const requested = value.showAs ?? legacyShowAs;
+    const showAs =
+      requested !== undefined &&
+      (!metric || getShowAsOptions(metric.metricType).includes(requested))
+        ? requested
+        : undefined;
     if (showAs === value.showAs) return value;
     changed = true;
     return showAs === undefined ? omit(value, "showAs") : { ...value, showAs };
@@ -445,21 +469,62 @@ export function getSharedUnit(config: ExplorationConfig | null): string | null {
 
 /**
  * Value-axis title when no custom `valueAxisLabel` is set. Empty unless every
- * value `showAs` applies to renders the same way.
+ * value that offers Show as options renders the same way.
  */
 export function getDefaultValueAxisName(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string {
-  const modes = new Set(
-    getShowAsByIndex(config, getFactMetricById).filter(
-      (showAs): showAs is ShowAs => showAs !== null,
-    ),
+  const sharedShowAs = getSharedShowAs(
+    getShowAsByIndex(config, getFactMetricById),
   );
-  if (modes.size !== 1) return "";
-  if (modes.has("total")) return "Total";
+  if (sharedShowAs === null) return "";
+  if (sharedShowAs === "total") return "Total";
   const sharedUnit = getSharedUnit(config);
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+}
+
+/** The mode every value with Show as options renders in; null when they differ or none have options. */
+function getSharedShowAs(showAsByIndex: ValueShowAs[]): ShowAs | null {
+  const modes = new Set(
+    showAsByIndex.filter((v) => v.options.length > 0).map((v) => v.showAs),
+  );
+  return modes.size === 1 ? [...modes][0] : null;
+}
+
+/** A value's name with its per-unit suffix, e.g. "Revenue per user_id". */
+function getPerUnitName(
+  value: ProductAnalyticsValue,
+  sharedUnit: string | null,
+): string {
+  const unit =
+    ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
+    sharedUnit ||
+    "unit";
+  return `${value.name} per ${unit}`;
+}
+
+/**
+ * Chart series names (legend and tooltip) for each dataset value. A per-unit
+ * value gets the same "per {unit}" suffix as its table column, unless the
+ * default value-axis title already says it — every value shares per unit and
+ * one named unit. A custom axis title never says it, so values keep the suffix.
+ */
+function getSeriesNameByIndex(
+  config: ExplorationConfig | null,
+  showAsByIndex: ValueShowAs[],
+): string[] {
+  if (!datasetHasValues(config?.dataset)) return [];
+  const sharedUnit = getSharedUnit(config);
+  const axisTitleSaysPerUnit =
+    config.chartSettings?.valueAxisLabel === undefined &&
+    getSharedShowAs(showAsByIndex) === "per_unit" &&
+    sharedUnit !== null;
+  return config.dataset.values.map((value, i) =>
+    showAsByIndex[i]?.showAs === "per_unit" && !axisTitleSaysPerUnit
+      ? getPerUnitName(value, sharedUnit)
+      : value.name,
+  );
 }
 
 /**
@@ -498,18 +563,21 @@ export function getIsRatioByIndex(
 
 /** Per-value render settings for an exploration result, index-aligned with `dataset.values`. */
 export type ExplorationRenderOpts = {
-  /** `null` where showAs doesn't apply; those values render their raw numerator. */
-  showAsByIndex: (ShowAs | null)[];
+  showAsByIndex: ShowAs[];
   isRatioByIndex: boolean[];
+  /** Chart legend and tooltip names. */
+  seriesNameByIndex: string[];
 };
 
 export function getExplorationRenderOpts(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationRenderOpts {
+  const showAsByIndex = getShowAsByIndex(config, getFactMetricById);
   return {
-    showAsByIndex: getShowAsByIndex(config, getFactMetricById),
+    showAsByIndex: showAsByIndex.map((v) => v.showAs),
     isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
+    seriesNameByIndex: getSeriesNameByIndex(config, showAsByIndex),
   };
 }
 
@@ -635,14 +703,10 @@ export function buildExplorationColumns(
       return;
     }
 
-    let singleLabel = name;
-    if (showAsByIndex[metricIndex] === "per_unit") {
-      const unit =
-        ("unit" in v && typeof v.unit === "string" ? v.unit : null) ||
-        sharedUnit ||
-        "unit";
-      singleLabel = `${name} per ${unit}`;
-    }
+    const singleLabel =
+      showAsByIndex[metricIndex]?.showAs === "per_unit"
+        ? getPerUnitName(v, sharedUnit)
+        : name;
     cols.push({
       kind: "metric",
       key: `__metric_${metricIndex}__`,

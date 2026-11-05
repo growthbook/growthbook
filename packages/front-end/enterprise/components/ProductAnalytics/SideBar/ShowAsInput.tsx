@@ -4,22 +4,29 @@ import Text from "@/ui/Text";
 import RadioGroup from "@/ui/RadioGroup";
 
 export default function ShowAsInput({
+  options,
   value,
   unit,
   setValue,
 }: {
+  options: readonly ShowAs[];
   value: ShowAs;
   unit: string | null;
   setValue: (value: ShowAs) => void;
 }) {
+  // Keyed by every ShowAs so a new option can't ship without a label.
+  const labels: Record<ShowAs, string> = {
+    total: "Event totals",
+    per_unit: `Per ${unit ?? "unit"}`,
+  };
   return (
     <Flex direction="column" gap="2">
       <Text weight="medium">Show as</Text>
       <RadioGroup
-        options={[
-          { label: "Event totals", value: "total" },
-          { label: `Per ${unit ?? "unit"}`, value: "per_unit" },
-        ]}
+        options={options.map((option) => ({
+          label: labels[option],
+          value: option,
+        }))}
         value={value}
         setValue={(v) => setValue(v as ShowAs)}
       />

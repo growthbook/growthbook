@@ -98,14 +98,15 @@ export default function MetricTabContent() {
       {values.map((v, idx) => {
         const lockedClass = getLockedClassForSlot(idx);
         const disabledTooltip = lockedClass ? mixTooltip(lockedClass) : "";
-        const showAs = showAsByIndex[idx] ?? null;
+        const { options: showAsOptions, showAs } = showAsByIndex[idx];
         return (
           <ValueCard
             key={idx}
             index={idx}
             footer={
-              showAs !== null && (
+              showAsOptions.length > 0 && (
                 <ShowAsInput
+                  options={showAsOptions}
                   value={showAs}
                   unit={v.unit}
                   setValue={(next) =>

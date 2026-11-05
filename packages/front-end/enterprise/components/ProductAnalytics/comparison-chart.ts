@@ -335,12 +335,10 @@ function metricIdForDatasetValue(
 }
 
 function metricNameForDatasetValue(
-  config: ExplorationConfig,
+  renderOpts: RenderOpts,
   metricIndex: number,
 ): string {
-  if (config.dataset?.type === "funnel" || config.dataset?.type === "journey")
-    return `Metric ${metricIndex}`;
-  return config.dataset?.values?.[metricIndex]?.name ?? `Metric ${metricIndex}`;
+  return renderOpts.seriesNameByIndex[metricIndex] ?? `Metric ${metricIndex}`;
 }
 
 /**
@@ -380,7 +378,7 @@ export function buildComparisonOverlaySeriesMaps(
         if (!seriesMeta[seriesKey]) {
           seriesMeta[seriesKey] = {
             metricId: metricIdForDatasetValue(config, mi),
-            name: metricNameForDatasetValue(config, mi),
+            name: metricNameForDatasetValue(renderOpts, mi),
           };
         }
         const cell = row.values?.[mi];
@@ -401,7 +399,7 @@ export function buildComparisonOverlaySeriesMaps(
       if (!seriesMeta[seriesKey]) {
         seriesMeta[seriesKey] = {
           metricId: metricIdForDatasetValue(config, 0),
-          name: group || metricNameForDatasetValue(config, 0),
+          name: group || metricNameForDatasetValue(renderOpts, 0),
         };
       }
       const cell = row.values?.[0];
@@ -414,7 +412,7 @@ export function buildComparisonOverlaySeriesMaps(
     if (!seriesMeta[seriesKey]) {
       seriesMeta[seriesKey] = {
         metricId: metricIdForDatasetValue(config, 0),
-        name: metricNameForDatasetValue(config, 0),
+        name: metricNameForDatasetValue(renderOpts, 0),
       };
     }
     const cell = row.values?.[0];

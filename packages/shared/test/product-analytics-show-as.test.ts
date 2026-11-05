@@ -3,6 +3,7 @@ import {
   getExplorationRenderOpts,
   getRenderedMetricValue,
   getShowAsByIndex,
+  getShowAsOptions,
   normalizeShowAs,
   omitRenderOnlyValueFields,
 } from "shared/enterprise";
@@ -70,6 +71,26 @@ function metricConfig(
   };
 }
 
+const MEAN_OPTIONS = ["total", "per_unit"];
+const none = { options: [], showAs: "total" };
+const mean = (showAs: ShowAs) => ({ options: MEAN_OPTIONS, showAs });
+
+describe("getShowAsOptions", () => {
+  it("offers total and per unit for mean metrics only", () => {
+    expect(getShowAsOptions("mean")).toEqual(MEAN_OPTIONS);
+    for (const type of [
+      "proportion",
+      "retention",
+      "dailyParticipation",
+      "ratio",
+      "quantile",
+    ] as const) {
+      expect(getShowAsOptions(type)).toEqual([]);
+    }
+    expect(getShowAsOptions(undefined)).toEqual([]);
+  });
+});
+
 describe("getShowAsByIndex", () => {
   it("resolves each mean metric independently", () => {
     const config = metricConfig([
@@ -77,8 +98,8 @@ describe("getShowAsByIndex", () => {
       metricValue("revenue", "total"),
     ]);
     expect(getShowAsByIndex(config, getFactMetricById)).toEqual([
-      "per_unit",
-      "total",
+      mean("per_unit"),
+      mean("total"),
     ]);
   });
 
@@ -88,27 +109,27 @@ describe("getShowAsByIndex", () => {
       metricValue("maxOrder"),
     ]);
     expect(getShowAsByIndex(config, getFactMetricById)).toEqual([
-      "total",
-      "per_unit",
+      mean("total"),
+      mean("per_unit"),
     ]);
   });
 
-  it("is null for metric types without a meaningful per-unit view", () => {
+  it("offers no options and renders totals for other metric types", () => {
     const config = metricConfig([
       metricValue("converted", "per_unit"),
       metricValue("aov"),
       metricValue("revenue"),
     ]);
     expect(getShowAsByIndex(config, getFactMetricById)).toEqual([
-      null,
-      null,
-      "total",
+      none,
+      none,
+      mean("total"),
     ]);
   });
 
-  it("is null for a slot with no metric selected", () => {
+  it("offers no options for a slot with no metric selected", () => {
     const config = metricConfig([metricValue("")]);
-    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([null]);
+    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([none]);
   });
 
   it("falls back to the deprecated config-level showAs", () => {
@@ -117,18 +138,18 @@ describe("getShowAsByIndex", () => {
       "per_unit",
     );
     expect(getShowAsByIndex(config, getFactMetricById)).toEqual([
-      "per_unit",
-      "total",
+      mean("per_unit"),
+      mean("total"),
     ]);
   });
 
   it("resolves an unsaved draft metric", () => {
     const draft = makeMetric("", "mean", "max");
     const config = metricConfig([{ ...metricValue(""), draftMetric: draft }]);
-    expect(getShowAsByIndex(config, () => null)).toEqual(["per_unit"]);
+    expect(getShowAsByIndex(config, () => null)).toEqual([mean("per_unit")]);
   });
 
-  it("is null for every value of a non-metric dataset", () => {
+  it("offers no options for any value of a non-metric dataset", () => {
     const config: ExplorationConfig = {
       ...metricConfig([]),
       type: "fact_table",
@@ -147,12 +168,12 @@ describe("getShowAsByIndex", () => {
         ],
       },
     };
-    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([null]);
+    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([none]);
   });
 });
 
 describe("normalizeShowAs", () => {
-  it("moves the config-level showAs onto the values it applies to", () => {
+  it("moves the config-level showAs onto the values that offer it", () => {
     const normalized = normalizeShowAs(
       metricConfig(
         [metricValue("revenue"), metricValue("converted")],
@@ -178,7 +199,7 @@ describe("normalizeShowAs", () => {
     });
   });
 
-  it("strips showAs from values whose metric doesn't support it", () => {
+  it("strips showAs that isn't one of the metric's options", () => {
     const normalized = normalizeShowAs(
       metricConfig([metricValue("converted", "per_unit")]),
       getFactMetricById,
@@ -231,7 +252,7 @@ describe("getDefaultValueAxisName", () => {
     ).toBe("Per user_id");
   });
 
-  it("ignores values showAs doesn't apply to", () => {
+  it("ignores values that offer no options", () => {
     expect(
       getDefaultValueAxisName(
         metricConfig([metricValue("revenue"), metricValue("converted")]),
@@ -286,5 +307,53 @@ describe("toClientJourneyExploration", () => {
     expect(
       toClientJourneyExploration(cached, requested).config.dataset,
     ).toEqual(requested.dataset);
+  });
+});
+
+describe("seriesNameByIndex", () => {
+  const names = (config: ExplorationConfig) =>
+    getExplorationRenderOpts(config, getFactMetricById).seriesNameByIndex;
+
+  it("suffixes per-unit values when the axis mixes modes", () => {
+    expect(
+      names(
+        metricConfig([
+          metricValue("revenue", "per_unit"),
+          metricValue("maxOrder", "total"),
+          metricValue("converted"),
+        ]),
+      ),
+    ).toEqual(["revenue per user_id", "maxOrder", "converted"]);
+  });
+
+  it("keeps plain names when the axis title names the shared unit", () => {
+    expect(
+      names(
+        metricConfig([
+          metricValue("revenue", "per_unit"),
+          metricValue("maxOrder"),
+        ]),
+      ),
+    ).toEqual(["revenue", "maxOrder"]);
+  });
+
+  it("suffixes each value when per-unit values use different units", () => {
+    expect(
+      names(
+        metricConfig([
+          metricValue("revenue", "per_unit", "user_id"),
+          metricValue("maxOrder", "per_unit", "device_id"),
+        ]),
+      ),
+    ).toEqual(["revenue per user_id", "maxOrder per device_id"]);
+  });
+
+  it("suffixes per-unit values under a custom axis title", () => {
+    expect(
+      names({
+        ...metricConfig([metricValue("revenue", "per_unit")]),
+        chartSettings: { valueAxisLabel: "Revenue" },
+      }),
+    ).toEqual(["revenue per user_id"]);
   });
 });

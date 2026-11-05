@@ -22,7 +22,6 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   normalizeShowAs,
-  getShowAsByIndex,
   getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
@@ -849,23 +848,28 @@ async function normalizeConfigForExplorer(
     dataset,
   } as ExplorationConfig;
 
-  // Move a deprecated top-level `showAs` onto the values and drop it where
-  // the metric doesn't support it, so we never persist a mode that disagrees
-  // with what the chart will actually render.
+  // Move a deprecated top-level `showAs` onto the values and drop it where it
+  // isn't one of the metric's Show as options, so we never persist a mode that
+  // disagrees with what the chart will actually render.
   const requested = normalized;
   normalized = normalizeShowAs(normalized, getFactMetricByIdResolver);
-  const applied = getShowAsByIndex(normalized, getFactMetricByIdResolver);
-  const ignored = datasetHasValues(requested.dataset)
-    ? requested.dataset.values.filter(
-        (v, i) =>
-          applied[i] === null &&
-          (requested.showAs !== undefined ||
-            (v.type === "metric" && v.showAs !== undefined)),
-      )
+  const keptValues = datasetHasValues(normalized.dataset)
+    ? normalized.dataset.values
     : [];
-  if (ignored.length) {
+  const dropped = datasetHasValues(requested.dataset)
+    ? requested.dataset.values.filter((v, i) => {
+        const asked =
+          (v.type === "metric" ? v.showAs : undefined) ?? requested.showAs;
+        const kept = keptValues[i];
+        return (
+          asked !== undefined &&
+          !(kept?.type === "metric" && kept.showAs !== undefined)
+        );
+      })
+    : [];
+  if (dropped.length) {
     warnings.push(
-      `Dropped showAs from ${ignored.map((v) => `"${v.name}"`).join(", ")} — it only applies to mean metrics. These values render as totals.`,
+      `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics offer showAs). These values render as totals.`,
     );
   }
 
