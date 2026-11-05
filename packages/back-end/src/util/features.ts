@@ -2021,9 +2021,7 @@ export function toFeatureMetaInfo(
   };
 }
 
-// Index revisions by `${featureId}:${version}` so a list of N flags can look
-// up each one's revision in O(1) instead of scanning all revisions per flag.
-// The first revision for a key wins, matching the old `find()` behavior.
+// Keyed by `${featureId}:${version}`; the first revision for a key wins.
 export function indexRevisions<
   T extends Pick<FeatureRevisionInterface, "featureId" | "version">,
 >(revisions: T[] | null | undefined): Map<string, T> {
