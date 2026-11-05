@@ -31,6 +31,7 @@ import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { isCloud } from "@/services/env";
 import UsageMeter from "@/components/Settings/EditDataSource/EventForwarder/UsageMeter";
+import EventForwarderActivity from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderActivity";
 import PremiumCallout from "@/ui/PremiumCallout";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import SelectField from "@/components/Forms/SelectField";
@@ -941,6 +942,13 @@ export default function EventForwarder({
               </Callout>
             ) : null}
           </Flex>
+        </Card>
+      ) : null}
+      {(isReady || isPaused) && !isProvisioning ? (
+        <Card mt="4">
+          <Box p="2">
+            <EventForwarderActivity dataSource={dataSource} />
+          </Box>
         </Card>
       ) : null}
       {showEditModal ? (
