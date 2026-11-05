@@ -11,6 +11,14 @@ export type ApiResourceEntry = {
 
 export type ApiResourceOperations = Partial<Record<CrudAction, string>>;
 
+// BaseModel specs are added in api.router; these are hand-written routes.
+export const legacyApiResources: ApiResourceEntry[] = [
+  { name: "project", path: "/projects" },
+  { name: "attribute", path: "/attributes" },
+  { name: "sdk_connection", path: "/sdk-connections" },
+  { name: "feature", path: "/features", version: "v2" },
+];
+
 // Collection routes sit at `path`, item routes at `path/:param`.
 export function resolveApiResource(
   { path, version = "v1" }: ApiResourceEntry,

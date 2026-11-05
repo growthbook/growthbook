@@ -82,7 +82,7 @@ import { namespacesRoutes } from "./namespaces/namespaces.router";
 import { eventWebhooksRoutes } from "./event-webhooks/event-webhooks.router";
 import { auditsRoutes } from "./audits/audits.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
-import { ApiResourceEntry } from "./resources";
+import { ApiResourceEntry, legacyApiResources } from "./resources";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
@@ -252,7 +252,7 @@ export const apiModelTagMeta: Record<
   string,
   { displayName?: string; description?: string }
 > = {};
-export const apiResources: ApiResourceEntry[] = [];
+export const apiResources: ApiResourceEntry[] = [...legacyApiResources];
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
   if (!apiConfig) return;
