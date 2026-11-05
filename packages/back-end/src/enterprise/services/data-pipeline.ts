@@ -415,28 +415,28 @@ export function getMetricSettingsHashForAggregatedFactTable({
     factMetric.denominator.factTableId === factTableId;
 
   // Only the column-ref parts that change stored data type / column name. The
-  // aggregate-filter threshold is omitted (it changes values, not schema), but
-  // the filter column is what gets summed and stored (and decides whether it's
-  // an integer or float column), so it's included while a filter is active.
-  // Omitted otherwise (JSON.stringify drops undefined) so hashes for metrics
-  // without an aggregate filter stay byte-identical.
+  // aggregate-filter threshold is omitted (it changes values, not schema); the
+  // filter column is what gets summed and stored, so it's included while a
+  // filter is active and left undefined otherwise to keep older hashes stable.
   const schemaBreakingColumnRef = (
     ref: FactMetricInterface["numerator"] | null | undefined,
-  ) =>
-    ref
-      ? {
-          factTableId: ref.factTableId,
-          column: ref.column,
-          aggregation: ref.aggregation,
-          aggregateFilterColumn: getAggregateFilters({
-            columnRef: ref,
-            column: ref.column,
-            ignoreInvalid: true,
-          }).length
-            ? ref.aggregateFilterColumn
-            : undefined,
-        }
-      : null;
+  ) => {
+    if (!ref) return null;
+    const hasAggregateFilter =
+      getAggregateFilters({
+        columnRef: ref,
+        column: ref.column,
+        ignoreInvalid: true,
+      }).length > 0;
+    return {
+      factTableId: ref.factTableId,
+      column: ref.column,
+      aggregation: ref.aggregation,
+      aggregateFilterColumn: hasAggregateFilter
+        ? ref.aggregateFilterColumn
+        : undefined,
+    };
+  };
 
   return hashObject({
     metricType: factMetric.metricType,
