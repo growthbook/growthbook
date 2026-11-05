@@ -26,6 +26,7 @@ import {
   isAutoSnapshotScheduled,
   isStoppedExperimentResultsLocked,
   STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE,
+  getClusterSubUnit,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -47,7 +48,6 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { startCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu, {
   shouldOfferMenuRefresh,
@@ -75,6 +75,7 @@ import {
   getIsExperimentIncludedInIncrementalRefresh,
   getPipelineSettingsAfterDisablingExperiment,
   getHonoredPrecomputedUnitDimensionIds,
+  getUnitDisplayName,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import Tooltip from "@/ui/Tooltip";
@@ -233,24 +234,40 @@ export default function AnalysisSettingsSummary({
     };
   });
 
-  const totalUnits = useMemo(() => {
+  const healthUnits = useMemo(() => {
     const healthVariationUnits =
       snapshot?.health?.traffic?.overall?.variationUnits;
-    if (healthVariationUnits && healthVariationUnits.length > 0) {
-      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
-    }
-    // Fallback to using results for total units if health units not available
+    if (!healthVariationUnits?.length) return null;
+    return healthVariationUnits.reduce((acc, a) => acc + a, 0);
+  }, [snapshot?.health?.traffic?.overall?.variationUnits]);
+  const resultsUnits = useMemo(() => {
     let totalUsers = 0;
     analysis?.results?.forEach((result) => {
       result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
     });
     return totalUsers;
-  }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
+  }, [analysis?.results]);
+  const totalUnits = healthUnits ?? resultsUnits;
+  // A cluster's subunits can fall into several breakdown slices, so summing
+  // slices would count it more than once. Use the overall results instead.
+  const overallClusterUnits = useMemo(() => {
+    const overall = dimensionless?.analyses?.find(
+      (a) => !a.settings.dimensions.length,
+    );
+    if (!overall?.results?.length) return null;
+    return (overall.results[0].variations ?? []).reduce(
+      (acc, v) => acc + (v?.users || 0),
+      0,
+    );
+  }, [dimensionless?.analyses]);
 
-  // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
-  const unitDisplayName = userIdType
-    ? startCase(userIdType.split("_").join(" ")) + "s"
-    : "Units";
+  // Cluster results are analyzed per cluster, so their unit counts are
+  // clusters, while health traffic counts subunits.
+  const clusterSubUnitIdentifier = snapshot?.settings?.isClusterExperiment
+    ? snapshot.settings.clusterSubUnitIdentifier
+    : undefined;
+  const clusterIdentifier =
+    snapshot?.settings?.exposureQueryIdentifierType ?? userIdType;
 
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
@@ -317,6 +334,8 @@ export default function AnalysisSettingsSummary({
       datasourceId: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId ?? "",
       exposureQueryIdentifierType: userIdType,
+      isClusterExperiment: experiment.isClusterExperiment,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
       // Match isOutdated's commercial-feature gate for regression adjustment.
       regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
         ? !!experiment.regressionAdjustmentEnabled
@@ -340,6 +359,8 @@ export default function AnalysisSettingsSummary({
         ),
         dimensionless.settings.exposureQueryIdentifierType,
       ),
+      isClusterExperiment: dimensionless.settings.isClusterExperiment,
+      clusterSubUnitIdentifier: dimensionless.settings.clusterSubUnitIdentifier,
       regressionAdjustmentEnabled:
         dimensionless.settings.regressionAdjustmentEnabled,
       experimentId: dimensionless.settings.experimentId,
@@ -753,6 +774,20 @@ export default function AnalysisSettingsSummary({
         getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
       );
     }
+    // A missing flag means off, and a subunit only counts in cluster mode.
+    const expSubUnit = exp.isClusterExperiment
+      ? (exp.clusterSubUnitIdentifier ?? null)
+      : null;
+    const snapshotSubUnit = snapshotSettings.isClusterExperiment
+      ? (snapshotSettings.clusterSubUnitIdentifier ?? null)
+      : null;
+    if (!!exp.isClusterExperiment !== !!snapshotSettings.isClusterExperiment) {
+      reasons.push(getExperimentOutdatedReasonLabel("isClusterExperiment"));
+    } else if (expSubUnit !== snapshotSubUnit) {
+      reasons.push(
+        getExperimentOutdatedReasonLabel("clusterSubUnitIdentifier"),
+      );
+    }
     if (
       isDifferent(
         exp.attributionModel || "firstExposure",
@@ -835,8 +870,11 @@ export default function AnalysisSettingsSummary({
       );
     }
 
+    // Mirrors the back-end, which stores it as off for cluster experiments.
     const experimentPostStratificationEnabled =
-      !hasPostStratificationFeature || org.disablePrecomputedDimensions
+      !hasPostStratificationFeature ||
+      org.disablePrecomputedDimensions ||
+      getClusterSubUnit(exp)
         ? false
         : (exp.postStratificationEnabled ??
           org.postStratificationEnabled ??
@@ -919,10 +957,27 @@ export default function AnalysisSettingsSummary({
           }}
         >
           <Flex align="center" gap="4">
-            {snapshot ? (
+            {snapshot && clusterSubUnitIdentifier ? (
+              <>
+                {overallClusterUnits !== null && (
+                  <Metadata
+                    label={getUnitDisplayName(clusterIdentifier)}
+                    value={numberFormatter.format(overallClusterUnits)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                )}
+                {healthUnits !== null && (
+                  <Metadata
+                    label={getUnitDisplayName(clusterSubUnitIdentifier)}
+                    value={numberFormatter.format(healthUnits)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                )}
+              </>
+            ) : snapshot ? (
               <Metadata
-                label={unitDisplayName}
-                value={numberFormatter.format(totalUnits ?? 0)}
+                label={getUnitDisplayName(userIdType)}
+                value={numberFormatter.format(totalUnits)}
                 style={{ whiteSpace: "nowrap" }}
               />
             ) : null}

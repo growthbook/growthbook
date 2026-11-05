@@ -140,6 +140,8 @@ export interface MetricStats {
   count: number;
   stddev: number;
   mean: number;
+  // Cluster experiments only
+  sub_count?: number;
 }
 
 export interface BaselineResponse {
