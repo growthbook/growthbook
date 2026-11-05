@@ -1,7 +1,9 @@
 import {
+  getRowFilterSQL,
   isValidRowFilterDateValue,
   normalizeRowFilterDateValue,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { truncateString } from "shared/util";
 import {
@@ -276,6 +278,45 @@ export function getRowFilterDescription(
     "";
   const operator = operatorLabelMap[rowFilter.operator] ?? rowFilter.operator;
   return `${column} ${operator} ${values.join(", ")}`.trim();
+}
+
+/**
+ * Generic, dialect-neutral SQL for showing what a row filter does. Saved
+ * filters expand to their SQL, with a comment naming the source filter.
+ * Without a fact table, falls back to a plain `column operator values` line.
+ */
+export function getRowFilterDisplaySQL(
+  rowFilter: RowFilter,
+  factTable: FactTableDefinition | null,
+): string {
+  if (!factTable) {
+    return `${rowFilter.column} ${rowFilter.operator} ${rowFilter.values?.join(", ")}`;
+  }
+  const escapeStringLiteral = (s: string) => s.replace(/'/g, "''");
+  return (
+    getRowFilterSQL({
+      rowFilter,
+      factTable,
+      escapeStringLiteral,
+      stringMatch: createLikeStringMatchFn({
+        escapeStringLiteral,
+        emitEscapeClause: false,
+      }),
+      evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+      jsonExtract: (col, path) => `${col}.${path}`,
+      showSourceComment: true,
+    }) ?? ""
+  );
+}
+
+/** A `WHERE` clause combining every row filter, for display. */
+export function getRowFiltersDisplaySQL(
+  rowFilters: RowFilter[],
+  factTable: FactTableDefinition | null,
+): string {
+  return `WHERE ${rowFilters
+    .map((rf) => getRowFilterDisplaySQL(rf, factTable))
+    .join("\nAND ")}`;
 }
 
 /**
