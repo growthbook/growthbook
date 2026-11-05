@@ -91,35 +91,42 @@ function cellBackground(
   };
 }
 
+function buildDisplayRepresentatives(
+  values: (number | null)[],
+  formatValue: (value: number) => string,
+): Map<string, number> {
+  const representativeByDisplay = new Map<string, number>();
+  for (const v of values) {
+    if (v === null || Number.isNaN(v)) continue;
+    const key = formatValue(v);
+    if (!representativeByDisplay.has(key)) representativeByDisplay.set(key, v);
+  }
+  return representativeByDisplay;
+}
+
 function quantizeByDisplay(
   values: (number | null)[],
   formatValue: (value: number) => string,
+  representatives: Map<string, number>,
 ): (number | null)[] {
-  const representativeByDisplay = new Map<string, number>();
   return values.map((v) => {
     if (v === null || Number.isNaN(v)) return v;
-    const key = formatValue(v);
-    const existing = representativeByDisplay.get(key);
-    if (existing !== undefined) return existing;
-    representativeByDisplay.set(key, v);
-    return v;
+    return representatives.get(formatValue(v)) ?? v;
   });
 }
 
 function normalizeValues(
   values: (number | null)[],
-  formatValue: (value: number) => string,
   bounds?: { min: number; max: number },
 ): (number | null)[] {
-  const quantized = quantizeByDisplay(values, formatValue);
-  const numeric = quantized.filter(
+  const numeric = values.filter(
     (v): v is number => v !== null && !Number.isNaN(v),
   );
-  if (numeric.length === 0) return quantized.map(() => null);
+  if (numeric.length === 0) return values.map(() => null);
   const min = bounds ? bounds.min : Math.min(...numeric);
   const max = bounds ? bounds.max : Math.max(...numeric);
   const range = max - min;
-  return quantized.map((v) => {
+  return values.map((v) => {
     if (v === null || Number.isNaN(v)) return null;
     if (range === 0) return 0;
     return (v - min) / range;
@@ -156,15 +163,25 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
   },
   ref,
 ) {
+  const allValues = useMemo(
+    () => rows.flatMap((row) => row.cells.map((c) => c.value)),
+    [rows],
+  );
+  const displayRepresentatives = useMemo(
+    () => buildDisplayRepresentatives(allValues, formatValue),
+    [allValues, formatValue],
+  );
+
   const globalBounds = useMemo(() => {
     if (normalize !== "all") return undefined;
     const numeric = quantizeByDisplay(
-      rows.flatMap((row) => row.cells.map((c) => c.value)),
+      allValues,
       formatValue,
+      displayRepresentatives,
     ).filter((v): v is number => v !== null && !Number.isNaN(v));
     if (numeric.length === 0) return undefined;
     return { min: Math.min(...numeric), max: Math.max(...numeric) };
-  }, [normalize, rows, formatValue]);
+  }, [normalize, allValues, formatValue, displayRepresentatives]);
 
   return (
     <div ref={ref} {...marginProps}>
@@ -200,8 +217,11 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
         <TableBody>
           {rows.map((row) => {
             const intensities = normalizeValues(
-              row.cells.map((c) => c.value),
-              formatValue,
+              quantizeByDisplay(
+                row.cells.map((c) => c.value),
+                formatValue,
+                displayRepresentatives,
+              ),
               normalize === "all" ? globalBounds : undefined,
             );
             return (
