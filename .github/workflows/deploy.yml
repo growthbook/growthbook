@@ -1,18 +1,12 @@
 name: Deploy
 
+# After CI passes on main. A workflow_run run isn't a check on the commit, so a
+# failed deploy doesn't mark the commit red; notify-on-failure still alerts Slack.
 on:
-  # Push to the main branch
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/deploy.yml"
-      - ".github/workflows/build-image.yml"
-      - "packages/**"
-      - "!**.md"
-      - "pnpm-lock.yaml"
-      - "Dockerfile"
-      - ".dockerignore"
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
 
 concurrency:
   group: deploy-production
@@ -23,15 +17,57 @@ permissions:
   contents: read
 
 jobs:
+  # workflow_run has no `paths` filter, so apply it here. Diffing from the last
+  # successful Deploy (not the parent commit) means a deployable commit whose
+  # queued run was superseded still ships with the next one.
+  changes:
+    runs-on: ubuntu-latest
+    if: >-
+      ${{ github.repository == 'growthbook/growthbook'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push' }}
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      deploy: ${{ steps.filter.outputs.deploy }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Check for deployable changes
+        id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          BASE=$(gh run list --workflow deploy.yml --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+          if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "No usable last-deployed commit; deploying."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "$BASE" "$SHA" -- \
+            .github/workflows/deploy.yml .github/workflows/build-image.yml \
+            packages ':(exclude,glob)**/*.md' pnpm-lock.yaml Dockerfile .dockerignore)
+          echo "Deployable changes since ${BASE::7}:"
+          echo "${CHANGED:-(none)}"
+          if [ -n "$CHANGED" ]; then echo "deploy=true"; else echo "deploy=false"; fi >> "$GITHUB_OUTPUT"
+
   # Build and publish the commit to docker
   docker:
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    needs: [changes]
+    if: ${{ needs.changes.outputs.deploy == 'true' }}
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/build-image.yml
     with:
-      ref: ${{ github.sha }}
+      ref: ${{ github.event.workflow_run.head_sha }}
       latest: true
     secrets: inherit
 
@@ -51,6 +87,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Configure AWS credentials for GrowthBook Cloud
@@ -89,7 +126,7 @@ jobs:
         with:
           environment: "production"
           sourcemaps: "./back-end-dist"
-          release: ${{ github.sha }}
+          release: ${{ github.event.workflow_run.head_sha }}
           inject: false
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -102,7 +139,7 @@ jobs:
         with:
           environment: "production"
           sourcemaps: "./back-end-dist"
-          release: ${{ github.sha }}
+          release: ${{ github.event.workflow_run.head_sha }}
           inject: false
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -116,7 +153,7 @@ jobs:
         with:
           environment: "production"
           sourcemaps: "./front-end-dist"
-          release: ${{ github.sha }}
+          release: ${{ github.event.workflow_run.head_sha }}
           inject: false
           url_prefix: "app:///_next"
         env:
@@ -130,7 +167,7 @@ jobs:
         with:
           environment: "production"
           sourcemaps: "./front-end-dist"
-          release: ${{ github.sha }}
+          release: ${{ github.event.workflow_run.head_sha }}
           inject: false
           url_prefix: "app:///_next"
         env:
