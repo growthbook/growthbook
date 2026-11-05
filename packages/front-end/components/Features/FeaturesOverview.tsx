@@ -69,6 +69,11 @@ import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
+import SectionFrame from "@/components/SectionFrame";
+import {
+  TABS_BAR_HEIGHT_PX,
+  TABS_HEADER_HEIGHT_PX,
+} from "@/components/Layout/constants";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import FeatureRules from "./FeatureRules";
@@ -310,9 +315,7 @@ export default function FeaturesOverview({
     return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
   }, [safeRollouts]);
 
-  const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
-
   const [envGridWidth, setEnvGridWidth] = useState(0);
   const envGridRef = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
@@ -322,31 +325,27 @@ export default function FeaturesOverview({
     });
     ro.observe(el);
   }, []);
-  // Watch a sentinel just above the sticky banner. When the sentinel scrolls
-  // out of the viewport (above the 118px sticky offset), the banner is
-  // genuinely pinned — a more reliable signal than getBoundingClientRect math,
-  // which falsely reports "pinned" whenever the banner's natural position
-  // already sits near the top of the page.
-  //
-  // Use a ref callback (not useRef + useEffect[]) so the observer re-attaches
-  // when the sentinel later mounts — e.g. when a user creates a draft on a
-  // page that initially had no banner.
-  const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
-  const bannerSentinelRef = useCallback((el: HTMLDivElement | null) => {
-    if (bannerSentinelObserver.current) {
-      bannerSentinelObserver.current.disconnect();
-      bannerSentinelObserver.current = null;
-    }
+  // Once the draft banner has scrolled up under the tab bar, a copy follows at
+  // the window's bottom. A ref callback, so it attaches whenever the banner
+  // mounts, as when a draft is created on the page.
+  const bannerObserver = useRef<IntersectionObserver | null>(null);
+  const bannerRef = useCallback((el: HTMLDivElement | null) => {
+    bannerObserver.current?.disconnect();
+    bannerObserver.current = null;
     if (!el) {
       setBannerPinned(false);
       return;
     }
+    const top = TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX;
     const observer = new IntersectionObserver(
-      ([entry]) => setBannerPinned(!entry.isIntersecting),
-      { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+      ([entry]) =>
+        setBannerPinned(
+          !entry.isIntersecting && entry.boundingClientRect.top < top,
+        ),
+      { rootMargin: `-${top}px 0px 0px 0px` },
     );
     observer.observe(el);
-    bannerSentinelObserver.current = observer;
+    bannerObserver.current = observer;
   }, []);
 
   if (!baseFeature || !feature || !revision) return null;
@@ -424,7 +423,6 @@ export default function FeaturesOverview({
       permissionsUtil.canPublishFeature(baseFeature, [envId]),
     );
 
-  let hasRules = false;
   const invalidPrereqs: {
     key: string;
     ruleId: string | null;
@@ -448,7 +446,6 @@ export default function FeaturesOverview({
   const ruleNumberOffset = holdout ? 2 : 1;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
-    if (r.length > 0) hasRules = true;
     r.forEach((rule) => {
       if (rule.enabled === false || seenRuleIds.has(rule.id)) return;
       seenRuleIds.add(rule.id);
@@ -488,202 +485,177 @@ export default function FeaturesOverview({
     tags: feature.tags || [],
   };
 
+  const bannerProps =
+    isDraft || isPendingReview
+      ? scheduledPublishPending
+        ? (() => {
+            // Mirrors a ramp lockdown, naming the target date. Locks
+            // engage only once approved; while in review we say "once
+            // approved" and omit the lock clauses (editing stays open).
+            const lockActive = isScheduledPublishLockActive(revision);
+            const awaitingApproval =
+              revision.status === "pending-review" ||
+              revision.status === "changes-requested";
+            const lockOthersActive =
+              lockActive && !!revision.scheduledPublishLockOthers;
+            const lockClauses = [
+              editLockedBySchedule ? "edits are locked" : null,
+              lockOthersActive ? "publishing other drafts is locked" : null,
+            ].filter((c): c is string => c !== null);
+            return {
+              icon: lockClauses.length ? (
+                <PiLockSimple size={18} />
+              ) : (
+                <PiClockFill size={18} />
+              ),
+              color: "var(--amber-11)",
+              bgColor: "var(--amber-a3)",
+              message: (
+                <>
+                  This <strong>draft</strong> is scheduled to publish on{" "}
+                  <strong>
+                    {datetime(revision.scheduledPublishAt as Date)}
+                  </strong>
+                  {awaitingApproval ? " once approved" : ""}
+                  {lockClauses.length ? ` — ${lockClauses.join(" and ")}` : ""}
+                </>
+              ),
+            };
+          })()
+        : {
+            icon: <PiPencil size={18} />,
+            color: "var(--amber-11)",
+            bgColor: "var(--amber-a3)",
+            message: (
+              <>
+                Viewing a <strong>draft</strong> —{" "}
+                {isPendingReview
+                  ? "changes will not go live until approved and published"
+                  : "changes will not go live until published"}
+              </>
+            ),
+          }
+      : isDiscarded
+        ? {
+            icon: <PiProhibit size={18} />,
+            color: "var(--gray-11)",
+            bgColor: "var(--gray-a3)",
+            message: (
+              <>
+                Viewing a <strong>discarded</strong> revision — this was never
+                published
+              </>
+            ),
+          }
+        : isReadOnly
+          ? {
+              icon: <PiLockSimple size={18} />,
+              color: "var(--gray-11)",
+              bgColor: "var(--gray-a3)",
+              message: (
+                <>
+                  Viewing a previously <strong>published</strong> revision.{" "}
+                  <Link onClick={() => setVersion(feature.version)}>
+                    <strong>Switch to live</strong>
+                  </Link>
+                </>
+              ),
+            }
+          : isLive
+            ? (() => {
+                const activeDrafts = (revisionList ?? []).filter(
+                  (r) =>
+                    !(
+                      r.createdBy?.type === "system" &&
+                      r.createdBy.subtype === "ramp-schedule"
+                    ) &&
+                    (r.status === "draft" ||
+                      r.status === "approved" ||
+                      r.status === "changes-requested" ||
+                      r.status === "pending-review"),
+                );
+                if (activeDrafts.length === 0) return null;
+                return {
+                  icon: <PiPencil size={18} />,
+                  color: "var(--gray-11)",
+                  bgColor: "var(--gray-a3)",
+                  message: (
+                    <>
+                      This feature has{" "}
+                      <strong>
+                        {activeDrafts.length === 1
+                          ? "a draft revision"
+                          : `${activeDrafts.length} draft revisions`}
+                      </strong>
+                      {activeDrafts.length === 1 && (
+                        <>
+                          {". "}
+                          <Link
+                            onClick={() => setVersion(activeDrafts[0].version)}
+                          >
+                            <strong>Switch to draft</strong>
+                          </Link>
+                        </>
+                      )}
+                    </>
+                  ),
+                };
+              })()
+            : null;
+
+  const draftBanner = (pinned: boolean) =>
+    bannerProps ? (
+      <div
+        style={{
+          width: "100%",
+          backgroundColor: "var(--color-background)",
+          borderRadius: "var(--radius-3)",
+          overflow: "hidden",
+          maxWidth: pinned ? 1280 : 1500,
+          margin: "0 auto",
+          boxShadow: pinned ? "var(--shadow-3)" : undefined,
+          pointerEvents: "auto",
+        }}
+      >
+        <Box
+          px="4"
+          py="3"
+          style={{
+            color: bannerProps.color,
+            backgroundColor: bannerProps.bgColor,
+            display: "grid",
+            gridTemplateColumns: "1fr auto 1fr",
+            alignItems: "center",
+            gap: "12px",
+          }}
+        >
+          <span />
+          <Flex
+            align="center"
+            justify="center"
+            gap="2"
+            style={{ gridColumn: 2 }}
+          >
+            <span style={{ display: "flex", flexGrow: 0, flexShrink: 0 }}>
+              {bannerProps.icon}
+            </span>
+            <span style={{ fontSize: "var(--font-size-2)" }}>
+              {bannerProps.message}
+            </span>
+          </Flex>
+          <span />
+        </Box>
+      </div>
+    ) : null;
+
   return (
     <>
       <Box className="contents container-fluid pagecontents">
-        {(() => {
-          const bannerProps =
-            isDraft || isPendingReview
-              ? scheduledPublishPending
-                ? (() => {
-                    // Mirrors a ramp lockdown, naming the target date. Locks
-                    // engage only once approved; while in review we say "once
-                    // approved" and omit the lock clauses (editing stays open).
-                    const lockActive = isScheduledPublishLockActive(revision);
-                    const awaitingApproval =
-                      revision.status === "pending-review" ||
-                      revision.status === "changes-requested";
-                    const lockOthersActive =
-                      lockActive && !!revision.scheduledPublishLockOthers;
-                    const lockClauses = [
-                      editLockedBySchedule ? "edits are locked" : null,
-                      lockOthersActive
-                        ? "publishing other drafts is locked"
-                        : null,
-                    ].filter((c): c is string => c !== null);
-                    return {
-                      icon: lockClauses.length ? (
-                        <PiLockSimple size={18} />
-                      ) : (
-                        <PiClockFill size={18} />
-                      ),
-                      color: "var(--amber-11)",
-                      bgColor: "var(--amber-a3)",
-                      message: (
-                        <>
-                          This <strong>draft</strong> is scheduled to publish on{" "}
-                          <strong>
-                            {datetime(revision.scheduledPublishAt as Date)}
-                          </strong>
-                          {awaitingApproval ? " once approved" : ""}
-                          {lockClauses.length
-                            ? ` — ${lockClauses.join(" and ")}`
-                            : ""}
-                        </>
-                      ),
-                    };
-                  })()
-                : {
-                    icon: <PiPencil size={18} />,
-                    color: "var(--amber-11)",
-                    bgColor: "var(--amber-a3)",
-                    message: (
-                      <>
-                        Viewing a <strong>draft</strong> —{" "}
-                        {isPendingReview
-                          ? "changes will not go live until approved and published"
-                          : "changes will not go live until published"}
-                      </>
-                    ),
-                  }
-              : isDiscarded
-                ? {
-                    icon: <PiProhibit size={18} />,
-                    color: "var(--gray-11)",
-                    bgColor: "var(--gray-a3)",
-                    message: (
-                      <>
-                        Viewing a <strong>discarded</strong> revision — this was
-                        never published
-                      </>
-                    ),
-                  }
-                : isReadOnly
-                  ? {
-                      icon: <PiLockSimple size={18} />,
-                      color: "var(--gray-11)",
-                      bgColor: "var(--gray-a3)",
-                      message: (
-                        <>
-                          Viewing a previously <strong>published</strong>{" "}
-                          revision.{" "}
-                          <Link onClick={() => setVersion(feature.version)}>
-                            <strong>Switch to live</strong>
-                          </Link>
-                        </>
-                      ),
-                    }
-                  : isLive
-                    ? (() => {
-                        const activeDrafts = (revisionList ?? []).filter(
-                          (r) =>
-                            !(
-                              r.createdBy?.type === "system" &&
-                              r.createdBy.subtype === "ramp-schedule"
-                            ) &&
-                            (r.status === "draft" ||
-                              r.status === "approved" ||
-                              r.status === "changes-requested" ||
-                              r.status === "pending-review"),
-                        );
-                        if (activeDrafts.length === 0) return null;
-                        return {
-                          icon: <PiPencil size={18} />,
-                          color: "var(--gray-11)",
-                          bgColor: "var(--gray-a3)",
-                          message: (
-                            <>
-                              This feature has{" "}
-                              <strong>
-                                {activeDrafts.length === 1
-                                  ? "a draft revision"
-                                  : `${activeDrafts.length} draft revisions`}
-                              </strong>
-                              {activeDrafts.length === 1 && (
-                                <>
-                                  {". "}
-                                  <Link
-                                    onClick={() =>
-                                      setVersion(activeDrafts[0].version)
-                                    }
-                                  >
-                                    <strong>Switch to draft</strong>
-                                  </Link>
-                                </>
-                              )}
-                            </>
-                          ),
-                        };
-                      })()
-                    : null;
-
-          if (!bannerProps) return null;
-          return (
-            <>
-              <div ref={bannerSentinelRef} aria-hidden style={{ height: 0 }} />
-              <div
-                ref={bannerRef}
-                style={{
-                  position: "sticky",
-                  top: 110,
-                  zIndex: 920,
-                  marginBottom: 12,
-                  display: "flex",
-                  justifyContent: "center",
-                  pointerEvents: "none",
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    backgroundColor: "var(--color-panel-solid)",
-                    borderRadius: "var(--radius-3)",
-                    overflow: "hidden",
-                    maxWidth: bannerPinned ? 1280 : 1500,
-                    boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
-                    transition: "all 200ms ease",
-                    pointerEvents: "auto",
-                  }}
-                >
-                  <Box
-                    px="4"
-                    py="3"
-                    style={{
-                      color: bannerProps.color,
-                      backgroundColor: bannerProps.bgColor,
-                      display: "grid",
-                      gridTemplateColumns: "1fr auto 1fr",
-                      alignItems: "center",
-                      gap: "12px",
-                    }}
-                  >
-                    <span />
-                    <Flex
-                      align="center"
-                      justify="center"
-                      gap="2"
-                      style={{ gridColumn: 2 }}
-                    >
-                      <span
-                        style={{
-                          display: "flex",
-                          flexGrow: 0,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {bannerProps.icon}
-                      </span>
-                      <span style={{ fontSize: "var(--font-size-2)" }}>
-                        {bannerProps.message}
-                      </span>
-                    </Flex>
-                    <span />
-                  </Box>
-                </div>
-              </div>
-            </>
-          );
-        })()}
+        {bannerProps ? (
+          <div ref={bannerRef} style={{ marginBottom: "var(--space-5)" }}>
+            {draftBanner(false)}
+          </div>
+        ) : null}
         {invalidPrereqs.length > 0 && (
           <Callout status="error" mt="2" mb="3">
             <Button
@@ -717,7 +689,7 @@ export default function FeaturesOverview({
         <Box mt="3">
           <CustomMarkdown page={"feature"} variables={variables} />
         </Box>
-        <Frame mb="4" px="6" py="4">
+        <Frame mb="5" px="6" py="4">
           <Flex align="center" justify="between" gap="2" mb="2">
             <Heading as="h4" size="sm" mb="0">
               Environment Status
@@ -1091,7 +1063,7 @@ export default function FeaturesOverview({
         </Frame>
 
         {dependents > 0 && (
-          <Frame mb="4" px="6" py="4">
+          <Frame mb="5" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
               <Heading size="sm" as="h4" mb="0">
                 Dependents
@@ -1178,95 +1150,70 @@ export default function FeaturesOverview({
 
         {revision && (
           <>
-            <Frame mt="4" px="6" py="4">
-              {/* Its copy and fullscreen buttons show while it's hovered, as a
-                  rule's do. */}
-              <div className={cornerStyles.hoverActions}>
-                <Flex align="center" justify="between">
-                  <Flex align="center" gap="1" mb="3">
-                    <Heading as="h4" size="sm" mb="0">
-                      Default Value
-                    </Heading>
-                  </Flex>
-                  {canEditDrafts && !isReadOnly && (
-                    <Button
-                      variant="ghost"
-                      size="md"
-                      onClick={() => setEdit(true)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                </Flex>
-                <Box mt="2" mb="1">
-                  <Flex width="100%">
-                    <Box flexGrow="1">
-                      <ForceSummary
-                        value={getFeatureDefaultValue(feature)}
-                        feature={feature}
-                        isDefault={true}
-                        // Match FeatureRules' tab: ignore a stored env that isn't
-                        // one of this feature's environments (falls back to base).
-                        environment={
-                          rulesEnv !== null && envs.includes(rulesEnv)
-                            ? rulesEnv
-                            : undefined
-                        }
-                      />
-                    </Box>
-                  </Flex>
-                </Box>
-              </div>
+            <SectionFrame
+              title="Default Value"
+              mt="5"
+              // Its copy and fullscreen buttons show while it's hovered, as a
+              // rule's do.
+              className={cornerStyles.hoverActions}
+              actions={
+                canEditDrafts && !isReadOnly ? (
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    onClick={() => setEdit(true)}
+                  >
+                    Edit
+                  </Button>
+                ) : null
+              }
+            >
+              <ForceSummary
+                value={getFeatureDefaultValue(feature)}
+                feature={feature}
+                isDefault={true}
+                // Match FeatureRules' tab: ignore a stored env that isn't one
+                // of this feature's environments (falls back to base).
+                environment={
+                  rulesEnv !== null && envs.includes(rulesEnv)
+                    ? rulesEnv
+                    : undefined
+                }
+              />
+            </SectionFrame>
 
-              <Box
-                mt="6"
-                pt="4"
-                style={{ borderTop: "1px solid var(--gray-a4)" }}
-              >
-                <Heading as="h4" size="sm" mb="2">
-                  Rules
-                </Heading>
-                {environments.length > 0 ? (
-                  <>
-                    {!hasRules && (
-                      <p>
-                        Add powerful logic on top of your feature. The first
-                        rule that matches will be applied and override the
-                        Default Value.
-                      </p>
-                    )}
-
-                    <FeatureRules
-                      environments={environments}
-                      feature={feature}
-                      baseFeature={baseFeature}
-                      isLocked={isReadOnly}
-                      lockedBySchedule={editLockedBySchedule}
-                      canEditDrafts={canEditDrafts}
-                      experimentsMap={experimentsMap}
-                      mutate={mutate}
-                      currentVersion={currentVersion}
-                      setVersion={setVersion}
-                      isDraft={isDraft}
-                      safeRolloutsMap={safeRolloutsMap}
-                      holdout={holdout}
-                      revisionList={revisionList || []}
-                      rampSchedules={rampSchedules}
-                      draftRevision={revision}
-                      rulesEnv={rulesEnv}
-                      setRulesEnv={setRulesEnv}
-                      baseRevision={baseRevision}
-                    />
-                  </>
-                ) : (
-                  <p>
-                    You need at least one environment to add rules. Add powerful
-                    logic on top of your feature. The first rule that matches
-                    will be applied and override the Default Value.
-                  </p>
-                )}
-              </Box>
-            </Frame>
+            {environments.length > 0 ? (
+              <FeatureRules
+                environments={environments}
+                feature={feature}
+                baseFeature={baseFeature}
+                isLocked={isReadOnly}
+                lockedBySchedule={editLockedBySchedule}
+                canEditDrafts={canEditDrafts}
+                experimentsMap={experimentsMap}
+                mutate={mutate}
+                currentVersion={currentVersion}
+                setVersion={setVersion}
+                isDraft={isDraft}
+                safeRolloutsMap={safeRolloutsMap}
+                holdout={holdout}
+                revisionList={revisionList || []}
+                rampSchedules={rampSchedules}
+                draftRevision={revision}
+                rulesEnv={rulesEnv}
+                setRulesEnv={setRulesEnv}
+                baseRevision={baseRevision}
+                stickyHeaderTop={TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX}
+              />
+            ) : (
+              <SectionFrame title="Rules" mt="5">
+                <p>
+                  You need at least one environment to add rules. Add powerful
+                  logic on top of your feature. The first rule that matches will
+                  be applied and override the Default Value.
+                </p>
+              </SectionFrame>
+            )}
           </>
         )}
 
@@ -1304,6 +1251,24 @@ export default function FeaturesOverview({
             close={() => setKillSwitchTarget(null)}
           />
         )}
+        {/* Scrolled out of view, it follows to the window's bottom. */}
+        {bannerProps && bannerPinned ? (
+          <div
+            style={{ position: "sticky", bottom: 0, height: 0, zIndex: 920 }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: "var(--space-4)",
+                pointerEvents: "none",
+              }}
+            >
+              {draftBanner(true)}
+            </div>
+          </div>
+        ) : null}
       </Box>
     </>
   );

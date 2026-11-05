@@ -1,16 +1,26 @@
 import clsx from "clsx";
 import {
   Children,
+  ComponentPropsWithoutRef,
+  createContext,
+  CSSProperties,
   forwardRef,
   isValidElement,
+  MutableRefObject,
   ReactNode,
+  useCallback,
+  useContext,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
+import { PiCaretDown } from "react-icons/pi";
 import useURLHash from "@/hooks/useURLHash";
 import { radixSize, Size } from "@/ui/sizes";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 
 /**
@@ -28,6 +38,24 @@ import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
  * </Tabs>
  * ```
  */
+
+// The open tab, and how to open another, for the overflow menu.
+const TabsValueContext = createContext<{
+  value: string | null;
+  setValue: ((value: string) => void) | null;
+}>({ value: null, setValue: null });
+
+type OverflowEntry = {
+  el: HTMLButtonElement;
+  label: ReactNode;
+  disabled: boolean;
+};
+
+const TabsOverflowContext = createContext<{
+  entries: MutableRefObject<Map<string, OverflowEntry>>;
+  remeasure: () => void;
+  hidden: ReadonlySet<string>;
+} | null>(null);
 
 type ControlledTabsProps = {
   defaultValue?: never;
@@ -58,6 +86,8 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   let rootProps: React.ComponentProps<typeof RadixTabs.Root> = {};
 
   const [urlHash, setUrlHash] = useURLHash();
+  // Held here rather than by Radix, so the overflow menu can open a tab too.
+  const [innerValue, setInnerValue] = useState(defaultValue);
 
   if (defaultValue && persistInURL) {
     const possibleValues = new Set<string>();
@@ -97,7 +127,11 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
     };
   } else if (defaultValue) {
     rootProps = {
-      defaultValue,
+      value: innerValue,
+      onValueChange: (value) => {
+        setInnerValue(value);
+        onValueChange?.(value);
+      },
     };
   } else if (value) {
     rootProps = {
@@ -107,9 +141,46 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   }
 
   return (
-    <RadixTabs.Root {...rootProps} {...props} ref={ref}>
+    <TabsValueContext.Provider
+      value={{
+        value: rootProps.value ?? null,
+        setValue: rootProps.onValueChange ?? null,
+      }}
+    >
+      <RadixTabs.Root {...rootProps} {...props} ref={ref}>
+        {children}
+      </RadixTabs.Root>
+    </TabsValueContext.Provider>
+  );
+});
+
+// A menu trigger with a tab's own look, so it reads as one of the tabs. It
+// takes its size from the tab list, so it goes inside one.
+export const TabsMoreTrigger = forwardRef<
+  HTMLButtonElement,
+  ComponentPropsWithoutRef<"button">
+>(function TabsMoreTrigger({ children, className, style, ...props }, ref) {
+  const label = (
+    <>
       {children}
-    </RadixTabs.Root>
+      <PiCaretDown style={{ marginLeft: 4 }} />
+    </>
+  );
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={clsx(
+        "rt-reset rt-BaseTabListTrigger rt-TabsTrigger",
+        className,
+      )}
+      style={{ flexShrink: 0, ...style }}
+      {...props}
+    >
+      <span className="rt-BaseTabListTriggerInner">{label}</span>
+      {/* Radix sizes a tab by this unseen copy of its label. */}
+      <span className="rt-BaseTabListTriggerInnerHidden">{label}</span>
+    </button>
   );
 });
 
@@ -118,24 +189,146 @@ type TabsListProps = Omit<
   "size"
 > & {
   size?: Size<"sm" | "md" | "lg">;
+  // Tabs past the list's width fold into a More menu, all but the open one.
+  // Off, the list scrolls sideways instead.
+  overflowMenu?: boolean;
 };
 
+// Until the More button has rendered and can be measured.
+const MORE_WIDTH_ESTIMATE_PX = 80;
+
 export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
-  function TabsList({ children, size = "md", className, ...props }, ref) {
+  function TabsList(
+    { children, size = "md", className, overflowMenu = true, ...props },
+    ref,
+  ) {
     // Radix tab lists stop at size "2", so lg is that step plus the
     // .rt-BaseTabList.rt-r-size-3 rule in styles/global-radix-overrides.scss.
     const sizeValue = size === "lg" ? "2" : radixSize(size);
     const classNameValue = size === "lg" ? "rt-r-size-3" : "";
 
+    const { value: active, setValue } = useContext(TabsValueContext);
+    const enabled = overflowMenu && setValue !== null;
+
+    const list = useRef<HTMLDivElement | null>(null);
+    const setListRef = useCallback(
+      (el: HTMLDivElement | null) => {
+        list.current = el;
+        if (typeof ref === "function") ref(el);
+        else if (ref) ref.current = el;
+      },
+      [ref],
+    );
+    const entries = useRef(new Map<string, OverflowEntry>());
+    // Hidden tabs measure 0, so each keeps the width it had when shown.
+    const widths = useRef(new Map<string, number>());
+    const more = useRef<HTMLButtonElement>(null);
+    const moreWidth = useRef(MORE_WIDTH_ESTIMATE_PX);
+    const [hidden, setHidden] = useState<string[]>([]);
+    const [registered, setRegistered] = useState(0);
+    const remeasure = useCallback(() => setRegistered((n) => n + 1), []);
+
+    const measure = useCallback(() => {
+      const el = list.current;
+      if (!el) return;
+      const tabs = [...entries.current.entries()].sort(([, a], [, b]) =>
+        a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING
+          ? -1
+          : 1,
+      );
+      for (const [value, entry] of tabs) {
+        const w = entry.el.getBoundingClientRect().width;
+        if (w > 0) widths.current.set(value, w);
+      }
+      const width = (value: string) => widths.current.get(value) ?? 0;
+      const total = tabs.reduce((sum, [value]) => sum + width(value), 0);
+
+      const next: string[] = [];
+      // 1px of slack for sub-pixel widths against the rounded clientWidth.
+      if (total > el.clientWidth + 1) {
+        let room =
+          el.clientWidth -
+          moreWidth.current -
+          (active !== null && entries.current.has(active) ? width(active) : 0);
+        // Once one tab doesn't fit, the rest go too, so the order holds.
+        let full = false;
+        for (const [value] of tabs) {
+          if (value === active) continue;
+          if (!full && width(value) <= room) room -= width(value);
+          else {
+            full = true;
+            next.push(value);
+          }
+        }
+      }
+      setHidden((prev) =>
+        prev.length === next.length && prev.every((v, i) => v === next[i])
+          ? prev
+          : next,
+      );
+    }, [active]);
+
+    useLayoutEffect(() => {
+      if (enabled) measure();
+    }, [enabled, measure, registered]);
+
+    useLayoutEffect(() => {
+      const w = more.current?.getBoundingClientRect().width;
+      if (w && Math.abs(w - moreWidth.current) > 1) {
+        moreWidth.current = w;
+        measure();
+      }
+    }, [hidden, measure]);
+
+    useEffect(() => {
+      const el = list.current;
+      if (!enabled || !el) return;
+      const observer = new ResizeObserver(() => measure());
+      observer.observe(el);
+      // A tab's own width can change too, as a count in it does.
+      entries.current.forEach((entry) => observer.observe(entry.el));
+      return () => observer.disconnect();
+    }, [enabled, measure, registered]);
+
+    const overflow = useMemo(
+      () => (enabled ? { entries, remeasure, hidden: new Set(hidden) } : null),
+      [enabled, remeasure, hidden],
+    );
+
     return (
-      <RadixTabs.List
-        className={clsx(classNameValue, className)}
-        size={sizeValue}
-        {...props}
-        ref={ref}
-      >
-        {children}
-      </RadixTabs.List>
+      <TabsOverflowContext.Provider value={overflow}>
+        <RadixTabs.List
+          className={clsx(classNameValue, className)}
+          size={sizeValue}
+          {...props}
+          ref={setListRef}
+        >
+          {children}
+          {enabled && hidden.length > 0 ? (
+            <DropdownMenu
+              menuPlacement="end"
+              trigger={
+                <TabsMoreTrigger ref={more}>
+                  More ({hidden.length})
+                </TabsMoreTrigger>
+              }
+            >
+              {hidden.map((value) => {
+                const entry = entries.current.get(value);
+                return (
+                  <DropdownMenuItem
+                    key={value}
+                    disabled={entry?.disabled}
+                    onClick={() => setValue?.(value)}
+                  >
+                    {entry?.label ?? value}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenu>
+          ) : null}
+        </RadixTabs.List>
+      </TabsOverflowContext.Provider>
     );
   },
 );
@@ -186,9 +379,48 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
 export const TabsTrigger = forwardRef<
   HTMLButtonElement,
   React.ComponentProps<typeof RadixTabs.Trigger>
->(function TabsTrigger({ children, ...props }, ref) {
+>(function TabsTrigger({ children, style, ...props }, ref) {
+  const { value, disabled } = props;
+  const overflow = useContext(TabsOverflowContext);
+  const entries = overflow?.entries;
+  const remeasure = overflow?.remeasure;
+
+  const own = useRef<HTMLButtonElement | null>(null);
+  const setRef = useCallback(
+    (el: HTMLButtonElement | null) => {
+      own.current = el;
+      if (typeof ref === "function") ref(el);
+      else if (ref) ref.current = el;
+    },
+    [ref],
+  );
+
+  // Every render, so the menu shows the label as it is now.
+  useLayoutEffect(() => {
+    if (entries && own.current) {
+      entries.current.set(value, {
+        el: own.current,
+        label: children,
+        disabled: !!disabled,
+      });
+    }
+  });
+  useLayoutEffect(() => {
+    if (!entries || !remeasure) return;
+    const map = entries.current;
+    remeasure();
+    return () => {
+      map.delete(value);
+      remeasure();
+    };
+  }, [entries, remeasure, value]);
+
+  const hiddenStyle: CSSProperties | undefined = overflow?.hidden.has(value)
+    ? { ...style, display: "none" }
+    : style;
+
   return (
-    <RadixTabs.Trigger {...props} ref={ref}>
+    <RadixTabs.Trigger {...props} style={hiddenStyle} ref={setRef}>
       {children}
     </RadixTabs.Trigger>
   );

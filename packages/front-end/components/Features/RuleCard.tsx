@@ -42,7 +42,11 @@ export default function RuleCard({
 }: Props) {
   // Its values' copy and fullscreen buttons show while it's hovered.
   return (
-    <Card className={cornerStyles.hoverActions}>
+    <Card
+      className={cornerStyles.hoverActions}
+      // The soft layer of the page tab bar's pinned shadow.
+      style={{ boxShadow: "0 4px 4px var(--lift-shadow-far)" }}
+    >
       <div
         style={{
           position: "absolute",

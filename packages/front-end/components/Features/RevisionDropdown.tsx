@@ -28,6 +28,7 @@ export interface Props {
   draftsOnly?: boolean;
   // Show only previously-published revisions
   publishedOnly?: boolean;
+  onEditDescription?: (revision: MinimalFeatureRevisionInterface) => void;
 }
 
 // Feature wrapper around the shared <RevisionDropdown>: applies the feature's
@@ -44,6 +45,7 @@ export default function RevisionDropdown({
   menuPlacement = "end",
   draftsOnly = false,
   publishedOnly = false,
+  onEditDescription,
 }: Props) {
   const liveVersion = feature.version;
 
@@ -130,7 +132,15 @@ export default function RevisionDropdown({
     badge: publishedOnly ? undefined : (
       <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
     ),
-    details: <FeatureRevisionDetails revision={r} liveVersion={liveVersion} />,
+    details: (
+      <FeatureRevisionDetails
+        revision={r}
+        liveVersion={liveVersion}
+        onEditDescription={
+          onEditDescription ? () => onEditDescription(r) : undefined
+        }
+      />
+    ),
   }));
 
   const selectedRevision =

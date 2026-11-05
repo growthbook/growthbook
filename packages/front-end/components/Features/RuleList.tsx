@@ -459,7 +459,7 @@ export default function RuleList(props: RuleListProps) {
   }
 
   return (
-    <Flex direction="column" gap="4">
+    <Flex direction="column" gap="5">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

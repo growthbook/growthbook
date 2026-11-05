@@ -171,7 +171,7 @@ export default function CollapsiblePanelLayout({
         // The pinned header's shadow, facing left. The negative spread keeps it
         // from bleeding above the panel.
         boxShadow:
-          "-1px 0 2px -1px rgba(0, 0, 0, 0.1), -4px 0 4px -2px rgba(0, 0, 0, 0.025)",
+          "-1px 0 2px -1px var(--lift-shadow-near), -4px 0 4px -2px var(--lift-shadow-far)",
       }
     : {};
 

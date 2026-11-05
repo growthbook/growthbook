@@ -171,7 +171,6 @@ const HoldoutValueModal = ({
           setValue={setHoldoutValue}
           valueType={feature.valueType}
           feature={feature}
-          showFullscreenButton={true}
         />
       </Box>
     </Modal>

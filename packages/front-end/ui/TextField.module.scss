@@ -24,15 +24,4 @@
       scrollbar-color: var(--gray-a8) transparent;
     }
   }
-
-  :global(.gb-field-indicator--reveal) {
-    opacity: 0;
-    transition: opacity 0.1s ease-in-out;
-  }
-
-  &:hover :global(.gb-field-indicator--reveal),
-  &:focus-within :global(.gb-field-indicator--reveal),
-  :global(.gb-field-indicator--reveal[data-state="open"]) {
-    opacity: 1;
-  }
 }

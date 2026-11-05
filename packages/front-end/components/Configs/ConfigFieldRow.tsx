@@ -226,10 +226,8 @@ export default function ConfigFieldRow({
                           value={disabled ? "" : editText}
                           setValue={setEditText}
                           valueType={vt}
-                          showFullscreenButton={vt === "json"}
                           codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                           constantContext={constantContext}
-                          inlineConstantButton
                           disabled={disabled}
                         />
                       )}

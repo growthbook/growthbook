@@ -1,0 +1,15 @@
+.row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.remove {
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+
+  .row:hover &,
+  &:focus-visible {
+    opacity: 1;
+  }
+}

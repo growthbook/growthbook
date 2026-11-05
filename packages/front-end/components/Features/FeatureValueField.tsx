@@ -7,7 +7,6 @@ import {
 } from "shared/types/feature";
 import {
   ComponentProps,
-  MouseEvent,
   ReactElement,
   ReactNode,
   useEffect,
@@ -29,9 +28,8 @@ import {
 } from "shared/util";
 import { FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
-import { BsBoxArrowUpRight } from "react-icons/bs";
 import clsx from "clsx";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import Link from "@/ui/Link";
 import {
@@ -48,7 +46,6 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import UITooltip from "@/ui/Tooltip";
 import TextField from "@/ui/TextField";
 import RadioGroup from "@/ui/RadioGroup";
 import ConfigOverrideEditor from "@/components/Features/ConfigOverrideEditor";
@@ -56,8 +53,12 @@ import CodeTextArea, {
   FIVE_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
-import { CopyIcon } from "@/ui/ActionIcons";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import FieldIndicator, {
+  CopyFieldIndicator,
+  FieldIndicatorCorner,
+} from "@/ui/FieldIndicator";
+import { EditIcon } from "@/ui/ActionIcons";
+import UITooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import EmptyStringConfirm from "@/components/Features/EmptyStringConfirm";
@@ -91,15 +92,11 @@ export interface Props {
   renderJSONInline?: boolean;
   disabled?: boolean;
   useDropdown?: boolean;
-  showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
-  hideCopyButton?: boolean;
   // Number fields fill their container rather than sitting at a fixed width.
   fullWidth?: boolean;
-  // Renders the "Insert constant" picker as a compact square IconButton beside
-  // the field instead of on a label row above it, and hides the copy button.
-  inlineConstantButton?: boolean;
-  multilineTextField?: boolean;
+  // In a table cell: smaller constant tags.
+  compact?: boolean;
   size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default
@@ -141,12 +138,9 @@ export default function FeatureValueField({
   renderJSONInline,
   disabled = false,
   useDropdown = false,
-  showFullscreenButton = false,
   codeInputDefaultHeight,
-  hideCopyButton = false,
   fullWidth = false,
-  inlineConstantButton = false,
-  multilineTextField = false,
+  compact = false,
   size,
   sparse,
   setSparse,
@@ -159,18 +153,12 @@ export default function FeatureValueField({
   emptyStringConfirmed = false,
   setEmptyStringConfirmed,
 }: Props) {
-  // Inline mode also suppresses the copy button.
-  const copyHidden = hideCopyButton || inlineConstantButton;
   const { hasCommercialFeature } = useUser();
   const { configs } = useDefinitions();
   const hasJsonValidator = hasCommercialFeature("json-validation");
   const { simpleSchema, validationEnabled } = feature
     ? getValidation(feature)
     : { simpleSchema: null, validationEnabled: null };
-
-  const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: 800,
-  });
 
   // Constant-picker wiring. Only offered in a feature context (where `@const:`
   // references get resolved at payload build time) — not for standalone
@@ -189,7 +177,7 @@ export default function FeatureValueField({
         value={value}
         valueType={valueType}
         project={pickerProject}
-        compact={multilineTextField}
+        compact={compact}
       />
     ) : null;
   const jsonEditorRef = useRef<Ace.Editor | null>(null);
@@ -585,7 +573,6 @@ export default function FeatureValueField({
                     constantContext={constantContext}
                     renderJSONInline={renderJSONInline}
                     disabled={disabled}
-                    showFullscreenButton={showFullscreenButton}
                     codeInputDefaultHeight={codeInputDefaultHeight}
                     sparse={configBackingShowPatch ? sparse : undefined}
                   />
@@ -620,10 +607,8 @@ export default function FeatureValueField({
     const isSparse = !!sparse;
 
     // Cursor-aware insertion targets the Ace editor (the whole-value editor or
-    // the sparse Edit tab). Rendered as a small text button on its own row
-    // above the editor (matching the feature value editors) — even in inline
-    // contexts — so the multi-line JSON editor keeps the full width.
-    const insertConstantButton = showConstantPicker ? (
+    // the sparse Edit tab), among its own buttons.
+    const editorInsertButton = showConstantPicker ? (
       <InsertConstantButton
         valueType="json"
         project={pickerProject}
@@ -643,7 +628,6 @@ export default function FeatureValueField({
       >
         {labelText ?? <Box />}
         <Flex align="center" gap="3" flexShrink="0">
-          {insertConstantButton}
           <SparsePatchToggle
             checked={!!sparse}
             onChange={(checked) => {
@@ -669,7 +653,7 @@ export default function FeatureValueField({
           {sparseHeader}
           <SparseTabbedEditor
             headerLeft={!sparseHeader ? labelText : undefined}
-            headerRight={!sparseHeader ? insertConstantButton : undefined}
+            actions={editorInsertButton}
             value={value}
             setValue={setValue}
             valueType={valueType}
@@ -686,31 +670,13 @@ export default function FeatureValueField({
       );
     }
 
-    // When the picker shows (or the sparse toggle owns the row), render the
-    // label row ourselves so the button sits on its own row above the editor
-    // rather than nested inside the editor's <label> element. Otherwise let the
-    // editor render its own label.
-    const editorLabel =
-      showSparseToggle || insertConstantButton ? undefined : label;
-    const jsonLabelRow =
-      !showSparseToggle && insertConstantButton ? (
-        <Flex
-          align="center"
-          justify="between"
-          gap="3"
-          width="100%"
-          mb="1"
-          // Consistent row height so a label paired with a code editor lines up
-          // with sibling columns (e.g. the config JSON value/schema editors).
-          style={{ minHeight: "var(--space-6)" }}
-        >
-          {labelText ?? <Box />}
-          {insertConstantButton}
-        </Flex>
-      ) : null;
-
+    // The sparse toggle's row carries the label when it shows.
+    const editorLabel = showSparseToggle ? undefined : label;
     const codeEditorActions = disabled ? null : (
-      <FormatJsonAction value={value} setValue={setValue} />
+      <>
+        {editorInsertButton}
+        <FormatJsonAction value={value} setValue={setValue} />
+      </>
     );
     const codeEditorHelpText =
       helpText || usedConstantTags ? (
@@ -720,31 +686,9 @@ export default function FeatureValueField({
         </Box>
       ) : undefined;
 
-    // In tabular/inline layouts, float the insert-constant button just above
-    // the editor (out of flow) so the editor's top lines up with the sibling
-    // grid cells (type select, actions) instead of being pushed down by the
-    // button row. Elsewhere the label row sits in flow above the editor.
-    const floatInsertButton = inlineConstantButton && !!insertConstantButton;
     return (
-      <Box
-        mb="3"
-        style={floatInsertButton ? { position: "relative" } : undefined}
-      >
+      <Box mb="3">
         {sparseHeader}
-        {floatInsertButton ? (
-          <Box
-            style={{
-              position: "absolute",
-              bottom: "100%",
-              right: 0,
-              marginBottom: 2,
-            }}
-          >
-            {insertConstantButton}
-          </Box>
-        ) : (
-          jsonLabelRow
-        )}
         <CodeTextArea
           label={editorLabel}
           language="json"
@@ -756,8 +700,8 @@ export default function FeatureValueField({
           disabled={disabled}
           resizable={true}
           defaultHeight={codeInputDefaultHeight}
-          showCopyButton={!copyHidden}
-          showFullscreenButton={showFullscreenButton}
+          showCopyButton
+          showFullscreenButton
           slimGutter
           onEditorLoad={(e) => (jsonEditorRef.current = e)}
           highlightLines={codeEditorDiffLines}
@@ -818,147 +762,73 @@ export default function FeatureValueField({
     }
   }
 
-  const copyValue = (e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!copySuccess) performCopy(value);
-  };
-  const copyButton = (
-    <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
-      <IconButton
-        type="button"
-        radius="full"
-        variant="ghost"
-        onClick={copyValue}
-      >
-        <CopyIcon copied={copySuccess} size="sm" />
-      </IconButton>
-    </Tooltip>
-  );
-
-  const stringTextField = multilineTextField && valueType === "string";
-  const copyUnderField = !copyHidden && !stringTextField;
-  const combinedHelpTextForString =
-    valueType === "string" &&
-    (helpText || usedConstantTags || copyUnderField) ? (
-      <Flex align="start" gap="3" width="100%">
-        <Box flexGrow="1" style={{ minWidth: 0 }}>
-          {helpText}
-          {usedConstantTags}
-        </Box>
-        {copyUnderField && <Box flexShrink="0">{copyButton}</Box>}
-      </Flex>
-    ) : (
-      helpText
-    );
-
-  // The string constant picker rides right-aligned on its own label row above
-  // the field (only in a feature context) — rendered beside the label text, not
-  // nested inside the field's <label> element.
-  const showStringPicker = valueType === "string" && showConstantPicker;
-  const compactConstant = inlineConstantButton || stringTextField;
-  const stringInsertButton = showStringPicker ? (
-    <InsertConstantButton
-      valueType="string"
-      project={pickerProject}
-      excludeKeys={pickerExcludeKeys}
-      onInsert={insertStringConstant}
-      iconOnly={compactConstant}
-      indicator={stringTextField}
-    />
-  ) : null;
-  const stringLabelRow =
-    showStringPicker && !compactConstant ? (
-      <Flex align="center" justify="between" gap="3" width="100%" mb="1">
-        {labelText ?? <Box />}
-        {stringInsertButton}
-      </Flex>
+  const stringInsertButton =
+    valueType === "string" && showConstantPicker ? (
+      <InsertConstantButton
+        valueType="string"
+        project={pickerProject}
+        excludeKeys={pickerExcludeKeys}
+        onInsert={insertStringConstant}
+      />
     ) : null;
 
-  const copyIndicator = (
-    <UITooltip content={copySuccess ? "Copied" : "Copy to clipboard"}>
-      <button
-        type="button"
-        className="gb-field-indicator gb-field-indicator--reveal"
-        aria-label="Copy to clipboard"
-        onClick={copyValue}
-      >
-        <CopyIcon copied={copySuccess} />
-      </button>
-    </UITooltip>
-  );
-
-  const field = stringTextField ? (
-    <TextField
-      multiline
-      ref={stringInputRef}
-      label={label}
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => {
-        setValue(e.target.value);
-      }}
-      helpText={combinedHelpTextForString}
-      append={
-        stringInsertButton || !copyHidden ? (
+  const field =
+    valueType === "string" ? (
+      <TextField
+        multiline
+        ref={stringInputRef}
+        label={label}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        helpText={
+          helpText || usedConstantTags ? (
+            <>
+              {helpText}
+              {usedConstantTags}
+            </>
+          ) : undefined
+        }
+        append={
           <Flex align="center" style={{ margin: "0 -6px 0 -4px" }}>
             {stringInsertButton}
-            {copyHidden ? null : copyIndicator}
+            <CopyFieldIndicator value={value} reveal />
           </Flex>
-        ) : undefined
-      }
-      disabled={disabled}
-    />
-  ) : (
-    <Field
-      size={size}
-      ref={stringInputRef}
-      label={stringLabelRow ? undefined : label}
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => {
-        setValue(e.target.value);
-      }}
-      {...(valueType === "number"
-        ? {
-            type: "number",
-            step: "any",
-            min: "any",
-            max: "any",
-          }
-        : valueType === "string"
-          ? {
-              textarea: true,
-              minRows: 1,
-            }
-          : {})}
-      helpText={combinedHelpTextForString}
-      style={
-        valueType === undefined
-          ? { width: 80 }
-          : valueType === "number" && !fullWidth
-            ? { width: 120 }
-            : undefined
-      }
-      disabled={disabled}
-    />
-  );
-
-  if (inlineConstantButton && stringInsertButton) {
-    return (
-      <>
-        <Flex align="center" gap="2" width="100%">
-          <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
-          <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
-        </Flex>
-        {emptyStringConfirmField}
-      </>
+        }
+        disabled={disabled}
+      />
+    ) : (
+      <Field
+        size={size}
+        ref={stringInputRef}
+        label={label}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => {
+          setValue(e.target.value);
+        }}
+        {...(valueType === "number" && {
+          type: "number",
+          step: "any",
+          min: "any",
+          max: "any",
+        })}
+        helpText={helpText}
+        style={
+          valueType === undefined
+            ? { width: 80 }
+            : valueType === "number" && !fullWidth
+              ? { width: 120 }
+              : undefined
+        }
+        disabled={disabled}
+      />
     );
-  }
 
   return (
     <>
-      {stringLabelRow}
       {field}
       {emptyStringConfirmField}
     </>
@@ -988,28 +858,30 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   let labelClassName = "";
   if (!field.required) {
     const checkbox = (
-      <input
-        type="checkbox"
-        style={{ verticalAlign: "middle" }}
-        title="Whether or not to include this optional field"
-        name={`${uuid}_required`}
-        className="ml-1 mr-2"
-        checked={isset}
-        disabled={disabled}
-        onChange={(e) => {
-          if (!isset && e.target.checked) {
-            setValue(
-              (field.type === "boolean"
-                ? false
-                : field.type === "string"
-                  ? ""
-                  : 0) as T,
-            );
-          } else if (!e.target.checked) {
-            setValue(undefined as T);
-          }
-        }}
-      />
+      <UITooltip content="Whether or not to include this optional field">
+        <input
+          type="checkbox"
+          style={{ verticalAlign: "middle" }}
+          aria-label="Include this optional field"
+          name={`${uuid}_required`}
+          className="ml-1 mr-2"
+          checked={isset}
+          disabled={disabled}
+          onChange={(e) => {
+            if (!isset && e.target.checked) {
+              setValue(
+                (field.type === "boolean"
+                  ? false
+                  : field.type === "string"
+                    ? ""
+                    : 0) as T,
+              );
+            } else if (!e.target.checked) {
+              setValue(undefined as T);
+            }
+          }}
+        />
+      </UITooltip>
     );
 
     if (!label) {
@@ -1343,26 +1215,28 @@ function SimpleSchemaEditor({
             />
           </Modal>
         ) : null}
-        <div>
+        <div className="position-relative gb-field-indicator-host mb-3">
           <Field
             textarea
             value={stringify(valueParsed)}
             maxRows={5}
             disabled
             label={label}
+            containerClassName="mb-0"
           />
           {!disabled && (
-            <a
-              href="#"
-              className="text-purple"
-              onClick={(e) => {
-                e.preventDefault();
-                setTempValue(value);
-                setOpen(true);
-              }}
-            >
-              Edit Value <BsBoxArrowUpRight style={{ marginTop: -3 }} />
-            </a>
+            <FieldIndicatorCorner>
+              <FieldIndicator
+                label="Edit value"
+                onClick={() => {
+                  setTempValue(value);
+                  setOpen(true);
+                }}
+                reveal
+              >
+                <EditIcon />
+              </FieldIndicator>
+            </FieldIndicatorCorner>
           )}
         </div>
       </>
@@ -1434,6 +1308,7 @@ function JSONCodeEditor({
         defaultHeight={FIVE_LINES_HEIGHT}
         slimGutter
         showCopyButton
+        showFullscreenButton
         matchValueDisplay
         actions={
           disabled ? null : (

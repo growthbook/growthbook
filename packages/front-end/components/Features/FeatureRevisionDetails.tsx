@@ -9,6 +9,7 @@ import { NamedRevision } from "@/components/Reviews/RevisionLabel";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import useIsOverflowing from "@/hooks/useIsOverflowing";
 import Text from "@/ui/Text";
+import { QuickEditRow } from "@/components/Experiment/TabbedPage/QuickEditButton";
 
 const NOTES_MAX_HEIGHT = 100;
 // Fits the longest label on one line, so the values share a left edge.
@@ -40,9 +41,12 @@ function DetailRow({
 export default function FeatureRevisionDetails({
   revision,
   liveVersion,
+  onEditDescription,
 }: {
   revision: MinimalFeatureRevisionInterface;
   liveVersion: number;
+  // Offered on drafts only; published revisions keep what they shipped with.
+  onEditDescription?: () => void;
 }) {
   const notes = useRef<HTMLDivElement>(null);
   const notesOverflow = useIsOverflowing(notes, NOTES_MAX_HEIGHT);
@@ -50,6 +54,7 @@ export default function FeatureRevisionDetails({
     revision.status,
   );
   const createdBy = revision.createdBy;
+  const editDescription = isDraft ? onEditDescription : undefined;
 
   return (
     <Flex direction="column" gap="3" style={{ width: 360 }}>
@@ -92,17 +97,29 @@ export default function FeatureRevisionDetails({
             {datetime(revision.scheduledPublishAt)}
           </DetailRow>
         ) : null}
+        {revision.comment || editDescription ? (
+          <DetailRow label="Description">
+            <QuickEditRow label="Edit description" onEdit={editDescription}>
+              {revision.comment ? (
+                <Box
+                  className={
+                    notesOverflow ? "fade-mask-bottom-1rem" : undefined
+                  }
+                  style={{ maxHeight: NOTES_MAX_HEIGHT, overflow: "hidden" }}
+                >
+                  <div ref={notes}>
+                    <Markdown>{revision.comment}</Markdown>
+                  </div>
+                </Box>
+              ) : (
+                <Text weight="regular" color="text-mid" fontStyle="italic">
+                  None
+                </Text>
+              )}
+            </QuickEditRow>
+          </DetailRow>
+        ) : null}
       </Flex>
-      {revision.comment ? (
-        <Box
-          className={notesOverflow ? "fade-mask-bottom-1rem" : undefined}
-          style={{ maxHeight: NOTES_MAX_HEIGHT, overflow: "hidden" }}
-        >
-          <div ref={notes}>
-            <Markdown>{revision.comment}</Markdown>
-          </div>
-        </Box>
-      ) : null}
     </Flex>
   );
 }

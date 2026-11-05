@@ -39,6 +39,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import NewDraftButton from "@/components/Features/NewDraftButton";
 import EditRevisionTitleModal from "@/components/Reviews/EditRevisionTitleModal";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import Button from "@/ui/Button";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import {
@@ -109,6 +110,8 @@ export default function FeaturesHeader({
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const [renameDraft, setRenameDraft] = useState(false);
+  const [describeDraft, setDescribeDraft] =
+    useState<MinimalFeatureRevisionInterface | null>(null);
   const { hasCommercialFeature, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
@@ -436,9 +439,13 @@ export default function FeaturesHeader({
     </Flex>
   );
 
+  // White over the page's violet, which only the content column below shows.
   return (
     <>
-      <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-2">
+      <div
+        className="container-fluid pagecontents position-relative px-4 pt-3 pb-2"
+        style={{ background: "var(--color-panel-solid)" }}
+      >
         <Box>
           <Flex direction="row" align="start" justify="between" gap="5">
             {/* Raised so the name's x-height centres on the buttons' text. */}
@@ -488,6 +495,7 @@ export default function FeaturesHeader({
             height: 1,
             width: "100%",
             pointerEvents: "none",
+            background: "var(--color-panel-solid)",
           }}
         />
         <div
@@ -528,8 +536,8 @@ export default function FeaturesHeader({
                   )}
                 </TabsList>
               </Tabs>
-              {/* Beside the tab list, not in it: the list scrolls sideways,
-                  which would clip the selector. Runs from the details panel's
+              {/* Beside the tab list, not in it: the list folds tabs that
+                  don't fit into its More menu. Runs from the details panel's
                   default edge to the CTA's right edge above it, which sits
                   2px right of where the toggle's margin ends the row. */}
               <Box flexShrink="0" ml="4" mr="-2px">
@@ -540,6 +548,9 @@ export default function FeaturesHeader({
                   setVersion={setVersion}
                   context="header"
                   width={REVISION_SELECTOR_WIDTH_PX}
+                  onEditDescription={
+                    canEditDrafts ? setDescribeDraft : undefined
+                  }
                 />
               </Box>
               <DetailsPanelToggle open={detailsOpen} setOpen={setDetailsOpen} />
@@ -556,6 +567,21 @@ export default function FeaturesHeader({
             await apiCall(
               `/feature/${feature.id}/${viewedRevision.version}/title`,
               { method: "PUT", body: JSON.stringify({ title }) },
+            );
+            await mutate();
+          }}
+        />
+      )}
+      {describeDraft && (
+        <EditRevisionDescriptionModal
+          initialValue={describeDraft.comment ?? ""}
+          revision={describeDraft}
+          liveVersion={feature.version}
+          close={() => setDescribeDraft(null)}
+          onSubmit={async (comment) => {
+            await apiCall(
+              `/feature/${feature.id}/${describeDraft.version}/comment`,
+              { method: "PUT", body: JSON.stringify({ comment }) },
             );
             await mutate();
           }}

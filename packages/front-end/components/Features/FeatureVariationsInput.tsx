@@ -465,7 +465,7 @@ export default function FeatureVariationsInput({
 }
 
 // The included-traffic slider and its typed percentage.
-function CoverageField({
+export function CoverageField({
   coverage,
   setCoverage,
   label,

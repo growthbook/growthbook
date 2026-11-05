@@ -7,13 +7,12 @@ import React, {
 } from "react";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { CONSTANT_REF_PATTERN } from "shared/validators";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { Popover } from "@/ui/Popover";
-import Button from "@/ui/Button";
-import Tooltip from "@/ui/Tooltip";
+import FieldIndicator from "@/ui/FieldIndicator";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -239,8 +238,6 @@ export default function InsertConstantButton({
   onInsert,
   disabled,
   excludeKeys,
-  iconOnly = false,
-  indicator = false,
 }: {
   valueType: "string" | "json";
   project?: string;
@@ -249,9 +246,6 @@ export default function InsertConstantButton({
   disabled?: boolean;
   // Keys to scrub from the options (self + cycle prevention).
   excludeKeys?: string[];
-  // Compact icon-only trigger for inline (beside-the-field) layouts.
-  iconOnly?: boolean;
-  indicator?: boolean;
 }) {
   const { constants } = useDefinitions();
 
@@ -282,62 +276,21 @@ export default function InsertConstantButton({
   // Hide only when the org has no constants; otherwise show an empty-state menu.
   if (!hasConstants) return null;
 
-  const glyph = (
-    <span
-      style={{
-        fontFamily: "var(--code-font-family)",
-        fontWeight: 500,
-        // The indicator matches a copy button beside it.
-        ...(indicator && { fontSize: "10px", letterSpacing: "-0.05em" }),
-      }}
-    >
-      {"{"}
+  const trigger = (
+    <FieldIndicator label="Insert Constant" disabled={disabled} reveal>
       <span
-        className={indicator ? "gb-field-indicator__accent" : undefined}
-        style={indicator ? undefined : { color: "var(--ruby-11)" }}
+        style={{
+          fontFamily: "var(--code-font-family)",
+          fontWeight: 500,
+          fontSize: "10px",
+          letterSpacing: "-0.05em",
+        }}
       >
-        @
+        {"{"}
+        <span className="gb-field-indicator__accent">@</span>
+        {"}"}
       </span>
-      {"}"}
-    </span>
-  );
-
-  // Tooltip wraps only the icon so it doesn't interfere with the menu.
-  const trigger = indicator ? (
-    <button
-      type="button"
-      className="gb-field-indicator gb-field-indicator--reveal"
-      disabled={disabled}
-      aria-label="Insert constant"
-    >
-      <Tooltip content="Insert Constant">
-        <Flex align="center" justify="center">
-          {glyph}
-        </Flex>
-      </Tooltip>
-    </button>
-  ) : iconOnly ? (
-    <IconButton
-      type="button"
-      size="2"
-      variant="ghost"
-      color="gray"
-      disabled={disabled}
-      ml="1"
-      mt="0"
-    >
-      <Tooltip content="Insert Constant">
-        <Flex align="center" justify="center">
-          {glyph}
-        </Flex>
-      </Tooltip>
-    </IconButton>
-  ) : (
-    <Button variant="ghost" size="sm" disabled={disabled}>
-      <Flex align="center" gap="1">
-        {glyph} Insert constant
-      </Flex>
-    </Button>
+    </FieldIndicator>
   );
 
   return (

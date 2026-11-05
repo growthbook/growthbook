@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiBracketsCurly, PiMagicWand } from "react-icons/pi";
+import { PiBracketsCurly } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
@@ -22,7 +22,6 @@ import {
   stripConfigExtends,
   tsTypesToFields,
 } from "shared/util";
-import { formatJSON } from "@/services/features";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
@@ -41,6 +40,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
 import { ResolvedField } from "@/components/Configs/fieldSchema";
+import FormatJsonAction from "@/components/Features/FormatJsonAction";
 
 // Non-`json` ids match the converter ids (also a projection's `language`), so
 // one dispatch map serves both the schema buffer and projections.
@@ -759,9 +759,6 @@ export default function ConfigJsonEditor({
     </Flex>
   );
 
-  // Format JSON only applies to the JSON Schema surface.
-  const formattedSchema = schemaLang === "json" ? formatJSON(schemaText) : null;
-  const formatDisabled = !formattedSchema || formattedSchema === schemaText;
   const schemaCtas = (
     <Flex gap="3" justify="end" width="100%">
       <Link
@@ -774,23 +771,6 @@ export default function ConfigJsonEditor({
         <PiBracketsCurly />{" "}
         {schemaCodeMode ? "Use text editor" : "Use code editor"}
       </Link>
-      {schemaLang === "json" && (
-        <Link
-          color={formatDisabled ? "gray" : undefined}
-          style={{
-            whiteSpace: "nowrap",
-            cursor: formatDisabled ? "default" : undefined,
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            if (formattedSchema && formattedSchema !== schemaText) {
-              setSchemaText(formattedSchema);
-            }
-          }}
-        >
-          <PiMagicWand /> Format JSON
-        </Link>
-      )}
     </Flex>
   );
 
@@ -908,7 +888,6 @@ export default function ConfigJsonEditor({
             value={valueText}
             setValue={setValueText}
             valueType="json"
-            showFullscreenButton
             codeInputDefaultHeight={320}
             constantContext={constantContext}
           />
@@ -942,6 +921,15 @@ export default function ConfigJsonEditor({
                   maxLines={40}
                   showCopyButton
                   showFullscreenButton
+                  // Format JSON only applies to the JSON Schema surface.
+                  actions={
+                    schemaLang === "json" ? (
+                      <FormatJsonAction
+                        value={schemaText}
+                        setValue={setSchemaText}
+                      />
+                    ) : null
+                  }
                   helpText={schemaCtas}
                 />
               ) : (

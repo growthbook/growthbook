@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, SyntheticEvent, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
 import RevisionLabel, {
@@ -31,6 +31,8 @@ export interface RevisionDropdownRow {
   details?: ReactNode;
 }
 
+const stop = (e: SyntheticEvent) => e.stopPropagation();
+
 // Hover-only, so a click still selects or opens the menu.
 function DetailsOnHover({
   details,
@@ -49,7 +51,18 @@ function DetailsOnHover({
       side={side}
       sideOffset={8}
       trigger={<div style={{ width: "100%", minWidth: 0 }}>{children}</div>}
-      content={details}
+      content={
+        // Portaled, but React still bubbles its events to the row or the
+        // selector it hangs off, so a click in here would select or open them.
+        <div
+          onPointerDown={stop}
+          onPointerUp={stop}
+          onClick={stop}
+          onKeyDown={stop}
+        >
+          {details}
+        </div>
+      }
     />
   );
 }

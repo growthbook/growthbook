@@ -113,7 +113,7 @@ import { scheduleAutoName } from "@/components/Features/RuleModal/ScheduleInputs
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Page from "@/components/Modal/Page";
-import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
+import NewExperimentRuleFields from "@/components/Features/RuleModal/NewExperimentRuleFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 
@@ -572,8 +572,8 @@ export default function RuleModal({
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
-  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
-    useState(false);
+  // An image still uploading would be dropped from the saved hypothesis.
+  const [hypothesisUploading, setHypothesisUploading] = useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
@@ -1369,30 +1369,13 @@ export default function RuleModal({
           throw new Error("Prerequisite targeting issues must be resolved");
         }
 
-        const shouldIncludeConversionWindow =
-          values.experimentType === "multi-armed-bandit" &&
-          !disableBanditConversionWindow &&
-          (!settings.useStickyBucketing || values.disableStickyBucketing);
+        // Its data source, decision metric and conversion window are chosen
+        // on the Bandit's page before it starts.
         if (values.experimentType === "multi-armed-bandit") {
           if (!hasCommercialFeature("multi-armed-bandits")) {
             throw new Error("Bandits are a premium feature");
           }
           values.statsEngine = "bayesian";
-          if (!values.datasource) {
-            throw new Error("You must select a datasource");
-          }
-          if ((values.goalMetrics?.length ?? 0) !== 1) {
-            throw new Error("You must select 1 decision metric");
-          }
-          if (
-            shouldIncludeConversionWindow &&
-            (!values.banditConversionWindowValue ||
-              !values.banditConversionWindowUnit)
-          ) {
-            throw new Error(
-              "Enter a conversion window override or disable the conversion window override",
-            );
-          }
         }
 
         // @ts-expect-error Mangled types when coming from a feature rule
@@ -1435,23 +1418,28 @@ export default function RuleModal({
         // All looks good, create experiment
         const disableStickyBucketing =
           values.disableStickyBucketing ?? !settings.stickyBucketingOnByDefault;
+        // A template's data source and assignment query, else the defaults.
+        const datasourceDefaults = values.datasource
+          ? {
+              datasource: values.datasource,
+              exposureQueryId: values.exposureQueryId || "",
+              exposureQueryIdentifierType: values.exposureQueryIdentifierType,
+            }
+          : getNewExperimentDatasourceDefaults({
+              datasources,
+              settings,
+              project: feature.project || "",
+              initialHashAttribute: values.hashAttribute,
+            });
         const exp: Partial<ExperimentInterfaceStringDates> = {
           archived: false,
           autoSnapshots: true,
-          // Use template datasource/exposure query id if available
-          ...getNewExperimentDatasourceDefaults({
-            datasources,
-            settings,
-            project: feature.project || "",
-          }),
+          ...datasourceDefaults,
           hashAttribute: values.hashAttribute,
           fallbackAttribute: disableStickyBucketing
             ? ""
             : values.fallbackAttribute || "",
           disableStickyBucketing,
-          datasource: values.datasource || undefined,
-          exposureQueryId: values.exposureQueryId || "",
-          exposureQueryIdentifierType: values.exposureQueryIdentifierType,
           goalMetrics: values.goalMetrics || [],
           secondaryMetrics: values.secondaryMetrics || [],
           guardrailMetrics: values.guardrailMetrics || [],
@@ -1502,10 +1490,6 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
-            ...(shouldIncludeConversionWindow && {
-              banditConversionWindowValue: values.banditConversionWindowValue,
-              banditConversionWindowUnit: values.banditConversionWindowUnit,
-            }),
           });
         }
 
@@ -2509,6 +2493,7 @@ export default function RuleModal({
             : hasRampPage && step === 0
               ? !isCyclic && !prerequisiteTargetingSdkIssues
               : canSubmit &&
+                !hypothesisUploading &&
                 conflictResolved &&
                 !rampImpactBlocksSubmit &&
                 !unscopedRuleBlocksSubmit &&
@@ -2554,11 +2539,7 @@ export default function RuleModal({
         }
         step={step}
         setStep={setStep}
-        hideNav={
-          !hasRampPage &&
-          ruleType !== "experiment-ref-new" &&
-          ruleType !== "experiment"
-        }
+        hideNav={!hasRampPage && ruleType !== "experiment"}
         backButton={true}
         onBackFirstStep={
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
@@ -2697,9 +2678,8 @@ export default function RuleModal({
           />
         ) : null}
 
-        {(ruleType === "experiment-ref-new" &&
-          experimentType === "experiment") ||
-        ruleType === "experiment"
+        {/* A legacy inline experiment rule */}
+        {ruleType === "experiment"
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <ExperimentRefNewFields
@@ -2771,74 +2751,22 @@ export default function RuleModal({
             ))
           : null}
 
-        {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
-              <Page display={p} key={i}>
-                <BanditRefNewFields
-                  step={i}
-                  source="rule"
-                  feature={feature}
-                  project={feature.project}
-                  attributeProjects={effectiveAttributeProjects}
-                  savedGroupProjects={savedGroupProjects}
-                  attributeSelectIndicator={attributeScopeToggle}
-                  environments={effectiveEnvList}
-                  prerequisiteValue={form.watch("prerequisites") || []}
-                  setPrerequisiteValue={(prerequisites) =>
-                    form.setValue("prerequisites", prerequisites)
-                  }
-                  setPrerequisiteTargetingSdkIssues={
-                    setPrerequisiteTargetingSdkIssues
-                  }
-                  isCyclic={isCyclic}
-                  cyclicFeatureId={cyclicFeatureId}
-                  savedGroupValue={form.watch("savedGroups") || []}
-                  setSavedGroupValue={(savedGroups) =>
-                    form.setValue("savedGroups", savedGroups)
-                  }
-                  defaultConditionValue={form.watch("condition") || ""}
-                  setConditionValue={(value) =>
-                    form.setValue("condition", value)
-                  }
-                  conditionKey={conditionKey}
-                  coverage={form.watch("coverage") || 0}
-                  setCoverage={(coverage) =>
-                    form.setValue("coverage", coverage)
-                  }
-                  setWeight={(i, weight) =>
-                    form.setValue(`values.${i}.weight`, weight)
-                  }
-                  variations={
-                    form
-                      .watch("values")
-                      ?.map((v: ExperimentValue & { id?: string }) => {
-                        return {
-                          value: v.value || "",
-                          name: v.name,
-                          weight: v.weight,
-                          id: v.id || generateVariationId(),
-                        };
-                      }) || []
-                  }
-                  setVariations={(variations) =>
-                    form.setValue("values", variations)
-                  }
-                  disableBanditConversionWindow={disableBanditConversionWindow}
-                  setDisableBanditConversionWindow={
-                    setDisableBanditConversionWindow
-                  }
-                  customFields={customFields}
-                  customFieldValues={customFieldValues}
-                  setCustomFields={(value) =>
-                    form.setValue("customFields", value)
-                  }
-                  envScope={i === 0 ? envScopeProps : undefined}
-                  projectScope={i === 0 ? projectScopeProps : undefined}
-                  onRuleCyclicChange={onRuleCyclicChange}
-                />
-              </Page>
-            ))
-          : null}
+        {ruleType === "experiment-ref-new" ? (
+          <Page display="Overview">
+            <NewExperimentRuleFields
+              kind={experimentType === "bandit" ? "bandit" : "experiment"}
+              feature={feature}
+              attributeProjects={effectiveAttributeProjects}
+              attributeSelectIndicator={attributeScopeToggle}
+              envScope={envScopeProps}
+              projectScope={projectScopeProps}
+              customFields={customFields}
+              customFieldValues={customFieldValues}
+              setCustomFields={(value) => form.setValue("customFields", value)}
+              setHypothesisUploading={setHypothesisUploading}
+            />
+          </Page>
+        ) : null}
       </PagedModal>
     </FormProvider>
   );

@@ -1,6 +1,8 @@
+import { PiX } from "react-icons/pi";
 import { DOMMutation, VisualChange } from "shared/types/visual-changeset";
 import React, { FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import FieldIndicator, { FieldIndicatorCorner } from "@/ui/FieldIndicator";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -359,55 +361,53 @@ const EditDOMMutationsModal: FC<{
           </Callout>
         )}
         <div className="mb-4">
-          <h4>
-            Global CSS
+          <h4>Global CSS</h4>
+          <div className="position-relative gb-field-indicator-host">
+            <Field
+              size="legacy"
+              textarea
+              minRows={5}
+              value={newVisualChange.css}
+              onChange={(e) => {
+                setNewVisualChange({
+                  ...newVisualChange,
+                  css: e.target.value,
+                });
+              }}
+            />
             {newVisualChange.css ? (
-              <small className="ml-2 float-right">
-                <a href="#" className="text-danger" onClick={deleteGlobalCSS}>
-                  clear
-                </a>
-              </small>
+              <FieldIndicatorCorner>
+                <FieldIndicator label="Clear" onClick={deleteGlobalCSS} reveal>
+                  <PiX />
+                </FieldIndicator>
+              </FieldIndicatorCorner>
             ) : null}
-          </h4>
-
-          <Field
-            size="legacy"
-            textarea
-            minRows={5}
-            value={newVisualChange.css}
-            onChange={(e) => {
-              setNewVisualChange({
-                ...newVisualChange,
-                css: e.target.value,
-              });
-            }}
-          />
+          </div>
         </div>
 
         <div className="mb-4">
-          <h4>
-            Custom JS
+          <h4>Custom JS</h4>
+          <div className="position-relative gb-field-indicator-host">
+            <Field
+              size="legacy"
+              textarea
+              minRows={5}
+              value={newVisualChange.js}
+              onChange={(e) => {
+                setNewVisualChange({
+                  ...newVisualChange,
+                  js: e.target.value,
+                });
+              }}
+            />
             {newVisualChange.js ? (
-              <small className="ml-2 float-right">
-                <a href="#" className="text-danger" onClick={deleteCustomJS}>
-                  clear
-                </a>
-              </small>
+              <FieldIndicatorCorner>
+                <FieldIndicator label="Clear" onClick={deleteCustomJS} reveal>
+                  <PiX />
+                </FieldIndicator>
+              </FieldIndicatorCorner>
             ) : null}
-          </h4>
-
-          <Field
-            size="legacy"
-            textarea
-            minRows={5}
-            value={newVisualChange.js}
-            onChange={(e) => {
-              setNewVisualChange({
-                ...newVisualChange,
-                js: e.target.value,
-              });
-            }}
-          />
+          </div>
         </div>
 
         <div className="mb-4">

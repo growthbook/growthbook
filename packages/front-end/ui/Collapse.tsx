@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { ReactNode, TransitionEvent, useState } from "react";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import Link from "./Link";
 import styles from "./Collapse.module.scss";
 
 /** Content that slides open and shut; mounted on first open, untabbable shut. */
@@ -75,5 +76,32 @@ export function CollapseTrigger({
       ) : null}
       {caret === "end" ? icon : null}
     </div>
+  );
+}
+
+/** A link that opens and shuts a Collapse, for where a row is too heavy. */
+export function CollapseLink({
+  open,
+  onOpenChange,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      size="sm"
+      aria-expanded={open}
+      onClick={(e) => {
+        e.preventDefault();
+        onOpenChange(!open);
+      }}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        {children}
+        {open ? <PiCaretDown /> : <PiCaretRight />}
+      </span>
+    </Link>
   );
 }

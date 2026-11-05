@@ -265,20 +265,9 @@ function EditPhaseStep({
             scheduleStartDate={form.watch("dateStarted")}
             disableBefore={form.watch("dateStarted") || undefined}
             containerClassName=""
+            clearButton
           />
-          <div className="mb-3 mt-1 small">
-            Leave blank if still running.{" "}
-            <a
-              role="button"
-              className="a"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("dateEnded", "");
-              }}
-            >
-              Clear Input
-            </a>
-          </div>
+          <div className="mb-3 mt-1 small">Leave blank if still running.</div>
           {form.watch("dateEnded") && (
             <Field
               size="legacy"
