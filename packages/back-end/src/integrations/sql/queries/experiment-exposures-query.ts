@@ -93,11 +93,11 @@ export function getExperimentExposuresQuery(
   const { exposureQuery } = params;
   const timestampColumn = getExposureQueryTimestampColumn(exposureQuery);
   const experimentIdColumn = getExposureQueryExperimentIdColumn(exposureQuery);
-  // Filters name roles canonically, but the query returns the mapped columns
   const identifierTypes = [
     exposureQuery.identifierType,
     ...(params.subUnitIdentifierType ? [params.subUnitIdentifierType] : []),
   ];
+  // Filters name roles canonically, but the query returns the mapped columns
   const physicalColumns: Record<string, string> = {
     timestamp: timestampColumn,
     variation_id: getExposureQueryVariationIdColumn(exposureQuery),

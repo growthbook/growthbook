@@ -66,7 +66,7 @@ function Empty() {
   );
 }
 
-function IdCell({ value }: { value: string | null }) {
+function IdCell({ value }: { value?: string | null }) {
   if (!value) return <Empty />;
   return (
     <Text size="sm" mono title={value}>
@@ -104,8 +104,6 @@ export default function ExposureLogsCard({
       exposureQuery,
       experiment.exposureQueryIdentifierType,
     ) || DEFAULT_USER_ID_COLUMN;
-  // Cluster experiments randomize on the cluster (the identifier above) and
-  // analyze a nested sub-unit, so both are shown.
   const subUnitIdColumn =
     (experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier) ||
     null;
@@ -196,7 +194,7 @@ export default function ExposureLogsCard({
               key: "subUnitId",
               header: getIdentifierDisplayName(subUnitIdColumn),
               render: (r: ExperimentExposureRecord) => (
-                <IdCell value={r.subUnitId ?? null} />
+                <IdCell value={r.subUnitId} />
               ),
             },
           ]
@@ -299,8 +297,7 @@ export default function ExposureLogsCard({
     };
   }, [dimensions, experiment, query.rows, unitIdColumn, subUnitIdColumn]);
 
-  // Keyed by identifier type, matching the column headers, rather than the
-  // record's own field names.
+  // Keyed by identifier type to match the column headers
   const renderDetail = useCallback(
     (row: ExperimentExposureRecord) => (
       <RecordDetail

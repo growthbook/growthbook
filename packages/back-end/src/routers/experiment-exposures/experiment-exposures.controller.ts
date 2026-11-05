@@ -129,8 +129,6 @@ export async function postExposures(
     return;
   }
 
-  // Cluster experiments randomize on the cluster but analyze a nested sub-unit,
-  // so the logs show both.
   const subUnitIdentifierType =
     (experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier) ||
     null;
@@ -193,7 +191,7 @@ export async function postExposures(
     startDate,
     endDate,
     dimensions,
-    subUnitIdentifierType: subUnitIdentifierType ?? undefined,
+    subUnitIdentifierType,
     phase: { index: String(phaseIndex) },
     customFields: experiment.customFields,
     rowFilters,
@@ -216,15 +214,15 @@ export async function postExposures(
       resolvedExposureQuery,
       resolvedExposureQuery.identifierType,
     ),
-    subUnitIdColumn: subUnitIdentifierType
-      ? getExposureQueryIdentifierColumn(
-          resolvedExposureQuery,
-          subUnitIdentifierType,
-        )
-      : null,
     timestampColumn: getExposureQueryTimestampColumn(resolvedExposureQuery),
     variationIdColumn: getExposureQueryVariationIdColumn(resolvedExposureQuery),
   };
+  const subUnitIdColumn = subUnitIdentifierType
+    ? getExposureQueryIdentifierColumn(
+        resolvedExposureQuery,
+        subUnitIdentifierType,
+      )
+    : null;
   const cacheKey = getExposuresCacheKey({
     experimentId: experiment.id,
     experimentTrackingKey: experiment.trackingKey,
@@ -232,13 +230,9 @@ export async function postExposures(
     exposureQuerySql: resolvedExposureQuery.query,
     identifierType: resolvedExposureQuery.identifierType,
     columnMapping: {
-      identifierColumn: columnMapping.identifierColumn,
-      timestampColumn: columnMapping.timestampColumn,
-      variationIdColumn: columnMapping.variationIdColumn,
+      ...columnMapping,
       // Only when set, so non-cluster cache keys stay unchanged
-      ...(columnMapping.subUnitIdColumn
-        ? { subUnitIdColumn: columnMapping.subUnitIdColumn }
-        : {}),
+      ...(subUnitIdColumn ? { subUnitIdColumn } : {}),
       experimentIdColumn: getExposureQueryExperimentIdColumn(
         resolvedExposureQuery,
       ),
@@ -335,6 +329,7 @@ export async function postExposures(
   const { records, extraColumns, valuesTruncated } = shapeExposureRows({
     rows: bufferRows,
     ...columnMapping,
+    subUnitIdColumn,
     dimensions,
     caseSensitive: integration.columnNamesAreCaseSensitive,
   });

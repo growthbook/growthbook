@@ -198,21 +198,17 @@ export function shapeExposureRows({
 
     const unitId = coerceValue(getColumn(row, identifierColumn, caseSensitive));
     if (isTruncated(unitId)) valuesTruncated = true;
-    let subUnit: { subUnitId: string | null } | undefined;
-    if (subUnitIdColumn) {
-      const subUnitId = coerceValue(
-        getColumn(row, subUnitIdColumn, caseSensitive),
-      );
-      if (isTruncated(subUnitId)) valuesTruncated = true;
-      subUnit = { subUnitId };
-    }
+    const subUnitId = subUnitIdColumn
+      ? coerceValue(getColumn(row, subUnitIdColumn, caseSensitive))
+      : null;
+    if (isTruncated(subUnitId)) valuesTruncated = true;
 
     return {
       timestamp: normalizeTimestamp(
         getColumn(row, timestampColumn, caseSensitive),
       ),
       unitId,
-      ...subUnit,
+      ...(subUnitIdColumn ? { subUnitId } : {}),
       variationId:
         coerceValue(getColumn(row, variationIdColumn, caseSensitive)) ?? "",
       dimensions: dimensionValues,
