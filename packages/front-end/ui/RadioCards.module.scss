@@ -1,0 +1,40 @@
+// A card with something to show once selected.
+.option {
+  display: grid;
+}
+
+// A selected card and what it shows, framed as one selected card. The card
+// draws no fill or hover of its own, so the frame reads as one surface.
+.group {
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--gray-a5);
+  outline: 2px solid var(--accent-9);
+  outline-offset: -1px;
+  background-color: var(--color-panel-solid);
+
+  // Doubled to outrank Radix's own state rules.
+  > :global(.rt-BaseCard.rt-RadioCardsItem.rt-RadioCardsItem) {
+    width: 100%;
+
+    &,
+    &:hover,
+    &::before,
+    &:hover::before {
+      background-color: transparent;
+    }
+    &::after,
+    &:hover::after {
+      outline: none;
+      box-shadow: none;
+    }
+  }
+}
+
+.selectedContent {
+  padding: 0 16px 16px;
+
+  // Shaded, as the frame around it isn't.
+  :global(.rt-BaseCard.rt-RadioCardsItem[data-state="checked"])::before {
+    background-color: var(--accent-a3);
+  }
+}

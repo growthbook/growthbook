@@ -6,9 +6,12 @@ import {
   Tooltip,
 } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, ReactElement } from "react";
+import clsx from "clsx";
+import { forwardRef, ReactElement, ReactNode } from "react";
 import Badge from "@/ui/Badge";
 import { radixSize, Size } from "@/ui/sizes";
+import Collapse from "@/ui/Collapse";
+import styles from "./RadioCards.module.scss";
 
 export type RadioOptions = {
   value: string;
@@ -18,6 +21,8 @@ export type RadioOptions = {
   disabled?: boolean;
   badge?: ReactElement | string;
   tooltip?: string;
+  // Shown under the card while it's selected, e.g. a follow-up choice.
+  selectedContent?: ReactNode;
 }[];
 
 export type Props = {
@@ -43,7 +48,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     columns = "1",
     width = "auto",
     options,
-    value,
+    value: selected,
     setValue,
     align,
     onClick,
@@ -60,7 +65,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     <Flex {...containerProps} ref={ref}>
       <Text size="2" color={disabled ? "gray" : undefined} style={{ width }}>
         <RadixRadioCards.Root
-          value={value}
+          value={selected}
           onValueChange={(val) => setValue(val)}
           disabled={disabled}
           columns={columns}
@@ -75,6 +80,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
               disabled,
               badge,
               tooltip,
+              selectedContent,
             }) => {
               const item = (
                 <RadixRadioCards.Item
@@ -119,14 +125,29 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                 </RadixRadioCards.Item>
               );
 
-              if (tooltip) {
-                return (
-                  <Tooltip key={value} content={tooltip} side="top">
-                    {item}
-                  </Tooltip>
-                );
-              }
-              return item;
+              const card = tooltip ? (
+                <Tooltip key={value} content={tooltip} side="top">
+                  {item}
+                </Tooltip>
+              ) : (
+                item
+              );
+              if (!selectedContent) return card;
+              // Always wrapped, so selecting the card doesn't remount it.
+              const isSelected = value === selected;
+              return (
+                <div
+                  key={value}
+                  className={clsx(styles.option, isSelected && styles.group)}
+                >
+                  {card}
+                  <Collapse open={isSelected} duration={150}>
+                    <div className={styles.selectedContent}>
+                      {selectedContent}
+                    </div>
+                  </Collapse>
+                </div>
+              );
             },
           )}
         </RadixRadioCards.Root>

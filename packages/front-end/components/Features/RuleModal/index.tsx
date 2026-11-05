@@ -84,7 +84,6 @@ import {
   getRampStartImpact,
   type RampStartImpact,
 } from "@/components/Features/RuleModal/rampStartImpact";
-import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
@@ -2252,6 +2251,20 @@ export default function RuleModal({
   ) : null;
 
   if (newRuleOverviewPage) {
+    const newOrExisting = (noun: string) => (
+      <RadioCards
+        columns="2"
+        width="100%"
+        labelSize="md"
+        labelWeight="medium"
+        options={[
+          { value: "experiment-ref-new", label: `Create new ${noun}` },
+          { value: "experiment-ref", label: `Add existing ${noun}` },
+        ]}
+        value={overviewRuleType}
+        setValue={(v) => setOverviewRuleType(v as OverviewRuleType)}
+      />
+    );
     return (
       <Modal
         trackingEventModalType="feature-rule-overview"
@@ -2299,6 +2312,7 @@ export default function RuleModal({
                 label: "Experiment",
                 description:
                   "Measure the impact of this feature on your key metrics",
+                selectedContent: newOrExisting("Experiment"),
               },
               {
                 value: "bandit",
@@ -2313,6 +2327,7 @@ export default function RuleModal({
                 ),
                 description:
                   "Find a winner among many variations on one goal metric",
+                selectedContent: newOrExisting("Bandit"),
               },
             ]}
             value={overviewRadioSelectorRuleType}
@@ -2375,47 +2390,6 @@ export default function RuleModal({
             </Flex>
           </Callout>
         </div>
-
-        {overviewRadioSelectorRuleType === "experiment" && (
-          <>
-            <h5>Add Experiment</h5>
-            <RadioGroup
-              options={[
-                {
-                  value: "experiment-ref-new",
-                  label: "Create new Experiment",
-                },
-                {
-                  value: "experiment-ref",
-                  label: "Add existing Experiment",
-                },
-              ]}
-              value={overviewRuleType}
-              setValue={(v: OverviewRuleType) => setOverviewRuleType(v)}
-              mb="4"
-            />
-          </>
-        )}
-        {overviewRadioSelectorRuleType === "bandit" && (
-          <>
-            <h5>Add Bandit</h5>
-            <RadioGroup
-              options={[
-                {
-                  value: "experiment-ref-new",
-                  label: "Create new Bandit",
-                },
-                {
-                  value: "experiment-ref",
-                  label: "Add existing Bandit",
-                },
-              ]}
-              value={overviewRuleType}
-              setValue={(v: OverviewRuleType) => setOverviewRuleType(v)}
-              mb="4"
-            />
-          </>
-        )}
       </Modal>
     );
   }

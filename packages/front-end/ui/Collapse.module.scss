@@ -4,15 +4,15 @@
 .collapse {
   display: grid;
   grid-template-rows: 1fr;
-  transition: grid-template-rows 200ms ease;
+  transition: grid-template-rows var(--collapse-duration, 200ms) ease;
 
   // Hidden once shut, so its contents leave the tab order.
   &.closed {
     grid-template-rows: 0fr;
     visibility: hidden;
     transition:
-      grid-template-rows 200ms ease,
-      visibility 0s 200ms;
+      grid-template-rows var(--collapse-duration, 200ms) ease,
+      visibility 0s var(--collapse-duration, 200ms);
   }
 
   // Still a transition, so the end of one is still signalled.
