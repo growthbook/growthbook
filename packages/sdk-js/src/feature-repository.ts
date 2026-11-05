@@ -104,8 +104,19 @@ export const helpers: Helpers = {
   },
 };
 
+// Node 25+ logs an ExperimentalWarning on any localStorage access unless --localstorage-file is set
+function isNodeWithoutLocalStorageFile(): boolean {
+  if (typeof window !== "undefined" || typeof process === "undefined") {
+    return false;
+  }
+  if (!process.versions?.node) return false;
+  return ![...(process.execArgv || []), process.env?.NODE_OPTIONS || ""].some(
+    (arg) => arg.includes("--localstorage-file"),
+  );
+}
+
 try {
-  if (globalThis.localStorage) {
+  if (!isNodeWithoutLocalStorageFile() && globalThis.localStorage) {
     polyfills.localStorage = globalThis.localStorage;
   }
 } catch (e) {
