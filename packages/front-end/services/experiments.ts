@@ -1,4 +1,7 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotMetric,
+} from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentReportVariation,
@@ -26,7 +29,7 @@ import {
   pValueFormatter,
 } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
-import { isNil, omit } from "lodash";
+import { isNil, omit, startCase } from "lodash";
 import {
   FactTableDefinition,
   FactTableColumnType,
@@ -34,6 +37,7 @@ import {
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
   getEqualWeights,
   getFunnelStepMetric,
   getLatestPhaseVariations,
@@ -44,6 +48,7 @@ import {
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
+  isSubUnitClusterMetric,
   isSuspiciousUplift,
   quantileMetricType,
   expandMetricGroups,
@@ -741,6 +746,7 @@ export function getRowResults({
   isLatestPhase,
   experimentStatus,
   sampleSizeFrom,
+  clusterSettings,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -758,6 +764,10 @@ export function getRowResults({
   isLatestPhase: boolean;
   experimentStatus?: ExperimentStatus;
   sampleSizeFrom?: SampleSizeSource;
+  clusterSettings?: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -772,8 +782,11 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
+  // Subunit cluster metrics are analyzed as ratios, which can't be scaled.
   const hasScaledImpact =
-    !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
+    !isRatioMetric(metric, denominator) &&
+    !quantileMetricType(metric) &&
+    !(clusterSettings && isSubUnitClusterMetric(metric, clusterSettings));
   const metricSampleSize = getMetricSampleSize(
     baseline,
     stats,
@@ -1548,4 +1561,111 @@ export function getAvailableSliceTags({
     // Fallback to ID comparison
     return a.id.localeCompare(b.id);
   });
+}
+
+// e.g. "user_id" -> "User Id"
+export function getIdentifierDisplayName(identifierType: string) {
+  return startCase(identifierType);
+}
+
+// Converts an identifier type to a display name (e.g. "user_id" -> "User Ids")
+export function getUnitDisplayName(identifierType: string | undefined) {
+  return identifierType
+    ? getIdentifierDisplayName(identifierType) + "s"
+    : "Units";
+}
+
+/**
+ * Selected metrics a cluster experiment can't analyze. Metrics picked on their
+ * own are dropped on save; part of a group can't be, so groups are named for
+ * the user to remove.
+ */
+export function getIneligibleClusterMetrics(
+  selectedIds: string[],
+  {
+    metricGroups,
+    getExperimentMetricById,
+    ...eligibilityOptions
+  }: Parameters<typeof getClusterExperimentMetricEligibility>[1] & {
+    metricGroups: MetricGroupInterface[];
+    getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  },
+) {
+  const ineligible = {
+    droppedIds: new Set<string>(),
+    droppedNames: [] as string[],
+    groupNames: [] as string[],
+  };
+  const isEligible = (id: string) => {
+    const metric = getExperimentMetricById(id);
+    return (
+      !metric ||
+      getClusterExperimentMetricEligibility(metric, eligibilityOptions).allowed
+    );
+  };
+  new Set(selectedIds).forEach((id) => {
+    const group = metricGroups.find((mg) => mg.id === id);
+    if (group) {
+      if (
+        !getAllMetricIdsFromExperiment(
+          { goalMetrics: [id] },
+          false,
+          metricGroups,
+        ).every(isEligible)
+      ) {
+        ineligible.groupNames.push(group.name);
+      }
+    } else if (!isEligible(id)) {
+      ineligible.droppedIds.add(id);
+      ineligible.droppedNames.push(getExperimentMetricById(id)?.name ?? id);
+    }
+  });
+  return ineligible;
+}
+
+/**
+ * Cluster experiment results count clusters, not subunits, so their unit
+ * counts are labeled with the cluster identifier.
+ */
+export function getClusterUnitsLabel(
+  settings:
+    | Pick<
+        ExperimentSnapshotSettings,
+        | "isClusterExperiment"
+        | "clusterSubUnitIdentifier"
+        | "exposureQueryIdentifierType"
+      >
+    | undefined,
+): string | undefined {
+  if (
+    !settings?.isClusterExperiment ||
+    !settings.clusterSubUnitIdentifier ||
+    !settings.exposureQueryIdentifierType
+  ) {
+    return undefined;
+  }
+  return getUnitDisplayName(settings.exposureQueryIdentifierType);
+}
+
+// Subunit counts only exist for metrics rolled up from the subunit, not for
+// metrics analyzed directly per cluster.
+export function getClusterSubUnitsLabel(
+  settings:
+    | Pick<
+        ExperimentSnapshotSettings,
+        | "isClusterExperiment"
+        | "clusterSubUnitIdentifier"
+        | "exposureQueryIdentifierType"
+        | "clusterLevelMetricIds"
+      >
+    | undefined,
+  metricId: string,
+): string | undefined {
+  if (
+    !getClusterUnitsLabel(settings) ||
+    settings?.clusterLevelMetricIds?.includes(metricId)
+  ) {
+    return undefined;
+  }
+  return getUnitDisplayName(settings?.clusterSubUnitIdentifier);
 }
