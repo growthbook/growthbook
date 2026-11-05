@@ -23,6 +23,7 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
+  isAnalysisDateRangeOutdated,
   isAutoSnapshotScheduled,
   isStoppedExperimentResultsLocked,
   STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE,
@@ -540,6 +541,7 @@ export default function AnalysisSettingsSummary({
     conversionWindowMetrics,
     newerOverallResultsAvailable:
       newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
+    resultsLocked,
   });
 
   // If a dimension breakdown already covers the latest Overall Results, another
@@ -683,15 +685,6 @@ export default function AnalysisSettingsSummary({
     return elements.some((v) => !strings.includes(v));
   }
 
-  function isDifferentDate(
-    val1: Date,
-    val2: Date,
-    threshold: number = 86400000,
-  ) {
-    // 86400000 = 1 day
-    return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
-  }
-
   function isOutdated({
     experiment: exp,
     snapshot: snap,
@@ -706,6 +699,7 @@ export default function AnalysisSettingsSummary({
     unjoinableMetrics: unjoinable,
     conversionWindowMetrics: conversion,
     newerOverallResultsAvailable,
+    resultsLocked: locked,
   }: {
     experiment?: ExperimentInterfaceStringDates;
     snapshot?: ExperimentSnapshotInterface;
@@ -720,6 +714,7 @@ export default function AnalysisSettingsSummary({
     unjoinableMetrics?: Set<string>;
     conversionWindowMetrics?: Set<string>;
     newerOverallResultsAvailable?: boolean;
+    resultsLocked?: boolean;
   }): { outdated: boolean; reasons: string[] } {
     const snapshotSettings = snap?.settings;
     const analysisSettings = snap ? getSnapshotAnalysis(snap)?.settings : null;
@@ -828,21 +823,12 @@ export default function AnalysisSettingsSummary({
       reasons.push("Variations changed");
     }
     if (
-      isDifferentDate(
-        getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
-        getValidDate(snapshotSettings.startDate),
-      ) ||
-      // A running phase analyzed through a lagged cutoff ends before the
-      // snapshot ran, so measure its staleness from the run time.
-      isDifferentDate(
-        getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
-        getValidDate(
-          !exp.phases?.[currentPhase ?? 0]?.dateEnded &&
-            snapshotSettings.endDateIsCutoff
-            ? snap?.dateCreated
-            : snapshotSettings.endDate,
-        ),
-      )
+      isAnalysisDateRangeOutdated({
+        phase: exp.phases?.[currentPhase ?? 0],
+        snapshotSettings,
+        snapshotDateCreated: snap?.dateCreated,
+        resultsLocked: locked,
+      })
     ) {
       reasons.push("Analysis dates changed");
     }
