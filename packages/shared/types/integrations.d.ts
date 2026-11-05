@@ -995,6 +995,8 @@ export type ExperimentExposuresQueryParams = {
   startDate: Date;
   endDate: Date;
   dimensions: string[];
+  /** Cluster experiments only. */
+  subUnitIdentifierType?: string | null;
   phase?: PhaseSQLVar;
   customFields?: Record<string, unknown>;
   /** Same filter model Product Analytics uses; compiled by getRowFilterSQL. */
