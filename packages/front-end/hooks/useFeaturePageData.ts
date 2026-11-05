@@ -37,8 +37,7 @@ export function parseVersion(
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-// The feature page's main request. Shared with EarlyFetch so both use the same
-// SWR key and the request is only sent once.
+// Shared with EarlyFetch so both use the same SWR key.
 export function getFeaturePagePath(
   fid: string | string[] | undefined,
   version: number | null,

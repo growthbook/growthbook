@@ -3,10 +3,8 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { getFeaturePagePath, parseVersion } from "@/hooks/useFeaturePageData";
 
-// Rendered while the dashboard waits for /organization. Starts the requests
-// that would otherwise wait for it (definitions, and the flag on a flag page)
-// so they run in parallel. The hooks that need the data later use the same
-// SWR keys and pick up the running request or its result.
+// Rendered while the dashboard waits for /organization so the definitions (and
+// the flag on a flag page) load in parallel; later hooks share the SWR keys.
 export default function EarlyFetch() {
   const { orgId } = useAuth();
   const { pathname, query } = useRouter();
