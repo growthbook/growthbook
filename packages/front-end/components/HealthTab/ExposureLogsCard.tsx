@@ -99,7 +99,7 @@ export default function ExposureLogsCard({
     () => exposureQuery?.dimensions ?? [],
     [exposureQuery?.dimensions],
   );
-  const userIdColumn =
+  const unitIdColumn =
     resolveAnalysisIdentifierType(
       exposureQuery,
       experiment.exposureQueryIdentifierType,
@@ -186,9 +186,9 @@ export default function ExposureLogsCard({
         ),
       },
       {
-        key: "userId",
-        header: getIdentifierDisplayName(userIdColumn),
-        render: (r) => <IdCell value={r.userId} />,
+        key: "unitId",
+        header: getIdentifierDisplayName(unitIdColumn),
+        render: (r) => <IdCell value={r.unitId} />,
       },
       ...(subUnitIdColumn
         ? [
@@ -228,7 +228,7 @@ export default function ExposureLogsCard({
           r.dimensions[dim] ? <>{r.dimensions[dim]}</> : <Empty />,
       })),
     ],
-    [dimensions, variationsById, subUnitIdColumn, userIdColumn],
+    [dimensions, variationsById, subUnitIdColumn, unitIdColumn],
   );
 
   // A filter names the warehouse column, because that is what the query has to
@@ -236,12 +236,12 @@ export default function ExposureLogsCard({
   const getFilterValue = useCallback(
     (row: ExperimentExposureRecord, column: string) => {
       if (column === TIMESTAMP_COLUMN) return row.timestamp;
-      if (column === userIdColumn) return row.userId;
+      if (column === unitIdColumn) return row.unitId;
       if (column === subUnitIdColumn) return row.subUnitId ?? null;
       if (column === VARIATION_COLUMN) return row.variationId;
       return row.dimensions[column];
     },
-    [userIdColumn, subUnitIdColumn],
+    [unitIdColumn, subUnitIdColumn],
   );
 
   const getSearchText = useCallback(
@@ -249,7 +249,7 @@ export default function ExposureLogsCard({
       [
         row.timestamp,
         formatTimestamp(row.timestamp),
-        row.userId ?? "",
+        row.unitId ?? "",
         row.subUnitId ?? "",
         row.variationId,
         variationsById.get(row.variationId)?.name ?? "",
@@ -262,7 +262,7 @@ export default function ExposureLogsCard({
   // actually holds — the same values the table is showing.
   const columnSource: FilterColumnSource = useMemo(() => {
     const columnLabels: [string, string][] = [
-      [userIdColumn, userIdColumn],
+      [unitIdColumn, unitIdColumn],
       ...(subUnitIdColumn
         ? [[subUnitIdColumn, subUnitIdColumn] as [string, string]]
         : []),
@@ -297,9 +297,9 @@ export default function ExposureLogsCard({
         topValues: (column && topValues.get(column)) || [],
       }),
     };
-  }, [dimensions, experiment, query.rows, userIdColumn, subUnitIdColumn]);
+  }, [dimensions, experiment, query.rows, unitIdColumn, subUnitIdColumn]);
 
-  // With two identifiers, `userId`/`subUnitId` don't say which is which, so the
+  // With two identifiers, `unitId`/`subUnitId` don't say which is which, so the
   // detail is keyed by identifier type instead.
   const renderClusterDetail = useCallback(
     (row: ExperimentExposureRecord) => (
@@ -308,7 +308,7 @@ export default function ExposureLogsCard({
         fields={flattenRecord(
           {
             [TIMESTAMP_COLUMN]: row.timestamp,
-            [userIdColumn]: row.userId,
+            [unitIdColumn]: row.unitId,
             ...(subUnitIdColumn
               ? { [subUnitIdColumn]: row.subUnitId ?? null }
               : {}),
@@ -320,7 +320,7 @@ export default function ExposureLogsCard({
         )}
       />
     ),
-    [userIdColumn, subUnitIdColumn],
+    [unitIdColumn, subUnitIdColumn],
   );
 
   if (!canRun) return null;
@@ -390,7 +390,7 @@ export default function ExposureLogsCard({
       query={query}
       columns={columns}
       getRowId={(r, i) =>
-        `${r.timestamp}-${r.userId ?? ""}-${r.subUnitId ?? ""}-${r.variationId}-${i}`
+        `${r.timestamp}-${r.unitId ?? ""}-${r.subUnitId ?? ""}-${r.variationId}-${i}`
       }
       getSearchText={getSearchText}
       getFilterValue={getFilterValue}

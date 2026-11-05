@@ -196,8 +196,8 @@ export function shapeExposureRows({
       extra[key] = coerceValue(getColumn(row, key, caseSensitive));
     }
 
-    const userId = coerceValue(getColumn(row, identifierColumn, caseSensitive));
-    if (isTruncated(userId)) valuesTruncated = true;
+    const unitId = coerceValue(getColumn(row, identifierColumn, caseSensitive));
+    if (isTruncated(unitId)) valuesTruncated = true;
     let subUnit: { subUnitId: string | null } | undefined;
     if (subUnitIdColumn) {
       const subUnitId = coerceValue(
@@ -211,7 +211,7 @@ export function shapeExposureRows({
       timestamp: normalizeTimestamp(
         getColumn(row, timestampColumn, caseSensitive),
       ),
-      userId,
+      unitId,
       ...subUnit,
       variationId:
         coerceValue(getColumn(row, variationIdColumn, caseSensitive)) ?? "",

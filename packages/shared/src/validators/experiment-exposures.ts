@@ -2,9 +2,9 @@ import { z } from "zod";
 
 export const experimentExposureRecordValidator = z.object({
   timestamp: z.string(),
-  userId: z.string().nullable(),
+  unitId: z.string().nullable(),
   // Cluster experiments only: the sub-unit analyzed within the cluster in
-  // `userId`. Absent otherwise.
+  // `unitId`. Absent otherwise.
   subUnitId: z.string().nullable().optional(),
   variationId: z.string(),
   // Dimensions declared on the exposure query. Filterable, and shown as columns.
