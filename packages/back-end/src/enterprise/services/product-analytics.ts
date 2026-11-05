@@ -18,6 +18,7 @@ import {
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
   getMetricPopulationViolations,
+  applyRequestedDisplayConfig,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -72,7 +73,10 @@ function withRequestedDisplayConfig(
       },
     };
   }
-  return toClientJourneyExploration(existing, requested);
+  return toClientJourneyExploration(
+    applyRequestedDisplayConfig(existing, requested),
+    requested,
+  );
 }
 
 // Max time to wait synchronously for an exploration's queries before

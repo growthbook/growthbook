@@ -14,6 +14,7 @@ export * from "./product-analytics/columns";
 export * from "./product-analytics/journey-sql";
 export * from "./product-analytics/column-dependencies";
 export * from "./product-analytics/comparison";
+export * from "./product-analytics/display-config";
 export * from "./product-analytics/utils";
 export * from "../validators/revisions";
 export * from "./validators/decision-criteria";

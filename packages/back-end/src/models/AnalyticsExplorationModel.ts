@@ -4,13 +4,13 @@ import {
   ApiAnalyticsExploration,
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
+  toValueQueryKey,
 } from "shared/validators";
 import md5 from "md5";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   hasTimestampColumn,
-  omitRenderOnlyValueFields,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
@@ -257,7 +257,7 @@ export class AnalyticsExplorationModel extends BaseClass {
           : config.chartType === "rawTable"
             ? []
             : dataset.values.map((value) =>
-                md5(JSON.stringify(omitRenderOnlyValueFields(value))),
+                md5(JSON.stringify(toValueQueryKey(value))),
               );
 
     return {

@@ -1,19 +1,19 @@
 import {
+  applyRequestedDisplayConfig,
   getDefaultValueAxisName,
   getExplorationRenderOpts,
   getRenderedMetricValue,
   getShowAsByIndex,
   getShowAsOptions,
   normalizeShowAs,
-  omitRenderOnlyValueFields,
 } from "shared/enterprise";
-import { toClientJourneyExploration } from "shared/journeys";
 import type {
   ExplorationConfig,
   MetricValue,
   ProductAnalyticsExploration,
   ShowAs,
 } from "shared/validators";
+import { toValueQueryKey } from "shared/validators";
 import type { FactMetricInterface } from "shared/types/fact-table";
 
 function makeMetric(
@@ -224,18 +224,19 @@ describe("normalizeShowAs", () => {
   });
 });
 
-describe("omitRenderOnlyValueFields", () => {
-  it("hashes like a value that never had showAs", () => {
+describe("toValueQueryKey", () => {
+  it("ignores render-only fields", () => {
     expect(
-      JSON.stringify(
-        omitRenderOnlyValueFields(metricValue("revenue", "per_unit")),
-      ),
-    ).toBe(JSON.stringify(metricValue("revenue")));
+      toValueQueryKey({ ...metricValue("revenue", "per_unit"), name: "A" }),
+    ).toEqual(toValueQueryKey({ ...metricValue("revenue"), name: "B" }));
   });
 
-  it("returns the value itself when it has no render-only fields", () => {
-    const value = metricValue("revenue");
-    expect(omitRenderOnlyValueFields(value)).toBe(value);
+  it("distinguishes values that query differently", () => {
+    expect(
+      toValueQueryKey(metricValue("revenue", undefined, "user_id")),
+    ).not.toEqual(
+      toValueQueryKey(metricValue("revenue", undefined, "device_id")),
+    );
   });
 });
 
@@ -312,22 +313,69 @@ describe("getRenderedMetricValue", () => {
   });
 });
 
-describe("toClientJourneyExploration", () => {
-  it("serves a cached result with the requested per-value showAs", () => {
-    const cached = {
-      config: metricConfig([
-        metricValue("revenue", "per_unit"),
+describe("applyRequestedDisplayConfig", () => {
+  const cachedExploration = (config: ExplorationConfig) =>
+    ({
+      config,
+      result: { rows: [] },
+    }) as unknown as ProductAnalyticsExploration;
+
+  it("serves a cached result with the requested names and showAs", () => {
+    const cached = cachedExploration(
+      metricConfig([
+        { ...metricValue("revenue", "per_unit"), name: "Old name" },
         metricValue("maxOrder"),
       ]),
-      result: { rows: [] },
-    } as unknown as ProductAnalyticsExploration;
+    );
     const requested = metricConfig([
-      metricValue("revenue"),
+      { ...metricValue("revenue"), name: "New name" },
       metricValue("maxOrder", "total"),
     ]);
     expect(
-      toClientJourneyExploration(cached, requested).config.dataset,
+      applyRequestedDisplayConfig(cached, requested).config.dataset,
     ).toEqual(requested.dataset);
+  });
+
+  it("serves a cached funnel with the requested y-axis scale", () => {
+    const funnel = (yAxisScale: "count" | "percent"): ExplorationConfig => ({
+      ...metricConfig([]),
+      type: "funnel",
+      dataset: { type: "funnel", unit: "user_id", steps: [], yAxisScale },
+    });
+    expect(
+      applyRequestedDisplayConfig(
+        cachedExploration(funnel("count")),
+        funnel("percent"),
+      ).config.dataset,
+    ).toMatchObject({ yAxisScale: "percent" });
+  });
+
+  it("serves a cached journey with the requested height scale", () => {
+    const journey = (
+      heightScale: "relative" | "absolute",
+    ): ExplorationConfig => ({
+      ...metricConfig([]),
+      type: "journey",
+      dataset: {
+        type: "journey",
+        factTableId: "ft",
+        unit: "user_id",
+        stepColumns: ["page"],
+        anchorStepValues: null,
+        direction: "forward",
+        rowFilters: [],
+        path: [],
+        lookaheadDepth: 1,
+        optionsPerStep: [5],
+        heightScale,
+      },
+    });
+    expect(
+      applyRequestedDisplayConfig(
+        cachedExploration(journey("relative")),
+        journey("absolute"),
+      ).config.dataset,
+    ).toMatchObject({ heightScale: "absolute" });
   });
 });
 

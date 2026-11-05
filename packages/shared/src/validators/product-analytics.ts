@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import { z } from "zod";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
@@ -710,6 +711,14 @@ export function datasetTypeHasValues(
   type: DatasetType,
 ): type is ValuesDataset["type"] {
   return type !== "funnel" && type !== "journey";
+}
+
+/** Value fields that change only how results render, never the query. */
+export const RENDER_ONLY_VALUE_FIELDS = ["name", "showAs"] as const;
+
+/** A value's query identity: values with equal keys can share cached results. */
+export function toValueQueryKey(value: ProductAnalyticsValue) {
+  return omit(value, RENDER_ONLY_VALUE_FIELDS);
 }
 export type ProductAnalyticsFunnelStepResult = z.infer<
   typeof productAnalyticsFunnelStepResultValidator

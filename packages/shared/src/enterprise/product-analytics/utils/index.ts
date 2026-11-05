@@ -441,18 +441,6 @@ export function normalizeShowAs<T extends ExplorationConfig>(
 }
 
 /**
- * Drops the value fields that only affect rendering, so query cache keys stay
- * stable when they change. Returns the value itself when it has none, which
- * keeps the hash of such a value identical to hashes stored before `showAs`
- * moved onto values.
- */
-export function omitRenderOnlyValueFields<T extends ProductAnalyticsValue>(
-  value: T,
-): T {
-  return "showAs" in value ? (omit(value, "showAs") as T) : value;
-}
-
-/**
  * Returns the shared unit name when all values in a metric dataset agree on a
  * single unit, otherwise null. Used to label "Per <unit>" in UI controls and
  * the agent's CSV output.

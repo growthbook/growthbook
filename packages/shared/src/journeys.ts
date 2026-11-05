@@ -1,4 +1,4 @@
-import { isEqual, omit } from "lodash";
+import { isEqual } from "lodash";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type {
   ExplorationConfig,
@@ -684,42 +684,16 @@ export function journeyDisplayLookaheadDepth(
 }
 
 /**
- * Carries the requested per-value `showAs` onto a cached metric config. The
- * cache match ignores it (see `omitRenderOnlyValueFields`), so the cached
- * values line up with the requested ones index for index.
+ * Overlays the requested path on a cached journey and collapses its lookahead
+ * to the display frontier. Other explorations are returned unchanged; apply
+ * the request's display settings with `applyRequestedDisplayConfig`.
  */
-function withRequestedValueShowAs<C extends ExplorationConfig>(
-  cached: C,
-  requested: ExplorationConfig,
-): C {
-  if (cached.type !== "metric" || requested.type !== "metric") return cached;
-  const values = cached.dataset.values.map((value, i) => {
-    const showAs = requested.dataset.values[i]?.showAs;
-    return showAs === undefined ? omit(value, "showAs") : { ...value, showAs };
-  });
-  // `cached.type` narrows the dataset but not the generic `C` itself.
-  return { ...cached, dataset: { ...cached.dataset, values } } as C;
-}
-
-/** Overlay the requested path and collapse cached lookahead to the display frontier. */
 export function toClientJourneyExploration(
   exploration: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
   if (exploration.config.type !== "journey" || requested.type !== "journey") {
-    return {
-      ...exploration,
-      config: withRequestedValueShowAs(
-        {
-          ...exploration.config,
-          chartType: requested.chartType,
-          showAs: requested.showAs,
-          chartSettings: requested.chartSettings,
-          dateRange: requested.dateRange,
-        },
-        requested,
-      ),
-    };
+    return exploration;
   }
   const cachedDataset = exploration.config.dataset;
   const requestedDataset = requested.dataset;
@@ -732,10 +706,6 @@ export function toClientJourneyExploration(
     ...exploration,
     config: {
       ...exploration.config,
-      chartType: requested.chartType,
-      showAs: requested.showAs,
-      chartSettings: requested.chartSettings,
-      dateRange: requested.dateRange,
       dataset: {
         ...cachedDataset,
         path: requestedDataset.path,
