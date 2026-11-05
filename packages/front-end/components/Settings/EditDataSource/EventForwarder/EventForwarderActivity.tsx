@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import { PiArrowRight } from "react-icons/pi";
 import { encodeExplorationConfig } from "shared/enterprise";
 import { getEventForwarderEventsFactTableId } from "shared/util";
@@ -47,7 +47,7 @@ function EventsChart({
         dailyValues={dailyValues}
         seriesName="Events"
         integerYAxis
-        height={280}
+        height={160}
       />
       {total === 0 && (
         <Text color="text-mid">No events were tracked during this period.</Text>
@@ -64,23 +64,23 @@ export default function EventForwarderActivity({
 }) {
   const { getFactTableById } = useDefinitions();
   const permissions = usePermissionsUtil();
-  const factTable = getFactTableById(
-    getEventForwarderEventsFactTableId(dataSource.id),
-  );
+  const factTableId =
+    getFactTableById(getEventForwarderEventsFactTableId(dataSource.id))?.id ??
+    null;
   const dateRange = usePreviewDateRange();
   const config = useMemo(
     () =>
-      factTable
+      factTableId
         ? getEventForwarderActivityConfig({
             datasourceId: dataSource.id,
-            factTableId: factTable.id,
+            factTableId,
             dateRange,
           })
         : null,
-    [dataSource.id, factTable, dateRange],
+    [dataSource.id, factTableId, dateRange],
   );
 
-  if (!factTable || !config) return null;
+  if (!config) return null;
 
   const canRunQueries = permissions.canRunFactQueries(dataSource);
   const explorerHref = `/product-analytics/explore/fact-table?config=${encodeExplorationConfig(
@@ -88,34 +88,38 @@ export default function EventForwarderActivity({
   )}`;
 
   return (
-    <Flex direction="column" gap="3" minWidth="0">
-      <Flex align="center" justify="between" gap="3">
-        <Heading as="h4" size="sm" mb="0">
-          Recent Events
-        </Heading>
-        {canRunQueries ? (
-          <Link href={explorerHref}>
-            Explore further <PiArrowRight />
-          </Link>
-        ) : null}
-      </Flex>
-      {canRunQueries ? (
-        <PreviewExplorer
-          config={config}
-          trackingSource="event-forwarder-activity"
-          emptyDescription="Run the query to see daily event counts for the last 7 complete days."
-          warehouseUnavailableText="Event counts will be available when the warehouse is ready."
-          renderChart={({ exploration }) => (
-            <EventsChart exploration={exploration} />
+    <Card mb="4">
+      <Box p="2">
+        <Flex direction="column" gap="3" minWidth="0">
+          <Flex align="center" justify="between" gap="3">
+            <Heading as="h4" size="sm" mb="0">
+              Recent Forwarded Events
+            </Heading>
+            {canRunQueries ? (
+              <Link href={explorerHref}>
+                Explore further <PiArrowRight />
+              </Link>
+            ) : null}
+          </Flex>
+          {canRunQueries ? (
+            <PreviewExplorer
+              config={config}
+              trackingSource="event-forwarder-activity"
+              emptyDescription="Run the query to see daily event counts for the last 7 complete days."
+              warehouseUnavailableText="Event counts will be available when the warehouse is ready."
+              renderChart={({ exploration }) => (
+                <EventsChart exploration={exploration} />
+              )}
+            />
+          ) : (
+            <DisabledPreview description="Daily event counts for the last 7 complete days appear here.">
+              <PermissionBlocker>
+                You don’t have permission to run queries on this Data Source.
+              </PermissionBlocker>
+            </DisabledPreview>
           )}
-        />
-      ) : (
-        <DisabledPreview description="Daily event counts for the last 7 complete days appear here.">
-          <PermissionBlocker>
-            You don’t have permission to run queries on this Data Source.
-          </PermissionBlocker>
-        </DisabledPreview>
-      )}
-    </Flex>
+        </Flex>
+      </Box>
+    </Card>
   );
 }

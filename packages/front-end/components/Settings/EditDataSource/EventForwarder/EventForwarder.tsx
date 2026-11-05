@@ -837,6 +837,9 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
+      {(isReady || isPaused) && !isProvisioning ? (
+        <EventForwarderActivity dataSource={dataSource} />
+      ) : null}
       {eventForwarderConfig ? (
         <Card>
           <Flex direction="column" gap="3" p="2">
@@ -942,13 +945,6 @@ export default function EventForwarder({
               </Callout>
             ) : null}
           </Flex>
-        </Card>
-      ) : null}
-      {(isReady || isPaused) && !isProvisioning ? (
-        <Card mt="4">
-          <Box p="2">
-            <EventForwarderActivity dataSource={dataSource} />
-          </Box>
         </Card>
       ) : null}
       {showEditModal ? (
