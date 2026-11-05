@@ -147,7 +147,8 @@
 
 // The panel's curve moves the sidebar's edge sooner, so the wordmark fades
 // faster to be gone before the edge reaches it.
-:global(html.agent-dock-motion) .collapsing .brandWordmark {
+:global(html.agent-dock-motion) .collapsing .brandWordmark,
+:global(html.agent-dock-motion) .collapsing .planLabel {
   transition-duration: 40ms;
 }
 
@@ -193,6 +194,51 @@
 
 .brandLogo {
   flex-shrink: 0;
+}
+
+// The plan label's row folds with the sidebar's width (200ms ease), so the
+// rows below rise and fall with it. A one-row grid from 0fr to 1fr, as
+// .subList.
+.planFold {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 200ms ease,
+    visibility 0s linear 200ms;
+
+  &[data-open="true"] {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition:
+      grid-template-rows 200ms ease,
+      visibility 0s linear 0s;
+  }
+
+  // While the docked AI Assistant panel moves the sidebar, on its timing.
+  :global(html.agent-dock-motion) & {
+    transition:
+      grid-template-rows var(--agent-dock-duration) var(--agent-dock-easing),
+      visibility 0s linear var(--agent-dock-duration);
+  }
+
+  :global(html.agent-dock-motion) &[data-open="true"] {
+    transition:
+      grid-template-rows var(--agent-dock-duration) var(--agent-dock-easing),
+      visibility 0s linear 0s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &[data-open="true"] {
+      transition: none !important;
+    }
+  }
+}
+
+.planFoldInner {
+  min-height: 0;
+  overflow: hidden;
 }
 
 // Under the logo, starting where "GrowthBook" does (the wordmark's inset, set

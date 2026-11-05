@@ -976,19 +976,28 @@ export default function Sidebar() {
             wordmarkClassName={styles.brandWordmark}
             sweepClassName={styles.sweep}
           />
-          {planLabel && !contentCollapsed ? (
+          {planLabel ? (
+            // Kept while collapsed, folded away, so the rows below move with
+            // the sidebar's width instead of jumping once it lands.
             <span
-              className={styles.planLabel}
+              className={styles.planFold}
+              data-open={!collapsed}
               aria-hidden="true"
-              style={
-                {
-                  "--wordmark-inset": `${WORDMARK_INSET_PX}px`,
-                } as CSSProperties
-              }
             >
-              <Text size="sm" weight="medium" textTransform="uppercase">
-                {planLabel}
-              </Text>
+              <span className={styles.planFoldInner}>
+                <span
+                  className={styles.planLabel}
+                  style={
+                    {
+                      "--wordmark-inset": `${WORDMARK_INSET_PX}px`,
+                    } as CSSProperties
+                  }
+                >
+                  <Text size="sm" weight="medium" textTransform="uppercase">
+                    {planLabel}
+                  </Text>
+                </span>
+              </span>
             </span>
           ) : null}
         </Link>
