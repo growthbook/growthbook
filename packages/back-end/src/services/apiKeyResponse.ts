@@ -7,6 +7,8 @@ const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 // Never includes the key's value or encryption key, so it's safe on a doc read
 // without sanitization.
 export function toApiKey(key: ApiKeyInterface, userEmail?: string): ApiApiKey {
+  // An unscoped token inherits its owner's permissions, so it lists no role.
+  const hasRole = !!key.role && (!key.userId || !!key.scoped);
   return {
     id: key.id ?? "",
     type: key.userId ? "personal" : "organization",
@@ -16,29 +18,28 @@ export function toApiKey(key: ApiKeyInterface, userEmail?: string): ApiApiKey {
       ...(userEmail && { userEmail }),
       scoped: !!key.scoped,
     }),
-    ...((!key.userId || key.scoped) && key.role && { role: key.role }),
+    ...(hasRole && { role: key.role }),
     limitAccessByEnvironment: key.limitAccessByEnvironment,
     environments: key.environments,
     // Always listed with a role, so the GET can be sent back to the roles PUT
-    ...((!key.userId || key.scoped) &&
-      key.role && {
-        additionalRoles: key.additionalRoles ?? [],
-        projectRoles: (key.projectRoles ?? []).map(
-          ({
-            project,
-            role,
-            limitAccessByEnvironment,
-            environments,
-            ...pr
-          }) => ({
-            project,
-            role,
-            limitAccessByEnvironment,
-            environments,
-            ...(pr.additionalRoles && { additionalRoles: pr.additionalRoles }),
-          }),
-        ),
-      }),
+    ...(hasRole && {
+      additionalRoles: key.additionalRoles ?? [],
+      projectRoles: (key.projectRoles ?? []).map(
+        ({
+          project,
+          role,
+          limitAccessByEnvironment,
+          environments,
+          additionalRoles,
+        }) => ({
+          project,
+          role,
+          limitAccessByEnvironment,
+          environments,
+          ...(additionalRoles && { additionalRoles }),
+        }),
+      ),
+    }),
     ...(!key.userId && { actAs: key.actAs ?? "system" }),
     disabled: !!key.disabled,
     ...(key.disabledBy && { disabledBy: key.disabledBy }),

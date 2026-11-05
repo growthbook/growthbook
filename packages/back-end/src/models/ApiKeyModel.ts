@@ -97,11 +97,13 @@ const BaseClass = MakeModelClass({
         reqHandler: async (req): Promise<ListApiKeysResponse> => {
           const { type, userId } = req.query;
           const keys = (await req.context.models.apiKeys.getApiKeysForApi())
-            .filter(
-              (key) =>
-                (!type || (type === "personal") === !!key.userId) &&
-                (!userId || key.userId === userId),
-            )
+            .filter((key) => {
+              const keyType = key.userId ? "personal" : "organization";
+              return (
+                (!type || keyType === type) &&
+                (!userId || key.userId === userId)
+              );
+            })
             .sort((a, b) => (a.id ?? "").localeCompare(b.id ?? ""));
           const { filtered, returnFields } = applyPagination(keys, req.query);
           return {
@@ -1099,12 +1101,12 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
-  // A 403 rather than an empty list, so a caller can tell "no keys" from "no
-  // permission". Other members' PATs stay hidden by canRead.
   protected toApiInterface(doc: ApiKeyInterface): ApiApiKey {
     return toApiKey(doc);
   }
 
+  // A 403 rather than an empty list, so a caller can tell "no keys" from "no
+  // permission". Other members' PATs stay hidden by canRead.
   private assertCanViewApiKeys() {
     if (!this.context.permissions.canViewApiKeys()) {
       this.context.permissions.throwPermissionError(
@@ -1196,10 +1198,7 @@ export class ApiKeyModel extends BaseClass {
     // The body is the key's whole role set, so its environment list is synced
     // even while the limit is off, when it grants nothing.
     if (
-      isEqual(
-        [...key.environments].sort(),
-        [...(roles.environments ?? [])].sort(),
-      ) &&
+      isEqual([...key.environments].sort(), [...roles.environments].sort()) &&
       !changesApiKeyAuthority(key, { ...key, ...updates })
     ) {
       return { key, changed: false };
