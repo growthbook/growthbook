@@ -46,7 +46,7 @@ import styles from "./ValueCard.module.scss";
 // touch; zero them so the header's 4px gap shows.
 const HEADER_BUTTON_STYLE: React.CSSProperties = { margin: 0 };
 
-// Tighter than the default menu item padding for the narrow sidebar.
+// Compact rows for the step actions menu (design feedback on PR #7588).
 const MENU_ITEM_STYLE: React.CSSProperties = {
   height: 28,
   paddingLeft: 8,
@@ -141,8 +141,14 @@ export default function FunnelStepCard({
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(step.name);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // "Delete step" unmounts when the confirm row appears; move focus to Cancel
+  // so keyboard users aren't left without a focused item.
+  const cancelDeleteClass = `funnel-step-${index}-cancel-delete`;
+  React.useEffect(() => {
+    if (!confirmingDelete) return;
+    document.querySelector<HTMLElement>(`.${cancelDeleteClass}`)?.focus();
+  }, [confirmingDelete, cancelDeleteClass]);
   // For follow-on steps: when the step inherits, we hide the picker until the
   // user clicks "Override". Once they're overriding (or the step was loaded
   // with an override already), we show the picker inline.
@@ -285,8 +291,11 @@ export default function FunnelStepCard({
           className={styles.titleGroup}
           style={{ minWidth: 0, flex: 1 }}
         >
-          {/* Step 1 is pinned (it owns the funnel's fact table): no handle. */}
-          {dragHandleProps && (
+          {/* Step 1 is pinned (it owns the funnel's fact table): a same-size
+              spacer instead of a handle keeps the step numbers aligned. */}
+          {!dragHandleProps ? (
+            <Box aria-hidden style={{ width: 14, flexShrink: 0 }} />
+          ) : (
             <Box
               {...dragHandleProps}
               title="Drag to reorder"
@@ -363,9 +372,7 @@ export default function FunnelStepCard({
           {(hasInsertGroup || hasMoveGroup || canDelete) && (
             <DropdownMenu
               menuPlacement="end"
-              open={menuOpen}
               onOpenChange={(open) => {
-                setMenuOpen(open);
                 if (!open) setConfirmingDelete(false);
               }}
               trigger={
@@ -411,30 +418,33 @@ export default function FunnelStepCard({
               )}
               {canDelete && (hasInsertGroup || hasMoveGroup) && <MenuDivider />}
               {!canDelete ? null : confirmingDelete ? (
-                <Flex align="center" justify="between" gap="3" px="2" py="1">
-                  <Text size="sm" weight="medium">
-                    Delete?
-                  </Text>
-                  <Flex gap="2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      color="gray"
-                      onClick={() => setConfirmingDelete(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      color="red"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onDelete(index);
-                      }}
-                    >
-                      Confirm
-                    </Button>
-                  </Flex>
+                // Menu items (not plain buttons) so arrow keys reach them.
+                <Flex align="center" gap="2" pl="2">
+                  <Box flexGrow="1">
+                    <Text size="sm" weight="medium">
+                      Delete?
+                    </Text>
+                  </Box>
+                  <DropdownMenuItem
+                    className={cancelDeleteClass}
+                    style={MENU_ITEM_STYLE}
+                    onClick={(event) => {
+                      event.preventDefault(); // stay open, back to "Delete step"
+                      setConfirmingDelete(false);
+                    }}
+                  >
+                    Cancel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    style={{
+                      ...MENU_ITEM_STYLE,
+                      backgroundColor: "var(--red-9)",
+                      color: "var(--red-contrast)",
+                    }}
+                    onClick={() => onDelete(index)}
+                  >
+                    Confirm
+                  </DropdownMenuItem>
                 </Flex>
               ) : (
                 <DropdownMenuItem
