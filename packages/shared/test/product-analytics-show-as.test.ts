@@ -1,5 +1,4 @@
 import {
-  applyRequestedDisplayConfig,
   getDefaultValueAxisName,
   getExplorationRenderOpts,
   getRenderedMetricValue,
@@ -7,12 +6,7 @@ import {
   getShowAsOptions,
   normalizeShowAs,
 } from "shared/enterprise";
-import type {
-  ExplorationConfig,
-  MetricValue,
-  ProductAnalyticsExploration,
-  ShowAs,
-} from "shared/validators";
+import type { ExplorationConfig, MetricValue, ShowAs } from "shared/validators";
 import { toValueQueryKey } from "shared/validators";
 import type { FactMetricInterface } from "shared/types/fact-table";
 
@@ -312,72 +306,6 @@ describe("getRenderedMetricValue", () => {
     expect([0, 1, 2].map((i) => getRenderedMetricValue(cell, opts, i))).toEqual(
       [100, 25, 100],
     );
-  });
-});
-
-describe("applyRequestedDisplayConfig", () => {
-  const cachedExploration = (config: ExplorationConfig) =>
-    ({
-      config,
-      result: { rows: [] },
-    }) as unknown as ProductAnalyticsExploration;
-
-  it("serves a cached result with the requested names and showAs", () => {
-    const cached = cachedExploration(
-      metricConfig([
-        { ...metricValue("revenue", "per_unit"), name: "Old name" },
-        metricValue("maxOrder"),
-      ]),
-    );
-    const requested = metricConfig([
-      { ...metricValue("revenue"), name: "New name" },
-      metricValue("maxOrder", "total"),
-    ]);
-    expect(
-      applyRequestedDisplayConfig(cached, requested).config.dataset,
-    ).toEqual(requested.dataset);
-  });
-
-  it("serves a cached funnel with the requested y-axis scale", () => {
-    const funnel = (yAxisScale: "count" | "percent"): ExplorationConfig => ({
-      ...metricConfig([]),
-      type: "funnel",
-      dataset: { type: "funnel", unit: "user_id", steps: [], yAxisScale },
-    });
-    expect(
-      applyRequestedDisplayConfig(
-        cachedExploration(funnel("count")),
-        funnel("percent"),
-      ).config.dataset,
-    ).toMatchObject({ yAxisScale: "percent" });
-  });
-
-  it("serves a cached journey with the requested height scale", () => {
-    const journey = (
-      heightScale: "relative" | "absolute",
-    ): ExplorationConfig => ({
-      ...metricConfig([]),
-      type: "journey",
-      dataset: {
-        type: "journey",
-        factTableId: "ft",
-        unit: "user_id",
-        stepColumns: ["page"],
-        anchorStepValues: null,
-        direction: "forward",
-        rowFilters: [],
-        path: [],
-        lookaheadDepth: 1,
-        optionsPerStep: [5],
-        heightScale,
-      },
-    });
-    expect(
-      applyRequestedDisplayConfig(
-        cachedExploration(journey("relative")),
-        journey("absolute"),
-      ).config.dataset,
-    ).toMatchObject({ heightScale: "absolute" });
   });
 });
 

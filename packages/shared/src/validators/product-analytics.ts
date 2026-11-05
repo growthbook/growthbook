@@ -714,7 +714,7 @@ export function datasetTypeHasValues(
 }
 
 /** Value fields that change only how results render, never the query. */
-export const RENDER_ONLY_VALUE_FIELDS = ["name", "showAs"] as const;
+const RENDER_ONLY_VALUE_FIELDS = ["name", "showAs"] as const;
 
 /** A value's query identity: values with equal keys can share cached results. */
 export function toValueQueryKey(value: ProductAnalyticsValue) {

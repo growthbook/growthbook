@@ -685,8 +685,7 @@ export function journeyDisplayLookaheadDepth(
 
 /**
  * Overlays the requested path on a cached journey and collapses its lookahead
- * to the display frontier. Other explorations are returned unchanged; apply
- * the request's display settings with `applyRequestedDisplayConfig`.
+ * to the display frontier. Other explorations are returned unchanged.
  */
 export function toClientJourneyExploration(
   exploration: ProductAnalyticsExploration,

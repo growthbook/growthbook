@@ -18,7 +18,6 @@ import {
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
   getMetricPopulationViolations,
-  applyRequestedDisplayConfig,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -46,37 +45,21 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 /**
- * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
- * and can reuse compatible date ranges. Reuse the cached rows but surface the
- * client's requested display config — journeys also collapse lookahead so the
- * payload matches the path being viewed.
+ * Serves an exploration's rows for `requested`. A cached exploration matches
+ * every query-defining field of the request (see
+ * AnalyticsExplorationModel.getConfigHashes), so the request's config describes
+ * its rows; it replaces the stored one so display settings outside the cache
+ * key come from the request. Journeys first project their cached lookahead to
+ * the requested path.
  */
-function withRequestedDisplayConfig(
-  existing: ProductAnalyticsExploration,
+function withRequestedConfig(
+  exploration: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
-  if (
-    existing.config.type === "sql" &&
-    requested.type === "sql" &&
-    requested.chartType === "rawTable"
-  ) {
-    return {
-      ...existing,
-      config: {
-        ...existing.config,
-        chartType: requested.chartType,
-        dateRange: requested.dateRange,
-        dataset: {
-          ...existing.config.dataset,
-          hiddenColumns: requested.dataset.hiddenColumns,
-        },
-      },
-    };
-  }
-  return toClientJourneyExploration(
-    applyRequestedDisplayConfig(existing, requested),
-    requested,
-  );
+  return {
+    ...toClientJourneyExploration(exploration, requested),
+    config: requested,
+  };
 }
 
 // Max time to wait synchronously for an exploration's queries before
@@ -142,7 +125,7 @@ export async function runProductAnalyticsExploration(
             : undefined,
       });
     if (existing) {
-      return withRequestedDisplayConfig(existing, config);
+      return withRequestedConfig(existing, config);
     }
   }
 
@@ -503,7 +486,7 @@ export async function runProductAnalyticsExploration(
     if (syncTimer) clearTimeout(syncTimer);
   }
 
-  return withRequestedDisplayConfig(queryRunner.model, config);
+  return withRequestedConfig(queryRunner.model, config);
 }
 
 const DATASET_TYPE_PATH: Record<
