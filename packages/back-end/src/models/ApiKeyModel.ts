@@ -13,10 +13,6 @@ import {
   canSetApiKeyDisabled,
   changesApiKeyAuthority,
   getRoleById,
-  isApiKeyOnlyRole,
-  getRoleDisplayName,
-  apiKeyOnlyRoleProblem,
-  apiKeyPrefixRole,
   TRACE_INGEST_ROLE_ID,
 } from "shared/permissions";
 import {
@@ -37,10 +33,6 @@ import {
   generateSigningKey,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
-import {
-  getBackendFeatureValue,
-  getTrustedOrgAttributes,
-} from "back-end/src/services/growthbook";
 import {
   assertProjectRulesReferenceProjects,
   getEnvironmentIdsFromOrg,
@@ -275,34 +267,8 @@ export class ApiKeyModel extends BaseClass {
     ) {
       return;
     }
-    if (this.validateApiKeyOnlyRole(doc, previousDoc)) return;
     this.assertPlanAllowsScope(doc, previousDoc);
     await this.validateScope(doc, previousDoc);
-  }
-
-  private validateApiKeyOnlyRole(
-    doc: ApiKeyInterface,
-    previousDoc?: ApiKeyInterface,
-  ): boolean {
-    const problem = apiKeyOnlyRoleProblem(doc, previousDoc);
-    if (problem) this.context.throwBadRequestError(problem);
-    if (!doc.role || !isApiKeyOnlyRole(doc.role)) return false;
-    if (
-      !previousDoc &&
-      doc.role === TRACE_INGEST_ROLE_ID &&
-      !getBackendFeatureValue(
-        "trace-ingest",
-        false,
-        getTrustedOrgAttributes(this.context.org),
-      )
-    ) {
-      this.context.throwBadRequestError(
-        "Trace ingest keys aren't available for this organization.",
-      );
-    }
-    // Skips the plan's admin-only gate: this role grants nothing on the REST API.
-    this.validateRole(doc.role);
-    return true;
   }
 
   // Everything a new token's permissions are checked against, run once on the
@@ -313,11 +279,6 @@ export class ApiKeyModel extends BaseClass {
     if (!permissions) return;
     this.assertPlanAllowsConfirmations(permissions);
     const { scopedRole, ...scope } = permissions;
-    if (scopedRole && isApiKeyOnlyRole(scopedRole)) {
-      this.context.throwBadRequestError(
-        `The ${getRoleDisplayName(scopedRole, this.context.org)} role can only be used for organization API keys.`,
-      );
-    }
     if (!scopedRole) {
       this.assertUnscopedTokenUnrestricted(scope);
       return;
@@ -379,6 +340,7 @@ export class ApiKeyModel extends BaseClass {
       doc.role &&
       doc.role !== previousDoc?.role &&
       doc.role !== "admin" &&
+      doc.role !== TRACE_INGEST_ROLE_ID &&
       !this.context.limits.orgSupportsRoles()
     ) {
       this.context.throwPaymentRequiredError(
@@ -415,15 +377,15 @@ export class ApiKeyModel extends BaseClass {
     this.validateRole(doc.role);
     this.validateEnvironments(doc.environments);
     for (const rule of doc.additionalRoles ?? []) {
-      this.validateRole(rule.role, { extraRule: true });
+      this.validateRole(rule.role);
       this.validateEnvironments(rule.environments);
     }
     if (!doc.projectRoles?.length) return;
     for (const pr of doc.projectRoles) {
-      this.validateRole(pr.role, { extraRule: true });
+      this.validateRole(pr.role);
       this.validateEnvironments(pr.environments);
       for (const rule of pr.additionalRoles ?? []) {
-        this.validateRole(rule.role, { extraRule: true });
+        this.validateRole(rule.role);
         this.validateEnvironments(rule.environments);
       }
     }
@@ -486,16 +448,8 @@ export class ApiKeyModel extends BaseClass {
     return { updated, expiresAt };
   }
 
-  private validateRole(
-    role: string | undefined,
-    { extraRule = false }: { extraRule?: boolean } = {},
-  ) {
+  private validateRole(role: string | undefined) {
     if (role === undefined) return;
-    if (extraRule && isApiKeyOnlyRole(role)) {
-      this.context.throwBadRequestError(
-        `The ${getRoleDisplayName(role, this.context.org)} role can only be a key's base role.`,
-      );
-    }
     if (this.context.org.deactivatedRoles?.includes(role)) {
       this.context.throwBadRequestError(`Role has been deactivated: ${role}`);
     }
@@ -1096,7 +1050,7 @@ export class ApiKeyModel extends BaseClass {
     if (userId) {
       prefix += "user_";
     } else if (role) {
-      prefix += `${apiKeyPrefixRole(role)}_`;
+      prefix += `${role.replace(/^gbDefault_/, "").slice(0, 20)}_`;
     }
 
     return prefix;

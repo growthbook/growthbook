@@ -882,7 +882,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     id: "gbDefault_traceIngest",
     displayName: "Trace Ingest",
     description:
-      "Send traces to GrowthBook. No access to the GrowthBook API. For API keys only.",
+      "For API keys that send traces to GrowthBook. Grants no access to GrowthBook itself.",
     policies: [],
   },
   engineer: {
@@ -1022,8 +1022,6 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
 
 // The gbDefault_ prefix can't be used by custom roles, so no org already has one.
 export const TRACE_INGEST_ROLE_ID = "gbDefault_traceIngest";
-
-export const API_KEY_ONLY_ROLE_IDS: readonly string[] = [TRACE_INGEST_ROLE_ID];
 
 // Reserved role IDs that cannot be used by custom roles
 // There are 2 legacy roles (designer/developer) that we also need to reserve

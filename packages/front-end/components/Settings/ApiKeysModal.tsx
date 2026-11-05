@@ -8,7 +8,6 @@ import {
 } from "shared/api-key-expiration";
 import { Box, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiHardDrives, PiUser } from "react-icons/pi";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import HelperText from "@/ui/HelperText";
@@ -20,7 +19,6 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import RadioCards from "@/ui/RadioCards";
-import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
 import ApiKeyExpirationField from "./ApiKeyExpirationField";
 import PermissionsField, { useAllowedPermissions } from "./PermissionsField";
@@ -34,9 +32,6 @@ import {
 } from "./apiKeyPermissions";
 
 type ActAs = NonNullable<ApiKeyInterface["actAs"]>;
-
-const TRACE_INGEST_HELP =
-  "This key only sends traces to GrowthBook. It can't access the GrowthBook API.";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -104,10 +99,6 @@ const ApiKeysModal: FC<{
   // A retry after a failed delete must not mint a second copy.
   const created = useRef(false);
 
-  const traceIngestFlag = useFeatureIsOn("trace-ingest");
-  const sourceIsTraceIngest = source?.role === TRACE_INGEST_ROLE_ID;
-  const [traceIngest, setTraceIngest] = useState(sourceIsTraceIngest);
-
   const form = useForm<{
     description: string;
   }>({
@@ -125,17 +116,14 @@ const ApiKeysModal: FC<{
     ...plan,
     roles: plan.roles || !!source?.scoped,
     confirmations: plan.confirmations || !!existingKey?.confirmRules,
+    traces: plan.traces || source?.role === TRACE_INGEST_ROLE_ID,
   };
   const [permissions, setPermissions] = useState(() =>
-    initialPermissions(
-      sourceIsTraceIngest ? undefined : source,
-      holder,
-      allowed,
-    ),
+    initialPermissions(source, holder, allowed),
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const problem = !traceIngest && rulesProblem(permissions);
+    const problem = rulesProblem(permissions);
     if (problem) throw new Error(problem);
     const { role, ...orgKeyScope } = {
       ...orgKeyFields(permissions),
@@ -146,7 +134,6 @@ const ApiKeysModal: FC<{
       isSecret: !personalAccessToken,
       ...(personalAccessToken ? { scoped: !!patScope.scopedRole } : { actAs }),
       permissions: permissions.customizing ? "custom" : permissions.preset,
-      ...(traceIngest && { role: TRACE_INGEST_ROLE_ID }),
     };
 
     if (existingKey) {
@@ -158,7 +145,6 @@ const ApiKeysModal: FC<{
             expiresAt: expiresAt?.toISOString() ?? null,
           }),
           ...(!authorityLocked &&
-            !traceIngest &&
             (personalAccessToken ? patScope : { role, ...orgKeyScope })),
         }),
       });
@@ -174,18 +160,12 @@ const ApiKeysModal: FC<{
           ...patScope,
           expiresAt: expiresAt?.toISOString() ?? null,
         }
-      : traceIngest
-        ? {
-            description: value.description,
-            type: TRACE_INGEST_ROLE_ID,
-            expiresAt: expiresAt?.toISOString() ?? null,
-          }
-        : {
-            description: value.description,
-            type: role,
-            ...orgKeyScope,
-            expiresAt: expiresAt?.toISOString() ?? null,
-          };
+      : {
+          description: value.description,
+          type: role,
+          ...orgKeyScope,
+          expiresAt: expiresAt?.toISOString() ?? null,
+        };
     if (!created.current) {
       await apiCall("/keys", {
         method: "POST",
@@ -217,7 +197,7 @@ const ApiKeysModal: FC<{
       cta={editMode ? "Save" : "Create"}
       ctaEnabled={
         (!expirationProblem || (editMode && !expirationChanged)) &&
-        (authorityLocked || traceIngest || isComplete(permissions))
+        (authorityLocked || isComplete(permissions))
       }
     >
       <Grid
@@ -244,42 +224,13 @@ const ApiKeysModal: FC<{
           />
         </Box>
       )}
-      {!personalAccessToken && !editMode && traceIngestFlag && (
-        <RadioGroup
-          mt="6"
-          value={traceIngest ? "traceIngest" : "api"}
-          setValue={(v) => setTraceIngest(v === "traceIngest")}
-          options={[
-            {
-              value: "api",
-              label: "REST API key",
-              description: "Access the GrowthBook API with a role.",
-            },
-            {
-              value: "traceIngest",
-              label: "Trace ingest key",
-              description: TRACE_INGEST_HELP,
-            },
-          ]}
-        />
-      )}
-      {traceIngest && (editMode || !traceIngestFlag) && (
-        <Box mt="6">
-          <Text as="div" size="md" weight="semibold" mb="2">
-            Trace ingest key
-          </Text>
-          <Text as="p" color="text-mid">
-            {TRACE_INGEST_HELP}
-          </Text>
-        </Box>
-      )}
-      {authorityLocked && !traceIngest && (
+      {authorityLocked && (
         <HelperText status="info" mt="6">
           Changing who this key acts as, its permissions, or its confirmations
           requires permission to create API keys.
         </HelperText>
       )}
-      {!authorityLocked && !personalAccessToken && !traceIngest && (
+      {!authorityLocked && !personalAccessToken && (
         <Box mt="6">
           <Text as="div" size="md" weight="semibold" mb="2">
             Act as
@@ -331,7 +282,7 @@ const ApiKeysModal: FC<{
           )}
         </Box>
       )}
-      {!authorityLocked && !traceIngest && (
+      {!authorityLocked && (
         <Box mt="6">
           <PermissionsField
             holder={holder}

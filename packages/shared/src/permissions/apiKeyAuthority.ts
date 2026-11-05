@@ -1,56 +1,6 @@
 import { isEqual } from "lodash";
 import { ApiKeyInterface } from "shared/types/apikey";
 import type { Permissions } from "./permissionsClass";
-import { DEFAULT_ROLES } from "./permissions.constants";
-import { isApiKeyOnlyRole } from "./permissions.utils";
-
-type ApiKeyScope = Pick<
-  ApiKeyInterface,
-  | "role"
-  | "userId"
-  | "limitAccessByEnvironment"
-  | "environments"
-  | "additionalRoles"
-  | "projectRoles"
->;
-
-function roleName(role: string): string {
-  return DEFAULT_ROLES[role as keyof typeof DEFAULT_ROLES]?.displayName ?? role;
-}
-
-// Converting to or from an API-key-only role would widen a widely distributed key
-// or start sharing a broad one with the ingestor, so we make people rotate instead.
-export function apiKeyOnlyRoleProblem(
-  doc: ApiKeyScope,
-  previousDoc?: ApiKeyScope,
-): string | null {
-  if (
-    previousDoc &&
-    isApiKeyOnlyRole(previousDoc.role || "") !==
-      isApiKeyOnlyRole(doc.role || "")
-  ) {
-    return "This key's role can't be changed to or from that role. Create a new key instead.";
-  }
-  if (!doc.role || !isApiKeyOnlyRole(doc.role)) return null;
-  if (doc.userId) {
-    return `The ${roleName(doc.role)} role can only be used for organization API keys.`;
-  }
-  if (
-    doc.limitAccessByEnvironment ||
-    doc.environments?.length ||
-    doc.additionalRoles?.length ||
-    doc.projectRoles?.length
-  ) {
-    return `The ${roleName(doc.role)} role can't have environment limits, additional roles, or project roles.`;
-  }
-  return null;
-}
-
-export function apiKeyPrefixRole(role: string): string {
-  return (
-    isApiKeyOnlyRole(role) ? role.replace(/^gbDefault_/, "") : role
-  ).slice(0, 20);
-}
 
 // Whether toggling a PAT's `disabled` needs permission over members' tokens rather than the owner's own rights.
 export function apiKeyToggleRequiresAdmin(
