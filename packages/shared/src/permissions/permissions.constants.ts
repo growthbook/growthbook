@@ -882,7 +882,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     id: "gbDefault_traceIngest",
     displayName: "Trace Ingest",
     description:
-      "For API keys that send traces to GrowthBook. Grants no access to GrowthBook itself.",
+      "Only sends traces to GrowthBook. No access to the GrowthBook API.",
     policies: [],
   },
   engineer: {

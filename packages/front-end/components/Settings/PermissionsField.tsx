@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { TRACE_INGEST_ROLE_ID } from "shared/permissions";
+import { DEFAULT_ROLES, TRACE_INGEST_ROLE_ID } from "shared/permissions";
 import { PiInfo } from "react-icons/pi";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
@@ -89,7 +89,7 @@ export const presetDescriptions = (holder: Holder): Record<Preset, string> => ({
   readonly: "Can read, but every write is blocked.",
   hitl: `Risky or destructive actions wait for ${CONFIRMER[holder]} to confirm.`,
   full: FULL_ACCESS[holder],
-  traces: "Only sends traces to GrowthBook. No access to the GrowthBook API.",
+  traces: DEFAULT_ROLES[TRACE_INGEST_ROLE_ID].description,
 });
 
 export default function PermissionsField({

@@ -89,7 +89,10 @@ export default function useAccountPlanNotices(): AppNotice[] {
         traces === "over"
           ? "Traces usage limit exceeded"
           : "Approaching traces usage limit",
-      details: "Click to upgrade.",
+      details:
+        traces === "over"
+          ? "New traces are held for up to 30 days and won't appear until you upgrade."
+          : "Once you pass the limit, new traces are held until you upgrade.",
       upgrade: {
         source:
           traces === "over"
