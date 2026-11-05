@@ -439,6 +439,10 @@ await OpenFeatureAPI.shared.setEvaluationContextAndWait(
 ```
 
 ```kotlin Kotlin
+import dev.openfeature.kotlin.sdk.ImmutableContext
+import dev.openfeature.kotlin.sdk.OpenFeatureAPI
+import dev.openfeature.kotlin.sdk.Value
+
 OpenFeatureAPI.setEvaluationContextAndWait(
     ImmutableContext(
         targetingKey = "user-123",
