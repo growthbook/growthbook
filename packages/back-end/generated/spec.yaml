@@ -74350,6 +74350,7 @@ components:
         encryptPayload:
           type: boolean
         encryptionKey:
+          x-growthbook-sensitive: true
           type: string
         includeVisualExperiments:
           type: boolean
@@ -74385,6 +74386,7 @@ components:
         proxyHost:
           type: string
         proxySigningKey:
+          x-growthbook-sensitive: true
           type: string
         sseEnabled:
           type: boolean
