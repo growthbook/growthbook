@@ -114,6 +114,12 @@ export default function ConnectionDiagram({
           </div>
         )}
 
+        {connection.tracesEnabled && (
+          <div className="col-auto">
+            Accepts traces: <strong>yes</strong>
+          </div>
+        )}
+
         {connection.hashSecureAttributes && (
           <div className="col-auto">
             Secure Attribute Hashing:{" "}
