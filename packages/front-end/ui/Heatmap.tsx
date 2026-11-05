@@ -91,18 +91,35 @@ function cellBackground(
   };
 }
 
+function quantizeByDisplay(
+  values: (number | null)[],
+  formatValue: (value: number) => string,
+): (number | null)[] {
+  const representativeByDisplay = new Map<string, number>();
+  return values.map((v) => {
+    if (v === null || Number.isNaN(v)) return v;
+    const key = formatValue(v);
+    const existing = representativeByDisplay.get(key);
+    if (existing !== undefined) return existing;
+    representativeByDisplay.set(key, v);
+    return v;
+  });
+}
+
 function normalizeValues(
   values: (number | null)[],
+  formatValue: (value: number) => string,
   bounds?: { min: number; max: number },
 ): (number | null)[] {
-  const numeric = values.filter(
+  const quantized = quantizeByDisplay(values, formatValue);
+  const numeric = quantized.filter(
     (v): v is number => v !== null && !Number.isNaN(v),
   );
-  if (numeric.length === 0) return values.map(() => null);
+  if (numeric.length === 0) return quantized.map(() => null);
   const min = bounds ? bounds.min : Math.min(...numeric);
   const max = bounds ? bounds.max : Math.max(...numeric);
   const range = max - min;
-  return values.map((v) => {
+  return quantized.map((v) => {
     if (v === null || Number.isNaN(v)) return null;
     if (range === 0) return 0;
     return (v - min) / range;
@@ -141,12 +158,13 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
 ) {
   const globalBounds = useMemo(() => {
     if (normalize !== "all") return undefined;
-    const numeric = rows
-      .flatMap((row) => row.cells.map((c) => c.value))
-      .filter((v): v is number => v !== null && !Number.isNaN(v));
+    const numeric = quantizeByDisplay(
+      rows.flatMap((row) => row.cells.map((c) => c.value)),
+      formatValue,
+    ).filter((v): v is number => v !== null && !Number.isNaN(v));
     if (numeric.length === 0) return undefined;
     return { min: Math.min(...numeric), max: Math.max(...numeric) };
-  }, [normalize, rows]);
+  }, [normalize, rows, formatValue]);
 
   return (
     <div ref={ref} {...marginProps}>
@@ -183,6 +201,7 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
           {rows.map((row) => {
             const intensities = normalizeValues(
               row.cells.map((c) => c.value),
+              formatValue,
               normalize === "all" ? globalBounds : undefined,
             );
             return (
