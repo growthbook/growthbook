@@ -11,11 +11,11 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import EditMember, {
   AdminMember,
+  EditSuperAdmin,
   formatSuperAdmin,
 } from "@/components/Admin/EditMember";
-import KeyValues from "@/components/Admin/KeyValues";
+import KeyValues, { CardHeading } from "@/components/Admin/KeyValues";
 import Badge from "@/ui/Badge";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -42,12 +42,11 @@ type UserDetailResponse = {
 export default function AdminUserPage() {
   const router = useRouter();
   const userId = router.query.userId as string | undefined;
-  const { superAdmin, license } = useUser();
+  const { superAdmin, license, userId: currentUserId } = useUser();
   const canView = hasSuperAdminPermission(superAdmin, "view");
-  const canEdit =
-    hasSuperAdminPermission(superAdmin, "users") ||
-    hasSuperAdminPermission(superAdmin, "grant");
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState<"account" | "superAdmin" | null>(
+    null,
+  );
 
   const { data, error, mutate } = useApi<UserDetailResponse>(
     `/admin/user/${userId}`,
@@ -83,11 +82,18 @@ export default function AdminUserPage() {
           { display: user.name || user.email },
         ]}
       />
-      {editOpen && (
+      {editOpen === "account" && (
         <EditMember
           member={user}
           onEdit={() => mutate()}
-          close={() => setEditOpen(false)}
+          close={() => setEditOpen(null)}
+        />
+      )}
+      {editOpen === "superAdmin" && (
+        <EditSuperAdmin
+          member={user}
+          onEdit={() => mutate()}
+          close={() => setEditOpen(null)}
         />
       )}
 
@@ -105,9 +111,6 @@ export default function AdminUserPage() {
             )}
           </Flex>
         </Flex>
-        {canEdit && (
-          <Button onClick={() => setEditOpen(true)}>Edit user</Button>
-        )}
       </Flex>
 
       <Flex gap="4" wrap="wrap" align="start">
@@ -159,9 +162,14 @@ export default function AdminUserPage() {
 
         <Flex direction="column" flexGrow="1" flexBasis="360px" minWidth="0">
           <Frame py="4" px="5">
-            <Heading as="h2" size="md" mb="3">
-              Account
-            </Heading>
+            <CardHeading
+              title="Account"
+              onEdit={
+                hasSuperAdminPermission(superAdmin, "users")
+                  ? () => setEditOpen("account")
+                  : undefined
+              }
+            />
             <KeyValues
               items={[
                 {
@@ -177,10 +185,6 @@ export default function AdminUserPage() {
                   ),
                 },
                 {
-                  label: "Super admin",
-                  value: formatSuperAdmin(user.superAdmin),
-                },
-                {
                   label: "Sign-in identity",
                   value: user.authSubject ? (
                     <CopyableCode value={user.authSubject} muted />
@@ -188,6 +192,24 @@ export default function AdminUserPage() {
                     "Not bound"
                   ),
                 },
+              ]}
+            />
+          </Frame>
+
+          <Frame py="4" px="5">
+            <CardHeading
+              title="Super Admin"
+              // The server refuses changes to your own access
+              onEdit={
+                hasSuperAdminPermission(superAdmin, "grant") &&
+                user.id !== currentUserId
+                  ? () => setEditOpen("superAdmin")
+                  : undefined
+              }
+            />
+            <KeyValues
+              items={[
+                { label: "Access", value: formatSuperAdmin(user.superAdmin) },
               ]}
             />
           </Frame>

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
@@ -31,18 +31,23 @@ import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { GBEdit } from "@/components/Icons";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import EditOrganization from "@/components/Admin/EditOrganization";
 import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
-import KeyValues from "@/components/Admin/KeyValues";
+import KeyValues, { CardHeading, EditIcon } from "@/components/Admin/KeyValues";
+import EventForwarders from "@/components/Admin/EventForwarders";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -138,9 +143,6 @@ function OrganizationDetail({
   const can = (p: SuperAdminPermission) =>
     hasSuperAdminPermission(superAdmin, p);
   const isCurrent = org.id === currentOrgId;
-  const canEditOrg = (
-    ["metadata", "billing", "provision", "sso"] as const
-  ).some(can);
   // Warehouse actions run inside the org, so they also need a way in
   const canProvision =
     can("provision") &&
@@ -166,7 +168,9 @@ function OrganizationDetail({
   const summary = license ? getAdminOrgSummary(org, license) : cachedSummary;
 
   const [memberSearch, setMemberSearch] = useState("");
-  const [editOrgOpen, setEditOrgOpen] = useState(false);
+  const [editSection, setEditSection] = useState<"account" | "license" | null>(
+    null,
+  );
   const [editSSOOpen, setEditSSOOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
   const [bannerIndex, setBannerIndex] = useState<number | "new" | null>(null);
@@ -176,7 +180,6 @@ function OrganizationDetail({
   const [removeBannerIndex, setRemoveBannerIndex] = useState<number | null>(
     null,
   );
-  const [recreateOpen, setRecreateOpen] = useState(false);
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
 
   const users = new Map((membersData?.members ?? []).map((u) => [u.id, u]));
@@ -247,27 +250,6 @@ function OrganizationDetail({
     await mutate();
   };
 
-  const editIcon = (label: string, onClick: () => void) => (
-    <Link
-      aria-label={label}
-      onClick={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
-    >
-      <GBEdit />
-    </Link>
-  );
-
-  const cardHeading = (title: string, action?: ReactNode) => (
-    <Flex align="center" justify="between" mb="3">
-      <Heading as="h2" size="md" mb="0">
-        {title}
-      </Heading>
-      {action}
-    </Flex>
-  );
-
   return (
     <Box className="pagecontents" p="3">
       <PageHead
@@ -277,24 +259,19 @@ function OrganizationDetail({
         ]}
       />
 
-      {editOrgOpen && (
+      {editSection && (
         <EditOrganization
-          id={org.id}
+          section={editSection}
           currentOrg={org}
           onEdit={mutate}
-          close={() => setEditOrgOpen(false)}
+          close={() => setEditSection(null)}
         />
       )}
       {editSSOOpen && (
         <EditSSOModal
           close={() => setEditSSOOpen(false)}
-          organizationId={org.id}
-          organizationName={org.name}
+          org={org}
           currentSSO={ssoConnection ?? undefined}
-          enforced={
-            !!org.restrictLoginMethod &&
-            org.restrictLoginMethod === ssoConnection?.id
-          }
           onSave={mutate}
         />
       )}
@@ -404,25 +381,6 @@ function OrganizationDetail({
             This can&apos;t be changed later.
           </Text>
         </ModalStandard>
-      )}
-      {recreateOpen && managedWarehouse && (
-        <ConfirmDialog
-          title="Drop and Recreate Managed Warehouse"
-          content="This may take several minutes, and all queries will fail in the meantime."
-          yesText="Drop and recreate"
-          color="red"
-          onConfirm={async () => {
-            await apiCall(
-              `/datasource/${managedWarehouse.id}/recreate-managed-warehouse`,
-              {
-                method: "POST",
-                headers: { "X-Organization": org.id },
-              },
-            );
-            setRecreateOpen(false);
-          }}
-          onCancel={() => setRecreateOpen(false)}
-        />
       )}
       {rawOpen && (
         <ModalStandard
@@ -604,10 +562,13 @@ function OrganizationDetail({
                         />
                       </TableCell>
                       <TableCell style={{ textAlign: "right" }}>
-                        {(can("users") || can("grant")) &&
-                          editIcon(`Edit ${m.name || m.email}`, () =>
-                            setEditMember(m),
-                          )}
+                        {/* Super admin access is edited on the user's page */}
+                        {can("users") && (
+                          <EditIcon
+                            label={`Edit ${m.name || m.email}`}
+                            onClick={() => setEditMember(m)}
+                          />
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -617,7 +578,7 @@ function OrganizationDetail({
           </Frame>
 
           <Frame py="4" px="5">
-            {cardHeading("Usage")}
+            <CardHeading title="Usage" />
             <Grid columns={{ initial: "1", md: "2" }} gapX="6" gapY="2">
               <KeyValues items={usage.slice(0, 5)} />
               <KeyValues items={usage.slice(5)} />
@@ -625,16 +586,18 @@ function OrganizationDetail({
           </Frame>
 
           <Frame py="4" px="5">
-            {cardHeading(
-              "Settings",
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setRawOpen(true)}
-              >
-                View raw JSON
-              </Button>,
-            )}
+            <CardHeading
+              title="Settings"
+              action={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRawOpen(true)}
+                >
+                  View raw JSON
+                </Button>
+              }
+            />
             <Grid columns={{ initial: "1", md: "2" }} gapX="6" gapY="2">
               <KeyValues
                 items={[
@@ -695,62 +658,18 @@ function OrganizationDetail({
 
         <Flex direction="column" flexGrow="1" flexBasis="360px" minWidth="0">
           <Frame py="4" px="5">
-            {cardHeading(
-              "Account",
-              canEditOrg &&
-                editIcon("Edit organization", () => setEditOrgOpen(true)),
-            )}
-            {licenseError && (
-              <Callout status="error" mb="3">
-                Plan, status and seats are from the cached license.
-                Couldn&apos;t load the live one: {licenseError.message}
-              </Callout>
-            )}
+            <CardHeading
+              title="Account"
+              onEdit={
+                can("metadata") ? () => setEditSection("account") : undefined
+              }
+            />
             <KeyValues
               items={[
+                { label: "Name", value: org.name },
                 { label: "Owner", value: org.ownerEmail },
                 ...(isCloud()
-                  ? [
-                      {
-                        label: "Plan",
-                        value: (
-                          <PlanBadge
-                            plan={summary.plan}
-                            legacy={org.enterprise}
-                          />
-                        ),
-                      },
-                      {
-                        label: "License key",
-                        value: org.licenseKey ? (
-                          <code>{org.licenseKey}</code>
-                        ) : (
-                          "None"
-                        ),
-                      },
-                      {
-                        label: "Expires",
-                        value: license?.dateExpires
-                          ? date(license.dateExpires)
-                          : !org.licenseKey || licenseData
-                            ? "-"
-                            : licenseError
-                              ? "Unavailable"
-                              : "Loading...",
-                      },
-                      {
-                        label: "Seats",
-                        value: summary.seats
-                          ? `${org.members.length} of ${summary.seats} used`
-                          : org.enterprise
-                            ? "Unlimited"
-                            : `${org.members.length} of ${org.freeSeats ?? 3} free seats used`,
-                      },
-                      {
-                        label: "Self-serve billing",
-                        value: onOff(!org.disableSelfServeBilling),
-                      },
-                    ]
+                  ? []
                   : [
                       { label: "External ID", value: org.externalId || "None" },
                     ]),
@@ -758,13 +677,68 @@ function OrganizationDetail({
             />
           </Frame>
 
+          {isCloud() && (
+            <Frame py="4" px="5">
+              <CardHeading
+                title="License"
+                onEdit={
+                  can("billing") ? () => setEditSection("license") : undefined
+                }
+              />
+              {licenseError && (
+                <Callout status="error" mb="3">
+                  Plan, status and seats are from the cached license.
+                  Couldn&apos;t load the live one: {licenseError.message}
+                </Callout>
+              )}
+              <KeyValues
+                items={[
+                  {
+                    label: "Plan",
+                    value: (
+                      <PlanBadge plan={summary.plan} legacy={org.enterprise} />
+                    ),
+                  },
+                  {
+                    label: "License key",
+                    value: org.licenseKey ? (
+                      <code>{org.licenseKey}</code>
+                    ) : (
+                      "None"
+                    ),
+                  },
+                  {
+                    label: "Expires",
+                    value: license?.dateExpires
+                      ? date(license.dateExpires)
+                      : !org.licenseKey || licenseData
+                        ? "-"
+                        : licenseError
+                          ? "Unavailable"
+                          : "Loading...",
+                  },
+                  {
+                    label: "Seats",
+                    value: summary.seats
+                      ? `${org.members.length} of ${summary.seats} used`
+                      : org.enterprise
+                        ? "Unlimited"
+                        : `${org.members.length} of ${org.freeSeats ?? 3} free seats used`,
+                  },
+                  {
+                    label: "Self-serve billing",
+                    value: onOff(!org.disableSelfServeBilling),
+                  },
+                ]}
+              />
+            </Frame>
+          )}
+
           <Frame py="4" px="5">
-            {cardHeading(
-              "Login and SSO",
-              isCloud() &&
-                can("sso") &&
-                editIcon("Edit SSO connection", () => setEditSSOOpen(true)),
-            )}
+            <CardHeading
+              title="Login and SSO"
+              onEdit={can("sso") ? () => setEditSSOOpen(true) : undefined}
+            />
             <KeyValues
               items={[
                 ...(isCloud()
@@ -802,7 +776,7 @@ function OrganizationDetail({
           </Frame>
 
           <Frame py="4" px="5">
-            {cardHeading("Data")}
+            <CardHeading title="Data" />
             <KeyValues
               items={[
                 {
@@ -813,41 +787,76 @@ function OrganizationDetail({
                   ? [
                       {
                         label: "Managed Warehouse",
-                        value: managedWarehouse
-                          ? "Provisioned"
-                          : "Not provisioned",
+                        value: managedWarehouse ? (
+                          <Flex align="center" gap="2">
+                            <Box flexGrow="1">Provisioned</Box>
+                            {canProvision && (
+                              <DropdownMenu
+                                trigger={
+                                  <MoreMenuTrigger
+                                    size="sm"
+                                    label="Managed Warehouse actions"
+                                  />
+                                }
+                                menuPlacement="end"
+                              >
+                                <DropdownMenuItem
+                                  color="red"
+                                  confirmation={{
+                                    confirmationTitle:
+                                      "Drop and Recreate Managed Warehouse?",
+                                    cta: "Drop and recreate",
+                                    submit: async () => {
+                                      await apiCall(
+                                        `/datasource/${managedWarehouse.id}/recreate-managed-warehouse`,
+                                        {
+                                          method: "POST",
+                                          headers: { "X-Organization": org.id },
+                                        },
+                                      );
+                                    },
+                                    getConfirmationContent: async () =>
+                                      "This may take several minutes, and all queries will fail in the meantime.",
+                                  }}
+                                >
+                                  Drop and recreate
+                                </DropdownMenuItem>
+                              </DropdownMenu>
+                            )}
+                          </Flex>
+                        ) : (
+                          <Flex align="center" gap="3">
+                            None
+                            {canProvision && (
+                              <Link
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setWarehouseOpen(true);
+                                }}
+                              >
+                                Add
+                              </Link>
+                            )}
+                          </Flex>
+                        ),
+                      },
+                    ]
+                  : []),
+                ...(isCloud() && canProvision
+                  ? [
+                      {
+                        label: "Event forwarders",
+                        value: <EventForwarders orgId={org.id} />,
                       },
                     ]
                   : []),
               ]}
             />
-            {isCloud() && canProvision && (
-              <Box mt="3">
-                {managedWarehouse ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    color="red"
-                    onClick={() => setRecreateOpen(true)}
-                  >
-                    Drop and recreate Managed Warehouse
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setWarehouseOpen(true)}
-                  >
-                    Provision Managed Warehouse
-                  </Button>
-                )}
-              </Box>
-            )}
           </Frame>
 
           {can("suspend") && (
             <Frame py="4" px="5">
-              {cardHeading("Danger Zone")}
+              <CardHeading title="Danger Zone" />
               <Flex direction="column" gap="3">
                 <Flex align="center" justify="between" gap="3">
                   <Flex direction="column">
