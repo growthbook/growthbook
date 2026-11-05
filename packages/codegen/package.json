@@ -5,6 +5,7 @@
   "description": "Generates GrowthBook tooling (the Terraform provider) from the REST API spec",
   "scripts": {
     "readiness": "tsx src/readiness-cli.ts",
+    "terraform": "tsx src/terraform-cli.ts",
     "test": "jest",
     "type-check": "tsgo --pretty --noEmit"
   },
