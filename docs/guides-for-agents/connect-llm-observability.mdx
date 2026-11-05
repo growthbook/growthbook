@@ -1,11 +1,19 @@
 ---
-title: Connect Langfuse or Phoenix traces to a GrowthBook experiment
-description: Give a coding agent a verified local path from GrowthBook assignment to root-trace tags, then connect a self-hosted tracing database and prove experiment measurement.
-sidebarTitle: Connect LLM observability
-last_verified: 2026-10-20
-last_verified_growthbook_commit: null
-upstream_reference_commit: "79ef1adba1"
-verification_scope: "Public documentation and published SDK packages; offline fixture tests. Operator database and production verification remain required."
+title: "Connect Langfuse or Phoenix traces to a GrowthBook experiment"
+description: "Give a coding agent a verified local path from GrowthBook assignment to root-trace tags, then connect a self-hosted tracing database and prove experiment measurement."
+sidebarTitle: "Connect LLM observability"
+last_verified: "2026-11-05"
+last_verified_growthbook_commit: "e43a8ef36ec71c71d4789cecbd4f0f0c93a8191a"
+tested_stack:
+  - "@growthbook/growthbook 2.0.0"
+  - "Node.js 24.12.0"
+  - "TypeScript 5.9.3"
+  - "@langfuse/client, @langfuse/otel, and @langfuse/tracing 5.14.0"
+  - "@arizeai/phoenix-otel 2.2.0"
+  - "@arizeai/openinference-core 2.8.0"
+  - "@opentelemetry/api 1.9.1"
+  - "@opentelemetry/sdk-trace-node 2.12.0"
+  - "tsx 4.23.15"
 ---
 
 ## TL;DR
@@ -69,7 +77,7 @@ Stable application identity
   -> GrowthBook exposure query and fact metrics
 ```
 
-GrowthBook reads the tracing database; this path does not populate raw trace tables inside GrowthBook. The built-in trackers are beta and target vendor database schemas. Treat an upgrade of either tracing platform as a reason to retest generated SQL, even when application instrumentation has not changed. See the [LLM tracing integration](https://docs.growthbook.io/integrations/llm-tracing), [Langfuse tracker](https://docs.growthbook.io/event-trackers/langfuse), and [Phoenix tracker](https://docs.growthbook.io/event-trackers/phoenix).
+GrowthBook reads the tracing database; this path does not populate raw trace tables inside GrowthBook. The built-in trackers are beta and target vendor database schemas. Treat an upgrade of either tracing platform as a reason to retest generated SQL, even when application instrumentation has not changed. See the [LLM tracing integration](/integrations/llm-tracing), [Langfuse tracker](/event-trackers/langfuse), and [Phoenix tracker](/event-trackers/phoenix).
 
 ## Use this guide when
 
@@ -90,7 +98,7 @@ Production readiness additionally needs reviewed goal/guardrail definitions, an 
 
 Approval is action-specific. An authorization to edit this repository does not create database roles or launch a production experiment. Prepare the resource names, environment/project filters, proposed changes and readback steps for the operator. Human-only UI steps are legitimate parts of the workflow; identify exactly what evidence the operator must return before continuing.
 
-## Phase 0: inspect the repository and choose the contract
+## Inspect the repository and choose the contract
 
 Run discovery in the application repository, not a guessed project directory. These commands inspect files and dependencies; they do not reveal environment values:
 
@@ -124,7 +132,7 @@ Keep current behavior as the local default. The reference fixture maps a small s
 
 Never silently turn an unknown value into an experiment exposure followed by an unrelated control request. Validate the experiment payload and allowed values before launch. If a bad treatment configuration or missing prompt still occurs, record the error under its assigned variation and follow the application's declared failure policy. If you intentionally fall back to control, label that outcome so the treatment's reliability is measured honestly.
 
-The local rollback switch must bypass experiment evaluation before collecting tags. A warm SDK can still contain previously loaded rules during a connection outage; a fetch timeout alone does not guarantee that a running process switches to control. Prove both cold-start fallback and the local bypass with a cached experiment present. Use the [Node SDK lifecycle](https://docs.growthbook.io/lib/node) when adapting refresh and shutdown behavior.
+The local rollback switch must bypass experiment evaluation before collecting tags. A warm SDK can still contain previously loaded rules during a connection outage; a fetch timeout alone does not guarantee that a running process switches to control. Prove both cold-start fallback and the local bypass with a cached experiment present. Use the [Node SDK lifecycle](/lib/node) when adapting refresh and shutdown behavior.
 
 ## Build and run the local reference
 
@@ -163,11 +171,11 @@ These checks use an in-memory exporter and synthetic providers. They require no 
 
 The fixture's package pins are the verified development combination, not a claim that every newer server or SDK is compatible. Preserve the distinction between the Langfuse server v3 schema and its separately versioned client libraries.
 
-The original local fixture was executed on Node.js `24.12.0` with a retained lockfile. The direct package versions below are pinned in the embedded `package.json`; reconstructing the fixture generates a new lockfile whose transitive dependency resolution may differ. The fixture declares Node.js 22 or newer, but this receipt does not claim a separate Node.js 22 run.
+The local fixture was rechecked on Node.js `24.12.0` with a retained lockfile. The direct package versions below are pinned in the embedded `package.json`; reconstructing the fixture generates a new lockfile whose transitive dependency resolution may differ. The fixture declares Node.js 22 or newer, but this receipt does not claim a separate Node.js 22 run.
 
 | Package                  | Tested package version |
 | ------------------------ | ---------------------- |
-| `@growthbook/growthbook` | `1.8.0`                |
+| `@growthbook/growthbook` | `2.0.0`                |
 | `@langfuse/tracing`      | `5.14.0`               |
 | `@langfuse/otel`         | `5.14.0`               |
 | `@langfuse/client`       | `5.14.0`               |
@@ -196,7 +204,7 @@ The original local fixture was executed on Node.js `24.12.0` with a retained loc
   "dependencies": {
     "@arizeai/openinference-core": "2.8.0",
     "@arizeai/phoenix-otel": "2.2.0",
-    "@growthbook/growthbook": "1.8.0",
+    "@growthbook/growthbook": "2.0.0",
     "@langfuse/client": "5.14.0",
     "@langfuse/otel": "5.14.0",
     "@langfuse/tracing": "5.14.0",
@@ -1387,11 +1395,15 @@ Every manually managed span ends in `finally`, including failures during prompt 
 
 The synthetic fixture creates its own model-operation span because its provider has no instrumentation. In an already traced service, use the provider's existing generation/LLM span instead of wrapping it in a second counted model span. Verify one counted generation/LLM row per actual provider attempt, with one set of usage values; retries are separate attempts when the provider instrumentation records them that way. A duplicate wrapper can inflate calls and tokens even when root assignment tags are correct. Additional non-LLM workflow spans are fine when the generated metric filters exclude them.
 
-## Phase 1: create an isolated staging experiment
+## Prove the staging integration
+
+<Warning>
+**End-to-end staging verification is pending.** The TypeScript fixture passed local SDK tests with an in-memory exporter. Sending a trace to a real collector, executing the tracing-database SQL, and confirming an exposure and numeric metric in the correct GrowthBook variation have not been run end to end for this guide. Treat the steps below as an unverified integration procedure until those checks return actual evidence. Do not report the integration complete from local tests or a successful exporter flush alone.
+</Warning>
 
 Obtain approval for the named staging resources first. Use a dedicated tracing project and a distinct experiment tracking key. A non-production SDK environment controls rule delivery; it does not automatically filter all SQL fact tables by environment. A dedicated project is the simplest defensible boundary for this test.
 
-In GrowthBook, create a string feature with the local control value as its default. Enable an Experiment rule only for the staging SDK environment. Use the stable `user_id` assignment attribute, two reviewed values, and explicitly recorded variation keys. Keep the production environment on control. Follow [feature-flag experiments](https://docs.growthbook.io/features/feature-flag-experiments) for the current UI and creation workflow.
+In GrowthBook, create a string feature with the local control value as its default. Enable an Experiment rule only for the staging SDK environment. Use the stable `user_id` assignment attribute, two reviewed values, and explicitly recorded variation keys. Keep the production environment on control. Follow [feature-flag experiments](/features/feature-flag-experiments) for the current UI and creation workflow.
 
 Read back the staging SDK payload using the connection's normal authenticated configuration path. Confirm that the expected experiment key, attribute, variations and weights are present. Then read back the production payload and prove that the staging rule is absent. Report only the relevant sanitized rule, never an API secret or the full organization's feature payload.
 
@@ -1458,7 +1470,7 @@ Preview the assignment query matching the chosen unit. Inspect the resulting ide
 
 ### Prove one metric after the experiment starts
 
-Add a goal metric before starting the staging analysis. For a named eval score, create a ratio metric on Langfuse Scores or Phoenix Annotations: sum the numeric score in the numerator and count matching scored rows in the denominator. Apply the same score/annotation-name filter to both, excluding null numeric scores on both sides when the source can contain them. A mean of per-user totals answers a different question from an average score per scored observation. See [metrics and fact tables](https://docs.growthbook.io/app/metrics).
+Add a goal metric before starting the staging analysis. For a named eval score, create a ratio metric on Langfuse Scores or Phoenix Annotations: sum the numeric score in the numerator and count matching scored rows in the denominator. Apply the same score/annotation-name filter to both, excluding null numeric scores on both sides when the source can contain them. A mean of per-user totals answers a different question from an average score per scored observation. See [metrics and fact tables](/app/metrics).
 
 A score metric can contain several model calls or annotations per user. Define the scoring population, handle missing scores deliberately, and monitor score coverage alongside the score itself. Do not interpret unscored requests as successful requests. For binary user-level outcomes, choose a proportion metric when the question is the share of units with at least one matching event.
 
@@ -1479,11 +1491,11 @@ Use the score/annotation action in your installed tool, select the exact receipt
 
 Inspect cost, latency, token and error metrics separately. A synthetic provider's token values or elapsed time are test data. Null cost may mean missing model pricing or unavailable Phoenix cost tables, not a free model call. If a metric's source is absent, mark that metric unverified and repair collection before making it a production guardrail. Older Phoenix schemas may require removing the unavailable `span_costs` join and cost column from the generated span fact table.
 
-## Phase 100: establish a clean production measurement boundary
+## Establish a clean production measurement boundary
 
 Finish staging before proposing production changes. Preserve its receipt and use a new production experiment tracking key with a production-only tracing project/filter. This is clearer than reusing the staging key and attempting to remember which synthetic observations should be excluded. Keep goal definitions stable and review any source-specific filters in both numerator and denominator.
 
-Create the production rule only after the operator reviews the hypothesis, eligible population, assignment unit, primary outcome, guardrails, intended duration and stopping rule. Confirm the current [experiment configuration](https://docs.growthbook.io/app/experiment-configuration) and [result interpretation](https://docs.growthbook.io/app/experiment-results) against the team's analysis method. An experiment can be technically connected while still lacking enough data for a decision.
+Create the production rule only after the operator reviews the hypothesis, eligible population, assignment unit, primary outcome, guardrails, intended duration and stopping rule. Confirm the current [experiment configuration](/app/experiment-configuration) and [result interpretation](/app/experiment-results) against the team's analysis method. An experiment can be technically connected while still lacking enough data for a decision.
 
 A small approved canary should prove delivery and tracing without broad treatment exposure. Compare the source request count, unique assigned users, root traces and observed metric coverage. Investigate unexpected missingness or users in multiple variations before ramping. Distinguish deliberate retries and multiple requests from identity or cross-request assignment leakage.
 
@@ -1526,7 +1538,7 @@ Monitor configuration age, exporter errors, ingestion delay, exposure volume, va
 
 After a ship/rollback decision, remove the temporary experiment branch only through normal code review. Keep the selected production behavior and ordinary tracing intact. Remove stale feature references, staged prompt versions and temporary synthetic scoring jobs when their owners confirm they are unused. Historical analysis and traces follow the organization's retention policy; cleanup is not permission to erase evidence.
 
-## Where DIY fits
+## DIY versus GrowthBook
 
 A short offline comparison or a small internal prototype can reasonably use a local script and existing trace exports. That is often enough to find malformed prompts or measure one request's latency. Keep that smaller path when stable user assignment, ongoing experimentation and production rollout control are not requirements.
 
@@ -1534,7 +1546,11 @@ Once a team needs consistent assignment across services, repeatable exposure que
 
 ## Python adaptation
 
-The executable fixture above is Node/TypeScript. A Python application uses the experiment-viewed callback described in the [Python tracing example](https://docs.growthbook.io/integrations/llm-tracing#python), with a list scoped to one request. In particular, load features, **evaluate the feature**, then propagate the populated tags before opening the traced workflow. Loading features alone never invokes the assignment callback.
+<Warning>
+**The Python adaptation has not been executed.** The TypeScript test results do not verify this example. Before using it, check the installed Python SDK contracts and run the same request-isolation, root-tag, failure, and staging trace-to-metric checks described above.
+</Warning>
+
+The executable fixture above is Node/TypeScript. A Python application uses the experiment-viewed callback described in the [Python tracing example](/integrations/llm-tracing#python), with a list scoped to one request. In particular, load features, **evaluate the feature**, then propagate the populated tags before opening the traced workflow. Loading features alone never invokes the assignment callback.
 
 This small adaptation illustrates that ordering; it is not a separately executed Python fixture. Keep the tracing platform's existing Python initialization and reproduce the same concurrency, failure and root-attribute tests before claiming Python verification.
 
@@ -1578,17 +1594,17 @@ Return a compact receipt with these fields and actual evidence:
 
 Do not describe a local test as a completed remote integration. Do not describe a successful staging query as a verified production experiment. Preserve the last independently observed state so the next engineer can resume without repeating assumptions as facts.
 
-## Sources and freshness contract
+## Source map and freshness contract
 
-The source revision recorded in the original engineering draft is provenance, not a claim that this guide revalidated a repository commit. This version uses current public documentation and the published packages pinned in the fixture. Its verification receipt records exactly what ran locally and what requires an operator's environment.
+Last verified November 5, 2026 against the [GrowthBook JavaScript SDK source at `e43a8ef36ec71c71d4789cecbd4f0f0c93a8191a`](https://github.com/growthbook/growthbook/tree/e43a8ef36ec71c71d4789cecbd4f0f0c93a8191a/packages/sdk-js), the source commit identified by the published `2.0.0` package. Its tracing-plugin implementation matches the current GrowthBook source reviewed for this guide. TypeScript checks, 22 offline tests, and both synthetic tracing demos passed with SDK `2.0.0`; no tracing API changes were needed. Collector ingestion, tracing-database queries, GrowthBook exposure and metric results, and the Python adaptation remain unverified end to end. The frontmatter's verification date and commit record the source and local SDK checks, not a completed staging or production integration.
 
-- [GrowthBook LLM tracing](https://docs.growthbook.io/integrations/llm-tracing): assignment tags, integration model and caveats.
-- [GrowthBook Langfuse tracker](https://docs.growthbook.io/event-trackers/langfuse): ClickHouse schema, generated resources and project option.
-- [GrowthBook Phoenix tracker](https://docs.growthbook.io/event-trackers/phoenix): Postgres resources, annotations and schema caveats.
-- [GrowthBook Node SDK](https://docs.growthbook.io/lib/node): shared/scoped lifecycle and configuration delivery.
-- [GrowthBook JavaScript tracing](https://docs.growthbook.io/lib/js#tracing): plugin contract and assignment tags.
-- [GrowthBook feature-flag experiments](https://docs.growthbook.io/features/feature-flag-experiments): rules and environment delivery.
-- [GrowthBook metrics](https://docs.growthbook.io/app/metrics): metric grain and interpretation.
+- [GrowthBook LLM tracing](/integrations/llm-tracing): assignment tags, integration model and caveats.
+- [GrowthBook Langfuse tracker](/event-trackers/langfuse): ClickHouse schema, generated resources and project option.
+- [GrowthBook Phoenix tracker](/event-trackers/phoenix): Postgres resources, annotations and schema caveats.
+- [GrowthBook Node SDK](/lib/node): shared/scoped lifecycle and configuration delivery.
+- [GrowthBook JavaScript tracing](/lib/js#tracing): plugin contract and assignment tags.
+- [GrowthBook feature-flag experiments](/features/feature-flag-experiments): rules and environment delivery.
+- [GrowthBook metrics](/app/metrics): metric grain and interpretation.
 - [Phoenix OpenTelemetry API](https://arize-ai.github.io/phoenix/modules/_arizeai_phoenix-otel.html): propagated context versus manual span attributes.
 - [OpenTelemetry JavaScript instrumentation](https://opentelemetry.io/docs/languages/js/instrumentation/): span completion, errors and SDK lifecycle.
 - [Langfuse SDK setup](https://langfuse.com/docs/observability/sdk/overview) and [v5-to-v6 compatibility](https://langfuse.com/docs/observability/sdk/upgrade-path/js-v5-to-v6): exporter initialization and server/client version boundary.
