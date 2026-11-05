@@ -200,8 +200,12 @@
   // Text sets its own letter-spacing. 10px is deliberately below Text's
   // smallest size: the label is part of the logo lockup, not body text.
   // slate-11, not Text's text-low, which is under 4.5:1 at this size.
+  // A block with a 10px line height, so it doesn't keep the 12px size's
+  // taller line, or its wrapper's.
   & > * {
+    display: block;
     font-size: 10px;
+    line-height: 1;
     letter-spacing: 0.08em;
     color: var(--slate-11);
   }
