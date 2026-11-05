@@ -1,6 +1,5 @@
 import { FC, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { TRACE_INGEST_ROLE_ID } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   getExpirationProblem,
@@ -116,7 +115,6 @@ const ApiKeysModal: FC<{
     ...plan,
     roles: plan.roles || !!source?.scoped,
     confirmations: plan.confirmations || !!existingKey?.confirmRules,
-    traces: plan.traces || existingKey?.role === TRACE_INGEST_ROLE_ID,
   };
   const [permissions, setPermissions] = useState(() =>
     initialPermissions(source, holder, allowed),

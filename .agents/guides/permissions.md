@@ -359,17 +359,16 @@ export async function createArchetype(req: AuthRequest, res: Response) {
 
 ### Default Roles
 
-| Role                    | Description                                   |
-| ----------------------- | --------------------------------------------- |
-| `noaccess`              | No permissions                                |
-| `readonly`              | Read-only access                              |
-| `collaborator`          | Read + comments + ideas                       |
-| `visualEditor`          | Visual editor access                          |
-| `engineer`              | Features + SDK + environments                 |
-| `analyst`               | Analytics + metrics + SQL                     |
-| `experimenter`          | Engineer + analyst combined                   |
-| `admin`                 | Full access                                   |
-| `gbDefault_traceIngest` | No permissions; for API keys that send traces |
+| Role           | Description                   |
+| -------------- | ----------------------------- |
+| `noaccess`     | No permissions                |
+| `readonly`     | Read-only access              |
+| `collaborator` | Read + comments + ideas       |
+| `visualEditor` | Visual editor access          |
+| `engineer`     | Features + SDK + environments |
+| `analyst`      | Analytics + metrics + SQL     |
+| `experimenter` | Engineer + analyst combined   |
+| `admin`        | Full access                   |
 
 ### How Permissions Resolve
 

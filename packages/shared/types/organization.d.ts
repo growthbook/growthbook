@@ -125,7 +125,6 @@ export type DefaultMemberRole =
   | "readonly"
   | "collaborator"
   | "visualEditor"
-  | "gbDefault_traceIngest"
   | "analyst"
   | "engineer"
   | "experimenter"

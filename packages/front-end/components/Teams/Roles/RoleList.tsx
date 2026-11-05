@@ -1,8 +1,4 @@
-import {
-  RESERVED_ROLE_IDS,
-  TRACE_INGEST_ROLE_ID,
-  getRoleDisplayName,
-} from "shared/permissions";
+import { RESERVED_ROLE_IDS, getRoleDisplayName } from "shared/permissions";
 import router from "next/router";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -25,8 +21,7 @@ import {
 } from "@/ui/DropdownMenu";
 
 export default function RoleList() {
-  const { roles: allRoles, refreshOrganization, organization } = useUser();
-  const roles = allRoles.filter((r) => r.id !== TRACE_INGEST_ROLE_ID);
+  const { roles, refreshOrganization, organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 

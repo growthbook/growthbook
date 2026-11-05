@@ -13,8 +13,8 @@
  *
  * Exception: "interleave-exp" gates the in-development interleaving UI.
  *
- * Exception: "trace-ingest" gates the "Send traces only" key preset, Trace
- * Ingest keys and the traces usage notice. Target it by cloudOrgId.
+ * Exception: "trace-ingest" gates the "Accept traces" SDK connection setting
+ * and the traces usage notice. Target it by cloudOrgId.
  */
 export type AppFeatures = {
   // Added ahead of the flag's creation in GrowthBook's own account

@@ -878,13 +878,6 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     description: "Make visual changes for an experiment",
     policies: ["ReadData", "VisualEditorFullAccess"],
   },
-  gbDefault_traceIngest: {
-    id: "gbDefault_traceIngest",
-    displayName: "Trace Ingest",
-    description:
-      "Only sends traces to GrowthBook. No access to the GrowthBook API.",
-    policies: [],
-  },
   engineer: {
     id: "engineer",
     displayName: "Engineer",
@@ -1019,9 +1012,6 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
     policies: [...POLICIES],
   },
 };
-
-// The gbDefault_ prefix can't be used by custom roles, so no org already has one.
-export const TRACE_INGEST_ROLE_ID = "gbDefault_traceIngest";
 
 // Reserved role IDs that cannot be used by custom roles
 // There are 2 legacy roles (designer/developer) that we also need to reserve

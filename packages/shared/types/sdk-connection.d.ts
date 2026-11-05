@@ -40,6 +40,7 @@ export type EditSDKConnectionParams = {
   includeTagsInMetadata?: boolean;
   includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
+  tracesEnabled?: boolean;
   eventTracker?: string;
 };
 export type CreateSDKConnectionParams = {
@@ -65,6 +66,7 @@ export type CreateSDKConnectionParams = {
   includeTagsInMetadata: boolean;
   includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
+  tracesEnabled?: boolean;
   managedBy?: ManagedBy;
 };
 
@@ -116,6 +118,8 @@ export interface SDKConnectionInterface {
   proxy: ProxyConnection;
 
   remoteEvalEnabled?: boolean;
+  // Accepts OpenTelemetry traces sent with this connection's client key.
+  tracesEnabled?: boolean;
   /**
    * How Saved Groups are written into this connection's payload. Absent on
    * connections created before the setting existed; `toInterface` derives it

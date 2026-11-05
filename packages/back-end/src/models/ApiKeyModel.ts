@@ -13,7 +13,6 @@ import {
   canSetApiKeyDisabled,
   changesApiKeyAuthority,
   getRoleById,
-  TRACE_INGEST_ROLE_ID,
 } from "shared/permissions";
 import {
   addDays,
@@ -38,10 +37,6 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
-import {
-  getBackendFeatureValue,
-  getTrustedOrgAttributes,
-} from "back-end/src/services/growthbook";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -271,19 +266,6 @@ export class ApiKeyModel extends BaseClass {
     ) {
       return;
     }
-    if (
-      doc.role === TRACE_INGEST_ROLE_ID &&
-      previousDoc?.role !== TRACE_INGEST_ROLE_ID &&
-      !getBackendFeatureValue(
-        "trace-ingest",
-        false,
-        getTrustedOrgAttributes(this.context.org),
-      )
-    ) {
-      this.context.throwBadRequestError(
-        "Trace ingest keys aren't available for this organization.",
-      );
-    }
     this.assertPlanAllowsScope(doc, previousDoc);
     await this.validateScope(doc, previousDoc);
   }
@@ -357,7 +339,6 @@ export class ApiKeyModel extends BaseClass {
       doc.role &&
       doc.role !== previousDoc?.role &&
       doc.role !== "admin" &&
-      doc.role !== TRACE_INGEST_ROLE_ID &&
       !this.context.limits.orgSupportsRoles()
     ) {
       this.context.throwPaymentRequiredError(
@@ -1067,7 +1048,7 @@ export class ApiKeyModel extends BaseClass {
     if (userId) {
       prefix += "user_";
     } else if (role) {
-      prefix += `${role.replace(/^gbDefault_/, "").slice(0, 20)}_`;
+      prefix += `${role.slice(0, 20)}_`;
     }
 
     return prefix;

@@ -1,4 +1,3 @@
-import { TRACE_INGEST_ROLE_ID } from "shared/permissions";
 import {
   canCustomize,
   describeGrant,
@@ -11,24 +10,9 @@ import {
   tokenFields,
 } from "@/components/Settings/apiKeyPermissions";
 
-const ENTERPRISE = {
-  roles: true,
-  readonly: true,
-  confirmations: true,
-  traces: false,
-};
-const PRO = {
-  roles: true,
-  readonly: true,
-  confirmations: false,
-  traces: false,
-};
-const FREE = {
-  roles: false,
-  readonly: false,
-  confirmations: false,
-  traces: false,
-};
+const ENTERPRISE = { roles: true, readonly: true, confirmations: true };
+const PRO = { roles: true, readonly: true, confirmations: false };
+const FREE = { roles: false, readonly: false, confirmations: false };
 
 const RECOMMENDED = [{ actions: ["recommended"] }];
 const key = (fields = {}) => ({
@@ -61,18 +45,6 @@ describe("presetOfKey", () => {
       null,
     ],
     ["an engineer key", key({ role: "engineer" }), "system", null],
-    [
-      "a trace ingest key",
-      key({ role: TRACE_INGEST_ROLE_ID }),
-      "system",
-      "traces",
-    ],
-    [
-      "a trace ingest key acting as a member",
-      key({ role: TRACE_INGEST_ROLE_ID }),
-      "user",
-      null,
-    ],
     [
       "a key limited by environment",
       key({ limitAccessByEnvironment: true, environments: ["dev"] }),
@@ -209,23 +181,6 @@ describe("editing a saved token", () => {
     expect(tokenFields({ ...value, restricted: false })).toEqual({
       confirmRules: null,
     });
-  });
-});
-
-describe("Send traces only", () => {
-  it("saves the Trace Ingest role", () => {
-    expect(
-      orgKeyFields({
-        ...initialPermissions(undefined, "system", PRO),
-        preset: "traces",
-      }),
-    ).toMatchObject({ role: TRACE_INGEST_ROLE_ID, confirmRules: null });
-  });
-
-  it("leaves the choice open on an admin-only plan once it's offered", () => {
-    expect(
-      initialPermissions(undefined, "system", { ...FREE, traces: true }).preset,
-    ).toBeNull();
   });
 });
 

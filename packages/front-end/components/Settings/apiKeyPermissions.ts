@@ -1,4 +1,3 @@
-import { TRACE_INGEST_ROLE_ID } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { ConfirmRule, OAuthTokenPermissions } from "shared/validators";
@@ -11,7 +10,7 @@ import {
 // Who a credential's requests act as: an org key as itself or as the member it
 // names, or a personal token (OAuth tokens included) as its owner.
 export type Holder = "system" | "user" | "pat";
-export type Preset = "readonly" | "hitl" | "full" | "traces";
+export type Preset = "readonly" | "hitl" | "full";
 
 // What the org's plan and roles let a credential use.
 export type Allowed = {
@@ -21,8 +20,6 @@ export type Allowed = {
   readonly: boolean;
   // Human-in-the-Loop confirmations.
   confirmations: boolean;
-  // The Trace Ingest role, while the trace-ingest flag is on.
-  traces: boolean;
 };
 
 export type PermissionsValue = {
@@ -41,7 +38,6 @@ export const PRESET_LABELS: Record<Preset, string> = {
   readonly: "Read only",
   hitl: "Human-in-the-Loop",
   full: "Full access",
-  traces: "Send traces only",
 };
 
 const RECOMMENDED_RULES: ConfirmRule[] = [{ actions: [RECOMMENDED] }];
@@ -49,17 +45,11 @@ const RECOMMENDED_RULES: ConfirmRule[] = [{ actions: [RECOMMENDED] }];
 // A System key has no one to hold a request for, so Human-in-the-Loop is
 // only under Customize there.
 export const presetsFor = (holder: Holder): Preset[] =>
-  holder === "system"
-    ? ["readonly", "full", "traces"]
-    : ["readonly", "hitl", "full"];
+  holder === "system" ? ["readonly", "full"] : ["readonly", "hitl", "full"];
 
 export const presetAllowed = (preset: Preset, allowed: Allowed) =>
   preset === "full" ||
-  (preset === "readonly"
-    ? allowed.readonly
-    : preset === "traces"
-      ? allowed.traces
-      : allowed.confirmations);
+  (preset === "readonly" ? allowed.readonly : allowed.confirmations);
 
 // Without roles or confirmations there is nothing to customize.
 export const canCustomize = (allowed: Allowed) =>
@@ -83,16 +73,11 @@ export function presetValue(
 > {
   return {
     scope: {
-      role:
-        preset === "readonly"
-          ? "readonly"
-          : preset === "traces"
-            ? TRACE_INGEST_ROLE_ID
-            : "admin",
+      role: preset === "readonly" ? "readonly" : "admin",
       limitAccessByEnvironment: false,
       environments: [],
     },
-    restricted: preset === "readonly" || preset === "traces",
+    restricted: preset === "readonly",
     requireConfirmation: preset === "hitl",
     rules: RECOMMENDED_RULES,
   };
@@ -126,9 +111,7 @@ export function presetOfKey(key: SavedKey, holder: Holder): Preset | null {
       ? "readonly"
       : role === "admin"
         ? "full"
-        : role === TRACE_INGEST_ROLE_ID
-          ? "traces"
-          : null
+        : null
     : role === "admin" &&
         confirmPresetOf(mergeConfirmRules(key.confirmRules)) === RECOMMENDED
       ? "hitl"

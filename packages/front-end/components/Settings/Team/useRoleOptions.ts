@@ -1,8 +1,4 @@
-import {
-  RESERVED_ROLE_IDS,
-  TRACE_INGEST_ROLE_ID,
-  getRoleDisplayName,
-} from "shared/permissions";
+import { RESERVED_ROLE_IDS, getRoleDisplayName } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
@@ -20,7 +16,8 @@ export default function useRoleOptions({
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
   const deactivatedRoles = organization.deactivatedRoles || [];
 
-  let roleOptions = roles.filter((r) => r.id !== TRACE_INGEST_ROLE_ID);
+  let roleOptions = [...roles];
+
   if (!hasCommercialFeature("no-access-role")) {
     roleOptions = roleOptions.filter((r) => r.id !== "noaccess");
   }

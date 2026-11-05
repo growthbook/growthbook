@@ -1,7 +1,5 @@
 import { useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { DEFAULT_ROLES, TRACE_INGEST_ROLE_ID } from "shared/permissions";
 import { PiInfo } from "react-icons/pi";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
@@ -73,12 +71,10 @@ export function useAllowedPermissions(): Allowed {
   const { organization, hasCommercialFeature } = useUser();
   const { orgSupportsRoles } = useOrgLimits();
   const roles = orgSupportsRoles();
-  const traces = useFeatureIsOn("trace-ingest");
   return {
     roles,
     readonly: roles && !organization.deactivatedRoles?.includes("readonly"),
     confirmations: hasCommercialFeature("human-in-the-loop"),
-    traces,
   };
 }
 
@@ -87,7 +83,6 @@ export const presetDescriptions = (holder: Holder): Record<Preset, string> => ({
   readonly: "Can read, but every write is blocked.",
   hitl: `Risky or destructive actions wait for ${CONFIRMER[holder]} to confirm.`,
   full: FULL_ACCESS[holder],
-  traces: DEFAULT_ROLES[TRACE_INGEST_ROLE_ID].description,
 });
 
 export default function PermissionsField({
@@ -124,8 +119,7 @@ export default function PermissionsField({
         <Text as="div" size="md" weight="semibold">
           Permissions
         </Text>
-        {(value.customizing ||
-          (canCustomize(allowed) && value.preset !== "traces")) && (
+        {(value.customizing || canCustomize(allowed)) && (
           <Link
             weight="medium"
             onClick={() =>
@@ -150,16 +144,14 @@ export default function PermissionsField({
           setValue={(preset) =>
             setValue({ ...value, preset: preset as Preset })
           }
-          options={presetsFor(holder)
-            .filter((preset) => preset !== "traces" || allowed.traces)
-            .map((preset) => ({
-              value: preset,
-              label: labels[preset],
-              // A disabled card gets no hover, so the reason replaces its description.
-              ...(presetAllowed(preset, allowed)
-                ? { description: descriptions[preset] }
-                : { description: disabledReason[preset], disabled: true }),
-            }))}
+          options={presetsFor(holder).map((preset) => ({
+            value: preset,
+            label: labels[preset],
+            // A disabled card gets no hover, so the reason replaces its description.
+            ...(presetAllowed(preset, allowed)
+              ? { description: descriptions[preset] }
+              : { description: disabledReason[preset], disabled: true }),
+          }))}
         />
       ) : (
         <CustomPermissions
