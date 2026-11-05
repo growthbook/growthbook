@@ -28,21 +28,28 @@ import Text from "@/ui/Text";
 
 function EventsChart({
   exploration,
+  explorerHref,
 }: {
   exploration: ProductAnalyticsExploration;
+  explorerHref: string;
 }) {
   const { dailyValues, total } = getEventForwarderDailyCounts(exploration);
   return (
     <>
-      <Box minWidth="0">
-        <Text as="div" color="text-mid">
-          Total events
-        </Text>
-        <PreviewHeadline
-          value={formatPreviewHeadline(total)}
-          title={total.toLocaleString()}
-        />
-      </Box>
+      <Flex align="start" justify="between" gap="3">
+        <Box minWidth="0">
+          <Text as="div" color="text-mid">
+            Total events
+          </Text>
+          <PreviewHeadline
+            value={formatPreviewHeadline(total)}
+            title={total.toLocaleString()}
+          />
+        </Box>
+        <Link href={explorerHref}>
+          Explore further <PiArrowRight />
+        </Link>
+      </Flex>
       <DailyBarChart
         dailyValues={dailyValues}
         seriesName="Events"
@@ -91,16 +98,9 @@ export default function EventForwarderActivity({
     <Card mb="4">
       <Box p="2">
         <Flex direction="column" gap="3" minWidth="0">
-          <Flex align="center" justify="between" gap="3">
-            <Heading as="h4" size="sm" mb="0">
-              Recent Forwarded Events
-            </Heading>
-            {canRunQueries ? (
-              <Link href={explorerHref}>
-                Explore further <PiArrowRight />
-              </Link>
-            ) : null}
-          </Flex>
+          <Heading as="h4" size="sm" mb="0">
+            Recent Forwarded Events
+          </Heading>
           {canRunQueries ? (
             <PreviewExplorer
               config={config}
@@ -108,7 +108,10 @@ export default function EventForwarderActivity({
               emptyDescription="Run the query to see daily event counts for the last 7 complete days."
               warehouseUnavailableText="Event counts will be available when the warehouse is ready."
               renderChart={({ exploration }) => (
-                <EventsChart exploration={exploration} />
+                <EventsChart
+                  exploration={exploration}
+                  explorerHref={explorerHref}
+                />
               )}
             />
           ) : (

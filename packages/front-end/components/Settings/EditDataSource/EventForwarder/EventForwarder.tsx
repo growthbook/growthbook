@@ -689,69 +689,55 @@ export default function EventForwarder({
 
   return (
     <Box>
-      <Flex align="center" justify="between" gap="3" mb="2">
-        <Flex align="center" gap="2">
-          <Heading as="h3" size="md" mb="0">
-            Event Forwarder
-          </Heading>
-          {eventForwarderConfig ? (
-            <Flex align="center" gap="2">
-              {isProvisioning ? (
-                <EventForwarderSetupIndicator />
-              ) : (
-                <>
-                  <Badge
-                    label={statusLabels[eventForwarderConfig.status]}
-                    color={statusColors[eventForwarderConfig.status]}
-                    variant="soft"
-                  />
-                  {isOverLimit ? (
-                    <Badge label="Limit reached" color="red" variant="soft" />
-                  ) : null}
-                </>
-              )}
-            </Flex>
-          ) : null}
-        </Flex>
-
-        {canEdit && eventForwarderConfig ? (
+      {eventForwarderConfig ? (
+        <Flex align="center" justify="between" gap="3" mb="2">
           <Flex align="center" gap="2">
+            <Heading as="h3" size="md" mb="0">
+              Status
+            </Heading>
+            {isProvisioning ? (
+              <EventForwarderSetupIndicator />
+            ) : (
+              <>
+                <Badge
+                  label={statusLabels[eventForwarderConfig.status]}
+                  color={statusColors[eventForwarderConfig.status]}
+                  variant="soft"
+                />
+                {isOverLimit ? (
+                  <Badge label="Limit reached" color="red" variant="soft" />
+                ) : null}
+              </>
+            )}
+          </Flex>
+
+          {canToggle ? (
             <Button
               variant="outline"
-              icon={<PiPencilSimple />}
+              color={isReady ? "red" : undefined}
+              icon={isReady ? <PiPause /> : <PiPlay />}
               iconPosition="left"
-              onClick={() => setShowEditModal(true)}
+              loading={pauseResumeLoading}
+              onClick={async () => {
+                setPauseResumeLoading(true);
+                try {
+                  await apiCall(
+                    `/datasource/${dataSource.id}/event-forwarder/${action}`,
+                    { method: "POST" },
+                  );
+                  await onRefresh();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Action failed");
+                } finally {
+                  setPauseResumeLoading(false);
+                }
+              }}
             >
-              Edit
+              {isReady ? "Pause" : "Resume"}
             </Button>
-            {canToggle ? (
-              <Button
-                variant="outline"
-                color={isReady ? "red" : undefined}
-                icon={isReady ? <PiPause /> : <PiPlay />}
-                iconPosition="left"
-                loading={pauseResumeLoading}
-                onClick={async () => {
-                  setPauseResumeLoading(true);
-                  try {
-                    await apiCall(
-                      `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                      { method: "POST" },
-                    );
-                    await onRefresh();
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Action failed");
-                  } finally {
-                    setPauseResumeLoading(false);
-                  }
-                }}
-              >
-                {isReady ? "Pause" : "Resume"}
-              </Button>
-            ) : null}
-          </Flex>
-        ) : null}
-      </Flex>
+          ) : null}
+        </Flex>
+      ) : null}
 
       <p>
         GrowthBook&apos;s Event Forwarder streams SDK event data from GrowthBook
@@ -843,6 +829,21 @@ export default function EventForwarder({
       {eventForwarderConfig ? (
         <Card>
           <Flex direction="column" gap="3" p="2">
+            <Flex align="center" justify="between" gap="3">
+              <Heading as="h4" size="sm" mb="0">
+                Destination
+              </Heading>
+              {canEdit ? (
+                <Button
+                  variant="outline"
+                  icon={<PiPencilSimple />}
+                  iconPosition="left"
+                  onClick={() => setShowEditModal(true)}
+                >
+                  Edit
+                </Button>
+              ) : null}
+            </Flex>
             <Flex direction="column" gap="4">
               {eventForwarderConfig.sinkType === "bigquery" ? (
                 <>
