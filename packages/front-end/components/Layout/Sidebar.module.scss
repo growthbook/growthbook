@@ -20,9 +20,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  // 32px under the Collapse button, so the browser's link preview in the
+  // 24px under the Collapse button, so the browser's link preview in the
   // bottom-left corner doesn't cover it while hovering the links above.
-  padding: var(--space-2) var(--space-2) var(--space-6);
+  padding: var(--space-2) var(--space-2) var(--space-5);
   box-sizing: border-box;
   overflow: hidden;
   background: var(--sidebar-bg);
