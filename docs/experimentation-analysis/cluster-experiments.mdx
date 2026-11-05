@@ -9,8 +9,8 @@ import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
 
 A cluster experiment **randomizes a group** (the cluster) but **analyzes a smaller unit inside it** (the subunit). For example:
 
-- A B2B software company randomizes by organization, so everyone at a company gets the same experience, but measures the behavior of each user.
-- An education technology company randomizes by school district for operational reasons, but measures outcomes per student.
+- A B2B software company randomizes organizations to receive a new tool, so everyone within an organization either has or doesn't have access to it, but user-level productivity is the metric of interest.
+- An education technology company randomizes teaching materials by school district for operational reasons, but measures student test score improvement.
 - A marketplace randomizes by region to limit interference between buyers and sellers, but measures conversion per user.
 
 In each case, a cluster of units nests another set of units.
@@ -19,7 +19,7 @@ In each case, a cluster of units nests another set of units.
   <img src="/static/images/cluster-experiments/cluster-diagram.png" alt="Diagram illustrating cluster-level assignment and user-level analysis in a cluster experiment. Organizations are grouped into treatment (purple) and control (teal) clusters. Each organization (e.g., Organization A, B, C, D) nests multiple users (e.g., User A1, A2, A3). Arrows show the hierarchical relationship between clusters (organizations) and individual users, with assignment occurring at the cluster level and analysis performed at the user level." width="800" />
 </Frame>
 
-Users in the same cluster tend to behave alike and all get the same variation, so they are not independent observations. If you analyze them as if they were randomized one by one, confidence intervals come out too narrow and you see more false positives than you should. Turning on **Cluster experiment** tells GrowthBook how the experiment was randomized so it can analyze it correctly.
+Users in the same cluster tend to behave alike and all get the same variation, so they are not independent observations. If you analyze them as if they were randomized at the user level, confidence intervals are too narrow, producing too many false positives. Turning on **Cluster experiment** tells GrowthBook how the experiment was randomized so it can analyze it correctly.
 
 The examples on this page randomize by `organization_id` and analyze by `user_id`.
 
@@ -74,10 +74,10 @@ The REST API supports the same setting through the `isClusterExperiment` and `cl
 
 Cluster experiments support [Fact Metrics](/app/metrics#fact-tables) of type proportion, retention, mean, and ratio. You don't need to create separate cluster-level versions of your metrics. GrowthBook decides how to analyze each metric from the identifiers its fact table exposes:
 
-- **Subunit metrics.** If the fact table has the subunit identifier (directly or through an [identifier join](/app/datasources#identifier-join-tables)), the metric is analyzed per subunit and rolled up to the cluster, as described in [Methodology](#methodology). This needs the metric's aggregations to be sum, count distinct, or max.
-- **Cluster metrics.** If the fact table only has the cluster identifier, or the metric can't be rolled up, the metric is analyzed with the cluster as the unit, like a standard experiment randomized on `organization_id`.
+- **Subunit metrics.** If the fact table has the subunit identifier (directly or through an [identifier join](/app/datasources#identifier-join-tables)), the metric is analyzed per subunit, as described in [Methodology](#methodology). This needs the metric's aggregations to be sum, count distinct, or max.
+- **Cluster metrics.** If the fact table has only the cluster identifier, the metric is analyzed with the cluster as the unit, like a standard experiment randomized on `organization_id`.
 
-The metric picker groups your metrics by the identifier they are analyzed on, and shows metrics a cluster experiment can't use as disabled, with the reason.
+The metric picker groups your metrics by the identifier they are analyzed on, and shows as disabled the metrics a cluster experiment cannot use.
 
 ## Methodology
 
@@ -86,20 +86,20 @@ The metric picker groups your metrics by the identifier they are analyzed on, an
 For subunit metrics, GrowthBook:
 
 1. Computes each subunit's metric value, applying any [capping](/app/metrics#capped-value) at the subunit level.
-2. Sums those values to the cluster, giving one row per cluster per variation.
-   - For mean, proportion, and retention metrics, the numerator is the sum of subunit values and the denominator is the number of subunits in the cluster that were exposed to the experiment.
-   - For ratio metrics, the numerator and denominator are each summed across the cluster's subunits.
+2. Aggregate subunit values to the cluster level, for both a numerator metric and a denominator metric.
+   - Using revenue as an example (i.e., a mean metric, and the approach is the same for proportion and retention metrics), sum subunit revenues to get the cluster-level total revenue (numerator metric). Cluster-level sample sizes are the denominator metric.
+   - If revenue-per-purchase is the metric (i.e., a ratio metric), we construct the numerator metric as above, but the cluster-level denominator metric is the cluster-level total number of purchases.
 3. Analyzes the cluster totals as a [ratio metric](/statistics/details#ratio-metrics), with the cluster as the unit of analysis.
 
-The estimate for each variation is still the per-subunit value (for example, revenue per user): the total across all exposed subunits divided by the number of subunits, or by the total denominator for ratio metrics. Because the variance is computed from cluster totals using the delta method, it accounts for correlation between subunits in the same cluster. This is a cluster-robust variance estimate, so confidence intervals, p-values, and chance to win reflect the number of clusters you randomized, not just the number of users.
+Compared to a user-randomized experiment, the lift estimate is unchanged. This is because summing over subunits within cluster, then summing over clusters is the same as summing over users. Only the uncertainty of the lift estimate is affected. For details see Section 3.2 of [Deng, Knoblich, and Lu 2018](https://alexdeng.github.io/public/files/kdd2018-dm.pdf).
 
-[CUPED](/statistics/cuped) works with cluster experiments. Pre-exposure covariates are rolled up to the cluster the same way as the metric.
+[CUPED](/statistics/cuped) works with cluster experiments. Pre-exposure covariates are rolled up to the cluster the same way as above.
 
 ### What counts as a unit
 
-Results count clusters, not subunits, so unit counts and the Sample Ratio Mismatch (SRM) check use the number of clusters in each variation. The **Health** tab's traffic chart can switch between cluster and subunit counts.
+Because we randomize at the cluster level, unit counts and the Sample Ratio Mismatch check use the number of clusters in each variation. The **Health** tab's traffic chart can switch between cluster and subunit counts.
 
-Dimension breakdowns are computed in their own query for each dimension, so each slice keeps a cluster-robust variance.
+Unlike user-randomized designs, dimension breakdowns are computed in their own query for each dimension. Ths is because query results using the (browser, device type) totals can split a single cluster's data across multiple dimensions, and reaggregation can produce different results.
 
 ### Data quality checks
 
