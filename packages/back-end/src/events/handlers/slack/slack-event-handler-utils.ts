@@ -1,4 +1,4 @@
-import { KnownBlock, MessageAttachment } from "@slack/types";
+import type { KnownBlock, MessageAttachment } from "@slack/types";
 import formatNumber from "number-format.js";
 import omit from "lodash/omit";
 import pick from "lodash/pick";

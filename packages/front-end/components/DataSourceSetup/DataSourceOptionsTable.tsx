@@ -25,6 +25,7 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { dataSourceConnections } from "@/services/eventSchema";
+import { isCloud } from "@/services/env";
 import { DocLink, DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
@@ -148,9 +149,11 @@ const COMPARISON_ROWS: {
 function OptionHead({
   option,
   upgradeRequired,
+  cloudOnly,
 }: {
   option: DataSourceOptionKey;
   upgradeRequired: boolean;
+  cloudOnly: boolean;
 }) {
   const { icon, name, badge, description, docSection, commercialFeature } =
     OPTION_HEADS[option];
@@ -177,7 +180,11 @@ function OptionHead({
           <PaidFeatureBadge commercialFeature={commercialFeature} />
         ) : null}
       </Flex>
-      <Badge label={badge} color="violet" variant="soft" />
+      {cloudOnly ? (
+        <Badge label="Cloud only" color="gray" variant="soft" />
+      ) : (
+        <Badge label={badge} color="violet" variant="soft" />
+      )}
       <Text color="text-mid" weight="regular">
         {description}{" "}
         <DocLink docSection={docSection}>
@@ -283,6 +290,7 @@ export default function DataSourceOptionsTable() {
           icon: <GBPremiumBadge />,
           onClick: () => setUpgradeOpen(true),
         };
+      case "cloud-only":
       case "unavailable":
         return { ...setUpActions[option], reason: availability.reason };
     }
@@ -346,8 +354,9 @@ export default function DataSourceOptionsTable() {
         Choose How to Connect Your Data
       </Heading>
       <Text as="p" color="text-mid" mb="2">
-        All three options use the same stats engine and experiment reports. You
-        can add more Data Sources later.
+        {isCloud()
+          ? "All three options use the same stats engine and experiment reports. You can add more Data Sources later."
+          : "Custom connects to your warehouse. Managed Warehouse and Event Forwarder are available on GrowthBook Cloud. You can add more Data Sources later."}
       </Text>
       <SampleDataSourceLink />
 
@@ -366,6 +375,7 @@ export default function DataSourceOptionsTable() {
                   upgradeRequired={
                     eligibility[option].status === "upgrade-required"
                   }
+                  cloudOnly={eligibility[option].status === "cloud-only"}
                 />
               </TableColumnHeader>
             ))}

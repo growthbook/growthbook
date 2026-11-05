@@ -155,6 +155,8 @@ const experimentSchema = new mongoose.Schema({
   userIdType: String,
   exposureQueryId: String,
   exposureQueryIdentifierType: String,
+  isClusterExperiment: Boolean,
+  clusterSubUnitIdentifier: String,
   hashAttribute: String,
   fallbackAttribute: String,
   hashVersion: Number,
@@ -402,9 +404,25 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      srmTotalUnits: Number,
       covariateImbalance: {
         _id: false,
         isImbalanced: Boolean,
+      },
+      clusterAssignment: {
+        _id: false,
+        totalClusters: Number,
+        mixedClusters: Number,
+      },
+      clusterSubUnitMapping: {
+        _id: false,
+        totalUnits: Number,
+        multiClusterUnits: Number,
+      },
+      subUnitMultipleExposures: {
+        _id: false,
+        totalSubUnits: Number,
+        multipleExposedSubUnits: Number,
       },
       power: {
         _id: false,
@@ -524,6 +542,7 @@ export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
 ): Promise<ExperimentInterface | null> {
+  if (id && typeof id !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     id,
@@ -541,6 +560,7 @@ export async function getExperimentById(
 export async function getExperimentByUid(
   uid: string,
 ): Promise<ExperimentInterface | null> {
+  if (uid && typeof uid !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     uid,
   });
@@ -820,6 +840,7 @@ export async function getExperimentByTrackingKey(
   context: ReqContext | ApiReqContext,
   trackingKey: string,
 ): Promise<ExperimentInterface | null> {
+  if (trackingKey && typeof trackingKey !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     trackingKey,

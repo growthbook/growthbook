@@ -508,6 +508,7 @@ export async function getMetricById(
   id: string,
   includeAnalysis: boolean = false,
 ) {
+  if (id && typeof id !== "string") return null;
   // If using config.yml, immediately return the from there if found
   if (usingFileConfig()) {
     const doc = getConfigMetrics(context).filter((m) => m.id === id)[0] || null;
