@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { omit } from "lodash";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import SelectField, {
@@ -10,13 +11,17 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import Button from "@/ui/Button";
+import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   generateUniqueValueName,
   getLockedMixClass,
   getMetricMixClass,
+  getMetricUnitState,
   getShowAsByIndex,
+  metricSupportsUnitSelection,
   MetricMixClass,
+  setMetricUnit,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
@@ -27,8 +32,12 @@ import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
 
 export default function MetricTabContent() {
-  const { draftExploreState, addValueToDataset, updateValueInDataset } =
-    useExplorerContext();
+  const {
+    draftExploreState,
+    setDraftExploreState,
+    addValueToDataset,
+    updateValueInDataset,
+  } = useExplorerContext();
   const { factMetrics, getFactTableById, getFactMetricById, project } =
     useDefinitions();
   const { permissionsUtil } = useUser();
@@ -38,6 +47,14 @@ export default function MetricTabContent() {
       ? draftExploreState.dataset.values
       : [];
   const showAsByIndex = getShowAsByIndex(draftExploreState, getFactMetricById);
+  const unitState = getMetricUnitState(
+    values,
+    getFactMetricById,
+    getFactTableById,
+  );
+  const hasUnitSelectableMetric = values.some((v) =>
+    metricSupportsUnitSelection(getFactMetricById(v.metricId)),
+  );
 
   // Build the base grouped options list for this datasource. All metrics are
   // always shown; compat is enforced per-slot via isOptionDisabled so users
@@ -80,12 +97,59 @@ export default function MetricTabContent() {
     return getLockedMixClass(otherTypes);
   };
 
-  const mixTooltip = (locked: Exclude<MetricMixClass, "unknown">) =>
-    locked === "ratio"
-      ? "Ratio metrics can't be combined with other metric types."
-      : locked === "quantile"
-        ? "Quantile metrics can't be combined with other metric types."
-        : "Only the same metric type can be combined in one chart.";
+  /** The unit a metric in `slotIdx` must offer to keep the chart on one unit
+   *  (or null when the other metrics have none, or already mix units). */
+  const getLockedUnitForSlot = (slotIdx: number): string | null => {
+    const others = getMetricUnitState(
+      values.filter((_, i) => i !== slotIdx),
+      getFactMetricById,
+      getFactTableById,
+    );
+    return others.isMixed ? null : others.unit;
+  };
+
+  /** Why `metric` can't go in a slot with these locks, or null if it can. */
+  const getDisabledReason = (
+    metric: FactMetricInterface,
+    lockedClass: Exclude<MetricMixClass, "unknown"> | null,
+    lockedUnit: string | null,
+  ): string | null => {
+    if (lockedClass && getMetricMixClass(metric.metricType) !== lockedClass) {
+      return lockedClass === "ratio"
+        ? "Ratio metrics can't be combined with other metric types."
+        : lockedClass === "quantile"
+          ? "Quantile metrics can't be combined with other metric types."
+          : "Only the same metric type can be combined in one chart.";
+    }
+    const userIdTypes =
+      getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
+      [];
+    if (
+      lockedUnit &&
+      metricSupportsUnitSelection(metric) &&
+      !userIdTypes.includes(lockedUnit)
+    ) {
+      return `This metric's Fact Table has no ${lockedUnit} identifier type.`;
+    }
+    return null;
+  };
+
+  const handleUnitChange = (unit: string) =>
+    setDraftExploreState((prev) =>
+      prev.type === "metric"
+        ? {
+            ...prev,
+            dataset: {
+              ...prev.dataset,
+              values: setMetricUnit(
+                prev.dataset.values,
+                unit,
+                getFactMetricById,
+              ),
+            },
+          }
+        : prev,
+    );
 
   return (
     <Flex direction="column" gap="4">
@@ -97,7 +161,13 @@ export default function MetricTabContent() {
 
       {values.map((v, idx) => {
         const lockedClass = getLockedClassForSlot(idx);
-        const disabledTooltip = lockedClass ? mixTooltip(lockedClass) : "";
+        const lockedUnit = getLockedUnitForSlot(idx);
+        const disabledReasonFor = (metricId: string) => {
+          const metric = factMetrics.find((m) => m.id === metricId);
+          return metric
+            ? getDisabledReason(metric, lockedClass, lockedUnit)
+            : null;
+        };
         const { options: showAsOptions, showAs } = showAsByIndex[idx];
         return (
           <ValueCard
@@ -134,7 +204,9 @@ export default function MetricTabContent() {
                       )
                     : null;
 
-                  let unit = v.unit;
+                  // Join the chart's unit; otherwise keep this slot's unit if
+                  // the new metric offers it, else take its first one.
+                  let unit = lockedUnit ?? v.unit;
                   if (!unit || !newFactTable?.userIdTypes.includes(unit)) {
                     unit = newFactTable?.userIdTypes[0] ?? null;
                   }
@@ -158,26 +230,20 @@ export default function MetricTabContent() {
                   updateValueInDataset(idx, updates as MetricValue);
                 }}
                 options={groupedOptions}
-                isOptionDisabled={(option) => {
-                  if (!lockedClass || !("value" in option)) return false;
-                  const metric = factMetrics.find((m) => m.id === option.value);
-                  if (!metric) return false;
-                  return getMetricMixClass(metric.metricType) !== lockedClass;
-                }}
+                isOptionDisabled={(option) =>
+                  "value" in option && disabledReasonFor(option.value) !== null
+                }
                 formatOptionLabel={({ value }, meta) => {
                   const metric = factMetrics.find((m) => m.id === value);
                   const label = metric ? <MetricName metric={metric} /> : value;
-                  // Only attach the mix-restriction tooltip inside the open
-                  // menu (not in the selected-value display) so it doesn't
-                  // fire on every hover over the selected option.
-                  const isDisabledInMenu =
-                    meta.context === "menu" &&
-                    !!lockedClass &&
-                    !!metric &&
-                    getMetricMixClass(metric.metricType) !== lockedClass;
-                  if (isDisabledInMenu) {
+                  // Only attach the restriction tooltip inside the open menu
+                  // (not in the selected-value display) so it doesn't fire on
+                  // every hover over the selected option.
+                  const disabledReason =
+                    meta.context === "menu" ? disabledReasonFor(value) : null;
+                  if (disabledReason) {
                     return (
-                      <Tooltip body={disabledTooltip} usePortal>
+                      <Tooltip body={disabledReason} usePortal>
                         <span>{label}</span>
                       </Tooltip>
                     );
@@ -205,6 +271,42 @@ export default function MetricTabContent() {
           Add metric
         </Flex>
       </Button>
+      {hasUnitSelectableMetric && (
+        <Flex
+          direction="column"
+          gap="2"
+          p="3"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
+          <Text weight="medium">Identifier type</Text>
+          <Select
+            aria-label="Identifier type"
+            value={unitState.unit ?? undefined}
+            placeholder={
+              unitState.isMixed
+                ? "Mixed identifier types"
+                : "Select identifier type..."
+            }
+            disabled={!unitState.options.length}
+            setValue={handleUnitChange}
+          >
+            {unitState.options.map((unit) => (
+              <SelectItem key={unit} value={unit}>
+                {unit}
+              </SelectItem>
+            ))}
+          </Select>
+          {!unitState.options.length && (
+            <Text size="sm" color="text-low">
+              The Fact Tables of these metrics share no identifier type.
+            </Text>
+          )}
+        </Flex>
+      )}
     </Flex>
   );
 }

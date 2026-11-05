@@ -16,6 +16,10 @@ import useFullFactTable from "@/hooks/useFullFactTable";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import {
+  getMetricUnitState,
+  metricSupportsUnitSelection,
+} from "@/enterprise/components/ProductAnalytics/util";
 import Text from "@/ui/Text";
 import {
   factTableToColumnSource,
@@ -38,7 +42,7 @@ export default function ValueCard({
 }) {
   const { draftExploreState, updateValueInDataset, deleteValueFromDataset } =
     useExplorerContext();
-  const { getFactMetricById } = useDefinitions();
+  const { getFactMetricById, getFactTableById } = useDefinitions();
 
   // ValueCard is only mounted from metric/fact_table/data_source tabs —
   // funnels manage their own step UI. The hooks below must run unconditionally,
@@ -130,7 +134,10 @@ export default function ValueCard({
     });
   };
 
+  // Metric explorations pick one unit for the whole chart (MetricTabContent),
+  // so their cards only show the unit when an older config mixes them.
   let supportsUnitSelection = false;
+  let showsReadOnlyUnit = false;
 
   switch (draftExploreState.dataset.type) {
     case "fact_table":
@@ -140,23 +147,12 @@ export default function ValueCard({
         draftExploreState.dataset.values[index].valueType === "unit_count";
       break;
     case "metric": {
-      const factMetric = getFactMetricById(
-        draftExploreState.dataset.values[index].metricId ?? "",
-      );
-      if (
-        factMetric?.metricType === "mean" ||
-        factMetric?.metricType === "proportion" ||
-        factMetric?.metricType === "retention" ||
-        factMetric?.metricType === "dailyParticipation"
-      ) {
-        supportsUnitSelection = true;
-      } else if (
-        factMetric?.metricType === "ratio" &&
-        factMetric.numerator.column === "$$distinctUsers"
-      ) {
-        supportsUnitSelection = true;
-        // TODO: handle separate denominator unit selector
-      }
+      const { values } = draftExploreState.dataset;
+      showsReadOnlyUnit =
+        metricSupportsUnitSelection(
+          getFactMetricById(values[index].metricId),
+        ) &&
+        getMetricUnitState(values, getFactMetricById, getFactTableById).isMixed;
       break;
     }
     case "population":
@@ -255,6 +251,14 @@ export default function ValueCard({
                 value={filters}
                 setValue={handleFiltersChange}
               >
+                {showsReadOnlyUnit && (
+                  <Flex align="center" gap="1" title="Identifier type">
+                    <PiUserFill size={12} />
+                    <Text size="sm" color="text-low">
+                      {value.unit}
+                    </Text>
+                  </Flex>
+                )}
                 {factTable && supportsUnitSelection && (
                   <DropdownMenu
                     open={unitDropdownOpen}

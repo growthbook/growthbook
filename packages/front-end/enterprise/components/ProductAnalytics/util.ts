@@ -796,6 +796,84 @@ export function normalizeExplorerDraft(
 }
 
 /**
+ * Whether the Explorer lets a metric's counting unit be chosen. Other metrics
+ * (quantiles, most ratios) keep the unit `fillMissingUnits` gives them.
+ */
+export function metricSupportsUnitSelection(
+  metric: FactMetricInterface | null,
+): boolean {
+  if (!metric) return false;
+  switch (metric.metricType) {
+    case "mean":
+    case "proportion":
+    case "retention":
+    case "dailyParticipation":
+      return true;
+    case "ratio":
+      // TODO: handle separate denominator unit selector
+      return metric.numerator.column === "$$distinctUsers";
+    case "quantile":
+    case "funnel":
+      return false;
+  }
+}
+
+/** The chart-level unit of a metric dataset, read across its values. */
+export type MetricUnitState = {
+  /** The unit every unit-selectable value uses; null when mixed or unset. */
+  unit: string | null;
+  /** Values use more than one unit, e.g. a config saved before the single picker. */
+  isMixed: boolean;
+  /** Units every unit-selectable value's Fact Table offers, in the first one's order. */
+  options: string[];
+};
+
+/**
+ * Reads the chart-level unit from the metric values whose unit can be chosen
+ * (see `metricSupportsUnitSelection`). Empty slots and unresolved metrics are
+ * skipped.
+ */
+export function getMetricUnitState(
+  values: MetricValue[],
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
+): MetricUnitState {
+  const selectable = values.flatMap((value) => {
+    const metric = value.metricId ? getFactMetricById(value.metricId) : null;
+    return metric && metricSupportsUnitSelection(metric)
+      ? [{ value, metric }]
+      : [];
+  });
+  const units = new Set(
+    selectable.flatMap(({ value }) => (value.unit ? [value.unit] : [])),
+  );
+  const options = selectable.reduce<string[] | null>((acc, { metric }) => {
+    const ids =
+      getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
+      [];
+    return acc === null ? [...ids] : acc.filter((id) => ids.includes(id));
+  }, null);
+  return {
+    unit: units.size === 1 ? [...units][0] : null,
+    isMixed: units.size > 1,
+    options: options ?? [],
+  };
+}
+
+/** Sets `unit` on every metric value whose unit can be chosen. */
+export function setMetricUnit(
+  values: MetricValue[],
+  unit: string,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): MetricValue[] {
+  return values.map((value) =>
+    metricSupportsUnitSelection(getFactMetricById(value.metricId))
+      ? { ...value, unit }
+      : value,
+  );
+}
+
+/**
  * Fills in a default `unit` for metric values that have a resolved metric but
  * no unit selected. Defaults to the numerator fact table's first userIdType.
  *
@@ -854,13 +932,24 @@ export function fillMissingUnits(
 
   if (config.dataset.type !== "metric") return config;
 
+  // Prefer the unit the other metrics already share, so filling a gap doesn't
+  // mix units on a chart that has a single one.
+  const setUnits = new Set(
+    config.dataset.values.flatMap((v) => (v.unit ? [v.unit] : [])),
+  );
+  const sharedUnit = setUnits.size === 1 ? [...setUnits][0] : null;
+
   let changed = false;
   const newValues = config.dataset.values.map((v) => {
     if (v.unit || !v.metricId) return v;
     const metric = getFactMetricById(v.metricId);
     if (!metric) return v;
     const factTable = getFactTableById(getFactMetricPrimaryFactTableId(metric));
-    const defaultUnit = factTable?.userIdTypes?.[0];
+    const userIdTypes = factTable?.userIdTypes ?? [];
+    const defaultUnit =
+      sharedUnit && userIdTypes.includes(sharedUnit)
+        ? sharedUnit
+        : userIdTypes[0];
     if (!defaultUnit) return v;
     changed = true;
     return { ...v, unit: defaultUnit };
