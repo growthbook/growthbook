@@ -7,9 +7,10 @@ on:
         required: true
         type: string
 
+# Emergency path: cancel any running or queued Deploy/Redeploy instead of waiting on it.
 concurrency:
   group: deploy-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 # Read-only token by default; a job that needs more declares it itself.
 permissions:
