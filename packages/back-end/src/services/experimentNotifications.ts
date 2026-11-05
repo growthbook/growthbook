@@ -20,8 +20,8 @@ import { ExperimentAnalysisSummary } from "shared/validators";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   getExperimentSRMValue,
+  getExperimentSRMVariationUnits,
   getExperimentTotalUnitsFromHealth,
-  getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import { StatsEngine } from "shared/types/stats";
 import {
@@ -439,7 +439,7 @@ const getSrmVariationBalance = (
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
 ) => {
-  const units = getExperimentVariationUnitsFromHealth(snapshot);
+  const units = getExperimentSRMVariationUnits(snapshot);
   if (!units?.length) return undefined;
   const weights =
     experiment.phases[experiment.phases.length - 1]?.variationWeights ?? [];

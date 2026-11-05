@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
+import useBottomBarClearance from "@/hooks/useBottomBarClearance";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
@@ -9,11 +10,12 @@ import styles from "./UnsavedEditsBar.module.scss";
 
 /** Appears once something on the page is edited, and is the only way to write it. */
 export default function UnsavedEditsBar() {
+  const barRef = useBottomBarClearance<HTMLDivElement>();
   const edits = useExperimentEdits();
   if (!edits?.dirty) return null;
 
   return (
-    <div className={clsx(styles.bar, "experiment-save-bar")}>
+    <div ref={barRef} className={clsx(styles.bar, "experiment-save-bar")}>
       <Box
         mx="auto"
         width="100%"

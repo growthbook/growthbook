@@ -5,6 +5,7 @@ import { SuperAdmin } from "shared/validators";
 import { SegmentInterface } from "shared/types/segment";
 import { AppFeatures } from "shared/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import { PermissionFunctions } from "@/services/UserContext";
 
 export type SidebarLinkFilterProps = {
@@ -105,6 +106,13 @@ export const navlinks: SidebarLinkProps[] = [
         // Default ON; the remote flag only turns this off for specific orgs.
         filter: ({ gb }) =>
           gb?.getFeatureValue("contextual-bandits", true) ?? true,
+      },
+      {
+        name: "Interleaving",
+        href: "/interleavings",
+        path: /^interleavings?($|\/)/,
+        filter: ({ gb }) => isInterleavingEnabled(gb),
+        beta: true,
       },
       {
         name: "Holdouts",

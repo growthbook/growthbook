@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -12,12 +11,10 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 
 const EditDataSourceConnectPage = () => {
   const router = useRouter();
   const { did } = router.query as { did: string };
-  const { enabled, ready: flagReady } = useNewDataSourceOnboarding();
   const { orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const {
@@ -27,16 +24,6 @@ const EditDataSourceConnectPage = () => {
   } = useApi<DataSourceInterfaceWithParams>(`/datasource/${did}`, {
     shouldRun: () => !!did,
   });
-
-  useEffect(() => {
-    if (flagReady && !enabled) {
-      router.replace(did ? `/datasources/${did}` : "/datasources");
-    }
-  }, [router, enabled, flagReady, did]);
-
-  if (!flagReady || !enabled) {
-    return <LoadingOverlay />;
-  }
 
   if (error) {
     return (

@@ -388,6 +388,7 @@ export default function ExperimentHeader({
   const disableHealthTab = !hasHealthData(dataSource);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const clusterBlocksBandit = !isBandit && !!experiment.isClusterExperiment;
   const isHoldout = experiment.type === "holdout";
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
@@ -652,6 +653,7 @@ export default function ExperimentHeader({
           header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
           submit={async () => {
             if (!isBandit && !hasMultiArmedBanditFeature) return;
+            if (clusterBlocksBandit) return;
             try {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
@@ -677,65 +679,78 @@ export default function ExperimentHeader({
               </PremiumTooltip>
             )
           }
-          ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+          ctaEnabled={
+            (isBandit || hasMultiArmedBanditFeature) && !clusterBlocksBandit
+          }
         >
           <div>
-            <p>
-              Are you sure you want to convert this{" "}
-              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
-            </p>
-            {!isBandit && experiment.goalMetrics.length > 0 && (
+            {clusterBlocksBandit ? (
               <Callout status="warning">
-                <Collapsible
-                  trigger={
-                    <Flex justify="between" gap="1">
-                      Some of your experiment settings may be altered.{" "}
-                      <Box>
-                        <FaAngleRight className="chevron" />
-                      </Box>
-                    </Flex>
-                  }
-                  transitionTime={100}
-                >
-                  <ul className="ml-0 pl-3 mt-3">
-                    <li>
-                      A <strong>single decision metric</strong> will be
-                      automatically assigned. You may change this before running
-                      the experiment.
-                    </li>
-                    <li>
-                      Experiment variations will begin with{" "}
-                      <strong>equal weights</strong> (
-                      {(() => {
-                        const variations = getLatestPhaseVariations(experiment);
-                        return variations
-                          .map((_, i) =>
-                            i < 3
-                              ? formatPercent(1 / variations.length)
-                              : i === 3
-                                ? "..."
-                                : null,
-                          )
-                          .filter(Boolean)
-                          .join(", ");
-                      })()}
-                      ).
-                    </li>
-                    <li>
-                      The stats engine will be locked to{" "}
-                      <strong>Bayesian</strong>.
-                    </li>
-                    <li>
-                      Any <strong>Activation Metric</strong>,{" "}
-                      <strong>Segments</strong>,{" "}
-                      <strong>Conversion Window overrides</strong>,{" "}
-                      <strong>Custom SQL Filters</strong>, or{" "}
-                      <strong>Metric Overrides</strong> will be removed.
-                    </li>
-                  </ul>
-                </Collapsible>
+                {
+                  "Cluster experiments can't be run as Bandits. To convert this one, first turn off cluster experiment in the Analysis Plan's Data Source settings."
+                }
               </Callout>
+            ) : (
+              <>
+                <p>
+                  Are you sure you want to convert this{" "}
+                  {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+                  <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+                </p>
+                {!isBandit && experiment.goalMetrics.length > 0 && (
+                  <Callout status="warning">
+                    <Collapsible
+                      trigger={
+                        <Flex justify="between" gap="1">
+                          Some of your experiment settings may be altered.{" "}
+                          <Box>
+                            <FaAngleRight className="chevron" />
+                          </Box>
+                        </Flex>
+                      }
+                      transitionTime={100}
+                    >
+                      <ul className="ml-0 pl-3 mt-3">
+                        <li>
+                          A <strong>single decision metric</strong> will be
+                          automatically assigned. You may change this before
+                          running the experiment.
+                        </li>
+                        <li>
+                          Experiment variations will begin with{" "}
+                          <strong>equal weights</strong> (
+                          {(() => {
+                            const variations =
+                              getLatestPhaseVariations(experiment);
+                            return variations
+                              .map((_, i) =>
+                                i < 3
+                                  ? formatPercent(1 / variations.length)
+                                  : i === 3
+                                    ? "..."
+                                    : null,
+                              )
+                              .filter(Boolean)
+                              .join(", ");
+                          })()}
+                          ).
+                        </li>
+                        <li>
+                          The stats engine will be locked to{" "}
+                          <strong>Bayesian</strong>.
+                        </li>
+                        <li>
+                          Any <strong>Activation Metric</strong>,{" "}
+                          <strong>Segments</strong>,{" "}
+                          <strong>Conversion Window overrides</strong>,{" "}
+                          <strong>Custom SQL Filters</strong>, or{" "}
+                          <strong>Metric Overrides</strong> will be removed.
+                        </li>
+                      </ul>
+                    </Collapsible>
+                  </Callout>
+                )}
+              </>
             )}
           </div>
         </Modal>

@@ -857,9 +857,16 @@ pre {
   }
 }
 
+// Same reason as above, but interleaving keeps the default content width: it
+// has no details panel, so it has no .experiment-column to re-cap.
+.main.interleaving {
+  min-height: 100vh;
+}
+
 .main.experiment,
 .main.bandit,
 .main.holdout,
+.main.interleaving,
 .public.experiment,
 .public.bandit,
 .public.holdout {
@@ -4403,4 +4410,12 @@ input:disabled {
 // Replay mouse cursor dot
 .replayer-mouse::after {
   background: var(--accent-9) !important;
+}
+
+// Pylon's bubble and chat window rise above a bottom bar (see
+// useBottomBarClearance). A margin lifts each from where it already sits, so
+// Pylon's offsets aren't restated.
+.PylonChat-bubbleFrameContainer,
+.PylonChat-chatWindowFrameContainer {
+  margin-bottom: var(--bottom-bar-clearance, 0px) !important;
 }

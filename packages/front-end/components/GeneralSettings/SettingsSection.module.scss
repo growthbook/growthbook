@@ -3,6 +3,11 @@
   // Clears the fixed top nav (and below 1024px the pinned Settings select)
   // when scrolled to.
   scroll-margin-top: calc(var(--settings-section-top) + 8px);
+
+  // Anchors inside a section also clear its sticky header (~48px).
+  [id] {
+    scroll-margin-top: calc(var(--settings-section-top) + 56px);
+  }
 }
 
 .header {
