@@ -1,10 +1,28 @@
 import {
   formatNumericLikeForDisplay,
   parseEnvInt,
+  parseEnvIntMap,
   parseIntWithDefault,
   parseIntWithDefaultCapped,
   parseOptionalInt,
+  pValueFormatter,
 } from "../../src/util/numbers";
+
+describe("pValueFormatter", () => {
+  it("collapses values below the display precision", () => {
+    expect(pValueFormatter(0.0004)).toBe("<0.001");
+    expect(pValueFormatter(0.0004, 4)).toBe("0.0004");
+  });
+
+  it("rounds to the requested precision", () => {
+    expect(pValueFormatter(0.042)).toBe("0.042");
+    expect(pValueFormatter(0.04249, 3)).toBe("0.042");
+  });
+
+  it("returns an empty string for non-numbers", () => {
+    expect(pValueFormatter(undefined as unknown as number)).toBe("");
+  });
+});
 
 describe("formatNumericLikeForDisplay", () => {
   it("formats finite numbers like Number#toLocaleString", () => {
@@ -171,5 +189,47 @@ describe("parseEnvInt", () => {
     expect(warn).toHaveBeenCalledWith(
       'WARNING! Invalid value for MY_VAR: "nope". Falling back to default: 100',
     );
+  });
+});
+
+describe("parseEnvIntMap", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("parses comma-separated name:integer pairs silently, last value winning", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect(parseEnvIntMap(undefined, { name: "MY_VAR" })).toEqual(new Map());
+    expect(parseEnvIntMap("", { name: "MY_VAR" })).toEqual(new Map());
+    expect(
+      parseEnvIntMap(" key_a : 120 ,key_b:30,, key_a:90 ,", { name: "MY_VAR" }),
+    ).toEqual(
+      new Map([
+        ["key_a", 90],
+        ["key_b", 30],
+      ]),
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("skips and warns about invalid, out-of-range or mis-separated entries", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect(
+      parseEnvIntMap(
+        "key_a:0,key_b,:5,key_c:x,key_d:7,key_e:1;key_f:2,key_g::3",
+        {
+          min: 1,
+          name: "MY_VAR",
+        },
+      ),
+    ).toEqual(new Map([["key_d", 7]]));
+    expect(warn.mock.calls.map(([message]) => message)).toEqual([
+      'WARNING! Invalid entry in MY_VAR: "key_a:0". Ignoring it.',
+      'WARNING! Invalid entry in MY_VAR: "key_b". Ignoring it.',
+      'WARNING! Invalid entry in MY_VAR: ":5". Ignoring it.',
+      'WARNING! Invalid entry in MY_VAR: "key_c:x". Ignoring it.',
+      'WARNING! Invalid entry in MY_VAR: "key_e:1;key_f:2". Ignoring it.',
+      'WARNING! Invalid entry in MY_VAR: "key_g::3". Ignoring it.',
+    ]);
   });
 });

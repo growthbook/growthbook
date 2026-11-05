@@ -6,7 +6,6 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type {
   DimensionColumnData,
   ExperimentFactMetricsQueryParams,
-  FactMetricPercentileData,
 } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { applyMetricOverrides } from "back-end/src/util/integration";
@@ -16,6 +15,12 @@ import { addHours } from "back-end/src/integrations/sql/primitives/add-hours";
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
 import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsFactMetricCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-fact-metric-cte";
+import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
+import {
+  getConsistentClusterCondition,
+  getSingleClusterPerUnitCondition,
+} from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
@@ -37,6 +42,7 @@ import {
   funnelStepResolvedTsColumn,
   funnelStepTimestampColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { getFactMetricPercentileData } from "back-end/src/integrations/sql/columns/fact-metric-percentile-data";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -62,7 +68,7 @@ export function getExperimentFactMetricsQuery(
     settings,
   );
 
-  // Throw noisely instead of letting the dialect throw a generic
+  // Throw noisily instead of letting the dialect throw a generic
   // unsupported-operation error.
   if (!isFunnelSupportedDatasourceType(datasource.type)) {
     const unsupported = metricsWithIndices
@@ -103,10 +109,29 @@ export function getExperimentFactMetricsQuery(
     : "";
   const queryName = `${dimensionLabel}${factTableLabel}`;
 
-  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  // Cluster-level metrics join on the cluster id, with one unit row per
+  // cluster, so they skip the sub-unit rollup entirely. resolveClusterMetricGrain
+  // also enforces that a single query is entirely one grain.
+  const {
+    clusterSubUnit,
+    isClusterLevelGroup: isClusterLevelQuery,
+    baseIdType: userIdType,
+  } = resolveClusterMetricGrain({
+    settings: {
+      isClusterExperiment: params.unitsSettings.isClusterExperiment,
+      clusterSubUnitIdentifier: params.unitsSettings.clusterSubUnitIdentifier,
+      clusterLevelMetricIds: settings.clusterLevelMetricIds,
+    },
+    metrics: metricsWithIndices.map((m) => m.metric),
+    exposureIdentifierType: params.unitsSettings.exposureQuery.identifierType,
+  });
   if (!userIdType) {
     throw new Error("Unable to determine user id type from exposureQuery");
   }
+  const clusterIdColumn =
+    clusterSubUnit && !isClusterLevelQuery
+      ? params.unitsSettings.exposureQuery.identifierType
+      : null;
 
   const banditDates = getBanditDates(settings.banditSettings);
   const hasFunnelMetrics = metricsWithIndices.some((m) =>
@@ -136,6 +161,8 @@ export function getExperimentFactMetricsQuery(
     ),
   );
 
+  const useClusterRollup = clusterIdColumn !== null;
+
   // TODO(sql): Separate metric start by fact table
   const raMetricSettings = metricData
     .filter((m) => m.regressionAdjusted)
@@ -159,10 +186,14 @@ export function getExperimentFactMetricsQuery(
   ];
   // add idTypes usually handled in units query here in the case where
   // we don't have a separate table for the units query
-  if (params.unitsSource === "exposureQuery") {
+  // A cluster-level query's units CTE stays keyed on the sub-unit, so it emits
+  // its own identity joins against that base.
+  if (params.unitsSource === "exposureQuery" && !isClusterLevelQuery) {
+    // A cluster-keyed segment joins through the exposure rows instead.
+    const segmentIdType = segment ? segment.userIdType || "user_id" : null;
     idTypeObjects.push(
       ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-      segment ? [segment.userIdType || "user_id"] : [],
+      segmentIdType && segmentIdType !== clusterIdColumn ? [segmentIdType] : [],
       activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
     );
   }
@@ -175,6 +206,9 @@ export function getExperimentFactMetricsQuery(
       to: settings.endDate,
       forcedBaseIdType: userIdType,
       experimentId: settings.experimentId,
+      tableNamePrefix: isClusterLevelQuery
+        ? "__cluster_identities_"
+        : undefined,
     },
   );
 
@@ -215,32 +249,34 @@ export function getExperimentFactMetricsQuery(
       `${timestampColumn} <= ${dialect.toTimestamp(endDate)}`,
     );
   }
+  const factMetricsUnitsSource =
+    params.unitsSource === "exposureTable"
+      ? `${params.unitsTableFullName}`
+      : "__experimentUnits";
+  const clusterConsistencyKey = clusterSubUnit
+    ? (clusterIdColumn ?? baseIdType)
+    : null;
+  if (clusterConsistencyKey) {
+    distinctUsersWhere.push(
+      getConsistentClusterCondition({
+        sourceTable: factMetricsUnitsSource,
+        clusterIdColumn: clusterConsistencyKey,
+      }),
+    );
+    distinctUsersWhere.push(
+      getSingleClusterPerUnitCondition({
+        clusterIdColumn: clusterConsistencyKey,
+      }),
+    );
+  }
 
   // TODO(sql): refactor so this is a property of the source table itself
-  const percentileTableIndices = new Set<number>();
-  const percentileData: FactMetricPercentileData[] = [];
-  metricData
-    .filter((m) => m.isPercentileCapped)
-    .forEach((m) => {
-      percentileData.push({
-        valueCol: `${m.alias}_value`,
-        outputCol: `${m.alias}_value_cap`,
-        percentile: m.metric.cappingSettings.value ?? 1,
-        ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-        sourceIndex: m.numeratorSourceIndex,
-      });
-      percentileTableIndices.add(m.numeratorSourceIndex);
-      if (m.ratioMetric) {
-        percentileData.push({
-          valueCol: `${m.alias}_denominator`,
-          outputCol: `${m.alias}_denominator_cap`,
-          percentile: m.metric.cappingSettings.value ?? 1,
-          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-          sourceIndex: m.denominatorSourceIndex,
-        });
-        percentileTableIndices.add(m.denominatorSourceIndex);
-      }
-    });
+  const percentileData = metricData.flatMap((m) =>
+    getFactMetricPercentileData(m),
+  );
+  const percentileTableIndices = new Set(
+    percentileData.map((p) => p.sourceIndex),
+  );
 
   const eventQuantileData = getFactMetricQuantileData(metricData, "event");
   // Event quantile columns are emitted under one unqualified name per source,
@@ -266,14 +302,17 @@ export function getExperimentFactMetricsQuery(
   const userMetricAggTablePrefix = "__userMetricAgg";
   const unitMetricsBaseTable = "__unitMetricsBase";
   const unitMetricsTable = "__unitMetrics";
+  const clusterRollupTable = "__clusterRollup";
   const funnelResolutionSource = flattenUnitMetrics
     ? unitMetricsBaseTable
     : userMetricAggTablePrefix;
   // Resolution's terminal CTE carries every metric column, so statistics read
   // it whole; without funnels there is no chain.
-  const statisticsSourceTable = funnelMetrics.length
-    ? unitMetricsTable
-    : userMetricAggTablePrefix;
+  const statisticsSourceTable = useClusterRollup
+    ? clusterRollupTable
+    : funnelMetrics.length
+      ? unitMetricsTable
+      : userMetricAggTablePrefix;
 
   const regressionAdjustedMetrics = metricData.filter(
     (m) => m.regressionAdjusted,
@@ -464,15 +503,16 @@ export function getExperimentFactMetricsQuery(
       params.unitsSource === "exposureQuery"
         ? `${getExperimentUnitsQuery(dialect, datasource, {
             ...params,
-            includeIdJoins: false,
+            includeIdJoins: isClusterLevelQuery,
           })},`
         : params.unitsSource === "otherQuery"
           ? params.unitsSql
           : ""
     }
-    __distinctUsers AS (
+    ${isClusterLevelQuery ? "__clusterSubUnitRows" : "__distinctUsers"} AS (
       SELECT
         ${baseIdType}
+        ${clusterIdColumn ? `, ${clusterIdColumn}` : ""}
         ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
         , variation
         , ${timestampColumn} AS timestamp
@@ -504,6 +544,42 @@ export function getExperimentFactMetricsQuery(
           : ""
       }
     )
+    ${
+      isClusterLevelQuery
+        ? `, __distinctUsers AS (
+      SELECT
+        ${baseIdType}
+        ${dimensionCols
+          .map(
+            (c) =>
+              `, ${dialect.ifElse(
+                `COUNT(DISTINCT ${c.alias}) > 1`,
+                "'__multiple__'",
+                dialect.castToString(`MAX(${c.alias})`),
+              )} AS ${c.alias}`,
+          )
+          .join("")}
+        , ${dialect.ifElse(
+          "COUNT(DISTINCT variation) > 1",
+          "'__multiple__'",
+          "MAX(variation)",
+        )} AS variation
+        , MIN(timestamp) AS timestamp
+        , MIN(first_exposure_date) AS first_exposure_date
+        ${banditDates?.length ? ", MIN(bandit_period) AS bandit_period" : ""}
+        ${raMetricSettings
+          .map(
+            ({ alias }) => `
+        , MIN(${alias}_preexposure_end) AS ${alias}_preexposure_end
+        , MIN(${alias}_preexposure_start) AS ${alias}_preexposure_start`,
+          )
+          .join("")}
+      FROM __clusterSubUnitRows
+      GROUP BY
+        ${baseIdType}
+    )`
+        : ""
+    }
     ${factTablesWithIndices
       .map((f) => {
         const suffix = f.index === 0 ? "" : f.index;
@@ -559,6 +635,11 @@ export function getExperimentFactMetricsQuery(
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
+              clusterIdColumn && f.index === 0
+                ? `, umj.${clusterIdColumn} AS ${clusterIdColumn}`
+                : ""
+            }
+            ${
               // Funnel resolution anchors exposure-relative windows on this;
               // source 0 drives the per-unit table.
               hasFunnelMetrics && f.index === 0
@@ -587,6 +668,9 @@ export function getExperimentFactMetricsQuery(
             ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
+            ${
+              clusterIdColumn && f.index === 0 ? `, umj.${clusterIdColumn}` : ""
+            }
         `;
 
         // __eventQuantileMetric: per (variation, dimension) quantile grid for
@@ -683,6 +767,10 @@ export function getExperimentFactMetricsQuery(
           addFiltersToWhere: true,
           phase: settings.phase,
           customFields: settings.customFields,
+          // The units query outputs the cluster id as a string (it shares a
+          // column with the multiple-cluster sentinel), so cluster-level
+          // metrics cast theirs to match.
+          castIdToString: isClusterLevelQuery,
         })}
       )
       , ${userMetricJoinTable} as (
@@ -699,6 +787,11 @@ export function getExperimentFactMetricsQuery(
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
           , d.${baseIdType} AS ${baseIdType}
+          ${
+            clusterIdColumn && f.index === 0
+              ? `, d.${clusterIdColumn} AS ${clusterIdColumn}`
+              : ""
+          }
           ${metricData
             .map(
               (data) =>
@@ -860,6 +953,24 @@ export function getExperimentFactMetricsQuery(
         : ""
     }
     ${
+      // Cluster experiment: roll the per-sub-unit aggregate up to one row per
+      // cluster, applying per-sub-unit capping and summing to the cluster.
+      clusterIdColumn
+        ? `, ${clusterRollupTable} AS (
+          ${getClusterRollupCTE({
+            dimensionCols,
+            metricData,
+            baseIdType,
+            clusterIdColumn,
+            perUserAggTableName: userMetricAggTablePrefix,
+            capValueTableName: "__capValue",
+            factTablesWithIndices,
+            percentileTableIndices,
+          })}
+        )`
+        : ""
+    }
+    ${
       banditDates?.length
         ? getBanditStatisticsFactMetricCTE(dialect, {
             baseIdType,
@@ -878,12 +989,15 @@ export function getExperimentFactMetricsQuery(
       baseIdType,
       joinedMetricTableName: userMetricAggTablePrefix,
       statisticsSourceTableName: statisticsSourceTable,
-      flattenedSources: flattenUnitMetrics,
+      // The rollup already merged every source into one per-cluster row, so the
+      // statistics CTE must not re-join sources.
+      flattenedSources: flattenUnitMetrics || useClusterRollup,
       funnelsResolvedOnSource: funnelMetrics.length > 0,
       eventQuantileTableName: "__eventQuantileMetric",
       capValueTableName: "__capValue",
       factTablesWithIndices,
       percentileTableIndices,
+      useClusterRollup,
     })}
     `
     }`,

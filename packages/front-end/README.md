@@ -146,7 +146,7 @@ The `Field` component helps keep a consistent UI throughout the app. It is very 
 - **error** (string or ReactElement)
 - **helpText** (string or ReactElement)
 - **prepend** (string) - alternative to labels that is more compact
-- **apend** (string) - use to give units for numeric inputs (e.g. `%` or `users/day`)
+- **append** (string) - use to give units for numeric inputs (e.g. `%` or `users/day`)
 - **containerClassName** (string)
 - **labelClassName** (string)
 

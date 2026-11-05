@@ -17,6 +17,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Checkbox from "@/ui/Checkbox";
 import { Popover } from "@/ui/Popover";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -224,7 +225,6 @@ export default function ConfigFieldRow({
                           value={disabled ? "" : editText}
                           setValue={setEditText}
                           valueType={vt}
-                          useCodeInput={vt === "json"}
                           showFullscreenButton={vt === "json"}
                           codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                           constantContext={constantContext}
@@ -279,7 +279,7 @@ export default function ConfigFieldRow({
                 })()}
                 {editError && (
                   <HelperText status="error" size="sm">
-                    {editError}
+                    <MarkdownLinks text={editError} />
                   </HelperText>
                 )}
               </>

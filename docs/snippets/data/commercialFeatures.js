@@ -29,6 +29,10 @@ export default {
     plan: "pro",
     displayName: "Cloud Proxy",
   },
+  "cluster-experiments": {
+    plan: "pro",
+    displayName: "Cluster Experiments",
+  },
   "code-references": {
     plan: "pro",
     displayName: "Code References",
@@ -36,6 +40,10 @@ export default {
   "contextual-bandits": {
     plan: "enterprise",
     displayName: "Contextual Bandits",
+  },
+  "custom-environments": {
+    plan: "enterprise",
+    displayName: "Custom Environments",
   },
   "custom-hooks": {
     plan: "enterprise",
@@ -101,9 +109,17 @@ export default {
     plan: "enterprise",
     displayName: "Holdouts",
   },
+  "human-in-the-loop": {
+    plan: "enterprise",
+    displayName: "Human In The Loop",
+  },
   "incremental-refresh": {
     plan: "enterprise",
     displayName: "Incremental Refresh",
+  },
+  interleaving: {
+    plan: "enterprise",
+    displayName: "Interleaving",
   },
   "json-validation": {
     plan: "enterprise",
@@ -237,6 +253,10 @@ export default {
     plan: "pro",
     displayName: "Retention Metrics",
   },
+  "role-management": {
+    plan: "pro",
+    displayName: "Role Management",
+  },
   "safe-rollout": {
     plan: "pro",
     displayName: "Safe Rollout",
@@ -285,9 +305,17 @@ export default {
     plan: "enterprise",
     displayName: "Templates",
   },
+  "unlimited-event-forwarder-usage": {
+    plan: "pro",
+    displayName: "Unlimited Event Forwarder Usage",
+  },
   "unlimited-managed-warehouse-usage": {
     plan: "pro",
     displayName: "Unlimited Managed Warehouse Usage",
+  },
+  "unlimited-projects": {
+    plan: "enterprise",
+    displayName: "Unlimited Projects",
   },
   "visual-editor": {
     plan: "pro",

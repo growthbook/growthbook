@@ -24,17 +24,23 @@ import {
   PendingSSOConnectionCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
-import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  IS_CLOUD,
+  USE_PROXY,
+  WEBHOOK_PROXY,
+} from "back-end/src/util/secrets";
 import { _dangerousGetSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
 } from "back-end/src/services/users";
-import { getHttpOptions } from "back-end/src/util/http.util";
+import { getAuthHttpOptions } from "back-end/src/util/http.util";
 import {
   VERCEL_CLIENT_ID,
   VERCEL_CLIENT_SECRET,
 } from "back-end/src/services/vercel-native-integration.service";
+import { vercelInstallationExists } from "back-end/src/models/VercelNativeIntegrationModel";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import {
   createNonce,
@@ -44,8 +50,8 @@ import {
   nonceFromState,
 } from "./authChecks";
 
-if (USE_PROXY) {
-  custom.setHttpOptionsDefaults(getHttpOptions());
+if (USE_PROXY || WEBHOOK_PROXY) {
+  custom.setHttpOptionsDefaults(getAuthHttpOptions());
 }
 
 const passthroughQueryParams = ["hypgen", "hypothesis"];
@@ -58,6 +64,8 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
   }
   throw new Error("Could not find SSO connection - " + ssoConnectionId);
 }, 30);
+
+const vercelInstallationCache = new MemoryCache(vercelInstallationExists, 30);
 
 // A stable key for clientMap
 // Cache key must include all fields that affect the OpenID Client, so updates
@@ -217,7 +225,7 @@ export class OpenIdAuthConnection implements AuthConnection {
           rateLimit: false,
           jwksRequestsPerMinute: 10,
           jwksUri,
-          requestAgent: getHttpOptions().agent,
+          requestAgent: getAuthHttpOptions().agent,
         });
 
         const getKey: GetVerificationKey = (req, token) => {
@@ -271,6 +279,10 @@ export class OpenIdAuthConnection implements AuthConnection {
     req: Request,
     res: Response,
   ) {
+    if (ssoConnection.id) {
+      PendingSSOConnectionCookie.setValue(ssoConnection.id, req, res);
+    }
+
     // Vercel has a provider-initiated SSO flow that differs from the normal OAuth flow
     if (ssoConnection.id?.startsWith("vercel:")) {
       const installationId = ssoConnection.id.split(":")[1];
@@ -285,10 +297,6 @@ export class OpenIdAuthConnection implements AuthConnection {
       createNonce(),
     );
     const code_challenge = generators.codeChallenge(code_verifier);
-
-    if (ssoConnection.id) {
-      PendingSSOConnectionCookie.setValue(ssoConnection.id, req, res);
-    }
 
     let url = client.authorizationUrl({
       scope: `openid email profile ${
@@ -340,6 +348,15 @@ async function getConnectionFromRequest(req: Request, res: Response) {
       persistSSOConnectionId = true;
       ssoConnectionId = ssoConnectionIdFromQuery;
     }
+  }
+
+  // A cookie naming a deleted installation redirects off-app forever, so drop it
+  if (
+    ssoConnectionId.startsWith("vercel:") &&
+    !(await vercelInstallationCache.get(ssoConnectionId.split(":")[1]))
+  ) {
+    SSOConnectionIdCookie.setValue("", req, res);
+    ssoConnectionId = "";
   }
 
   let connection: SSOConnectionInterface;

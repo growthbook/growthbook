@@ -11,11 +11,17 @@ import {
   holdoutSizeToCoverage,
   HoldoutStage,
   validateCondition,
+  getHoldoutLinkBlocker,
+  parseAssignmentQuerySelection,
+  parseAssignmentQueryInput,
+  resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
   ApiUpdateHoldoutBody,
   CreateHoldoutInput,
   HoldoutInterface,
+  HoldoutMissingLink,
+  HoldoutMissingLinkage,
   HoldoutNextScheduledStatusUpdate,
   HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS,
   HOLDOUT_API_TARGETING_UPDATE_FIELDS,
@@ -29,22 +35,27 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DataSourceInterface } from "shared/types/datasource";
+import {
+  notifyHoldoutCreated,
+  notifyHoldoutStatusChanged,
+} from "back-end/src/services/holdoutNotifications";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   createExperiment,
+  dangerouslyGetExperimentsByIdsBypassPermission,
   deleteExperimentByIdForOrganization,
   getExperimentsByIds,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
+  getFeatureProjectsByIds,
   getFeaturesByIds,
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -55,6 +66,7 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 
 export function assertCanRunHoldoutEnvironments(
   context: ReqContext | ApiReqContext,
@@ -286,87 +298,57 @@ export async function resolveHoldoutExperimentToLink({
   effectiveHoldout: { id: string } | null | undefined;
   makeError?: (message: string) => Error;
 }): Promise<void> {
-  if (effectiveHoldout?.id) {
-    // Experiment already belongs to a different holdout — refuse the mismatch.
-    if (experiment.holdoutId && experiment.holdoutId !== effectiveHoldout.id) {
-      const featureHoldout = await context.models.holdout.getById(
-        effectiveHoldout.id,
-      );
-      const expHoldout = await context.models.holdout.getById(
-        experiment.holdoutId,
-      );
+  const featureHoldoutId = effectiveHoldout?.id ?? null;
+  // Only a holdout the experiment would join has a project scope to check.
+  const joining =
+    !!featureHoldoutId && !experiment.holdoutId
+      ? await context.models.holdout.getByIdForLinkage(featureHoldoutId)
+      : null;
+  const blocker = getHoldoutLinkBlocker({
+    featureId: feature.id,
+    featureHoldoutId,
+    featureHoldoutProjects: joining?.projects ?? null,
+    experiment,
+  });
+  if (!blocker) return;
+
+  const holdoutName = async (id: string) =>
+    (await context.models.holdout.getById(id))?.name || id;
+  switch (blocker.reason) {
+    case "different-holdout":
       throw makeError(
-        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature flag uses holdout "${featureHoldout?.name || effectiveHoldout.id}".`,
+        `Cannot add experiment rule: experiment belongs to holdout "${await holdoutName(blocker.experimentHoldoutId)}" but this feature flag uses holdout "${await holdoutName(blocker.featureHoldoutId)}".`,
       );
-    }
-
-    // Not yet linked: validate it can join the holdout, then signal the caller
-    // to perform the link.
-    if (!experiment.holdoutId) {
-      // Re-checked at publish, which is what actually gates the linkage.
-      const holdout = await context.models.holdout.getByIdForLinkage(
-        effectiveHoldout.id,
+    case "holdout-unavailable":
+      throw makeError(
+        `Cannot add experiment rule: holdout "${joining?.name}" is not available in the experiment's Project.`,
       );
-      if (
-        holdout &&
-        !isHoldoutAvailableForProject(holdout, experiment.project)
-      ) {
-        throw makeError(
-          `Cannot add experiment rule: holdout "${holdout.name}" is not available in the experiment's Project.`,
-        );
-      }
-      if (experiment.status !== "draft") {
-        throw makeError(
-          `Cannot add experiment rule: this feature flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
-        );
-      }
-      // Self-links never count: linkedFeatures is deliberately sticky (see
-      // syncFeatureExperimentLinkages), so a discarded draft on this same feature
-      // leaves one behind, and counting it blocked re-adding the rule.
-      const expHasLinkedChanges =
-        (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
-          false) ||
-        experiment.hasURLRedirects ||
-        experiment.hasVisualChangesets;
-      if (expHasLinkedChanges) {
-        throw makeError(
-          `Cannot add experiment rule: this feature flag uses a holdout, but the experiment already has linked Feature Flags, URL redirects, or visual changesets. Unlink them first.`,
-        );
-      }
-      return;
-    }
-
-    // Already linked to this same holdout: nothing to do.
-    return;
-  }
-
-  // Feature is not in a holdout, but the experiment already belongs to one.
-  if (experiment.holdoutId) {
-    const expHoldout = await context.models.holdout.getById(
-      experiment.holdoutId,
-    );
-    throw makeError(
-      `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature flag is not in a holdout. Add the feature flag to that holdout first, then add the experiment.`,
-    );
-  }
-}
-
-export function assertValidAssignmentQuery(
-  datasource: DataSourceInterface | null,
-  assignmentQueryId: string | undefined,
-): void {
-  if (!assignmentQueryId) return;
-  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
-    (q) => q.id === assignmentQueryId,
-  );
-  if (!exposureQuery) {
-    throw new Error("Invalid assignment query: " + assignmentQueryId);
+    case "not-draft":
+      throw makeError(
+        `Cannot add experiment rule: this feature flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
+      );
+    case "has-linked-changes":
+      throw makeError(
+        `Cannot add experiment rule: this feature flag uses a holdout, but the experiment already has linked Feature Flags, URL redirects, or visual changesets. Unlink them first.`,
+      );
+    case "not-in-holdout":
+      throw makeError(
+        `Cannot add experiment rule: this experiment belongs to holdout "${await holdoutName(blocker.experimentHoldoutId)}", but this feature flag is not in a holdout. Add the feature flag to that holdout first, then add the experiment.`,
+      );
   }
 }
 
 export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   data: CreateHoldoutInput,
+  {
+    onOmitted = "defaultToFirst",
+  }: {
+    /**
+     * REST bodies must name an identifier when ambiguous.
+     */
+    onOmitted?: "defaultToFirst" | "requireUnambiguous";
+  } = {},
 ): Promise<{
   holdout: HoldoutInterface;
   experiment: ExperimentInterface;
@@ -381,9 +363,31 @@ export async function createHoldoutWithExperiment(
     secondaryMetrics: data.secondaryMetrics,
   });
 
-  assertValidAssignmentQuery(datasource, data.assignmentQueryId);
+  let exposureQueryIdentifierType: string | undefined;
+  if (data.assignmentQueryId) {
+    const parsed = parseAssignmentQuerySelection(
+      datasource?.settings?.queries?.exposure ?? [],
+      {
+        exposureQueryId: data.assignmentQueryId,
+        identifierType: data.assignmentQueryIdentifierType,
+        onOmitted,
+        field: "assignmentQuery",
+        scope: {
+          projects: data.projects ?? [],
+          datasourceProjects: datasource?.projects,
+        },
+      },
+    );
+    if (!parsed.ok) throw new Error(parsed.error);
+    exposureQueryIdentifierType = parsed.identifierType;
+  }
 
-  const conditionResult = validateCondition(data.targetingCondition);
+  const conditionResult = validateCondition(
+    data.targetingCondition,
+    await getSavedGroupsForValidation(context, [
+      { condition: data.targetingCondition },
+    ]),
+  );
   if (!conditionResult.success) {
     throw new Error(`Invalid targeting condition: ${conditionResult.error}`);
   }
@@ -434,6 +438,7 @@ export async function createHoldoutWithExperiment(
     trackingKey: `holdout-${uuidv4()}`,
     datasource: data.datasourceId || "",
     exposureQueryId: data.assignmentQueryId || "",
+    exposureQueryIdentifierType,
     userIdType: "anonymous",
     name: data.name,
     phases: [
@@ -500,6 +505,8 @@ export async function createHoldoutWithExperiment(
     linkedFeatures: {},
     linkedExperiments: {},
   });
+
+  await notifyHoldoutCreated({ context, holdout });
 
   return { holdout, experiment, datasource, metricIds };
 }
@@ -609,7 +616,12 @@ export async function updateHoldoutWithExperiment(
     // Catch a malformed condition here rather than at bucketing time.
     // validateCondition treats undefined and "{}" as valid.
     if (body.targetingCondition !== undefined) {
-      const conditionResult = validateCondition(body.targetingCondition);
+      const conditionResult = validateCondition(
+        body.targetingCondition,
+        await getSavedGroupsForValidation(context, [
+          { condition: body.targetingCondition },
+        ]),
+      );
       if (!conditionResult.success) {
         throw new Error(
           `Invalid targeting condition: ${conditionResult.error}`,
@@ -660,11 +672,17 @@ export async function updateHoldoutWithExperiment(
   if (body.owner !== undefined) {
     experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
   }
+  const assignmentQueryInput = parseAssignmentQueryInput(
+    body.assignmentQuery,
+    body.assignmentQueryId,
+    "assignmentQuery",
+  );
+  const assignmentQueryId = assignmentQueryInput.id;
   // Validate against the post-update values, so a metric or exposure query left
   // stale by a datasource-only change is rejected here, not at query time.
   if (
     body.datasourceId !== undefined ||
-    body.assignmentQueryId !== undefined ||
+    assignmentQueryId !== undefined ||
     body.goalMetrics !== undefined ||
     body.secondaryMetrics !== undefined
   ) {
@@ -674,16 +692,41 @@ export async function updateHoldoutWithExperiment(
       secondaryMetrics: body.secondaryMetrics ?? experiment.secondaryMetrics,
     });
 
-    assertValidAssignmentQuery(
-      datasource,
-      body.assignmentQueryId ?? experiment.exposureQueryId,
-    );
+    const effectiveQueryId = assignmentQueryId ?? experiment.exposureQueryId;
+    if (effectiveQueryId) {
+      const resolved = resolveAssignmentQuerySelectionChange(
+        datasource?.settings?.queries?.exposure ?? [],
+        {
+          previous: {
+            datasource: experiment.datasource ?? "",
+            exposureQueryId: experiment.exposureQueryId,
+            identifierType: experiment.exposureQueryIdentifierType,
+          },
+          next: {
+            datasource: body.datasourceId ?? experiment.datasource ?? "",
+            exposureQueryId: effectiveQueryId,
+            identifierType: assignmentQueryInput.identifierType,
+          },
+          onOmitted: "requireUnambiguous",
+          field: "assignmentQuery",
+          scope: {
+            projects: body.projects ?? holdout.projects,
+            datasourceProjects: datasource?.projects,
+          },
+        },
+      );
+      if (!resolved.ok) throw new Error(resolved.error);
+      // Undefined when the new selection is implicit, which clears the old one.
+      if (resolved.changed) {
+        experimentChanges.exposureQueryIdentifierType = resolved.identifierType;
+      }
+    }
 
     if (body.datasourceId !== undefined) {
       experimentChanges.datasource = body.datasourceId;
     }
-    if (body.assignmentQueryId !== undefined) {
-      experimentChanges.exposureQueryId = body.assignmentQueryId;
+    if (assignmentQueryId !== undefined) {
+      experimentChanges.exposureQueryId = assignmentQueryId;
     }
   }
   // The name is stored on both documents and must not drift.
@@ -942,8 +985,12 @@ export async function setHoldoutStage(
       experiment,
       changes,
     });
+    let updatedHoldout: HoldoutInterface;
     try {
-      await context.models.holdout.update(holdout, holdoutChanges);
+      updatedHoldout = await context.models.holdout.update(
+        holdout,
+        holdoutChanges,
+      );
     } catch (e) {
       const reverted = await rollbackExperimentAfterHoldoutFailure(
         context,
@@ -959,6 +1006,12 @@ export async function setHoldoutStage(
       );
       throw e;
     }
+    await notifyHoldoutStatusChanged({
+      context,
+      holdout: updatedHoldout,
+      previousStatus: currentStage,
+      currentStatus: getHoldoutStage(updatedHoldout, updatedExperiment),
+    });
     refreshPayload(event);
   };
 
@@ -1052,6 +1105,96 @@ export async function setHoldoutStage(
     default: {
       stage satisfies never;
     }
+  }
+}
+
+// What a holdout lists, split into what still points back at it and what
+// doesn't. Entries the caller can't read are left out of both.
+export async function getHoldoutLinkage(
+  context: ReqContext,
+  holdout: HoldoutInterface,
+): Promise<{
+  experiments: ExperimentInterface[];
+  features: FeatureInterface[];
+  missing: HoldoutMissingLinkage;
+}> {
+  const experimentIds = Object.keys(holdout.linkedExperiments);
+  const featureIds = Object.keys(holdout.linkedFeatures);
+  const [experiments, features, existingExperiments, existingFeatures] =
+    await Promise.all([
+      getExperimentsByIds(context, experimentIds),
+      getFeaturesByIds(context, featureIds),
+      dangerouslyGetExperimentsByIdsBypassPermission(
+        context.org.id,
+        experimentIds,
+      ),
+      getFeatureProjectsByIds(context, featureIds),
+    ]);
+  const experimentExists = new Set(existingExperiments.map((e) => e.id));
+  const deleted = (id: string): HoldoutMissingLink => ({
+    id,
+    name: null,
+    problem: "deleted",
+  });
+  const unlinked = (id: string, name: string): HoldoutMissingLink => ({
+    id,
+    name,
+    problem: "unlinked",
+  });
+
+  return {
+    experiments: experiments.filter((e) => e.holdoutId === holdout.id),
+    features: features.filter((f) => f.holdout?.id === holdout.id),
+    missing: {
+      experiments: [
+        ...experimentIds.filter((id) => !experimentExists.has(id)).map(deleted),
+        ...experiments
+          .filter((e) => e.holdoutId !== holdout.id)
+          .map((e) => unlinked(e.id, e.name)),
+      ],
+      features: [
+        ...featureIds.filter((id) => !existingFeatures.has(id)).map(deleted),
+        ...features
+          .filter((f) => f.holdout?.id !== holdout.id)
+          .map((f) => unlinked(f.id, f.id)),
+      ],
+    },
+  };
+}
+
+// Drops the holdout's side of a link that's already broken. Never re-links:
+// pointing the experiment or flag back would change who's held out mid-run.
+export async function removeHoldoutMissingLink(
+  context: ReqContext,
+  holdout: HoldoutInterface,
+  kind: "experiment" | "feature",
+  id: string,
+): Promise<void> {
+  if (!context.permissions.canUpdateHoldout(holdout, holdout)) {
+    context.permissions.throwPermissionError();
+  }
+  const { missing } = await getHoldoutLinkage(context, holdout);
+  const broken = (
+    kind === "experiment" ? missing.experiments : missing.features
+  ).some((link) => link.id === id);
+  if (!broken) {
+    throw new BadRequestError(
+      `${id} still belongs to this holdout, or you can't see it.`,
+    );
+  }
+  if (kind === "experiment") {
+    await context.models.holdout.removeExperimentFromHoldout(holdout.id, id);
+  } else {
+    await context.models.holdout.removeFeatureFromHoldout(holdout.id, id);
+  }
+  // A publish can point it back between the check and the removal, and finds
+  // the entry still there to keep. Put it back then, or the holdout could drop
+  // out of the payload and stop holding anyone out.
+  const after = await getHoldoutLinkage(context, holdout);
+  if (kind === "experiment" && after.experiments.some((e) => e.id === id)) {
+    await context.models.holdout.addExperimentToHoldout(holdout.id, id);
+  } else if (kind === "feature" && after.features.some((f) => f.id === id)) {
+    await context.models.holdout.addFeatureToHoldout(holdout.id, id);
   }
 }
 

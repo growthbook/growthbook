@@ -22,6 +22,7 @@ import {
   DataSourceExplorationConfig,
   SqlExplorationConfig,
   FunnelExplorationConfig,
+  JourneyExplorationConfig,
   ExplorationDateRange,
   dateGranularity,
 } from "shared/validators";
@@ -486,7 +487,8 @@ type DashboardGlobalControlSupportedConfig =
   | FactTableExplorationConfig
   | DataSourceExplorationConfig
   | SqlExplorationConfig
-  | FunnelExplorationConfig;
+  | FunnelExplorationConfig
+  | JourneyExplorationConfig;
 
 function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
   config: T["config"],
@@ -1188,4 +1190,61 @@ export function chartTypeHasDisplaySettings(
   // Check if the chart type supports any display settings
   // As more display settings are added, add their checks here
   return chartTypeSupportsAnchorYAxisToZero(chartType);
+}
+
+/** Where a dashboard lives in the app. */
+export function dashboardPagePath(id: string): string {
+  return `/product-analytics/dashboards/${id}`;
+}
+
+const DASHBOARD_PAGE_RE = /^\/product-analytics\/dashboards\/([^/?#]+)/;
+// The agent dispatcher accepts `/dashboards`, `/v1/dashboards`, `/api/v1/dashboards`.
+const DASHBOARD_API_RE =
+  /^(?:\/api)?(?:\/v[12])?\/dashboards(?:\/([^/?#]+))?\/?$/;
+
+/** The dashboard a page path is showing, or null. */
+export function dashboardIdFromPagePath(path: string): string | null {
+  return path.match(DASHBOARD_PAGE_RE)?.[1] ?? null;
+}
+
+/** `null` when the path isn't a dashboards route; `id: null` for the collection itself. */
+export function parseDashboardApiPath(
+  path: string,
+): { id: string | null } | null {
+  const match = path.split("?")[0].match(DASHBOARD_API_RE);
+  return match ? { id: match[1] ?? null } : null;
+}
+
+// A dashboard write replaces its whole block list (or removes it), so it is
+// only allowed against the dashboard the user is looking at.
+const DASHBOARD_WRITE_METHODS = new Set(["PUT", "PATCH", "DELETE"]);
+
+/**
+ * Why an agent-issued dashboard write must not run, or `undefined` when it may.
+ * Checked twice — when the model proposes the call, and again when the user
+ * confirms it, because they can navigate away in between.
+ */
+export function offScreenDashboardWriteRejection({
+  method,
+  path,
+  currentPage,
+}: {
+  method: string;
+  path: string;
+  currentPage?: string | null;
+}): string | undefined {
+  if (!DASHBOARD_WRITE_METHODS.has(method.toUpperCase())) return undefined;
+  const target = parseDashboardApiPath(path)?.id;
+  if (!target) return undefined;
+
+  const onScreen = currentPage ? dashboardIdFromPagePath(currentPage) : null;
+  if (onScreen === target) return undefined;
+
+  return (
+    (onScreen
+      ? `You can only change the dashboard the user is viewing, which is "${onScreen}", not "${target}".`
+      : "You can only change a dashboard while the user is viewing it, and they are not on a dashboard page.") +
+    " Do not retry this call and do not look for another way to make the change." +
+    " Tell them to open the dashboard they want changed and ask again there."
+  );
 }

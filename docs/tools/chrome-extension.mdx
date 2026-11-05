@@ -2,7 +2,6 @@
 title: DevTools Browser Extension for Feature Flags and A/B Tests
 description: Use GrowthBook DevTools in Chrome or Firefox to inspect, debug, and override feature flags and A/B tests on a live page.
 sidebarTitle: DevTools Browser Extension
-slug: chrome-extension
 ---
 
 GrowthBook DevTools is a browser extension for [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) that helps you inspect, debug, and modify feature flags and experiments in real time. Whether you're troubleshooting an experiment or tweaking a feature flag, DevTools gives you full visibility and control—right in your browser.
@@ -115,7 +114,7 @@ All feature flags are shown, even if they weren’t evaluated on the page. Use t
 
 ### Experiments
 
-The **Experiments** tab gives a complete overview of your A/B tests, including how they’re implemented (feature flag, URL redirect, visual editor) and their current values. Click on an experiment to open its detail view, where you can:
+The **Experiments** tab gives a complete overview of your A/B tests, including how they’re implemented (feature flag, URL redirect, AI Visual Editor) and their current values. Click on an experiment to open its detail view, where you can:
 
 - See additional experiment data.
 - Override the assigned variation to test different experiences.
@@ -132,7 +131,7 @@ The **Experiments** tab gives a complete overview of your A/B tests, including h
 | Current variation          | Which the user is assigned to. Click another variation to override it.            |
 | Results log                | The experiment result object.                                                     |
 | Current value              | The value associated with the current variation.                                  |
-| Implementation             | How the experiment is implemented: feature flag, visual editor, URL redirect      |
+| Implementation             | How the experiment is implemented: feature flag, AI Visual Editor, URL redirect   |
 | Targeting and Traffic      | Targeting conditions, traffic/enrollment settings, and URL rules if applicable.   |
 | Debug log                  | The reason why the experiment was evaluated as such.                              |
 | Full experiment definition | The complete JSON definition of the experiment.                                   |
@@ -202,6 +201,6 @@ While much of the communication is automatically handled (mediated by cookies an
 
 See the Node.js [DevTools for back-end](/lib/node#devtools-for-back-end) guide for integration instructions. Similar approaches will work for non-JS SDKs, but they must be manually implemented.
 
-## Visual Editor
+## AI Visual Editor
 
-GrowthBook DevTools also powers our Visual Editor, which enables designing A/B tests without writing code. The Visual Editor requires the Access Token mentioned in the previous section. See the docs [on the Visual Editor.](https://docs.growthbook.io/app/visual)
+The [GrowthBook Visual Editor](https://chromewebstore.google.com/detail/growthbook-visual-editor/nbomejknbpkcpjdagefhichaajpoempk) is a separate Chrome extension for designing A/B tests without writing code. See the [AI Visual Editor docs](/app/visual) to install, connect, and get started.

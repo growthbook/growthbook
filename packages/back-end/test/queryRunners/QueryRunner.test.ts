@@ -8,6 +8,7 @@ import {
   assertQueryMapComplete,
   rollupQueryStatus,
   getQueryFailureError,
+  getQueryFailureCause,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
@@ -140,6 +141,39 @@ const makeFailedQueryMap = (
   }
   return map;
 };
+
+describe("getQueryFailureCause", () => {
+  it("recognizes user cancellation observed by another runner", () => {
+    expect(
+      getQueryFailureCause(
+        makeFailedQueryMap(
+          ["root", { id: "q1", error: "Query cancelled by user" }],
+          ["dependent", { id: "q2", error: "Dependencies failed: q1" }],
+        ),
+      ),
+    ).toBe("cancelled");
+  });
+  it("recognizes a cancellation that names who cancelled", () => {
+    expect(
+      getQueryFailureCause(
+        makeFailedQueryMap([
+          "root",
+          { id: "q1", error: "Query cancelled by user (user@example.com)" },
+        ]),
+      ),
+    ).toBe("cancelled");
+  });
+  it("does not classify a warehouse error containing cancellation text as a user cancellation", () => {
+    expect(
+      getQueryFailureCause(
+        makeFailedQueryMap([
+          "root",
+          { id: "q1", error: "Syntax error near 'Query cancelled by user'" },
+        ]),
+      ),
+    ).toBe("query");
+  });
+});
 
 describe("getQueryFailureError", () => {
   it("prefers a root-cause error over a dependency cascade", () => {
@@ -686,6 +720,46 @@ describe("QueryRunner", () => {
       async onQueryFinish() {}
     }
 
+    it("identifies a run with no generated queries", async () => {
+      const runner = new RaceTestQueryRunner(
+        mockContext,
+        {
+          id: "test-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: null,
+        },
+        mockIntegration,
+      );
+      await runner.startAnalysis({ pointers: [] });
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          failureCause: "no-queries",
+        }),
+      );
+    });
+
+    it("marks explicit cancellation separately from failure", async () => {
+      const runner = new RaceTestQueryRunner(
+        mockContext,
+        {
+          id: "test-model",
+          organization: "test-org",
+          queries: [{ name: "a", query: "qry_a", status: "running" }],
+          runStarted: null,
+        },
+        mockIntegration,
+      );
+      await runner.cancelQueries();
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          failureCause: "cancelled",
+        }),
+      );
+    });
+
     it("persists a failed status when analysis throws on cached results", async () => {
       const model: InterfaceWithQueries = {
         id: "test-model",
@@ -714,6 +788,7 @@ describe("QueryRunner", () => {
         expect.objectContaining({
           status: "failed",
           error: expect.stringContaining("stats engine blew up"),
+          failureCause: "analysis",
         }),
       );
       expect(runner.status).toBe("finished");
@@ -751,11 +826,47 @@ describe("QueryRunner", () => {
         expect.objectContaining({
           status: "failed",
           error: expect.stringContaining("stats engine blew up"),
+          failureCause: "analysis",
         }),
       );
       expect(runner.status).toBe("finished");
       await expect(runner.waitForResults()).rejects.toThrow(
         "stats engine blew up",
+      );
+    });
+
+    it("preserves cancellation when analysis of partial results also fails", async () => {
+      const runner = new FailingAnalysisQueryRunner(
+        mockContext,
+        {
+          id: "test-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: null,
+        },
+        mockIntegration,
+      );
+      await runner.startAnalysis({
+        pointers: [
+          { name: "a", query: "qry_a", status: "running" },
+          { name: "b", query: "qry_b", status: "running" },
+          { name: "c", query: "qry_c", status: "running" },
+        ],
+      });
+      jest.mocked(getQueriesByIds).mockResolvedValue([
+        createMockQuery("qry_a", "succeeded"),
+        createMockQuery("qry_b", "succeeded"),
+        {
+          ...createMockQuery("qry_c", "failed"),
+          error: "Query cancelled by user",
+        },
+      ]);
+      await runner.refreshQueryStatuses();
+      expect(runner.updateModelSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          failureCause: "cancelled",
+        }),
       );
     });
 
@@ -1236,6 +1347,65 @@ describe("QueryRunner", () => {
         expect.objectContaining({ status: "succeeded" }),
       );
       expect(runner.status).toBe("finished");
+    });
+
+    it("finalizeFromPersistedResults flips stale running pointers and resolves true", async () => {
+      // A stalled snapshot's persisted pointers still read "running" because the
+      // process died before finalizing. Recovery must flip them so the UI
+      // (getQueryStatus reads the pointers) stops showing it as in-flight.
+      const runner = new StallTestQueryRunner(
+        mockContext,
+        makeModel([
+          { name: "a", query: "qry_a", status: "running" },
+          { name: "b", query: "qry_b", status: "running" },
+        ]),
+        mockIntegration,
+      );
+      (getQueriesByIds as jest.Mock).mockResolvedValue([
+        createMockQuery("qry_a", "succeeded"),
+        createMockQuery("qry_b", "succeeded"),
+      ]);
+
+      await expect(runner.finalizeFromPersistedResults()).resolves.toBe(true);
+
+      expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "succeeded",
+          queries: [
+            expect.objectContaining({ query: "qry_a", status: "succeeded" }),
+            expect.objectContaining({ query: "qry_b", status: "succeeded" }),
+          ],
+        }),
+      );
+      expect(runner.status).toBe("finished");
+    });
+
+    it("finalizeFromPersistedResults resolves false and persists the analysis failure", async () => {
+      const runner = new StallTestQueryRunner(
+        mockContext,
+        makeModel([
+          { name: "a", query: "qry_a", status: "running" },
+          { name: "b", query: "qry_b", status: "running" },
+        ]),
+        mockIntegration,
+      );
+      runner.runAnalysis = async () => {
+        throw new Error("boom");
+      };
+      (getQueriesByIds as jest.Mock).mockResolvedValue([
+        createMockQuery("qry_a", "succeeded"),
+        createMockQuery("qry_b", "succeeded"),
+      ]);
+
+      await expect(runner.finalizeFromPersistedResults()).resolves.toBe(false);
+
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          error: expect.stringContaining("Error running analysis"),
+        }),
+      );
     });
 
     it("does not finalize from a fresh (pending) runner instance", async () => {

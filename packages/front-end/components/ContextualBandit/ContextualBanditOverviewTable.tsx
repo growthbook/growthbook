@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
-import { ApiContextualBanditInterface } from "shared/validators";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Table, {
@@ -113,7 +112,7 @@ export default function ContextualBanditOverviewTable({
   formatMean,
   formatWeight,
 }: {
-  variations: ApiContextualBanditInterface["variations"];
+  variations: { id: string; name: string; index: number }[];
   means: (number | null)[];
   weights: (number | null)[];
   units: number[];
@@ -128,13 +127,13 @@ export default function ContextualBanditOverviewTable({
   const rows: OverviewRow[] = useMemo(
     () =>
       variations
-        .map((v, index) => ({
+        .map((v, i) => ({
           id: v.id,
-          index,
+          index: v.index,
           name: v.name,
-          mean: means[index] ?? null,
-          weight: weights[index] ?? null,
-          units: units[index] ?? 0,
+          mean: means[i] ?? null,
+          weight: weights[i] ?? null,
+          units: units[i] ?? 0,
         }))
         .sort((a, b) => (b.weight ?? -Infinity) - (a.weight ?? -Infinity)),
     [variations, means, weights, units],

@@ -1,10 +1,20 @@
 import { z } from "zod";
 import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { managedByValidator } from "./managed-by";
+import {
+  optionalOwnerInputField,
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+} from "./owner-field";
 import { baseSchema } from "./base-model";
 import { paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  PLAIN_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const statsEnginesValidator = z.enum(statsEngines);
 
@@ -22,6 +32,9 @@ export const projectValidator = baseSchema
     settings: projectSettingsValidator.optional(),
     managedBy: managedByValidator.optional(),
     restrictAccess: z.boolean().optional(),
+    allowTargeting: z.boolean().optional(),
+    // Absent on projects that predate it.
+    owner: ownerField.optional(),
   })
   .strict();
 
@@ -53,6 +66,14 @@ export const apiProjectValidator = namedSchema(
           "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access.",
         )
         .optional(),
+      allowTargeting: z
+        .boolean()
+        .describe(
+          "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
+        )
+        .optional(),
+      owner: ownerField,
+      ownerEmail: ownerEmailField,
       settings: z
         .object({
           statsEngine: z.string().optional(),
@@ -69,8 +90,13 @@ export type ApiProject = z.infer<typeof apiProjectValidator>;
 // Corresponds to payload-schemas/PostProjectPayload.yaml
 const postProjectBody = z
   .object({
-    name: z.string(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
+    owner: optionalOwnerInputField,
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     publicId: z
       .string()
       .describe(
@@ -92,7 +118,7 @@ const postProjectBody = z
           .optional(),
       })
       .describe(
-        "Project stats settings that, when set, override the organization settings.",
+        "Project settings that, when set, override the organization settings.",
       )
       .optional(),
     restrictAccess: z
@@ -101,17 +127,24 @@ const postProjectBody = z
         "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
       )
       .optional(),
+    allowTargeting: z
+      .boolean()
+      .describe(
+        "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
+      )
+      .optional(),
   })
   .strict();
 
 // Corresponds to payload-schemas/PutProjectPayload.yaml
 const putProjectBody = z
   .object({
-    name: z.string().describe("Project name.").optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
+    owner: ownerInputField.optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Project description.")
+      .describe(PLAIN_DESCRIPTION)
       .optional(),
     publicId: z
       .string()
@@ -132,13 +165,19 @@ const putProjectBody = z
           .optional(),
       })
       .describe(
-        "Project stats settings that, when set, override the organization settings.",
+        "Project settings that, when set, override the organization settings.",
       )
       .optional(),
     restrictAccess: z
       .boolean()
       .describe(
         "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
+      )
+      .optional(),
+    allowTargeting: z
+      .boolean()
+      .describe(
+        "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
       )
       .optional(),
   })
@@ -190,6 +229,7 @@ export const postProjectValidator = {
     })
     .strict(),
   summary: "Create a single project",
+  confirmation: ["project.create"] as const,
   operationId: "postProject",
   tags: ["projects"],
   method: "post" as const,
@@ -226,6 +266,7 @@ export const putProjectValidator = {
     })
     .strict(),
   summary: "Edit a single project",
+  confirmation: ["project.edit"] as const,
   operationId: "putProject",
   tags: ["projects"],
   method: "put" as const,
@@ -249,6 +290,7 @@ export const deleteProjectValidator = {
     })
     .strict(),
   summary: "Deletes a single project",
+  confirmation: ["project.delete"] as const,
   operationId: "deleteProject",
   tags: ["projects"],
   method: "delete" as const,

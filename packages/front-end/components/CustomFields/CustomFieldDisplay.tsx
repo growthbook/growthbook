@@ -1,21 +1,21 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import {
-  filterCustomFieldsForSectionAndProject,
-  isCustomFieldBooleanTrue,
-  toCustomFieldBooleanString,
-} from "@/services/customFields";
-import Markdown from "@/components/Markdown/Markdown";
-import DataList, { DataListItem } from "@/ui/DataList";
+import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
+import DataList from "@/ui/DataList";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Metadata from "@/ui/Metadata";
+import {
+  customFieldDataListItems,
+  renderCustomFieldValue,
+} from "./renderCustomFieldValue";
 import CustomFieldEditModal, {
   CustomFieldDraftInfo,
 } from "./CustomFieldEditModal";
@@ -30,6 +30,10 @@ const CustomFieldDisplay: FC<{
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
   /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
   draftInfo?: CustomFieldDraftInfo;
+  /** A metadata row per field, to sit alongside other metadata in a narrow column. */
+  rows?: boolean;
+  /** In rows mode, the edit button a field's row reveals on hover. */
+  rowAction?: (field: CustomField) => ReactNode;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -39,6 +43,8 @@ const CustomFieldDisplay: FC<{
   target,
   mt,
   draftInfo,
+  rows,
+  rowAction,
 }) => {
   const [editModal, setEditModal] = useState(false);
 
@@ -56,74 +62,45 @@ const CustomFieldDisplay: FC<{
     return null;
   }
 
-  const displayFieldsObj: DataListItem[] = [];
-  const currentValueMap = new Map(
-    Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
-      fid,
-      cValue ?? "",
-    ]),
+  const displayFieldsObj = customFieldDataListItems(
+    customFields,
+    currentCustomFields,
   );
-  const getMultiSelectValue = (value: string) => {
-    try {
-      return JSON.parse(value).join(", ");
-    } catch (e) {
-      return value;
-    }
-  };
-  const getDisplayValue = (v: CustomField, cValue: unknown) => {
-    const stringValue =
-      typeof cValue === "boolean"
-        ? toCustomFieldBooleanString(cValue)
-        : String(cValue ?? "");
 
-    switch (v.type) {
-      case "multiselect":
-        return getMultiSelectValue(stringValue);
-      case "markdown":
-        return <Markdown className="card-text">{stringValue}</Markdown>;
-      case "textarea":
-        return <div style={{ whiteSpace: "pre" }}>{stringValue}</div>;
-      case "url":
-        if (stringValue !== "") {
+  if (rows) {
+    return (
+      <Flex direction="column" gap="3">
+        {customFields.map((field) => {
+          const value = currentCustomFields[field.id] ?? "";
           return (
-            <a href={stringValue} target="_blank" rel="noreferrer">
-              {stringValue}
-            </a>
+            <Metadata
+              size="sm"
+              stacked
+              key={field.id}
+              label={field.name}
+              action={rowAction?.(field)}
+              value={
+                value === "" ? (
+                  <Text
+                    weight="regular"
+                    color="text-mid"
+                    size="sm"
+                    fontStyle="italic"
+                  >
+                    None
+                  </Text>
+                ) : (
+                  <Box style={{ fontSize: "var(--font-size-1)" }}>
+                    {renderCustomFieldValue(field, value)}
+                  </Box>
+                )
+              }
+            />
           );
-        }
-        break;
-      case "boolean":
-        return <>{isCustomFieldBooleanTrue(cValue) ? "yes" : "no"}</>;
-      case "date":
-        if (stringValue) {
-          return new Date(stringValue).toLocaleDateString();
-        }
-        break;
-      case "datetime":
-        if (stringValue) {
-          return new Date(stringValue).toLocaleString();
-        }
-        break;
-      case "text":
-      case "enum":
-      case "number":
-        break;
-      default: {
-        const exhaustiveCheck: never = v.type;
-        return exhaustiveCheck;
-      }
-    }
-
-    return stringValue || <Text color="text-mid">--</Text>;
-  };
-
-  customFields.forEach((v) => {
-    displayFieldsObj.push({
-      label: v.name,
-      value: getDisplayValue(v, currentValueMap.get(v.id) ?? ""),
-      tooltip: v.description,
-    });
-  });
+        })}
+      </Flex>
+    );
+  }
 
   const editLink = canEdit ? (
     <Link onClick={() => setEditModal(true)}>

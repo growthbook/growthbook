@@ -9,7 +9,9 @@ type UseCopyToClipboard = {
   copySupported: boolean;
   copySuccess: boolean;
   copyCooldown: boolean; // true during cooldown after a successful copy
-  performCopy: (value: string) => void;
+  // A promise starts the write inside the click and fills it in once ready,
+  // so slow-to-build text still counts as part of the user's gesture
+  performCopy: (value: string | Promise<string>) => void;
 };
 
 export const useCopyToClipboard = ({
@@ -30,11 +32,26 @@ export const useCopyToClipboard = ({
   }, []);
 
   const performCopyToClipboard = useCallback(
-    async (value: string) => {
+    async (value: string | Promise<string>) => {
       if (!supported) return;
 
       try {
-        await navigator.clipboard.writeText(value);
+        if (typeof value === "string") {
+          await navigator.clipboard.writeText(value);
+        } else if (
+          typeof ClipboardItem !== "undefined" &&
+          typeof navigator.clipboard.write === "function"
+        ) {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              "text/plain": value.then(
+                (text) => new Blob([text], { type: "text/plain" }),
+              ),
+            }),
+          ]);
+        } else {
+          await navigator.clipboard.writeText(await value);
+        }
         setSuccess(true);
       } catch (e) {
         console.error(e);

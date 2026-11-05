@@ -1,4 +1,5 @@
 import { getExperimentResultsValidator } from "shared/validators";
+import { NotFoundError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -7,13 +8,14 @@ import {
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 
 export const getExperimentResults = createApiRequestHandler(
   getExperimentResultsValidator,
 )(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
-    throw new Error("Could not find experiment with that id");
+    throw new NotFoundError("Could not find experiment with that id");
   }
 
   const phase = parseInt(req.query.phase ?? experiment.phases.length - 1 + "");
@@ -33,7 +35,12 @@ export const getExperimentResults = createApiRequestHandler(
     toExperimentApiInterface(req.context, experiment),
     getMetricMapForExperiment(req.context, experiment),
   ]);
-  const result = toSnapshotApiInterface(experiment, snapshot, metricsById);
+  const result = toSnapshotApiInterface(
+    experiment,
+    snapshot,
+    metricsById,
+    await getExposureQueriesForDatasource(req.context, experiment.datasource),
+  );
 
   return {
     experiment: apiExperiment,

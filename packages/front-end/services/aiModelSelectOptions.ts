@@ -1,4 +1,4 @@
-import type { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
+import type { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
@@ -21,7 +21,12 @@ const PROVIDER_DISPLAY_NAMES: Record<AIProvider, string> = {
 
 /** Human-readable display names for all AI models, without vendor prefix. */
 export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
-  // OpenAI GPT-5.6 series. Hyphenated, matching OpenAI's own naming.
+  // OpenAI. Hyphenated, matching OpenAI's own naming.
+  "gpt-6-astra": "GPT-6 Astra",
+  "gpt-6.1-sol": "GPT-6.1 Sol",
+  "gpt-6-sol": "GPT-6 Sol",
+  "gpt-6-luna": "GPT-6 Luna",
+  // GPT-5.6 series
   "gpt-5.6-sol": "GPT-5.6 Sol",
   "gpt-5.6-terra": "GPT-5.6 Terra",
   "gpt-5.6-luna": "GPT-5.6 Luna",
@@ -30,14 +35,10 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "gpt-5.4-nano": "GPT-5.4 Nano",
   "gpt-5.2": "GPT-5.2",
   "gpt-5.2-pro": "GPT-5.2 Pro",
-  "gpt-5.1-codex": "GPT-5.1 Codex",
-  "gpt-5.1-codex-max": "GPT-5.1 Codex Max",
-  "gpt-5.1-codex-mini": "GPT-5.1 Codex Mini",
   "gpt-5": "GPT-5",
   "gpt-5-nano": "GPT-5 Nano",
   "gpt-5-mini": "GPT-5 Mini",
   "gpt-5-pro": "GPT-5 Pro",
-  "gpt-5-codex": "GPT-5 Codex",
   // OpenAI GPT-4 series
   "gpt-4.1": "GPT-4.1",
   "gpt-4.1-mini": "GPT-4.1 Mini",
@@ -50,30 +51,30 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "o3-mini": "O3 Mini",
   o1: "O1",
   // Anthropic Claude. Tier before version, matching Anthropic's own naming.
+  "claude-opus-5-5": "Claude Opus 5.5",
   "claude-opus-5": "Claude Opus 5",
+  "claude-sonnet-5-5": "Claude Sonnet 5.5",
   "claude-sonnet-5": "Claude Sonnet 5",
+  "claude-haiku-5-5": "Claude Haiku 5.5",
   "claude-opus-4-8": "Claude Opus 4.8",
   "claude-sonnet-4-6": "Claude Sonnet 4.6",
   "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
   "claude-sonnet-4-5-20250929": "Claude Sonnet 4.5",
-  "claude-opus-4-1-20250805": "Claude Opus 4.1",
   "claude-opus-4-20250514": "Claude Opus 4",
   "claude-sonnet-4-20250514": "Claude Sonnet 4",
-  "claude-3-7-sonnet-20250219": "Claude Sonnet 3.7",
-  "claude-3-5-haiku-20241022": "Claude Haiku 3.5",
-  "claude-3-haiku-20240307": "Claude Haiku 3",
   // xAI Grok
+  "grok-4.7": "Grok 4.7",
   "grok-4.6": "Grok 4.6",
   "grok-4.5": "Grok 4.5",
   "grok-4.3": "Grok 4.3",
-  // Mistral. "(latest)" marks a rolling alias — the model behind it changes.
   "mistral-large-latest": "Mistral Large (latest)",
   "mistral-medium-latest": "Mistral Medium (latest)",
   "mistral-small-latest": "Mistral Small (latest)",
-  "pixtral-large-latest": "Pixtral Large (latest)",
   // Google Gemini
   "gemini-3.1-pro-preview": "Gemini 3.1 Pro Preview",
+  "gemini-3.8-flash": "Gemini 3.8 Flash",
   "gemini-3.7-flash": "Gemini 3.7 Flash",
+  "gemini-3.6-flash": "Gemini 3.6 Flash",
   "gemini-3.5-flash": "Gemini 3.5 Flash",
   "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
   "gemini-3-flash-preview": "Gemini 3 Flash Preview",
@@ -112,6 +113,17 @@ export const EMBEDDING_MODEL_OPTIONS =
     },
     { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
   ]);
+
+/** Transcription models for voice dictation, labeled with their provider. */
+export const STT_MODEL_OPTIONS = ensureValuesExactlyMatchUnion<STTModel>()([
+  { value: "gpt-transcribe", label: "OpenAI: GPT Transcribe" },
+  { value: "gpt-4o-transcribe", label: "OpenAI: GPT-4o Transcribe" },
+  { value: "gpt-4o-mini-transcribe", label: "OpenAI: GPT-4o Mini Transcribe" },
+  { value: "whisper-1", label: "OpenAI: Whisper (legacy)" },
+  { value: "grok-stt-1.0", label: "xAI: Grok STT 1.0" },
+  // Mistral. "(latest)" marks a rolling alias — the model behind it changes.
+  { value: "voxtral-mini-latest", label: "Mistral: Voxtral Mini (latest)" },
+]);
 
 function withSelectedOption<T extends FlatOption | GroupedOption>(
   options: T[],
@@ -181,6 +193,12 @@ export const USE_DEFAULT_EMBEDDING_MODEL_OPTION = {
   label: `Use default (${DEFAULT_EMBEDDING_MODEL})`,
 };
 
+// Names no model: what the default resolves to depends on which provider keys exist.
+export const USE_DEFAULT_STT_MODEL_OPTION = {
+  value: "",
+  label: "Use default dictation model",
+};
+
 /**
  * Clears the org's own default and hands the choice back to GrowthBook. Always
  * offered on Cloud — it is the only way back once a model is pinned, or once
@@ -197,6 +215,7 @@ export function getModelDisplayLabel(model: string): string {
     AI_MODEL_DISPLAY_LABELS[model as AIModel] ??
     getImageModelMeta(model)?.label ??
     EMBEDDING_MODEL_OPTIONS.find((o) => o.value === model)?.label ??
+    STT_MODEL_OPTIONS.find((o) => o.value === model)?.label ??
     model
   );
 }
@@ -265,5 +284,25 @@ export function getAvailableEmbeddingModelOptions(
     selectedModel,
     (value) =>
       EMBEDDING_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,
+  );
+}
+
+/** Filtered like the embedding options; a provider list with no STT model leaves only the sentinel. */
+export function getAvailableSTTModelOptions(
+  availableProviders: readonly AIProvider[] | undefined,
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
+  const options =
+    availableProviders === undefined
+      ? STT_MODEL_OPTIONS
+      : STT_MODEL_OPTIONS.filter((o) => {
+          const provider = getProviderForAIModel("stt", o.value);
+          return provider === null || availableProviders.includes(provider);
+        });
+
+  return withSelectedOption(
+    [USE_DEFAULT_STT_MODEL_OPTION, ...options],
+    selectedModel,
+    (value) => STT_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,
   );
 }

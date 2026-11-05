@@ -1,0 +1,142 @@
+import { useRef, useState } from "react";
+import { Flex } from "@radix-ui/themes";
+import Text from "@/ui/Text";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "./Table";
+import ColumnResizeHandle from "./ColumnResizeHandle";
+
+const COLUMNS = [
+  { id: "name", label: "Name", defaultWidth: 200, resizable: true },
+  {
+    id: "description",
+    label: "Description",
+    defaultWidth: 240,
+    resizable: true,
+  },
+  { id: "status", label: "Status", defaultWidth: 140, resizable: true },
+  { id: "date", label: "Date", defaultWidth: 160, resizable: true },
+  // No default width: absorbs the leftover, so a resize only ever moves the
+  // columns to its right.
+  { id: "spacer", label: "", defaultWidth: undefined, resizable: false },
+  { id: "actions", label: "", defaultWidth: 56, resizable: false },
+];
+
+const ROWS = [
+  {
+    name: "Item One",
+    description: "The first item",
+    status: "Active",
+    date: "Jan 15",
+  },
+  {
+    name: "Item Two",
+    description: "The second item",
+    status: "Draft",
+    date: "Jan 14",
+  },
+  {
+    name: "Item Three",
+    description: "The third item",
+    status: "Active",
+    date: "Jan 13",
+  },
+];
+
+function ResizableTable({ scrollX }: { scrollX?: boolean }) {
+  const [widths, setWidths] = useState<Record<string, number | undefined>>(() =>
+    Object.fromEntries(COLUMNS.map((c) => [c.id, c.defaultWidth])),
+  );
+  const colRefs = useRef<Map<string, HTMLTableColElement | null>>(new Map());
+
+  return (
+    <Table
+      variant="list"
+      stickyHeader
+      roundedCorners
+      layout="fixed"
+      scrollX={scrollX}
+      stickyLastColumn={scrollX}
+    >
+      <colgroup>
+        {COLUMNS.map((col) => (
+          <col
+            key={col.id}
+            ref={(el) => {
+              colRefs.current.set(col.id, el);
+            }}
+            style={widths[col.id] ? { width: widths[col.id] } : undefined}
+          />
+        ))}
+      </colgroup>
+      <TableHeader>
+        <TableRow>
+          {COLUMNS.map((col) => (
+            <TableColumnHeader key={col.id}>
+              {col.label}
+              {col.resizable && (
+                <ColumnResizeHandle
+                  label={col.label}
+                  width={widths[col.id]}
+                  minWidth={64}
+                  maxWidth={800}
+                  onCommit={(w) =>
+                    setWidths((prev) => ({ ...prev, [col.id]: w }))
+                  }
+                  setLiveWidth={(w) => {
+                    const el = colRefs.current.get(col.id);
+                    if (el) el.style.width = `${w}px`;
+                  }}
+                />
+              )}
+            </TableColumnHeader>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {ROWS.map((row) => (
+          <TableRow key={row.name}>
+            {COLUMNS.map((col) => (
+              <TableCell key={col.id}>
+                {row[col.id as keyof typeof row]}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+export default function ColumnResizeHandleStories() {
+  return (
+    <Flex direction="column" gap="6">
+      <Flex direction="column" gap="2">
+        <Text weight="medium">Drag, double-click and keyboard resize</Text>
+        <Text size="sm" color="text-low">
+          The handle is the faint line in the right 8px of each header cell.
+          Drag to resize; double-click to fit a column to its content; or focus
+          a handle and use Left/Right (Shift for a larger step, Home to reset).
+          A fixed layout and a <code>&lt;colgroup&gt;</code> are what make the
+          widths authoritative. Every data column has a width, so a resize only
+          moves the columns to its right; a trailing spacer column absorbs
+          whatever is left over.
+        </Text>
+        <ResizableTable />
+      </Flex>
+      <Flex direction="column" gap="2">
+        <Text weight="medium">Inside a scrollX region</Text>
+        <Text size="sm" color="text-low">
+          Widen the columns past the container to scroll horizontally. The
+          header sticks to the top of the scroll region rather than the
+          viewport, and the last column pins to the right edge.
+        </Text>
+        <ResizableTable scrollX />
+      </Flex>
+    </Flex>
+  );
+}

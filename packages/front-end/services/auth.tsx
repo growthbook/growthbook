@@ -26,6 +26,8 @@ import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { getGrowthBookTrackingHeaders } from "./utils";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 import { captureAttribution } from "./attribution-capture";
+import { ApiCallError } from "./apiCallError";
+import { isSameOriginRelativePath } from "./redirectPath";
 
 export type UserOrganizations = { id: string; name: string }[];
 // eslint-disable-next-line
@@ -41,6 +43,9 @@ export function appendIgnoreWarnings(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
 }
 
+// The REST API (/api/v*) authenticates with the Authorization header and
+// allows any CORS origin, so cross-origin requests must carry no credentials;
+// a same-origin API may sit behind a cookie-authenticated proxy, so send them.
 export function isExternalApiPath(url: string): boolean {
   return /^\/api\/v\d/.test(url);
 }
@@ -211,6 +216,18 @@ export async function safeLogout() {
   await redirectWithTimeout(json?.redirectURI || window.location.origin);
 }
 
+// Ends this session and starts sign-in through an Enterprise SSO connection.
+// Skips the current IdP's logout page, which would drop the ssoId hint.
+export async function switchToSSO(ssoConnectionId: string) {
+  await fetch(getApiHost() + `/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+  await redirectWithTimeout(
+    `${window.location.origin}/?ssoId=${encodeURIComponent(ssoConnectionId)}`,
+  );
+}
+
 // Where to land once login completes; only a same-origin relative path is trusted
 export function getPostAuthRedirectPath({ consume = false } = {}): string {
   try {
@@ -218,8 +235,7 @@ export function getPostAuthRedirectPath({ consume = false } = {}): string {
     if (consume) {
       window.sessionStorage.removeItem("postAuthRedirectPath");
     }
-    // Reject protocol-relative (//host) and backslash (/\host) escapes
-    return /^\/(?![/\\])/.test(path) ? path : "/";
+    return isSameOriginRelativePath(path) ? path : "/";
   } catch (e) {
     return "/";
   }
@@ -306,7 +322,6 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
-            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
@@ -380,7 +395,7 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      init.credentials = isExternalApiPath(url) ? "omit" : "include";
+      init.credentials = isExternalApiPath(url) ? "same-origin" : "include";
 
       if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
@@ -431,7 +446,7 @@ export const AuthProvider: React.FC<{
       init.headers["Authorization"] = `Bearer ${token}`;
 
       if (!init.credentials) {
-        init.credentials = isExternalApiPath(url) ? "omit" : "include";
+        init.credentials = isExternalApiPath(url) ? "same-origin" : "include";
       }
 
       if (init.body && !init.headers["Content-Type"]) {
@@ -556,7 +571,7 @@ export const AuthProvider: React.FC<{
               if (errorHandler) {
                 errorHandler(responseData);
               }
-              throw new Error(responseData.message || "There was an error");
+              throw new ApiCallError(responseData);
             }
             return responseData;
           }
@@ -566,7 +581,7 @@ export const AuthProvider: React.FC<{
         if (errorHandler) {
           errorHandler(responseData);
         }
-        throw new Error(responseData.message || "There was an error");
+        throw new ApiCallError(responseData);
       }
 
       return responseData;
@@ -614,7 +629,6 @@ export const AuthProvider: React.FC<{
   if (initError) {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -641,7 +655,6 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"

@@ -5,6 +5,8 @@ import { OrganizationInterface } from "shared/types/organization";
 import { ScimError, ScimUser, ScimUserPutRequest } from "back-end/types/scim";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { expandedMembertoScimUser } from "./getUser";
+import { removeUserFromOrg } from "./patchUser";
 
 async function updateUserRole(
   org: OrganizationInterface,
@@ -30,7 +32,7 @@ export async function putUser(
 ) {
   const userId = req.params.id;
 
-  const { displayName, userName, growthbookRole } = req.body;
+  const { userName, growthbookRole, active } = req.body;
 
   const org = req.organization;
 
@@ -47,7 +49,6 @@ export async function putUser(
   const expandedMembers = await expandOrgMembers([orgUser]);
 
   const {
-    name: currentMemberName,
     email: currentMemberEmail,
     managedByIdp: currentMemberManagedByIdp,
     role: currentMemberRole,
@@ -61,14 +62,6 @@ export async function putUser(
     });
   }
 
-  if (displayName && currentMemberName !== displayName) {
-    return res.status(400).json({
-      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-      status: "400",
-      detail: "Cannot update displayName",
-    });
-  }
-
   if (userName && currentMemberEmail !== userName) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
@@ -77,9 +70,23 @@ export async function putUser(
     });
   }
 
-  const responseObj = cloneDeep(req.body);
+  // displayName is ignored: User.name is global across orgs, so a single IdP cannot rename them.
 
-  if (growthbookRole && growthbookRole !== currentMemberRole) {
+  let isActive = true;
+
+  // Deactivate before role updates so a failed sole-admin removal cannot leave a persisted demotion.
+  if (active === false) {
+    try {
+      await removeUserFromOrg(org, orgUser);
+      isActive = false;
+    } catch (e) {
+      return res.status(400).json({
+        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+        status: "400",
+        detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
+      });
+    }
+  } else if (growthbookRole && growthbookRole !== currentMemberRole) {
     if (!isRoleValid(growthbookRole, org)) {
       return res.status(400).json({
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
@@ -96,6 +103,17 @@ export async function putUser(
         detail: `Unable to update the user's role: ${e.message}`,
       });
     }
+  }
+
+  const responseObj: ScimUser = expandedMembertoScimUser(
+    expandedMembers[0],
+    isActive,
+  );
+
+  // Return the role only when it is still the member's stored role. Deactivation
+  // removes the member, so a role sent in that same PUT was not applied.
+  if (isActive && growthbookRole) {
+    responseObj.growthbookRole = growthbookRole;
   }
 
   return res.status(200).json(responseObj);

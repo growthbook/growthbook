@@ -11,10 +11,15 @@ export type Size = SharedSize<"sm" | "md" | "lg">;
 
 export type Props = {
   label?: string | ReactElement;
+  // Vertical alignment of the box against the label. Defaults to the flex
+  // default (stretch); "center" suits single-line labels in toolbars/banners.
+  align?: "start" | "center";
   labelSize?: SharedSize<"sm" | "md" | "lg">;
   id?: string;
   disabled?: boolean;
   disabledMessage?: string;
+  /** A state the viewer can't change: out of the tab order, clicks do nothing. */
+  readOnly?: boolean;
   value: boolean | "indeterminate";
   size?: Size;
   checkboxTooltip?: string;
@@ -30,10 +35,12 @@ export type Props = {
 export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   {
     label,
+    align,
     labelSize = "md",
     id,
     disabled,
     disabledMessage,
+    readOnly = false,
     value,
     size = "md",
     checkboxTooltip,
@@ -53,7 +60,9 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   const checkboxEl = (
     <RadixCheckbox
       checked={value}
-      onCheckedChange={(v) => setValue(!!v)}
+      onCheckedChange={readOnly ? undefined : (v) => setValue(!!v)}
+      tabIndex={readOnly ? -1 : undefined}
+      aria-readonly={readOnly || undefined}
       disabled={disabled}
       color={checkboxColor}
       size={radixSize(size)}
@@ -78,7 +87,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
       )}
       {...containerProps}
     >
-      <Flex gap="2">
+      <Flex gap="2" align={align}>
         {checkboxTooltip && !disabled ? (
           <RadixTooltip content={checkboxTooltip} side="top" maxWidth="240px">
             {checkboxEl}
@@ -105,6 +114,8 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         body={disabledMessage}
         popperStyle={{ wordBreak: "normal" }}
         tipMinWidth="140px"
+        // Without this the label sits on a text line and the row grows 3px.
+        style={{ display: "inline-flex" }}
       >
         {labelEl}
       </Tooltip>

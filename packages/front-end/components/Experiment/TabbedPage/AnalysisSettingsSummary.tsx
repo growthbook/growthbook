@@ -23,6 +23,8 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
+  isAutoSnapshotScheduled,
+  getClusterSubUnit,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -31,7 +33,11 @@ import {
   OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
   IncrementalFullRefreshComparable,
 } from "shared/enterprise";
-import { getSnapshotAnalysis } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  getSnapshotAnalysis,
+  getSnapshotCutoffDate,
+} from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
@@ -40,8 +46,6 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { startCase } from "lodash";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu, {
   shouldOfferMenuRefresh,
@@ -63,17 +67,18 @@ import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import {
   getIsExperimentIncludedInIncrementalRefresh,
   getPipelineSettingsAfterDisablingExperiment,
   getHonoredPrecomputedUnitDimensionIds,
+  getUnitDisplayName,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
 import UpdateDimensionBreakdownModal from "@/components/Experiment/UpdateDimensionBreakdownModal";
@@ -148,9 +153,12 @@ export default function AnalysisSettingsSummary({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  const userIdType = resolveAnalysisIdentifierType(
+    datasourceSettings?.queries?.exposure?.find(
+      (e) => e.id === experiment.exposureQueryId,
+    ),
+    experiment.exposureQueryIdentifierType,
+  );
 
   const orgSettings = useOrgSettings();
   const pValueThreshold = usePValueThreshold(experiment.project);
@@ -223,24 +231,40 @@ export default function AnalysisSettingsSummary({
     };
   });
 
-  const totalUnits = useMemo(() => {
+  const healthUnits = useMemo(() => {
     const healthVariationUnits =
       snapshot?.health?.traffic?.overall?.variationUnits;
-    if (healthVariationUnits && healthVariationUnits.length > 0) {
-      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
-    }
-    // Fallback to using results for total units if health units not available
+    if (!healthVariationUnits?.length) return null;
+    return healthVariationUnits.reduce((acc, a) => acc + a, 0);
+  }, [snapshot?.health?.traffic?.overall?.variationUnits]);
+  const resultsUnits = useMemo(() => {
     let totalUsers = 0;
     analysis?.results?.forEach((result) => {
       result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
     });
     return totalUsers;
-  }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
+  }, [analysis?.results]);
+  const totalUnits = healthUnits ?? resultsUnits;
+  // A cluster's subunits can fall into several breakdown slices, so summing
+  // slices would count it more than once. Use the overall results instead.
+  const overallClusterUnits = useMemo(() => {
+    const overall = dimensionless?.analyses?.find(
+      (a) => !a.settings.dimensions.length,
+    );
+    if (!overall?.results?.length) return null;
+    return (overall.results[0].variations ?? []).reduce(
+      (acc, v) => acc + (v?.users || 0),
+      0,
+    );
+  }, [dimensionless?.analyses]);
 
-  // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
-  const unitDisplayName = userIdType
-    ? startCase(userIdType.split("_").join(" ")) + "s"
-    : "Units";
+  // Cluster results are analyzed per cluster, so their unit counts are
+  // clusters, while health traffic counts subunits.
+  const clusterSubUnitIdentifier = snapshot?.settings?.isClusterExperiment
+    ? snapshot.settings.clusterSubUnitIdentifier
+    : undefined;
+  const clusterIdentifier =
+    snapshot?.settings?.exposureQueryIdentifierType ?? userIdType;
 
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
@@ -274,7 +298,7 @@ export default function AnalysisSettingsSummary({
   const { incrementalRefresh, mutate: mutateIncrementalRefresh } =
     useIncrementalRefresh(isIncremental ? experiment.id : "");
   useEffect(() => {
-    // If dimensionless snapshto changes, re-fecth incremental refresh data
+    // If dimensionless snapshot changes, re-fetch incremental refresh data
     if (!isIncremental) return;
     mutateIncrementalRefresh();
   }, [isIncremental, dimensionless?.id, mutateIncrementalRefresh]);
@@ -306,6 +330,9 @@ export default function AnalysisSettingsSummary({
       skipPartialData: experiment.skipPartialData ?? false,
       datasourceId: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId ?? "",
+      exposureQueryIdentifierType: userIdType,
+      isClusterExperiment: experiment.isClusterExperiment,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
       // Match isOutdated's commercial-feature gate for regression adjustment.
       regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
         ? !!experiment.regressionAdjustmentEnabled
@@ -323,6 +350,14 @@ export default function AnalysisSettingsSummary({
       skipPartialData: dimensionless.settings.skipPartialData,
       datasourceId: dimensionless.settings.datasourceId,
       exposureQueryId: dimensionless.settings.exposureQueryId,
+      exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+        datasourceSettings?.queries?.exposure?.find(
+          (e) => e.id === dimensionless.settings.exposureQueryId,
+        ),
+        dimensionless.settings.exposureQueryIdentifierType,
+      ),
+      isClusterExperiment: dimensionless.settings.isClusterExperiment,
+      clusterSubUnitIdentifier: dimensionless.settings.clusterSubUnitIdentifier,
       regressionAdjustmentEnabled:
         dimensionless.settings.regressionAdjustmentEnabled,
       experimentId: dimensionless.settings.experimentId,
@@ -350,6 +385,8 @@ export default function AnalysisSettingsSummary({
     phase,
     hasRegressionAdjustmentFeature,
     incrementalRefresh,
+    userIdType,
+    datasourceSettings,
   ]);
 
   const overallNeedsFullRefresh =
@@ -624,7 +661,8 @@ export default function AnalysisSettingsSummary({
     if (!val1 && !val2) return false;
     if (!val1 || !val2) return true;
     if (val1.length !== val2.length) return true;
-    return val1.some((v) => !val2.includes(v));
+    // Order matters: snapshot results are indexed by variation position.
+    return val1.some((v, i) => v !== val2[i]);
   }
 
   function isStringArrayMissingElements(
@@ -705,6 +743,42 @@ export default function AnalysisSettingsSummary({
     if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
       reasons.push(getExperimentOutdatedReasonLabel("exposureQueryId"));
     }
+    // Resolve both sides so a snapshot saved before identifiers were stored
+    // matches an experiment that analyzes on the same identifier.
+    if (
+      isDifferent(
+        resolveAnalysisIdentifierType(
+          datasourceSettings?.queries?.exposure?.find(
+            (e) => e.id === exp.exposureQueryId,
+          ),
+          exp.exposureQueryIdentifierType,
+        ),
+        resolveAnalysisIdentifierType(
+          datasourceSettings?.queries?.exposure?.find(
+            (e) => e.id === snapshotSettings.exposureQueryId,
+          ),
+          snapshotSettings.exposureQueryIdentifierType,
+        ),
+      )
+    ) {
+      reasons.push(
+        getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
+      );
+    }
+    // A missing flag means off, and a subunit only counts in cluster mode.
+    const expSubUnit = exp.isClusterExperiment
+      ? (exp.clusterSubUnitIdentifier ?? null)
+      : null;
+    const snapshotSubUnit = snapshotSettings.isClusterExperiment
+      ? (snapshotSettings.clusterSubUnitIdentifier ?? null)
+      : null;
+    if (!!exp.isClusterExperiment !== !!snapshotSettings.isClusterExperiment) {
+      reasons.push(getExperimentOutdatedReasonLabel("isClusterExperiment"));
+    } else if (expSubUnit !== snapshotSubUnit) {
+      reasons.push(
+        getExperimentOutdatedReasonLabel("clusterSubUnitIdentifier"),
+      );
+    }
     if (
       isDifferent(
         exp.attributionModel || "firstExposure",
@@ -749,9 +823,16 @@ export default function AnalysisSettingsSummary({
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
         getValidDate(snapshotSettings.startDate),
       ) ||
+      // A running phase analyzed through a lagged cutoff ends before the
+      // snapshot ran, so measure its staleness from the run time.
       isDifferentDate(
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
-        getValidDate(snapshotSettings.endDate),
+        getValidDate(
+          !exp.phases?.[currentPhase ?? 0]?.dateEnded &&
+            snapshotSettings.endDateIsCutoff
+            ? snap?.dateCreated
+            : snapshotSettings.endDate,
+        ),
       )
     ) {
       reasons.push("Analysis dates changed");
@@ -780,8 +861,11 @@ export default function AnalysisSettingsSummary({
       );
     }
 
+    // Mirrors the back-end, which stores it as off for cluster experiments.
     const experimentPostStratificationEnabled =
-      !hasPostStratificationFeature || org.disablePrecomputedDimensions
+      !hasPostStratificationFeature ||
+      org.disablePrecomputedDimensions ||
+      getClusterSubUnit(exp)
         ? false
         : (exp.postStratificationEnabled ??
           org.postStratificationEnabled ??
@@ -864,10 +948,27 @@ export default function AnalysisSettingsSummary({
           }}
         >
           <Flex align="center" gap="4">
-            {snapshot ? (
+            {snapshot && clusterSubUnitIdentifier ? (
+              <>
+                {overallClusterUnits !== null && (
+                  <Metadata
+                    label={getUnitDisplayName(clusterIdentifier)}
+                    value={numberFormatter.format(overallClusterUnits)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                )}
+                {healthUnits !== null && (
+                  <Metadata
+                    label={getUnitDisplayName(clusterSubUnitIdentifier)}
+                    value={numberFormatter.format(healthUnits)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                )}
+              </>
+            ) : snapshot ? (
               <Metadata
-                label={unitDisplayName}
-                value={numberFormatter.format(totalUnits ?? 0)}
+                label={getUnitDisplayName(userIdType)}
+                value={numberFormatter.format(totalUnits)}
                 style={{ whiteSpace: "nowrap" }}
               />
             ) : null}
@@ -876,12 +977,13 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
+                cutoffDate={
+                  snapshot ? getSnapshotCutoffDate(snapshot.settings) : null
+                }
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
-                autoUpdateEnabled={
-                  experiment.autoSnapshots && !experiment.disableAutoSnapshots
-                }
+                autoUpdateEnabled={isAutoSnapshotScheduled(experiment)}
                 showAutoUpdateWidget={true}
                 failedString={
                   latest && !latest.queries.length && latest.error
@@ -1076,10 +1178,8 @@ export default function AnalysisSettingsSummary({
           button (same `allMetrics.length > 0` gate). With no metrics there is
           nothing to rescan, and Results already shows "Add at least 1 metric". */}
       {incrementalUpdatesUnavailable && allMetrics.length > 0 && (
-        <Callout status="warning" mt="2">
-          <Text weight="semibold" size="md">
-            Updates will rescan full experiment data.
-          </Text>{" "}
+        <Callout status="warning" contentAlign="center" mt="2">
+          Updates will rescan the full experiment data.{" "}
           {incrementalPipelineUnsupportedReason}
         </Callout>
       )}
@@ -1097,29 +1197,21 @@ export default function AnalysisSettingsSummary({
 
       {viewingDimensionThatRequiresOverallFirst &&
       overallResultsRequiredBeforeDimensionRefresh ? (
-        <Callout status="warning" mt="2">
-          {overallNeedsFullRefresh ? (
-            <>
-              <Text weight="semibold" size="md">
-                Overall Results require a Full Refresh.
-              </Text>{" "}
-              Dimension Results are computed from Overall Results and would be
-              inaccurate.{" "}
-              <Link onClick={goToOverallResults}>
-                Refresh Overall Results <PiArrowSquareOut size={15} />
-              </Link>
-            </>
-          ) : (
-            <>
-              <Text weight="semibold" size="md">
-                Overall Results need to be run first.
-              </Text>{" "}
-              Dimension Results are computed from Overall Results.{" "}
-              <Link onClick={goToOverallResults}>
-                Run Overall Results <PiArrowSquareOut size={15} />
-              </Link>
-            </>
-          )}
+        <Callout
+          status="warning"
+          contentAlign="center"
+          mt="2"
+          action={
+            <Button variant="outline" size="sm" onClick={goToOverallResults}>
+              {overallNeedsFullRefresh
+                ? "Refresh overall results"
+                : "Run overall results"}
+            </Button>
+          }
+        >
+          {overallNeedsFullRefresh
+            ? "Overall results need a full refresh first. Dimension results are computed from them and would be inaccurate."
+            : "Run overall results first. Dimension results are computed from them."}
         </Callout>
       ) : null}
 
@@ -1133,23 +1225,27 @@ export default function AnalysisSettingsSummary({
       ) : null}
 
       {refreshError && (
-        <>
-          <Callout status="error" mt="2">
-            <strong>Error updating data: </strong> {refreshError}
-          </Callout>
-          {isExperimentIncludedInIncrementalRefresh && (
-            <Box mt="2" mb="2">
-              <Text size="sm" color="text-low">
-                If this error persists, you can try disabling Incremental
-                Refresh for this experiment by{" "}
-                <Link onClick={handleDisableIncrementalRefresh}>
-                  clicking here
-                </Link>
-                .
-              </Text>
-            </Box>
-          )}
-        </>
+        <Callout
+          status="error"
+          contentAlign="center"
+          mt="2"
+          action={
+            isExperimentIncludedInIncrementalRefresh ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDisableIncrementalRefresh}
+              >
+                Disable incremental refresh
+              </Button>
+            ) : null
+          }
+        >
+          Error updating data: {refreshError}
+          {isExperimentIncludedInIncrementalRefresh
+            ? " If it persists, try disabling incremental refresh for this experiment."
+            : null}
+        </Callout>
       )}
       {queriesModalOpen &&
         latest &&

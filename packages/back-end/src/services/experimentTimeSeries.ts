@@ -2,6 +2,7 @@ import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricIdsFromExperiment,
+  getClusterSubUnit,
   isFactMetricId,
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
@@ -36,7 +37,10 @@ import {
   FactTableInterface,
   ColumnRef,
 } from "shared/types/fact-table";
+import { ExposureQuery } from "shared/types/datasource";
+import { getIdentifierTypeForSettingsHash } from "shared/util";
 import { ReqContext } from "back-end/types/request";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
@@ -210,6 +214,10 @@ export async function updateExperimentAnalysisTimeSeries({
     throw new Error("No base analysis found for time series");
   }
 
+  const exposureQueries = await getExposureQueriesForDatasource(
+    context,
+    experimentSnapshot.settings.datasourceId,
+  );
   const variationIds = getLatestPhaseVariations(experiment);
   const allDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = [];
   const dimensionValues = dimensionId
@@ -231,6 +239,7 @@ export async function updateExperimentAnalysisTimeSeries({
     const experimentHash = getExperimentSettingsHash(
       experimentSnapshot.settings,
       baseAnalysis.settings,
+      exposureQueries,
     );
 
     for (const metricId of allMetricIds) {
@@ -288,6 +297,7 @@ export async function updateExperimentAnalysisTimeSeries({
           ),
           factMetrics,
           factTableMap,
+          experimentSnapshot.settings,
         ),
         singleDataPoint: {
           date: experimentSnapshot.dateCreated,
@@ -377,6 +387,7 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 function getExperimentSettingsHash(
   snapshotSettings: ExperimentSnapshotSettings,
   snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings,
+  exposureQueries: ExposureQuery[],
 ): string {
   return hashObject({
     // snapshotSettings
@@ -387,6 +398,18 @@ function getExperimentSettingsHash(
     skipPartialData: snapshotSettings.skipPartialData,
     datasourceId: snapshotSettings.datasourceId,
     exposureQueryId: snapshotSettings.exposureQueryId,
+    exposureQueryIdentifierType: getIdentifierTypeForSettingsHash(
+      snapshotSettings.exposureQueryId,
+      snapshotSettings.exposureQueryIdentifierType,
+      exposureQueries,
+    ),
+    // Only present for cluster experiments, so non-cluster hashes are unchanged.
+    ...(snapshotSettings.isClusterExperiment
+      ? {
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: snapshotSettings.clusterSubUnitIdentifier,
+        }
+      : {}),
     startDate: snapshotSettings.startDate,
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,
@@ -436,9 +459,12 @@ export function getFiltersForHash(
  */
 function getDefinitionMetricId(metricId: string): string {
   const stepInfo = parseFunnelStepMetricId(metricId);
-  return stepInfo.isFunnelStepMetric
+  // Strip step info first (if present), then strip slice info.
+  // A sliced funnel step like funnelId?step=0&dim:col=val has both.
+  const afterStep = stepInfo.isFunnelStepMetric
     ? stepInfo.baseMetricId
-    : parseSliceMetricId(metricId).baseMetricId;
+    : metricId;
+  return parseSliceMetricId(afterStep).baseMetricId;
 }
 
 /**
@@ -473,6 +499,10 @@ export function getFactMetricDefinitionForHash(
     numerator: factMetric.numerator,
     denominator: factMetric.denominator,
     cappingSettings: factMetric.cappingSettings,
+    // Omit disabled floors so existing uncapped metric hashes stay unchanged.
+    lowerCappingSettings: factMetric.lowerCappingSettings?.type
+      ? factMetric.lowerCappingSettings
+      : undefined,
     quantileSettings: factMetric.quantileSettings,
     funnelSettings: factMetric.funnelSettings,
     numeratorFactTable: {
@@ -509,17 +539,39 @@ export function getMetricSettingsHash(
   metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
   factTableMap?: Map<string, FactTableInterface>,
+  clusterSettings?: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
 ): string {
+  // A fact table's identifiers decide whether a metric is analyzed per
+  // sub-unit or per cluster, which changes what its values mean. Only cluster
+  // experiments record it, so other hashes are unchanged.
   const definitionMetricId = getDefinitionMetricId(metricId);
+  const clusterLevelMetricIds = clusterSettings?.clusterLevelMetricIds ?? [];
+  const clusterLevel =
+    clusterSettings && getClusterSubUnit(clusterSettings) !== null
+      ? {
+          clusterAnalysisLevel:
+            clusterLevelMetricIds.includes(metricId) ||
+            clusterLevelMetricIds.includes(definitionMetricId)
+              ? "cluster"
+              : "subunit",
+        }
+      : {};
   const factMetric = factMetrics?.find(
     (metric) => metric.id === definitionMetricId,
   );
   if (!factMetric) {
-    return hashObject(metricSettings ?? { id: metricId });
+    return hashObject({
+      ...(metricSettings ?? { id: metricId }),
+      ...clusterLevel,
+    });
   }
   return hashObject({
     ...metricSettings,
     ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+    ...clusterLevel,
   });
 }
 

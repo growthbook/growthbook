@@ -6,13 +6,20 @@ on:
       - "docs/**"
     types: [opened, synchronize, reopened, ready_for_review]
 
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   auto-approve:
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.draft == false }}
+    permissions:
+      contents: read
+      pull-requests: write
+    if: ${{ github.event.pull_request.draft == false && github.event.pull_request.user.type != 'Bot' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Get PR Author
         id: get_pr_author
         run: echo "PR_AUTHOR=${{ github.event.pull_request.user.login }}" >> $GITHUB_ENV
@@ -24,7 +31,7 @@ jobs:
           OWNER=${{ github.repository_owner }}
           REPO=${{ github.event.repository.name }}
 
-          RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          RESPONSE=$(curl -s --globoff -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             https://api.github.com/repos/$OWNER/$REPO/collaborators/$USER/permission)
           PERMISSION=$(echo $RESPONSE | jq -r .permission)
 
@@ -48,16 +55,19 @@ jobs:
 
       - name: Get list of changed files in the PR
         id: get_changed_files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          OWNER=${{ github.repository_owner }}
-          REPO=${{ github.event.repository.name }}
-          PR_NUMBER=${{ github.event.pull_request.number }}
-
-          CHANGED_FILES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/$OWNER/$REPO/pulls/$PR_NUMBER/files)
-
-          echo "$CHANGED_FILES" | jq -r '.[].filename' > changed_files.txt
+          # The files endpoint pages at 30 by default; without --paginate later code files were never checked.
+          gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --jq '.[].filename' > changed_files.txt
           echo "Changed files: $(cat changed_files.txt)"
+
+          # Fail closed if the list is incomplete (the API caps at 3000 files).
+          if [ "$(wc -l < changed_files.txt)" -ne "${{ github.event.pull_request.changed_files }}" ]; then
+            echo "Changed-file count mismatch; refusing to auto-approve."
+            exit 1
+          fi
 
       - name: Check if all changed files are markdown or mdx
         id: check_markdown_files
@@ -81,7 +91,7 @@ jobs:
 
       - name: Approve PR if all files are markdown or mdx and the PR author is a collaborator
         if: env.only_markdown == 'true' && env.role == 'collaborator'
-        uses: hmarr/auto-approve-action@v4
+        uses: hmarr/auto-approve-action@05a696a09d381a5a0d142c755f7eacbb19eb6525 # v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
         env:

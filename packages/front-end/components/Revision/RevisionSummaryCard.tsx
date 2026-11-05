@@ -13,6 +13,7 @@ import {
   isScheduledPublishLockActive,
 } from "shared/enterprise";
 import { datetime, ago } from "shared/dates";
+import { revisionActor } from "shared/validators";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiPencil,
@@ -508,27 +509,25 @@ export default function RevisionSummaryCard({
           >
             <Metadata
               label={hasRevisions ? "Revised by" : "Created by"}
-              value={(() => {
-                const authorId =
-                  hasRevisions && displayRevision
-                    ? displayRevision.authorId
-                    : fallbackOwnerId;
-                return (
-                  <EventUser
-                    user={{
-                      type: "dashboard",
-                      id: authorId,
-                      // EventUser resolves `id` against org members and
-                      // overrides this; the fallback keeps legacy name/email
-                      // owners (not in the member map) from rendering "Unknown".
-                      name: getOwnerDisplay(authorId),
-                      email: "",
-                    }}
-                    display="avatar-name-email"
-                    size="sm"
-                  />
-                );
-              })()}
+              value={
+                <EventUser
+                  user={
+                    hasRevisions && displayRevision
+                      ? revisionActor(displayRevision, displayRevision.authorId)
+                      : {
+                          type: "dashboard",
+                          id: fallbackOwnerId,
+                          // EventUser resolves `id` against org members and
+                          // overrides this; the fallback keeps legacy name/email
+                          // owners (not in the member map) from rendering "Unknown".
+                          name: getOwnerDisplay(fallbackOwnerId),
+                          email: "",
+                        }
+                  }
+                  display="avatar-name-email"
+                  size="sm"
+                />
+              }
             />
             <Flex align="center" gap="4" wrap="wrap">
               <Metadata
@@ -562,7 +561,14 @@ export default function RevisionSummaryCard({
                 (id) => id !== displayRevision.authorId,
               );
               if (coAuthorIds.length === 0) return null;
-              return <CoAuthorsList coAuthorIds={coAuthorIds} mt="3" mb="3" />;
+              return (
+                <CoAuthorsList
+                  coAuthorIds={coAuthorIds}
+                  actorFor={(id) => revisionActor(displayRevision, id)}
+                  mt="3"
+                  mb="3"
+                />
+              );
             })()}
           {hasRevisions && displayRevision && (
             <InlineRevisionDescription

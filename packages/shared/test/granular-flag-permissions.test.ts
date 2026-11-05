@@ -45,6 +45,31 @@ describe("granular flag permissions", () => {
       expect(perms.deleteFeatures).toBeUndefined();
     });
 
+    // The role editor shows Target as its own checkbox, so only that checkbox
+    // (or Full access, which lists it) may grant the atom. Publish must not.
+    it("grants the targeting atom through its own policy and full access only", () => {
+      expect(permissionsFromRole({ policies: ["FlagsTarget"] })).toEqual({
+        readData: true,
+        targetFeatures: true,
+      });
+      expect(
+        permissionsFromRole({ policies: ["FlagsFullAccess"] }).targetFeatures,
+      ).toBe(true);
+      for (const policy of [
+        "FlagsCreate",
+        "FlagsEditDrafts",
+        "FlagsReview",
+        "FlagsPublish",
+        "FlagsRevert",
+        "FlagsDelete",
+        "SDKPayloadPublish",
+      ] as Policy[]) {
+        expect(
+          permissionsFromRole({ policies: [policy] }).targetFeatures,
+        ).toBeUndefined();
+      }
+    });
+
     it("grants only its own atoms for a review-only policy", () => {
       const perms = permissionsFromRole({ policies: ["FlagsReview"] });
       expect(perms.reviewFeatures).toBe(true);

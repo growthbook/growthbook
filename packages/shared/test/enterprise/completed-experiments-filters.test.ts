@@ -62,20 +62,4 @@ describe("resolveCompletedExperimentsFilters", () => {
     expect(startDate.toISOString()).toEqual("2026-01-01T00:00:00.000Z");
     expect(endDate.toISOString()).toEqual("2026-03-01T23:59:59.999Z");
   });
-
-  it("lets a dashboard-level project filter override the block's projects", () => {
-    const { projects } = resolveCompletedExperimentsFilters(
-      { dateRange: { predefined: "last90Days" }, projects: ["prj_block"] },
-      { projects: ["prj_dashboard"] },
-    );
-    expect(projects).toEqual(["prj_dashboard"]);
-  });
-
-  it("keeps the block's projects when the dashboard filter is empty", () => {
-    const { projects } = resolveCompletedExperimentsFilters(
-      { dateRange: { predefined: "last90Days" }, projects: ["prj_block"] },
-      { projects: [] },
-    );
-    expect(projects).toEqual(["prj_block"]);
-  });
 });

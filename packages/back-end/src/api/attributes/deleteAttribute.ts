@@ -16,7 +16,7 @@ export const deleteAttribute = createApiRequestHandler(
   const attribute = attributes.find((attr) => attr.property === property);
 
   if (!attribute) {
-    throw Error(`An attribute with property ${property} does not exists!`);
+    throw Error(`An attribute with property ${property} does not exist!`);
   }
 
   if (!req.context.permissions.canDeleteAttribute(attribute))

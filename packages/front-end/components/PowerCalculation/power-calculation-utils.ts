@@ -136,7 +136,7 @@ export function setMetricDataFromPopulationData({
 
     if (isRatioMetric && metric.type === "mean") {
       const mean = mdata.main_sum / (mdata.denominator_sum ?? 0);
-      const standardDeviation = ratioVarianceFromSums({
+      const variance = ratioVarianceFromSums({
         numerator_sum: mdata.main_sum,
         numerator_sum_squares: mdata.main_sum_squares,
         denominator_sum: mdata.denominator_sum ?? 0,
@@ -145,6 +145,7 @@ export function setMetricDataFromPopulationData({
           mdata.main_denominator_sum_product ?? 0,
         n: mdata.count,
       });
+      const standardDeviation = Math.sqrt(variance);
       metrics[id] = {
         ...metric,
         mean,
@@ -163,21 +164,24 @@ export function setMetricDataFromPopulationData({
     }
 
     const mean = (mdata.count ?? 0) === 0 ? 0 : mdata.main_sum / mdata.count;
-    const standardDeviation = meanVarianceFromSums(
+    const variance = meanVarianceFromSums(
       mdata.main_sum,
       mdata.main_sum_squares,
       mdata.count,
     );
+    const standardDeviation = Math.sqrt(variance);
     metrics[id] = {
       ...metric,
       mean,
       standardDeviation,
     };
   });
+  const lookbackWeeks =
+    daysBetween(populationData.startDate, populationData.endDate) / 7;
   const usersPerWeek = Math.round(
     populationData.units.reduce((r, u) => {
       return r + u.count;
-    }, 0) / (populationData.units.length ?? 1),
+    }, 0) / (lookbackWeeks || 1),
   );
   form.setValue("metrics", metrics);
   form.setValue("usersPerWeek", isNaN(usersPerWeek) ? 0 : usersPerWeek);

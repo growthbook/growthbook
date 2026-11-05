@@ -1,5 +1,5 @@
 import type { Context } from "back-end/src/models/BaseModel";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
 
 // Armed revisions publish as the armer, so the approver only needs review authority.
 export type ApproveAndPublishPlan =
@@ -50,9 +50,10 @@ export async function isArmedWithAuthorizedPublisher(
 ): Promise<boolean> {
   const id = armedPublisherId(revision);
   if (!id) return false;
-  const publisherContext = await getContextForUserIdInOrg(context.org, id, {
-    applyProjectRestrictions: false,
-  });
+  const publisherContext = await getContextForArmedPublisherInOrg(
+    context.org,
+    id,
+  );
   if (!publisherContext) return false;
   return !!(await stillHoldsPublishAuthority(publisherContext));
 }

@@ -7,20 +7,25 @@ import {
 } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { isFactMetric } from "shared/experiments";
-import { ExperimentInterface, Variation } from "shared/types/experiment";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+} from "shared/types/organization";
 import { addTags } from "back-end/src/models/TagModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
   ScheduleUpdateInput,
   validateScheduleUpdate,
 } from "back-end/src/services/experimentScheduling";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
-  applyVariationWeightsToLatestPhase,
+  assertClusterExperimentMetricsSupported,
+  assertValidBucketVersions,
+  assertValidReleasedVariationId,
   createMetric,
-  fillEmptyVariationKeys,
   getExperimentMetricById,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
@@ -32,6 +37,10 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import {
+  getAnalysisEndDateSettingsError,
+  getScheduledAnalysisEndDate,
+} from "back-end/src/services/scheduledAnalysisEndDate";
 
 jest.mock("back-end/src/models/TagModel", () => ({ addTags: jest.fn() }));
 
@@ -72,6 +81,25 @@ describe("experiments utils", () => {
       expect(variations[0].id).toBe("control");
       expect(variations[1].id).toBe("treatment");
       expect(variations[2].id).toMatch(/^var_/);
+    });
+
+    it("keeps the stored ids for an update body that omits them", () => {
+      const existing = [
+        { id: "var_a", key: "0" },
+        { id: "var_b", key: "1" },
+      ];
+      // Reordered, one id given: the omitted one follows its key.
+      const reordered = [{ id: "var_b", key: "1" }, { key: "0" }];
+      validateVariationIds(reordered, existing);
+      expect(reordered.map((v) => v.id)).toEqual(["var_b", "var_a"]);
+      // Keys renamed: fall back to position.
+      const renamed = [{ key: "a" }, { key: "b" }];
+      validateVariationIds(renamed, existing);
+      expect(renamed.map((v) => v.id)).toEqual(["var_a", "var_b"]);
+      // A different count is a real change; nothing is inherited.
+      const grown = [{ key: "0" }, { key: "1" }, { key: "2" }];
+      validateVariationIds(grown, existing);
+      expect(grown.map((v) => v.id)).not.toContain("var_a");
     });
 
     it("rejects duplicate resolved variation ids", () => {
@@ -338,36 +366,7 @@ describe("experiments utils", () => {
       );
     });
 
-    it("should return a failed result if both risk threshold values are not provided", () => {
-      const datasource: Pick<DataSourceInterface, "type"> = {
-        type: "postgres",
-      };
-      const input: z.infer<typeof postMetricValidator.bodySchema> = {
-        datasourceId: "ds_abc123",
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = postMetricApiPayloadIsValid(input, datasource) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      );
-    });
-
-    it("should return a failed result if the risk threshold danger value is less than the success value", () => {
+    it("accepts and ignores retired risk thresholds", () => {
       const datasource: Pick<DataSourceInterface, "type"> = {
         type: "postgres",
       };
@@ -391,36 +390,6 @@ describe("experiments utils", () => {
         error: string;
       };
 
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess",
-      );
-    });
-
-    it("should return a successful result if both risk threshold values are provided", () => {
-      const datasource: Pick<DataSourceInterface, "type"> = {
-        type: "postgres",
-      };
-      const input: z.infer<typeof postMetricValidator.bodySchema> = {
-        datasourceId: "ds_abc123",
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = postMetricApiPayloadIsValid(input, datasource) as {
-        valid: false;
-        error: string;
-      };
-
       expect(result.valid).toBe(true);
     });
 
@@ -430,10 +399,6 @@ describe("experiments utils", () => {
       };
       const input: z.infer<typeof postMetricValidator.bodySchema> = {
         datasourceId: "ds_abc123",
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
-        },
         name: "My Cool Metric",
         type: "count",
       };
@@ -667,32 +632,7 @@ describe("experiments utils", () => {
       );
     });
 
-    it("should return a failed result if both risk threshold values are not provided", () => {
-      const input: z.infer<typeof putMetricValidator.bodySchema> = {
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = putMetricApiPayloadIsValid(input) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      );
-    });
-
-    it("should return a failed result if the risk threshold danger value is less than the success value", () => {
+    it("accepts and ignores retired risk thresholds", () => {
       const input: z.infer<typeof putMetricValidator.bodySchema> = {
         sql: {
           identifierTypes: ["user_id"],
@@ -702,32 +642,6 @@ describe("experiments utils", () => {
         behavior: {
           riskThresholdSuccess: 0.5,
           riskThresholdDanger: 0.1,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = putMetricApiPayloadIsValid(input) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess",
-      );
-    });
-
-    it("should return a successful result if both risk threshold values are provided", () => {
-      const input: z.infer<typeof putMetricValidator.bodySchema> = {
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
         },
         name: "My Cool Metric",
         type: "count",
@@ -885,8 +799,8 @@ describe("experiments utils", () => {
         // More fields
         expect(result.projects).toEqual(["proj_abc987"]);
         expect(result.tags).toEqual(["checkout"]);
-        expect(result.winRisk).toEqual(5);
-        expect(result.loseRisk).toEqual(0.5);
+        expect(result).not.toHaveProperty("winRisk");
+        expect(result).not.toHaveProperty("loseRisk");
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
@@ -928,8 +842,6 @@ describe("experiments utils", () => {
             conversionWindowStart: 10,
             conversionWindowEnd: 50,
             cap: 1337,
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -984,8 +896,6 @@ describe("experiments utils", () => {
               windowValue: 33,
               delayHours: 5,
             },
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -1036,8 +946,6 @@ describe("experiments utils", () => {
               delayHours: 5,
               delayValue: 10,
             },
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -1217,8 +1125,8 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       // More fields
       expect(result.projects).toEqual(["proj_abc987"]);
       expect(result.tags).toEqual(["checkout"]);
-      expect(result.winRisk).toEqual(5);
-      expect(result.loseRisk).toEqual(0.5);
+      expect(result).not.toHaveProperty("winRisk");
+      expect(result).not.toHaveProperty("loseRisk");
       expect(result.minPercentChange).toEqual(1);
       expect(result.maxPercentChange).toEqual(50);
       expect(result.minSampleSize).toEqual(200);
@@ -1520,56 +1428,6 @@ describe("putMetricApiPayloadToMetricInterface", () => {
     });
   });
 
-  describe("applyVariationWeightsToLatestPhase", () => {
-    it("sets variationWeights on the last phase and preserves other phase fields", () => {
-      const experiment = {
-        phases: [
-          {
-            name: "Main",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 1,
-            dateStarted: new Date("2024-01-01"),
-          },
-        ],
-      } as ExperimentInterface;
-
-      const next = applyVariationWeightsToLatestPhase(experiment, [0.6, 0.4]);
-
-      expect(next).toHaveLength(1);
-      expect(next[0].variationWeights).toEqual([0.6, 0.4]);
-      expect(next[0].name).toEqual("Main");
-      expect(next[0].coverage).toBe(1);
-      expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
-    });
-
-    it("only updates the last phase when multiple phases exist", () => {
-      const experiment = {
-        phases: [
-          {
-            name: "Ramp",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 0.2,
-            dateStarted: new Date("2024-01-01"),
-          },
-          {
-            name: "Main",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 1,
-            dateStarted: new Date("2024-02-01"),
-          },
-        ],
-      } as ExperimentInterface;
-
-      const next = applyVariationWeightsToLatestPhase(experiment, [0.7, 0.3]);
-
-      expect(next[0].variationWeights).toEqual([0.5, 0.5]);
-      expect(next[1].variationWeights).toEqual([0.7, 0.3]);
-    });
-  });
-
   describe("experiment API payload mappers", () => {
     const org = { id: "org_test" } as OrganizationInterface;
     const datasource = {
@@ -1590,7 +1448,6 @@ describe("putMetricApiPayloadToMetricInterface", () => {
           {
             id: "met_1",
             delayHours: 12,
-            winRisk: 0.05,
           },
         ],
         decisionFrameworkSettings: {
@@ -1601,9 +1458,7 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       };
 
       const out = postExperimentApiPayloadToInterface(payload, org, datasource);
-      expect(out.metricOverrides).toEqual([
-        { id: "met_1", delayHours: 12, winRisk: 0.05 },
-      ]);
+      expect(out.metricOverrides).toEqual([{ id: "met_1", delayHours: 12 }]);
       expect(out.decisionFrameworkSettings).toEqual({
         decisionCriteriaId: "crit_1",
         decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
@@ -1743,6 +1598,22 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
       future,
     );
     expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("leaves an armed start armed when the schedule is echoed back", () => {
+    const startAt = new Date("2099-06-01T12:00:00Z");
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt },
+      nextScheduledStatusUpdate: { type: "start", date: startAt },
+    });
+    // As a REST GET returns it.
+    const changes = {
+      statusUpdateSchedule: { startAt: startAt.toISOString() },
+    } as unknown as Partial<ExperimentInterface>;
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes).toEqual({});
   });
 
   it("object with no startAt clears both schedule and staged start", () => {
@@ -1917,7 +1788,7 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
 
     normalizeStatusUpdateScheduleChanges(experiment, changes);
 
-    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.statusUpdateSchedule ?? null).toBeNull();
   });
 
   it("drops the nested scheduledStopPlan on a start-only schedule (no end)", () => {
@@ -1938,130 +1809,6 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
     };
     expect(sched.startAt).toEqual(future);
     expect(sched.scheduledStopPlan).toBeUndefined();
-  });
-});
-
-describe("fillEmptyVariationKeys", () => {
-  const makeVariation = (key: string, id = `v_${key || "new"}`): Variation => ({
-    id,
-    name: key || "New",
-    description: "",
-    key,
-    screenshots: [],
-  });
-
-  it("is a no-op when no variations have an empty key", () => {
-    const variations = [makeVariation("0"), makeVariation("1")];
-    const snapshot = variations.map((v) => ({ ...v }));
-
-    fillEmptyVariationKeys(variations, ["0", "1"]);
-
-    expect(variations).toEqual(snapshot);
-  });
-
-  it("is a no-op for an empty variations array", () => {
-    const variations: Variation[] = [];
-
-    fillEmptyVariationKeys(variations, ["0", "1"]);
-
-    expect(variations).toEqual([]);
-  });
-
-  it("assigns the next numeric key for the typical sequential case", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("1"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "1"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["0", "1", "2"]);
-  });
-
-  it("assigns monotonically increasing keys to multiple empties", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("1"),
-      makeVariation(""),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "1"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["0", "1", "2", "3"]);
-  });
-
-  it("skips existing customized keys to avoid collision", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("2"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "2"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["0", "2", "3"]);
-  });
-
-  it("starts at 0 when no existing keys are non-negative integers", () => {
-    const variations = [
-      makeVariation("control"),
-      makeVariation("treatment"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["control", "treatment"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["control", "treatment", "0"]);
-  });
-
-  it("uses the largest non-negative integer key in a mixed set", () => {
-    const variations = [
-      makeVariation("control"),
-      makeVariation("5"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["control", "5"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["control", "5", "6"]);
-  });
-
-  it("ignores non-canonical numeric strings when finding the largest", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("007"),
-      makeVariation("-1"),
-      makeVariation("3.5"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "007", "-1", "3.5"]);
-
-    expect(variations[variations.length - 1].key).toBe("1");
-  });
-
-  it("assigns 0 when there are no existing keys at all", () => {
-    const variations = [makeVariation(""), makeVariation("")];
-
-    fillEmptyVariationKeys(variations, []);
-
-    expect(variations.map((v) => v.key)).toEqual(["0", "1"]);
-  });
-
-  it("does not modify variations whose key is already set", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("custom"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "custom"]);
-
-    expect(variations[0].key).toBe("0");
-    expect(variations[1].key).toBe("custom");
-    expect(variations[2].key).toBe("1");
   });
 });
 
@@ -2307,5 +2054,455 @@ describe("updateExperimentBanditSettings", () => {
     ).toThrow("Bandit analysis failed: decision analysis failed");
     expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
     expect(experiment.phases[0].banditEvents).toBeUndefined();
+  });
+});
+
+describe("assertValidBucketVersions", () => {
+  describe("on create (no existing experiment)", () => {
+    it("accepts missing versions and a minimum at or below the current version", () => {
+      expect(() => assertValidBucketVersions({})).not.toThrow();
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 2, minBucketVersion: 2 }),
+      ).not.toThrow();
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 3, minBucketVersion: 1 }),
+      ).not.toThrow();
+    });
+
+    it("rejects a minimum above the current version", () => {
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 1, minBucketVersion: 2 }),
+      ).toThrow(/minBucketVersion cannot be greater than bucketVersion/);
+      expect(() => assertValidBucketVersions({ minBucketVersion: 1 })).toThrow(
+        /invalid_bucket_version/,
+      );
+    });
+
+    it.each([
+      [{ bucketVersion: 1.5 }, "bucketVersion"],
+      [{ bucketVersion: 2, minBucketVersion: -1 }, "minBucketVersion"],
+    ])("rejects a fractional or negative version %p", (fields, name) => {
+      expect(() => assertValidBucketVersions(fields)).toThrow(
+        new RegExp(`${name} must be a non-negative integer`),
+      );
+    });
+  });
+
+  describe("on update", () => {
+    const stored = { bucketVersion: 1, minBucketVersion: 0 };
+
+    it("accepts bumping both versions together", () => {
+      expect(() =>
+        assertValidBucketVersions(
+          { bucketVersion: 2, minBucketVersion: 2 },
+          stored,
+        ),
+      ).not.toThrow();
+    });
+
+    it("rejects raising only the minimum above the stored version", () => {
+      expect(() =>
+        assertValidBucketVersions({ ...stored, minBucketVersion: 3 }, stored),
+      ).toThrow(/minBucketVersion cannot be greater than bucketVersion/);
+    });
+
+    it("rejects lowering the version below the stored minimum", () => {
+      expect(() =>
+        assertValidBucketVersions(
+          { bucketVersion: 1, minBucketVersion: 2 },
+          { bucketVersion: 2, minBucketVersion: 2 },
+        ),
+      ).toThrow(/invalid_bucket_version/);
+    });
+
+    it("leaves an already-inconsistent experiment alone when neither field changes", () => {
+      const inconsistent = { bucketVersion: 1, minBucketVersion: 4 };
+      expect(() =>
+        assertValidBucketVersions({ ...inconsistent }, inconsistent),
+      ).not.toThrow();
+    });
+  });
+});
+
+describe("assertValidReleasedVariationId", () => {
+  const variation = (id: string) => ({
+    id,
+    key: id,
+    name: id,
+    screenshots: [],
+  });
+
+  const stored = {
+    releasedVariationId: "var_b",
+    variations: [variation("var_a"), variation("var_b")],
+  };
+
+  const stale = {
+    releasedVariationId: "var_gone",
+    variations: [variation("var_a"), variation("var_b")],
+  };
+
+  describe("on create (no existing experiment)", () => {
+    it("accepts a released id that is one of the variations", () => {
+      expect(() => assertValidReleasedVariationId(stored)).not.toThrow();
+    });
+
+    it("accepts an empty or missing released id", () => {
+      expect(() =>
+        assertValidReleasedVariationId({ ...stored, releasedVariationId: "" }),
+      ).not.toThrow();
+      expect(() =>
+        assertValidReleasedVariationId({ variations: stored.variations }),
+      ).not.toThrow();
+    });
+
+    it("rejects a released id that is not one of the variations", () => {
+      expect(() =>
+        assertValidReleasedVariationId({
+          ...stored,
+          releasedVariationId: "var_nope",
+        }),
+      ).toThrow(/invalid_released_variation_id/);
+    });
+
+    it("rejects a released id when there are no variations", () => {
+      expect(() =>
+        assertValidReleasedVariationId({ releasedVariationId: "var_a" }),
+      ).toThrow(/invalid_released_variation_id/);
+    });
+  });
+
+  describe("on update", () => {
+    it("accepts changing the released id to another variation", () => {
+      expect(() =>
+        assertValidReleasedVariationId(
+          { ...stored, releasedVariationId: "var_a" },
+          stored,
+        ),
+      ).not.toThrow();
+    });
+
+    it("rejects changing the released id to a non-variation", () => {
+      expect(() =>
+        assertValidReleasedVariationId(
+          { ...stored, releasedVariationId: "var_nope" },
+          stored,
+        ),
+      ).toThrow(/invalid_released_variation_id/);
+    });
+
+    it("checks a new released id against variations sent in the same write", () => {
+      expect(() =>
+        assertValidReleasedVariationId(
+          {
+            releasedVariationId: "var_d",
+            variations: [variation("var_c"), variation("var_d")],
+          },
+          { ...stored, releasedVariationId: "" },
+        ),
+      ).not.toThrow();
+    });
+
+    it("rejects replacing the variations out from under a valid released id", () => {
+      expect(() =>
+        assertValidReleasedVariationId(
+          {
+            ...stored,
+            variations: [variation("var_c"), variation("var_d")],
+          },
+          stored,
+        ),
+      ).toThrow(/invalid_released_variation_id/);
+    });
+
+    it("rejects removing just the released variation", () => {
+      expect(() =>
+        assertValidReleasedVariationId(
+          { ...stored, variations: [variation("var_a")] },
+          stored,
+        ),
+      ).toThrow(/invalid_released_variation_id/);
+    });
+
+    it("accepts reordering or adding variations while the released id stays valid", () => {
+      expect(() =>
+        assertValidReleasedVariationId(
+          {
+            ...stored,
+            variations: [
+              variation("var_b"),
+              variation("var_a"),
+              variation("var_c"),
+            ],
+          },
+          stored,
+        ),
+      ).not.toThrow();
+    });
+
+    it("accepts clearing the released id", () => {
+      expect(() =>
+        assertValidReleasedVariationId(
+          { ...stored, releasedVariationId: "" },
+          stored,
+        ),
+      ).not.toThrow();
+    });
+
+    describe("when the stored released id is already stale", () => {
+      it("accepts an unrelated edit that echoes the stale id", () => {
+        expect(() =>
+          assertValidReleasedVariationId(stale, stale),
+        ).not.toThrow();
+      });
+
+      it("accepts adding a variation", () => {
+        expect(() =>
+          assertValidReleasedVariationId(
+            { ...stale, variations: [...stale.variations, variation("var_c")] },
+            stale,
+          ),
+        ).not.toThrow();
+      });
+
+      it("accepts removing some other variation", () => {
+        expect(() =>
+          assertValidReleasedVariationId(
+            { ...stale, variations: [variation("var_a")] },
+            stale,
+          ),
+        ).not.toThrow();
+      });
+
+      it("accepts replacing every variation", () => {
+        expect(() =>
+          assertValidReleasedVariationId(
+            { ...stale, variations: [variation("var_c")] },
+            stale,
+          ),
+        ).not.toThrow();
+      });
+
+      it("still rejects changing the released id to another non-variation", () => {
+        expect(() =>
+          assertValidReleasedVariationId(
+            { ...stale, releasedVariationId: "var_also_gone" },
+            stale,
+          ),
+        ).toThrow(/invalid_released_variation_id/);
+      });
+
+      it("accepts fixing the released id to a real variation", () => {
+        expect(() =>
+          assertValidReleasedVariationId(
+            { ...stale, releasedVariationId: "var_a" },
+            stale,
+          ),
+        ).not.toThrow();
+      });
+    });
+  });
+});
+
+describe("getScheduledAnalysisEndDate", () => {
+  const now = new Date("2026-09-30T03:07:00Z");
+  const cron = { type: "cron" as const, cron: "0 3 * * *" };
+
+  it("has no cutoff when the update analyzes through its run time", () => {
+    expect(getScheduledAnalysisEndDate(null, now)).toBeNull();
+    expect(
+      getScheduledAnalysisEndDate({ type: "stale", hours: 6 }, now),
+    ).toBeNull();
+    expect(
+      getScheduledAnalysisEndDate(
+        { ...cron, analysisEndDateMode: "runTime" },
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  it("subtracts the lag hours", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          type: "stale",
+          analysisEndDateMode: "lag",
+          analysisEndDateLagHours: 3,
+        },
+        now,
+      ),
+    ).toEqual(new Date("2026-09-30T00:07:00Z"));
+  });
+
+  it("has no cutoff for a zero lag", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          type: "stale",
+          analysisEndDateMode: "lag",
+          analysisEndDateLagHours: 0,
+        },
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  it("uses today's fixed time when it has passed", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "00:00",
+        },
+        now,
+      ),
+    ).toEqual(new Date("2026-09-30T00:00:00Z"));
+  });
+
+  it("uses yesterday's fixed time when today's has not passed", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "23:00",
+        },
+        now,
+      ),
+    ).toEqual(new Date("2026-09-29T23:00:00Z"));
+  });
+
+  it("has no cutoff for a fixed time without a cron schedule", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          type: "stale",
+          hours: 6,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "00:00",
+        },
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  it("has no cutoff for a fixed time that is not a string", () => {
+    // A config file import can store a YAML number here.
+    const schedule = {
+      ...cron,
+      analysisEndDateMode: "fixedTime",
+      analysisEndDateTime: 0,
+    } as unknown as ExperimentUpdateSchedule;
+    expect(getScheduledAnalysisEndDate(schedule, now)).toBeNull();
+  });
+});
+
+describe("getAnalysisEndDateSettingsError", () => {
+  const cron = { type: "cron" as const, cron: "0 3 * * *" };
+
+  it("accepts schedules that analyze through the run time", () => {
+    expect(getAnalysisEndDateSettingsError(null)).toBeNull();
+    expect(getAnalysisEndDateSettingsError({ type: "stale" })).toBeNull();
+    expect(
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDateMode: "runTime",
+        analysisEndDateLagHours: undefined,
+      }),
+    ).toBeNull();
+  });
+
+  it("requires a whole number of lag hours between 1 and 168", () => {
+    const lag = (analysisEndDateLagHours?: number) =>
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDateMode: "lag",
+        analysisEndDateLagHours,
+      });
+    expect(lag(1)).toBeNull();
+    expect(lag(168)).toBeNull();
+    for (const hours of [undefined, 0, -1, 1.5, 169, NaN]) {
+      expect(lag(hours)).toMatch(/between 1 and 168/);
+    }
+  });
+
+  it("requires a cron schedule and an HH:MM time for a fixed time", () => {
+    expect(
+      getAnalysisEndDateSettingsError({
+        ...cron,
+        analysisEndDateMode: "fixedTime",
+        analysisEndDateTime: "00:30",
+      }),
+    ).toBeNull();
+    expect(
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDateMode: "fixedTime",
+        analysisEndDateTime: "00:30",
+      }),
+    ).toMatch(/cron/);
+    for (const analysisEndDateTime of [
+      undefined,
+      "",
+      "24:00",
+      "3:30",
+      "03:60",
+    ]) {
+      expect(
+        getAnalysisEndDateSettingsError({
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime,
+        }),
+      ).toMatch(/HH:MM/);
+    }
+  });
+});
+
+describe("assertClusterExperimentMetricsSupported activation metric", () => {
+  // ft_subunit exposes the sub-unit id; ft_cluster_only exposes only the
+  // cluster id (fails the units-query sub-unit join for activation metrics).
+  const factMetric = (factTableId: string) =>
+    ({
+      id: `met_${factTableId}`,
+      name: `Metric ${factTableId}`,
+      metricType: "mean",
+      numerator: { factTableId, column: "value", aggregation: "sum" },
+      denominator: null,
+    }) as unknown as ExperimentMetricInterface;
+
+  const factTableMap = new Map([
+    ["ft_subunit", { userIdTypes: ["user_id", "region_id"] }],
+    ["ft_cluster_only", { userIdTypes: ["region_id"] }],
+  ]) as unknown as FactTableMap;
+
+  const datasource = { settings: {} } as unknown as DataSourceInterface;
+
+  const run = (activationFactTableId: string) =>
+    assertClusterExperimentMetricsSupported({
+      activationMetric: `met_${activationFactTableId}`,
+      metricMap: new Map([
+        [`met_${activationFactTableId}`, factMetric(activationFactTableId)],
+      ]),
+      metricGroups: [],
+      clusterIdentifier: "region_id",
+      clusterSubUnitIdentifier: "user_id",
+      factTableMap,
+      datasource,
+    });
+
+  // Activation metrics are fully locked for cluster experiments, so both the
+  // cluster-level and sub-unit fact tables are rejected.
+  it("rejects an activation metric that only exposes the cluster identifier", () => {
+    expect(() => run("ft_cluster_only")).toThrow(
+      /Activation metrics aren't supported for cluster experiments/,
+    );
+  });
+
+  it("rejects an activation metric even when it exposes the sub-unit identifier", () => {
+    expect(() => run("ft_subunit")).toThrow(
+      /Activation metrics aren't supported for cluster experiments/,
+    );
   });
 });

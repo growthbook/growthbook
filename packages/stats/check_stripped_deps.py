@@ -39,6 +39,8 @@ STRIPPED = [
     "setuptools",
     "wheel",
     "dulwich",
+    "virtualenv",
+    "filelock",  # poetry -> cachecontrol[filecache]
 ]
 
 

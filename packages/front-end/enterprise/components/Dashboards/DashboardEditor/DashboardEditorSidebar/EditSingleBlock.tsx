@@ -342,14 +342,6 @@ export default function EditSingleBlock({
     blockHasFieldOfType(block, "metricTagFilter", isStringArray) &&
       (block.metricTagFilter?.length || 0) > 0,
   );
-  const [saveAndCloseTrigger, setSaveAndCloseTrigger] = useState(0);
-
-  const isExplorationBlock =
-    block?.type === "metric-exploration" ||
-    block?.type === "fact-table-exploration" ||
-    block?.type === "data-source-exploration" ||
-    block?.type === "sql-exploration" ||
-    block?.type === "funnel-exploration";
   const isEmptySqlExploration =
     block?.type === "sql-exploration" &&
     block.config.dataset.sql.trim().length === 0;
@@ -814,7 +806,6 @@ export default function EditSingleBlock({
     <>
       {savedQuery && showDeleteSavedQueryConfirmation && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           header={"Delete Saved Query?"}
           close={() => setShowDeleteSavedQueryConfirmation(false)}
@@ -1903,8 +1894,6 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 dashboardGlobalControls={dashboardGlobalControls}
-                saveAndCloseTrigger={saveAndCloseTrigger}
-                onSaveAndClose={submit}
               />
             )}
             {block.type === "fact-table-exploration" && (
@@ -1912,8 +1901,6 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 dashboardGlobalControls={dashboardGlobalControls}
-                saveAndCloseTrigger={saveAndCloseTrigger}
-                onSaveAndClose={submit}
               />
             )}
             {block.type === "data-source-exploration" && (
@@ -1921,8 +1908,6 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 dashboardGlobalControls={dashboardGlobalControls}
-                saveAndCloseTrigger={saveAndCloseTrigger}
-                onSaveAndClose={submit}
               />
             )}
             {block.type === "funnel-exploration" && (
@@ -1930,8 +1915,6 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 dashboardGlobalControls={dashboardGlobalControls}
-                saveAndCloseTrigger={saveAndCloseTrigger}
-                onSaveAndClose={submit}
               />
             )}
             {block.type === "sql-exploration" && (
@@ -1948,8 +1931,6 @@ export default function EditSingleBlock({
                     block={block}
                     setBlock={setBlock}
                     dashboardGlobalControls={dashboardGlobalControls}
-                    saveAndCloseTrigger={saveAndCloseTrigger}
-                    onSaveAndClose={submit}
                     hideDataSourceSelector
                     sqlExploreConfigOnly
                     dashboardHeaderLeadingContent={
@@ -1979,16 +1960,7 @@ export default function EditSingleBlock({
             </Button>
             <Button
               style={{ flexBasis: "45%", flexGrow: 1 }}
-              onClick={() => {
-                if (
-                  isExplorationBlock &&
-                  !("explorerAnalysisId" in block && block.explorerAnalysisId)
-                ) {
-                  setSaveAndCloseTrigger((n) => n + 1);
-                } else {
-                  submit();
-                }
-              }}
+              onClick={() => submit()}
               disabled={isBlockIncomplete(block)}
             >
               Save & Close

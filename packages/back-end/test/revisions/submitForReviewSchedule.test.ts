@@ -42,6 +42,18 @@ describe("submitForReview arming a dated publish", () => {
     return context;
   }
 
+  function keyContext() {
+    const context = new ReqContextClass({
+      org,
+      auditUser: { type: "api_key", apiKey: "key_ci" },
+      role: "admin",
+      apiKey: "key_ci",
+      req: { query: {}, headers: {}, body: {} } as unknown as Request,
+    });
+    context.hasPremiumFeature = () => true;
+    return context;
+  }
+
   const REV_ID = "rev_submit_sched";
 
   beforeEach(async () => {
@@ -121,6 +133,25 @@ describe("submitForReview arming a dated publish", () => {
       lockOthers: true,
       enabledBy: "u_admin",
     });
+  });
+
+  it("records an org API key as the armer, on submit and on a later arm", async () => {
+    const context = keyContext();
+    const authority = {
+      authorizedByFlow:
+        "test fixture: authority covered by the case under test",
+    };
+
+    await context.models.revisions.submitForReview(REV_ID, "", authority, {
+      autoPublishOnApproval: true,
+    });
+    expect((await stored())?.autoPublishEnabledBy).toBe("key_ci");
+
+    await context.models.revisions.setAutoPublishOnApproval(REV_ID, "", false);
+    expect((await stored())?.autoPublishEnabledBy ?? null).toBeNull();
+
+    await context.models.revisions.setAutoPublishOnApproval(REV_ID, "", true);
+    expect((await stored())?.autoPublishEnabledBy).toBe("key_ci");
   });
 
   it("leaves the schedule alone when no date is sent", async () => {

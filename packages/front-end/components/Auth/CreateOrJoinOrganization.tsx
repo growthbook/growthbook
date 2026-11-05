@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
-import { FaPlus } from "react-icons/fa";
+import { PiPlusBold } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { OWNER_JOB_TITLES } from "shared/constants";
 import {
@@ -24,6 +24,9 @@ import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import Avatar from "@/ui/Avatar";
+import Text from "@/ui/Text";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -47,9 +50,14 @@ const CreateOrJoinOrganization: FC<{
   });
 
   const [loading, setLoading] = useState(false);
+  const [joiningOrgId, setJoiningOrgId] = useState<string | null>(null);
   const [error, setError] = useState(null);
   const [mode, setMode] = useState<"create" | "join">("create");
+  const orgActionPending = loading || joiningOrgId !== null;
+
   function switchMode() {
+    if (orgActionPending) return;
+    setError(null);
     setMode(mode === "create" ? "join" : "create");
   }
 
@@ -78,10 +86,13 @@ const CreateOrJoinOrganization: FC<{
     }
   }, [orgs]);
 
-  const joinOrgFormSubmit = async (org) => {
-    if (loading) return;
+  const joinOrgFormSubmit = async (org: {
+    id: string;
+    currentUserIsPending: boolean;
+  }) => {
+    if (loading || joiningOrgId) return;
     setError(null);
-    setLoading(true);
+    setJoiningOrgId(org.id);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resp: any = await apiCall("/member", {
@@ -90,9 +101,9 @@ const CreateOrJoinOrganization: FC<{
       });
       track("Join Organization");
       updateUser();
-      setLoading(false);
       if (resp?.isPending) {
         org.currentUserIsPending = true;
+        setJoiningOrgId(null);
       } else {
         if (setOrgId) {
           setOrgId(org.id);
@@ -106,7 +117,7 @@ const CreateOrJoinOrganization: FC<{
       }
     } catch (e) {
       setError(e.message);
-      setLoading(false);
+      setJoiningOrgId(null);
     }
   };
 
@@ -171,7 +182,7 @@ const CreateOrJoinOrganization: FC<{
       className={`d-flex justify-content-center align-items-center ${style.container}`}
       style={{ height: "100%" }}
     >
-      <div style={{ maxWidth: "800px" }}>
+      <div className={style.panel}>
         {showCreate || showJoin ? (
           <>
             {mode === "join" && showJoin ? (
@@ -181,34 +192,41 @@ const CreateOrJoinOrganization: FC<{
                   <p className="text-muted">{subtitleCopy(orgs)}</p>
                 </div>
                 {orgs.map((org) => (
-                  <div key={org.id} className={`${style.recommendedOrgBox}`}>
-                    <div className={`${style.recommendedOrgRow}`}>
-                      <div className={style.recommendedOrgLogo}>
-                        <div className={style.recommendedOrgLogoText}>
-                          {org.name.slice(0, 1)?.toUpperCase()}
-                        </div>
-                      </div>
-                      <div className={style.recommendedOrgInfo}>
-                        <div className={style.recommendedOrgName}>
+                  <div key={org.id} className={style.recommendedOrgBox}>
+                    <Flex align="center" gap="3">
+                      <Avatar size="lg" color="green" variant="soft">
+                        {org.name.slice(0, 1)?.toUpperCase()}
+                      </Avatar>
+                      <Flex direction="column" flexGrow="1" minWidth="0">
+                        <Text
+                          as="div"
+                          size="md"
+                          weight="semibold"
+                          overflowWrap="break-word"
+                        >
                           {org.name}
-                        </div>
-                        <div className={style.recommendedOrgMembers}>
+                        </Text>
+                        <Text as="div" size="sm" color="text-mid">
                           {org.members === 1
                             ? `${org.members} member`
                             : `${org.members} members`}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-lg btn-primary"
-                        onClick={() => {
-                          joinOrgFormSubmit(org);
-                        }}
-                        disabled={org.currentUserIsPending || false}
-                      >
-                        {org.currentUserIsPending ? "Pending" : "Join"}
-                      </button>
-                    </div>
+                        </Text>
+                      </Flex>
+                      <Flex flexShrink="0">
+                        <Button
+                          size="md"
+                          loading={joiningOrgId === org.id}
+                          disabled={
+                            org.currentUserIsPending ||
+                            loading ||
+                            (joiningOrgId !== null && joiningOrgId !== org.id)
+                          }
+                          onClick={() => joinOrgFormSubmit(org)}
+                        >
+                          {org.currentUserIsPending ? "Pending" : "Join"}
+                        </Button>
+                      </Flex>
+                    </Flex>
                     {org.currentUserIsPending && (
                       <Callout status="success" mt="2" mb="0">
                         <div className="mb-2">Your membership is pending.</div>
@@ -220,20 +238,30 @@ const CreateOrJoinOrganization: FC<{
                     )}
                   </div>
                 ))}
+                {error && (
+                  <Callout status="error" mt="2">
+                    {error}
+                  </Callout>
+                )}
                 {showCreate && (
-                  <div
-                    className={`${style.switchModeButton} btn btn-light mt-3`}
+                  <Button
+                    variant="soft"
+                    color="gray"
+                    mt="4"
+                    style={{ width: "100%" }}
+                    icon={<PiPlusBold />}
+                    disabled={orgActionPending}
                     onClick={switchMode}
                   >
-                    <FaPlus /> <span>Create a new organization instead</span>
-                  </div>
+                    Create a new organization instead
+                  </Button>
                 )}
               </>
             ) : (
               <>
                 <form
                   onSubmit={newOrgForm.handleSubmit(async (value) => {
-                    if (loading) return;
+                    if (loading || joiningOrgId) return;
                     setError(null);
                     setLoading(true);
                     try {
@@ -284,7 +312,6 @@ const CreateOrJoinOrganization: FC<{
                       } catch (e) {
                         console.warn("Cannot set gb-last-picked-org");
                       }
-                      setLoading(false);
                       router.push("/");
                     } catch (e) {
                       setError(e.message);
@@ -380,12 +407,15 @@ const CreateOrJoinOrganization: FC<{
                       }}
                     />
                   </div>
-                  <button
-                    className={`btn btn-primary btn-block btn-lg`}
+                  <Button
                     type="submit"
+                    size="lg"
+                    loading={loading}
+                    disabled={joiningOrgId !== null}
+                    style={{ width: "100%" }}
                   >
                     Create organization
-                  </button>
+                  </Button>
                   {error && (
                     <Callout status="error" mt="2">
                       {error}
@@ -394,12 +424,17 @@ const CreateOrJoinOrganization: FC<{
                 </form>
 
                 {showJoin && (
-                  <div
-                    className={`${style.switchModeButton} btn btn-light mt-5`}
+                  <Button
+                    variant="soft"
+                    color="gray"
+                    mt="8"
+                    style={{ width: "100%" }}
+                    icon={<PiPlusBold />}
+                    disabled={orgActionPending}
                     onClick={switchMode}
                   >
-                    <FaPlus /> <span>Join an organization instead</span>
-                  </div>
+                    Join an organization instead
+                  </Button>
                 )}
               </>
             )}

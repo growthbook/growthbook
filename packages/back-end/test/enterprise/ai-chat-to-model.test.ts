@@ -110,3 +110,96 @@ describe("toModelMessages context prefix", () => {
     expect(text).toBe("how is it doing?");
   });
 });
+
+describe("toModelMessages Product Analytics context", () => {
+  const path = "/api/v1/product-analytics/metric-exploration";
+
+  function explorationTurn(
+    toolCallId: string,
+    numerator: number,
+  ): AIChatMessage[] {
+    return [
+      {
+        role: "assistant",
+        id: `a-${toolCallId}`,
+        ts: 0,
+        content: [
+          {
+            type: "tool-call",
+            toolCallId,
+            toolName: "callApi",
+            args: { method: "POST", path },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        id: `t-${toolCallId}`,
+        ts: 0,
+        content: [
+          {
+            type: "tool-result",
+            toolCallId,
+            toolName: "callApi",
+            result: JSON.stringify({
+              status: 200,
+              body: {
+                exploration: {
+                  id: `ae-${toolCallId}`,
+                  status: "success",
+                  result: {
+                    rows: [
+                      {
+                        dimensions: [],
+                        values: [{ metricId: "m1", numerator }],
+                      },
+                    ],
+                  },
+                },
+              },
+            }),
+          },
+        ],
+      },
+      {
+        role: "assistant",
+        id: `reply-${toolCallId}`,
+        ts: 0,
+        content: `Result ${numerator}`,
+      },
+    ];
+  }
+
+  it("keeps every successful exploration result", () => {
+    const mapped = toModelMessages([
+      ...explorationTurn("old", 1),
+      {
+        role: "user",
+        id: "u2",
+        ts: 0,
+        content: "update it",
+      },
+      ...explorationTurn("latest", 2),
+      {
+        role: "user",
+        id: "u3",
+        ts: 0,
+        content: "what changed?",
+      },
+    ]);
+
+    const toolValues = mapped
+      .filter((message) => message.role === "tool")
+      .flatMap((message) => message.content)
+      .map((part) =>
+        part.type === "tool-result" && part.output.type === "text"
+          ? part.output.value
+          : "",
+      );
+
+    expect(toolValues[0]).toContain('"numerator":1');
+    expect(toolValues[0]).not.toContain("[Result compacted");
+    expect(toolValues[1]).toContain('"numerator":2');
+    expect(toolValues[1]).not.toContain("[Result compacted");
+  });
+});

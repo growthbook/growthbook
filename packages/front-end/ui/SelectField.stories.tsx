@@ -49,16 +49,16 @@ function SizeStory() {
   return (
     <Flex direction="column" gap="3">
       <SelectField
-        label="Size x-small"
-        size="x-small"
+        label="Size xs"
+        size="xs"
         legacyLabelFormatting={false}
         value={v1}
         options={FRUIT_OPTIONS}
         onChange={setV1}
       />
       <SelectField
-        label="Size small"
-        size="small"
+        label="Size md"
+        size="md"
         legacyLabelFormatting={false}
         value={v2}
         options={FRUIT_OPTIONS}
@@ -72,8 +72,8 @@ function SizeStory() {
         onChange={setV3}
       />
       <SelectField
-        label="Size medium"
-        size="medium"
+        label="Size lg"
+        size="lg"
         legacyLabelFormatting={false}
         value={v4}
         options={FRUIT_OPTIONS}

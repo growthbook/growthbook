@@ -13,6 +13,8 @@ export const getSavedGroupReferences = createApiRequestHandler(
   return {
     features: refs.features,
     experiments: refs.experiments,
+    contextualBandits: refs.contextualBandits,
+    interleavings: refs.interleavings,
     savedGroups: refs.savedGroups,
   };
 });

@@ -1,17 +1,24 @@
 import type { SqlLanguage } from "sql-formatter";
-import type { DataType } from "./integrations";
+import type { DataType, FactMetricPercentileData } from "./integrations";
 
 export type StringMatchOperator =
   | "starts_with"
   | "ends_with"
   | "contains"
-  | "not_contains";
+  | "not_contains"
+  | "matches_pattern"
+  | "not_matches_pattern";
 
 export type StringMatchFn = (
   columnExpr: string,
   operator: StringMatchOperator,
   value: string,
 ) => string;
+
+/**
+ * Matches `columnExpr` against a wildcard pattern (`*` any run, `?` one char).
+ */
+export type GlobMatchFn = (columnExpr: string, glob: string) => string;
 
 /** One labeled column expanded per base row by {@link SqlDialect.unpivotLabeledPairs}. */
 export type UnpivotLabeledPair = {
@@ -81,7 +88,22 @@ export interface SqlDialect {
   unquotedIdentifierFold?: UnquotedIdentifierFold;
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
+  globMatch: GlobMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  // JSON-array support required for interleaving exposures; absence
+  // means the warehouse does not support interleaving analysis yet.
+  jsonArray?: {
+    // Clause appended after a FROM-item that unnests its `jsonColumn` (one
+    // row per element). The column comes from a user-authored exposure query,
+    // so implementations must accept JSON text or the warehouse's native JSON
+    // type without knowing which. `itemAlias` is only meaningful to
+    // `fieldText`; it may be a column, a table alias, or a lateral alias
+    // depending on the engine.
+    unnest: (jsonColumn: string, itemAlias: string) => string;
+    // Text value of `field` on an element exposed by `unnest`; booleans must
+    // render as 'true'/'false'. Usable in SELECT, WHERE, and GROUP BY.
+    fieldText: (itemAlias: string, field: string) => string;
+  };
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (
     column: string,
@@ -95,6 +117,11 @@ export interface SqlDialect {
    */
   dateDiffMs: (startCol: string, endCol: string) => string;
   /**
+   * Concatenate string expressions. Base throws rather than defaulting to `||`:
+   * in MySQL `||` is boolean OR, which would silently produce a wrong result.
+   */
+  concatStrings: (parts: string[]) => string;
+  /**
    * Shift a timestamp expression by `amount` seconds. `sign` is "+" or "-".
    * Used by funnel SQL to apply concurrency tolerance / conversion-window
    * bounds. Default implementation uses ANSI `INTERVAL '<n> seconds'`
@@ -105,6 +132,8 @@ export interface SqlDialect {
   toTimestamp: (date: Date) => string;
   castToFloat: (column: string) => string;
   castToString: (column: string) => string;
+  castToFilterString?: (column: string) => string;
+  lowerString: (column: string) => string;
   castToDate: (column: string) => string;
   /**
    * Cast `column` to the dialect's TIMESTAMP type. Used by funnel SQL when
@@ -188,13 +217,7 @@ export interface SqlDialect {
   defaultSchema: string;
   formatDialect: FormatDialect;
   percentileCapSelectClause: (
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-      sourceIndex: number;
-    }[],
+    values: FactMetricPercentileData[],
     metricTable: string,
     where?: string,
   ) => string;

@@ -3,6 +3,7 @@
 import {
   isSameReviewCycle,
   reviewCycleOf,
+  standingReviews,
   statusFromStandingVerdicts,
 } from "../../src/enterprise/reviewCycle";
 
@@ -37,6 +38,23 @@ describe("statusFromStandingVerdicts", () => {
     expect(statusFromStandingVerdicts([], "pending-review")).toBe(
       "pending-review",
     );
+  });
+});
+
+describe("standingReviews", () => {
+  it("keeps each reviewer's latest verdict, skipping comments and stale ones", () => {
+    const reviews = [
+      { userId: "dana", decision: "approve" },
+      { userId: "bob", decision: "approve", stale: true },
+      { userId: "dana", decision: "request-changes" },
+      { userId: "bob", decision: "comment" },
+      { userId: "eve", decision: "approve", stale: true },
+      { userId: "eve", decision: "approve" },
+    ];
+    expect(standingReviews(reviews)).toEqual([
+      { userId: "dana", decision: "request-changes" },
+      { userId: "eve", decision: "approve" },
+    ]);
   });
 });
 

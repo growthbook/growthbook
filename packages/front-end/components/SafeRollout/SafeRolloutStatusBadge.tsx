@@ -58,6 +58,9 @@ const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
   } else if (decisionStatus?.status === "rollback-now") {
     color = "red";
     label = "Guardrails Failing";
+  } else if (decisionStatus?.status === "data-incomplete") {
+    color = "amber";
+    label = "Data incomplete";
   } else if (decisionStatus?.status === "ship-now") {
     color = "green";
     label = "Ready to ship";

@@ -1,16 +1,31 @@
 import {
   ExplorationConfig,
   explorationConfigValidator,
+  internalExplorationConfigValidator,
   ProductAnalyticsExploration,
   ExplorationCacheQuery,
+  factMetricValidator,
+  PopulationStep,
 } from "shared/validators";
+import {
+  getPopulationFactTableIds,
+  getPopulationRuleViolations,
+} from "shared/populations";
 import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
+  isJourneySupportedDatasourceType,
+  getMetricPopulationViolations,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
+import {
+  journeyMinUnusedLookahead,
+  toClientJourneyExploration,
+  validateJourneyDataset,
+  validateJourneyStepColumns,
+} from "shared/journeys";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -27,11 +42,13 @@ import { ProductAnalyticsExplorationQueryRunner } from "back-end/src/queryRunner
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 /**
  * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
  * and can reuse compatible date ranges. Reuse the cached rows but surface the
- * client's requested display config.
+ * client's requested display config — journeys also collapse lookahead so the
+ * payload matches the path being viewed.
  */
 function withRequestedDisplayConfig(
   existing: ProductAnalyticsExploration,
@@ -55,14 +72,7 @@ function withRequestedDisplayConfig(
       },
     };
   }
-  return {
-    ...existing,
-    config: {
-      ...existing.config,
-      chartType: requested.chartType,
-      dateRange: requested.dateRange,
-    },
-  };
+  return toClientJourneyExploration(existing, requested);
 }
 
 // Max time to wait synchronously for an exploration's queries before
@@ -74,9 +84,17 @@ const PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS = 5000;
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ExplorationConfig,
-  options: ExplorationCacheQuery,
+  options: ExplorationCacheQuery & {
+    // Only the internal app endpoint (metric editor preview) may run unsaved
+    // `draftMetric` definitions; every other caller gets them stripped.
+    allowDraftMetrics?: boolean;
+  },
 ): Promise<ProductAnalyticsExploration | null> {
-  config = explorationConfigValidator.parse(config);
+  config = (
+    options.allowDraftMetrics
+      ? internalExplorationConfigValidator
+      : explorationConfigValidator
+  ).parse(config);
 
   const dataset = config.dataset;
   if (!dataset) {
@@ -97,10 +115,28 @@ export async function runProductAnalyticsExploration(
   if (!datasource) {
     throw new NotFoundError("Datasource not found");
   }
+  // Before the cache lookup and any warehouse query (draft row filters are
+  // validated against the warehouse below).
+  if (
+    !context.permissions.canRunProductAnalyticsExplorationQueries(
+      datasource,
+      dataset.type,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (options.cache !== "never") {
     const existing =
-      await context.models.analyticsExplorations.findLatestByConfig(config);
+      await context.models.analyticsExplorations.findLatestByConfig(config, {
+        // Every journey request needs one unused frontier level to project a
+        // display payload. Prefix cache hits are reused; a miss runs SQL with
+        // the full lookahead still in the dataset.
+        minUnusedLookahead:
+          config.dataset.type === "journey"
+            ? journeyMinUnusedLookahead(config.dataset.lookaheadDepth, "one")
+            : undefined,
+      });
     if (existing) {
       return withRequestedDisplayConfig(existing, config);
     }
@@ -135,7 +171,39 @@ export async function runProductAnalyticsExploration(
     if (!metricIds.length) {
       throw new BadRequestError("No metrics provided");
     }
-    const factMetrics = await context.models.factMetrics.getByIds(metricIds);
+    if (
+      dataset.values.some((value) => value.draftMetric) &&
+      (dataset.values.length !== 1 || metricIds[0] !== "fact__preview")
+    ) {
+      throw new BadRequestError(
+        "A draft preview must contain only fact__preview",
+      );
+    }
+
+    const factMetrics = await context.models.factMetrics.getByIds(
+      dataset.values
+        .filter((value) => !value.draftMetric)
+        .map((value) => value.metricId),
+    );
+    for (const value of dataset.values) {
+      if (!value.draftMetric) continue;
+      factMetrics.push(
+        factMetricValidator.parse({
+          ...value.draftMetric,
+          id: value.metricId,
+          organization: context.org.id,
+          dateCreated: new Date(0),
+          dateUpdated: new Date(0),
+        }),
+      );
+    }
+    // `getByIds` just omits what it cannot find, and an id that resolves to
+    // nothing contributes no datasource — which reads downstream as a mismatch.
+    const foundIds = new Set(factMetrics.map((fm) => fm.id));
+    const missingIds = metricIds.filter((id) => !foundIds.has(id));
+    if (missingIds.length) {
+      throw new NotFoundError(`Metric not found: ${missingIds.join(", ")}`);
+    }
     factMetrics.forEach((fm) => metricMap.set(fm.id, fm));
 
     // Populate fact table map
@@ -153,6 +221,40 @@ export async function runProductAnalyticsExploration(
       Array.from(factTableIds),
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+
+    if (dataset.population) {
+      const populationViolations = getMetricPopulationViolations({
+        population: dataset.population,
+        values: dataset.values,
+        dimensions: config.dimensions,
+        datasource: datasource.id,
+        metricMap,
+        factTableMap,
+      });
+      if (populationViolations.length) {
+        throw new BadRequestError(populationViolations.join(" "));
+      }
+    }
+
+    for (const value of dataset.values) {
+      if (!value.draftMetric) continue;
+      const metric = metricMap.get(value.metricId);
+      if (!metric) throw new NotFoundError("Draft metric not found");
+      // A draft is user-authored SQL, gated like saving a new fact metric.
+      if (!context.permissions.canCreateFactMetric(metric)) {
+        context.permissions.throwPermissionError();
+      }
+      try {
+        await FactMetricModel.validateFactMetric(
+          metric,
+          null,
+          factTableMap,
+          context,
+        );
+      } catch (e) {
+        throw new BadRequestError(e instanceof Error ? e.message : String(e));
+      }
+    }
 
     // Populate datasource
     const datasourceIds = new Set(factMetrics.map((fm) => fm.datasource));
@@ -262,6 +364,69 @@ export async function runProductAnalyticsExploration(
         );
       }
     }
+  } else if (dataset.type === "journey") {
+    // Every dataset-shape rule lives in validateJourneyDataset so the SQL
+    // builder and the explorer's Run button can't drift from this endpoint.
+    const errors = validateJourneyDataset(dataset, config.dimensions[0]);
+    if (errors.length) {
+      throw new BadRequestError(errors.join(" "));
+    }
+    if (!isJourneySupportedDatasourceType(datasource.type)) {
+      throw new BadRequestError(
+        "User Journey explorations aren't supported for this Data Source yet. Supported warehouses will expand as each is validated.",
+      );
+    }
+    const factTable = await getFactTable(context, dataset.factTableId ?? "");
+    if (!factTable) {
+      throw new NotFoundError("Fact table not found");
+    }
+    factTableMap.set(factTable.id, factTable);
+    if (factTable.datasource !== datasource.id) {
+      throw new BadRequestError(
+        "Fact Table must belong to the same Data Source as the exploration",
+      );
+    }
+    const columnErrors = validateJourneyStepColumns(dataset, factTable);
+    if (columnErrors.length) {
+      throw new BadRequestError(columnErrors.join(" "));
+    }
+    if (dataset.unit && !factTable.userIdTypes.includes(dataset.unit)) {
+      throw new BadRequestError(
+        `Journey unit "${dataset.unit}" is not a userIdType on the Fact Table`,
+      );
+    }
+  } else if (dataset.type === "population") {
+    if (!dataset.values.length) {
+      throw new BadRequestError("No populations provided");
+    }
+    if (config.dimensions.some((d) => d.dimensionType !== "date")) {
+      throw new BadRequestError(
+        "Population previews can only be grouped by date",
+      );
+    }
+    const steps: PopulationStep[] = dataset.values.map((value) => ({
+      source: value.source,
+      rowFilters: value.rowFilters,
+      aggregateFilter: value.aggregateFilter,
+      aggregateFilterColumn: value.aggregateFilterColumn,
+    }));
+    const factTables = await getFactTablesByIds(
+      context,
+      getPopulationFactTableIds(steps),
+    );
+    factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+    const violations = dataset.values.flatMap((value, i) => {
+      if (!value.unit) return [`${value.name}: Population unit is required.`];
+      return getPopulationRuleViolations({
+        datasource: datasource.id,
+        userIdTypes: [value.unit],
+        steps: [steps[i]],
+        factTables,
+      }).map((violation) => `${value.name}: ${violation}`);
+    });
+    if (violations.length) {
+      throw new BadRequestError(violations.join(" "));
+    }
   } else {
     throw new BadRequestError("Invalid dataset type");
   }
@@ -334,19 +499,25 @@ export async function runProductAnalyticsExploration(
     if (syncTimer) clearTimeout(syncTimer);
   }
 
-  return queryRunner.model;
+  return withRequestedDisplayConfig(queryRunner.model, config);
 }
 
-const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
-  {
-    metric: "metrics",
-    fact_table: "fact-table",
-    data_source: "data-source",
-    sql: "sql",
-    funnel: "funnel",
-  };
+const DATASET_TYPE_PATH: Record<
+  Exclude<ExplorationConfig["dataset"]["type"], "population">,
+  string
+> = {
+  metric: "metrics",
+  fact_table: "fact-table",
+  data_source: "data-source",
+  sql: "sql",
+  funnel: "funnel",
+  journey: "journey",
+};
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {
+  if (config.dataset.type === "population") {
+    throw new Error("Population previews have no explorer page");
+  }
   const baseUrl = `${APP_ORIGIN}/product-analytics/explore/${DATASET_TYPE_PATH[config.dataset.type]}`;
   return `${baseUrl}?config=${encodeURIComponent(encodeExplorationConfig(config))}`;
 }

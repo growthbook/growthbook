@@ -1,0 +1,19 @@
+.content {
+  display: grid;
+  grid-template-columns: 238px minmax(0, 1fr);
+}
+
+.rail {
+  border-right: 1px solid var(--gray-a6);
+}
+
+@media (max-width: 900px) {
+  .content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--gray-a6);
+  }
+}

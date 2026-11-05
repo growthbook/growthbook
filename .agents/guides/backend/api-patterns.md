@@ -80,7 +80,7 @@ import {
   apiCreateMyResourceBody,
   apiUpdateMyResourceBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const myResourceApiSpec = {
   modelSingular: "myResource",
@@ -149,6 +149,20 @@ export class MyResourceModel extends BaseClass {
   }
 }
 ```
+
+#### Calling the endpoints from the front-end
+
+The front-end can't import `src/api/specs/`. For a resource the front-end calls, declare the spec in `shared/validators` as `as const satisfies OpenApiModelSpec` (import the type from `shared/api-model`). `as const` keeps the response keys literal. Then export one endpoint per route from a `shared/api-endpoints` module:
+
+```typescript
+export const getMyResource = crudEndpoint(myResourceApiSpec, "get");
+export const archiveMyResource = customEndpoint(
+  myResourceApiSpec,
+  archiveMyResourceEndpoint,
+);
+```
+
+`crudEndpoint` only accepts actions the spec enables, and `pnpm generate-openapi` fails on any endpoint the back-end doesn't mount. `contextualBanditApiSpec` is a working example.
 
 #### Overriding standard CRUD handlers
 
@@ -300,6 +314,17 @@ src/api/
     ...
 ```
 
+### Confirmation Holds on Writes
+
+An API key can require a person to confirm some writes before they run. A held write answers `202` with a confirmation to poll. Every non-GET REST endpoint takes part, so each new write needs a classification:
+
+- **Declare its actions.** Set `confirmation: [...]` on the route validator (or per CRUD action on a model spec, or on a custom endpoint) using the most specific actions from `CONFIRM_ACTIONS` in `shared/src/validators/confirmations.ts`. An undeclared write holds as `<model>.other` (or `other.write`), which is safe but coarse.
+- **Pick by effect.** A write that changes what SDKs serve, deletes, or skips a check gets that action (`<model>.publish`, `experiment.start`, `override.*`, …). Use `<model>.create` or `<model>.draft` only when the write can't reach users. When unsure, pick the live action: under-declaring lets a write skip confirmation.
+- **`[]` is only for POSTs that read or compute** (search, preview, dry run).
+- **Armed drafts are covered for you.** On draft-revision routes, the route-level hold adds what landing does when a request arms a draft (on approval or on a schedule), and everything a landing can do when it edits a draft that's already armed. Don't add those actions to each draft route's `confirmation`. As a backstop, the draft writers (`updateRevision` and the revision engine's content edits) disarm an armed draft when a key whose rules would hold its publish edits it unconfirmed, so a path that misses its hold can't publish without a person.
+- **Decide in the handler when the action depends on the change** (archive vs publish, live vs draft): set `confirmationInHandler: true` and call `requireConfirmation` before the first write. Still list every action it can ask for in `confirmation`, so the spec and the key editor stay complete.
+- **New fields on live experiments:** payload fields belong in `PAYLOAD_AFFECTING_EXPERIMENT_FIELDS`, and phase fields in `PHASE_FIELD_ACTIONS` (`back-end/src/services/confirmations.ts`), which won't compile until a new phase field is placed.
+
 ### Resolving `ownerEmail` on API Responses
 
 Every external API response that includes an owner-bearing resource must expose a resolved `ownerEmail` alongside the raw `owner` field. Use the helpers in [src/services/owner.ts](../../../packages/back-end/src/services/owner.ts):
@@ -383,3 +408,38 @@ Call the helper on the final API-shaped object — don't try to look up owner em
 | **Audience**       | GrowthBook web app                 | Customer integrations              |
 | **Documentation**  | Internal only                      | OpenAPI spec                       |
 | **URL Prefix**     | `/api/*`                           | `/api/v1/*`                        |
+
+## Plan gating for scheduling and ramps
+
+Simple schedules (a rule's `schedule` start/end shorthand, and legacy inline
+`scheduleRules`) and multi-step ramp schedules run on the same engine: the
+shorthand becomes a one-step ramp action. Gate them the same way.
+
+- The whole ramp family is Pro: `schedule-feature-flag`, `ramp-schedules`, and
+  `safe-rollout` all sit in `commercialFeaturesPro`
+  (`shared/src/enterprise/license-consts.ts`), and every refusal says "a Pro
+  plan or above". A simple schedule is a one-step ramp and a safe rollout is a
+  monitored ramp, so the three cannot sit on different tiers. If the tier ever
+  changes, move the keys in `license-consts.ts`; never encode a tier in a
+  message or an endpoint.
+- Only _new_ scheduling is gated. An org that has dropped below Pro (expired
+  license, self-hosted OSS) must still be able to edit, pause, cancel, or clear
+  the schedules it already has, so it can wind them down. Concretely: the engine
+  chokepoint `createRampSchedulesForRevision` in `FeatureModel` gates `create`
+  ramp actions but not `update`, and not a create whose target rule already
+  carried a schedule (`isScheduledRule` in `shared/util`); the per-rule REST
+  endpoints skip
+  `assertCanUseRuleScheduling` when the stored rule is already scheduled
+  (`isScheduledRule`) or a live ramp targets it; the bulk validators
+  `validateRulesScheduleRules` / `validateEnvRulesScheduleRules` gate only rules
+  whose stored counterpart was unscheduled; and the ramp-schedule update
+  endpoints (dashboard and REST) carry no plan gate at all. Reuse those helpers
+  rather than adding an inline check.
+- Review gating (`services/rampPlanReview.ts`) covers attaching a schedule to a
+  live rule and re-planning one. Lifecycle actions, `eject-target` and `DELETE`
+  are deliberately never gated: cleanup must not need an approval.
+- A publish that edits a rule under an anchored schedule (`ready`, `running`,
+  `paused`) goes through `planRampBaseStateSync` (`services/rampSchedule.ts`)
+  in both landing paths: refused while the schedule runs (pause first) and for
+  a field a step sets; any other anchor field is written into the schedule's
+  `startActions`. Engine replays pass `rampEnginePublish` and skip it.

@@ -10,6 +10,9 @@ import {
 // and the reference detector (validators/constant) so they can't drift.
 export const CONSTANT_EXTENDS_KEY = "$extends";
 
+// The single NAT gateway address all GrowthBook Cloud egress leaves from; keep in sync with docs/ip-addresses.mdx.
+export const CLOUD_EGRESS_IP = "52.70.79.40";
+
 export const GB_SDK_ID_DEV = "sdk-UmQ03OkUDAu7Aox";
 export const GB_SDK_ID_PROD = "sdk-ueFMOgZ2daLa0M";
 
@@ -17,6 +20,7 @@ export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
+export const BAYESIAN_CREDIBLE_INTERVAL_ALPHA = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
 export const DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE = 0.001;
 export const DEFAULT_GUARDRAIL_ALPHA = 0.05; //used for early stopping for safe
@@ -72,6 +76,13 @@ export const ATTR_CB_PREFIX = "attr_cb_";
 export const ATTR_CB_RAW_PREFIX = "attr_cb_raw_";
 /** Bucket value for low-traffic / merged contextual bandit attribute slices. */
 export const CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE = "Combined";
+/**
+ * Minimum total units a variation needs to participate in contextual bandit tree
+ * construction.
+ */
+export const MIN_UNITS_PER_VARIATION = 100;
+/** Per-variation minimum units applied within a single contextual bandit leaf. */
+export const MIN_UNITS_PER_VARIATION_LEAF_GRANULARITY = 100;
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
@@ -79,9 +90,14 @@ export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
+export const MAX_CLUSTER_SUBUNIT_DIMENSIONS = MAX_PRECOMPUTED_UNIT_DIMENSIONS;
 
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
+export const MAX_SAVED_GROUP_DESCRIPTION_LENGTH = 100;
+export const FEATURE_KEY_PATTERN = "^[a-zA-Z0-9_.:\\|\\-]+$";
+export const FEATURE_KEY_PATTERN_ERROR =
+  "Feature keys can only include letters, numbers, and the characters _, -, ., :, and |.";
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";
@@ -109,6 +125,9 @@ export const USAGE_INTENTS = {
 // Health
 export const DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD = 10;
 export const DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD = 0.01;
+export const DEFAULT_CLUSTER_ISSUE_THRESHOLD = 0.01;
+export const DEFAULT_MIN_CLUSTERS_PER_VARIATION = 20;
+export const DEFAULT_MAX_CLUSTER_SHARE = 0.2;
 
 export const DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION = 8;
 export const DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION = 5;
@@ -210,6 +229,20 @@ export const attributeDataTypes = [
   "secureString[]",
 ] as const;
 
+/**
+ * Attributes GrowthBook's SDKs set themselves start with this prefix, so they
+ * don't collide with customer attributes. Check names with
+ * `isInternalAttributeName`.
+ */
+export const INTERNAL_ATTRIBUTE_PREFIX = "__gb_";
+
+export function isInternalAttributeName(name: string): boolean {
+  return name.startsWith(INTERNAL_ATTRIBUTE_PREFIX);
+}
+
+/** The attribute SDKs set to the user's remote saved group IDs. */
+export const REMOTE_GROUP_IDS_ATTRIBUTE = `${INTERNAL_ATTRIBUTE_PREFIX}remoteGroupIds`;
+
 // Runtime allow-list for discussion parents. Kept here (rather than only as a
 // type) so request handlers can validate an incoming parentType.
 export const DISCUSSION_PARENT_TYPES = [
@@ -278,17 +311,27 @@ export const entityEvents = {
   metricAnalysis: ["create", "update", "delete"],
   metricGroup: ["create", "delete", "update"],
   populationData: ["create", "delete", "update"],
+  population: ["create", "update", "delete"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
   "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete", "disable", "enable"],
-  apiKey: ["create", "update", "delete", "disable", "enable"],
+  apiKey: [
+    "create",
+    "update",
+    "delete",
+    "disable",
+    "enable",
+    "rotate",
+    "confirm",
+    "reject",
+  ],
   oauthAuthCode: ["create", "update", "delete"],
   oauthGrant: ["create", "update", "delete"],
   oauthRefreshToken: ["create", "update", "delete"],
   installation: ["update"],
-  savedGroup: ["created", "deleted", "updated"],
+  savedGroup: ["created", "deleted", "updated", "uploaded", "uploadDeleted"],
   constant: ["created", "updated", "deleted"],
   config: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
@@ -297,6 +340,7 @@ export const entityEvents = {
   vercelNativeIntegration: ["create", "update", "delete"],
   factTable: ["autocreate", "create", "update", "delete"],
   customField: ["create", "update", "delete"],
+  autoRun: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],
@@ -321,9 +365,33 @@ export const entityEvents = {
   rampScheduleTemplate: ["create", "update", "delete"],
   learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
-  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
+  interleaving: ["create", "update", "delete", "start", "stop"],
+  eventForwarderConfig: [
+    "create",
+    "update",
+    "delete",
+    "teardownFailure",
+    "migrate",
+  ],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
 
 export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;
+// Default for MAX_WEBHOOK_TIMEOUT_SECONDS; Cloud uses it as is
+export const DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS = 120;
+
+// SDK Connection settings that add optional data to the SDK payload
+export const SDK_OPTIONAL_PAYLOAD_SETTINGS = [
+  "includeDraftExperiments",
+  "includeVisualExperiments",
+  "includeRedirectExperiments",
+  "includeProjectIdInMetadata",
+  "includeCustomFieldsInMetadata",
+  "includeTagsInMetadata",
+  "includeExperimentScheduleInMetadata",
+] as const;
+
+// ID lists longer than this are treated as opaque by the flag page's rule
+// conflict analysis, so their values are never fetched.
+export const SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES = 1000;

@@ -3,10 +3,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
-import {
-  EventUserLoggedIn,
-  EventUserApiKey,
-} from "shared/types/events/event-types";
+import { eventUserCredit } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -56,10 +53,6 @@ export default function FeaturesDraftTable() {
   const featuresAndRevisions = data?.revisions;
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as
-      | EventUserLoggedIn
-      | EventUserApiKey
-      | null;
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
@@ -90,7 +83,7 @@ export default function FeaturesDraftTable() {
       dateCreated: revision?.dateCreated,
       dateUpdated: revision?.dateUpdated,
       project: revision.featureMeta?.project,
-      creator: createdBy?.name,
+      creator: eventUserCredit(revision?.createdBy ?? null).name,
       comment: revision?.comment,
       dateAndStatus,
     };

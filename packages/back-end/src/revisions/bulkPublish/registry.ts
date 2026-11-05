@@ -11,6 +11,11 @@ import {
 import { collectConfigLockGate } from "back-end/src/services/configLock";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { collectRemoteSavedGroupGate } from "back-end/src/services/remoteSavedGroups";
+import {
+  assertSavedGroupProjectScope,
+  collectSavedGroupScopeGate,
+} from "back-end/src/services/savedGroupProjectScope";
 import type { ReqContext } from "back-end/types/request";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
@@ -73,12 +78,21 @@ async function savedGroupExtraGates(args: {
     args.desiredState,
   );
 
+  const savedGroup = args.entity as unknown as SavedGroupInterface;
+  gates.push(
+    ...(await collectSavedGroupScopeGate(() =>
+      assertSavedGroupProjectScope(
+        args.overlayContext,
+        { ...savedGroup, ...args.desiredState },
+        savedGroup,
+      ),
+    )),
+  );
   // Attribute-registration gate: a proposed condition referencing an
   // unregistered attribute can't publish — SavedGroupModel.customValidation
   // throws on it at commit (500), so lift it to a plan gate (422). Skipped on
   // reverts, mirroring the write path's skipAttributeValidation. Only the
   // changed condition is checked (existingParts), matching customValidation.
-  const savedGroup = args.entity as unknown as SavedGroupInterface;
   const proposedCondition =
     (args.desiredState.condition as string | undefined) ?? savedGroup.condition;
   if (
@@ -106,6 +120,15 @@ async function savedGroupExtraGates(args: {
       );
     }
   }
+  // Remote group checks (flag, plan, upload version) also throw at commit,
+  // which would roll back the whole release.
+  gates.push(
+    ...(await collectRemoteSavedGroupGate(
+      args.callerContext,
+      { ...savedGroup, ...args.desiredState } as SavedGroupInterface,
+      savedGroup,
+    )),
+  );
   return gates;
 }
 

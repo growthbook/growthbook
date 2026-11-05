@@ -1,5 +1,9 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "../src/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  getConnectionsSDKCapabilities,
+  someConnectionSupportsCapabilities,
+} from "../src/sdk-versioning";
 
 const baseConnection: SDKConnectionInterface = {
   id: "sdk-123",
@@ -61,5 +65,87 @@ describe("getConnectionSDKCapabilities", () => {
     };
     const capabilities = getConnectionSDKCapabilities(connection); // should be empty due to Python 0.0.0 having nothing
     expect(capabilities).toStrictEqual(["bucketingV2", "encryption"]);
+  });
+});
+
+describe("contextualBanditsAuto", () => {
+  it.each(["javascript", "nodejs", "react"] as const)(
+    "is reported for %s 2.0.0 and not 1.8.0",
+    (language) => {
+      expect(
+        getConnectionSDKCapabilities({
+          ...baseConnection,
+          languages: [language],
+          sdkVersion: "2.0.0",
+        }),
+      ).toContain("contextualBanditsAuto");
+      expect(
+        getConnectionSDKCapabilities({
+          ...baseConnection,
+          languages: [language],
+          sdkVersion: "1.8.0",
+        }),
+      ).not.toContain("contextualBanditsAuto");
+    },
+  );
+
+  it("counts only connections that reach the project", () => {
+    const current = {
+      ...baseConnection,
+      sdkVersion: "2.0.0",
+      projects: ["prj_a"],
+    };
+    const outdated = { ...baseConnection, sdkVersion: "1.8.0", projects: [] };
+
+    expect(
+      getConnectionsSDKCapabilities({
+        connections: [current, outdated],
+        project: "prj_a",
+      }),
+    ).toContain("contextualBanditsAuto");
+    expect(
+      getConnectionsSDKCapabilities({
+        connections: [current, outdated],
+        project: "prj_b",
+      }),
+    ).not.toContain("contextualBanditsAuto");
+  });
+
+  it("requires one connection to support every capability itself", () => {
+    const browserOnly = { ...baseConnection, sdkVersion: "1.8.0" };
+    const serverOnly = {
+      ...baseConnection,
+      languages: ["nodejs" as const],
+      sdkVersion: "2.0.0",
+    };
+    const capabilities = ["visualEditor", "contextualBanditsAuto"] as const;
+
+    expect(
+      getConnectionsSDKCapabilities({
+        connections: [browserOnly, serverOnly],
+      }),
+    ).toEqual(expect.arrayContaining([...capabilities]));
+    expect(
+      someConnectionSupportsCapabilities({
+        connections: [browserOnly, serverOnly],
+        capabilities: [...capabilities],
+      }),
+    ).toBe(false);
+    expect(
+      someConnectionSupportsCapabilities({
+        connections: [{ ...baseConnection, sdkVersion: "2.0.0" }],
+        capabilities: [...capabilities],
+        project: "prj_a",
+      }),
+    ).toBe(true);
+    expect(
+      someConnectionSupportsCapabilities({
+        connections: [
+          { ...baseConnection, sdkVersion: "2.0.0", projects: ["prj_b"] },
+        ],
+        capabilities: [...capabilities],
+        project: "prj_a",
+      }),
+    ).toBe(false);
   });
 });

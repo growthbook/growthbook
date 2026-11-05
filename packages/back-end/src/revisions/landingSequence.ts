@@ -178,6 +178,7 @@ export async function restoreEntityPreImage({
           (
             await adapter.applyChanges(context, current, values, {
               isRevert: true,
+              isCompensation: true,
               guarded: true,
             })
           ).persistedKeys,

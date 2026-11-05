@@ -1,17 +1,19 @@
 import type { SqlDialect } from "shared/types/sql";
-import { baseDialect } from "back-end/src/integrations/dialects/base";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
-import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
-import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
-import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
-import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
-import { athenaDialect } from "back-end/src/integrations/dialects/athena";
-import { prestoDialect } from "back-end/src/integrations/dialects/presto";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
-import { adobeExperiencePlatformQueryServiceDialect } from "back-end/src/integrations/dialects/adobeExperiencePlatformQueryService";
+import {
+  baseDialect,
+  bigQueryDialect,
+  snowflakeDialect,
+  databricksDialect,
+  redshiftDialect,
+  verticaDialect,
+  mysqlDialect,
+  mssqlDialect,
+  clickHouseDialect,
+  athenaDialect,
+  prestoDialect,
+  postgresDialect,
+  adobeExperiencePlatformQueryServiceDialect,
+} from "shared/dialects";
 
 describe("SqlDialect.arrayElement", () => {
   const cases: [string, Pick<SqlDialect, "arrayElement">, string, string][] = [

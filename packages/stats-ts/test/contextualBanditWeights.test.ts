@@ -131,15 +131,194 @@ describe("computeContextualBanditWeights", () => {
     expect(weights[0]).toBeGreaterThan(weights[1]);
   });
 
-  it("falls back to the analysis weights when an arm has < 100 units", () => {
-    const data = [countryObs("US", 0, 50, 1), countryObs("US", 1, 50, 2)];
+  it("keeps the analysis weights when fewer than 2 arms have enough units", () => {
+    // Both arms are below the leaf threshold, so H = 0 < 2 and we cannot reweight.
+    const data = [countryObs("US", 0, 30, 1), countryObs("US", 1, 30, 2)];
 
     const result = computeContextualBanditWeights(input(data));
     const r = result.responses[0];
     expect(r.updatedWeights).toEqual([0.5, 0.5]);
     expect(r.bestArmProbabilities).toBeNull();
     expect(r.updateMessage).toBe(
-      "total sample size must be at least 100 per variation",
+      "requires at least 2 variations with sufficient units to update weights",
+    );
+  });
+
+  it("assigns 1/K to deficient arms and splits the rest among healthy arms", () => {
+    // v0 and v1 are healthy (H = 2), v2 is deficient (< 100 units), so v2 gets a
+    // fixed 1/K weight and v0/v1 share the remaining (K - L)/K = 2/3 mass.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 30, 1),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    const r = result.responses[0];
+    const w = r.updatedWeights as number[];
+    expect(w).toHaveLength(3);
+    expect(w[2]).toBeCloseTo(1 / 3, 6);
+    expect(w[0] + w[1]).toBeCloseTo(2 / 3, 6);
+    expect(w[1]).toBeGreaterThan(w[0]);
+    expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    expect(r.updateMessage).toContain("1 of 3 variations");
+
+    // The arm with small sample size P(best) is the uniform prior 1/K (K = 3), not a
+    // computed 0. The qualifying arms' P(best) is scaled by the (K - L)/K = 2/3
+    // remaining mass so the full array (deficient arm included) sums to 1.
+    const probs = r.bestArmProbabilities as number[];
+    expect(probs[0]).toBeGreaterThan(0);
+    expect(probs[1]).toBeGreaterThan(0);
+    expect(probs[0] + probs[1]).toBeCloseTo(2 / 3, 6);
+    expect(probs[2]).toBeCloseTo(1 / 3, 6);
+    expect(probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+  });
+
+  it("excludes under-powered variations from tree building", () => {
+    // v0 and v1 are healthy but carry no country signal (identical US/CA means),
+    // so on their own the tree has no reason to split. v2 has a strong country
+    // signal but is under-powered (< 100 units), so it must not drive a split.
+    // v2 has 30 + 30 = 60 total units, below the 100-unit threshold.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 30, 1),
+      countryObs("CA", 0, 200, 1),
+      countryObs("CA", 1, 200, 2),
+      countryObs("CA", 2, 30, 9),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    // A single leaf: the under-powered v2's country signal was ignored.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+  });
+
+  it("lets a sufficiently-powered variation drive a tree split", () => {
+    // Same shape as the previous test, but v2 now has enough units, so its
+    // strong country signal splits US from CA. This confirms the previous test's
+    // single leaf was caused by v2's low unit count, not the data shape.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("US", 2, 200, 1),
+      countryObs("CA", 0, 200, 1),
+      countryObs("CA", 1, 200, 2),
+      countryObs("CA", 2, 200, 9),
+    ];
+
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      varIds: ["v0", "v1", "v2"],
+      analysisWeights: [1 / 3, 1 / 3, 1 / 3],
+    });
+
+    expect(result.leaf_map!.length).toBeGreaterThan(1);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBeGreaterThan(
+      1,
+    );
+  });
+
+  it("keeps one leaf and the analysis weights when no variation is powered enough", () => {
+    // Tree building only considers variations with >= MIN_UNITS_PER_VARIATION
+    // (100) total units. Every variation here is far below that, so none is
+    // eligible to drive a split and all contexts collapse into a single (root)
+    // leaf -- even though US and CA carry opposing signals that would otherwise
+    // split them apart. The pooled per-variation units at that leaf (40 each)
+    // are also below the 100-unit leaf-granularity threshold, so fewer than 2
+    // arms qualify and the weights fall back to the analysis weights unchanged.
+    const data = [
+      countryObs("US", 0, 20, 1),
+      countryObs("US", 1, 20, 2),
+      countryObs("CA", 0, 20, 2),
+      countryObs("CA", 1, 20, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    // Both contexts map to the same single leaf.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    // No reweighting: every context keeps the analysis weights.
+    for (const r of result.responses) {
+      expect(r.updatedWeights).toEqual([0.5, 0.5]);
+      expect(r.bestArmProbabilities).toBeNull();
+      expect(r.updateMessage).toBe(
+        "requires at least 2 variations with sufficient units to update weights",
+      );
+    }
+  });
+
+  it("produces the same single-leaf, no-update result when only one variation has enough units", () => {
+    // v0 clears the 100-unit leaf threshold (120 pooled units) but carries no
+    // country signal (identical US/CA means), so the tree does not split and the
+    // contexts stay in one leaf. v1 stays below the threshold (30 units). With
+    // only one qualifying arm (H = 1 < 2) the weights still cannot update -- the
+    // same result as when no variation had enough units.
+    const data = [
+      countryObs("US", 0, 60, 1),
+      countryObs("US", 1, 15, 2),
+      countryObs("CA", 0, 60, 1),
+      countryObs("CA", 1, 15, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    for (const r of result.responses) {
+      expect(r.updatedWeights).toEqual([0.5, 0.5]);
+      expect(r.bestArmProbabilities).toBeNull();
+      expect(r.updateMessage).toBe(
+        "requires at least 2 variations with sufficient units to update weights",
+      );
+    }
+  });
+
+  it("keeps a single leaf but reweights when pooled units clear the 100-unit leaf threshold", () => {
+    // Every arm carries no country signal (identical US/CA means), so the tree
+    // does not split and the contexts stay in a single leaf. Pooled across both
+    // contexts each arm has 120 units, clearing the 100-unit leaf threshold
+    // (H = 2), so Thompson reweighting DOES run and the better-performing arm
+    // (v1) is weighted more heavily.
+    const data = [
+      countryObs("US", 0, 60, 1),
+      countryObs("US", 1, 60, 2),
+      countryObs("CA", 0, 60, 1),
+      countryObs("CA", 1, 60, 2),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    // Single leaf: no variation was powered enough to split.
+    expect(result.leaf_map).toHaveLength(1);
+    expect(result.responses).toHaveLength(2);
+    expect(new Set(result.responses.map((r) => r.leafId)).size).toBe(1);
+
+    // Weights were updated (not the fallback), identically for every context.
+    for (const r of result.responses) {
+      expect(r.updateMessage).toBe("successfully updated");
+      expect(r.bestArmProbabilities).not.toBeNull();
+      const w = r.updatedWeights as number[];
+      expect(w[1]).toBeGreaterThan(w[0]);
+      expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    }
+    expect(result.responses[0].updatedWeights).toEqual(
+      result.responses[1].updatedWeights,
     );
   });
 
@@ -393,9 +572,127 @@ describe("computeContextualBanditWeights", () => {
     const bic = result.bic_trajectory![0];
     // The split reduces SSE, so the likelihood ratio is positive.
     expect(bic.logLikelihoodRatio).toBeGreaterThan(0);
-    // K = 2 variations, N = 800 total users => penalty = 2 * ln(800).
-    expect(bic.penalty).toBeCloseTo(2 * Math.log(800), 6);
+    // Base BIC penalty: K = 2 variations, N = 800 total users => 2 * ln(800).
+    // The `country` attribute has 2 categories (US, CA), so the exhaustive
+    // search evaluates exactly one binary partition (2^(2-1) - 1 = 1). With
+    // M = 1 the EBIC multiplicity penalty 2 * gamma * ln(M) is zero.
+    const basePenalty = 2 * Math.log(800);
+    const expectedMultiplicity = 2 * Math.log(1);
+    expect(bic.numCandidates).toBe(1);
+    expect(bic.multiplicityPenalty).toBeCloseTo(expectedMultiplicity, 6);
+    expect(bic.penalty).toBeCloseTo(basePenalty + expectedMultiplicity, 6);
     expect(bic.deltaBic).toBeCloseTo(bic.penalty - bic.logLikelihoodRatio, 6);
+  });
+
+  it("adds the EBIC multiplicity penalty when gamma > 0", () => {
+    // Three categories (US, CA, GB) on the single `country` attribute, so the
+    // root leaf's exhaustive search evaluates 2^(3-1) - 1 = 3 binary partitions
+    // (M = 3) and the multiplicity penalty is non-zero.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("CA", 0, 200, 2),
+      countryObs("CA", 1, 200, 1),
+      countryObs("GB", 0, 200, 1),
+      countryObs("GB", 1, 200, 2),
+    ];
+
+    const gamma0 = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 0,
+    });
+    const gamma1 = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 1,
+    });
+
+    const bic0 = gamma0.bic_trajectory![0];
+    const bic1 = gamma1.bic_trajectory![0];
+
+    // M (candidates searched) is independent of gamma: 3 categories on the
+    // single `country` attribute of the root leaf => 2^(3-1) - 1 = 3 partitions.
+    expect(bic0.numCandidates).toBe(3);
+    expect(bic1.numCandidates).toBe(3);
+
+    // gamma = 0 => no multiplicity penalty; gamma = 1 => 2 * ln(M).
+    const expectedMultiplicity = 2 * Math.log(3);
+    expect(bic0.multiplicityPenalty).toBeCloseTo(0, 6);
+    expect(bic1.multiplicityPenalty).toBeCloseTo(expectedMultiplicity, 6);
+
+    // The likelihood ratio depends only on the data, so it is unchanged across
+    // gamma; only the penalty (and thus deltaBic) grows by the multiplicity term.
+    expect(bic1.logLikelihoodRatio).toBeCloseTo(bic0.logLikelihoodRatio, 6);
+    expect(bic1.penalty).toBeCloseTo(bic0.penalty + expectedMultiplicity, 6);
+    expect(bic1.deltaBic).toBeCloseTo(bic0.deltaBic + expectedMultiplicity, 6);
+    expect(bic1.deltaBic).toBeCloseTo(
+      bic1.penalty - bic1.logLikelihoodRatio,
+      6,
+    );
+  });
+
+  it("gates a near-threshold split: ebicGamma 0 accepts, ebicGamma 1 rejects", () => {
+    // v0 is flat across countries (no between-country signal); v1 differs only
+    // for GB (US = CA = 0, GB = 0.34). The one informative split separates
+    // {GB} from {US, CA}. The gap is tuned so the deviance improvement lands
+    // between the plain-BIC penalty and that penalty plus the EBIC multiplicity
+    // term, so the two gamma settings straddle the acceptance threshold:
+    //   base penalty  = K*ln(N) = 2 * ln(1200) ~= 14.18
+    //   deviance (LLR) = (2N/3) * gap^2 contribution ~= 15.29
+    //   multiplicity   = 2 * ln(M) = 2 * ln(3)       ~=  2.20
+    // => gamma 0: deltaBic ~= -1.11 (accept); gamma 1: deltaBic ~= +1.08 (reject).
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 0),
+      countryObs("CA", 0, 200, 1),
+      countryObs("CA", 1, 200, 0),
+      countryObs("GB", 0, 200, 1),
+      countryObs("GB", 1, 200, 0.34),
+    ];
+
+    const accepted = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 0,
+    });
+    const rejected = computeContextualBanditWeights({
+      ...input(data),
+      ebicGamma: 1,
+    });
+
+    const bicAccepted = accepted.bic_trajectory![0];
+    const bicRejected = rejected.bic_trajectory![0];
+
+    // Same data => same candidate count and deviance improvement; the runs
+    // differ only by the multiplicity penalty 2 * ln(M), M = 3.
+    expect(bicAccepted.numCandidates).toBe(3);
+    expect(bicRejected.numCandidates).toBe(3);
+    expect(bicRejected.logLikelihoodRatio).toBeCloseTo(
+      bicAccepted.logLikelihoodRatio,
+      6,
+    );
+    expect(bicRejected.deltaBic).toBeCloseTo(
+      bicAccepted.deltaBic + 2 * Math.log(3),
+      6,
+    );
+
+    // gamma = 0 accepts: deltaBic < 0, the split is applied (an sse_trajectory
+    // stage at numSplits = 1 appears) and contexts land in two leaves.
+    expect(bicAccepted.deltaBic).toBeLessThan(0);
+    expect(accepted.bic_trajectory).toHaveLength(1);
+    expect(accepted.sse_trajectory).toHaveLength(2);
+    expect(
+      accepted.sse_trajectory!.some((s) => s.numSplits === 1 && !!s.split),
+    ).toBe(true);
+    expect(new Set(accepted.leaf_map!.map((e) => e.leafId)).size).toBe(2);
+
+    // gamma = 1 rejects: deltaBic >= 0. The evaluated candidate is still
+    // recorded in bic_trajectory, but the gate stops before pushing a new
+    // sse_trajectory stage, so only the root stage (numSplits = 0) remains.
+    expect(bicRejected.deltaBic).toBeGreaterThanOrEqual(0);
+    expect(rejected.bic_trajectory).toHaveLength(1);
+    expect(rejected.sse_trajectory).toHaveLength(1);
+    expect(rejected.sse_trajectory![0].numSplits).toBe(0);
+    expect(rejected.sse_trajectory![0].split).toBeUndefined();
+    expect(new Set(rejected.leaf_map!.map((e) => e.leafId)).size).toBe(1);
   });
 
   it("produces no BIC entries when the tree does not split", () => {

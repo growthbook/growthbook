@@ -7,6 +7,7 @@ import {
   showMultiOrgSelfSelector,
 } from "@/services/env";
 import Callout from "@/ui/Callout";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 const CreateOrJoinOrganizationPage: FC = () => {
   if (
@@ -15,13 +16,13 @@ const CreateOrJoinOrganizationPage: FC = () => {
     !(showMultiOrgSelfSelector() || allowSelfOrgCreation())
   ) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Join Another Organization">
         <Callout status="error">
           This page is only available for self-hosted multi-org customers with
           either SHOW_MULTI_ORG_SELF_SELECTOR or ALLOW_SELF_ORG_CREATION
           environment variables enabled.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 

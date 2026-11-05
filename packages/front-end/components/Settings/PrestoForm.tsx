@@ -15,7 +15,15 @@ const PrestoForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
   onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string | boolean }) => void;
-}> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
+  showAllowlist?: boolean;
+}> = ({
+  params,
+  existing,
+  onParamChange,
+  onManualParamChange,
+  setParams,
+  showAllowlist,
+}) => {
   const authType = params.authType ?? "basicAuth";
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
     existing,
@@ -65,6 +73,7 @@ const PrestoForm: FC<{
       <div className=" col-md-12">
         <HostWarning
           host={params.host ?? ""}
+          showAllowlist={showAllowlist}
           setHost={(host) => {
             setParams({
               host,
@@ -83,7 +92,7 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Port</label>
         <input
           type="number"
@@ -95,7 +104,7 @@ const PrestoForm: FC<{
         />
       </div>
       {params.engine === "trino" ? (
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Trino User</label>
           <input
             type="text"
@@ -110,7 +119,7 @@ const PrestoForm: FC<{
           </small>
         </div>
       ) : (
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Query User</label>
           <input
             type="text"
@@ -141,7 +150,7 @@ const PrestoForm: FC<{
       </div>
       {authType === "basicAuth" && (
         <>
-          <div className="form-group col-md-12">
+          <div className="form-group col-md-6">
             <label>Username</label>
             <input
               type="text"
@@ -153,7 +162,7 @@ const PrestoForm: FC<{
             />
           </div>
 
-          <div className="form-group col-md-12">
+          <div className="form-group col-md-6">
             <label>Password</label>
             <input
               type="text"
@@ -240,13 +249,23 @@ const PrestoForm: FC<{
           </div>
         </>
       )}
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Default Catalog</label>
         <input
           type="text"
           className="form-control"
           name="catalog"
           value={params.catalog || ""}
+          onChange={onParamChange}
+        />
+      </div>
+      <div className="form-group col-md-6">
+        <label>Default Schema</label>
+        <input
+          type="text"
+          className="form-control"
+          name="schema"
+          value={params.schema || ""}
           onChange={onParamChange}
         />
       </div>
@@ -271,16 +290,6 @@ const PrestoForm: FC<{
           off this client-side limit only; Trino/Presto may still enforce
           server-side timeouts.
         </div>
-      </div>
-      <div className="form-group col-md-12">
-        <label>Default Schema</label>
-        <input
-          type="text"
-          className="form-control"
-          name="schema"
-          value={params.schema || ""}
-          onChange={onParamChange}
-        />
       </div>
       <div className="form-group col-md-12">
         <label>Source</label>

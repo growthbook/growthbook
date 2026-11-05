@@ -284,6 +284,11 @@ export default function UpgradeModal({
       "Create product analytics dashboards and control who can view and edit them.",
     "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
+    "role-management":
+      "Assign roles to teammates instead of making everyone an admin",
+    "unlimited-projects": "Create as many projects as you need",
+    "custom-environments":
+      "Create custom environments beyond production, dev, staging, and test",
     "encrypt-features-endpoint": "SDK endpoint encryption",
     "schedule-feature-flag": "Schedule feature flag rollouts",
     "override-metrics": "Override metric definitions on a per-experiment basis",
@@ -313,6 +318,8 @@ export default function UpgradeModal({
       "Define quantile metrics such as P99 latency or Median revenue",
     "retention-metrics":
       "Define retention metrics that measure return activity",
+    "funnel-metrics":
+      "Define funnel metrics that measure steps completed in order",
     "metric-populations": "Analyze metrics for different sub-populations",
     "multi-armed-bandits": "Run adaptive experiments with Bandits",
     "contextual-bandits":
@@ -330,6 +337,8 @@ export default function UpgradeModal({
     "audit-logging": "Easily export historical audit logs",
     "unlimited-managed-warehouse-usage":
       "Access to all your tracked events in the Managed Warehouse",
+    "unlimited-event-forwarder-usage":
+      "Forward unlimited events to your warehouse",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
     holdouts: "Measure aggregate impact with Holdouts",
@@ -677,7 +686,6 @@ export default function UpgradeModal({
   if (accountPlan === "enterprise") {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType="upgrade-modal"
         allowlistedTrackingEventProps={trackContext}
         open={true}
@@ -769,7 +777,6 @@ export default function UpgradeModal({
         </StripeProvider>
       ) : orgIsManagedByVercel ? (
         <Modal
-          useRadixButton={false}
           trackingEventModalType="upgrade-modal"
           allowlistedTrackingEventProps={trackContext}
           open={true}
@@ -813,7 +820,6 @@ export default function UpgradeModal({
         </Modal>
       ) : (
         <Modal
-          useRadixButton={false}
           trackingEventModalType="upgrade-modal"
           allowlistedTrackingEventProps={trackContext}
           open={true}

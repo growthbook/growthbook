@@ -183,7 +183,7 @@ export default function FunnelTabContent() {
     resetToNewFunnel();
   }, [project, resetToNewFunnel]);
 
-  // prevents steps from presisting if switching orgs/datasources changes what fact tables are accessible
+  // prevents steps from persisting if switching orgs/datasources changes what fact tables are accessible
   const hasUnresolvableStep = useMemo(() => {
     if (!ready || draftExploreState.dataset?.type !== "funnel") return false;
     return draftExploreState.dataset.steps.some(

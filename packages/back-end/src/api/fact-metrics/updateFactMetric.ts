@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { updateFactMetricValidator } from "shared/validators";
+import omit from "lodash/omit";
+import {
+  updateFactMetricValidator,
+  resolveCappingSettingsPatch,
+  validateFactMetricCapping,
+} from "shared/validators";
 import {
   FactMetricInterface,
   FactMetricType,
@@ -30,23 +35,19 @@ export async function getUpdateFactMetricPropsFromBody(
   factMetric: FactMetricInterface,
   getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<UpdateFactMetricProps> {
+  // Risk thresholds are still accepted but no longer stored.
   const {
     numerator,
     denominator,
     funnelSettings,
     cappingSettings,
+    lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
-    riskThresholdSuccess,
-    riskThresholdDanger,
     ...otherFields
-  } = body;
+  } = omit(body, ["riskThresholdSuccess", "riskThresholdDanger"]);
 
-  const updates: UpdateFactMetricProps = {
-    ...otherFields,
-    winRisk: riskThresholdSuccess,
-    loseRisk: riskThresholdDanger,
-  };
+  const updates: UpdateFactMetricProps = { ...otherFields };
 
   const metricType = updates.metricType ?? factMetric.metricType;
   if (metricType === "funnel") {
@@ -59,9 +60,13 @@ export async function getUpdateFactMetricPropsFromBody(
     updates.funnelSettings = nextFunnelSettings;
     updates.numerator = null;
     updates.denominator = null;
-    updates.cappingSettings = { type: "", value: 0 };
     updates.quantileSettings = null;
-    updates.metricAutoSlices = [];
+    // Slices configured against the old numerator's fact table mean nothing to
+    // a funnel, which needs the column on every step's table. Clear them on
+    // conversion unless the caller sent a new set.
+    if (factMetric.metricType !== "funnel") {
+      updates.metricAutoSlices = body.metricAutoSlices ?? [];
+    }
   } else {
     if (numerator === null) {
       throw new Error("Numerator required for non-funnel metrics");
@@ -121,14 +126,15 @@ export async function getUpdateFactMetricPropsFromBody(
       throw new Error("Could not find denominator fact table");
     }
   }
-  if (cappingSettings && metricType !== "funnel") {
-    updates.cappingSettings = {
-      type: cappingSettings.type === "none" ? "" : cappingSettings.type,
-      value: cappingSettings.value ?? factMetric.cappingSettings.value,
-      ignoreZeros:
-        cappingSettings.ignoreZeros ?? factMetric.cappingSettings.ignoreZeros,
-    };
-  }
+  Object.assign(
+    updates,
+    resolveCappingSettingsPatch(
+      { cappingSettings, lowerCappingSettings },
+      factMetric,
+    ),
+  );
+  validateFactMetricCapping({ ...factMetric, ...updates }, factMetric);
+
   if (windowSettings) {
     updates.windowSettings = {
       type: windowSettings.type === "none" ? "" : windowSettings.type,

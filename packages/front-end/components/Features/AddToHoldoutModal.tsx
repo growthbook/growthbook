@@ -8,6 +8,7 @@ import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/ui/Callout";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import DraftSelectorForChanges, {
@@ -15,6 +16,7 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 
 const AddToHoldoutModal = ({
   feature,
@@ -58,19 +60,20 @@ const AddToHoldoutModal = ({
   );
 
   const revisionsCtx = useFeatureRevisionsContext();
+  const targetRevisions = useFeatureRevisions(feature.id, [
+    mode === "existing" ? selectedDraft : null,
+  ]);
 
   // The rules the publish will actually evaluate depending on the draft
   // selected in the modal.
   const effectiveRules = useMemo(() => {
     if (mode === "existing" && selectedDraft !== null) {
-      const draftRevision = revisionsCtx?.revisions.find(
-        (r) => r.version === selectedDraft,
-      );
+      const draftRevision = targetRevisions.get(selectedDraft);
       if (draftRevision) return draftRevision.rules ?? [];
     }
     // Fall back to the live rules if no existing draft is selected.
     return revisionsCtx?.baseFeature.rules ?? feature.rules ?? [];
-  }, [mode, selectedDraft, revisionsCtx, feature.rules]);
+  }, [mode, selectedDraft, targetRevisions, revisionsCtx, feature.rules]);
 
   const selectedHoldoutId = form.watch("holdout")?.id ?? null;
 
@@ -136,7 +139,9 @@ const AddToHoldoutModal = ({
 
   const showHoldoutSelect = !hasBlockers;
   const canSubmit =
-    showHoldoutSelect && conflictingHoldoutExperiments.length === 0;
+    showHoldoutSelect &&
+    conflictingHoldoutExperiments.length === 0 &&
+    !targetRevisions.loading;
 
   return (
     <ModalStandard
@@ -146,7 +151,7 @@ const AddToHoldoutModal = ({
       trackingEventModalType="add-feature-to-holdout"
       size="lg"
       ctaEnabled={canSubmit}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const isPublish = mode === "publish";
         const res = await apiCall<{
           feature: FeatureInterface;

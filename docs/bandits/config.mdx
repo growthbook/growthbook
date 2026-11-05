@@ -1,6 +1,5 @@
 ---
 title: Setting up a Bandit
-slug: /bandits/config
 description: "Set up a GrowthBook bandit: pick a decision metric, assignment attribute, exploration window, update cadence, and sticky bucketing."
 ---
 
@@ -8,6 +7,8 @@ Bandits are run similarly to Experiments in GrowthBook. Key differences include:
 
 1. We require you to select a **Decision Metric** to optimize towards
 2. You have to decide the exploration window and update cadence for your Bandits
+
+This page covers multi-armed bandits, which find one winning variation for everyone. If you expect the best variation to differ by country, device, plan, or another attribute, use a [Contextual Bandit](/bandits/contextual) instead. See [Setting up a Contextual Bandit](/bandits/contextual-config) for its prerequisites.
 
 ## Creating a Bandit
 
@@ -53,14 +54,14 @@ The Decision Metric is the metric that the Bandit will optimize towards. After e
 
 An ideal decision metric has the following properties:
 
-- It has a **short conversion window** and can be observed in a relatively short time frame. Short conversion windows allow the bandit to update with accurate information; a metric that takes longer to be observed will slow down Bandit learning. If sticky bucketing is disabled, it is important to use a short conversion window to avoid
+- Its **conversion window matches how long users naturally take to convert**. A metric that takes longer to observe slows down Bandit learning, but cutting its window short misses conversions. Instead, set the [update cadence](#update-cadence) to fit the window. If sticky bucketing is disabled, long windows carry an extra risk: a returning user can see a different variation after a weight update, but GrowthBook still credits their conversions to the variation they saw first.
 - If it is a proportion metric, the conversion rate should not be super low or super high. These extreme conversion rates can result in Bandits that are very slow to converge as a lot of data is needed to adequately separate the Bandit variations.
 
 Quantile metrics cannot be used as the Decision Metric, and [Funnel](/app/metrics/funnel) metrics cannot be used anywhere on a Bandit.
 
 ### 6. Specify the conversion window length
 
-Ideally your users convert in a window much shorter than your bandit's update cadence. This will help the bandit learn quickly and allocate future traffic to the best performing variations.
+Ideally your users convert in a window much shorter than your bandit's update cadence. This will help the bandit learn quickly and allocate future traffic to the best performing variations. At each update, users who entered within the last conversion window might not have converted yet. Set your update cadence based on how long users naturally take to convert, so these users make up a small share of each update. See [Weighting results across update periods](/bandits/overview#weighting-results-across-update-periods) for how GrowthBook handles these users.
 
 If sticky bucketing is not enabled and your metrics are at the user level, this is extra important. If a user has multiple sessions, long conversion windows can result in double counting metric outcomes. If the user has multiple sessions across different bandit periods, then long conversion windows can attribute metric outcomes to the wrong variation.
 
@@ -87,7 +88,7 @@ While longer update windows mean that the Bandit will send more traffic to lower
 
 After you create your bandit, you'll be able to configure the different variations each arm of the Bandit will serve.
 
-Use either Feature Flags, the Visual Editor, or URL Redirects to set up your different variations. You can also use the API to set up your variations.
+Use either Feature Flags, the AI Visual Editor, or URL Redirects to set up your different variations. You can also use the API to set up your variations.
 
 <Frame>
   <img src="/static/images/bandits/bandit-config-3.png" alt="Linking Bandit Changes" width="800" />

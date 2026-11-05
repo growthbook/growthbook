@@ -4,6 +4,7 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { GENERIC_NAME_DESCRIPTION } from "./api-field-descriptions";
 
 const TYPES = ["SQL", "FACT"] as const;
 
@@ -77,7 +78,7 @@ export type ApiSegment = z.infer<typeof apiSegmentValidator>;
 // Corresponds to payload-schemas/PostSegmentPayload.yaml
 const postSegmentBody = z
   .object({
-    name: z.string().describe("Name of the segment"),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
     owner: ownerInputField.optional(),
     description: z
       .string()
@@ -167,6 +168,7 @@ export const postSegmentValidator = {
     })
     .strict(),
   summary: "Create a single segment",
+  confirmation: ["segment.create"] as const,
   operationId: "postSegment",
   tags: ["segments"],
   method: "post" as const,
@@ -209,6 +211,7 @@ export const updateSegmentValidator = {
     })
     .strict(),
   summary: "Update a single segment",
+  confirmation: ["segment.edit"] as const,
   operationId: "updateSegment",
   tags: ["segments"],
   method: "post" as const,
@@ -232,6 +235,7 @@ export const deleteSegmentValidator = {
     })
     .strict(),
   summary: "Deletes a single segment",
+  confirmation: ["segment.delete"] as const,
   operationId: "deleteSegment",
   tags: ["segments"],
   method: "delete" as const,

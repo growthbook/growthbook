@@ -1,5 +1,6 @@
 import { Revision } from "shared/enterprise";
 import { RevisionLog } from "shared/types/feature-revision";
+import { EventUser, eventUser } from "shared/validators";
 
 type ResolveUser = (id: string) => { name?: string; email?: string };
 
@@ -34,6 +35,7 @@ type RetractedVerdictPayload = {
   decision?: "approve" | "request-changes" | "comment";
   verdictDate?: string;
   comment?: string;
+  user?: EventUser;
 };
 
 function parseRetractedVerdict(
@@ -43,7 +45,7 @@ function parseRetractedVerdict(
   try {
     const parsed: unknown = JSON.parse(description);
     if (typeof parsed !== "object" || parsed === null) return null;
-    const { decision, verdictDate, comment } = parsed as Record<
+    const { decision, verdictDate, comment, user } = parsed as Record<
       string,
       unknown
     >;
@@ -56,6 +58,7 @@ function parseRetractedVerdict(
           : undefined,
       verdictDate: typeof verdictDate === "string" ? verdictDate : undefined,
       comment: typeof comment === "string" ? comment : undefined,
+      user: eventUser.safeParse(user).data,
     };
   } catch {
     return null;
@@ -91,7 +94,7 @@ export function revisionTimelineLogs(
           : "Comment";
     logs.push({
       id: r.id,
-      user: toUser(r.userId),
+      user: r.user ?? toUser(r.userId),
       timestamp: iso(r.dateCreated),
       action,
       subject: "",
@@ -120,7 +123,7 @@ export function revisionTimelineLogs(
         // mark it "Retracted".
         logs.push({
           id: `${a.id}-verdict`,
-          user: toUser(a.userId),
+          user: payload.user ?? a.user ?? toUser(a.userId),
           timestamp: iso(payload.verdictDate),
           action: verdictAction,
           subject: "",
@@ -129,7 +132,7 @@ export function revisionTimelineLogs(
       }
       logs.push({
         id: a.id,
-        user: toUser(a.userId),
+        user: a.user ?? toUser(a.userId),
         timestamp: iso(a.dateCreated),
         action: "Undo Review",
         subject: "",
@@ -142,7 +145,7 @@ export function revisionTimelineLogs(
     if (!action) continue;
     logs.push({
       id: a.id,
-      user: toUser(a.userId),
+      user: a.user ?? toUser(a.userId),
       timestamp: iso(a.dateCreated),
       action,
       subject: "",

@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import { CreateMetricTimeSeriesSingleDataPoint } from "shared/validators";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { waitForIndexes } from "back-end/src/models/BaseModel";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -37,17 +40,14 @@ function makeSingleDataPoint(
 }
 
 describe("MetricTimeSeriesModel", () => {
-  let mongod: MongoMemoryServer;
   let model: MetricTimeSeriesModel;
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestMongo();
   }, 60000);
 
   afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
+    await disconnectTestMongo();
   });
 
   beforeEach(async () => {

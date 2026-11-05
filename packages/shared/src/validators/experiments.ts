@@ -4,6 +4,12 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
+import { REQUIRES_PERSON_NOTE } from "./event-user";
+import { FEATURE_LANDING_ACTIONS } from "./confirmations";
+import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -11,8 +17,11 @@ import {
   paginationQueryFields,
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
+  bypassApprovalPublishBodyField,
   booleanQueryField,
   csvQueryField,
+  HUMAN_OVERRIDE_NOTE,
+  bypassViaValues,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -22,7 +31,21 @@ import {
   optionalOwnerInputField,
 } from "./owner-field";
 
-import { componentSchema, namedSchema } from "./openapi-helpers";
+import {
+  componentSchema,
+  namedSchema,
+  retiredRiskOmitted,
+} from "./openapi-helpers";
+import {
+  EXPERIMENT_HYPOTHESIS_DESCRIPTION,
+  EXPERIMENT_NAME_DESCRIPTION,
+  EXPERIMENT_TRACKING_KEY_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  TAGS_DESCRIPTION,
+  VARIATION_DESCRIPTION,
+  VARIATION_KEY_DESCRIPTION,
+  VARIATION_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -177,6 +200,10 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "guardrail-failed",
+  "query-failed",
+  "ending-soon",
+  "stale",
   "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -187,8 +214,6 @@ export const metricOverride = z
     windowType: windowTypeValidator.optional(),
     windowHours: z.number().optional(),
     delayHours: z.number().optional(),
-    winRisk: z.number().optional(),
-    loseRisk: z.number().optional(),
     properPriorOverride: z.boolean().optional(),
     properPriorEnabled: z.boolean().optional(),
     properPriorMean: z.number().optional(),
@@ -206,6 +231,19 @@ export const experimentType = [
   "holdout",
 ] as const;
 export type ExperimentType = (typeof experimentType)[number];
+
+export const CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE =
+  "Cluster-randomized experiments can't be run as Bandits.";
+
+export function isUnsupportedClusterBanditCombination({
+  type,
+  isClusterExperiment,
+}: {
+  type?: string | null;
+  isClusterExperiment?: boolean | null;
+}): boolean {
+  return !!isClusterExperiment && type === "multi-armed-bandit";
+}
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = (typeof banditStageType)[number];
@@ -267,6 +305,9 @@ export const experimentAnalysisSettings = z
     trackingKey: z.string(),
     datasource: z.string(),
     exposureQueryId: z.string(),
+    exposureQueryIdentifierType: z.string().optional(),
+    isClusterExperiment: z.boolean().optional(),
+    clusterSubUnitIdentifier: z.string().optional(),
     goalMetrics: z.array(z.string()),
     secondaryMetrics: z.array(z.string()),
     guardrailMetrics: z.array(z.string()),
@@ -290,10 +331,28 @@ export type ExperimentAnalysisSettings = z.infer<
   typeof experimentAnalysisSettings
 >;
 
+// Strips anything outside the analysis settings, so a draft can't edit the
+// rest of the experiment.
+export const experimentAnalysisSettingsDraft = experimentAnalysisSettings
+  .partial()
+  .extend({
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
+  })
+  .strip();
+export type ExperimentAnalysisSettingsDraft = z.infer<
+  typeof experimentAnalysisSettingsDraft
+>;
+
 export const experimentAnalysisSummaryHealth = z.object({
   srm: z.number(),
   multipleExposures: z.number(),
   totalUsers: z.number().nullable(),
+  // Units the SRM p-value was computed on: clusters for cluster experiments,
+  // otherwise the same as totalUsers.
+  srmTotalUnits: z.number().nullable().optional(),
   power: z
     .discriminatedUnion("type", [
       z.object({
@@ -312,15 +371,39 @@ export const experimentAnalysisSummaryHealth = z.object({
       isImbalanced: z.boolean(),
     })
     .optional(),
+  // Cluster experiments only
+  clusterAssignment: z
+    .object({
+      totalClusters: z.number(),
+      mixedClusters: z.number(),
+    })
+    .optional(),
+  clusterSubUnitMapping: z
+    .object({
+      totalUnits: z.number(),
+      multiClusterUnits: z.number(),
+    })
+    .optional(),
+  subUnitMultipleExposures: z
+    .object({
+      totalSubUnits: z.number(),
+      multipleExposedSubUnits: z.number(),
+    })
+    .optional(),
 });
 export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth
 >;
 
-export const goalMetricStatus = ["won", "lost", "neutral"] as const;
+export const goalMetricStatus = ["won", "lost", "neutral", "errored"] as const;
 export type GoalMetricStatus = (typeof goalMetricStatus)[number];
 
-export const guardrailMetricStatus = ["safe", "lost", "neutral"] as const;
+export const guardrailMetricStatus = [
+  "safe",
+  "lost",
+  "neutral",
+  "errored",
+] as const;
 export type GuardrailMetricStatus = (typeof guardrailMetricStatus)[number];
 
 export const goalMetricResult = z.object({
@@ -424,21 +507,26 @@ export const scheduledStopPlanValidator = z
   .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
 export type ScheduledStopPlan = z.infer<typeof scheduledStopPlanValidator>;
 
-export const statusUpdateScheduleValidator = z
-  .object({
-    startAt: z.date().optional(),
-    stopAt: z.date().optional(),
-    stopAfter: scheduleStopAfterValidator.optional().nullable(),
-    // The end-of-experiment automation is nested here so a stop plan can only
-    // exist alongside the schedule that triggers it.
-    scheduledStopPlan: scheduledStopPlanValidator.optional().nullable(),
-  })
-  // Allowing both is ambiguous: stopAfter resolves to a stopAt at start and
-  // would clobber the explicit one.
-  .refine((s) => !(s.stopAt && s.stopAfter), {
-    message: "Provide either stopAt or stopAfter, not both.",
-    path: ["stopAfter"],
-  });
+const statusUpdateSchedule = <D extends z.ZodTypeAny>(date: D) =>
+  z
+    .object({
+      startAt: date.optional(),
+      stopAt: date.optional(),
+      stopAfter: scheduleStopAfterValidator.optional().nullable(),
+      // The end-of-experiment automation is nested here so a stop plan can
+      // only exist alongside the schedule that triggers it.
+      scheduledStopPlan: scheduledStopPlanValidator.optional().nullable(),
+    })
+    // Allowing both is ambiguous: stopAfter resolves to a stopAt at start and
+    // would clobber the explicit one.
+    .refine((s) => !(s.stopAt && s.stopAfter), {
+      message: "Provide either stopAt or stopAfter, not both.",
+      path: ["stopAfter"],
+    });
+
+export const statusUpdateScheduleValidator = statusUpdateSchedule(z.date());
+// As a request carries it, with its dates as strings.
+export const statusUpdateScheduleInput = statusUpdateSchedule(z.string());
 
 export const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(SCHEDULED_STATUS_UPDATE_TYPES),
@@ -447,6 +535,29 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
+  // Why the last attempt failed, while it's retried.
+  lastError: z.string().optional(),
+  // Who armed it, a user or an org API key; the job fires and audits as them.
+  scheduledBy: z.string().optional(),
+  scheduledByApiKey: z.string().optional(),
+  // A start armed past its flag drafts' approvals. The job honors it only while
+  // the armer may still bypass, and only for the drafts pinned here.
+  bypassApproval: z.boolean().optional(),
+  pinnedDrafts: z
+    .array(
+      z.object({
+        featureId: z.string(),
+        revisionVersion: z.number().int(),
+        dateUpdated: z.date(),
+      }),
+    )
+    .optional(),
+});
+
+export const scheduledStatusUpdateFailureValidator = z.object({
+  type: z.enum(SCHEDULED_STATUS_UPDATE_TYPES),
+  date: z.date(),
+  reason: z.string(),
 });
 
 export const experimentInterface = z
@@ -508,6 +619,9 @@ export const experimentInterface = z
           .strict(),
       )
       .optional(),
+    // Feature Flags whose removal waits on a draft taking out the experiment's
+    // live rule; each unlinks once nothing live or open still has the rule.
+    pendingFeatureUnlinks: z.array(z.string()).optional(),
     manualLaunchChecklist: manualLaunchChecklistValidator.optional(),
     type: z.enum(experimentType).optional(),
     banditStage: z.enum(banditStageType).optional(),
@@ -528,6 +642,10 @@ export const experimentInterface = z
     customMetricSlices: z.array(customMetricSlice).optional(),
     statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
+      .optional()
+      .nullable(),
+    // A scheduled change the job gave up on, until another is staged.
+    scheduledStatusUpdateFailure: scheduledStatusUpdateFailureValidator
       .optional()
       .nullable(),
     precomputedUnitDimensionIds: z
@@ -557,8 +675,6 @@ const apiExperimentMetricOverrides = z.object({
   delayHours: z.coerce.number().optional(),
   windowHours: z.coerce.number().optional(),
   window: z.enum(["conversion", "lookback", ""]).optional(),
-  winRiskThreshold: z.coerce.number().optional().meta({ deprecated: true }),
-  loseRiskThreshold: z.coerce.number().optional().meta({ deprecated: true }),
   properPriorOverride: z.boolean().optional(),
   properPriorEnabled: z.boolean().optional(),
   properPriorMean: z.coerce.number().optional(),
@@ -566,6 +682,8 @@ const apiExperimentMetricOverrides = z.object({
   regressionAdjustmentOverride: z.boolean().optional(),
   regressionAdjustmentEnabled: z.boolean().optional(),
   regressionAdjustmentDays: z.coerce.number().optional(),
+  winRiskThreshold: retiredRiskOmitted(),
+  loseRiskThreshold: retiredRiskOmitted(),
 });
 
 // Corresponds to schemas/ExperimentMetric.yaml
@@ -712,7 +830,19 @@ export const apiExperimentAnalysisSettingsValidator = namedSchema(
   z
     .object({
       datasourceId: z.string(),
-      assignmentQueryId: z.string(),
+      ...apiAssignmentQueryResponseFields("assignmentQuery"),
+      isClusterExperiment: z
+        .boolean()
+        .describe(
+          "Whether this is a cluster-randomized experiment (randomized on the assignment query's identifier type, analyzed on clusterSubUnitIdentifier).",
+        )
+        .optional(),
+      clusterSubUnitIdentifier: z
+        .string()
+        .describe(
+          "For cluster experiments, the nested sub-unit identifier type analyzed within each cluster (e.g. user_id).",
+        )
+        .optional(),
       experimentId: z.string(),
       segmentId: z.string(),
       queryFilter: z.string(),
@@ -1145,7 +1275,7 @@ const apiBulkResultMetric = z.object({
 // Snapshot-authoritative analysis settings.
 const apiBulkResultSettings = z.object({
   datasourceId: z.string(),
-  assignmentQueryId: z.string(),
+  ...apiAssignmentQueryResponseFields("assignmentQuery"),
   experimentId: z.string(),
   segmentId: z.string(),
   queryFilter: z.string(),
@@ -1322,16 +1452,25 @@ const apiMetricOverrideEntryInput = z
 
 // Variation for input payloads
 const apiVariationInput = z.object({
-  id: z.string().optional(),
+  id: z
+    .string()
+    .describe(
+      "Stable variation id. On update, an omitted id is filled from the stored variation with the same key, or the same position, when the number of variations is unchanged.",
+    )
+    .optional(),
   variationId: z
     .string()
     .describe(
       "Alias for `id`. Mirrors the GET response. `id` takes precedence.",
     )
     .optional(),
-  key: z.string(),
-  name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  key: z.string().describe(VARIATION_KEY_DESCRIPTION),
+  name: z.string().describe(VARIATION_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(VARIATION_DESCRIPTION)
+    .optional(),
   screenshots: z
     .array(
       z.object({
@@ -1345,23 +1484,23 @@ const apiVariationInput = z.object({
 });
 export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
+const apiPhaseNamespaceInput = z.object({
+  namespaceId: z.string(),
+  enabled: z.boolean().optional(),
+  /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+  range: z.array(z.number()).min(2).max(2).optional(),
+  ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
+});
+
 // Phase for input payloads
 const apiPhaseInput = z.object({
-  name: z.string(),
+  name: z.string().describe("Short phase label (e.g. `Main`)."),
   dateStarted: z.string().meta({ format: "date-time" }),
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
-  coverage: z.number().optional(),
-  namespace: z
-    .object({
-      namespaceId: z.string(),
-      enabled: z.boolean().optional(),
-      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
-      range: z.array(z.number()).min(2).max(2).optional(),
-      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
-    })
-    .optional(),
+  coverage: z.number().min(0).max(1).optional(),
+  namespace: apiPhaseNamespaceInput.optional(),
   prerequisites: z
     .array(
       z.object({
@@ -1386,12 +1525,14 @@ const apiPhaseInput = z.object({
     .optional(),
   ...phaseSavedGroupInput,
   variationWeights: z
-    .array(z.number())
+    .array(z.number().min(0).max(1))
     .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
     .meta({ deprecated: true })
     .optional(),
   trafficSplit: z
-    .array(z.object({ variationId: z.string(), weight: z.number() }))
+    .array(
+      z.object({ variationId: z.string(), weight: z.number().min(0).max(1) }),
+    )
     .describe("Per-variation weights. Mirrors the GET response.")
     .optional(),
 });
@@ -1405,20 +1546,30 @@ const postExperimentBody = z
         "ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.",
       )
       .optional(),
-    assignmentQueryId: z
-      .string()
+    ...apiAssignmentQueryInputFields(
+      "assignmentQuery",
+      "Can only be set if a templateId is not provided.",
+    ),
+    isClusterExperiment: z
+      .boolean()
       .describe(
-        "The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.",
+        "Run as a cluster-randomized experiment: randomize on the assignment query's identifier type (the cluster, e.g. region_id) while analyzing a nested sub-unit (clusterSubUnitIdentifier, e.g. user_id). The assignment query must declare both identifier types.",
       )
       .optional(),
-    trackingKey: z.string(),
+    clusterSubUnitIdentifier: z
+      .string()
+      .describe(
+        "The nested sub-unit identifier type analyzed within each cluster (e.g. user_id). Required when isClusterExperiment is true; must be declared by the assignment query and differ from its cluster identifier type.",
+      )
+      .optional(),
+    trackingKey: z.string().describe(EXPERIMENT_TRACKING_KEY_DESCRIPTION),
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule.",
+        `If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
-    name: z.string().describe("Name of the experiment"),
+    name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
     project: z
       .string()
@@ -1430,13 +1581,16 @@ const postExperimentBody = z
         "ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.",
       )
       .optional(),
-    hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
+    hypothesis: z
+      .string()
+      .describe(EXPERIMENT_HYPOTHESIS_DESCRIPTION)
+      .optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the experiment")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     metrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
@@ -1471,8 +1625,8 @@ const postExperimentBody = z
         "When true, disables Sticky Bucketing for this experiment. If omitted, defaults to your organization's Sticky Bucketing setting for new experiments. Sticky Bucketing only takes effect when it is also enabled at the organization level.",
       )
       .optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     releasedVariationId: z.string().optional(),
     excludeFromPayload: z.boolean().optional(),
     inProgressConversions: z.enum(["loose", "strict"]).optional(),
@@ -1534,7 +1688,29 @@ const postExperimentBody = z
     statusUpdateSchedule: apiStatusUpdateScheduleInput.optional(),
     ignoreWarnings: ignoreWarningsBodyField,
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: body.type,
+        isClusterExperiment: body.isClusterExperiment,
+      })
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+        path: ["isClusterExperiment"],
+      });
+    }
+  });
+
+export const linkedChangesResolution = z.enum(["materialize", "remove"]);
+
+const linkedChangesField = linkedChangesResolution
+  .optional()
+  .describe(
+    'Required while the experiment still serves through linked changes. "materialize" keeps a stopped experiment\'s released variation as a permanent force rule on each linked Feature Flag; "remove" acknowledges that the linked changes stop serving.',
+  );
 
 // UpdateExperimentPayload.yaml
 const updateExperimentBody = z
@@ -1542,30 +1718,49 @@ const updateExperimentBody = z
     datasourceId: z
       .string()
       .describe(
-        "Can only be set if existing experiment does not have a datasource",
+        "Changing it needs an `assignmentQueryId` from the new one, and drops the metrics, segment and unit dimensions that aren't from it.",
       )
       .optional(),
-    assignmentQueryId: z.string().optional(),
-    trackingKey: z.string().optional(),
+    ...apiAssignmentQueryInputFields("assignmentQuery"),
+    isClusterExperiment: z
+      .boolean()
+      .describe(
+        "Run as a cluster-randomized experiment: randomize on the assignment query's identifier type (the cluster, e.g. region_id) while analyzing a nested sub-unit (clusterSubUnitIdentifier, e.g. user_id). The assignment query must declare both identifier types.",
+      )
+      .optional(),
+    clusterSubUnitIdentifier: z
+      .string()
+      .describe(
+        "The nested sub-unit identifier type analyzed within each cluster (e.g. user_id). Required when isClusterExperiment is true; must be declared by the assignment query and differ from its cluster identifier type.",
+      )
+      .optional(),
+    trackingKey: z
+      .string()
+      .describe(EXPERIMENT_TRACKING_KEY_DESCRIPTION)
+      .optional(),
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule.",
+        `If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
-    name: z.string().describe("Name of the experiment").optional(),
+    name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION).optional(),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    bypassApproval: bypassApprovalPublishBodyField,
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
       .optional(),
-    hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
+    hypothesis: z
+      .string()
+      .describe(EXPERIMENT_HYPOTHESIS_DESCRIPTION)
+      .optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the experiment")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     metrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
@@ -1583,6 +1778,7 @@ const updateExperimentBody = z
       .optional(),
     owner: ownerInputField.optional(),
     archived: z.boolean().optional(),
+    linkedChanges: linkedChangesField,
     status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
@@ -1595,8 +1791,8 @@ const updateExperimentBody = z
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
+    bucketVersion: z.number().int().min(0).optional(),
+    minBucketVersion: z.number().int().min(0).optional(),
     results: z
       .enum(["dnf", "won", "lost", "inconclusive"])
       .describe(
@@ -1645,14 +1841,8 @@ const updateExperimentBody = z
           dateEnded: z.string().meta({ format: "date-time" }).optional(),
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
-          coverage: z.number().optional(),
-          namespace: z
-            .object({
-              namespaceId: z.string(),
-              range: z.array(z.number()).min(2).max(2),
-              enabled: z.boolean().optional(),
-            })
-            .optional(),
+          coverage: z.number().min(0).max(1).optional(),
+          namespace: apiPhaseNamespaceInput.optional(),
           prerequisites: z
             .array(
               z.object({
@@ -1683,14 +1873,19 @@ const updateExperimentBody = z
             .optional(),
           ...phaseSavedGroupInput,
           variationWeights: z
-            .array(z.number())
+            .array(z.number().min(0).max(1))
             .describe(
               "Deprecated: use `trafficSplit`. Takes precedence if set.",
             )
             .meta({ deprecated: true })
             .optional(),
           trafficSplit: z
-            .array(z.object({ variationId: z.string(), weight: z.number() }))
+            .array(
+              z.object({
+                variationId: z.string(),
+                weight: z.number().min(0).max(1),
+              }),
+            )
             .describe("Per-variation weights. Mirrors the GET response.")
             .optional(),
         }),
@@ -1748,17 +1943,38 @@ const updateExperimentBody = z
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
+    skipChecklist: z
+      .boolean()
+      .describe(
+        `When \`status\` starts a draft: start past its incomplete launch checklist items, as \`POST /experiments/{id}/start\` does. ${HUMAN_OVERRIDE_NOTE}`,
+      )
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: body.type,
+        isClusterExperiment: body.isClusterExperiment,
+      })
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+        path: ["isClusterExperiment"],
+      });
+    }
+  });
 
 const postExperimentStartBody = z
   .object({
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+        `If true, skips validating the experiment satisfies all pre-launch checklist items. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
+    bypassApproval: bypassApprovalPublishBodyField,
     ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()
@@ -1958,6 +2174,16 @@ export const postExperimentValidator = {
     })
     .strict(),
   summary: "Create a single experiment",
+  description:
+    "Creates a new experiment.\n\n" +
+    "### Naming for human review\n\n" +
+    "Keep `name` short; put reasoning in `hypothesis` and context in `description`. `trackingKey` is sent with exposure events, so keep it short and stable.",
+  confirmation: [
+    "experiment.create",
+    "experiment.start",
+    "experiment.stop",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postExperiment",
   tags: ["experiments"],
   method: "post" as const,
@@ -1987,6 +2213,70 @@ export const getExperimentNamesValidator = {
   tags: ["experiments"],
   method: "get" as const,
   path: "/experiment-names",
+};
+
+// Archiving or deleting resolves the experiment's flag rules: it publishes them
+// (past a required review, for a caller who may bypass one) and rewrites the
+// open drafts holding them.
+const EXPERIMENT_REMOVAL_CONFIRMATION = [
+  "experiment.stop",
+  "feature.publish",
+  "feature.archive",
+  "feature.draft",
+  "override.bypassApproval",
+] as const;
+
+export const postExperimentArchiveValidator = {
+  bodySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({ experiment: apiExperimentWithEnhancedStatus })
+    .strict(),
+  summary: "Archive an experiment",
+  description:
+    "An archived experiment leaves the SDK payload. Refused while a running experiment or a temporary rollout still serves through linked changes unless `linkedChanges` says what happens to them.",
+  operationId: "postExperimentArchive",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/archive",
+  confirmation: EXPERIMENT_REMOVAL_CONFIRMATION,
+};
+
+export const postExperimentUnarchiveValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({ experiment: apiExperimentWithEnhancedStatus })
+    .strict(),
+  summary: "Unarchive an experiment",
+  operationId: "postExperimentUnarchive",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/unarchive",
+  // A draft unarchives as a draft edit; anything else goes live again, a start.
+  confirmation: ["experiment.draft", "experiment.start"] as const,
+  confirmationInHandler: true,
+};
+
+export const deleteExperimentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      deletedId: z.string().describe("The ID of the deleted experiment"),
+    })
+    .strict(),
+  summary: "Delete an experiment",
+  description:
+    'Archive first: a live experiment can only be deleted when the organization allows the REST API to bypass approval requirements. Linked Feature Flags lose their experiment rule unless `linkedChanges` is "materialize".',
+  operationId: "deleteExperiment",
+  tags: ["experiments"],
+  method: "delete" as const,
+  path: "/experiments/:id",
+  confirmation: EXPERIMENT_REMOVAL_CONFIRMATION,
 };
 
 export const getExperimentValidator = {
@@ -2022,6 +2312,10 @@ const startChecklistItemStatusValidator = z
       .describe(
         "When true, this item cannot be bypassed with `skipChecklist` — the experiment cannot be started until it is resolved.",
       ),
+    featureId: z
+      .string()
+      .optional()
+      .describe("The linked Feature Flag the item is about."),
   })
   .strict();
 
@@ -2035,12 +2329,94 @@ export type ExperimentStartChecklistStatus = z.infer<
   typeof experimentStartChecklistStatusValidator
 >;
 
+const startGateKeyFields = {
+  key: z
+    .string()
+    .describe(
+      "The checklist item, or `rampLocked:<featureId>` for a linked Feature Flag a ramp locks.",
+    ),
+  type: z
+    .string()
+    .describe(
+      'Gate kind: "checklist-item", "approval-required", "merge-conflict", "unrelated-draft-changes", "permission-denied" or "ramp-locked".',
+    ),
+};
+
+// What blocks starting an experiment, on the same model as a publish's gates.
+const startGateValidator = z
+  .object({
+    ...startGateKeyFields,
+    featureId: z
+      .string()
+      .optional()
+      .describe("The linked Feature Flag whose authority decides this gate."),
+    severity: z.enum(["blocker", "warning"]),
+    messages: z.array(z.string()),
+    override: z
+      .string()
+      .nullable()
+      .describe(
+        "Request flag that gets past this gate on retry, if any (`skipChecklist`).",
+      ),
+    requiresPermission: z
+      .string()
+      .nullable()
+      .describe(
+        "Permission on the linked Feature Flag's Project that bypasses this gate.",
+      ),
+    resolution: z
+      .object({
+        action: z.string(),
+        method: z.string(),
+        path: z.string(),
+      })
+      .nullable()
+      .describe("A route that resolves the gate."),
+  })
+  .strict();
+
 const experimentStartChecklistResponseValidator = z
   .object({
     checklistItems: z.array(startChecklistItemStatusValidator),
-    status: experimentStartChecklistStatusValidator,
+    status: experimentStartChecklistStatusValidator.describe(
+      "`notReady` while there's any gate.",
+    ),
+    gates: z
+      .array(startGateValidator)
+      .describe(
+        "Each incomplete required item, and each linked Feature Flag a ramp locks, as a gate. A refused start returns the blocking ones in `gates`.",
+      ),
   })
   .strict();
+
+const startResultFields = {
+  bypassedGates: z
+    .array(
+      z
+        .object({
+          ...startGateKeyFields,
+          outcome: z.literal("bypassed"),
+          via: z
+            .enum(bypassViaValues)
+            .describe(
+              "How it was passed: `skipChecklist`, the caller's permission (`bypassApprovalPermission`), or the organization's REST API approval bypass (`restApiBypassesReviews`).",
+            ),
+        })
+        .strict(),
+    )
+    .optional()
+    .describe(
+      "Gates this start skipped or bypassed. Present only when there were some.",
+    ),
+  publishedFeatureDrafts: z
+    .array(
+      z.object({ featureId: z.string(), revisionVersion: z.number() }).strict(),
+    )
+    .optional()
+    .describe(
+      "The linked Feature Flag drafts the start published. Present only when it published some.",
+    ),
+};
 
 export const getExperimentStartChecklistValidator = {
   bodySchema: z.never(),
@@ -2062,14 +2438,33 @@ export const updateExperimentValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentValidator,
+      ...startResultFields,
     })
     .strict(),
   summary: "Update a single experiment",
+  description:
+    "Setting `status` from draft to running starts the experiment as `POST /experiments/{id}/start` does, judged on the experiment as this update leaves it, with `skipChecklist` in this body. Changing `archived` archives or unarchives it as `POST /experiments/{id}/archive` and `/unarchive` do.",
+  confirmation: [
+    "experiment.draft",
+    "experiment.start",
+    "experiment.stop",
+    "experiment.targeting",
+    "experiment.traffic",
+    "experiment.phases",
+    "experiment.other",
+    "override.skipChecklist",
+    "override.bypassApproval",
+    ...FEATURE_LANDING_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateExperiment",
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id",
-  possibleErrors: ["pending_draft_publish_failed"] as const,
+  possibleErrors: [
+    "checklist_incomplete",
+    "pending_draft_publish_failed",
+  ] as const,
 };
 
 export const postExperimentStartValidator = {
@@ -2085,11 +2480,19 @@ export const postExperimentStartValidator = {
           "Present only when the request staged a future scheduled start instead of starting the experiment immediately.",
         )
         .optional(),
+      ...startResultFields,
     })
     .strict(),
   summary: "Start/Stage an experiment",
   description:
-    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Both check the launch checklist that `GET /experiments/{id}/start-checklist` returns, as gates. An incomplete item refuses the start with `checklist_incomplete` unless `skipChecklist` is set; a linked Feature Flag blocker refuses it either way. The refusal lists each blocking gate in `gates`, with the flag or permission that gets past it and a route that resolves it. A linked Feature Flag draft that still needs approval, or a flag locked by a ramp, is bypassed automatically when the caller has Bypass draft approvals access for that flag or the organization enables the REST API approval bypass. A start reports what it got past in `bypassedGates` and the drafts it published in `publishedFeatureDrafts`; if a draft can't publish, for example because it needs a rebase, the start fails with `pending_draft_publish_failed` before any is published. A staged start carries the caller's Bypass draft approvals access to when it runs, for the drafts as they were when it was staged: if one has changed since, or the caller has lost that access, it needs approval like any other. The organization's REST API approval bypass doesn't carry to a staged start.",
+  confirmation: [
+    "experiment.start",
+    "override.skipChecklist",
+    "override.bypassApproval",
+    ...FEATURE_LANDING_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postExperimentStart",
   tags: ["experiments"],
   method: "post" as const,
@@ -2104,12 +2507,38 @@ export const postExperimentStartValidator = {
   ] as const,
 };
 
+const postExperimentCommentBody = z
+  .object({
+    comment: z.string().trim().min(1, "Comment cannot be empty"),
+  })
+  .strict();
+
+export const postExperimentCommentValidator = {
+  bodySchema: postExperimentCommentBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.strictObject({ status: z.number() }),
+  summary: "Post a comment on an experiment",
+  description: `Adds a new comment to an experiment's discussion thread, credited to the person behind the request. ${REQUIRES_PERSON_NOTE}`,
+  confirmation: ["other.write"] as const,
+  operationId: "postExperimentComment",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/comment",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: { comment: "This looks good to ship." },
+  },
+};
+
 export const postExperimentStartChecklistManualCompleteValidator = {
   bodySchema: postExperimentStartChecklistManualCompleteBody,
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: experimentStartChecklistResponseValidator,
   summary: "Mark manual pre-launch checklist items complete",
+  confirmation: ["experiment.draft", "experiment.checklist"] as const,
+  confirmationInHandler: true,
   operationId: "postExperimentStartChecklistManualComplete",
   tags: ["experiments"],
   method: "post" as const,
@@ -2132,6 +2561,7 @@ export const postExperimentStopValidator = {
     })
     .strict(),
   summary: "Stop an experiment",
+  confirmation: ["experiment.stop"] as const,
   operationId: "postExperimentStop",
   tags: ["experiments"],
   method: "post" as const,
@@ -2160,6 +2590,7 @@ export const postExperimentModifyTemporaryRolloutValidator = {
     })
     .strict(),
   summary: "Modify temporary rollout status for a stopped experiment",
+  confirmation: ["experiment.stop"] as const,
   operationId: "postExperimentModifyTemporaryRollout",
   tags: ["experiments"],
   method: "post" as const,
@@ -2222,6 +2653,12 @@ export const putExperimentScheduleValidator = {
   summary: "Set an experiment's schedule and shipping automation",
   description:
     "Full-replace of the experiment's scheduled start/end and end-of-experiment shipping automation. The body is the complete desired state: any omitted field is cleared (omit `startAt` to remove a scheduled start; send an empty body to clear the whole schedule). Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter` resolves to a concrete stop when the experiment starts. Setting a scheduled end (`stopAt` or `stopAfter`) requires a `scheduledStopPlan` (any mode, including `notify`). The scheduled end must be in the future: a `stopAt` (or a `stopAfter` that resolves) in the past is rejected — including one whose end date has already passed and been acted on, so changing the plan after a soft end requires committing to a new end date. Auto-ship shipping requires the Decision Framework.",
+  confirmation: [
+    "experiment.start",
+    "experiment.stop",
+    "experiment.other",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "putExperimentSchedule",
   tags: ["experiments"],
   method: "put" as const,
@@ -2248,7 +2685,7 @@ export const postExperimentSnapshotValidator = {
       triggeredBy: z
         .enum(["manual", "schedule"])
         .describe(
-          'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+          'Set to "schedule" if you want this request to trigger notifications and other events as if it were a scheduled update. Defaults to manual.',
         )
         .optional(),
       dimension: z
@@ -2280,6 +2717,7 @@ export const postExperimentSnapshotValidator = {
     })
     .strict(),
   summary: "Create Experiment Snapshot",
+  confirmation: [],
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],
   method: "post" as const,
@@ -2322,6 +2760,7 @@ export const postVariationImageUploadValidator = {
     })
     .strict(),
   summary: "Upload a variation screenshot",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postVariationImageUpload",
   tags: ["experiments"],
   method: "post" as const,
@@ -2346,6 +2785,7 @@ export const deleteVariationScreenshotValidator = {
   paramsSchema: idAndVariationParams,
   responseSchema: z.record(z.string(), z.any()),
   summary: "Delete a variation screenshot",
+  confirmation: ["experiment.draft"] as const,
   operationId: "deleteVariationScreenshot",
   tags: ["experiments"],
   method: "delete" as const,

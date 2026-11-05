@@ -99,3 +99,13 @@ export const findVercelInstallationByOrganization = async (
 
   return model as unknown as VercelNativeIntegration;
 };
+
+export const vercelInstallationExists = async (
+  installationId: string,
+): Promise<boolean> =>
+  !!(await mongoose.connection.db
+    .collection(COLLECTION_NAME)
+    .findOne(
+      { installationId: { $eq: installationId } },
+      { projection: { _id: 1 } },
+    ));

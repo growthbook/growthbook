@@ -3,8 +3,14 @@ import {
   validateMaxGoalMetrics,
 } from "shared/experiments";
 import {
+  parseAssignmentQuerySelection,
+  parseAssignmentQueryInput,
+} from "shared/util";
+import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
+  isUnsupportedClusterBanditCombination,
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
@@ -14,8 +20,11 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertValidClusterExperimentConfig,
+  assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
+  PostExperimentApiPayload,
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
@@ -31,6 +40,15 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import {
+  experimentChangeActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
+import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -49,6 +67,7 @@ const TEMPLATE_FIELDS_TO_TRANSLATE = [
   "targeting",
   "datasource",
   "exposureQueryId",
+  "exposureQueryIdentifierType",
   "goalMetrics",
   "segment",
   "skipPartialData",
@@ -65,7 +84,6 @@ function templateToPostExperimentDefaults(
   return {
     ...templateWithoutFieldsToTranslate,
     datasourceId: template.datasource || undefined,
-    assignmentQueryId: template.exposureQueryId || undefined,
     metrics: template.goalMetrics,
     segmentId: template.segment,
     inProgressConversions:
@@ -93,12 +111,17 @@ function templateToPostExperimentDefaults(
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req) => {
     const { owner: ownerEmail, templateId } = req.body;
-    let payload = req.body;
 
-    // Apply template defaults if a templateId is provided
+    const assignmentQueryInput = parseAssignmentQueryInput(
+      req.body.assignmentQuery,
+      req.body.assignmentQueryId,
+      "assignmentQuery",
+    );
+
+    const template = templateId
+      ? await req.context.models.experimentTemplates.getById(templateId)
+      : null;
     if (templateId) {
-      const template =
-        await req.context.models.experimentTemplates.getById(templateId);
       if (!template) {
         throw new Error(`Invalid template: ${templateId}`);
       }
@@ -109,58 +132,111 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         );
       }
 
+      if (req.body.assignmentQuery !== undefined) {
+        throw new Error(
+          "assignmentQuery cannot be set when templateId is provided",
+        );
+      }
       if (req.body.assignmentQueryId !== undefined) {
         throw new Error(
           "assignmentQueryId cannot be set when templateId is provided",
         );
       }
-
-      payload = {
-        ...templateToPostExperimentDefaults(template),
-        ...req.body,
-      };
     }
 
-    if (payload.assignmentQueryId === undefined) {
+    /**
+     * req.body without the grouped assignmentQuery, which assignmentQueryInput
+     * already folded into the flat fields. Read these, not req.body.
+     */
+    const body = omit(req.body, "assignmentQuery");
+    const fields = {
+      ...(template ? templateToPostExperimentDefaults(template) : {}),
+      ...body,
+    };
+
+    const assignmentQueryId =
+      assignmentQueryInput.id ?? (template?.exposureQueryId || undefined);
+    if (assignmentQueryId === undefined) {
       throw new Error(
         "assignmentQueryId is required unless provided by the template",
       );
     }
 
     // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
-    if (payload.project) {
-      await req.context.models.projects.ensureProjectsExist([payload.project]);
+    if (fields.project) {
+      await req.context.models.projects.ensureProjectsExist([fields.project]);
     }
 
-    if (!req.context.permissions.canCreateExperiment(payload)) {
+    if (!req.context.permissions.canCreateExperiment(fields)) {
       req.context.permissions.throwPermissionError();
     }
 
     assertExperimentPayloadCommercialFeatures(req.context, {
-      postStratificationEnabled: payload.postStratificationEnabled,
-      decisionFrameworkSettings: payload.decisionFrameworkSettings,
-      metricOverrides: payload.metricOverrides,
-      defaultDashboardId: payload.defaultDashboardId,
+      postStratificationEnabled: fields.postStratificationEnabled,
+      decisionFrameworkSettings: fields.decisionFrameworkSettings,
+      metricOverrides: fields.metricOverrides,
+      defaultDashboardId: fields.defaultDashboardId,
+      isClusterExperiment: fields.isClusterExperiment,
     });
 
-    const datasource = payload.datasourceId
-      ? await getDataSourceById(req.context, payload.datasourceId)
+    const datasource = fields.datasourceId
+      ? await getDataSourceById(req.context, fields.datasourceId)
       : null;
-    if (payload.datasourceId && !datasource) {
-      throw new Error(`Invalid data source: ${payload.datasourceId}`);
+    if (fields.datasourceId && !datasource) {
+      throw new Error(`Invalid data source: ${fields.datasourceId}`);
     }
 
-    // check for associated assignment query id
-    if (
-      datasource &&
-      !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === payload.assignmentQueryId,
-      )
-    ) {
+    const requestedIdentifierType =
+      assignmentQueryInput.identifierType ??
+      (template?.exposureQueryIdentifierType || undefined);
+    const parsed = datasource
+      ? parseAssignmentQuerySelection(
+          datasource.settings.queries?.exposure ?? [],
+          {
+            exposureQueryId: assignmentQueryId,
+            identifierType: requestedIdentifierType,
+            onOmitted: template ? "defaultToFirst" : "requireUnambiguous",
+            /**
+             * Errors name the template's field: a template's selection is set
+             * on the template, not in this body.
+             */
+            field: template ? "exposureQuery" : "assignmentQuery",
+            scope: {
+              project: fields.project ?? "",
+              datasourceProjects: datasource.projects,
+            },
+          },
+        )
+      : null;
+    if (parsed && !parsed.ok) {
       throw new Error(
-        `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
+        templateId
+          ? `Template "${templateId}": ${parsed.error.replace(/\.$/, "")}. Update the template's assignment settings.`
+          : parsed.error,
       );
     }
+    const payload: PostExperimentApiPayload = {
+      ...fields,
+      assignmentQueryId,
+      assignmentQueryIdentifierType: parsed
+        ? parsed.identifierType
+        : requestedIdentifierType,
+    };
+
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: payload.type,
+        isClusterExperiment: payload.isClusterExperiment,
+      })
+    ) {
+      throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+    }
+
+    await assertExperimentKeyFormat(
+      req.context,
+      payload.trackingKey,
+      payload.datasourceId,
+    );
 
     // check if tracking key is unique (skip the lookup entirely if the caller
     // is bypassing the duplicate check and the org doesn't require uniqueness)
@@ -201,7 +277,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
     const ownerId =
       (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
-      req.context.userId;
+      req.context.actingUserId;
 
     // Validate that specified metrics exist and belong to the organization
     const metricGroups = await req.context.models.metricGroups.getAll();
@@ -215,11 +291,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       true,
       metricGroups,
     );
+    const map = await getMetricMap(req.context);
     if (metricIds.length) {
       if (!datasource) {
         throw new Error("Must provide a datasource when including metrics");
       }
-      const map = await getMetricMap(req.context);
       for (let i = 0; i < metricIds.length; i++) {
         const metric = map.get(metricIds[i]);
         if (metric) {
@@ -250,6 +326,27 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         }
       }
     }
+
+    await assertValidClusterExperimentConfig({
+      context: req.context,
+      datasource,
+      current: {
+        isClusterExperiment: payload.isClusterExperiment,
+        exposureQueryId: payload.assignmentQueryId,
+        exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
+        clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
+        goalMetrics: payload.metrics,
+        secondaryMetrics: payload.secondaryMetrics,
+        guardrailMetrics: payload.guardrailMetrics,
+        activationMetric: payload.activationMetric,
+      },
+      metricMap: map,
+      metricGroups,
+      wrapIdentifierError: templateId
+        ? (message) => `Template "${templateId}": ${message}`
+        : undefined,
+    });
+
     if (payload.variations) {
       validateVariationIds(payload.variations);
     }
@@ -259,6 +356,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         context: req.context,
         datasource,
         exposureQueryId: payload.assignmentQueryId,
+        exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
         dimensionIds: payload.precomputedUnitDimensionIds,
       });
     }
@@ -342,6 +440,32 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       newExperiment.goalMetrics,
       newExperiment.type,
     );
+
+    await validateChangedPhaseReferences(newExperiment.phases, [], req.context);
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(newExperiment.phases),
+    );
+
+    // Created running, stopped or with a scheduled start: judged as a change
+    // from a draft of itself.
+    await requireConfirmation(req.context, {
+      actions: [
+        "experiment.create",
+        ...experimentChangeActions(
+          {
+            ...newExperiment,
+            status: "draft",
+            statusUpdateSchedule: undefined,
+          },
+          newExperiment,
+        ),
+      ],
+      project: newExperiment.project,
+      summary: `Create ${newExperiment.name}`,
+      links: [],
+      pin: null,
+    });
 
     const experiment = await createExperiment({
       data: newExperiment,

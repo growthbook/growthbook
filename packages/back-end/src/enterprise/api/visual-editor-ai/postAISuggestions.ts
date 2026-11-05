@@ -1,9 +1,5 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
-import {
-  getAllExperiments,
-  getExperimentById,
-} from "back-end/src/models/ExperimentModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
   secondsUntilAICanBeUsedAgainForModel,
@@ -12,6 +8,8 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
+import type { ChangesetOwnerKind } from "back-end/src/services/changesetOwner";
 
 const pageHintsSchema = z.object({
   url: z.string().optional(),
@@ -34,6 +32,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/ai/suggestions",
+  confirmation: [],
   operationId: "postVisualEditorAISuggestions",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
@@ -123,6 +122,7 @@ function buildPrompt({
   pastExperiments,
 }: {
   currentExperiment: {
+    kind?: ChangesetOwnerKind;
     name: string;
     hypothesis?: string;
     description?: string;
@@ -130,7 +130,11 @@ function buildPrompt({
   pageHints?: z.infer<typeof pageHintsSchema>;
   pastExperiments: PastExperimentSummary[];
 }): string {
-  const currentBlock = `Current experiment:\n- Name: ${currentExperiment.name}\n${
+  const currentBlock = `Current ${
+    currentExperiment.kind === "contextual-bandit"
+      ? "contextual bandit (each variation is an arm the bandit optimizes across user contexts)"
+      : "experiment"
+  }:\n- Name: ${currentExperiment.name}\n${
     currentExperiment.hypothesis
       ? `- Hypothesis: ${currentExperiment.hypothesis}\n`
       : ""
@@ -179,23 +183,11 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
   const context = req.context;
   requireUserAuth(context);
 
-  const changeset = await findVisualChangesetById(
-    visualChangesetId,
-    req.organization.id,
-  );
-  if (!changeset)
-    return context.throwNotFoundError("Visual changeset not found");
-
-  const currentExperiment = await getExperimentById(
-    context,
-    changeset.experiment,
-  );
-  if (!currentExperiment)
-    return context.throwNotFoundError("Experiment not found");
-
-  if (!context.permissions.canUpdateVisualChange(currentExperiment)) {
+  const { owner } = await loadChangesetWithOwner(context, visualChangesetId);
+  if (!owner.canUpdateVisualChange()) {
     context.permissions.throwPermissionError();
   }
+  const promptContext = owner.promptContext();
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -212,9 +204,9 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
       orgId: req.organization.id,
       userId: context.userId,
       visualChangesetId,
-      experimentId: currentExperiment.id,
-      experimentName: currentExperiment.name,
-      project: currentExperiment.project || null,
+      experimentId: promptContext.id,
+      experimentName: promptContext.name,
+      project: promptContext.project || null,
       pageHints: pageHints ?? null,
     },
     "[visual-editor-ai/suggestions] request",
@@ -226,12 +218,12 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
   let pastExperiments: PastExperimentSummary[] = [];
   try {
     const all = await getAllExperiments(context, {
-      project: currentExperiment.project,
+      project: promptContext.project,
       sortBy: { dateUpdated: -1 },
       limit: 200,
     });
     pastExperiments = all
-      .filter((e) => e.id !== currentExperiment.id)
+      .filter((e) => e.id !== promptContext.id)
       .filter((e) => !!(e.hypothesis || e.description || e.analysis))
       .slice(0, 20)
       .map((e) => ({
@@ -256,9 +248,10 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     instructions,
     prompt: buildPrompt({
       currentExperiment: {
-        name: currentExperiment.name,
-        hypothesis: currentExperiment.hypothesis || undefined,
-        description: currentExperiment.description || undefined,
+        kind: promptContext.kind,
+        name: promptContext.name,
+        hypothesis: promptContext.hypothesis || undefined,
+        description: promptContext.description || undefined,
       },
       pageHints,
       pastExperiments,

@@ -21,7 +21,7 @@ router.post(
   "/",
   validateRequestMiddleware({
     body: z.strictObject({
-      property: z.string(),
+      property: z.string().min(1, "Attribute property cannot be empty"),
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()),
@@ -30,6 +30,7 @@ router.post(
       hashAttribute: z.boolean().optional(),
       disableEqualityConditions: z.boolean().optional(),
       tags: z.array(z.string()).optional(),
+      customFields: z.record(z.string(), z.string()).optional(),
     }),
   }),
   AttributeController.postAttribute,
@@ -39,7 +40,7 @@ router.put(
   "/",
   validateRequestMiddleware({
     body: z.strictObject({
-      property: z.string(),
+      property: z.string().min(1, "Attribute property cannot be empty"),
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()).optional(),
@@ -50,6 +51,7 @@ router.put(
       disableEqualityConditions: z.boolean().optional(),
       previousName: z.string().optional(),
       tags: z.array(z.string()).optional(),
+      customFields: z.record(z.string(), z.string()).optional(),
     }),
   }),
   AttributeController.putAttribute,

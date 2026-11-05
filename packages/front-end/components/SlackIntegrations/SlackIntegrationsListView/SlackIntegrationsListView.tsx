@@ -1,10 +1,4 @@
-import React, {
-  FC,
-  PropsWithChildren,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import pick from "lodash/pick";
 import { Box } from "@radix-ui/themes";
 import { SlackIntegrationInterface } from "shared/types/slack-integration";
@@ -19,18 +13,14 @@ import useApi from "@/hooks/useApi";
 import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 
 type SlackIntegrationsListViewProps = {
-  legacyOnly?: boolean;
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
-  onCreateModalOpen: () => void;
   onModalClose: () => void;
   modalMode: SlackIntegrationModalMode | null;
-  onCreate: (data: SlackIntegrationEditParams) => void;
   onUpdate: (id: string, data: SlackIntegrationEditParams) => void;
   onDelete: (id: string) => Promise<void>;
   slackIntegrations: SlackIntegrationInterface[];
@@ -45,11 +35,8 @@ type SlackIntegrationsListViewProps = {
 };
 
 export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
-  legacyOnly = false,
-  onCreate,
   onUpdate,
   onDelete,
-  onCreateModalOpen,
   onEditModalOpen,
   modalMode,
   onModalClose,
@@ -74,7 +61,6 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
         <SlackIntegrationAddEditModal
           mode={modalMode}
           isOpen={true}
-          onCreate={onCreate}
           onUpdate={onUpdate}
           error={modalError}
           onClose={onModalClose}
@@ -84,34 +70,17 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
         />
       ) : null}
 
-      {legacyOnly ? (
-        <Box mb="4">
-          <Heading as="h2" size="md" mb="2">
-            Legacy Slack Integrations
-          </Heading>
-          <Text as="p" color="text-mid">
-            These connections continue to send notifications. You can edit or
-            delete them here while you move to workspace connections. After
-            verifying a new connection, delete the old connection to avoid
-            duplicate notifications.
-          </Text>
-        </Box>
-      ) : (
-        <div className="mb-4">
-          <div className="d-flex justify-space-between align-items-center">
-            <span className="badge badge-purple text-uppercase mr-2">Beta</span>
-            <h1>Slack Integrations</h1>
-          </div>
-          <p>Get alerts in Slack when your GrowthBook data is updated.</p>
-          <div className="alert alert-premium">
-            <h4>Free while in Beta</h4>
-            <p className="mb-0">
-              This feature will be free while we build it out and work out the
-              bugs.
-            </p>
-          </div>
-        </div>
-      )}
+      <Box mb="4">
+        <Heading as="h2" size="md" mb="2">
+          Legacy Slack Integrations
+        </Heading>
+        <Text as="p" color="text-mid">
+          These connections continue to send notifications. You can edit or
+          delete them here while you move to workspace connections. After
+          verifying a new connection, delete the old connection to avoid
+          duplicate notifications.
+        </Text>
+      </Box>
 
       {/* Feedback messages */}
       {errorMessage && (
@@ -120,14 +89,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
         </Callout>
       )}
 
-      {/* Empty state */}
-      {slackIntegrations.length === 0 ? (
-        legacyOnly ? null : (
-          <SlackIntegrationsEmptyState>
-            <Button onClick={onCreateModalOpen}>New Slack integration</Button>
-          </SlackIntegrationsEmptyState>
-        )
-      ) : (
+      {slackIntegrations.length > 0 && (
         <div>
           {/* List View */}
           {slackIntegrations.map((slackIntegration) => (
@@ -142,34 +104,13 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
               />
             </div>
           ))}
-
-          {!legacyOnly && (
-            <Box mt="4" mb="5">
-              <Button onClick={onCreateModalOpen}>New Slack integration</Button>
-            </Box>
-          )}
         </div>
       )}
     </div>
   );
 };
 
-const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
-  <div className="row">
-    <div className="col-12 ">
-      <div className="appbox text-center p-3">
-        When Slack integrations are created, they will show up here.
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  </div>
-);
-
-export const SlackIntegrationsListViewContainer = ({
-  legacyOnly = false,
-}: {
-  legacyOnly?: boolean;
-}) => {
+export const SlackIntegrationsListViewContainer = () => {
   const { apiCall } = useAuth();
 
   const [modalMode, setModalMode] = useState<SlackIntegrationModalMode | null>(
@@ -186,12 +127,6 @@ export const SlackIntegrationsListViewContainer = ({
     },
     [],
   );
-
-  const handleOnCreateModalOpen = useCallback(() => {
-    setModalMode({
-      mode: "create",
-    });
-  }, []);
 
   const [addEditError, setAddEditError] = useState<null | string>(null);
 
@@ -217,37 +152,6 @@ export const SlackIntegrationsListViewContainer = ({
       });
 
       await mutate();
-    },
-    [apiCall, mutate],
-  );
-
-  const handleCreate = useCallback(
-    async (data: SlackIntegrationEditParams) => {
-      setAddEditError(null);
-
-      try {
-        const response = await apiCall<{
-          error?: string;
-          slackIntegration?: SlackIntegrationInterface;
-        }>("/integrations/slack", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
-
-        if (response.error) {
-          setAddEditError(
-            `Failed to create Slack integration: ${
-              response.error || "Unknown error"
-            }`,
-          );
-        } else {
-          setAddEditError(null);
-          setModalMode(null);
-          mutate();
-        }
-      } catch (e) {
-        setAddEditError(`Failed to create Slack integration: ${e.message}`);
-      }
     },
     [apiCall, mutate],
   );
@@ -300,23 +204,20 @@ export const SlackIntegrationsListViewContainer = ({
 
   const { projects, tags } = useDefinitions();
 
-  if (legacyOnly && !loadError && slackIntegrations.length === 0) return null;
+  if (!loadError && slackIntegrations.length === 0) return null;
 
   return (
     <SlackIntegrationsListView
-      legacyOnly={legacyOnly}
       slackIntegrations={slackIntegrations}
       modalMode={modalMode}
       onDelete={handleDelete}
       modalError={addEditError}
       onEditModalOpen={handleOnEditModalOpen}
-      onCreateModalOpen={handleOnCreateModalOpen}
       errorMessage={errorMessage}
       environments={environments}
       projects={projects}
       tagOptions={tags}
       onUpdate={handleUpdate}
-      onCreate={handleCreate}
       onModalClose={() => setModalMode(null)}
     />
   );

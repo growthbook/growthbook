@@ -191,6 +191,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     changes: Record<string, unknown>,
     options?: {
       isRevert?: boolean;
+      isCompensation?: boolean;
       guarded?: boolean;
       onPersisted?: (result: ApplyChangesResult) => void;
     },
@@ -234,7 +235,12 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
       filteredChanges as Parameters<
         typeof context.models.savedGroups.update
       >[1],
-      options?.isRevert ? { skipAttributeValidation: true } : undefined,
+      options?.isRevert || options?.isCompensation
+        ? {
+            skipAttributeValidation: options?.isRevert,
+            isCompensation: options?.isCompensation,
+          }
+        : undefined,
       {
         onWritten: (doc: unknown) => report(doc as Record<string, unknown>),
       },

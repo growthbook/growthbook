@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
-import { getAttributeScopeProjectIds, ruleAppliesToEnv } from "shared/util";
+import {
+  getRuleAttributeScopeProjectIds,
+  ruleAppliesToEnv,
+  isScheduledRule,
+} from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -33,10 +37,22 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
-  validateRuleConditions,
+  assertValidRevisionRulePrerequisites,
+  validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  stagedFeature,
+  validateRampPlanPatches,
+  withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
+import {
+  assertCanUseRuleScheduling,
+  assertValidExperimentRefRule,
+  experimentRefChanged,
+} from "./v2Shared";
 
 export function applyPatch(
   existing: FeatureRule,
@@ -134,15 +150,19 @@ export function applyPatch(
       );
     }
 
+    // A force rule has no coverage, so only the patch can make it a rollout;
+    // anything stored on one is ignored. Unset coverage means 100%.
     const effectiveCoverage =
-      patch.coverage ?? (existing as RolloutRule).coverage;
+      patch.coverage ??
+      (type === "rollout" ? (existing as RolloutRule).coverage : null) ??
+      1;
     const effectiveHashAttr =
       patch.hashAttribute ?? (existing as RolloutRule).hashAttribute;
     const effectiveValue =
       patch.value ?? (existing as ForceRule | RolloutRule).value;
 
     // coverage < 1 → rollout (requires hashAttribute); else → force.
-    const isRollout = effectiveCoverage !== undefined && effectiveCoverage < 1;
+    const isRollout = effectiveCoverage < 1;
 
     if (isRollout) {
       if (!effectiveHashAttr) {
@@ -157,6 +177,9 @@ export function applyPatch(
         value: effectiveValue ?? "",
         coverage: effectiveCoverage,
         hashAttribute: effectiveHashAttr,
+        ...(patch.fallbackAttribute !== undefined && {
+          fallbackAttribute: patch.fallbackAttribute,
+        }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
         ...(patch.hashVersion !== undefined && {
           hashVersion: patch.hashVersion,
@@ -170,15 +193,13 @@ export function applyPatch(
         ...commonUpdates,
         type: "force",
         value: effectiveValue ?? "",
-        ...(effectiveCoverage !== undefined && {
-          coverage: effectiveCoverage,
-        }),
         ...(effectiveHashAttr !== undefined && {
           hashAttribute: effectiveHashAttr,
         }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
         ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
+      delete (updated as { coverage?: number }).coverage;
       return updated;
     }
   }
@@ -200,6 +221,22 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
   const patch = req.body.rule;
+  const staged = await stagedFeature(req.context, feature, req.params.version);
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      staged,
+      {
+        ...(staged.rules ?? []).find((r) => r.id === req.params.ruleId),
+        ...patch,
+        id: req.params.ruleId,
+        environments: [environment],
+      },
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -285,7 +322,22 @@ export const putFeatureRevisionRule = createApiRequestHandler(
           environment,
         );
     }
+    // Only newly introduced scheduling is plan-gated; an already-scheduled
+    // rule can be edited or cleared on any plan.
+    if (!isScheduledRule(oldRule) && liveSchedulesForRule.length === 0) {
+      assertCanUseRuleScheduling(req.context, {
+        schedule,
+        scheduleRules: patch.scheduleRules,
+        rampSchedule: inlineRampSchedule,
+      });
+    }
     const updatedRule = applyPatch(oldRule, patch);
+    if (
+      updatedRule.type === "experiment-ref" &&
+      experimentRefChanged(updatedRule, oldRule)
+    ) {
+      await assertValidExperimentRefRule(req.context, updatedRule);
+    }
 
     // A coverage patch can convert a force rule to a rollout, which arrives
     // seedless. Existing rollouts already carry a seed and are left untouched.
@@ -293,52 +345,48 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
-      rules: [updatedRule as FeatureRule],
-    });
+    assertFeatureValuesValid(
+      req.context,
+      withStagedSchema(feature, revision),
+      { rules: [updatedRule as FeatureRule] },
+      { rules: [oldRule] },
+    );
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).
-    validateRuleConditions({
-      condition:
-        patch.condition !== undefined ? updatedRule.condition : undefined,
-      prerequisites:
-        patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
-    });
+    if (patch.prerequisites !== undefined) {
+      validatePrerequisiteConditions(updatedRule.prerequisites ?? []);
+    }
     // Attribute registration check: only validate the fields the caller
-    // actually patched. patch is the Zod-typed RulePatchInput, so condition
-    // and hashAttribute are already string | undefined. fallbackAttribute
-    // isn't on the patch schema at all.
-    const changedAttributes: {
-      condition?: string;
-      hashAttribute?: string;
-    } = {};
+    // actually patched.
+    const changedAttributes: Parameters<typeof validateRuleAttributes>[0] = {};
     if (patch.condition !== undefined) {
       changedAttributes.condition = patch.condition;
     }
     if (patch.hashAttribute !== undefined) {
       changedAttributes.hashAttribute = patch.hashAttribute;
     }
+    if (patch.fallbackAttribute !== undefined) {
+      changedAttributes.fallbackAttribute = patch.fallbackAttribute;
+    }
     if (Object.keys(changedAttributes).length > 0) {
       validateRuleAttributes(
         changedAttributes,
         req.context,
-        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+        getRuleAttributeScopeProjectIds(
+          feature,
+          revision.metadata,
+          updatedRule,
+        ) ?? undefined,
       );
     }
-    if (
-      patch.condition !== undefined ||
-      patch.savedGroups !== undefined ||
-      patch.prerequisites !== undefined
-    ) {
+    if (patch.condition !== undefined || patch.savedGroups !== undefined) {
       await validateRuleReferences(
         {
           condition:
             patch.condition !== undefined ? updatedRule.condition : undefined,
           savedGroups:
             patch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
         },
         req.context,
       );
@@ -353,10 +401,22 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     );
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: flatRules,
+      after: newRules,
+    });
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          updatedRule.id,
+          feature,
+          {
+            previousMonitoringConfig: liveSchedulesForRule[0]?.monitoringConfig,
+          },
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       const hasLegacySchedule =

@@ -9,6 +9,7 @@ import {
 } from "shared/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { SDKLanguage } from "shared/types/sdk-connection";
+import { CLOUD_EGRESS_IP } from "shared/constants";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
@@ -19,6 +20,10 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import {
+  timeoutError,
+  timeoutSecondsFromInput,
+} from "@/components/EventWebHooks/utils";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
@@ -53,6 +58,7 @@ interface SdkWebhookInputs {
   payloadFormat: WebhookPayloadFormat;
   httpMethod: WebhookMethod;
   headers: string;
+  timeoutSeconds: number | null;
 }
 
 function getWebhookFromType(
@@ -166,6 +172,7 @@ export function CreateSDKWebhookModal({
       payloadFormat: "standard",
       httpMethod: "POST",
       headers: "{}",
+      timeoutSeconds: null,
     },
   });
 
@@ -219,20 +226,25 @@ export function CreateSDKWebhookModal({
         />
       )}
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         header="Create New SDK Webhook"
         open={true}
         size="lg"
+        ctaEnabled={!timeoutError(form.watch("timeoutSeconds"))}
         submit={form.handleSubmit(async (inputs) => {
           if (!webhookType) {
             throw new Error("Please select a Webhook type");
           }
 
+          if (timeoutError(inputs.timeoutSeconds)) {
+            throw new Error(timeoutError(inputs.timeoutSeconds));
+          }
+
           const data: CreateSdkWebhookProps = {
             ...getWebhookFromType(webhookType, inputs),
             name: inputs.name,
+            timeoutSeconds: inputs.timeoutSeconds,
           };
 
           if (data.endpoint.match(/localhost/g)) {
@@ -369,7 +381,7 @@ export function CreateSDKWebhookModal({
                   {isCloud() ? (
                     <>
                       {" "}
-                      from <code>52.70.79.40</code>
+                      from <code>{CLOUD_EGRESS_IP}</code>
                     </>
                   ) : (
                     ""
@@ -512,6 +524,17 @@ export function CreateSDKWebhookModal({
             )}
           </>
         ) : null}
+
+        <Field
+          label="Timeout (seconds)"
+          type="number"
+          min={1}
+          placeholder="30"
+          error={timeoutError(form.watch("timeoutSeconds"))}
+          {...form.register("timeoutSeconds", {
+            setValueAs: timeoutSecondsFromInput,
+          })}
+        />
       </Modal>
     </>
   );
@@ -535,6 +558,7 @@ const EditSDKWebhooksModal: FC<{
       payloadKey: current?.payloadKey || "",
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
+      timeoutSeconds: current?.timeoutSeconds ?? null,
       sdkid: sdkConnectionId,
     },
   });
@@ -546,6 +570,9 @@ const EditSDKWebhooksModal: FC<{
     if (!isValidHttp(value.endpoint)) {
       throw new Error("Invalid URL");
     }
+    if (timeoutError(value.timeoutSeconds)) {
+      throw new Error(timeoutError(value.timeoutSeconds));
+    }
 
     if (current.id) {
       const data: UpdateSdkWebhookProps = {
@@ -555,6 +582,7 @@ const EditSDKWebhooksModal: FC<{
         headers: value.headers,
         payloadFormat: value.payloadFormat,
         payloadKey: value.payloadKey,
+        timeoutSeconds: value.timeoutSeconds,
       };
 
       await apiCall(`/sdk-webhooks/${current.id}`, {
@@ -569,6 +597,7 @@ const EditSDKWebhooksModal: FC<{
         headers: value.headers,
         payloadFormat: value.payloadFormat,
         payloadKey: value.payloadKey,
+        timeoutSeconds: value.timeoutSeconds,
       };
       await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
         method: "POST",
@@ -616,14 +645,13 @@ const EditSDKWebhooksModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header={current.id ? "Update Webhook" : "Create New Webhook"}
       open={true}
       submit={onSubmit}
       autoCloseOnSubmit={false}
-      ctaEnabled={validHeaders}
+      ctaEnabled={validHeaders && !timeoutError(form.watch("timeoutSeconds"))}
       cta={current.id ? "Update" : "Create"}
       size="lg"
     >
@@ -644,7 +672,7 @@ const EditSDKWebhooksModal: FC<{
             {isCloud() ? (
               <>
                 {" "}
-                from <code>52.70.79.40</code>
+                from <code>{CLOUD_EGRESS_IP}</code>
               </>
             ) : (
               ""
@@ -751,6 +779,17 @@ const EditSDKWebhooksModal: FC<{
           )}
         </>
       )}
+
+      <Field
+        label="Timeout (seconds)"
+        type="number"
+        min={1}
+        placeholder="30"
+        error={timeoutError(form.watch("timeoutSeconds"))}
+        {...form.register("timeoutSeconds", {
+          setValueAs: timeoutSecondsFromInput,
+        })}
+      />
     </Modal>
   );
 };

@@ -1,12 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RevisionLog } from "shared/validators";
 import {
   buildAnchoredCommentMap,
   buildDiffSnapshotEntries,
   captureDiffRefSnapshot,
+  DIFF_SECTION_EXPAND_EVENT,
   diffRefId,
   formatDiffRef,
   parseDiffRefs,
+  scrollToDiffRef,
   splitDiffRefSegments,
   stripDiffRefs,
 } from "@/components/Reviews/diffCommentRefs";
@@ -195,5 +197,34 @@ describe("buildAnchoredCommentMap", () => {
     ]);
     expect(map.get("rules:R2")?.userId).toBe("u1");
     expect(map.get("rules:R2")?.userName).toBe("Bryce");
+  });
+});
+
+describe("scrollToDiffRef", () => {
+  const ref = { sectionKey: "rules", side: "R" as const, line: 120 };
+  beforeEach(() => {
+    vi.useFakeTimers();
+    Element.prototype.scrollIntoView = vi.fn();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("asks the section for the line when it isn't rendered yet", () => {
+    const onExpand = vi.fn();
+    window.addEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
+    scrollToDiffRef(ref);
+    window.removeEventListener(DIFF_SECTION_EXPAND_EVENT, onExpand);
+    expect((onExpand.mock.calls[0][0] as CustomEvent).detail).toEqual(ref);
+  });
+
+  it("scrolls to and flashes a line in a section that renders rows as divs", () => {
+    document.body.innerHTML = `<div data-diff-row><div data-diff-ref="${diffRefId(ref)}"></div></div>`;
+    scrollToDiffRef(ref);
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    expect(
+      document
+        .querySelector("[data-diff-row]")
+        ?.classList.contains("gb-diff-ref-flash"),
+    ).toBe(true);
   });
 });

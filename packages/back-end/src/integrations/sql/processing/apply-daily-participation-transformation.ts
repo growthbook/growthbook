@@ -17,12 +17,14 @@ export function applyDailyParticipationTransformation(
     analysisEndDate,
     metric,
     overrideConversionWindows,
+    cutoffDate,
   }: {
     column: string;
     initialTimestampColumn: string;
     analysisEndDate: Date;
     metric: FactMetricInterface;
     overrideConversionWindows: boolean;
+    cutoffDate: Date | null;
   },
 ): string {
   if (metric.metricType !== "dailyParticipation") {
@@ -36,6 +38,7 @@ export function applyDailyParticipationTransformation(
         analysisEndDate,
         metric,
         overrideConversionWindows,
+        cutoffDate,
       })}
     `;
 }

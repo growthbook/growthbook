@@ -1,10 +1,13 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import type { Response } from "express";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { DataExportFileResponse } from "shared/types/data-exports";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { getLatestEventsForOrganization } from "back-end/src/models/EventModel";
+import { getEventsCursorForOrganization } from "back-end/src/models/EventModel";
+import { logger } from "back-end/src/util/logger";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 
 /**
@@ -34,12 +37,22 @@ export const getDataExportForEvents = async (
     });
   }
 
-  const events = await getLatestEventsForOrganization(org.id, 0);
-
   const fileName = `data-export--events--${new Date().getTime()}.json`;
 
-  return res.json({
-    fileName,
-    data: JSON.stringify(events),
-  });
+  async function* body() {
+    yield `{"fileName":${JSON.stringify(fileName)},"data":"[`;
+    let separator = "";
+    for await (const event of getEventsCursorForOrganization(org.id)) {
+      // `data` is a JSON string, so each event is escaped as a string fragment
+      yield JSON.stringify(separator + JSON.stringify(event)).slice(1, -1);
+      separator = ",";
+    }
+    yield `]"}`;
+  }
+
+  // Streamed so an org's full audit log is never held in memory at once
+  res.type("json");
+  await pipeline(Readable.from(body()), res).catch((e) =>
+    logger.error(e, "Events data export failed"),
+  );
 };

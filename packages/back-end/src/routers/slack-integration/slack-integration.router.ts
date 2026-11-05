@@ -1,9 +1,12 @@
-import express from "express";
-import { z } from "zod";
 import {
-  isEventWebhookWildcard,
+  slackNotificationPreviewBodySchema,
+  slackLinkBodySchema,
+  slackAccountLinkSchema,
+  slackNotificationSettingsBodySchema,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
+import express from "express";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSlackIntegrationController from "./slack-integration.controller";
@@ -14,14 +17,19 @@ const slackIntegrationController = wrapController(
   rawSlackIntegrationController,
 );
 
-const eventNameOrWildcard = z
-  .string()
-  .refine(
-    (value) =>
-      zodNotificationEventNamesEnum.includes(value as never) ||
-      isEventWebhookWildcard(value),
-    { message: "Must be a valid event name or wildcard pattern" },
-  );
+router.post(
+  "/preview",
+  validateRequestMiddleware({ body: slackNotificationPreviewBodySchema }),
+  slackIntegrationController.postSlackPreview,
+);
+router.post(
+  "/:id/test",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string().min(1) }).strict(),
+    body: slackNotificationPreviewBodySchema,
+  }),
+  slackIntegrationController.postSlackTest,
+);
 
 router.get("/", slackIntegrationController.getSlackIntegrations);
 
@@ -39,15 +47,7 @@ router.put(
   "/oauth/:id",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
-    body: z
-      .object({
-        enabled: z.boolean(),
-        events: z.array(eventNameOrWildcard).min(1),
-        projects: z.array(z.string()),
-        environments: z.array(z.string()),
-        tags: z.array(z.string()),
-      })
-      .strict(),
+    body: slackNotificationSettingsBodySchema,
   }),
   slackIntegrationController.putSlackOAuthConnection,
 );
@@ -87,6 +87,27 @@ router.post(
   slackIntegrationController.postSlackOAuthInstall,
 );
 
+router.post(
+  "/link/consent",
+  validateRequestMiddleware({
+    body: z.strictObject({ state: z.string().min(1) }),
+  }),
+  slackIntegrationController.postSlackLinkConsent,
+);
+router.post(
+  "/link",
+  validateRequestMiddleware({ body: slackLinkBodySchema }),
+  slackIntegrationController.postSlackLink,
+);
+router.get("/links", slackIntegrationController.getMySlackLinks);
+router.delete(
+  "/links",
+  validateRequestMiddleware({
+    body: slackAccountLinkSchema.omit({ teamName: true }).strict(),
+  }),
+  slackIntegrationController.deleteMySlackLink,
+);
+
 // Channel management for workspace-level installs. Registered before /:id so
 // "channels" isn't captured as an id param.
 router.get(
@@ -122,6 +143,16 @@ router.post(
     body: z.object({ teamId: z.string().optional() }).strict(),
   }),
   slackIntegrationController.postSlackDisconnect,
+);
+
+router.post(
+  "/assistant",
+  validateRequestMiddleware({
+    body: z
+      .object({ teamId: z.string().optional(), enabled: z.boolean() })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackAssistant,
 );
 
 router.get(

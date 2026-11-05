@@ -933,9 +933,94 @@ describe("buildManagedWarehouseAttributeAliasClause", () => {
   it("drops a custom identifier whose name collides with a real SELECT * column", () => {
     const clause = buildManagedWarehouseAttributeAliasClause({
       useJsonColumns: true,
-      userIdTypes: [{ userIdType: "session_id", description: "" }],
+      userIdTypes: [{ userIdType: "url", description: "" }],
     } as GrowthbookClickhouseSettings);
-    expect(clause).not.toContain("session_id");
+    expect(clause).not.toContain("url");
     expect(clause).toBe(builtinOnlyClause);
+  });
+
+  it("matches the fact-table decoration for physical identifiers", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "session_id", datatype: "string", hashAttribute: true },
+    ];
+    const clause = buildManagedWarehouseAttributeAliasClause({
+      useJsonColumns: true,
+      userIdTypes: getManagedWarehouseUserIdTypeSettings(schema),
+    } as GrowthbookClickhouseSettings);
+    expect(buildManagedWarehouseEventsFactTableSql(schema)).toBe(
+      `SELECT *${clause}\nFROM events\nWHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+    );
+  });
+});
+
+describe("physical identifiers (session_id / page_id)", () => {
+  const schema: SDKAttributeSchema = [
+    { property: "session_id", datatype: "string", hashAttribute: true },
+    { property: "page_id", datatype: "string", hashAttribute: true },
+    { property: "company_id", datatype: "string", hashAttribute: true },
+  ];
+
+  it("become userIdTypes without being custom JSON identifiers", () => {
+    expect(getManagedWarehouseCustomIdentifiers(schema)).toEqual([
+      "company_id",
+    ]);
+    expect(getManagedWarehouseUserIdTypes(schema)).toEqual([
+      "user_id",
+      "device_id",
+      "page_id",
+      "session_id",
+      "company_id",
+    ]);
+  });
+
+  it("ignores archived and non-identifier attributes", () => {
+    expect(
+      getManagedWarehouseUserIdTypes([
+        { property: "session_id", datatype: "string" },
+        {
+          property: "page_id",
+          datatype: "string",
+          hashAttribute: true,
+          archived: true,
+        },
+      ]),
+    ).toEqual(["user_id", "device_id"]);
+  });
+
+  it("reads the physical column (empty -> NULL) instead of aliasing from JSON", () => {
+    const sql = buildManagedWarehouseEventsFactTableSql(schema);
+    expect(sql).toContain("nullIf(page_id, '') AS page_id");
+    expect(sql).toContain("nullIf(session_id, '') AS session_id");
+    expect(sql).not.toContain("attributes.session_id");
+    expect(sql.match(/AS session_id\b/g)?.length).toBe(1);
+  });
+
+  it("gets an exposure query each", () => {
+    const queries = buildManagedWarehouseExposureQueries(schema);
+    expect(queries.map((q) => q.userIdType)).toContain("session_id");
+    queries.forEach((q) => {
+      expect(q.query).toContain("nullIf(session_id, '') AS session_id");
+    });
+  });
+
+  it("is listed as a fact-table column", () => {
+    const columns = getManagedWarehouseEventsFactTableColumns(schema).map(
+      (c) => c.column,
+    );
+    expect(columns).toContain("session_id");
+    expect(columns).toContain("page_id");
+  });
+
+  it("resolves the exposure query for the session_id attribute", () => {
+    const settings = {
+      useJsonColumns: true,
+      queries: { exposure: buildManagedWarehouseExposureQueries(schema) },
+    } as GrowthbookClickhouseSettings;
+    expect(
+      getManagedWarehouseExposureQueryIdForAttribute({
+        settings,
+        attribute: "session_id",
+      }),
+    ).toBe("session_id");
   });
 });

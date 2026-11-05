@@ -2,6 +2,7 @@ import { evalCondition } from "@growthbook/growthbook";
 import { z } from "zod";
 import { configInvariantValidator } from "../../validators/features";
 import { isUnsafeMergeKey } from "../deep-merge";
+import { sortObjectKeys } from "../sortObjectKeys";
 
 export type ConfigInvariant = z.infer<typeof configInvariantValidator>;
 export type InvariantViolation = { name: string; message: string };
@@ -68,45 +69,27 @@ function resolveRuleRefs(
   return node;
 }
 
-// JSON clone with object keys sorted recursively (arrays keep their order).
-// mongrule's object/array equality is JSON.stringify comparison, and a config
-// value's key order is an artifact of authoring and merge history — so both
-// sides are canonicalized before evaluation to make object equality
-// key-order-insensitive.
-function canonicalizeKeyOrder(node: unknown): unknown {
-  if (Array.isArray(node)) return node.map(canonicalizeKeyOrder);
-  if (node && typeof node === "object") {
-    const obj = node as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-    for (const k of Object.keys(obj).sort()) {
-      out[k] = canonicalizeKeyOrder(obj[k]);
-    }
-    return out;
-  }
-  return node;
-}
-
 // Evaluate a config's cross-field invariants against its resolved value. A rule
 // is SATISFIED when its mongo condition matches the value, a VIOLATION when it
 // doesn't. A malformed rule is surfaced as a violation rather than thrown, so it
-// can never crash the save path.
+// can never crash the save path. Both sides are key-sorted because mongrule
+// compares objects by JSON.stringify.
 export function evaluateInvariants(
   value: Record<string, unknown>,
   invariants?: ConfigInvariant[] | null,
 ): InvariantViolation[] {
   if (!invariants?.length) return [];
-  const canonicalValue = canonicalizeKeyOrder(value) as Record<string, unknown>;
+  const canonicalValue = sortObjectKeys(value) as Record<string, unknown>;
   const violations: InvariantViolation[] = [];
   for (const inv of invariants) {
     let satisfied: boolean;
     try {
-      const condition = canonicalizeKeyOrder(
+      const condition = sortObjectKeys(
         resolveRuleRefs(JSON.parse(inv.rule), canonicalValue),
       );
       satisfied = evalCondition(
         canonicalValue,
         condition as Parameters<typeof evalCondition>[1],
-        {},
       );
     } catch {
       violations.push({ name: inv.name, message: inv.message });
@@ -326,7 +309,6 @@ export function apiInvariantsToStored(
       evalCondition(
         {},
         resolveRuleRefs(mongo, {}) as Parameters<typeof evalCondition>[1],
-        {},
       );
     } catch (e) {
       throw new Error(

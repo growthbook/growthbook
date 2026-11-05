@@ -4,7 +4,7 @@ import {
   apiCreateCustomFieldBody,
   apiUpdateCustomFieldBody,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const apiDeleteCustomFieldValidator = {
   paramsSchema: z.object({ id: z.string() }).strict(),
@@ -36,6 +36,11 @@ export const customFieldApiSpec = {
   },
   includeDefaultCrud: false,
   crudActions: ["create", "delete", "get", "update"],
+  confirmation: {
+    create: ["customField.create"],
+    update: ["customField.edit"],
+    delete: ["customField.delete"],
+  },
   crudValidatorOverrides: {
     delete: apiDeleteCustomFieldValidator,
   },

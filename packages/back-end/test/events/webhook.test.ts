@@ -12,7 +12,7 @@ jest.mock("back-end/src/models/EventWebhookModel", () => ({
 }));
 
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
-  EventNotifier: jest.fn(),
+  EventNotifier: Object.assign(jest.fn(), { defineJob: jest.fn() }),
 }));
 
 describe("webhook test events", () => {

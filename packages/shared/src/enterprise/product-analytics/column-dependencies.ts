@@ -5,23 +5,25 @@ import {
   dimensionValidator,
   factTableExplorationConfigValidator,
   funnelExplorationConfigValidator,
+  journeyExplorationConfigValidator,
   metricExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   sqlExplorationConfigValidator,
+  populationExplorationConfigValidator,
 } from "../../validators/product-analytics";
 import { sqlReferencesColumn } from "../../experiments/experiments";
 
 // The exploration config shape persisted by both saved explorations and
-// dashboard "exploration" blocks. Only fact_table and funnel configs reference
-// fact-table columns; metric configs reference metrics (covered by the fact-
-// metric dependency scan) and data_source configs reference raw warehouse
-// columns (never fact-table columns).
+// dashboard "exploration" blocks. Metric definitions are covered by the
+// fact-metric dependency scan; their dataset population is scanned here.
 type ExplorationConfig =
   | z.infer<typeof metricExplorationConfigValidator>
   | z.infer<typeof factTableExplorationConfigValidator>
   | z.infer<typeof dataSourceExplorationConfigValidator>
   | z.infer<typeof sqlExplorationConfigValidator>
-  | z.infer<typeof funnelExplorationConfigValidator>;
+  | z.infer<typeof funnelExplorationConfigValidator>
+  | z.infer<typeof journeyExplorationConfigValidator>
+  | z.infer<typeof populationExplorationConfigValidator>;
 
 type Dimension = z.infer<typeof dimensionValidator>;
 
@@ -96,6 +98,20 @@ export function explorationConfigReferencesColumn(
   identifierQuote: SqlIdentifierQuote,
   filters: SavedFilter[],
 ): boolean {
+  if (config.type === "metric") {
+    const population = config.dataset.population;
+    if (!population || population.source.factTableId !== factTableId) {
+      return false;
+    }
+    return (
+      population.unit === columnName ||
+      population.aggregateFilterColumn === columnName ||
+      population.rowFilters.some((f) =>
+        rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
+      )
+    );
+  }
+
   if (config.type === "fact_table") {
     if (config.dataset.factTableId !== factTableId) return false;
 
@@ -135,6 +151,51 @@ export function explorationConfigReferencesColumn(
     );
   }
 
-  // metric / data_source / sql configs never reference fact-table columns directly.
+  if (config.type === "journey") {
+    if (config.dataset.factTableId !== factTableId) return false;
+
+    if (config.dataset.unit === columnName) return true;
+    if (config.dataset.stepColumns.includes(columnName)) return true;
+    if (
+      config.dataset.stepGroups?.some((g) => g.column === columnName) ??
+      false
+    ) {
+      return true;
+    }
+    if (
+      config.dataset.rowFilters.some((f) =>
+        rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
+      )
+    ) {
+      return true;
+    }
+
+    return config.dimensions.some((d) =>
+      dimensionReferencesColumn(d, columnName, identifierQuote, filters),
+    );
+  }
+
+  if (config.type === "population") {
+    const values = config.dataset.values.filter(
+      (value) => value.source.factTableId === factTableId,
+    );
+    if (!values.length) return false;
+
+    const valueReferences = values.some(
+      (value) =>
+        value.unit === columnName ||
+        value.aggregateFilterColumn === columnName ||
+        value.rowFilters.some((f) =>
+          rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
+        ),
+    );
+    if (valueReferences) return true;
+
+    return config.dimensions.some((d) =>
+      dimensionReferencesColumn(d, columnName, identifierQuote, filters),
+    );
+  }
+
+  // data_source / sql configs never reference fact-table columns directly.
   return false;
 }

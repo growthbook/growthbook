@@ -14,8 +14,9 @@ import type {
   SafeRolloutRule,
 } from "shared/validators";
 import {
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
+  flattenExposureQueryInput,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -36,7 +37,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { generateId } from "back-end/src/util/uuid";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
   InternalServerError,
@@ -50,9 +51,20 @@ import {
   buildScheduleRampAction,
   resolveOrCreateRevision,
   validateRuleAttributes,
-  validateRuleConditions,
+  assertValidRevisionRulePrerequisites,
+  validatePrerequisiteConditions,
   validateRuleReferences,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  stagedFeature,
+  validateRampPlanPatches,
+  withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
+import {
+  assertRuleVariationsMatchExperiment,
+  assertCanUseRuleScheduling,
+} from "./v2Shared";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
@@ -121,6 +133,9 @@ export function buildRuleFromInput(
       value: input.value,
       coverage: input.coverage ?? 1,
       hashAttribute: input.hashAttribute,
+      ...(input.fallbackAttribute && {
+        fallbackAttribute: input.fallbackAttribute,
+      }),
       ...(input.seed !== undefined && { seed: input.seed }),
       hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
       ...(input.sparse !== undefined && { sparse: input.sparse }),
@@ -150,7 +165,29 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   const { environment, schedule } = req.body;
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
+  assertCanUseRuleScheduling(req.context, {
+    schedule,
+    scheduleRules: req.body.rule.scheduleRules,
+    rampSchedule: inlineRampSchedule,
+  });
   const ruleInput = req.body.rule;
+  const ruleId = uuidv4();
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      await stagedFeature(req.context, feature, req.params.version),
+      {
+        id: ruleId,
+        type: ruleInput.type,
+        hashAttribute:
+          ruleInput.type === "rollout" ? ruleInput.hashAttribute : undefined,
+        environments: [environment],
+      },
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -204,6 +241,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           value: v.value,
         }));
       }
+      assertRuleVariationsMatchExperiment(ruleInput, experiment);
 
       // Use target revision holdout to check compatibility.
       // Linking writes are deferred until after custom-hook prevalidation below.
@@ -217,7 +255,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       });
     }
 
-    const rule = buildRuleFromInput(ruleInput, uuidv4());
+    const rule = buildRuleFromInput(ruleInput, ruleId);
 
     // Seed a new rollout off its own rule id so stacked rollouts hash
     // independently (same chokepoint the v2 add endpoint uses).
@@ -225,14 +263,17 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the new rule's values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, { rules: [rule] });
+    assertFeatureValuesValid(req.context, withStagedSchema(feature, revision), {
+      rules: [rule],
+    });
 
     // Validate condition JSON and references before any DB writes.
-    validateRuleConditions(rule);
+    validatePrerequisiteConditions(rule.prerequisites ?? []);
     validateRuleAttributes(
       rule,
       req.context,
-      getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+      getRuleAttributeScopeProjectIds(feature, revision.metadata, rule) ??
+        undefined,
     );
     await validateRuleReferences(rule, req.context);
 
@@ -241,7 +282,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
       if (!req.context.hasPremiumFeature("safe-rollout")) {
         req.context.throwPlanDoesNotAllowError(
-          "Safe Rollout rules require an Enterprise plan.",
+          "Safe Rollout rules require a Pro plan or above.",
         );
       }
 
@@ -249,9 +290,13 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       // the stored ramp-up shape is larger.
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
-      const validatedFields = await validateCreateSafeRolloutFields(
-        validatableFields,
+      const validatedFields = await validateSafeRolloutFields(
+        flattenExposureQueryInput(validatableFields),
         req.context,
+        {
+          onOmitted: "requireUnambiguous",
+          project: feature.project ?? "",
+        },
       );
 
       const defaultRampSteps = [
@@ -281,7 +326,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.
@@ -304,6 +354,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: baseRules,
+      after: newRules,
+    });
 
     if (resolvedRampAction) {
       const existing = revision.rampActions ?? [];

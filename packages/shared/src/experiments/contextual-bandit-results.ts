@@ -6,7 +6,7 @@ import type {
   ContextualLeafStatsEntry,
   ContextualSseTrajectoryEntry,
   ContextualTreeSplit,
-} from "../../types/stats";
+} from "shared/types/stats";
 import {
   computeOverallVariationMeans,
   computeOverallVariationWeights,
@@ -17,6 +17,13 @@ export type ContextualBanditResultsVariation = {
   id: string;
   name?: string;
 };
+export function resolveSnapshotVariations(
+  frozenVariationIds: readonly string[],
+  currentVariations: readonly { id: string; name?: string }[],
+): ContextualBanditResultsVariation[] {
+  const byId = new Map(currentVariations.map((v) => [v.id, v]));
+  return frozenVariationIds.map((id) => ({ id, name: byId.get(id)?.name }));
+}
 
 export type ContextualBanditOverallVariation = {
   variationId: string;
@@ -63,7 +70,11 @@ export type ContextualBanditResultsLeaf = {
   contexts: ContextualBanditResultsContext[];
 };
 
-/** Total within-tree SSE at one stage of greedy tree growth. */
+/**
+ * Within-tree SSE at one stage of greedy tree growth, summed over eligible
+ * variations only (those with enough units to enter tree construction). This is
+ * an "eligible-only" error rather than a total across all observed variations.
+ */
 export type ContextualBanditSseStep = {
   numSplits: number;
   totalSse: number;

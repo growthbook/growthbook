@@ -1,5 +1,5 @@
 import { listFeaturesValidator } from "shared/validators";
-import { stringToBoolean } from "shared/util";
+import { isDefined, stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
@@ -10,7 +10,7 @@ import {
 } from "back-end/src/models/FeatureModel";
 import {
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
@@ -21,7 +21,7 @@ import {
   validatePagination,
 } from "back-end/src/util/handler";
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
-import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
+import { findSDKConnectionByKeyForOrg } from "back-end/src/models/SdkConnectionModel";
 
 export const emptyListResponse = (limit: number, offset: number) => ({
   features: [] as never[],
@@ -33,6 +33,10 @@ export const emptyListResponse = (limit: number, offset: number) => ({
   nextOffset: null,
 });
 
+type DefinitionLookups = Awaited<
+  ReturnType<typeof getFeatureDefinitionLookups>
+>;
+
 /**
  * Shared data-loading core for list-features. Builds the paginated feature
  * slice + every lookup the serializers need. Callers differ only in which
@@ -41,7 +45,6 @@ export const emptyListResponse = (limit: number, offset: number) => ({
  */
 export async function loadFeaturesPage(
   context: ApiReqContext,
-  organizationId: string,
   query: {
     projectId?: string;
     clientKey?: string;
@@ -55,16 +58,12 @@ export async function loadFeaturesPage(
   | {
       empty: false;
       filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
-      groupMap: Awaited<ReturnType<typeof getSavedGroupMap>>;
+      groupMap: DefinitionLookups["groupMap"];
       experimentMap: Awaited<ReturnType<typeof getAllPayloadExperiments>>;
       revisions: Awaited<
         ReturnType<typeof getFeatureRevisionsByFeaturesCurrentVersion>
       >;
-      safeRolloutMap: Awaited<
-        ReturnType<
-          ApiReqContext["models"]["safeRollout"]["getAllPayloadSafeRollouts"]
-        >
-      >;
+      safeRolloutMap: DefinitionLookups["safeRolloutMap"];
       outLimit: number;
       outOffset: number;
       total: number;
@@ -110,7 +109,6 @@ export async function loadFeaturesPage(
   }
 
   const experimentScope = projectId ? [projectId] : (projectIds ?? undefined);
-  const groupMap = await getSavedGroupMap(context);
 
   let filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
   let total: number;
@@ -121,8 +119,11 @@ export async function loadFeaturesPage(
       projects: projectId ? [projectId] : undefined,
       includeArchived,
     });
-    const sdkConnection = await findSDKConnectionByKey(query.clientKey);
-    if (!sdkConnection || sdkConnection.organization !== organizationId) {
+    const sdkConnection = await findSDKConnectionByKeyForOrg(
+      context,
+      query.clientKey,
+    );
+    if (!sdkConnection) {
       throw new Error("Invalid SDK connection key");
     }
     const payload = await getFeatureDefinitionsWithCache({
@@ -198,14 +199,24 @@ export async function loadFeaturesPage(
     context,
     filtered,
   );
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-
   // Loaded after the page resolves so the experiments it references come too.
+  const referencedExperimentIds = getReferenceIdsInFeatures(
+    filtered,
+    "experiment-ref",
+  );
   const experimentMap = await getAllPayloadExperiments(
     context,
     experimentScope,
-    getReferenceIdsInFeatures(filtered, "experiment-ref"),
+    referencedExperimentIds,
+  );
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    context,
+    {
+      features: filtered,
+      experiments: referencedExperimentIds
+        .map((id) => experimentMap.get(id))
+        .filter(isDefined),
+    },
   );
 
   const hasMore = skipPagination ? false : offset + limit < total;
@@ -232,7 +243,6 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req) => {
     const r = await loadFeaturesPage(
       req.context,
-      req.organization.id,
       { ...req.query, archived: true }, // v1 always included archived features
     );
     if (r.empty) return r.response;

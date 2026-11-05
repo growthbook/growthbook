@@ -97,8 +97,18 @@ export function selectColumnsForTopValues({
 export async function runColumnsTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">,
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn" | "columns"
+  > & {
+    // null only when the SQL isn't a saved fact table
+    id: string | null;
+  },
   columns: ColumnInterface[],
+  options?: {
+    limit?: number;
+    searchTerm?: string;
+  },
 ): Promise<Record<string, string[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -120,11 +130,13 @@ export async function runColumnsTopValuesQuery(
   const sql = integration.getColumnsTopValuesQuery({
     factTable,
     columns,
-    limit: Math.max(
-      100,
-      context.org.settings?.maxMetricSliceLevels ??
-        DEFAULT_MAX_METRIC_SLICE_LEVELS,
-    ),
+    limit:
+      options?.limit ??
+      Math.max(
+        100,
+        context.org.settings?.maxMetricSliceLevels ??
+          DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      ),
     lookbackDays: getTopValuesLookbackDays(
       context.org.settings?.topValuesLookbackValue ??
         DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
@@ -132,8 +144,9 @@ export async function runColumnsTopValuesQuery(
         DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
     ),
     maxValueLength: MAX_TOP_VALUE_LENGTH,
+    searchTerm: options?.searchTerm,
   });
-  const result = await integration.runColumnsTopValuesQuery(sql);
+  const result = await integration.runColumnsTopValuesQuery(sql, factTable.id);
 
   // Group results by column name
   const columnValues: Record<string, string[]> = {};
@@ -227,7 +240,9 @@ export async function runColumnDetectionQuery(
   factTable: Pick<
     FactTableInterface,
     "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
-  >,
+  > & {
+    id: string | null;
+  },
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -257,6 +272,7 @@ export async function runColumnDetectionQuery(
     sql,
     [timestampColumn],
     "factTableValidation",
+    factTable.id,
   );
 
   const { jsonMap, warehouseTypeMap, datatypes } = buildColumnTypeMaps(result);
@@ -365,12 +381,14 @@ export async function refreshColumnTopValues(
   factTable: Pick<
     FactTableInterface,
     "sql" | "eventName" | "userIdTypes" | "userIdColumns" | "timestampColumn"
-  >,
-  columns: ColumnInterface[],
+  > & {
+    id: string | null;
+  },
+  detectedColumns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
   const refreshedColumns: ColumnInterface[] = [];
   const columnsNeedingTopValues = selectColumnsForTopValues({
-    columns,
+    columns: detectedColumns,
     userIdTypes: factTable.userIdTypes,
     userIdColumns: factTable.userIdColumns,
   });
@@ -386,7 +404,10 @@ export async function refreshColumnTopValues(
         const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
-          factTable,
+          // The query needs a column list to resolve JSON paths and virtual
+          // columns; the columns selected here are always plain, so the
+          // freshly detected list works.
+          { ...factTable, columns: detectedColumns },
           columnChunk,
         );
 

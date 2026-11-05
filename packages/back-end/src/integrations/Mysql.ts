@@ -1,13 +1,11 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
-import { SqlDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getFactTableTypeFromMysqlTypeCode } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
-import { mysqlDialect } from "./dialects/mysql";
 
 export default class Mysql extends SqlIntegration {
   params!: MysqlConnectionParams;
@@ -16,9 +14,6 @@ export default class Mysql extends SqlIntegration {
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<MysqlConnectionParams>(encryptedParams);
-  }
-  getSqlDialect(): SqlDialect {
-    return mysqlDialect;
   }
   async runQuery(sql: string): Promise<QueryResponse> {
     const config: ConnectionOptions = {

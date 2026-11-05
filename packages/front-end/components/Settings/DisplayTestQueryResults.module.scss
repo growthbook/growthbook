@@ -1,0 +1,34 @@
+.toolbar {
+  padding: var(--space-2);
+  background-color: var(--slate-a2);
+  border-bottom: 1px solid var(--gray-a3);
+}
+
+// One border color, the box's, which also frames the grid. Each cell draws
+// its own right and bottom edges, so the pinned header keeps its lines.
+.table:global(.table-bordered) {
+  border: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+
+  th,
+  td {
+    border-width: 0 1px 1px 0;
+    border-color: var(--gray-a3);
+  }
+
+  tr > :last-child {
+    border-right-width: 0;
+  }
+
+  tbody tr:last-child td {
+    border-bottom-width: 0;
+  }
+
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: var(--color-panel-solid);
+  }
+}

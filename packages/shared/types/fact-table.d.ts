@@ -12,7 +12,9 @@ import {
   metricTypeValidator,
   factTableColumnTypeValidator,
   factTableTypeValidator,
+  factManagedByValidator,
   testFactFilterPropsValidator,
+  testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
@@ -31,12 +33,14 @@ import {
   funnelStepValidator,
   funnelOrderingValidator,
   funnelSettingsValidator,
+  conditionalInlineFiltersValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type FactTableType = z.infer<typeof factTableTypeValidator>;
+export type FactManagedBy = z.infer<typeof factManagedByValidator>;
 
 // Funnel step / settings types (validators live in validators/fact-table).
 export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
@@ -57,6 +61,9 @@ export interface ColumnInterface {
   dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
+  // value -> extra column to prompt for when this column is filtered to that
+  // value; see getInlineFilterPromptColumns in shared/experiments.
+  conditionalInlineFilters?: ConditionalInlineFilters;
   topValues?: string[];
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;
@@ -85,7 +92,7 @@ export interface FactFilterInterface {
 export interface FactTableInterface {
   organization: string;
   id: string;
-  managedBy?: "" | "api" | "admin";
+  managedBy?: FactManagedBy;
   dateCreated: Date | null;
   dateUpdated: Date | null;
   name: string;
@@ -135,6 +142,15 @@ export type FactTableDefinition = Omit<
   columns: FactTableColumnDefinition[];
 };
 
+// Slim shape returned by GET /fact-tables?ids= — just enough to resolve
+// dimension/column availability (real `jsonFields`, unlike FactTableDefinition)
+// for a small id set, without shipping `sql` or the rest of the org-wide
+// metadata (name, datasource, tags, ...).
+export type FullFactTableColumns = Pick<
+  FactTableInterface,
+  "id" | "columns" | "userIdTypes"
+>;
+
 export type AggregatedFactTableSettings = z.infer<
   typeof aggregatedFactTableSettingsValidator
 >;
@@ -172,6 +188,9 @@ export type LegacyColumnRef = ColumnRef & {
 };
 
 export type RowFilter = z.infer<typeof rowFilterValidator>;
+export type ConditionalInlineFilters = z.infer<
+  typeof conditionalInlineFiltersValidator
+>;
 
 export type LegacyFactMetricInterface = Omit<
   FactMetricInterface,
@@ -185,6 +204,8 @@ export type LegacyFactMetricInterface = Omit<
   hasConversionWindow?: boolean;
   conversionWindowValue?: number;
   conversionWindowUnit?: ConversionWindowUnit;
+  winRisk?: number;
+  loseRisk?: number;
 
   numerator: LegacyColumnRef;
   denominator: LegacyColumnRef | null;
@@ -203,10 +224,10 @@ export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
 export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
+export type TestRowFiltersProps = z.infer<typeof testRowFiltersPropsValidator>;
 export type TestVirtualColumnProps = z.infer<
   typeof testVirtualColumnPropsValidator
 >;
-
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;
 export type CreateVirtualColumnProps = z.infer<
@@ -217,11 +238,10 @@ export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
 /**
- * Columns detected by running a Fact Table's SQL, before anything is persisted.
- * Returned by the test-query endpoint so the create flow can show the columns
- * and their types, and post them back with the new Fact Table.
+ * Columns detected by running a SQL query (e.g. a Fact Table or Experiment
+ * Assignment Query), with their types. Returned by the test-query endpoint.
  */
-export type DetectedFactTableColumn = {
+export type DetectedColumn = {
   column: string;
   datatype: FactTableColumnType;
   jsonFields?: JSONColumnFields;
@@ -238,4 +258,13 @@ export type FactFilterTestResults = {
   duration?: number;
   error?: string;
   results?: TestQueryRow[];
+};
+
+export type RowFilterTestResults = FactFilterTestResults & {
+  // The generated WHERE clause body, shown next to the sample rows so the user
+  // can see what their filters compile to. Only the dialect can build it, so it
+  // comes back with the results rather than being derived on the front-end.
+  where: string;
+  // The whole query, when the filters apply to SQL we generated
+  generatedSql?: string;
 };
