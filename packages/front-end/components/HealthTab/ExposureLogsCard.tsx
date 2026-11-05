@@ -15,6 +15,7 @@ import type {
 } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getIdentifierDisplayName } from "@/services/experiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -24,7 +25,8 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import RecordsPanel from "@/components/Diagnostics/RecordsPanel";
 import useRecordsQuery from "@/components/Diagnostics/useRecordsQuery";
 import { formatTimestamp } from "@/components/Diagnostics/format";
-import { RecordsColumn } from "@/components/Diagnostics/types";
+import RecordDetail from "@/components/Diagnostics/RecordDetail";
+import { flattenRecord, RecordsColumn } from "@/components/Diagnostics/types";
 import type {
   ColumnTopValue,
   FilterColumnSource,
@@ -185,14 +187,14 @@ export default function ExposureLogsCard({
       },
       {
         key: "userId",
-        header: subUnitIdColumn ? userIdColumn : "User ID",
+        header: getIdentifierDisplayName(userIdColumn),
         render: (r) => <IdCell value={r.userId} />,
       },
       ...(subUnitIdColumn
         ? [
             {
               key: "subUnitId",
-              header: subUnitIdColumn,
+              header: getIdentifierDisplayName(subUnitIdColumn),
               render: (r: ExperimentExposureRecord) => (
                 <IdCell value={r.subUnitId} />
               ),
@@ -297,6 +299,28 @@ export default function ExposureLogsCard({
     };
   }, [dimensions, experiment, query.rows, userIdColumn, subUnitIdColumn]);
 
+  // With two identifiers, `userId`/`subUnitId` don't say which is which, so the
+  // detail is keyed by identifier type instead.
+  const renderClusterDetail = useCallback(
+    (row: ExperimentExposureRecord) => (
+      <RecordDetail
+        title="Full exposure record"
+        fields={flattenRecord(
+          {
+            [TIMESTAMP_COLUMN]: row.timestamp,
+            [userIdColumn]: row.userId,
+            ...(subUnitIdColumn ? { [subUnitIdColumn]: row.subUnitId } : {}),
+            [VARIATION_COLUMN]: row.variationId,
+            dimensions: row.dimensions,
+            extra: row.extra,
+          },
+          { flattenKeys: ["dimensions", "extra"] },
+        )}
+      />
+    ),
+    [userIdColumn, subUnitIdColumn],
+  );
+
   if (!canRun) return null;
 
   // The managed warehouse reports "still provisioning / no events yet" as a
@@ -369,6 +393,7 @@ export default function ExposureLogsCard({
       getSearchText={getSearchText}
       getFilterValue={getFilterValue}
       columnSource={columnSource}
+      renderDetail={subUnitIdColumn ? renderClusterDetail : undefined}
       detailFlattenKeys={["dimensions", "extra"]}
       detailTitle="Full exposure record"
       searchPlaceholder="Search exposures..."

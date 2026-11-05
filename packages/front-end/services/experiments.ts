@@ -1563,6 +1563,11 @@ export function getAvailableSliceTags({
   });
 }
 
+// e.g. "user_id" -> "User Id"
+export function getIdentifierDisplayName(identifierType: string) {
+  return startCase(identifierType);
+}
+
 // Converts an identifier type to a display name (e.g. "user_id" -> "User Ids")
 export function getUnitDisplayName(identifierType: string | undefined) {
   return identifierType ? startCase(identifierType) + "s" : "Units";
