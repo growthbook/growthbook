@@ -1,7 +1,5 @@
-import isEqual from "lodash/isEqual";
 import uniqid from "uniqid";
 import { putDataSourceSettingsValidator } from "shared/validators";
-import { ExposureQuery, IdentityJoinQuery } from "shared/types/datasource";
 import {
   getDataSourceById,
   toDataSourceApiInterface,
@@ -20,11 +18,6 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 // How many times a save is re-merged onto a version another save landed on
 const MAX_SAVE_ATTEMPTS = 3;
 
-type TestedQueries = {
-  exposureQueries: ExposureQuery[];
-  identityJoins: IdentityJoinQuery[];
-};
-
 export const putDataSourceSettings = createApiRequestHandler(
   putDataSourceSettingsValidator,
 )(async (req) => {
@@ -38,7 +31,6 @@ export const putDataSourceSettings = createApiRequestHandler(
     );
   }
 
-  let tested: TestedQueries | null = null;
   for (let attempt = 1; ; attempt++) {
     const datasource = await getDataSourceById(context, req.params.id);
     if (!datasource) {
@@ -86,21 +78,18 @@ export const putDataSourceSettings = createApiRequestHandler(
       dryRun: true,
     });
 
-    // A retry only goes back to the warehouse when the re-merge changed what
-    // would be saved
-    const toTest: TestedQueries = {
-      exposureQueries: merged.changedExposureQueries,
-      identityJoins: merged.newIdentityJoins,
-    };
-    if (!isEqual(toTest, tested)) {
-      const refusal = await testDataSourceSettingsQueries(
-        getSourceIntegrationObject(context, datasource),
-        datasource,
-        { ...toTest, testDays: context.org.settings?.testQueryDays },
-      );
-      if (refusal) context.throwBadRequestError(refusal);
-      tested = toTest;
-    }
+    // Tested on every attempt: a retry has re-read the Data Source, whose
+    // connection may have changed with it
+    const refusal = await testDataSourceSettingsQueries(
+      getSourceIntegrationObject(context, datasource),
+      datasource,
+      {
+        exposureQueries: merged.changedExposureQueries,
+        identityJoins: merged.newIdentityJoins,
+        testDays: context.org.settings?.testQueryDays,
+      },
+    );
+    if (refusal) context.throwBadRequestError(refusal);
 
     if (req.body.dryRun) {
       return {
