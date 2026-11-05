@@ -91849,3 +91849,107 @@ x-tagGroups:
       - VisualChange_model
       - VisualChangeset_model
       - VisualEditorCbExperimentStub_model
+x-growthbook-resources:
+  dashboard:
+    operations:
+      create: createDashboard
+      list: listDashboards
+      get: getDashboard
+      update: updateDashboard
+      delete: deleteDashboard
+  contextual_bandit:
+    operations:
+      create: createContextualBandit
+      list: listContextualBandits
+      get: getContextualBandit
+      update: updateContextualBandit
+      delete: deleteContextualBandit
+  contextual_bandit_query:
+    operations:
+      create: createContextualBanditQuery
+      list: listContextualBanditQueries
+      get: getContextualBanditQuery
+      update: updateContextualBanditQuery
+      delete: deleteContextualBanditQuery
+  interleaving_exposure_query:
+    operations:
+      create: createInterleavingExposureQuery
+      list: listInterleavingExposureQueries
+      get: getInterleavingExposureQuery
+      update: updateInterleavingExposureQuery
+      delete: deleteInterleavingExposureQuery
+  interleaving:
+    operations:
+      create: createInterleaving
+      list: listInterleavings
+      get: getInterleaving
+      update: updateInterleaving
+      delete: deleteInterleaving
+  custom_field:
+    operations:
+      create: createCustomField
+      list: listCustomFields
+      get: getCustomField
+      update: updateCustomField
+      delete: deleteCustomField
+  metric_group:
+    operations:
+      create: createMetricGroup
+      list: listMetricGroups
+      get: getMetricGroup
+      update: updateMetricGroup
+      delete: deleteMetricGroup
+  team:
+    operations:
+      create: createTeam
+      list: listTeams
+      get: getTeam
+      update: updateTeam
+      delete: deleteTeam
+  experiment_template:
+    operations:
+      create: createExperimentTemplate
+      list: listExperimentTemplates
+      get: getExperimentTemplate
+      update: updateExperimentTemplate
+      delete: deleteExperimentTemplate
+  ramp_schedule_template:
+    operations:
+      create: createRampScheduleTemplate
+      list: listRampScheduleTemplates
+      get: getRampScheduleTemplate
+      update: updateRampScheduleTemplate
+      delete: deleteRampScheduleTemplate
+  ramp_schedule:
+    operations:
+      create: postRampSchedule
+      list: listRampSchedules
+      get: getRampSchedule
+      update: updateRampSchedule
+      delete: deleteRampSchedule
+  learning:
+    operations:
+      create: createLearning
+      list: listLearnings
+      get: getLearning
+      update: updateLearning
+      delete: deleteLearning
+  holdout:
+    operations:
+      create: createHoldout
+      list: listHoldouts
+      get: getHoldout
+      update: updateHoldout
+  auto_run:
+    operations:
+      create: createAutoRun
+      list: listAutoRuns
+      get: getAutoRun
+      update: updateAutoRun
+  population:
+    operations:
+      create: createPopulation
+      list: listPopulations
+      get: getPopulation
+      update: updatePopulation
+      delete: deletePopulation

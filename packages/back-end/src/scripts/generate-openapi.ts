@@ -11,7 +11,12 @@ import {
 import { armableActions, routeConfirmation } from "shared/util";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import * as endpointModules from "shared/api-endpoints";
-import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
+import {
+  allRoutes,
+  apiModelTagMeta,
+  apiResources,
+} from "back-end/src/api/api.router";
+import { resolveApiResource } from "back-end/src/api/resources";
 import { getBuild } from "back-end/src/util/build";
 
 // Top-level body fields, across the arms of a union body.
@@ -1051,6 +1056,17 @@ curl https://api.growthbook.io/api/v1/features \
     { name: "Endpoints", tags: endpointTags },
     { name: "Models", tags: modelTags },
   ];
+
+  (openapiSpec as Record<string, unknown>)["x-growthbook-resources"] =
+    Object.fromEntries(
+      apiResources.map((resource) => {
+        const operations = resolveApiResource(resource, allRoutes);
+        if (!operations.get && !operations.list) {
+          throw new Error(`No routes to read API resource ${resource.name}`);
+        }
+        return [resource.name, { operations }];
+      }),
+    );
 
   fs.writeFileSync(
     path.join(__dirname, "..", "..", "generated", "spec.yaml"),
