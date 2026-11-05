@@ -84,6 +84,26 @@
       0 0 0 2px var(--sidebar-active),
       0 0 0 2px var(--sidebar-bg);
   }
+
+  // High Contrast drops background colors, which would erase the avatar's
+  // circle and the dot. An outline keeps the circle; the dot keeps a system
+  // color, ringed in the background's, so it stays apart from the outline.
+  @media (forced-colors: active) {
+    .avatarWrap :global(.rt-AvatarRoot) {
+      outline: 1px solid CanvasText;
+      outline-offset: -1px;
+    }
+
+    .reviewDot,
+    &:hover .reviewDot,
+    &[data-state="open"] .reviewDot,
+    &[aria-expanded="true"] .reviewDot {
+      forced-color-adjust: none;
+      background: Highlight;
+      box-shadow: 0 0 0 2px Canvas;
+      transition: none;
+    }
+  }
 }
 
 .reviewDot {
