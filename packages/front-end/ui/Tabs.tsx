@@ -174,7 +174,8 @@ export const TabsMoreTrigger = forwardRef<
         "rt-reset rt-BaseTabListTrigger rt-TabsTrigger",
         className,
       )}
-      style={{ flexShrink: 0, ...style }}
+      // Last in its bar, its pill sits on the bar's edge, not a padding in.
+      style={{ flexShrink: 0, paddingRight: 0, ...style }}
       {...props}
     >
       <span className="rt-BaseTabListTriggerInner">{label}</span>

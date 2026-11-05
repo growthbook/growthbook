@@ -138,7 +138,13 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
               return (
                 <div
                   key={value}
-                  className={clsx(styles.option, isSelected && styles.group)}
+                  // Selected, it's drawn as a checked card around both.
+                  className={clsx(
+                    styles.option,
+                    isSelected && "rt-BaseCard rt-RadioCardsItem",
+                    isSelected && styles.group,
+                  )}
+                  data-state={isSelected ? "checked" : undefined}
                 >
                   {card}
                   <Collapse open={isSelected} duration={150}>

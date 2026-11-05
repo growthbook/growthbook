@@ -2292,104 +2292,99 @@ export default function RuleModal({
           canAutoPublish={false}
           gatedEnvSet={gatedEnvSet}
         />
-        <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="xl" weight="semibold" as="div" mb="4">
-            Rule Type
-          </Text>
-          <RadioCards
-            mt="4"
-            mb="2"
-            width="100%"
-            options={[
-              {
-                value: "force",
-                label: "Targeting rule",
-                description:
-                  "Release a feature value with optional targeting, schedule, ramp-up, and monitoring",
-              },
-              {
-                value: "experiment",
-                label: "Experiment",
-                description:
-                  "Measure the impact of this feature on your key metrics",
-                selectedContent: newOrExisting("Experiment"),
-              },
-              {
-                value: "bandit",
-                disabled: !hasMultiArmedBanditFeature,
-                label: (
-                  <PremiumTooltip
-                    commercialFeature="multi-armed-bandits"
-                    usePortal={true}
-                  >
-                    Bandit
-                  </PremiumTooltip>
-                ),
-                description:
-                  "Find a winner among many variations on one goal metric",
-                selectedContent: newOrExisting("Bandit"),
-              },
-            ]}
-            value={overviewRadioSelectorRuleType}
-            setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
-              setOverviewRadioSelectorRuleType(v);
-              if (v === "force") {
-                setOverviewRuleType("force");
-              } else if (v === "rollout") {
-                setOverviewRuleType("rollout");
-              } else {
-                setOverviewRuleType("experiment-ref-new");
-              }
-            }}
-          />
-
-          <Callout status="wizard" mt="6" size="sm">
-            <Flex align="center" gap="2">
-              <Box flexGrow="1">
-                <Text as="div">
-                  Looking for <strong>Safe Rollouts</strong>?
-                </Text>
-                <Text as="div" size="sm" mt="1">
-                  Guardrail monitoring can now be added to a Targeting
-                  Rule&apos;s <strong>Ramp-up</strong> schedule
-                </Text>
-              </Box>
-              {hasCommercialFeature("safe-rollout") ? (
-                <Button
-                  color="inherit"
-                  variant="soft"
-                  size="sm"
-                  onClick={() => {
-                    setOverviewRadioSelectorRuleType("rollout");
-                    setOverviewRuleType("rollout");
-                    setNewRuleOverviewPage(false);
-                    changeRuleType("rollout");
-                    setScheduleType("ramp");
-                    setRampSectionState((prev) => ({
-                      ...prev,
-                      mode: prev.mode === "off" ? "create" : prev.mode,
-                      steps: prev.steps.map((s) => ({
-                        ...s,
-                        monitored: true,
-                      })),
-                    }));
-                  }}
-                >
-                  Show me
-                </Button>
-              ) : (
+        <Text size="xl" weight="semibold" as="div" mb="4">
+          Rule Type
+        </Text>
+        <RadioCards
+          mt="4"
+          mb="2"
+          width="100%"
+          options={[
+            {
+              value: "force",
+              label: "Targeting rule",
+              description:
+                "Release a feature value with optional targeting, schedule, ramp-up, and monitoring",
+            },
+            {
+              value: "experiment",
+              label: "Experiment",
+              description:
+                "Measure the impact of this feature on your key metrics",
+              selectedContent: newOrExisting("Experiment"),
+            },
+            {
+              value: "bandit",
+              disabled: !hasMultiArmedBanditFeature,
+              label: (
                 <PremiumTooltip
-                  commercialFeature="safe-rollout"
+                  commercialFeature="multi-armed-bandits"
                   usePortal={true}
                 >
-                  <Button color="inherit" variant="soft" size="sm" disabled>
-                    Show me
-                  </Button>
+                  Bandit
                 </PremiumTooltip>
-              )}
-            </Flex>
-          </Callout>
-        </div>
+              ),
+              description:
+                "Find a winner among many variations on one goal metric",
+              selectedContent: newOrExisting("Bandit"),
+            },
+          ]}
+          value={overviewRadioSelectorRuleType}
+          setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
+            setOverviewRadioSelectorRuleType(v);
+            if (v === "force") {
+              setOverviewRuleType("force");
+            } else if (v === "rollout") {
+              setOverviewRuleType("rollout");
+            } else {
+              setOverviewRuleType("experiment-ref-new");
+            }
+          }}
+        />
+
+        <Callout status="wizard" mt="6" size="sm">
+          <Flex align="center" gap="2">
+            <Box flexGrow="1">
+              <Text as="div">
+                Looking for <strong>Safe Rollouts</strong>?
+              </Text>
+              <Text as="div" size="sm" mt="1">
+                Guardrail monitoring can now be added to a Targeting Rule&apos;s{" "}
+                <strong>Ramp-up</strong> schedule
+              </Text>
+            </Box>
+            {hasCommercialFeature("safe-rollout") ? (
+              <Button
+                color="inherit"
+                variant="soft"
+                size="sm"
+                onClick={() => {
+                  setOverviewRadioSelectorRuleType("rollout");
+                  setOverviewRuleType("rollout");
+                  setNewRuleOverviewPage(false);
+                  changeRuleType("rollout");
+                  setScheduleType("ramp");
+                  setRampSectionState((prev) => ({
+                    ...prev,
+                    mode: prev.mode === "off" ? "create" : prev.mode,
+                    steps: prev.steps.map((s) => ({
+                      ...s,
+                      monitored: true,
+                    })),
+                  }));
+                }}
+              >
+                Show me
+              </Button>
+            ) : (
+              <PremiumTooltip commercialFeature="safe-rollout" usePortal={true}>
+                <Button color="inherit" variant="soft" size="sm" disabled>
+                  Show me
+                </Button>
+              </PremiumTooltip>
+            )}
+          </Flex>
+        </Callout>
       </Modal>
     );
   }

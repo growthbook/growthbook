@@ -3,27 +3,32 @@
   display: grid;
 }
 
-// A selected card and what it shows, framed as one selected card. The card
-// draws no fill or hover of its own, so the frame reads as one surface.
+// Selected, the wrapper wears Radix's checked-card classes, so it's framed and
+// filled as any checked card is. The card inside draws nothing of its own.
 .group {
-  border-radius: 6px;
-  box-shadow: 0 0 0 1px var(--gray-a5);
-  outline: 2px solid var(--accent-9);
-  outline-offset: -1px;
-  background-color: var(--color-panel-solid);
+  isolation: isolate;
+  padding: 0;
+  // Radix centers a card's content; here it's one full-width column.
+  grid-template-columns: minmax(0, 1fr);
+
+  // Radix shows a checked card's focus on the card; here, on the frame.
+  &:has(> :global(.rt-RadioCardsItem:focus-visible)) {
+    &::before {
+      background-image: linear-gradient(var(--focus-a3), var(--focus-a3));
+    }
+    &::after {
+      outline-color: var(--focus-10);
+    }
+  }
 
   // Doubled to outrank Radix's own state rules.
   > :global(.rt-BaseCard.rt-RadioCardsItem.rt-RadioCardsItem) {
     width: 100%;
 
     &,
-    &:hover,
     &::before,
-    &:hover::before {
-      background-color: transparent;
-    }
-    &::after,
-    &:hover::after {
+    &::after {
+      background: none;
       outline: none;
       box-shadow: none;
     }
@@ -33,8 +38,8 @@
 .selectedContent {
   padding: 0 16px 16px;
 
-  // Shaded, as the frame around it isn't.
+  // Shaded, so it stands out from the checked frame around it.
   :global(.rt-BaseCard.rt-RadioCardsItem[data-state="checked"])::before {
-    background-color: var(--accent-a3);
+    background-color: var(--violet-a3);
   }
 }
