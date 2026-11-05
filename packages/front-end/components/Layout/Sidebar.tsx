@@ -954,29 +954,32 @@ export default function Sidebar() {
           }
         }}
       >
-        <div className={styles.brand}>
-          <Link
-            href="/"
-            className={clsx(styles.logo, logoPlaying && styles.logoPlaying)}
-            aria-label="GrowthBook home"
-            onMouseEnter={() => setLogoPlaying(true)}
-            onFocus={(e) => {
-              if (e.currentTarget.matches(":focus-visible"))
-                setLogoPlaying(true);
-            }}
-            onAnimationEnd={() => setLogoPlaying(false)}
-          >
-            <GrowthBookLogo
-              showWordmark={!contentCollapsed}
-              className={styles.brandLogo}
-              markClassName={styles.brandMark}
-              wordmarkClassName={styles.brandWordmark}
-              sweepClassName={styles.sweep}
-            />
-          </Link>
+        <Link
+          href="/"
+          className={clsx(styles.logo, logoPlaying && styles.logoPlaying)}
+          // The label is drawn below, hidden from the name so it's read once.
+          aria-label={
+            planLabel && !contentCollapsed
+              ? `GrowthBook ${planLabel} home`
+              : "GrowthBook home"
+          }
+          onMouseEnter={() => setLogoPlaying(true)}
+          onFocus={(e) => {
+            if (e.currentTarget.matches(":focus-visible")) setLogoPlaying(true);
+          }}
+          onAnimationEnd={() => setLogoPlaying(false)}
+        >
+          <GrowthBookLogo
+            showWordmark={!contentCollapsed}
+            className={styles.brandLogo}
+            markClassName={styles.brandMark}
+            wordmarkClassName={styles.brandWordmark}
+            sweepClassName={styles.sweep}
+          />
           {planLabel && !contentCollapsed ? (
-            <div
+            <span
               className={styles.planLabel}
+              aria-hidden="true"
               style={
                 {
                   "--wordmark-inset": `${WORDMARK_INSET_PX}px`,
@@ -986,9 +989,9 @@ export default function Sidebar() {
               <Text size="sm" weight="medium" textTransform="uppercase">
                 {planLabel}
               </Text>
-            </div>
+            </span>
           ) : null}
-        </div>
+        </Link>
         {isNarrow ? (
           <IconButton
             ref={closeRef}

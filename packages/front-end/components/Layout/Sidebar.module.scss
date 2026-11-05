@@ -161,19 +161,15 @@
   align-items: flex-start;
 }
 
-.brand {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  align-self: flex-start;
-  margin-bottom: 5px;
-}
-
+// The logo and, on paid plans, the plan label under it: one link home.
 .logo {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
   align-self: flex-start;
   padding: 3px 5px;
+  margin-bottom: 5px;
   border-radius: var(--radius-3);
   text-decoration: none;
 
@@ -192,10 +188,13 @@
   flex-shrink: 0;
 }
 
-// Under the logo, starting where "GrowthBook" does (the logo's 5px padding
-// plus the wordmark's inset, set in Sidebar.tsx).
+// Under the logo, starting where "GrowthBook" does (the wordmark's inset, set
+// in Sidebar.tsx). The 3px matches the link's bottom padding, which it sat
+// below before it moved inside the link.
 .planLabel {
-  padding-left: calc(5px + var(--wordmark-inset));
+  display: block;
+  margin-top: 3px;
+  padding-left: var(--wordmark-inset);
 
   // Text sets its own letter-spacing. 10px is deliberately below Text's
   // smallest size: the label is part of the logo lockup, not body text.
