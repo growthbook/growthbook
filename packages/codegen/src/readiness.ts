@@ -28,7 +28,16 @@ function assessDescribed(spec: Spec, name: string): ReadinessRow {
     ["replace on change", (f: Field) => f.replace && !!operations.update],
     ["JSON", (f: Field) => f.type.kind === "json"],
     ["sensitive", (f: Field) => f.sensitive],
-    ["write-only", (f: Field) => !f.computed && !f.required && f.optional],
+    ["write-only", (f: Field) => !f.inModel],
+    // Unannotated: removing the line keeps the server's value.
+    [
+      "kept when removed",
+      (f: Field) =>
+        f.optional &&
+        f.computed &&
+        f.defaultValue === undefined &&
+        !f.serverDefault,
+    ],
   ] as const) {
     const list = named(fields, test);
     if (list) notes.push(`${label}: ${list}`);

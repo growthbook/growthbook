@@ -28,6 +28,10 @@ export type Field = {
   inCreate: boolean;
   inUpdate: boolean;
   inModel: boolean;
+  defaultValue?: unknown;
+  serverDefault: boolean;
+  // Removing it from config clears it, instead of keeping the server's value.
+  clearable: boolean;
 };
 
 export type ModelOperation = {
@@ -122,7 +126,15 @@ function nestedField(
     inCreate: optional,
     inUpdate: optional,
     inModel: true,
+    serverDefault: false,
+    clearable: false,
   };
+}
+
+// Only strings and lists have an empty value the API accepts as "unset".
+function isClearable(type: FieldType, node: SchemaNode): boolean {
+  if (type.kind === "list") return type.element.kind !== "object";
+  return type.kind === "string" && (!node.enum || node.enum.includes(""));
 }
 
 // Extra keys like `bypassedGates` are fine when one is named for the resource.
@@ -213,23 +225,48 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
         ? createBody[json]
         : updateBody[json];
     const node = schemaNode(spec, source);
-    const input = inCreate || inUpdate;
+    // Defaults are declared on request bodies, which the response doesn't share.
+    const input = schemaNode(
+      spec,
+      inCreate ? createBody[json] : inUpdate ? updateBody[json] : undefined,
+    );
     const required = inCreate && requiredOnCreate.has(json);
+    const optional = (inCreate || inUpdate) && !required;
+    const type = fieldType(spec, source, optional);
+    const defaultValue = input["x-growthbook-default"];
+    const serverDefault = !!input["x-growthbook-server-default"];
+    const clearable =
+      optional &&
+      defaultValue === undefined &&
+      !serverDefault &&
+      isClearable(type, input);
     return {
       json,
       attribute: attributeName(json),
-      type: fieldType(spec, source, input && !required),
+      type,
       description: node.description,
       required,
-      optional: input && !required,
-      computed: inModel && !required,
+      optional,
+      computed:
+        defaultValue !== undefined || (inModel && !required && !clearable),
       replace: inCreate && (!update || !inUpdate),
       sensitive: !!node["x-growthbook-sensitive"],
       inCreate,
       inUpdate,
       inModel,
+      defaultValue,
+      serverDefault,
+      clearable,
     };
   });
+
+  for (const field of fields) {
+    if (field.replace && field.defaultValue !== undefined) {
+      problems.push(
+        `default on a field updates can't change: ${field.json} (use x-growthbook-server-default)`,
+      );
+    }
+  }
 
   const walk = (list: Field[], prefix: string) => {
     for (const field of list) {

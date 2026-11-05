@@ -21797,6 +21797,7 @@ paths:
                   maxLength: 10000
                   description: Put context here, not in the name.
                 publicId:
+                  x-growthbook-server-default: true
                   type: string
                   description: >-
                     URL-safe slug (lowercase letters, numbers, dashes).
@@ -21820,6 +21821,7 @@ paths:
                     Project settings that, when set, override the organization
                     settings.
                 restrictAccess:
+                  x-growthbook-default: false
                   type: boolean
                   description: >-
                     When true, only members with an explicit role on this
@@ -21827,6 +21829,7 @@ paths:
                     the manageTeam permission retain access. Requires a Pro or
                     Enterprise plan.
                 allowTargeting:
+                  x-growthbook-default: true
                   type: boolean
                   description: >-
                     Whether Feature Flags owned by other Projects may add this
@@ -22249,9 +22252,11 @@ paths:
                   type: string
                   description: Markdown. Put context here, not in the name.
                 archived:
+                  x-growthbook-default: false
                   type: boolean
                   description: The attribute is archived
                 hashAttribute:
+                  x-growthbook-default: false
                   type: boolean
                   description: Shall the attribute be hashed
                 enum:
@@ -22262,6 +22267,7 @@ paths:
                     secureString[]) it optionally restricts the list to these
                     values. Ignored for all other datatypes.
                 format:
+                  x-growthbook-default: ''
                   type: string
                   enum:
                     - ''
@@ -22511,6 +22517,7 @@ paths:
                 language:
                   type: string
                 sdkVersion:
+                  x-growthbook-server-default: true
                   type: string
                 environment:
                   type: string
@@ -22519,33 +22526,44 @@ paths:
                   items:
                     type: string
                 encryptPayload:
+                  x-growthbook-default: false
                   type: boolean
                 includeVisualExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperimentRefs:
                   description: >-
                     When true, experiment-ref rules linked to draft experiments
                     are included in feature definitions. Off by default.
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentNames:
+                  x-growthbook-default: false
                   type: boolean
                 includeRedirectExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeRuleIds:
+                  x-growthbook-default: false
                   type: boolean
                 includeProjectIdInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeCustomFieldsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 allowedCustomFieldsInMetadata:
                   type: array
                   items:
                     type: string
                 includeTagsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentScheduleInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 tracesEnabled:
                   description: >-
@@ -22553,17 +22571,23 @@ paths:
                     organizations with tracing enabled.
                   type: boolean
                 proxyEnabled:
+                  x-growthbook-server-default: true
                   type: boolean
                 proxyHost:
+                  x-growthbook-server-default: true
                   type: string
                 hashSecureAttributes:
+                  x-growthbook-default: false
                   type: boolean
                 remoteEvalEnabled:
+                  x-growthbook-default: false
                   type: boolean
                 savedGroupReferencesEnabled:
                   description: Deprecated. Use `savedGroupFormat`.
+                  x-growthbook-server-default: true
                   type: boolean
                 savedGroupFormat:
+                  x-growthbook-server-default: true
                   type: string
                   enum:
                     - inline
@@ -22574,6 +22598,7 @@ paths:
                     Carry prerequisite Feature Flags into this payload even when
                     they target other Projects. Defaults to true for new
                     connections.
+                  x-growthbook-default: true
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -22676,6 +22701,7 @@ paths:
                 language:
                   type: string
                 sdkVersion:
+                  x-growthbook-server-default: true
                   type: string
                 environment:
                   type: string
@@ -22684,33 +22710,44 @@ paths:
                   items:
                     type: string
                 encryptPayload:
+                  x-growthbook-default: false
                   type: boolean
                 includeVisualExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperimentRefs:
                   description: >-
                     When true, experiment-ref rules linked to draft experiments
                     are included in feature definitions. Off by default.
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentNames:
+                  x-growthbook-default: false
                   type: boolean
                 includeRedirectExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeRuleIds:
+                  x-growthbook-default: false
                   type: boolean
                 includeProjectIdInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeCustomFieldsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 allowedCustomFieldsInMetadata:
                   type: array
                   items:
                     type: string
                 includeTagsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentScheduleInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 tracesEnabled:
                   description: >-
@@ -22718,17 +22755,23 @@ paths:
                     organizations with tracing enabled.
                   type: boolean
                 proxyEnabled:
+                  x-growthbook-server-default: true
                   type: boolean
                 proxyHost:
+                  x-growthbook-server-default: true
                   type: string
                 hashSecureAttributes:
+                  x-growthbook-default: false
                   type: boolean
                 remoteEvalEnabled:
+                  x-growthbook-default: false
                   type: boolean
                 savedGroupReferencesEnabled:
                   description: Deprecated. Use `savedGroupFormat`.
+                  x-growthbook-server-default: true
                   type: boolean
                 savedGroupFormat:
+                  x-growthbook-server-default: true
                   type: string
                   enum:
                     - inline
@@ -22739,6 +22782,7 @@ paths:
                     Carry prerequisite Feature Flags into this payload even when
                     they target other Projects. Defaults to true for new
                     connections.
+                  x-growthbook-default: true
                   type: boolean
                 archived:
                   description: >-
@@ -23287,6 +23331,7 @@ paths:
                 language:
                   type: string
                 sdkVersion:
+                  x-growthbook-server-default: true
                   type: string
                 environment:
                   type: string
@@ -23295,33 +23340,44 @@ paths:
                   items:
                     type: string
                 encryptPayload:
+                  x-growthbook-default: false
                   type: boolean
                 includeVisualExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperimentRefs:
                   description: >-
                     When true, experiment-ref rules linked to draft experiments
                     are included in feature definitions. Off by default.
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentNames:
+                  x-growthbook-default: false
                   type: boolean
                 includeRedirectExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeRuleIds:
+                  x-growthbook-default: false
                   type: boolean
                 includeProjectIdInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeCustomFieldsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 allowedCustomFieldsInMetadata:
                   type: array
                   items:
                     type: string
                 includeTagsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentScheduleInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 tracesEnabled:
                   description: >-
@@ -23329,17 +23385,23 @@ paths:
                     organizations with tracing enabled.
                   type: boolean
                 proxyEnabled:
+                  x-growthbook-server-default: true
                   type: boolean
                 proxyHost:
+                  x-growthbook-server-default: true
                   type: string
                 hashSecureAttributes:
+                  x-growthbook-default: false
                   type: boolean
                 remoteEvalEnabled:
+                  x-growthbook-default: false
                   type: boolean
                 savedGroupReferencesEnabled:
                   description: Deprecated. Use `savedGroupFormat`.
+                  x-growthbook-server-default: true
                   type: boolean
                 savedGroupFormat:
+                  x-growthbook-server-default: true
                   type: string
                   enum:
                     - inline
@@ -23350,6 +23412,7 @@ paths:
                     Carry prerequisite Feature Flags into this payload even when
                     they target other Projects. Defaults to true for new
                     connections.
+                  x-growthbook-default: true
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -58982,6 +59045,7 @@ paths:
                   description: >-
                     For enum and multiselect fields, allow users to enter values
                     beyond the predefined list
+                  x-growthbook-default: false
                   type: boolean
                 required:
                   type: boolean
@@ -59180,6 +59244,7 @@ paths:
                   description: >-
                     For enum and multiselect fields, allow users to enter values
                     beyond the predefined list
+                  x-growthbook-default: false
                   type: boolean
                 required:
                   type: boolean
@@ -59199,6 +59264,7 @@ paths:
                     What types of objects this custom field is applicable to
                     (feature, experiment, attribute)
                 active:
+                  x-growthbook-default: true
                   type: boolean
               additionalProperties: false
       responses:
@@ -77188,8 +77254,8 @@ components:
         encryptPayload:
           type: boolean
         encryptionKey:
-          x-growthbook-sensitive: true
           type: string
+          x-growthbook-sensitive: true
         includeVisualExperiments:
           type: boolean
         includeDraftExperiments:
@@ -77229,8 +77295,8 @@ components:
         proxyHost:
           type: string
         proxySigningKey:
-          x-growthbook-sensitive: true
           type: string
+          x-growthbook-sensitive: true
         sseEnabled:
           type: boolean
         hashSecureAttributes:

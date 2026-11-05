@@ -19,7 +19,10 @@ const schemaNodeValidator = z.looseObject({
   allOf: z.array(z.unknown()).optional(),
   anyOf: z.array(z.unknown()).optional(),
   oneOf: z.array(z.unknown()).optional(),
+  enum: z.array(z.unknown()).optional(),
   "x-growthbook-sensitive": z.boolean().optional(),
+  "x-growthbook-default": z.unknown().optional(),
+  "x-growthbook-server-default": z.boolean().optional(),
 });
 export type SchemaNode = z.infer<typeof schemaNodeValidator>;
 
