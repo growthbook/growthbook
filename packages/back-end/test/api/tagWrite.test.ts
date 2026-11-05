@@ -1,3 +1,5 @@
+import { routeConfirmation } from "shared/util";
+import { postTagValidator } from "shared/validators";
 import { resolveTagWrite } from "back-end/src/api/tags/postTag";
 
 describe("resolveTagWrite", () => {
@@ -26,5 +28,17 @@ describe("resolveTagWrite", () => {
     expect(
       resolveTagWrite({ id: "beta", color: "", description: "" }, existing),
     ).toEqual({ id: "beta", color: "", description: "" });
+  });
+});
+
+describe("postTag confirmation", () => {
+  it("holds for confirmation rules that cover other.write", () => {
+    expect(
+      routeConfirmation(
+        postTagValidator.method,
+        postTagValidator.tags,
+        postTagValidator.confirmation,
+      ),
+    ).toEqual(["other.write"]);
   });
 });
