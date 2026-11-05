@@ -305,9 +305,14 @@ export function getMetricMixClass(
 }
 
 /**
+ * How a value renders when its metric type offers no Show as options: its raw
+ * value. Ratios ignore it and always render numerator / denominator.
+ */
+const DEFAULT_SHOW_AS: ShowAs = "total";
+
+/**
  * The Show as options each metric type offers, in display order. A type that
- * isn't listed offers no choice and renders its raw value (`total`; ratios
- * always render numerator/denominator).
+ * isn't listed offers no choice and renders as `DEFAULT_SHOW_AS`.
  *
  * - mean: the numerator sums each unit's value, so dividing by the unit count
  *   gives a real per-unit average.
@@ -337,7 +342,10 @@ export type ShowAsChoice = {
   showAs: ShowAs;
 };
 
-const NO_SHOW_AS_CHOICE: ShowAsChoice = { options: [], showAs: "total" };
+const NO_SHOW_AS_CHOICE: ShowAsChoice = {
+  options: [],
+  showAs: DEFAULT_SHOW_AS,
+};
 
 /** The parts of a metric definition that decide how its values can render. */
 type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
@@ -346,7 +354,7 @@ type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
  * The definition a metric value renders: its unsaved draft in the metric
  * editor preview, otherwise the saved metric. Null while definitions load.
  */
-function resolveValueMetric(
+function getDraftOrSavedMetric(
   value: MetricValue,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ShowAsMetric | null {
@@ -360,7 +368,7 @@ function resolveValueMetric(
  * values shared across units) — otherwise `total`.
  */
 export function inferShowAs(metric: ShowAsMetric | null): ShowAs {
-  if (metric?.metricType !== "mean") return "total";
+  if (metric?.metricType !== "mean") return DEFAULT_SHOW_AS;
   const agg = metric.numerator?.aggregation ?? "sum";
   return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
 }
@@ -387,7 +395,7 @@ export function getShowAsChoiceByIndex(
   }
   const legacyShowAs = config.showAs;
   return config.dataset.values.map((value) => {
-    const metric = resolveValueMetric(value, getFactMetricById);
+    const metric = getDraftOrSavedMetric(value, getFactMetricById);
     const options = getShowAsOptions(metric?.metricType);
     if (!options.length) return NO_SHOW_AS_CHOICE;
     const showAs =
@@ -422,7 +430,7 @@ export function normalizeShowAs<T extends ExplorationConfig>(
 
   let changed = legacyShowAs !== undefined;
   const values = config.dataset.values.map((value) => {
-    const metric = resolveValueMetric(value, getFactMetricById);
+    const metric = getDraftOrSavedMetric(value, getFactMetricById);
     const requested = value.showAs ?? legacyShowAs;
     const showAs =
       requested !== undefined &&
@@ -530,7 +538,7 @@ function getSeriesNameByIndex(
     annotate
       ? getAnnotatedName(
           value,
-          showAsChoiceByIndex[i]?.showAs ?? "total",
+          showAsChoiceByIndex[i]?.showAs ?? DEFAULT_SHOW_AS,
           sharedUnit,
         )
       : value.name,
@@ -568,7 +576,7 @@ export function getIsRatioByIndex(
 ): boolean[] {
   if (!config?.dataset || config.dataset.type !== "metric") return [];
   return config.dataset.values.map(
-    (v) => resolveValueMetric(v, getFactMetricById)?.metricType === "ratio",
+    (v) => getDraftOrSavedMetric(v, getFactMetricById)?.metricType === "ratio",
   );
 }
 
