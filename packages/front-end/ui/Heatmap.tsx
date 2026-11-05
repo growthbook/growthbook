@@ -91,7 +91,7 @@ function cellBackground(
   };
 }
 
-function buildDisplayRepresentatives(
+export function buildDisplayRepresentatives(
   values: (number | null)[],
   formatValue: (value: number) => string,
 ): Map<string, number> {
@@ -104,7 +104,7 @@ function buildDisplayRepresentatives(
   return representativeByDisplay;
 }
 
-function quantizeByDisplay(
+export function quantizeByDisplay(
   values: (number | null)[],
   formatValue: (value: number) => string,
   representatives: Map<string, number>,
@@ -115,7 +115,7 @@ function quantizeByDisplay(
   });
 }
 
-function normalizeValues(
+export function normalizeValues(
   values: (number | null)[],
   bounds?: { min: number; max: number },
 ): (number | null)[] {
