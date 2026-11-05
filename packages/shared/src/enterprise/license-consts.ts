@@ -249,6 +249,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
+  "share-product-analytics-dashboards",
   "cluster-experiments",
 ];
 
@@ -293,7 +294,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "custom-hooks",
   "metric-slices",
   "manage-official-resources",
-  "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
   "contextual-bandits",

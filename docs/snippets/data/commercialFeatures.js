@@ -282,7 +282,7 @@ export default {
     displayName: "Sequential Testing",
   },
   "share-product-analytics-dashboards": {
-    plan: "enterprise",
+    plan: "pro",
     displayName: "Share Product Analytics Dashboards",
   },
   simulate: {
