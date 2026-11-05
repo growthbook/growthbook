@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Table, {
@@ -228,7 +228,7 @@ export default function ContextualBanditOverviewTable({
           variant="ghost"
           size="sm"
           mt="2"
-          icon={expanded ? <PiCaretDown /> : <PiCaretRight />}
+          icon={expanded ? <PiCaretUp /> : <PiCaretDown />}
           onClick={() => setExpanded((prev) => !prev)}
         >
           {expanded ? "Show less" : `Show ${hiddenCount} more`}
