@@ -806,15 +806,17 @@ describe("expireOldQueries experiment snapshot reaper", () => {
       { name: "insert", query: "qry_running", status: "running" },
       { name: "statistics", query: "qry_queued", status: "queued" },
     ];
-    (getStaleQueries as jest.Mock).mockResolvedValue([
+    (getStaleQueries as jest.Mock).mockResolvedValueOnce([
       { id: "qry_running", organization: "org_1" },
     ]);
-    (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([snapshot]);
-    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+    (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValueOnce([
+      snapshot,
+    ]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValueOnce([
       { id: "qry_running", status: "failed" },
       { id: "qry_queued", status: "queued" },
     ]);
-    (failQueuedQueries as jest.Mock).mockResolvedValue(["qry_queued"]);
+    (failQueuedQueries as jest.Mock).mockResolvedValueOnce(["qry_queued"]);
 
     await runJob();
 
