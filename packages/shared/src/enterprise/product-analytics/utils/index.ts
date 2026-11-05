@@ -331,13 +331,13 @@ export function getShowAsOptions(
 }
 
 /** How one dataset value renders, and which Show as options it offers. */
-export type ValueShowAs = {
+export type ShowAsChoice = {
   /** Empty when the value's metric type offers no choice. */
   options: readonly ShowAs[];
   showAs: ShowAs;
 };
 
-const NO_SHOW_AS_OPTIONS: ValueShowAs = { options: [], showAs: "total" };
+const NO_SHOW_AS_CHOICE: ShowAsChoice = { options: [], showAs: "total" };
 
 /** The parts of a metric definition that decide how its values can render. */
 type ShowAsMetric = Pick<FactMetricInterface, "metricType" | "numerator">;
@@ -377,19 +377,19 @@ export function inferShowAs(metric: ShowAsMetric | null): ShowAs {
  * datasets, empty or unresolved metric slots, metric types without options —
  * offers no options and renders as `total`.
  */
-export function getShowAsByIndex(
+export function getShowAsChoiceByIndex(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-): ValueShowAs[] {
+): ShowAsChoice[] {
   if (!datasetHasValues(config?.dataset)) return [];
   if (config.dataset.type !== "metric") {
-    return config.dataset.values.map(() => NO_SHOW_AS_OPTIONS);
+    return config.dataset.values.map(() => NO_SHOW_AS_CHOICE);
   }
   const legacyShowAs = config.showAs;
   return config.dataset.values.map((value) => {
     const metric = resolveValueMetric(value, getFactMetricById);
     const options = getShowAsOptions(metric?.metricType);
-    if (!options.length) return NO_SHOW_AS_OPTIONS;
+    if (!options.length) return NO_SHOW_AS_CHOICE;
     const showAs =
       [value.showAs, legacyShowAs, inferShowAs(metric)].find(
         (candidate): candidate is ShowAs =>
@@ -400,7 +400,7 @@ export function getShowAsByIndex(
 }
 
 /**
- * Write-time counterpart to `getShowAsByIndex`: moves the deprecated
+ * Write-time counterpart to `getShowAsChoiceByIndex`: moves the deprecated
  * config-level `showAs` onto the metric values that offer it as an option and
  * strips `showAs` that isn't one of the value's options, so a stored config
  * never claims a mode that won't render. Values whose metric hasn't resolved
@@ -464,7 +464,7 @@ export function getDefaultValueAxisName(
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string {
   const sharedShowAs = getSharedShowAs(
-    getShowAsByIndex(config, getFactMetricById),
+    getShowAsChoiceByIndex(config, getFactMetricById),
   );
   if (sharedShowAs === null) return "";
   if (sharedShowAs === "total") return "Total";
@@ -478,9 +478,10 @@ export function getDefaultValueAxisName(
  * to a proportion, which plots raw counts — or when no value offers options,
  * since Total/Per unit then describes no choice.
  */
-function getSharedShowAs(showAsByIndex: ValueShowAs[]): ShowAs | null {
-  if (!showAsByIndex.some((v) => v.options.length > 0)) return null;
-  const modes = new Set(showAsByIndex.map((v) => v.showAs));
+function getSharedShowAs(showAsChoiceByIndex: ShowAsChoice[]): ShowAs | null {
+  if (!showAsChoiceByIndex.some((choice) => choice.options.length > 0))
+    return null;
+  const modes = new Set(showAsChoiceByIndex.map((choice) => choice.showAs));
   return modes.size === 1 ? [...modes][0] : null;
 }
 
@@ -513,20 +514,25 @@ function getAnnotatedName(
  */
 function getSeriesNameByIndex(
   config: ExplorationConfig | null,
-  showAsByIndex: ValueShowAs[],
+  showAsChoiceByIndex: ShowAsChoice[],
 ): string[] {
   if (!datasetHasValues(config?.dataset)) return [];
   const sharedUnit = getSharedUnit(config);
-  const sharedShowAs = getSharedShowAs(showAsByIndex);
+  const sharedShowAs = getSharedShowAs(showAsChoiceByIndex);
   const modesAreMixed =
-    sharedShowAs === null && showAsByIndex.some((v) => v.options.length > 0);
+    sharedShowAs === null &&
+    showAsChoiceByIndex.some((choice) => choice.options.length > 0);
   const axisTitleNamesUnit =
     config.chartSettings?.valueAxisLabel === undefined && sharedUnit !== null;
   const annotate =
     modesAreMixed || (sharedShowAs === "per_unit" && !axisTitleNamesUnit);
   return config.dataset.values.map((value, i) =>
     annotate
-      ? getAnnotatedName(value, showAsByIndex[i]?.showAs ?? "total", sharedUnit)
+      ? getAnnotatedName(
+          value,
+          showAsChoiceByIndex[i]?.showAs ?? "total",
+          sharedUnit,
+        )
       : value.name,
   );
 }
@@ -577,11 +583,11 @@ export function getExplorationRenderOpts(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationRenderOpts {
-  const showAsByIndex = getShowAsByIndex(config, getFactMetricById);
+  const showAsChoiceByIndex = getShowAsChoiceByIndex(config, getFactMetricById);
   return {
-    showAsByIndex: showAsByIndex.map((v) => v.showAs),
+    showAsByIndex: showAsChoiceByIndex.map((choice) => choice.showAs),
     isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
-    seriesNameByIndex: getSeriesNameByIndex(config, showAsByIndex),
+    seriesNameByIndex: getSeriesNameByIndex(config, showAsChoiceByIndex),
   };
 }
 
@@ -677,7 +683,7 @@ export function buildExplorationColumns(
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);
-  const showAsByIndex = getShowAsByIndex(config, getFactMetricById);
+  const showAsChoiceByIndex = getShowAsChoiceByIndex(config, getFactMetricById);
   const sharedUnit = getSharedUnit(config);
 
   values.forEach((v, metricIndex) => {
@@ -709,7 +715,7 @@ export function buildExplorationColumns(
 
     // Only per-unit columns are annotated, so a plain header means totals.
     const singleLabel =
-      showAsByIndex[metricIndex]?.showAs === "per_unit"
+      showAsChoiceByIndex[metricIndex]?.showAs === "per_unit"
         ? getAnnotatedName(v, "per_unit", sharedUnit)
         : name;
     cols.push({

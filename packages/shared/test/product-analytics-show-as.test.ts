@@ -3,7 +3,7 @@ import {
   getDefaultValueAxisName,
   getExplorationRenderOpts,
   getRenderedMetricValue,
-  getShowAsByIndex,
+  getShowAsChoiceByIndex,
   getShowAsOptions,
   normalizeShowAs,
 } from "shared/enterprise";
@@ -91,13 +91,13 @@ describe("getShowAsOptions", () => {
   });
 });
 
-describe("getShowAsByIndex", () => {
+describe("getShowAsChoiceByIndex", () => {
   it("resolves each mean metric independently", () => {
     const config = metricConfig([
       metricValue("revenue", "per_unit"),
       metricValue("revenue", "total"),
     ]);
-    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([
+    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([
       mean("per_unit"),
       mean("total"),
     ]);
@@ -108,7 +108,7 @@ describe("getShowAsByIndex", () => {
       metricValue("revenue"),
       metricValue("maxOrder"),
     ]);
-    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([
+    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([
       mean("total"),
       mean("per_unit"),
     ]);
@@ -120,7 +120,7 @@ describe("getShowAsByIndex", () => {
       metricValue("aov"),
       metricValue("revenue"),
     ]);
-    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([
+    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([
       none,
       none,
       mean("total"),
@@ -129,7 +129,7 @@ describe("getShowAsByIndex", () => {
 
   it("offers no options for a slot with no metric selected", () => {
     const config = metricConfig([metricValue("")]);
-    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([none]);
+    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([none]);
   });
 
   it("falls back to the deprecated config-level showAs", () => {
@@ -137,7 +137,7 @@ describe("getShowAsByIndex", () => {
       [metricValue("revenue"), metricValue("revenue", "total")],
       "per_unit",
     );
-    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([
+    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([
       mean("per_unit"),
       mean("total"),
     ]);
@@ -146,7 +146,9 @@ describe("getShowAsByIndex", () => {
   it("resolves an unsaved draft metric", () => {
     const draft = makeMetric("", "mean", "max");
     const config = metricConfig([{ ...metricValue(""), draftMetric: draft }]);
-    expect(getShowAsByIndex(config, () => null)).toEqual([mean("per_unit")]);
+    expect(getShowAsChoiceByIndex(config, () => null)).toEqual([
+      mean("per_unit"),
+    ]);
   });
 
   it("offers no options for any value of a non-metric dataset", () => {
@@ -168,7 +170,7 @@ describe("getShowAsByIndex", () => {
         ],
       },
     };
-    expect(getShowAsByIndex(config, getFactMetricById)).toEqual([none]);
+    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([none]);
   });
 });
 

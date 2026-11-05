@@ -68,7 +68,7 @@ export {
   getMetricMixClass,
   getMaxDimensions,
   getValidDateGranularities,
-  getShowAsByIndex,
+  getShowAsChoiceByIndex,
   getEffectiveMetricValue,
   getRenderedMetricValue,
   getExplorationRenderOpts,
