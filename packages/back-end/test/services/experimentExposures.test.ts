@@ -117,6 +117,7 @@ describe("shapeExposureRows", () => {
       ],
     });
     expect(records[0]).toMatchObject({ userId: "u1", variationId: "1" });
+    expect(records[0]).not.toHaveProperty("subUnitId");
     expect(records[0].timestamp).toContain("2025-01-01");
     expect(extraColumns).toEqual([]);
   });

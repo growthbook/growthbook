@@ -196,7 +196,7 @@ export default function ExposureLogsCard({
               key: "subUnitId",
               header: getIdentifierDisplayName(subUnitIdColumn),
               render: (r: ExperimentExposureRecord) => (
-                <IdCell value={r.subUnitId} />
+                <IdCell value={r.subUnitId ?? null} />
               ),
             },
           ]
@@ -237,7 +237,7 @@ export default function ExposureLogsCard({
     (row: ExperimentExposureRecord, column: string) => {
       if (column === TIMESTAMP_COLUMN) return row.timestamp;
       if (column === userIdColumn) return row.userId;
-      if (column === subUnitIdColumn) return row.subUnitId;
+      if (column === subUnitIdColumn) return row.subUnitId ?? null;
       if (column === VARIATION_COLUMN) return row.variationId;
       return row.dimensions[column];
     },
@@ -309,7 +309,9 @@ export default function ExposureLogsCard({
           {
             [TIMESTAMP_COLUMN]: row.timestamp,
             [userIdColumn]: row.userId,
-            ...(subUnitIdColumn ? { [subUnitIdColumn]: row.subUnitId } : {}),
+            ...(subUnitIdColumn
+              ? { [subUnitIdColumn]: row.subUnitId ?? null }
+              : {}),
             [VARIATION_COLUMN]: row.variationId,
             dimensions: row.dimensions,
             extra: row.extra,
