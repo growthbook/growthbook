@@ -402,10 +402,14 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
-  // When true, the main results "Update" button is disabled for stopped
-  // experiments so their results stay frozen. "Re-run all queries" and
-  // on-demand dimension analyses are still available.
+  // When true, experiment snapshots (overall and dimension) can no longer be
+  // created for stopped experiments once the grace period below has elapsed
+  // since the stop date, so results stay frozen. Custom reports are exempt.
+  // The REST API can bypass with `ignoreWarnings: true`.
   disableResultsRefreshForStoppedExperiments?: boolean;
+  // Hours after the stop date during which updates are still allowed.
+  // Defaults to 0 (lock immediately on stop).
+  stoppedExperimentResultsLockGraceHours?: number;
   requireUniqueExperimentTrackingKeys?: boolean;
   experimentKeyExample?: string;
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt

@@ -24,6 +24,8 @@ import {
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
   isAutoSnapshotScheduled,
+  isStoppedExperimentResultsLocked,
+  STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -385,12 +387,12 @@ export default function AnalysisSettingsSummary({
     overallNeedsFullRefresh || overallNeverRanIncrementally;
   const hideOutdatedBadge =
     viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
-  // Org setting that freezes the main results of stopped experiments. On-demand
-  // dimension snapshots don't change the main results, so they stay enabled.
-  const mainResultsUpdateLocked =
-    !!orgSettings.disableResultsRefreshForStoppedExperiments &&
-    experiment.status === "stopped" &&
-    !viewingOnDemandDimension;
+  // Org setting that freezes results (overall and dimension) of stopped
+  // experiments once the grace period has elapsed. Custom reports stay open.
+  const resultsLocked = isStoppedExperimentResultsLocked(
+    experiment,
+    orgSettings,
+  );
 
   const newerOverallResultsAvailable = isNewerOverallResultsDataAvailable(
     sourceSnapshot,
@@ -971,8 +973,8 @@ export default function AnalysisSettingsSummary({
             permissionsUtil.canRunExperimentQueries(ds) &&
             allMetrics.length > 0 ? (
               <Tooltip
-                content="Your organization's settings prevent updating results for stopped experiments."
-                enabled={mainResultsUpdateLocked}
+                content={STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE}
+                enabled={resultsLocked}
               >
                 <span style={{ display: "inline-flex" }}>
                   <RefreshResultsButton
@@ -1007,7 +1009,7 @@ export default function AnalysisSettingsSummary({
                     customValidation={confirmRefresh}
                     onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
                     disabled={
-                      mainResultsUpdateLocked ||
+                      resultsLocked ||
                       (viewingDimensionThatRequiresOverallFirst &&
                         overallResultsRequiredBeforeDimensionRefresh)
                     }
@@ -1024,6 +1026,11 @@ export default function AnalysisSettingsSummary({
             <ResultMoreMenu
               experiment={experiment}
               datasource={datasource}
+              forceRefreshDisabledReason={
+                resultsLocked
+                  ? STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE
+                  : undefined
+              }
               forceRefresh={
                 allMetrics.length > 0 &&
                 shouldOfferMenuRefresh({

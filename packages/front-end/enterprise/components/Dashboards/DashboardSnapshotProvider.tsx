@@ -27,13 +27,20 @@ import {
   MetricAnalysisInterface,
 } from "shared/types/metric-analysis";
 import { getValidDate } from "shared/dates";
+import {
+  isStoppedExperimentResultsLocked,
+  STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE,
+} from "shared/experiments";
 import { isEqual } from "lodash";
 import useApi from "@/hooks/useApi";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 
 export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
+  // Org setting freezes results of the attached stopped experiment
+  resultsLocked: boolean;
   projects?: string[];
   defaultSnapshot?: ExperimentSnapshotInterface;
   dimensionless?: ExperimentSnapshotInterface;
@@ -50,6 +57,7 @@ export const DashboardSnapshotContext = React.createContext<{
   mutateSnapshotsMap: () => Promise<unknown>;
   updateAllSnapshots: () => Promise<unknown>;
 }>({
+  resultsLocked: false,
   refreshStatus: "succeeded",
   snapshotsMap: new Map(),
   savedQueriesMap: new Map(),
@@ -72,6 +80,9 @@ export default function DashboardSnapshotProvider({
   children: ReactNode;
 }) {
   const { apiCall } = useAuth();
+  const orgSettings = useOrgSettings();
+  const resultsLocked =
+    !!experiment && isStoppedExperimentResultsLocked(experiment, orgSettings);
   const {
     data: snapshotData,
     error: singleSnapshotError,
@@ -224,6 +235,10 @@ export default function DashboardSnapshotProvider({
 
   const updateAllSnapshots = async () => {
     if (!dashboard || dashboard.id === "new") return;
+    if (resultsLocked) {
+      setRefreshError(STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE);
+      return;
+    }
     setRefreshError(undefined);
     try {
       await apiCall(`/dashboards/${dashboard.id}/refresh`, {
@@ -245,6 +260,7 @@ export default function DashboardSnapshotProvider({
     <DashboardSnapshotContext.Provider
       value={{
         experiment,
+        resultsLocked,
         projects:
           dashboard?.projects ??
           (experiment?.project ? [experiment.project] : undefined),
