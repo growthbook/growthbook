@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { PiCaretRightFill } from "react-icons/pi";
 import { useForm } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -27,8 +28,10 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import VariationNumber from "@/ui/VariationNumber";
+import VariationLabel from "@/ui/VariationLabel";
 import Metadata from "@/ui/Metadata";
+import { FeatureBadge } from "@/components/Features/FeatureBadge";
+import Link from "@/ui/Link";
 
 export type QaOverrideModalExperiment = Pick<
   ExperimentInterfaceStringDates,
@@ -120,6 +123,12 @@ export default function QaOverrideModal({
   });
 
   const values = form.watch();
+  const [advancedOpen, setAdvancedOpen] = useState(
+    !!existing &&
+      (existing.applyExperimentTargeting ||
+        existing.applyExperimentCoverage ||
+        !!existing.additionalTargeting),
+  );
   const connectionLocked = !!existing || !!lockedConnection;
 
   const draftLinkedFeatures = (linkedFeatures ?? []).filter(
@@ -192,7 +201,7 @@ export default function QaOverrideModal({
     >
       <Flex direction="column" gap="5">
         <Box>
-          <Heading as="h4" size="xs" mb="1">
+          <Heading as="h3" size="sm" mb="1">
             SDK Connections
           </Heading>
           {connectionLocked ? (
@@ -214,7 +223,6 @@ export default function QaOverrideModal({
                       ""
                     }
                     color="gray"
-                    variant="soft"
                   />
                 </Flex>
               }
@@ -244,11 +252,7 @@ export default function QaOverrideModal({
                     <Flex align="center" gap="2">
                       <span>{o.label}</span>
                       {option && (
-                        <Badge
-                          label={option.environment}
-                          color="gray"
-                          variant="soft"
-                        />
+                        <Badge label={option.environment} color="gray" />
                       )}
                       {option?.reason && (
                         <Text size="sm" color="text-low">
@@ -269,7 +273,7 @@ export default function QaOverrideModal({
             {draftLinkedFeatures.map((f, i) => (
               <span key={f.feature.id}>
                 {i > 0 ? ", " : ""}
-                <code>{f.feature.id}</code>
+                <FeatureBadge featureId={f.feature.id} />
               </span>
             ))}{" "}
             yet, so this override won&apos;t change that Feature Flag until its
@@ -278,7 +282,7 @@ export default function QaOverrideModal({
         )}
 
         <Box>
-          <Heading as="h4" size="xs" mb="2">
+          <Heading as="h3" size="sm" mb="2">
             Which Variation?
           </Heading>
           <RadioCards
@@ -314,12 +318,7 @@ export default function QaOverrideModal({
                 setValue={(v) => form.setValue("forcedVariationId", v)}
                 options={variations.map((v, i) => ({
                   value: v.id,
-                  label: (
-                    <Flex align="center" gap="2">
-                      <VariationNumber number={i} />
-                      <span>{v.name}</span>
-                    </Flex>
-                  ),
+                  label: <VariationLabel number={i} name={v.name} />,
                 }))}
               />
             </Box>
@@ -327,92 +326,124 @@ export default function QaOverrideModal({
         </Box>
 
         <Box>
-          <Heading as="h4" size="xs" mb="2">
-            Experiment Targeting
-          </Heading>
-          <Flex direction="column" gap="2">
-            <Checkbox
-              value={values.applyExperimentTargeting}
-              setValue={(v) => form.setValue("applyExperimentTargeting", v)}
-              label="Apply the experiment's targeting conditions"
-              description={experimentTargetingDescription(experiment)}
+          <Link weight="bold" onClick={() => setAdvancedOpen((v) => !v)}>
+            <PiCaretRightFill
+              style={{
+                marginRight: 4,
+                transform: advancedOpen ? "rotate(90deg)" : undefined,
+                transition: "transform 0.15s",
+              }}
             />
-            <Checkbox
-              value={values.applyExperimentCoverage}
-              setValue={(v) => form.setValue("applyExperimentCoverage", v)}
-              label={`Apply the experiment's traffic coverage (${coveragePct}%)`}
-              description={
-                values.applyExperimentCoverage
-                  ? undefined
-                  : "Unchecked: 100% of matching traffic is included"
-              }
-            />
-          </Flex>
-        </Box>
+            Advanced Targeting
+          </Link>
+          {advancedOpen ? (
+            <Flex direction="column" gap="5" mt="3">
+              <Box>
+                <Heading as="h3" size="sm" mb="2">
+                  Experiment Targeting
+                </Heading>
+                <Flex direction="column" gap="2">
+                  <Checkbox
+                    value={values.applyExperimentTargeting}
+                    setValue={(v) =>
+                      form.setValue("applyExperimentTargeting", v)
+                    }
+                    label="Apply the experiment's targeting conditions"
+                    description={experimentTargetingDescription(experiment)}
+                  />
+                  <Checkbox
+                    value={values.applyExperimentCoverage}
+                    setValue={(v) =>
+                      form.setValue("applyExperimentCoverage", v)
+                    }
+                    label={`Apply the experiment's traffic coverage (${coveragePct}%)`}
+                    description={
+                      values.applyExperimentCoverage
+                        ? undefined
+                        : "Unchecked: 100% of matching traffic is included"
+                    }
+                  />
+                </Flex>
+              </Box>
 
-        <Box>
-          <Heading as="h4" size="xs" mb="1">
-            Additional Targeting
-          </Heading>
-          {values.hasAdditionalTargeting ? (
-            <Flex direction="column" gap="2">
-              <Flex align="center" gap="2">
-                <Select
-                  aria-label="Attribute"
-                  value={values.attribute}
-                  setValue={(v) => {
-                    form.setValue("attribute", v);
-                    form.setValue("values", []);
-                  }}
-                  placeholder="Attribute"
-                >
-                  {identifierAttributes.map((a) => (
-                    <SelectItem key={a.property} value={a.property}>
-                      {a.property}
-                    </SelectItem>
-                  ))}
-                </Select>
-                <Text>is any of</Text>
-                <Box ml="auto">
-                  <Button
-                    variant="ghost"
-                    color="gray"
-                    size="sm"
-                    onClick={() => {
-                      form.setValue("hasAdditionalTargeting", false);
-                      form.setValue("values", []);
-                    }}
-                  >
-                    Remove
-                  </Button>
-                </Box>
-              </Flex>
-              <StringArrayField
-                value={values.values}
-                onChange={(v) => form.setValue("values", v)}
-                placeholder="Add a value and press Enter"
-              />
-              {identifierAttributes.length === 0 && (
-                <Text size="sm" color="text-low">
-                  No identifier attributes are configured for this project.
-                </Text>
-              )}
+              <Box>
+                <Heading as="h3" size="sm" mb="1">
+                  Additional Targeting
+                </Heading>
+                {values.hasAdditionalTargeting ? (
+                  <Flex direction="column" gap="2">
+                    <Flex align="center" gap="2">
+                      <Select
+                        aria-label="Attribute"
+                        value={values.attribute}
+                        setValue={(v) => {
+                          form.setValue("attribute", v);
+                          form.setValue("values", []);
+                        }}
+                        placeholder="Attribute"
+                      >
+                        {identifierAttributes.map((a) => (
+                          <SelectItem key={a.property} value={a.property}>
+                            {a.property}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                      <Text color="text-mid">is any of</Text>
+                      <Box ml="auto">
+                        <Button
+                          variant="ghost"
+                          color="gray"
+                          size="sm"
+                          onClick={() => {
+                            form.setValue("hasAdditionalTargeting", false);
+                            form.setValue("values", []);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </Box>
+                    </Flex>
+                    <StringArrayField
+                      value={values.values}
+                      onChange={(v) => form.setValue("values", v)}
+                      placeholder="Add a value and press Enter"
+                    />
+                    {identifierAttributes.length === 0 && (
+                      <Text size="sm" color="text-low">
+                        No identifier attributes are configured for this
+                        project.
+                      </Text>
+                    )}
+                  </Flex>
+                ) : (
+                  <Flex align="center" gap="3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={identifierAttributes.length === 0}
+                      onClick={() =>
+                        form.setValue("hasAdditionalTargeting", true)
+                      }
+                    >
+                      Add targeting
+                    </Button>
+                    <Text size="sm" color="text-low">
+                      Without it, every request on these connections can get the
+                      draft.
+                    </Text>
+                  </Flex>
+                )}
+              </Box>
             </Flex>
           ) : (
-            <Flex align="center" gap="3">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={identifierAttributes.length === 0}
-                onClick={() => form.setValue("hasAdditionalTargeting", true)}
-              >
-                Add targeting
-              </Button>
-              <Text size="sm" color="text-low">
-                Without it, every request on these connections can get the
-                draft.
-              </Text>
-            </Flex>
+            <Text as="p" size="sm" color="text-low" mt="1">
+              {advancedTargetingSummary({
+                applyExperimentTargeting: values.applyExperimentTargeting,
+                applyExperimentCoverage: values.applyExperimentCoverage,
+                coveragePct,
+                additionalTargeting: buildAdditionalTargeting(),
+              })}
+            </Text>
           )}
         </Box>
 
@@ -426,6 +457,30 @@ export default function QaOverrideModal({
       </Flex>
     </ModalStandard>
   );
+}
+
+function advancedTargetingSummary({
+  applyExperimentTargeting,
+  applyExperimentCoverage,
+  coveragePct,
+  additionalTargeting,
+}: {
+  applyExperimentTargeting: boolean;
+  applyExperimentCoverage: boolean;
+  coveragePct: number;
+  additionalTargeting: QaOverrideAdditionalTargeting | null;
+}): string {
+  return [
+    applyExperimentTargeting
+      ? "Experiment targeting applied"
+      : "Experiment targeting skipped",
+    `${applyExperimentCoverage ? coveragePct : 100}% of traffic`,
+    additionalTargeting
+      ? `${additionalTargeting.attribute} is any of ${
+          additionalTargeting.values.length
+        } value${additionalTargeting.values.length === 1 ? "" : "s"}`
+      : "no additional targeting",
+  ].join(" · ");
 }
 
 function experimentTargetingDescription(

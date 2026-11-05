@@ -212,7 +212,7 @@ const EnvironmentsPage: FC = () => {
                     </Tooltip>
                   </TableCell>
                   <TableCell>{e.toggleOnList ? "yes" : ""}</TableCell>
-                  <TableCell>{e.qaOverridesEnabled ? "enabled" : ""}</TableCell>
+                  <TableCell>{e.qaOverridesEnabled ? "yes" : ""}</TableCell>
                   <TableCell>
                     <DropdownMenu
                       trigger={

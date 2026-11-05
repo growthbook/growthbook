@@ -92,7 +92,7 @@ export default function SdkQaOverridesSection({
       <Flex align="start" justify="between" gap="3" mb="3">
         <Box>
           <Flex align="center" gap="2" mb="1">
-            <Heading as="h3" size="sm" color="text-high" mb="0">
+            <Heading color="text-high" as="h4" size="sm" mb="0">
               QA Overrides
             </Heading>
             {overrides.length > 0 && (
@@ -104,43 +104,45 @@ export default function SdkQaOverridesSection({
               />
             )}
           </Flex>
-          <Text color="text-low" size="sm">
+          <Text color="text-mid">
             Requests with this client key get the{" "}
-            <code>{connection.environment}</code> environment&apos;s live config
-            plus the draft experiments below. Each one clears itself when its
-            experiment starts.
+            <Text weight="medium">{connection.environment}</Text>{" "}
+            environment&apos;s live config plus the draft experiments below.
+            Each one clears itself when its experiment starts.
           </Text>
         </Box>
         {overrides.length > 0 && (
-          <Button
-            variant="outline"
-            color="red"
-            size="sm"
-            onClick={() => setConfirmStopAll(true)}
-          >
-            Stop all
-          </Button>
+          <Flex align="center" flexShrink="0">
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => setConfirmStopAll(true)}
+            >
+              Stop all
+            </Button>
+          </Flex>
         )}
       </Flex>
 
       {!envEnabled ? (
         <Callout status="info">
-          QA overrides are off for the <code>{connection.environment}</code>{" "}
-          environment. <Link href="/environments">Manage environments</Link>
+          QA overrides are off for the{" "}
+          <Text weight="medium">{connection.environment}</Text> environment.{" "}
+          <Link href="/environments">Manage environments</Link>
         </Callout>
       ) : overrides.length === 0 ? (
         <Text color="text-low">
           No draft experiments are being served to this connection.
         </Text>
       ) : (
-        <Table size="sm" layout="auto">
+        <Table variant="ghost">
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Experiment</TableColumnHeader>
               <TableColumnHeader>Variation</TableColumnHeader>
               <TableColumnHeader>Included</TableColumnHeader>
               <TableColumnHeader>Set by</TableColumnHeader>
-              <TableColumnHeader></TableColumnHeader>
+              <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -170,17 +172,18 @@ export default function SdkQaOverridesSection({
                     />
                   </TableCell>
                   <TableCell>
-                    {qaOverrideIncludedLabel(override, phase)}
+                    <Text color="text-mid">
+                      {qaOverrideIncludedLabel(override, phase)}
+                    </Text>
                   </TableCell>
                   <TableCell>
                     <QaOverrideSetBy override={override} />
                   </TableCell>
                   <TableCell>
                     {experiment && canEdit(experiment) && (
-                      <Flex gap="2" justify="end">
+                      <Flex gap="4" justify="end">
                         <Button
                           variant="ghost"
-                          size="sm"
                           onClick={() => setEditing({ override, experiment })}
                         >
                           Edit
@@ -188,7 +191,6 @@ export default function SdkQaOverridesSection({
                         <Button
                           variant="ghost"
                           color="red"
-                          size="sm"
                           onClick={() => stopOverride(override)}
                         >
                           Stop

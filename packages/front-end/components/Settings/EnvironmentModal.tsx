@@ -279,7 +279,6 @@ export default function EnvironmentModal({
       <Switch
         id={"qaOverrides"}
         label="Allow QA overrides"
-        description="Lets draft experiments be served to this environment's SDK Connections for testing. Turning this off removes any active overrides."
         value={!!form.watch("qaOverridesEnabled")}
         onChange={(value) => {
           form.setValue("qaOverridesEnabled", value);

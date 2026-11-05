@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiPlusBold } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -98,29 +99,28 @@ export default function QaOverridesSection({
       )}
       <Flex align="start" justify="between" gap="3" mb="3">
         <Box>
-          <Heading as="h3" size="sm" color="text-high" mb="1">
-            Experiment QA Overrides
+          <Heading color="text-high" as="h4" size="sm" mb="1">
+            QA Overrides
           </Heading>
-          <Text color="text-low" size="sm">
+          <Text color="text-mid">
             While in draft, only the SDK Connections below will be able to see
             this experiment.
           </Text>
         </Box>
         {canEdit && enabledEnvs.length > 0 && (
-          <Flex gap="2" flexShrink="0">
+          <Flex align="center" gap="3" flexShrink="0">
             {overrides.length > 0 && (
               <Button
-                variant="outline"
+                variant="ghost"
                 color="red"
-                size="sm"
                 onClick={() => setConfirmStopAll(true)}
               >
                 Stop all
               </Button>
             )}
             <Button
-              variant="soft"
-              size="sm"
+              variant="outline"
+              icon={<PiPlusBold />}
               onClick={() => setModal({ mode: "create" })}
             >
               Add override
@@ -140,7 +140,7 @@ export default function QaOverridesSection({
           Connection.
         </Text>
       ) : (
-        <Table size="sm" layout="auto">
+        <Table variant="ghost">
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Connection</TableColumnHeader>
@@ -148,7 +148,7 @@ export default function QaOverridesSection({
               <TableColumnHeader>Additional targeting</TableColumnHeader>
               <TableColumnHeader>Experiment targeting</TableColumnHeader>
               <TableColumnHeader>Set by</TableColumnHeader>
-              <TableColumnHeader></TableColumnHeader>
+              <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -164,19 +164,15 @@ export default function QaOverridesSection({
                         <Link href={`/sdks/${override.sdkConnection}`}>
                           {connection?.name ?? override.sdkConnection}
                         </Link>
-                        <Badge
-                          label={override.environment}
-                          color="gray"
-                          variant="soft"
-                        />
+                        <Badge label={override.environment} color="gray" />
                       </Flex>
                       {connection?.key && (
-                        <code>
+                        <Text size="sm" color="text-low">
                           <TruncateMiddleWithTooltip
                             text={connection.key}
                             maxChars={28}
                           />
-                        </code>
+                        </Text>
                       )}
                     </Flex>
                   </TableCell>
@@ -189,16 +185,19 @@ export default function QaOverridesSection({
                   <TableCell>
                     <QaOverrideAdditionalTargeting override={override} />
                   </TableCell>
-                  <TableCell>{experimentTargetingLabel(override)}</TableCell>
+                  <TableCell>
+                    <Text color="text-mid">
+                      {experimentTargetingLabel(override)}
+                    </Text>
+                  </TableCell>
                   <TableCell>
                     <QaOverrideSetBy override={override} />
                   </TableCell>
                   <TableCell>
                     {canEdit && (
-                      <Flex gap="2" justify="end">
+                      <Flex gap="4" justify="end">
                         <Button
                           variant="ghost"
-                          size="sm"
                           onClick={() => setModal({ mode: "edit", override })}
                         >
                           Edit
@@ -206,7 +205,6 @@ export default function QaOverridesSection({
                         <Button
                           variant="ghost"
                           color="red"
-                          size="sm"
                           onClick={() => stopOverride(override)}
                         >
                           Stop

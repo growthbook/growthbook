@@ -165,14 +165,6 @@ export default function Implementation({
           source="implementation-tab"
         />
       )}
-      {experiment.status === "draft" &&
-      !experiment.archived &&
-      experimentSupportsQaOverrides(experiment) ? (
-        <QaOverridesSection
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-        />
-      ) : null}
       <div className="my-4">
         <Heading as="h2" size="lg" color="text-high" mb="2">
           Implementation
@@ -217,6 +209,14 @@ export default function Implementation({
             canEditExperiment={canEditExperiment}
             setEditVariationIndex={setEditMetadataIndex}
             hideVariations={showTrafficFunnel}
+          />
+        ) : null}
+        {experiment.status === "draft" &&
+        !experiment.archived &&
+        experimentSupportsQaOverrides(experiment) ? (
+          <QaOverridesSection
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
           />
         ) : null}
 

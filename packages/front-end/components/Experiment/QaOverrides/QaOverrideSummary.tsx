@@ -3,9 +3,10 @@ import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { ago } from "shared/dates";
 import { useUser } from "@/services/UserContext";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
-import VariationNumber from "@/ui/VariationNumber";
+import VariationLabel from "@/ui/VariationLabel";
 
 type VariationLike = { id: string; name: string };
 
@@ -17,17 +18,12 @@ export function QaOverrideVariation({
   variations: VariationLike[];
 }) {
   if (override.assignment.type === "random") {
-    return <Text>Random assignment</Text>;
+    return <Text color="text-mid">Random assignment</Text>;
   }
   const { variationId } = override.assignment;
   const index = variations.findIndex((v) => v.id === variationId);
   if (index < 0) return <Text color="text-low">Unknown variation</Text>;
-  return (
-    <Flex align="center" gap="2">
-      <VariationNumber number={index} />
-      <Text>{variations[index].name}</Text>
-    </Flex>
-  );
+  return <VariationLabel number={index} name={variations[index].name} />;
 }
 
 export function QaOverrideAdditionalTargeting({
@@ -38,11 +34,11 @@ export function QaOverrideAdditionalTargeting({
   const targeting = override.additionalTargeting;
   if (!targeting) return <Text color="text-low">None</Text>;
   return (
-    <Flex align="center" gap="1" wrap="wrap">
-      <code>{targeting.attribute}</code>
-      <Text size="sm">is any of</Text>
+    <Flex align="center" gap="2" wrap="wrap">
+      <AttributeBadge attributeId={targeting.attribute} />
+      <Text color="text-mid">is any of</Text>
       {targeting.values.map((v) => (
-        <Badge key={v} label={v} color="gray" variant="soft" />
+        <Badge key={v} label={v} color="gray" />
       ))}
     </Flex>
   );
@@ -84,7 +80,7 @@ export function QaOverrideSetBy({
 }) {
   const { getUserDisplay } = useUser();
   return (
-    <Text size="sm" color="text-low">
+    <Text color="text-mid">
       {getUserDisplay(override.createdBy, true)} · {ago(override.dateCreated)}
     </Text>
   );
