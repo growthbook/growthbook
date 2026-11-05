@@ -1,4 +1,5 @@
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
+import Text from "./Text";
 import Badge from "./Badge";
 import Heatmap, {
   HeatmapColorScale,
@@ -72,7 +73,7 @@ function makeRows(): HeatmapRow[] {
     key: `row-${i}`,
     label: (
       <Flex gap="2" align="center" wrap="wrap">
-        <Text size="2" weight="medium">
+        <Text size="md" weight="medium">
           IF
         </Text>
         <Badge color="gray" label={row.label} />
@@ -90,7 +91,7 @@ export default function HeatmapStories() {
   return (
     <Flex direction="column" gap="6">
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Default (indigo, row-normalized) with a leading Units column
         </Text>
         <Heatmap
@@ -102,7 +103,7 @@ export default function HeatmapStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Global normalization (intensity compared across the whole grid)
         </Text>
         <Heatmap
@@ -114,12 +115,12 @@ export default function HeatmapStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Color scales
         </Text>
         {scales.map((scale) => (
           <Flex key={scale} direction="column" gap="1">
-            <Text size="1" style={{ color: "var(--gray-9)" }}>
+            <Text size="sm" color="text-low">
               {scale}
             </Text>
             <Heatmap
@@ -133,10 +134,10 @@ export default function HeatmapStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Rounded-equal values share a shade (row-normalized)
         </Text>
-        <Text size="1" style={{ color: "var(--gray-9)" }}>
+        <Text size="sm" color="text-low">
           Raw values differ below display precision, so cells with the same
           label get the same shade (e.g. 0.106 and 0.110 both read 11%).
         </Text>
@@ -148,10 +149,10 @@ export default function HeatmapStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Rounded-equal values share a shade (global normalization)
         </Text>
-        <Text size="1" style={{ color: "var(--gray-9)" }}>
+        <Text size="sm" color="text-low">
           With normalize=&quot;all&quot; the same label maps to the same shade
           across every row, not just within one.
         </Text>
@@ -164,7 +165,7 @@ export default function HeatmapStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Counts (custom formatter) with null cells
         </Text>
         <Heatmap
@@ -173,12 +174,12 @@ export default function HeatmapStories() {
           rows={[
             {
               key: "a",
-              label: <Text size="2">browser is chrome</Text>,
+              label: <Text size="md">browser is chrome</Text>,
               cells: [{ value: 1204 }, { value: 980 }, { value: null }],
             },
             {
               key: "b",
-              label: <Text size="2">browser is safari</Text>,
+              label: <Text size="md">browser is safari</Text>,
               cells: [{ value: 311 }, { value: 720 }, { value: 540 }],
             },
           ]}
