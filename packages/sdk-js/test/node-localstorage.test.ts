@@ -36,4 +36,20 @@ describe("localStorage detection in Node", () => {
     });
     expect(getter).toHaveBeenCalled();
   });
+
+  it("uses an app-supplied localStorage without --localstorage-file", async () => {
+    process.execArgv = [];
+    const storage = { getItem: jest.fn(), setItem: jest.fn() };
+    Object.defineProperty(globalThis, "localStorage", {
+      value: storage,
+      writable: true,
+      configurable: true,
+    });
+    let clearCache: () => Promise<void> = async () => {};
+    jest.isolateModules(() => {
+      ({ clearCache } = require("../src/feature-repository"));
+    });
+    await clearCache();
+    expect(storage.setItem).toHaveBeenCalled();
+  });
 });

@@ -116,8 +116,12 @@ function isNodeWithoutLocalStorageFile(): boolean {
 }
 
 try {
-  if (!isNodeWithoutLocalStorageFile() && globalThis.localStorage) {
-    polyfills.localStorage = globalThis.localStorage;
+  // In that case only adopt app-supplied storage (a data property), never Node's native getter
+  const localStorage = isNodeWithoutLocalStorageFile()
+    ? Object.getOwnPropertyDescriptor(globalThis, "localStorage")?.value
+    : globalThis.localStorage;
+  if (localStorage) {
+    polyfills.localStorage = localStorage;
   }
 } catch (e) {
   // Ignore localStorage errors
