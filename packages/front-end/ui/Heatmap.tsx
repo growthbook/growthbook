@@ -147,6 +147,12 @@ const defaultFormatValue = (value: number): string =>
     maximumFractionDigits: 0,
   }).format(value);
 
+/**
+ * Reusable heat-map table. Renders a label column, optional descriptive
+ * (non-tinted) leading columns, and a grid of value columns whose background
+ * intensity scales with the cell value. Color intensity increases with the
+ * value, using design-system accent tokens so it adapts to light/dark themes.
+ */
 export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
   {
     columns,
