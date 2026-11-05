@@ -14,7 +14,8 @@ import EditMember, {
   EditSuperAdmin,
   formatSuperAdmin,
 } from "@/components/Admin/EditMember";
-import KeyValues, { CardHeading } from "@/components/Admin/KeyValues";
+import KeyValues from "@/components/Admin/KeyValues";
+import CardHeading from "@/components/Admin/CardHeading";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";

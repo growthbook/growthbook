@@ -83,7 +83,7 @@ const EditMember: FC<{
       submit={handleSubmit}
       open={true}
       header="Edit Member"
-      cta="Update"
+      cta="Save"
       close={close}
     >
       <Flex direction="column" gap="4">
@@ -173,7 +173,7 @@ export function EditSuperAdmin({
       open={true}
       header="Edit Super Admin Access"
       subheader={member.name || member.email}
-      cta="Update"
+      cta="Save"
       close={close}
     >
       <Flex direction="column" gap="3">

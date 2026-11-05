@@ -261,7 +261,7 @@ export default function EditSSOModal({
       open={true}
       header="Edit Login and SSO"
       subheader={org.name}
-      cta="Save changes"
+      cta="Save"
       close={close}
       // Wide enough for the side-by-side diff of an existing connection
       size={currentSSO ? "xl" : "lg"}
@@ -287,7 +287,7 @@ export default function EditSSOModal({
             value={enableSSO}
             setValue={setEnableSSO}
             disabled={!!currentSSO}
-            disabledMessage="SSO connections can't be removed here"
+            disabledMessage="Only engineering can remove an SSO connection"
           />
         )}
 

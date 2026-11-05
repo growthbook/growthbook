@@ -68,7 +68,7 @@ const EditOrganization: FC<{
       open={true}
       header={section === "account" ? "Edit Account" : "Edit License"}
       subheader={currentOrg.name}
-      cta="Update"
+      cta="Save"
       close={close}
     >
       {section === "account" ? (

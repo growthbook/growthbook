@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 
 const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
@@ -52,7 +53,11 @@ export default function EventForwarders({ orgId }: { orgId: string }) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   if (error) {
-    return <Text color="text-mid">Couldn&apos;t load: {error.message}</Text>;
+    return (
+      <HelperText status="error" size="sm">
+        Couldn&apos;t load: {error.message}
+      </HelperText>
+    );
   }
   if (!data) return <Text color="text-mid">Loading...</Text>;
   if (!data.length) return <>None</>;

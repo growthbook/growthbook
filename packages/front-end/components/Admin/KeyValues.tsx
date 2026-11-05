@@ -1,8 +1,5 @@
 import { Fragment, ReactNode } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
-import { GBEdit } from "@/components/Icons";
-import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
+import { Box, Grid } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 
 export default function KeyValues({
@@ -25,45 +22,5 @@ export default function KeyValues({
         </Fragment>
       ))}
     </Grid>
-  );
-}
-
-export function EditIcon({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Link
-      aria-label={label}
-      onClick={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
-    >
-      <GBEdit />
-    </Link>
-  );
-}
-
-// A detail card's title, with an edit icon when `onEdit` is given
-export function CardHeading({
-  title,
-  onEdit,
-  action,
-}: {
-  title: string;
-  onEdit?: () => void;
-  action?: ReactNode;
-}) {
-  return (
-    <Flex align="center" justify="between" mb="3">
-      <Heading as="h2" size="md" mb="0">
-        {title}
-      </Heading>
-      {onEdit ? <EditIcon label={`Edit ${title}`} onClick={onEdit} /> : action}
-    </Flex>
   );
 }

@@ -36,7 +36,8 @@ import EditOrganization from "@/components/Admin/EditOrganization";
 import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
-import KeyValues, { CardHeading, EditIcon } from "@/components/Admin/KeyValues";
+import KeyValues from "@/components/Admin/KeyValues";
+import CardHeading, { EditLink } from "@/components/Admin/CardHeading";
 import EventForwarders from "@/components/Admin/EventForwarders";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import Badge from "@/ui/Badge";
@@ -354,8 +355,8 @@ function OrganizationDetail({
         <ModalStandard
           open
           trackingEventModalType=""
-          header="Create Managed Warehouse"
-          cta="Create"
+          header="Add Managed Warehouse"
+          cta="Add"
           close={() => setWarehouseOpen(false)}
           submit={async () => {
             await apiCall(`/datasources/managed-warehouse`, {
@@ -564,7 +565,7 @@ function OrganizationDetail({
                       <TableCell style={{ textAlign: "right" }}>
                         {/* Super admin access is edited on the user's page */}
                         {can("users") && (
-                          <EditIcon
+                          <EditLink
                             label={`Edit ${m.name || m.email}`}
                             onClick={() => setEditMember(m)}
                           />
