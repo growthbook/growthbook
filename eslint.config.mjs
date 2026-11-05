@@ -590,7 +590,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["./packages/dbt/src/cli.ts"],
+    files: ["./packages/dbt/src/cli.ts", "./packages/codegen/src/*-cli.ts"],
 
     rules: {
       "no-console": "off",
@@ -725,6 +725,7 @@ export default defineConfig([
       "./packages/sdk-react/src/**/*.{ts,tsx}",
       "./packages/stats-ts/src/**/*.{ts,tsx}",
       "./packages/dbt/src/**/*.{ts,tsx}",
+      "./packages/codegen/src/**/*.{ts,tsx}",
       "./packages/remote-saved-groups-csv-parser/src/**/*.{ts,tsx}",
     ],
 
