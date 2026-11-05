@@ -1,6 +1,7 @@
 name: Backfill image
 
 # Deploy keeps one queued run, so a commit merged mid-deploy can be cancelled before it builds.
+# A successful Deploy can also skip a commit's build when a newer deploy already includes it.
 on:
   workflow_run:
     workflows: [Deploy]
@@ -11,9 +12,40 @@ permissions:
   contents: read
 
 jobs:
+  # Deploy's own head_sha is main's HEAD; the commit it handled is in its run-name (push-era runs: head_sha).
+  commit:
+    if: ${{ github.repository == 'growthbook/growthbook' && (github.event.workflow_run.conclusion == 'cancelled' || github.event.workflow_run.conclusion == 'success') && (github.event.workflow_run.event == 'workflow_run' || github.event.workflow_run.event == 'push') && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      deployable: ${{ steps.resolve.outputs.deployable }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Resolve the commit and whether it changes the image
+        id: resolve
+        env:
+          EVENT: ${{ github.event.workflow_run.event }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$EVENT" = workflow_run ]; then SHA=${TITLE##* }; else SHA=$HEAD_SHA; fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          # Only commits that would have deployed on their own get an image, as under the old push paths filter.
+          if [ -n "$(.github/scripts/deployable-changes.sh "${SHA}~1" "$SHA")" ]; then
+            echo "deployable=true" >> "$GITHUB_OUTPUT"
+          fi
+
   # A run cancelled mid-push may have one registry's tag; copy it to the other rather than rebuild.
   check:
-    if: ${{ github.repository == 'growthbook/growthbook' && github.event.workflow_run.conclusion == 'cancelled' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    needs: [commit]
+    if: ${{ needs.commit.outputs.deployable == 'true' }}
     runs-on: ubuntu-latest
     permissions: {}
     outputs:
@@ -42,7 +74,7 @@ jobs:
       - name: Restore a missing tag or request a build
         id: inspect
         env:
-          SHA: ${{ github.event.workflow_run.head_sha }}
+          SHA: ${{ needs.commit.outputs.sha }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           HUB="growthbook/growthbook:git-${SHA::7}"
@@ -61,12 +93,12 @@ jobs:
           fi
 
   docker:
-    needs: [check]
+    needs: [commit, check]
     if: ${{ needs.check.outputs.build == 'true' }}
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/build-image.yml
     with:
-      ref: ${{ github.event.workflow_run.head_sha }}
+      ref: ${{ needs.commit.outputs.sha }}
     secrets: inherit

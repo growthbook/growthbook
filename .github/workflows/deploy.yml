@@ -35,10 +35,10 @@ jobs:
     outputs:
       deploy: ${{ steps.filter.outputs.deploy }}
     steps:
+      # Default branch, not the CI commit, so the script exists when an older commit's CI is re-run.
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
           filter: blob:none
 
@@ -71,9 +71,7 @@ jobs:
             echo "deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          CHANGED=$(git diff --name-only "$BASE" "$SHA" -- \
-            .github/workflows/deploy.yml .github/workflows/build-image.yml \
-            packages ':(exclude,glob)**/*.md' pnpm-lock.yaml Dockerfile .dockerignore)
+          CHANGED=$(.github/scripts/deployable-changes.sh "$BASE" "$SHA")
           echo "Deployable changes since ${BASE::7}:"
           echo "${CHANGED:-(none)}"
           if [ -n "$CHANGED" ]; then echo "deploy=true"; else echo "deploy=false"; fi >> "$GITHUB_OUTPUT"
