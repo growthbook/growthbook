@@ -18,8 +18,8 @@ permissions:
 
 jobs:
   # workflow_run has no `paths` filter, so apply it here. Diffing from the last
-  # successful Deploy (not the parent commit) means a deployable commit whose
-  # queued run was superseded still ships with the next one.
+  # successful Deploy or Rollback (not the parent commit) means a deployable
+  # commit whose queued run was superseded still ships with the next one.
   changes:
     runs-on: ubuntu-latest
     if: >-
@@ -45,7 +45,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          BASE=$(gh run list --workflow deploy.yml --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+          # A Rollback also counts, so a docs-only commit can't roll prod forward past it.
+          latest() { gh run list --workflow "$1" --branch main --status success --limit 1 --json createdAt,headSha --jq '.[] | "\(.createdAt) \(.headSha)"'; }
+          BASE=$({ latest deploy.yml; latest rollback.yml; } | sort -r | head -1 | cut -d' ' -f2)
           if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
             echo "No usable last-deployed commit; deploying."
             echo "deploy=true" >> "$GITHUB_OUTPUT"
