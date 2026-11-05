@@ -1570,7 +1570,9 @@ export function getIdentifierDisplayName(identifierType: string) {
 
 // Converts an identifier type to a display name (e.g. "user_id" -> "User Ids")
 export function getUnitDisplayName(identifierType: string | undefined) {
-  return identifierType ? startCase(identifierType) + "s" : "Units";
+  return identifierType
+    ? getIdentifierDisplayName(identifierType) + "s"
+    : "Units";
 }
 
 /**
