@@ -20,7 +20,7 @@ import {
   shouldChartSectionShow,
   computeDimensionTotals,
   getExplorationRenderOpts,
-  getRenderedMetricValue,
+  getEffectiveMetricValue,
   getDefaultValueAxisName,
   formatDateByGranularity,
   type ResolvedGranularity,
@@ -251,7 +251,7 @@ export default function ExplorerChart({
     return valuesMeta.map((v, metricIndex) => {
       const cell = row?.values?.[metricIndex];
       const value = cell
-        ? getRenderedMetricValue(cell, renderOpts, metricIndex)
+        ? getEffectiveMetricValue(cell, renderOpts[metricIndex])
         : 0;
       return {
         value,

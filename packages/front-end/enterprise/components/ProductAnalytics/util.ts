@@ -70,7 +70,6 @@ export {
   getValidDateGranularities,
   getShowAsChoiceByIndex,
   getEffectiveMetricValue,
-  getRenderedMetricValue,
   getExplorationRenderOpts,
   getDefaultValueAxisName,
   buildExplorationColumns,

@@ -1,7 +1,7 @@
 import {
   getDefaultValueAxisName,
+  getEffectiveMetricValue,
   getExplorationRenderOpts,
-  getRenderedMetricValue,
   getShowAsChoiceByIndex,
   getShowAsOptions,
   normalizeShowAs,
@@ -298,7 +298,7 @@ describe("getDefaultValueAxisName", () => {
   });
 });
 
-describe("getRenderedMetricValue", () => {
+describe("getEffectiveMetricValue", () => {
   it("applies each value's own showAs", () => {
     const opts = getExplorationRenderOpts(
       metricConfig([
@@ -309,9 +309,9 @@ describe("getRenderedMetricValue", () => {
       getFactMetricById,
     );
     const cell = { numerator: 100, denominator: 4 };
-    expect([0, 1, 2].map((i) => getRenderedMetricValue(cell, opts, i))).toEqual(
-      [100, 25, 100],
-    );
+    expect(
+      [0, 1, 2].map((i) => getEffectiveMetricValue(cell, opts[i])),
+    ).toEqual([100, 25, 100]);
   });
 });
 
@@ -334,9 +334,11 @@ describe("toClientJourneyExploration", () => {
   });
 });
 
-describe("seriesNameByIndex", () => {
+describe("seriesName", () => {
   const names = (config: ExplorationConfig) =>
-    getExplorationRenderOpts(config, getFactMetricById).seriesNameByIndex;
+    getExplorationRenderOpts(config, getFactMetricById).map(
+      (opts) => opts.seriesName,
+    );
 
   it("annotates every value when the axis mixes modes", () => {
     expect(

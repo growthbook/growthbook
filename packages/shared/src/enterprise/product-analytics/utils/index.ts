@@ -540,17 +540,18 @@ function getSeriesNameByIndex(
 /**
  * Computes the effective numeric value for a single metric result cell, given
  * the effective showAs and whether the underlying metric is a ratio. Ratios
- * always render as N/D regardless of showAs.
+ * always render as N/D regardless of showAs. Without render settings (no
+ * dataset value at that index) the raw numerator is used.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
-  opts: { showAs: ShowAs; isRatio: boolean },
+  opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
 ): number {
   const num = v.numerator ?? 0;
-  if (opts.isRatio) {
+  if (opts?.isRatio) {
     return v.denominator ? num / v.denominator : num;
   }
-  if (opts.showAs === "per_unit") {
+  if (opts?.showAs === "per_unit") {
     return v.denominator ? num / v.denominator : num;
   }
   return num;
@@ -571,36 +572,32 @@ export function getIsRatioByIndex(
   );
 }
 
-/** Per-value render settings for an exploration result, index-aligned with `dataset.values`. */
-export type ExplorationRenderOpts = {
-  showAsByIndex: ShowAs[];
-  isRatioByIndex: boolean[];
-  /** Chart legend and tooltip names. */
-  seriesNameByIndex: string[];
+/** How one dataset value renders. */
+export type ValueRenderOpts = {
+  showAs: ShowAs;
+  isRatio: boolean;
+  /** Chart legend and tooltip name. */
+  seriesName: string;
 };
 
+/** Render settings per dataset value, index-aligned with `dataset.values`. */
+export type ExplorationRenderOpts = ValueRenderOpts[];
+
+/** Empty for datasets without values (funnels, journeys). */
 export function getExplorationRenderOpts(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationRenderOpts {
+  if (!datasetHasValues(config?.dataset)) return [];
   const showAsChoiceByIndex = getShowAsChoiceByIndex(config, getFactMetricById);
-  return {
-    showAsByIndex: showAsChoiceByIndex.map((choice) => choice.showAs),
-    isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
-    seriesNameByIndex: getSeriesNameByIndex(config, showAsChoiceByIndex),
-  };
-}
-
-/** The rendered number for the dataset value at `metricIndex` of a result row. */
-export function getRenderedMetricValue(
-  cell: { numerator: number | null; denominator: number | null },
-  opts: ExplorationRenderOpts,
-  metricIndex: number,
-): number {
-  return getEffectiveMetricValue(cell, {
-    showAs: opts.showAsByIndex[metricIndex] ?? "total",
-    isRatio: opts.isRatioByIndex[metricIndex] ?? false,
-  });
+  const isRatioByIndex = getIsRatioByIndex(config, getFactMetricById);
+  const seriesNameByIndex = getSeriesNameByIndex(config, showAsChoiceByIndex);
+  return config.dataset.values.map((_, i) => ({
+    showAs: showAsChoiceByIndex[i].showAs,
+    // Only metric datasets can hold ratios; other datasets have no flags.
+    isRatio: isRatioByIndex[i] ?? false,
+    seriesName: seriesNameByIndex[i],
+  }));
 }
 
 // ---- Exploration table column schema ----------------------------------------
@@ -761,7 +758,7 @@ export function getExplorationCellValue(
     return null;
   }
   if (v.numerator == null) return null;
-  return getRenderedMetricValue(v, renderOpts, col.metricIndex);
+  return getEffectiveMetricValue(v, renderOpts[col.metricIndex]);
 }
 
 function getRowTotal(
@@ -769,7 +766,7 @@ function getRowTotal(
   opts: ExplorationRenderOpts,
 ): number {
   return (row.values ?? []).reduce(
-    (sum, v, i) => sum + getRenderedMetricValue(v, opts, i),
+    (sum, v, i) => sum + getEffectiveMetricValue(v, opts[i]),
     0,
   );
 }

@@ -14,10 +14,10 @@ import { comparisonMode } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
 import {
   buildExplorationColumns,
+  getEffectiveMetricValue,
   getExplorationCellValue,
   getExplorationRenderOpts,
   getIsRatioByIndex,
-  getRenderedMetricValue,
   sortExplorationRows,
 } from "./utils";
 
@@ -982,15 +982,13 @@ export function computeExplorationComparisonPayload(
     const prevCell = exploration.result.rows[0]?.values?.[metricIndex];
     if (!currCell || !prevCell) return null;
 
-    const currentValue = getRenderedMetricValue(
+    const currentValue = getEffectiveMetricValue(
       currCell,
-      renderOpts,
-      metricIndex,
+      renderOpts[metricIndex],
     );
-    const previousValue = getRenderedMetricValue(
+    const previousValue = getEffectiveMetricValue(
       prevCell,
-      renderOpts,
-      metricIndex,
+      renderOpts[metricIndex],
     );
 
     if (previousValue === 0) {

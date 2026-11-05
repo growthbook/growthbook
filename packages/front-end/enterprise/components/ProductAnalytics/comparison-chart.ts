@@ -16,7 +16,7 @@ import type {
 import {
   formatDateByGranularity,
   getExplorationRenderOpts,
-  getRenderedMetricValue,
+  getEffectiveMetricValue,
   type RenderOpts,
   type ResolvedGranularity,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -338,7 +338,7 @@ function metricNameForDatasetValue(
   renderOpts: RenderOpts,
   metricIndex: number,
 ): string {
-  return renderOpts.seriesNameByIndex[metricIndex] ?? `Metric ${metricIndex}`;
+  return renderOpts[metricIndex]?.seriesName ?? `Metric ${metricIndex}`;
 }
 
 /**
@@ -383,7 +383,7 @@ export function buildComparisonOverlaySeriesMaps(
         }
         const cell = row.values?.[mi];
         if (!cell) continue;
-        bump(seriesKey, x, getRenderedMetricValue(cell, renderOpts, mi));
+        bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts[mi]));
       }
       continue;
     }
@@ -404,7 +404,7 @@ export function buildComparisonOverlaySeriesMaps(
       }
       const cell = row.values?.[0];
       if (!cell) continue;
-      bump(seriesKey, x, getRenderedMetricValue(cell, renderOpts, 0));
+      bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts[0]));
       continue;
     }
 
@@ -417,7 +417,7 @@ export function buildComparisonOverlaySeriesMaps(
     }
     const cell = row.values?.[0];
     if (!cell) continue;
-    bump(seriesKey, x, getRenderedMetricValue(cell, renderOpts, 0));
+    bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts[0]));
   }
 
   return { uniqueXValues, dataMap, seriesMeta };
@@ -899,15 +899,13 @@ export function computeBigNumberComparisonTrendForMetricIndex(
   const prevCell = comparisonExploration.result.rows[0]?.values?.[metricIndex];
   if (!currCell || !prevCell) return null;
 
-  const currentValue = getRenderedMetricValue(
+  const currentValue = getEffectiveMetricValue(
     currCell,
-    renderOpts,
-    metricIndex,
+    renderOpts[metricIndex],
   );
-  const previousValue = getRenderedMetricValue(
+  const previousValue = getEffectiveMetricValue(
     prevCell,
-    renderOpts,
-    metricIndex,
+    renderOpts[metricIndex],
   );
 
   if (previousValue === 0) {

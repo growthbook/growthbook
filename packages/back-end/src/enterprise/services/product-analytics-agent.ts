@@ -386,11 +386,11 @@ function buildResultCsv(
     }
     // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.
     if (typeof raw === "number") {
+      const valueOpts = renderOpts[col.metricIndex];
       const isRatioOrPerUnit =
         col.sub === "value" ||
-        (col.sub === "single" && renderOpts.isRatioByIndex[col.metricIndex]) ||
         (col.sub === "single" &&
-          renderOpts.showAsByIndex[col.metricIndex] === "per_unit");
+          (valueOpts?.isRatio || valueOpts?.showAs === "per_unit"));
       return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
