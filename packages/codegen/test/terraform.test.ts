@@ -68,6 +68,18 @@ describe("renderResource", () => {
     expect(attribute("owner_email")).not.toContain("stateForUnknown{}");
   });
 
+  it("emits only data sources for read-only types, looked up by id or name", () => {
+    const badge = analyzeResource(spec, "badge");
+    expect(badge).toMatchObject({ dataOnly: true, problems: [] });
+    expect(badge.fields.map((f) => f.json)).toEqual(["id", "name"]);
+    const go = renderResource(badge);
+    expect(go).toContain("dataOnly:            true,");
+    expect(go).not.toContain("\tschema: schema.Schema{");
+    expect(go).toMatch(
+      /"name": dsschema.StringAttribute\{\n\t+Optional: true,\n\t+Computed: true,/,
+    );
+  });
+
   it("lists generated resources in the registry", () => {
     expect(renderRegistry([analyzeResource(spec, "widget")])).toContain(
       "\twidgetResource,\n",

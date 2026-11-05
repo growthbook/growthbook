@@ -27,29 +27,34 @@ const goString = (value: string) => JSON.stringify(value);
 const indent = (text: string, depth: number) =>
   text.replace(/^(?=.)/gm, "\t".repeat(depth));
 
-// Data sources read by id, so everything but the id is computed.
-function dataField(field: Field, id: boolean): Field {
+// Data sources read by id (or by name, through the list), so everything else
+// is computed.
+type DataRole = "key" | "lookup" | "computed";
+
+function dataField(field: Field, role: DataRole): Field {
   const type: FieldType =
     field.type.kind === "object"
       ? {
           kind: "object",
-          fields: field.type.fields.map((f) => dataField(f, false)),
+          fields: field.type.fields.map((f) => dataField(f, "computed")),
         }
       : field.type.kind === "list" && field.type.element.kind === "object"
         ? {
             kind: "list",
             element: {
               kind: "object",
-              fields: field.type.element.fields.map((f) => dataField(f, false)),
+              fields: field.type.element.fields.map((f) =>
+                dataField(f, "computed"),
+              ),
             },
           }
         : field.type;
   return {
     ...field,
     type,
-    required: id,
-    optional: false,
-    computed: !id,
+    required: role === "key",
+    optional: role === "lookup",
+    computed: role !== "key",
     replace: false,
     defaultValue: undefined,
   };
@@ -142,10 +147,21 @@ class GoFile {
   dataAttributes(model: ResourceModel): string {
     this.data = true;
     this.imports.set(`${framework}/datasource/schema`, "dsschema");
+    const byName = lookupByName(model);
     const fields = model.fields
       .filter((field) => field.inModel || field.parent)
       .map((field) =>
-        dataField(field, field.parent || field.attribute === model.idAttribute),
+        dataField(
+          field,
+          field.parent
+            ? "key"
+            : field.attribute === model.idAttribute ||
+                (byName && field.json === "name")
+              ? byName
+                ? "lookup"
+                : "key"
+              : "computed",
+        ),
       );
     const rendered = this.attributes(fields, false);
     this.data = false;
@@ -196,6 +212,15 @@ ${body}
   }
 }
 
+// Listable resources with a name can be looked up by it instead of the id.
+export function lookupByName(model: ResourceModel): boolean {
+  return (
+    !!model.operations.list &&
+    !model.parentAttributes.length &&
+    model.fields.some((field) => field.json === "name" && field.inModel)
+  );
+}
+
 export function goVariable(model: ResourceModel): string {
   return `${jsonName(model.name)}Resource`;
 }
@@ -229,8 +254,20 @@ export function renderResource(model: ResourceModel): string {
         .sort(),
     );
 
+  if (model.dataOnly) file.imports.delete(`${framework}/resource/schema`);
+  const resourceOnly = model.dataOnly
+    ? ""
+    : `
+	createFields:        ${attributes((field) => field.inCreate)},
+	updateFields:        ${attributes((field) => field.inUpdate)},
+	writeOnlyAttributes: ${attributes((field) => !field.inModel && !field.parent)},
+	clearableAttributes: ${attributes((field) => field.clearable)},
+	schema: schema.Schema{
+		Description: ${goString(`Manages a GrowthBook ${label}.`)},
+		Attributes: ${indent(file.attributes(model.fields, false), 2).trimStart()},
+	},`;
   const body = `var ${goVariable(model)} = resourceDescriptor{
-	name:                ${goString(model.name)},
+	name:                ${goString(model.name)},${model.dataOnly ? "\n\tdataOnly:            true," : ""}
 	idAttribute:         ${goString(model.idAttribute)},${
     model.parentAttributes.length
       ? `\n\tparentAttributes:    ${stringSlice(model.parentAttributes)},`
@@ -241,17 +278,9 @@ export function renderResource(model: ResourceModel): string {
 	list:                ${operation(model, "list")},
 	update:              ${operation(model, "update")},
 	delete:              ${operation(model, "delete")},
-	createFields:        ${attributes((field) => field.inCreate)},
-	updateFields:        ${attributes((field) => field.inUpdate)},
-	jsonAttributes:      ${attributes((field) => field.type.kind === "json")},
-	writeOnlyAttributes: ${attributes((field) => !field.inModel && !field.parent)},
-	clearableAttributes: ${attributes((field) => field.clearable)},
-	schema: schema.Schema{
-		Description: ${goString(`Manages a GrowthBook ${label}.`)},
-		Attributes: ${indent(file.attributes(model.fields, false), 2).trimStart()},
-	},
+	jsonAttributes:      ${attributes((field) => field.type.kind === "json")},${resourceOnly}
 	dataSchema: dsschema.Schema{
-		Description: ${goString(`Reads a GrowthBook ${label} by ${model.idAttribute}.`)},
+		Description: ${goString(`Reads a GrowthBook ${label} by ${lookupByName(model) ? `${model.idAttribute} or name` : model.idAttribute}.`)},
 		Attributes: ${indent(file.dataAttributes(model), 2).trimStart()},
 	},
 }`;
