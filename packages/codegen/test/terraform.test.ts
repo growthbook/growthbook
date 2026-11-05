@@ -32,6 +32,21 @@ describe("renderResource", () => {
     expect(go).not.toContain("float64planmodifier");
   });
 
+  it("emits a data source schema keyed by the id", () => {
+    const data = go.slice(go.indexOf("dataSchema:"));
+    expect(go).toContain(
+      'dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"',
+    );
+    expect(data).toMatch(
+      /"id": dsschema\.StringAttribute\{\n\t+Required: true,/,
+    );
+    expect(data).toMatch(
+      /"name": dsschema\.StringAttribute\{\n\t+Computed: true,/,
+    );
+    expect(data).not.toContain("PlanModifiers");
+    expect(data).not.toContain("Default:");
+  });
+
   it("refuses resources with problems", () => {
     expect(() => renderResource(analyzeResource(spec, "gadget"))).toThrow(
       "Can't generate gadget: no delete",
