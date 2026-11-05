@@ -22,11 +22,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  MoreMenuTrigger,
-} from "@/ui/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import FunnelStepActionsMenu from "@/components/FactTables/FunnelStepActionsMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Field from "@/components/Forms/Field";
@@ -35,41 +32,13 @@ import {
   getFunnelStepPreview,
   getInitialInlineFilters,
 } from "@/enterprise/components/ProductAnalytics/util";
-import {
-  factTableToColumnSource,
-  isRowFilterComplete,
-} from "@/components/FactTables/rowFilterUtils";
+import { factTableToColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
 
 // Radix ghost buttons pull in with negative margins, so their hover circles
 // touch; zero them so the header's 4px gap shows.
 const HEADER_BUTTON_STYLE: React.CSSProperties = { margin: 0 };
-
-// Compact rows for the step actions menu (design feedback on PR #7588).
-const MENU_ITEM_STYLE: React.CSSProperties = {
-  height: 28,
-  paddingLeft: 8,
-  paddingRight: 8,
-  fontSize: "var(--font-size-1)",
-};
-
-/** Edge-to-edge menu divider; the shared separator insets by item padding. */
-function MenuDivider() {
-  const bleed = "calc(-1 * var(--base-menu-content-padding))";
-  return (
-    <Box
-      role="separator"
-      my="1"
-      style={{
-        height: 1,
-        marginLeft: bleed,
-        marginRight: bleed,
-        backgroundColor: "var(--gray-a6)",
-      }}
-    />
-  );
-}
 
 const CONVERSION_WINDOW_UNITS: ConversionWindow["unit"][] = [
   "minutes",
@@ -109,7 +78,6 @@ interface Props {
   onDelete: (index: number) => void;
   /** Inserts a new step at this position (shifting later steps down). */
   onInsert: (atIndex: number) => void;
-  onMove: (from: number, to: number) => void;
   canAddStep: boolean;
   /** dnd-kit listeners/attributes for the drag handle. */
   dragHandleProps?: React.HTMLAttributes<HTMLElement>;
@@ -129,7 +97,6 @@ export default function FunnelStepCard({
   onToggleCollapsed,
   onDelete,
   onInsert,
-  onMove,
   canAddStep,
   dragHandleProps,
   funnelUnitOptions,
@@ -142,14 +109,6 @@ export default function FunnelStepCard({
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(step.name);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  // "Delete step" unmounts when the confirm row appears; move focus to Cancel
-  // so keyboard users aren't left without a focused item.
-  const cancelDeleteClass = `funnel-step-${index}-cancel-delete`;
-  React.useEffect(() => {
-    if (!confirmingDelete) return;
-    document.querySelector<HTMLElement>(`.${cancelDeleteClass}`)?.focus();
-  }, [confirmingDelete, cancelDeleteClass]);
   // For follow-on steps: when the step inherits, we hide the picker until the
   // user clicks "Override". Once they're overriding (or the step was loaded
   // with an override already), we show the picker inline.
@@ -241,16 +200,6 @@ export default function FunnelStepCard({
       }),
     [step, factTable, isInherited, index, steps],
   );
-
-  // Menu actions are hidden, not disabled, when they don't apply.
-  // Step 1 is pinned (it owns the funnel's fact table): nothing above it, no moves.
-  const canInsertAbove = canAddStep && index > 0;
-  const canInsertBelow = canAddStep;
-  const canMoveUp = index > 1;
-  const canMoveDown = index > 0 && index < steps.length - 1;
-  const canDelete = steps.length > 1;
-  const hasInsertGroup = canInsertAbove || canInsertBelow;
-  const hasMoveGroup = canMoveUp || canMoveDown;
 
   const funnelUnit =
     draftExploreState.dataset.type === "funnel"
@@ -370,109 +319,17 @@ export default function FunnelStepCard({
           >
             {isCollapsed ? <PiCaretDown size={14} /> : <PiCaretUp size={14} />}
           </IconButton>
-          {(hasInsertGroup || hasMoveGroup || canDelete) && (
-            <DropdownMenu
-              menuPlacement="end"
-              onOpenChange={(open) => {
-                if (!open) setConfirmingDelete(false);
-              }}
-              trigger={
-                <MoreMenuTrigger
-                  label="Step actions"
-                  size="sm"
-                  style={HEADER_BUTTON_STYLE}
-                />
-              }
-            >
-              {canInsertAbove && (
-                <DropdownMenuItem
-                  style={MENU_ITEM_STYLE}
-                  onClick={() => onInsert(index)}
-                >
-                  Insert step above
-                </DropdownMenuItem>
-              )}
-              {canInsertBelow && (
-                <DropdownMenuItem
-                  style={MENU_ITEM_STYLE}
-                  onClick={() => onInsert(index + 1)}
-                >
-                  Insert step below
-                </DropdownMenuItem>
-              )}
-              {hasInsertGroup && hasMoveGroup && <MenuDivider />}
-              {canMoveUp && (
-                <DropdownMenuItem
-                  style={MENU_ITEM_STYLE}
-                  onClick={() => onMove(index, index - 1)}
-                >
-                  Move up
-                </DropdownMenuItem>
-              )}
-              {canMoveDown && (
-                <DropdownMenuItem
-                  style={MENU_ITEM_STYLE}
-                  onClick={() => onMove(index, index + 1)}
-                >
-                  Move down
-                </DropdownMenuItem>
-              )}
-              {canDelete && (hasInsertGroup || hasMoveGroup) && <MenuDivider />}
-              {!canDelete ? null : confirmingDelete ? (
-                // Menu items (not plain buttons) so arrow keys reach them.
-                <Flex align="center" justify="between" gap="5" pl="2">
-                  <Text size="sm" weight="medium">
-                    Delete?
-                  </Text>
-                  <Flex align="center" gap="2">
-                    <DropdownMenuItem
-                      className={cancelDeleteClass}
-                      // Gray outline; inline bg/color also beat the purple
-                      // highlight Radix gives the focused item.
-                      style={{
-                        ...MENU_ITEM_STYLE,
-                        backgroundColor: "transparent",
-                        color: "var(--gray-12)",
-                        boxShadow: "inset 0 0 0 1px var(--gray-a7)",
-                      }}
-                      onClick={(event) => {
-                        event.preventDefault(); // stay open, back to "Delete step"
-                        setConfirmingDelete(false);
-                      }}
-                    >
-                      Cancel
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      style={{
-                        ...MENU_ITEM_STYLE,
-                        backgroundColor: "var(--red-9)",
-                        color: "var(--red-contrast)",
-                      }}
-                      onClick={() => onDelete(index)}
-                    >
-                      Confirm
-                    </DropdownMenuItem>
-                  </Flex>
-                </Flex>
-              ) : (
-                <DropdownMenuItem
-                  style={MENU_ITEM_STYLE}
-                  color="red"
-                  onClick={(event) => {
-                    // Empty steps go right away; anything with a filter asks first.
-                    if (!step.rowFilters.some(isRowFilterComplete)) {
-                      onDelete(index);
-                      return;
-                    }
-                    event.preventDefault(); // keep the menu open for the confirm row
-                    setConfirmingDelete(true);
-                  }}
-                >
-                  Delete step
-                </DropdownMenuItem>
-              )}
-            </DropdownMenu>
-          )}
+          <FunnelStepActionsMenu
+            rowFilters={step.rowFilters}
+            // Step 1 is pinned (it owns the funnel's fact table): nothing above it.
+            canInsertAbove={canAddStep && index > 0}
+            canInsertBelow={canAddStep}
+            canDelete={steps.length > 1}
+            onInsertAbove={() => onInsert(index)}
+            onInsertBelow={() => onInsert(index + 1)}
+            onDelete={() => onDelete(index)}
+            triggerStyle={HEADER_BUTTON_STYLE}
+          />
         </Flex>
       </Flex>
       {isCollapsed && collapsedSubline && (

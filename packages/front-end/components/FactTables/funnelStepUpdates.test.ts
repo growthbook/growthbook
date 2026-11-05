@@ -1,5 +1,9 @@
 import { FunnelStep } from "shared/types/fact-table";
-import { updateFunnelSteps } from "./funnelStepUpdates";
+import {
+  insertFunnelStep,
+  moveFunnelStep,
+  updateFunnelSteps,
+} from "./funnelStepUpdates";
 
 const steps: FunnelStep[] = [1, 2, 3].map((number) => ({
   name: `Step ${number}`,
@@ -118,4 +122,58 @@ it("inherits from the new preceding step when an override is removed", () => {
   const remaining = changed.steps.filter((step, index) => index !== 1);
   const result = updateFunnelSteps(remaining, 0, {}, new Set());
   expect(result.steps.map((step) => step.factTableId)).toEqual(["a", "a"]);
+});
+
+describe("moveFunnelStep", () => {
+  const mixed: FunnelStep[] = [
+    { ...steps[0], factTableId: "a" },
+    { ...steps[1], factTableId: "a" },
+    { ...steps[2], name: "Checkout", factTableId: "b" },
+  ];
+
+  it("keeps each step's fact table and renumbers default names", () => {
+    const result = moveFunnelStep(mixed, 2, 1);
+    expect(result?.steps.map((s) => [s.name, s.factTableId])).toEqual([
+      ["Step 1", "a"],
+      ["Checkout", "b"],
+      ["Step 3", "a"],
+    ]);
+    // Both moved steps now differ from their new predecessor.
+    expect([...(result?.overriddenTables ?? [])]).toEqual([1, 2]);
+  });
+
+  it("treats a step matching its new predecessor as inherited", () => {
+    const result = moveFunnelStep(mixed, 1, 2);
+    expect(result?.steps.map((s) => s.factTableId)).toEqual(["a", "b", "a"]);
+    expect([...(result?.overriddenTables ?? [])]).toEqual([1, 2]);
+    const back = moveFunnelStep(result?.steps ?? [], 2, 1);
+    expect([...(back?.overriddenTables ?? [])]).toEqual([2]);
+  });
+
+  it("refuses moves into or out of step 1", () => {
+    expect(moveFunnelStep(mixed, 0, 1)).toBeNull();
+    expect(moveFunnelStep(mixed, 2, 0)).toBeNull();
+    expect(moveFunnelStep(mixed, 1, 1)).toBeNull();
+  });
+});
+
+describe("insertFunnelStep", () => {
+  it("inserts between steps, shifts overrides, and renumbers default names", () => {
+    const named: FunnelStep[] = [
+      { ...steps[0], factTableId: "a" },
+      { ...steps[1], factTableId: "b" },
+      { ...steps[2], name: "Checkout", factTableId: "b" },
+    ];
+    const newStep: FunnelStep = { ...steps[0], name: "Step 2" };
+    const result = insertFunnelStep(named, 1, newStep, new Set([1]));
+    expect(result.steps.map((s) => s.name)).toEqual([
+      "Step 1",
+      "Step 2",
+      "Step 3",
+      "Checkout",
+    ]);
+    expect(result.steps[1]).toBe(newStep);
+    // Old step 2's override moves with it; the new step inherits.
+    expect([...result.overriddenTables]).toEqual([2]);
+  });
 });

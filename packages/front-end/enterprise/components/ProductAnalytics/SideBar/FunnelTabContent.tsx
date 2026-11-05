@@ -528,7 +528,6 @@ export default function FunnelTabContent() {
                   onToggleCollapsed={() => handleToggleCollapsed(index)}
                   onDelete={handleDelete}
                   onInsert={handleInsertStep}
-                  onMove={handleMoveStep}
                   canAddStep={steps.length < MAX_FUNNEL_STEPS}
                   funnelUnitOptions={funnelUnitOptions}
                   collapsibleTransitionMs={instantCollapseTransition ? 0 : 100}
