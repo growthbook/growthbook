@@ -299,9 +299,9 @@ export default function ExposureLogsCard({
     };
   }, [dimensions, experiment, query.rows, unitIdColumn, subUnitIdColumn]);
 
-  // With two identifiers, `unitId`/`subUnitId` don't say which is which, so the
-  // detail is keyed by identifier type instead.
-  const renderClusterDetail = useCallback(
+  // Keyed by identifier type, matching the column headers, rather than the
+  // record's own field names.
+  const renderDetail = useCallback(
     (row: ExperimentExposureRecord) => (
       <RecordDetail
         title="Full exposure record"
@@ -395,9 +395,7 @@ export default function ExposureLogsCard({
       getSearchText={getSearchText}
       getFilterValue={getFilterValue}
       columnSource={columnSource}
-      renderDetail={subUnitIdColumn ? renderClusterDetail : undefined}
-      detailFlattenKeys={["dimensions", "extra"]}
-      detailTitle="Full exposure record"
+      renderDetail={renderDetail}
       searchPlaceholder="Search exposures..."
       emptyMessage="No exposures found for this time range."
       idleMessage="No recent results. Click Refresh to load exposure records."
