@@ -105,7 +105,7 @@ export const interleavingValidator = baseSchema
     // `interleave()` and the SDK payload's pseudo flag is `$interleave:<key>`.
     key: interleavingKeyField,
     // Experiment id in exposures (`experiment_id`), used only for analysis.
-    // Unique per Data Source, so exposures can always be attributed to one
+    // Unique per organization, so exposures can always be attributed to one
     // experiment; generated from `key` on create, with a suffix if taken.
     trackingKey: z.string(),
     // Per-user diversion into the interleaving (the draft itself is seeded
@@ -256,7 +256,7 @@ export const apiCreateInterleavingBody = z.strictObject({
     .string()
     .optional()
     .describe(
-      "The `experiment_id` recorded in exposures. Leave this unset: it is generated from `key`, with a `_v1` style suffix when another experiment in this Data Source already uses it. Tracking keys must be unique within a Data Source, so supplying one that is taken is rejected.",
+      "The `experiment_id` recorded in exposures. Leave this unset: it is generated from `key`, with a `_v1` style suffix when another experiment already uses it. Tracking keys must be unique across the organization, so supplying one that is taken is rejected.",
     ),
   hashAttribute: z.string().optional(),
   variations: apiInterleavingVariationsInput,
@@ -295,7 +295,7 @@ export const apiUpdateInterleavingBody = z.strictObject({
     .string()
     .optional()
     .describe(
-      "The `experiment_id` recorded in exposures. Must be unique within the Data Source. Changing it on a running experiment means earlier exposures are no longer counted.",
+      "The `experiment_id` recorded in exposures. Must be unique across the organization. Changing it on a running experiment means earlier exposures are no longer counted.",
     ),
   hashAttribute: z.string().optional(),
   seed: z.string().optional(),

@@ -77,17 +77,15 @@ const HoldoutPage = (): ReactElement => {
     mutate();
   };
 
-  const canEditExperiment =
-    permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects }) &&
-    !experiment.archived;
+  const hasUpdatePermission = permissionsUtil.canUpdateHoldout(holdout, {
+    projects: holdout.projects,
+  });
+  const canEditExperiment = hasUpdatePermission && !experiment.archived;
 
-  // The server asks for both: edit rights, and run rights where it serves.
-  let canRunExperiment = canEditExperiment;
-  if (envs.length > 0) {
-    if (!permissionsUtil.canRunHoldout(holdout, envs)) {
-      canRunExperiment = false;
-    }
-  }
+  const canChangeServing =
+    hasUpdatePermission &&
+    (envs.length === 0 || permissionsUtil.canRunHoldout(holdout, envs));
+  const canRunExperiment = canChangeServing && !experiment.archived;
 
   const editMetrics = canEditExperiment
     ? () => setMetricsModalOpen(true)

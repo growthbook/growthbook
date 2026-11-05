@@ -56136,7 +56136,7 @@ paths:
                 trackingKey:
                   description: >-
                     The `experiment_id` recorded in exposures. Must be unique
-                    within the Data Source. Changing it on a running experiment
+                    across the organization. Changing it on a running experiment
                     means earlier exposures are no longer counted.
                   type: string
                 hashAttribute:
@@ -56492,9 +56492,9 @@ paths:
                   description: >-
                     The `experiment_id` recorded in exposures. Leave this unset:
                     it is generated from `key`, with a `_v1` style suffix when
-                    another experiment in this Data Source already uses it.
-                    Tracking keys must be unique within a Data Source, so
-                    supplying one that is taken is rejected.
+                    another experiment already uses it. Tracking keys must be
+                    unique across the organization, so supplying one that is
+                    taken is rejected.
                   type: string
                 hashAttribute:
                   type: string

@@ -7,7 +7,7 @@ import type {
 } from "shared/validators";
 import { ago, getValidDate } from "shared/dates";
 import {
-  getInterleavingConfigError,
+  getInterleavingResultsBlocker,
   interleavingAutoSnapshotScheduled,
   interleavingVariationsList,
 } from "shared/util";
@@ -76,9 +76,9 @@ export default function InterleavingResults({
     refreshError,
   } = useInterleavingResults(il.id);
   const datasource = getDatasourceById(il.datasourceId);
-  const configError = getInterleavingConfigError(il);
+  const resultsBlocker = getInterleavingResultsBlocker(il);
   const canRefresh =
-    !configError &&
+    !resultsBlocker &&
     !!datasource &&
     permissionsUtil.canRunExperimentQueries(datasource);
 
@@ -206,9 +206,9 @@ export default function InterleavingResults({
             </Flex>
           </Flex>
         </Box>
-        {configError && (
+        {resultsBlocker && (
           <Callout status="info" mx="3" mb="3">
-            {configError}
+            {resultsBlocker}
           </Callout>
         )}
         {(error || refreshError) && (

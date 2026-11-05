@@ -5,7 +5,7 @@ import {
   InterleavingVariation,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import { getInterleavingConfigError } from "shared/util";
+import { getInterleavingResultsBlocker } from "shared/util";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -61,11 +61,6 @@ async function getInterleavingSnapshotSettings(
   context: Context,
   interleaving: InterleavingInterface,
 ): Promise<InterleavingSnapshotSettings> {
-  if (interleaving.metrics.length === 0) {
-    throw new Error(
-      "Add at least one metric to this interleaving experiment before updating results",
-    );
-  }
   if (!interleaving.dateStarted) {
     throw new Error(
       "Start this interleaving experiment before updating results",
@@ -129,8 +124,8 @@ export async function runInterleavingSnapshot(
   if (!interleaving) {
     context.throwNotFoundError(`Interleaving not found: ${interleavingId}`);
   }
-  const configError = getInterleavingConfigError(interleaving);
-  if (configError) context.throwBadRequestError(configError);
+  const blocker = getInterleavingResultsBlocker(interleaving);
+  if (blocker) context.throwBadRequestError(blocker);
 
   const settings = await getInterleavingSnapshotSettings(context, interleaving);
 
@@ -155,22 +150,27 @@ export async function runInterleavingSnapshot(
     context.throwNotFoundError(`Interleaving not found: ${interleavingId}`);
   }
 
-  if (interleaving.status === "running" && interleaving.autoSnapshots) {
+  if (interleaving.status === "running") {
     const nextSnapshotAttempt = determineNextDate(
       context.org.settings?.updateSchedule || null,
     );
-    if (nextSnapshotAttempt) {
-      try {
-        await context.models.interleavings.update(interleaving, {
-          nextSnapshotAttempt,
+    const autoSnapshots = nextSnapshotAttempt !== null;
+    try {
+      await context.models.interleavings.dangerousUpdateBypassPermission(
+        interleaving,
+        {
           lastSnapshotAttempt: new Date(),
-        });
-      } catch (e) {
-        logger.error(
-          e,
-          `Failed to advance interleaving schedule: ${interleavingId}`,
-        );
-      }
+          nextSnapshotAttempt: nextSnapshotAttempt ?? undefined,
+          ...(autoSnapshots !== !!interleaving.autoSnapshots
+            ? { autoSnapshots }
+            : {}),
+        },
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to advance interleaving schedule: ${interleavingId}`,
+      );
     }
   }
 

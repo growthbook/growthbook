@@ -16,7 +16,7 @@ export type InterleavingAnalysisValue = Pick<
 export function getAnalysisError(
   value: InterleavingAnalysisValue,
 ): string | null {
-  if (!value.datasourceId) return "Select a data source";
+  if (!value.datasourceId) return "Select a Data Source";
   if (!value.interleavingExposureQueryId) return "Select an exposure query";
   if (!value.userIdType) return "Select an identifier type";
   return null;
@@ -69,7 +69,7 @@ export default function InterleavingAnalysisFields({
           label: d.name,
         }))}
         disabled={disabled}
-        helpText="Only data sources whose SQL dialect can unnest JSON arrays are listed."
+        helpText="Only Data Sources whose SQL dialect can unnest JSON arrays are listed."
       />
       {value.datasourceId && !loading && exposureQueries.length === 0 ? (
         <Callout status="warning" mb="3">

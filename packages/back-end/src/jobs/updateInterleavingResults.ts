@@ -50,7 +50,9 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleInterleaving = async (job: UpdateSingleInterleavingJob) => {
+export const updateSingleInterleaving = async (
+  job: UpdateSingleInterleavingJob,
+) => {
   const interleavingId = job.attrs.data?.interleavingId;
   const orgId = job.attrs.data?.organization;
   if (!interleavingId || !orgId) return;
@@ -60,15 +62,20 @@ const updateSingleInterleaving = async (job: UpdateSingleInterleavingJob) => {
   const il = await context.models.interleavings.getById(interleavingId);
   if (!il) return;
 
-  if (!interleavingAutoSnapshotScheduled(il)) return;
+  if (!interleavingAutoSnapshotScheduled(il)) {
+    await context.models.interleavings.dangerousUpdateBypassPermission(il, {
+      autoSnapshots: false,
+      nextSnapshotAttempt: undefined,
+    });
+    return;
+  }
   if (!il.nextSnapshotAttempt || il.nextSnapshotAttempt > new Date()) return;
 
   try {
     if (!context.hasPremiumFeature("interleaving")) {
-      await context.models.interleavings.dangerousDeferSnapshotSchedule(
-        interleavingId,
-        new Date(Date.now() + UNLICENSED_BACKOFF_MS),
-      );
+      await context.models.interleavings.dangerousUpdateBypassPermission(il, {
+        nextSnapshotAttempt: new Date(Date.now() + UNLICENSED_BACKOFF_MS),
+      });
       logger.warn(
         `Skipping scheduled interleaving update, plan does not allow it: ${interleavingId}`,
       );
@@ -79,11 +86,14 @@ const updateSingleInterleaving = async (job: UpdateSingleInterleavingJob) => {
       context.org.settings?.updateSchedule || null,
     );
     if (!nextSnapshotAttempt) {
-      await context.models.interleavings.update(il, { autoSnapshots: false });
+      await context.models.interleavings.dangerousUpdateBypassPermission(il, {
+        autoSnapshots: false,
+        nextSnapshotAttempt: undefined,
+      });
       return;
     }
 
-    await context.models.interleavings.update(il, {
+    await context.models.interleavings.dangerousUpdateBypassPermission(il, {
       nextSnapshotAttempt,
       lastSnapshotAttempt: new Date(),
     });

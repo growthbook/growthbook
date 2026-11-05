@@ -60,6 +60,10 @@ type InterleavingAnalysisConfig = {
   userIdType: string;
 };
 
+type InterleavingResultsInputs = InterleavingAnalysisConfig & {
+  metrics: unknown[];
+};
+
 export function interleavingAnalysisConfigured(
   il: InterleavingAnalysisConfig,
 ): boolean {
@@ -68,20 +72,31 @@ export function interleavingAnalysisConfigured(
   );
 }
 
-export function getInterleavingConfigError(
-  il: InterleavingAnalysisConfig,
+export function getInterleavingResultsBlocker(
+  il: InterleavingResultsInputs,
 ): string | null {
-  return interleavingAnalysisConfigured(il)
-    ? null
-    : "Choose a data source, exposure query, and identifier type for this interleaving experiment before updating results.";
+  if (!interleavingAnalysisConfigured(il)) {
+    return "Choose a Data Source, exposure query, and identifier type for this interleaving experiment before updating results.";
+  }
+  if (!il.metrics.length) {
+    return "Add at least one metric to this interleaving experiment before updating results.";
+  }
+  return null;
 }
 
-export function interleavingAutoSnapshotScheduled(il: {
-  status: string;
-  archived: boolean;
-  autoSnapshots?: boolean;
-}): boolean {
-  return il.status === "running" && !il.archived && !!il.autoSnapshots;
+export function interleavingAutoSnapshotScheduled(
+  il: InterleavingResultsInputs & {
+    status: string;
+    archived: boolean;
+    autoSnapshots?: boolean;
+  },
+): boolean {
+  return (
+    il.status === "running" &&
+    !il.archived &&
+    !!il.autoSnapshots &&
+    !getInterleavingResultsBlocker(il)
+  );
 }
 
 export function interleavingInPayloadScope(
@@ -213,9 +228,6 @@ export function getInterleavingMetricIssue({
   return null;
 }
 
-// Tracking keys must be unique per Data Source, so a later experiment reusing a
-// code key gets a suffix. Loops rather than counting collisions, so a manually
-// set `key_v1` is skipped rather than clobbered.
 export function nextAvailableTrackingKey(
   key: string,
   taken: Set<string>,

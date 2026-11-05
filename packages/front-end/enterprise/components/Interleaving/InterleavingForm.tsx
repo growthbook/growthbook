@@ -6,17 +6,25 @@ import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
 import { useUser } from "@/services/UserContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import TagsInput from "@/components/Tags/TagsInput";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import type { InterleavingRankers } from "@/components/Interleaving/InterleavingVariationsInput";
+import InterleavingAnalysisFields, {
+  getAnalysisError,
+  InterleavingAnalysisValue,
+} from "@/components/Interleaving/InterleavingAnalysisFields";
+import { analysisOf } from "@/components/Interleaving/EditInterleavingAnalysisModal";
+import AddEditInterleavingExposureQueryModal from "@/components/Interleaving/AddEditInterleavingExposureQueryModal";
 import { rankersOf } from "@/components/Interleaving/EditInterleavingRankersModal";
 
 const DEFAULT_RANKERS: InterleavingRankers = {
@@ -65,10 +73,27 @@ export default function InterleavingForm({
   const router = useRouter();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
-  const { project: currentProject, projects, refreshTags } = useDefinitions();
+  const {
+    project: currentProject,
+    projects,
+    refreshTags,
+    getDatasourceById,
+  } = useDefinitions();
   const { userId } = useUser();
 
   const [keyEdited, setKeyEdited] = useState(!!initialValue);
+
+  const [analysis, setAnalysis] = useState<InterleavingAnalysisValue>(() =>
+    duplicate && initialValue
+      ? analysisOf(initialValue)
+      : {
+          datasourceId: "",
+          interleavingExposureQueryId: "",
+          userIdType: "",
+          metrics: [],
+        },
+  );
+  const [addingQuery, setAddingQuery] = useState(false);
 
   // Resolved against the starting project, like ContextualBanditForm. A copy
   // keeps the original's attribute; a new one falls back to the project's.
@@ -141,6 +166,15 @@ export default function InterleavingForm({
   const submit = form.handleSubmit(async (data) => {
     if (!data.name.trim()) throw new Error("Name is required");
     if (!data.key) throw new Error("Key is required");
+    const analysisStarted =
+      !!analysis.datasourceId ||
+      !!analysis.interleavingExposureQueryId ||
+      !!analysis.userIdType ||
+      analysis.metrics.length > 0;
+    if (duplicate && analysisStarted) {
+      const analysisError = getAnalysisError(analysis);
+      if (analysisError) throw new Error(analysisError);
+    }
     const res = await restApiCall(interleavingEndpoints.createInterleaving, {
       body: {
         name: data.name.trim(),
@@ -161,15 +195,39 @@ export default function InterleavingForm({
         condition: initialValue?.condition,
         savedGroups: initialValue?.savedGroups,
         prerequisites: initialValue?.prerequisites,
-        datasourceId: initialValue?.datasourceId,
-        interleavingExposureQueryId: initialValue?.interleavingExposureQueryId,
-        userIdType: initialValue?.userIdType,
-        metrics: initialValue?.metrics,
+        ...(duplicate ? analysis : {}),
       },
     });
     if (data.tags.length) await refreshTags(data.tags);
     router.push(`/interleaving/${res.interleaving.id}`);
   });
+
+  const { mutate: mutateQueries } = useInterleavingExposureQueries(
+    analysis.datasourceId,
+  );
+  const analysisDatasource = analysis.datasourceId
+    ? getDatasourceById(analysis.datasourceId)
+    : null;
+
+  if (addingQuery && analysisDatasource) {
+    return (
+      <AddEditInterleavingExposureQueryModal
+        dataSource={analysisDatasource}
+        mode="add"
+        onSave={async (q) => {
+          await mutateQueries();
+          setAnalysis((prev) => ({
+            ...prev,
+            interleavingExposureQueryId: q.id,
+            userIdType: q.userIdTypes[0] ?? "",
+            metrics: [],
+          }));
+          setAddingQuery(false);
+        }}
+        onCancel={() => setAddingQuery(false)}
+      />
+    );
+  }
 
   return (
     <ModalStandard
@@ -259,6 +317,19 @@ export default function InterleavingForm({
             }))
           }
         />
+        {duplicate && (
+          <Box mt="4">
+            <Heading as="h4" size="sm" mb="2">
+              Analysis
+            </Heading>
+            <InterleavingAnalysisFields
+              value={analysis}
+              setValue={setAnalysis}
+              project={project}
+              onAddExposureQuery={() => setAddingQuery(true)}
+            />
+          </Box>
+        )}
       </Box>
     </ModalStandard>
   );
