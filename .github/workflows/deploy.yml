@@ -48,17 +48,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          # Newest first: createdAt, conclusion, deployed SHA (run-name; push-era runs used headSha).
-          RUNS=$(gh run list --workflow deploy.yml --branch main --limit 100 \
-            --json createdAt,conclusion,displayTitle,event,headSha \
-            --jq '.[] | select(.conclusion != "" and .conclusion != "skipped")
-              | [.createdAt, .conclusion, (if .event == "workflow_run" then (.displayTitle | split(" ") | last) else .headSha end)] | @tsv')
-          LAST_OK=$(awk -F'\t' '$2 == "success"' <<<"$RUNS" | head -1)
-          BASE=$(cut -f3 <<<"$LAST_OK")
+          # Prints "createdAt<TAB>deployed SHA" for the newest Deploy on main matching $1, filtered
+          # server-side so skipped runs can't push it out of view. Push-era runs deployed their headSha.
+          newest() { gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy.yml/runs?branch=main&per_page=1&$1" \
+            --jq '.workflow_runs[] | [.created_at, (if .event == "workflow_run" then (.display_title | split(" ") | last) else .head_sha end)] | @tsv'; }
+          LAST_OK=$(newest status=success)
+          BASE=$(cut -f2 <<<"$LAST_OK")
           # After a Rollback, count the Deploy it cancelled too, so a docs-only commit can't roll prod forward past it.
           ROLLBACK_AT=$(gh run list --workflow rollback.yml --branch main --status success --limit 1 --json createdAt --jq '.[0].createdAt // ""')
           if [ -n "$ROLLBACK_AT" ] && [[ "$ROLLBACK_AT" > "$(cut -f1 <<<"$LAST_OK")" ]]; then
-            BASE=$(awk -F'\t' -v r="$ROLLBACK_AT" '$1 < r' <<<"$RUNS" | head -1 | cut -f3)
+            BASE=$(for c in success failure cancelled timed_out; do newest "status=$c&created=%3C$ROLLBACK_AT"; done | sort -r | head -1 | cut -f2)
           fi
           if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
             echo "No usable last-deployed commit; deploying."
