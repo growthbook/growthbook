@@ -1,5 +1,6 @@
 import {
   buildDisplayRepresentatives,
+  cellShadeKey,
   quantizeByDisplay,
   normalizeValues,
 } from "@/ui/Heatmap";
@@ -13,11 +14,15 @@ const pct = (value: number): string =>
     maximumFractionDigits: 0,
   }).format(value);
 
+// By default the grouping key is the formatted value (no display override).
+const keysFor = (values: (number | null)[]): (string | null)[] =>
+  values.map((v) => (v === null || Number.isNaN(v) ? null : pct(v)));
+
 const representativesFor = (values: (number | null)[]): Map<string, number> =>
-  buildDisplayRepresentatives(values, pct);
+  buildDisplayRepresentatives(values, keysFor(values));
 
 const quantize = (values: (number | null)[]): (number | null)[] =>
-  quantizeByDisplay(values, pct, representativesFor(values));
+  quantizeByDisplay(values, keysFor(values), representativesFor(values));
 
 describe("buildDisplayRepresentatives", () => {
   it("maps each displayed string to the first value that formats to it", () => {
@@ -58,7 +63,35 @@ describe("quantizeByDisplay", () => {
 
   it("falls back to the original value when no representative exists", () => {
     // An empty representative map (e.g. a value not seen when it was built).
-    expect(quantizeByDisplay([0.5], pct, new Map())).toEqual([0.5]);
+    expect(quantizeByDisplay([0.5], ["50%"], new Map())).toEqual([0.5]);
+  });
+
+  it("groups by the provided key, so a display override drives shading", () => {
+    // Two values that both format to "10%" but carry distinct string displays
+    // must NOT be collapsed — the label the user sees is what groups the shade.
+    const values = [0.104, 0.096];
+    const keys = ["10.4%", "9.6%"];
+    const reps = buildDisplayRepresentatives(values, keys);
+    expect(quantizeByDisplay(values, keys, reps)).toEqual([0.104, 0.096]);
+  });
+});
+
+describe("cellShadeKey", () => {
+  it("uses a string display verbatim as the grouping key", () => {
+    expect(cellShadeKey({ value: 0.104, display: "10.4%" }, pct)).toBe("10.4%");
+  });
+
+  it("falls back to formatValue when display is absent", () => {
+    expect(cellShadeKey({ value: 0.1666 }, pct)).toBe("17%");
+  });
+
+  it("falls back to formatValue for a non-string ReactNode display", () => {
+    expect(cellShadeKey({ value: 0.1666, display: 42 }, pct)).toBe("17%");
+  });
+
+  it("returns null for empty cells", () => {
+    expect(cellShadeKey({ value: null }, pct)).toBeNull();
+    expect(cellShadeKey({ value: Number.NaN }, pct)).toBeNull();
   });
 });
 
@@ -92,22 +125,23 @@ describe('shared representatives across the grid (normalize="all")', () => {
     const rowA = [0.1, 0.11];
     const rowB = [0.104, 0.106];
     const allValues = [...rowA, ...rowB];
+    const allKeys = keysFor(allValues);
 
     // One representative map shared by the bounds pass and every row.
-    const representatives = buildDisplayRepresentatives(allValues, pct);
+    const representatives = buildDisplayRepresentatives(allValues, allKeys);
 
-    const quantizedAll = quantizeByDisplay(allValues, pct, representatives);
+    const quantizedAll = quantizeByDisplay(allValues, allKeys, representatives);
     const numeric = quantizedAll.filter(
       (v): v is number => v !== null && !Number.isNaN(v),
     );
     const bounds = { min: Math.min(...numeric), max: Math.max(...numeric) };
 
     const intensitiesA = normalizeValues(
-      quantizeByDisplay(rowA, pct, representatives),
+      quantizeByDisplay(rowA, keysFor(rowA), representatives),
       bounds,
     );
     const intensitiesB = normalizeValues(
-      quantizeByDisplay(rowB, pct, representatives),
+      quantizeByDisplay(rowB, keysFor(rowB), representatives),
       bounds,
     );
 

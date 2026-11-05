@@ -11,11 +11,6 @@ import Table, {
 } from "@/ui/Table";
 import styles from "./Heatmap.module.scss";
 
-/**
- * Radix accent color scales that the heatmap can tint cells with. Each maps to
- * the global `--<scale>-N` design tokens, so the gradient adapts to light/dark
- * theme automatically (no hardcoded hex).
- */
 export type HeatmapColorScale =
   | "violet"
   | "indigo"
@@ -91,27 +86,39 @@ function cellBackground(
   };
 }
 
+export function cellShadeKey(
+  cell: Pick<HeatmapCellData, "value" | "display">,
+  formatValue: (value: number) => string,
+): string | null {
+  if (cell.value === null || Number.isNaN(cell.value)) return null;
+  return typeof cell.display === "string"
+    ? cell.display
+    : formatValue(cell.value);
+}
+
 export function buildDisplayRepresentatives(
   values: (number | null)[],
-  formatValue: (value: number) => string,
+  keys: (string | null)[],
 ): Map<string, number> {
-  const representativeByDisplay = new Map<string, number>();
-  for (const v of values) {
-    if (v === null || Number.isNaN(v)) continue;
-    const key = formatValue(v);
-    if (!representativeByDisplay.has(key)) representativeByDisplay.set(key, v);
-  }
-  return representativeByDisplay;
+  const representativeByKey = new Map<string, number>();
+  values.forEach((v, i) => {
+    const key = keys[i];
+    if (v === null || Number.isNaN(v) || key === null) return;
+    if (!representativeByKey.has(key)) representativeByKey.set(key, v);
+  });
+  return representativeByKey;
 }
 
 export function quantizeByDisplay(
   values: (number | null)[],
-  formatValue: (value: number) => string,
+  keys: (string | null)[],
   representatives: Map<string, number>,
 ): (number | null)[] {
-  return values.map((v) => {
+  return values.map((v, i) => {
     if (v === null || Number.isNaN(v)) return v;
-    return representatives.get(formatValue(v)) ?? v;
+    const key = keys[i];
+    if (key === null) return v;
+    return representatives.get(key) ?? v;
   });
 }
 
@@ -140,12 +147,6 @@ const defaultFormatValue = (value: number): string =>
     maximumFractionDigits: 0,
   }).format(value);
 
-/**
- * Reusable heat-map table. Renders a label column, optional descriptive
- * (non-tinted) leading columns, and a grid of value columns whose background
- * intensity scales with the cell value. Color intensity increases with the
- * value, using design-system accent tokens so it adapts to light/dark themes.
- */
 export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
   {
     columns,
@@ -163,25 +164,27 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
   },
   ref,
 ) {
-  const allValues = useMemo(
-    () => rows.flatMap((row) => row.cells.map((c) => c.value)),
-    [rows],
+  const allCells = useMemo(() => rows.flatMap((row) => row.cells), [rows]);
+  const allValues = useMemo(() => allCells.map((c) => c.value), [allCells]);
+  const shadeKeys = useMemo(
+    () => allCells.map((c) => cellShadeKey(c, formatValue)),
+    [allCells, formatValue],
   );
   const displayRepresentatives = useMemo(
-    () => buildDisplayRepresentatives(allValues, formatValue),
-    [allValues, formatValue],
+    () => buildDisplayRepresentatives(allValues, shadeKeys),
+    [allValues, shadeKeys],
   );
 
   const globalBounds = useMemo(() => {
     if (normalize !== "all") return undefined;
     const numeric = quantizeByDisplay(
       allValues,
-      formatValue,
+      shadeKeys,
       displayRepresentatives,
     ).filter((v): v is number => v !== null && !Number.isNaN(v));
     if (numeric.length === 0) return undefined;
     return { min: Math.min(...numeric), max: Math.max(...numeric) };
-  }, [normalize, allValues, formatValue, displayRepresentatives]);
+  }, [normalize, allValues, shadeKeys, displayRepresentatives]);
 
   return (
     <div ref={ref} {...marginProps}>
@@ -219,7 +222,7 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
             const intensities = normalizeValues(
               quantizeByDisplay(
                 row.cells.map((c) => c.value),
-                formatValue,
+                row.cells.map((c) => cellShadeKey(c, formatValue)),
                 displayRepresentatives,
               ),
               normalize === "all" ? globalBounds : undefined,
