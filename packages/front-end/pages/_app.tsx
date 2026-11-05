@@ -76,8 +76,7 @@ type ModAppProps = AppProps & {
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
     mainClassName?: string;
-    // The page renders <PageLoadMark name="pageReady" last /> once it shows
-    // its content
+    // The page itself renders <PageLoadMark name="pageReady" last />
     marksPageReady?: boolean;
   };
 };
