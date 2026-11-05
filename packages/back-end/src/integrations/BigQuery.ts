@@ -26,6 +26,7 @@ import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import { toOptionalNumber } from "back-end/src/util/integration";
 import {
   BigQueryDataType,
@@ -37,9 +38,10 @@ import SqlIntegration from "./SqlIntegration";
 
 const GA4_DATASET_RE = /^analytics_\d+$/;
 const GA4_EVENTS_SHARD_RE = /^events_(intraday_)?\d{8}$/;
-// Each dataset is one table-listing call, so a project with many GA4
-// properties is only partly checked rather than flooding the API.
+// Each dataset is one table-listing call. Cap how many a connection test
+// checks, and list them a few at a time to stay under BigQuery rate limits.
 const MAX_GA4_DATASETS = 25;
+const GA4_DATASET_LIST_CONCURRENCY = 5;
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -249,12 +251,12 @@ export default class BigQuery extends SqlIntegration {
     // account's own project. Auto-discovery only has this one.
     const projectId = this.params.defaultProject || this.params.projectId;
     const [datasets] = await this.getClient().getDatasets({ projectId });
-    const paths = await Promise.all(
+    const paths = await promiseAllChunks(
       datasets
         .filter((dataset) => dataset.id && GA4_DATASET_RE.test(dataset.id))
         .slice(0, MAX_GA4_DATASETS)
-        .map(async (dataset) => {
-          // One unreadable dataset shouldn't hide the exports in the others.
+        .map((dataset) => async () => {
+          // Catch inside: promiseAllChunks skips later chunks after a rejection.
           try {
             // Tables list by name, so any events_ shards are on the first page.
             const [tables] = await dataset.getTables({
@@ -270,6 +272,7 @@ export default class BigQuery extends SqlIntegration {
             return null;
           }
         }),
+      GA4_DATASET_LIST_CONCURRENCY,
     );
     return paths.filter((path): path is string => path !== null);
   }
