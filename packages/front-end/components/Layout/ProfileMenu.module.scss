@@ -37,19 +37,27 @@
 // Two layered shadows in every state, the top one clear at rest, so the
 // ring fades with the row's translucent highlight instead of flashing.
 .sidebarItem {
-  // The 24px avatar, centred on the other rows' 18px icons so the names line
-  // up with their labels; it spills 3px each side.
+  // The avatar, centred on the other rows' 18px icons so the names line up
+  // with their labels; it spills 1px each side.
   .avatarWrap {
     width: 18px;
     height: 18px;
     align-items: center;
     justify-content: center;
+
+    // 20px here only: Avatar's sm (24px) outweighs the 18px icons and its xs
+    // (16px) cramps the initials. They scale with it, from sm's 14px and 12px.
+    :global(.rt-AvatarRoot) {
+      --avatar-size: 20px;
+      --avatar-fallback-one-letter-font-size: 12px;
+      --avatar-fallback-two-letters-font-size: 10px;
+    }
   }
 
-  // On the avatar's corner: its 3px spill plus the icon's 1px.
+  // On the avatar's corner: its 1px spill plus the icon's 1px.
   .reviewDot {
-    top: -4px;
-    right: -4px;
+    top: -2px;
+    right: -2px;
     width: 7px;
     height: 7px;
     border: 0;
