@@ -9,8 +9,10 @@ import { describePopulationStep } from "@/components/Populations/populationUtils
 
 export default function PopulationDefinition({
   population,
+  editHref,
 }: {
   population: ApiPopulation;
+  editHref: string | null;
 }) {
   const { getFactTableById } = useDefinitions();
   // TODO: Support multiple steps. Only the first step is shown for now.
@@ -30,6 +32,7 @@ export default function PopulationDefinition({
         <Heading as="h2" size="md">
           Definition
         </Heading>
+        {editHref && <Link href={editHref}>Edit</Link>}
       </Flex>
 
       {descriptionSegments && (
