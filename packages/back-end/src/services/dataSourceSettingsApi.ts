@@ -102,8 +102,13 @@ function mergeAssignmentQuery(
     updates.columnMapping = sent.columnMapping;
   }
   if (!Object.keys(updates).length) return stored;
-  // A changed query is tested before it's saved, so its old error goes
-  return { ...omit(stored, "error"), ...updates };
+  // A changed query is tested before it's saved, so its old error goes. A
+  // legacy query stored without dimensions gets [], which the test spreads.
+  return {
+    ...omit(stored, "error"),
+    dimensions: stored.dimensions ?? [],
+    ...updates,
+  };
 }
 
 function newAssignmentQuery(

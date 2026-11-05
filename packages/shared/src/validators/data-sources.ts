@@ -148,7 +148,9 @@ export const putDataSourceSettingsBody = z
             includesNameColumns: z.boolean().optional(),
             dimensionColumns: z.array(z.string()).optional(),
             projects: z.array(z.string()).optional(),
-            columnMapping: exposureQueryColumnMappingValidator.optional(),
+            columnMapping: exposureQueryColumnMappingValidator
+              .strict()
+              .optional(),
             identifierType: z
               .string()
               .optional()
@@ -163,7 +165,7 @@ export const putDataSourceSettingsBody = z
       )
       .optional()
       .describe(
-        "Added or updated by `id`. Stored queries not listed are kept. A field left out keeps its stored value. If you can't edit the whole Data Source, an added query gets a new id, returned in the response.",
+        "Added or updated by `id`. Stored queries not listed are kept. `id`, `name`, `identifierTypes` and `sql` are required on every query; an optional field left out keeps its stored value. If you can't edit the whole Data Source, an added query gets a new id, returned in the response.",
       ),
     identifierJoinQueries: z
       .array(
@@ -203,9 +205,9 @@ export const putDataSourceSettingsValidator = {
         ),
     })
     .strict(),
-  summary: "Set a data source's identifier types, joins and assignment queries",
+  summary: "Set a Data Source's identifier types, joins and assignment queries",
   description:
-    "Each list is optional, and a list left out stays as it is. Every assignment query or identifier join query the request adds or changes is first run against the warehouse, reading no rows. If one fails, nothing is saved and the error names the query.",
+    "Each list is optional, and a list left out stays as it is. Every assignment query or identifier join query the request adds or changes is first run against the warehouse, reading no rows. If one fails, nothing is saved and the error names the query. The save only writes over the version the request read, so two requests changing the same Data Source at once can't lose each other's changes; a request that keeps losing that race gets a 409.",
   confirmation: ["other.write"] as const,
   operationId: "putDataSourceSettings",
   tags: ["data-sources"],

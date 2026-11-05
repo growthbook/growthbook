@@ -47,6 +47,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
+import { ConflictError } from "back-end/src/util/errors";
 import {
   ensureIndexOnce,
   getCollection,
@@ -824,12 +825,15 @@ export async function updateDataSource(
     forceCheckValidity = false,
     skipEventForwarderManagedValidation = false,
     dryRun = false,
+    guard,
   }: {
     skipExposureQueryValidation?: boolean;
     forceCheckValidity?: boolean;
     skipEventForwarderManagedValidation?: boolean;
     /** Run every check and return the updates as they'd be saved, writing nothing. */
     dryRun?: boolean;
+    /** Only write over the version with this `dateUpdated` (`null` for none); throws a 409 otherwise. */
+    guard?: { dateUpdated: Date | null };
   } = {},
 ): Promise<Partial<DataSourceInterface>> {
   if (usingFileConfig()) {
@@ -878,15 +882,21 @@ export async function updateDataSource(
   updates = { ...updates, dateUpdated: new Date() };
 
   try {
-    await DataSourceModel.updateOne(
+    const result = await DataSourceModel.updateOne(
       {
         id: datasource.id,
         organization: context.org.id,
+        ...guard,
       },
       {
         $set: updates,
       },
     );
+    if (guard && result.matchedCount === 0) {
+      throw new ConflictError(
+        "The Data Source changed since it was read. Nothing was saved.",
+      );
+    }
   } catch (error) {
     if (
       (updates.type ?? datasource.type) === "growthbook_clickhouse" &&

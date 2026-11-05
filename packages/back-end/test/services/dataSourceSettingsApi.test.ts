@@ -87,6 +87,20 @@ describe("mergeDataSourceSettingsBody", () => {
     expect(merged.changed).toBe(false);
   });
 
+  it("gives a changed legacy query stored without dimensions an empty list", () => {
+    const legacy = { ...storedQuery } as Partial<ExposureQuery>;
+    delete legacy.dimensions;
+    const merged = mergeDataSourceSettingsBody(
+      { queries: { exposure: [legacy as ExposureQuery] } },
+      { assignmentQueries: [{ ...shownQuery, name: "Renamed" }] },
+    );
+    const expected = { ...storedQuery, name: "Renamed", dimensions: [] };
+    delete expected.error;
+    expect(merged.changed).toBe(true);
+    expect(merged.changedExposureQueries).toEqual([expected]);
+    expect(merged.settings.queries?.exposure).toEqual([expected]);
+  });
+
   it("only changes a stored identifier type's description", () => {
     const merged = mergeDataSourceSettingsBody(stored, {
       identifierTypes: [

@@ -22670,12 +22670,15 @@ paths:
   /v1/data-sources/{id}/settings:
     put:
       operationId: putDataSourceSettings
-      summary: Set a data source's identifier types, joins and assignment queries
+      summary: Set a Data Source's identifier types, joins and assignment queries
       description: >-
         Each list is optional, and a list left out stays as it is. Every
         assignment query or identifier join query the request adds or changes is
         first run against the warehouse, reading no rows. If one fails, nothing
-        is saved and the error names the query.
+        is saved and the error names the query. The save only writes over the
+        version the request read, so two requests changing the same Data Source
+        at once can't lose each other's changes; a request that keeps losing
+        that race gets a 409.
       tags:
         - data-sources
       parameters:
@@ -22708,9 +22711,10 @@ paths:
                 assignmentQueries:
                   description: >-
                     Added or updated by `id`. Stored queries not listed are
-                    kept. A field left out keeps its stored value. If you can't
-                    edit the whole Data Source, an added query gets a new id,
-                    returned in the response.
+                    kept. `id`, `name`, `identifierTypes` and `sql` are required
+                    on every query; an optional field left out keeps its stored
+                    value. If you can't edit the whole Data Source, an added
+                    query gets a new id, returned in the response.
                   type: array
                   items:
                     type: object
