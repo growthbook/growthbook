@@ -100,7 +100,10 @@ export default function ProfileMenu({
     organizations.find((o) => o.id === currentOrgId)?.name ??
     organization.name ??
     "";
-  const showOrgPicker = organizations.length > 1;
+  const multiOrg = organizations.length > 1;
+  // In the side nav, its organization menu (OrgMenu) switches; the header's
+  // profile menu, on pages without the side nav, keeps the picker.
+  const showOrgPicker = multiOrg && !sidebarItem;
 
   const chooseOrg = (id: string) => {
     if (id === currentOrgId) return;
@@ -120,7 +123,7 @@ export default function ProfileMenu({
     "Profile",
     name,
     email,
-    showOrgPicker ? orgName : null,
+    multiOrg ? orgName : null,
     pendingReviewCount > 0
       ? `${pendingReviewCount} pending review${pendingReviewCount === 1 ? "" : "s"}`
       : null,
@@ -307,18 +310,16 @@ export default function ProfileMenu({
   // UserAvatar's initials follow the same order: two, one, the email's first.
   const displayName = name?.trim() || "";
   const sidebarName = displayName || email || "Account";
-  const sidebarOrgName =
-    sidebarItem && showOrgPicker && orgName ? orgName : null;
   // State, not a ref, so it re-measures when the label comes back on expanding.
   const [labelEl, setLabelEl] = useState<HTMLSpanElement | null>(null);
   const labelTruncated = useIsTruncated(labelEl, sidebarName);
-  // With several organizations the tooltip always shows "Name (Org)";
-  // otherwise just the name, when collapsed or cut off.
+  // The name, when collapsed or cut off. The organization row above shows the
+  // organization.
   const tooltip = useMenuTriggerTooltip({
-    label: sidebarOrgName ? `${sidebarName} (${sidebarOrgName})` : sidebarName,
+    label: sidebarName,
     enabled: inPlace
       ? labelTruncated
-      : !!sidebarItem?.collapsed || !!sidebarOrgName || labelTruncated,
+      : !!sidebarItem?.collapsed || labelTruncated,
     menuOpen: open || !!inPlace?.open,
   });
 
