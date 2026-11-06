@@ -90,9 +90,8 @@ export async function addTag(
   await TagModel.updateOne(
     { organization },
     {
-      $addToSet: {
-        tags: tag,
-      },
+      // FerretDB 2.x duplicates the field on a no-op $addToSet beside $set.
+      ...(existing?.tags?.includes(tag) ? {} : { $addToSet: { tags: tag } }),
       $set: {
         // Need to set the entire settings object, not just settings.{tag},
         // since tags can contains dots in the name
