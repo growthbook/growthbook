@@ -46,6 +46,10 @@ export default function ForceSummary({
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
   // flag's value is stripped at serve time, so it must not be previewed as backed.
+  // Short of the full width, the buttons follow the value.
+  const valueOverlay: ActionsOverlay | undefined = fullWidth
+    ? actionsOverlay
+    : { ...actionsOverlay, inline: true };
   const baseConfigKey = getFeatureBaseConfigKey(feature);
   const configKey =
     baseConfigKey !== null
@@ -63,7 +67,7 @@ export default function ForceSummary({
         environment={environment}
         label={label}
         lineHeight={lineHeight}
-        actionsOverlay={actionsOverlay}
+        actionsOverlay={valueOverlay}
       />
     );
   }
@@ -86,7 +90,7 @@ export default function ForceSummary({
             defaultValue={feature.defaultValue}
             lineHeight={lineHeight}
             monochrome={monochrome}
-            actionsOverlay={actionsOverlay}
+            actionsOverlay={valueOverlay}
             extraActions={extraActions}
             fullStyle={{
               maxHeight: maxHeight ?? 150,

@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
@@ -212,6 +213,7 @@ function computeRemainingTime(
 }
 import ExperimentSummary from "./ExperimentSummary";
 import cornerStyles from "./CornerActions.module.scss";
+import ruleCardStyles from "./RuleCard.module.scss";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
   TempRolloutCallout,
@@ -1063,7 +1065,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 {info.pill}
 
                 {canEdit && lockedBySchedule && !rampSchedule ? (
-                  <LockedRowMenu className={cornerStyles.actions} />
+                  <LockedRowMenu
+                    className={clsx(
+                      cornerStyles.actions,
+                      ruleCardStyles.rowMenu,
+                    )}
+                  />
                 ) : null}
                 {/* Shown when rule-edit OR ramp runtime actions are available.
                 Under a scheduled-publish lock the rule-edit group is hidden but
@@ -1075,8 +1082,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       trigger={
                         <MoreMenuTrigger
                           label="Rule actions"
-                          className={cornerStyles.actions}
-                          style={{ margin: 0 }}
+                          className={clsx(
+                            cornerStyles.actions,
+                            ruleCardStyles.rowMenu,
+                          )}
                         />
                       }
                       open={dropdownOpen}

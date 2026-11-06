@@ -170,7 +170,7 @@ export default function PrerequisiteStatusRow({
   );
 
   const menu = !canEdit ? null : lockedBySchedule ? (
-    <LockedRowMenu />
+    <LockedRowMenu style={{ margin: 0 }} />
   ) : isLocked ? null : (
     <DropdownMenu
       trigger={

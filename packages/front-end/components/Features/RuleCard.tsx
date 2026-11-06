@@ -1,4 +1,5 @@
 import React from "react";
+import clsx from "clsx";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import Badge from "@/ui/Badge";
@@ -11,20 +12,6 @@ export type RuleCardSideColor =
   | "disabled"
   | "unreachable"
   | "removed";
-
-const sideColorVar: Record<RuleCardSideColor, string> = {
-  active: "var(--green-9)",
-  skipped: "var(--amber-7)",
-  disabled: "var(--gray-5)",
-  unreachable: "var(--orange-7)",
-  removed: "var(--red-7)",
-};
-
-// A rule header's row, which the handle and number center on: the height of
-// its actions menu button.
-const HEADER_HEIGHT = 28;
-const HANDLE_WIDTH = 14;
-const BODY_INSET = 28;
 
 interface Props {
   index: number;
@@ -49,43 +36,25 @@ export default function RuleCard({
 }: Props) {
   // Its values' copy and fullscreen buttons show while it's hovered.
   return (
-    <Card
-      className={cornerStyles.hoverActions}
-      style={{
-        // The soft layer of the page tab bar's pinned shadow.
-        boxShadow: "0 4px 4px var(--lift-shadow-far)",
-        // Set below, so the header sits snug.
-        padding: 0,
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: "4px",
-          backgroundColor: sideColorVar[sideColor],
-        }}
-      />
+    <Card className={clsx(cornerStyles.hoverActions, styles.card)}>
+      <div className={clsx(styles.sideBar, styles[sideColor])} />
       <Box px="2" pt="2" pb="4">
         <Flex align="start" gap="2" mb="2">
-          <Flex align="center" gap="1" style={{ height: HEADER_HEIGHT }}>
+          <Flex align="center" gap="1" className={styles.leading}>
             <Flex
               align="center"
-              className={cornerStyles.actions}
-              style={{ width: HANDLE_WIDTH }}
+              className={clsx(cornerStyles.actions, styles.handle)}
             >
               {dragHandleProps ? (
                 <div
                   {...dragHandleProps}
                   title="Drag and drop to re-order rules"
-                  style={{ cursor: "grab" }}
+                  className={styles.grab}
                 >
                   <RiDraggable size={16} />
                 </div>
               ) : (
-                <Box aria-hidden style={{ opacity: 0.25 }}>
+                <Box aria-hidden className={styles.idleHandle}>
                   <RiDraggable size={16} />
                 </Box>
               )}
@@ -94,14 +63,14 @@ export default function RuleCard({
               label={<>{index}</>}
               radius="full"
               color="gray"
-              style={{ minWidth: 20 }}
+              className={styles.index}
             />
           </Flex>
           <Flex
             align="center"
             flexGrow="1"
             minWidth="0"
-            style={{ minHeight: HEADER_HEIGHT }}
+            className={styles.header}
           >
             <Box width="100%">{header}</Box>
           </Flex>
@@ -109,24 +78,9 @@ export default function RuleCard({
         {ribbon ? (
           <div className={styles.ribbon}>{ribbon}</div>
         ) : (
-          // Across the card from beside the side bar, as a section box's is.
-          <div
-            aria-hidden
-            style={{
-              height: 1,
-              margin: "0 calc(-1 * var(--space-2)) var(--space-3) -4px",
-              backgroundColor: "var(--gray-a5)",
-            }}
-          />
+          <div aria-hidden className={styles.divider} />
         )}
-        {/* The same inset from either edge of the card. */}
-        <Box
-          style={{
-            paddingInline: `calc(${BODY_INSET}px - var(--space-2))`,
-          }}
-        >
-          {children}
-        </Box>
+        <Box className={styles.body}>{children}</Box>
       </Box>
     </Card>
   );

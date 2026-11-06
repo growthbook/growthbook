@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef, useState } from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
@@ -32,6 +33,7 @@ import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 import HoldoutSummary from "./HoldoutSummary";
 import cornerStyles from "./CornerActions.module.scss";
+import ruleCardStyles from "./RuleCard.module.scss";
 
 interface Props {
   feature: FeatureInterface;
@@ -145,7 +147,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 )}
               </Flex>
 
-              <Flex align="center" gap="2" flexShrink="0">
+              <Flex align="center" gap="3" flexShrink="0">
                 {isInactive && (
                   <Badge
                     color="amber"
@@ -160,8 +162,10 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
 
                 {canEdit && lockedBySchedule ? (
                   <LockedRowMenu
-                    className={cornerStyles.actions}
-                    style={{ marginRight: "calc(var(--space-2) * -1)" }}
+                    className={clsx(
+                      cornerStyles.actions,
+                      ruleCardStyles.rowMenu,
+                    )}
                   />
                 ) : null}
                 {canEdit && !isLocked && (
@@ -169,8 +173,10 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                     trigger={
                       <MoreMenuTrigger
                         label="Holdout actions"
-                        className={cornerStyles.actions}
-                        style={{ marginRight: "calc(var(--space-2) * -1)" }}
+                        className={clsx(
+                          cornerStyles.actions,
+                          ruleCardStyles.rowMenu,
+                        )}
                       />
                     }
                     open={dropdownOpen}

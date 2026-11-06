@@ -75,7 +75,7 @@ export default function FeatureVariationsInput({
   valueType,
   defaultValue = "",
   coverageLabel = "Traffic included in this Experiment",
-  coverageTooltip = "Users not included in the Experiment will skip this rule",
+  coverageTooltip = "Units not included in the experiment skip this rule",
   valueAsId = false,
   hideVariationIds = false,
   startEditingIndexes = false,

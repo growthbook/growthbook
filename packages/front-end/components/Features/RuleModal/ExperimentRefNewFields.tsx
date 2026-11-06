@@ -475,7 +475,7 @@ export default function ExperimentRefNewFields({
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType}
             coverageLabel="Traffic included in this Experiment"
-            coverageTooltip={`Users not included in the Experiment will skip this ${source}`}
+            coverageTooltip={`Units not included in the experiment skip this ${source}`}
             coverage={coverage}
             setCoverage={setCoverage}
             setWeight={setWeight}

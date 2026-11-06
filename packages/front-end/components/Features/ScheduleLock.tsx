@@ -8,7 +8,7 @@ export const SCHEDULE_EDIT_LOCK_REASON =
 
 /** A row's actions menu, disabled while its draft is locked. */
 export function LockedRowMenu({
-  style = { margin: 0 },
+  style,
   className,
 }: {
   style?: CSSProperties;

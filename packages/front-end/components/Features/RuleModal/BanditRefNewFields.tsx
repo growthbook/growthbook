@@ -280,7 +280,7 @@ export default function BanditRefNewFields({
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
             coverageLabel="Traffic included in this Bandit"
-            coverageTooltip={`Users not included in the Bandit will skip this ${source}`}
+            coverageTooltip={`Units not included in the Bandit skip this ${source}`}
             coverage={coverage}
             setCoverage={setCoverage}
             setWeight={setWeight}

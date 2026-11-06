@@ -13,6 +13,7 @@ import { coveragePercentFormatter } from "@/services/utils";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
+import RolloutRow from "./RolloutRow";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -54,44 +55,32 @@ export default function ExperimentSummary({
           </>
         )}
       </Flex>
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">INCLUDE</Text>
-        <Text>
-          <Badge
-            color="gray"
-            label={
-              <Text style={{ color: "var(--slate-12)" }}>
-                {coveragePercentFormatter.format(effectiveCoverage)}
-              </Text>
-            }
-          />{" "}
-          of units in the experiment
-          {hasNamespace && (
-            <>
-              {" "}
-              (
-              <Badge
-                color="gray"
-                label={
-                  <Text style={{ color: "var(--slate-12)" }}>
-                    {percentFormatter.format(namespaceRange)}
-                  </Text>
-                }
-              />{" "}
-              of the namespace and{" "}
-              <Badge
-                color="gray"
-                label={
-                  <Text style={{ color: "var(--slate-12)" }}>
-                    {coveragePercentFormatter.format(coverage ?? 1)}
-                  </Text>
-                }
-              />{" "}
-              exposure)
-            </>
-          )}
-        </Text>
-      </Flex>
+      <RolloutRow coverage={effectiveCoverage}>
+        {hasNamespace && (
+          <>
+            {" "}
+            (
+            <Badge
+              color="gray"
+              label={
+                <Text style={{ color: "var(--slate-12)" }}>
+                  {percentFormatter.format(namespaceRange)}
+                </Text>
+              }
+            />{" "}
+            of the namespace and{" "}
+            <Badge
+              color="gray"
+              label={
+                <Text style={{ color: "var(--slate-12)" }}>
+                  {coveragePercentFormatter.format(coverage ?? 1)}
+                </Text>
+              }
+            />{" "}
+            exposure)
+          </>
+        )}
+      </RolloutRow>
       <Text weight="medium">SERVE</Text>
       <Box
         px="3"
@@ -132,6 +121,7 @@ export default function ExperimentSummary({
                     value={r.value}
                     type={type}
                     showFullscreenButton={true}
+                    actionsOverlay={{ inline: true }}
                   />
                   <ValidateValue value={r.value} feature={feature} />
                 </TableCell>

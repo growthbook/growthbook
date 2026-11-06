@@ -346,7 +346,6 @@ export default function FeatureRules({
       )
     : overflowLabels;
 
-  const hasRules = envs.some((e) => rulesByEnv[e]?.length > 0);
   // Into the open tab's environment, or every one from "All environments".
   const addRuleEnv = env === null ? "" : (activeEnv?.id ?? null);
 
@@ -543,12 +542,6 @@ export default function FeatureRules({
         }
         tabs={tabs}
       >
-        {!hasRules && (
-          <p>
-            Add powerful logic on top of your feature. The first rule that
-            matches will be applied and override the Default Value.
-          </p>
-        )}
         {env === null ? (
           <>
             {(feature.rules ?? []).length > 0 || includeHoldoutRuleAllEnvs ? (
@@ -579,9 +572,9 @@ export default function FeatureRules({
                 hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
               />
             ) : (
-              <Box py="4" className="text-muted">
-                <em>No rules have been added yet</em>
-              </Box>
+              <Text as="p" color="text-low" mb="0">
+                No rules yet. Everyone gets the default value.
+              </Text>
             )}
           </>
         ) : activeEnv ? (
@@ -612,9 +605,10 @@ export default function FeatureRules({
                 baseRevision={baseRevision}
               />
             ) : (
-              <Box py="4" className="text-muted">
-                <em>No rules have been added to this environment yet</em>
-              </Box>
+              <Text as="p" color="text-low" mb="0">
+                No rules in {activeEnv.id}. Everyone there gets the default
+                value.
+              </Text>
             )}
           </>
         ) : null}

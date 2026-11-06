@@ -32,6 +32,7 @@ import ConditionDisplay from "./ConditionDisplay";
 import { AttributeBadge } from "./AttributeBadge";
 import { EntityBadge, PlainEntityBadge } from "./EntityBadge";
 import ForceSummary from "./ForceSummary";
+import RolloutRow from "./RolloutRow";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -203,29 +204,22 @@ export default function ExperimentRefSummary({
           </>
         )}
       </Flex>
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">INCLUDE</Text>
-        <Text>
-          <PlainEntityBadge
-            label={coveragePercentFormatter.format(effectiveCoverage)}
-          />{" "}
-          of units in the {isBandit ? "Bandit" : "experiment"}
-          {hasNamespace && (
-            <>
-              {" "}
-              (
-              <PlainEntityBadge
-                label={percentFormatter.format(namespaceRange)}
-              />{" "}
-              of the namespace and{" "}
-              <PlainEntityBadge
-                label={coveragePercentFormatter.format(phase?.coverage ?? 1)}
-              />{" "}
-              exposure)
-            </>
-          )}
-        </Text>
-      </Flex>
+      <RolloutRow coverage={effectiveCoverage}>
+        {hasNamespace && (
+          <>
+            {" "}
+            (
+            <PlainEntityBadge
+              label={percentFormatter.format(namespaceRange)}
+            />{" "}
+            of the namespace and{" "}
+            <PlainEntityBadge
+              label={coveragePercentFormatter.format(phase?.coverage ?? 1)}
+            />{" "}
+            exposure)
+          </>
+        )}
+      </RolloutRow>
       {releasedValue ? (
         <ForceSummary
           feature={feature}
@@ -342,6 +336,7 @@ export default function ExperimentRefSummary({
                                     showFullscreenButton={true}
                                     sparse={rule.sparse}
                                     defaultValue={feature.defaultValue}
+                                    actionsOverlay={{ inline: true }}
                                   />
                                   <ValidateValue
                                     value={value}
