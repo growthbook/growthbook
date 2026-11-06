@@ -1,3 +1,4 @@
+import { UpdateFilter } from "mongodb";
 import {
   UpdateWatchOptions,
   WatchInterface,
@@ -89,5 +90,17 @@ export class WatchModel extends BaseClass {
     await this._updateOne(existing, {
       [type]: existing[type].filter((el) => el !== item),
     });
+  }
+
+  // A single $pull, so a concurrent watch or unwatch is not overwritten.
+  public async removeEntityFromAllWatchers({
+    type,
+    item,
+  }: Omit<UpdateWatchOptions, "userId">) {
+    const pullOperation: UpdateFilter<WatchInterface> = { [type]: item };
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, [type]: item },
+      { $pull: pullOperation, $set: { dateUpdated: new Date() } },
+    );
   }
 }
