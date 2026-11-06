@@ -151,7 +151,7 @@ export default function MetricTabContent() {
         const lockedClass = getLockedClassForSlot(idx);
         const lockedUnit = getLockedUnitForSlot(idx);
         const disabledReasonFor = (metricId: string) => {
-          const metric = factMetrics.find((m) => m.id === metricId);
+          const metric = getFactMetricById(metricId);
           return metric
             ? getDisabledReason(metric, lockedClass, lockedUnit)
             : null;
@@ -189,7 +189,7 @@ export default function MetricTabContent() {
                   }) && !permissionsUtil.canRunMetricQueries({ projects: [] })
                 }
                 onChange={(val) => {
-                  const newMetric = factMetrics.find((m) => m.id === val);
+                  const newMetric = getFactMetricById(val);
                   // Keep the chart's unit (or this slot's, when it's the only
                   // metric) if the new metric offers it; otherwise
                   // fillMissingUnits picks one.
@@ -222,7 +222,7 @@ export default function MetricTabContent() {
                   "value" in option && disabledReasonFor(option.value) !== null
                 }
                 formatOptionLabel={({ value }, meta) => {
-                  const metric = factMetrics.find((m) => m.id === value);
+                  const metric = getFactMetricById(value);
                   if (!metric) return value;
                   // Only attach the restriction tooltip inside the open menu
                   // (not in the selected-value display) so it doesn't fire on
