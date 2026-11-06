@@ -187,6 +187,7 @@ export default function HealthHeadline({
   improvement,
   noScoreReason,
   quality,
+  qualityThreshold,
 }: {
   health: ScopeHealth;
   score: number | null;
@@ -197,6 +198,8 @@ export default function HealthHeadline({
   noScoreReason: string | null;
   // How to show the Quality tile when there's no score
   quality: { state: "on" } | { state: "off" | "locked"; action: ReactNode };
+  // The score that counts as good quality
+  qualityThreshold: number;
 }) {
   const band = score === null ? null : getHealthBand(score);
   const color = band ? BAND_COLORS[band] : "gray";
@@ -288,6 +291,72 @@ export default function HealthHeadline({
       {/* Shifted left so the first tile's divider is clipped */}
       <Grid columns={{ initial: "2", md: "4" }} style={{ marginLeft: -1 }}>
         <Tile
+          label="Velocity"
+          info="Experiments started per month. Counts the first start only. Restarts don't count."
+          value={health.startRate.toFixed(1)}
+          unit="/ mo"
+          change={
+            <Change
+              value={diff(health.startRate, previous?.startRate)}
+              label={previousLabel}
+            />
+          }
+        />
+        <Tile
+          label="Quality velocity"
+          info={`Experiments started per month that score ${qualityThreshold} or more, the good quality threshold in Experiment Quality settings. The bar shows their share of all starts.`}
+          value={
+            quality.state === "on"
+              ? health.qualityStartRate.toFixed(1)
+              : quality.action
+          }
+          unit={quality.state === "on" ? "/ mo" : undefined}
+          change={
+            quality.state === "on" ? (
+              <Change
+                value={diff(
+                  health.qualityStartRate,
+                  previous?.qualityStartRate,
+                )}
+                label={previousLabel}
+              />
+            ) : null
+          }
+          bar={
+            quality.state === "on" && health.started > 0 ? (
+              <Bar>
+                <Fill share={health.qualityStarted / health.started} />
+              </Bar>
+            ) : undefined
+          }
+        />
+        <Tile
+          label="Average quality score"
+          info="Average quality score of completed experiments, from the checks in Experiment Quality settings."
+          value={
+            health.quality !== null
+              ? Math.round(health.quality)
+              : quality.state === "on"
+                ? "–"
+                : quality.action
+          }
+          unit={health.quality !== null ? "/ 100" : undefined}
+          change={
+            <Change
+              value={diff(health.quality, previous?.quality)}
+              format={(v) => v.toFixed(0)}
+              label={previousLabel}
+            />
+          }
+          bar={
+            health.quality !== null ? (
+              <Bar>
+                <Fill share={health.quality / 100} />
+              </Bar>
+            ) : undefined
+          }
+        />
+        <Tile
           label="Win rate"
           info="Share of completed experiments with a winning result. A much higher rate often means tests are too safe."
           value={pct(health.winRate)}
@@ -326,67 +395,6 @@ export default function HealthHeadline({
                 />
               )}
             </Bar>
-          }
-        />
-        <Tile
-          label="Velocity"
-          info="Experiments started per month. Counts the first start only. Restarts don't count."
-          value={health.startRate.toFixed(1)}
-          unit="/ mo"
-          change={
-            <Change
-              value={diff(health.startRate, previous?.startRate)}
-              label={previousLabel}
-            />
-          }
-        />
-        <Tile
-          label="Quality"
-          info="Average quality score of completed experiments, from the checks in Experiment Quality settings."
-          value={
-            health.quality !== null
-              ? Math.round(health.quality)
-              : quality.state === "on"
-                ? "–"
-                : quality.action
-          }
-          unit={health.quality !== null ? "/ 100" : undefined}
-          change={
-            <Change
-              value={diff(health.quality, previous?.quality)}
-              format={(v) => v.toFixed(0)}
-              label={previousLabel}
-            />
-          }
-          bar={
-            health.quality !== null ? (
-              <Bar>
-                <Fill share={health.quality / 100} />
-              </Bar>
-            ) : undefined
-          }
-        />
-        <Tile
-          label="Healthy rate"
-          info="Share of completed experiments with no health errors: SRM, multiple exposures or a low-power warning. Experiments without a power estimate count as healthy."
-          value={pct(health.healthyRate)}
-          change={
-            <Change
-              value={
-                diff(health.healthyRate, previous?.healthyRate) === null
-                  ? null
-                  : (diff(health.healthyRate, previous?.healthyRate) ?? 0) * 100
-              }
-              format={(v) => `${v.toFixed(0)}pt`}
-              label={previousLabel}
-            />
-          }
-          bar={
-            health.healthyRate !== null ? (
-              <Bar>
-                <Fill share={health.healthyRate} />
-              </Bar>
-            ) : undefined
           }
         />
       </Grid>

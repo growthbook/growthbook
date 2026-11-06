@@ -108,6 +108,38 @@ describe("computeScopeHealth", () => {
     expect(health.score).toBe(70);
   });
 
+  it("counts started experiments at or above the quality threshold", () => {
+    const scores = new Map<string, number>();
+    const scored = (score: number, overrides = {}) => {
+      const e = exp(overrides);
+      scores.set(e.id, score);
+      return e;
+    };
+    const health = computeScopeHealth({
+      experiments: [
+        scored(70),
+        scored(69),
+        scored(90, { ended: "2026-09-01" }),
+        // Started before the period
+        scored(95, { started: "2026-05-01" }),
+        scored(100, { status: "draft" }),
+      ],
+      window: WINDOW,
+      healthSettings: HEALTH_SETTINGS,
+      getQuality: (e) =>
+        ({
+          score: scores.get(e.id) ?? null,
+          sections: [],
+        }) as unknown as ExperimentQualityScoreResult,
+      qualityThreshold: 70,
+    });
+    expect(health.started).toBe(3);
+    expect(health.qualityStarted).toBe(2);
+    expect(health.qualityStartRate).toBeCloseTo(
+      (2 / health.started) * health.startRate,
+    );
+  });
+
   it("uses the healthy rate alone when quality scoring is off", () => {
     const health = computeScopeHealth({
       experiments: completed(5),

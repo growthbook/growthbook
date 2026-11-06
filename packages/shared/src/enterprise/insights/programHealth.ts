@@ -9,6 +9,7 @@ import {
   NO_HYPOTHESIS_REASON,
   QUALITY_CHECK_PASS_THRESHOLD,
 } from "../experimentQualityScore";
+import { DEFAULT_QUALITY_THRESHOLD } from "../experimentationHealth";
 import {
   InsightsExperiment,
   InsightsWindow,
@@ -191,6 +192,9 @@ export type ScopeHealth = {
   started: number;
   // Experiments started per month
   startRate: number;
+  // Of those, the ones scoring at or above the good quality threshold
+  qualityStarted: number;
+  qualityStartRate: number;
   winRate: number | null;
   // Average quality score of completed experiments; null when none are scored
   quality: number | null;
@@ -203,14 +207,18 @@ export type ScopeHealth = {
   topQualityIssue: string | null;
 };
 
+function getStarts(experiments: InsightsExperiment[], window: InsightsWindow) {
+  // New drafts get a phase start date too, so only launched ones count
+  return experiments.filter(
+    (e) => e.status !== "draft" && inWindow(getFirstStartDate(e), window),
+  );
+}
+
 function countStarts(
   experiments: InsightsExperiment[],
   window: InsightsWindow,
 ) {
-  // New drafts get a phase start date too, so only launched ones count
-  return experiments.filter(
-    (e) => e.status !== "draft" && inWindow(getFirstStartDate(e), window),
-  ).length;
+  return getStarts(experiments, window).length;
 }
 
 function months({ startDate, endDate }: InsightsWindow) {
@@ -223,18 +231,25 @@ export function computeScopeHealth({
   window,
   healthSettings,
   getQuality,
+  qualityThreshold = DEFAULT_QUALITY_THRESHOLD,
 }: {
   experiments: InsightsExperiment[];
   window: InsightsWindow;
   healthSettings: ExperimentHealthSettings;
   getQuality: GetQuality;
+  qualityThreshold?: number;
 }): ScopeHealth {
   const standard = experiments.filter((e) => e.type !== "multi-armed-bandit");
   const completed = filterCompletedExperiments(standard, {
     ...window,
     projects: [],
   });
-  const started = countStarts(standard, window);
+  const starts = getStarts(standard, window);
+  const started = starts.length;
+  // A running experiment's score covers the checks that apply so far
+  const qualityStarted = starts.filter(
+    (e) => (getQuality(e)?.score ?? -1) >= qualityThreshold,
+  ).length;
 
   const qualityScores = completed.flatMap((e) => {
     const score = getQuality(e)?.score;
@@ -267,6 +282,8 @@ export function computeScopeHealth({
     won,
     started,
     startRate: started / months(window),
+    qualityStarted,
+    qualityStartRate: qualityStarted / months(window),
     winRate: completed.length ? won / completed.length : null,
     quality,
     healthyRate,

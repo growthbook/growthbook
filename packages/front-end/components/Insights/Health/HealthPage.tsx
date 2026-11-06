@@ -10,9 +10,13 @@ import {
   computeScopeHealth,
   getHealthSettings,
   getNoScoreReason,
+  getQualityThreshold,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import { InsightsHealthScoreInterface } from "shared/validators";
+import {
+  InsightsHealthScoreInterface,
+  ORG_DEFAULT_SCOPE,
+} from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useExperiments } from "@/hooks/useExperiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -101,9 +105,13 @@ export default function HealthPage() {
     ready: definitionsReady,
     error: definitionsError,
     mutateDefinitions,
+    getHealthSettingsForScope,
   } = useDefinitions();
   const settings = useOrgSettings();
   const { getQuality, hasFeature } = useQualityScorer();
+  const qualityThreshold = getQualityThreshold(
+    getHealthSettingsForScope(ORG_DEFAULT_SCOPE),
+  );
   const {
     experiments,
     loading,
@@ -137,10 +145,15 @@ export default function HealthPage() {
       ? experiments.filter((e) => e.project === project)
       : experiments;
     const input = { healthSettings, getQuality };
-    const empty = computeScopeHealth({ experiments: [], window, ...input });
+    const scopeInput = { ...input, qualityThreshold };
+    const empty = computeScopeHealth({
+      experiments: [],
+      window,
+      ...scopeInput,
+    });
     const byProject: ProjectHealth[] = project
       ? []
-      : computeHealthByProject({ experiments, window, ...input });
+      : computeHealthByProject({ experiments, window, ...scopeInput });
     // List every Project, including ones without experiments
     projects.forEach((p) => {
       if (!project && !byProject.some((r) => r.project === p.id)) {
@@ -152,17 +165,17 @@ export default function HealthPage() {
       : computeHealthByProject({
           experiments,
           window: previousWindow,
-          ...input,
+          ...scopeInput,
         });
     const health = computeScopeHealth({
       experiments: scoped,
       window,
-      ...input,
+      ...scopeInput,
     });
     const previous = computeScopeHealth({
       experiments: scoped,
       window: previousWindow,
-      ...input,
+      ...scopeInput,
     });
     return {
       health,
@@ -174,6 +187,8 @@ export default function HealthPage() {
         ? previous.score
         : combineProjectScores(previousByProject),
       details: computeHealthDetails({ experiments: scoped, window, ...input }),
+      // Scoring is on for at least one experiment in view
+      scoringOn: scoped.some((e) => getQuality(e) !== null),
     };
   }, [
     experiments,
@@ -183,6 +198,7 @@ export default function HealthPage() {
     previousWindow,
     settings,
     getQuality,
+    qualityThreshold,
   ]);
 
   const trendFor = (id: string): number[] | null => {
@@ -312,28 +328,27 @@ export default function HealthPage() {
         b.health.completed - a.health.completed,
     );
 
-  const qualityState =
-    health.quality !== null || health.completed === 0
-      ? ({ state: "on" } as const)
-      : hasFeature
-        ? ({
-            state: "off",
-            action: (
-              <Link href="/settings/experiment-quality" size="sm">
-                Turn on
-              </Link>
-            ),
-          } as const)
-        : ({
-            state: "locked",
-            action: (
-              <PremiumTooltip commercialFeature="experiment-quality-score">
-                <Text size="sm" color="text-mid">
-                  Enterprise
-                </Text>
-              </PremiumTooltip>
-            ),
-          } as const);
+  const qualityState = computed.scoringOn
+    ? ({ state: "on" } as const)
+    : hasFeature
+      ? ({
+          state: "off",
+          action: (
+            <Link href="/settings/experiment-quality" size="sm">
+              Turn on
+            </Link>
+          ),
+        } as const)
+      : ({
+          state: "locked",
+          action: (
+            <PremiumTooltip commercialFeature="experiment-quality-score">
+              <Text size="sm" color="text-mid">
+                Enterprise
+              </Text>
+            </PremiumTooltip>
+          ),
+        } as const);
 
   return (
     <Box className="pagecontents" px="5" py="4">
@@ -392,6 +407,7 @@ export default function HealthPage() {
             : "No Project has 5 completed experiments and a start in this period")
         }
         quality={qualityState}
+        qualityThreshold={qualityThreshold}
       />
       <HeadlineLegend />
 
