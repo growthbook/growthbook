@@ -43,6 +43,7 @@ import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
 import KeyValues from "@/components/Admin/KeyValues";
 import {
+  isRecreateActive,
   RecreateRequestSummary,
   RecreateTablesCheckboxes,
   useManagedWarehouseRecreateRequest,
@@ -65,6 +66,7 @@ import Table, {
 } from "@/ui/Table";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 type OrgDetailResponse = {
@@ -423,9 +425,8 @@ function OrganizationDetail({
         <ModalStandard
           open
           trackingEventModalType=""
-          header="Drop and Recreate Managed Warehouse"
-          cta="Drop and recreate"
-          ctaColor="red"
+          header="Recreate Derived Tables"
+          cta="Recreate"
           ctaEnabled={recreateTables.length > 0}
           close={() => setRecreateOpen(false)}
           submit={async () => {
@@ -852,27 +853,34 @@ function OrganizationDetail({
                   : []),
               ]}
             />
+            {isCloud() && managedWarehouse && recreateRequest && (
+              <Box mt="3">
+                <RecreateRequestSummary request={recreateRequest} />
+              </Box>
+            )}
             {isCloud() && canProvision && (
               <Box mt="3">
                 {managedWarehouse ? (
-                  <Flex direction="column" gap="3" align="start">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      color="red"
-                      onClick={() => {
-                        setRecreateTables([
-                          ...MANAGED_WAREHOUSE_RECREATABLE_TABLES,
-                        ]);
-                        setRecreateOpen(true);
-                      }}
-                    >
-                      Drop and recreate Managed Warehouse
-                    </Button>
-                    {recreateRequest && (
-                      <RecreateRequestSummary request={recreateRequest} />
-                    )}
-                  </Flex>
+                  <Tooltip
+                    content="A recreate is already queued or running"
+                    enabled={isRecreateActive(recreateRequest?.status)}
+                  >
+                    <span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isRecreateActive(recreateRequest?.status)}
+                        onClick={() => {
+                          setRecreateTables([
+                            ...MANAGED_WAREHOUSE_RECREATABLE_TABLES,
+                          ]);
+                          setRecreateOpen(true);
+                        }}
+                      >
+                        Recreate derived tables
+                      </Button>
+                    </span>
+                  </Tooltip>
                 ) : (
                   <Button
                     size="sm"

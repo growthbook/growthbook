@@ -195,6 +195,21 @@ async function finishRecreate(
   );
 }
 
+async function requeue(organization: string, startedAt: Date) {
+  await datasources().updateOne(
+    {
+      ...MANAGED_WAREHOUSE_FILTER,
+      organization,
+      "recreateRequest.status": "running",
+      "recreateRequest.startedAt": startedAt,
+    },
+    {
+      $set: { "recreateRequest.status": "pending" },
+      $unset: { "recreateRequest.startedAt": "" },
+    },
+  );
+}
+
 /**
  * Move an org's recreate request forward one step: start it if it's pending
  * and there's room, or record the result if the license server has finished it.
@@ -255,6 +270,16 @@ export async function advanceManagedWarehouseRecreate(
   );
   if (!claimed.modifiedCount) return;
 
+  // Several job workers can pass the count check above at the same time. Each
+  // re-counts after claiming and backs out if that put us over the limit, so a
+  // worker only starts a recreate once its claim is counted within the limit.
+  if (
+    (await countRunningManagedWarehouseRecreates()) > MAX_CONCURRENT_RECREATES
+  ) {
+    await requeue(organization, startedAt);
+    return;
+  }
+
   try {
     const allTables = MANAGED_WAREHOUSE_RECREATABLE_TABLES.every((t) =>
       request.tables.includes(t),
@@ -265,17 +290,7 @@ export async function advanceManagedWarehouseRecreate(
     );
     if (result === "already-running") {
       // Another recreate holds the org's lock. Requeue so the sweep retries.
-      await datasources().updateOne(
-        {
-          ...MANAGED_WAREHOUSE_FILTER,
-          organization,
-          "recreateRequest.startedAt": startedAt,
-        },
-        {
-          $set: { "recreateRequest.status": "pending" },
-          $unset: { "recreateRequest.startedAt": "" },
-        },
-      );
+      await requeue(organization, startedAt);
     }
   } catch (e) {
     logger.error(

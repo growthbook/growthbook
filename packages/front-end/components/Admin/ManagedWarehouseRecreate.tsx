@@ -15,8 +15,10 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import Table, {
@@ -32,15 +34,32 @@ import TextField from "@/ui/TextField";
 // Poll while a recreate is queued or running; each one takes minutes.
 const POLL_INTERVAL_MS = 15000;
 
-const STATUS_COLORS = {
-  pending: "gray",
-  running: "blue",
-  done: "green",
-  failed: "red",
+const STATUSES = {
+  pending: { label: "Pending", color: "gray" },
+  running: { label: "Running", color: "blue" },
+  done: { label: "Done", color: "green" },
+  failed: { label: "Failed", color: "red" },
 } as const;
 
-const isActive = (status: ManagedWarehouseRecreateStatus | undefined) =>
-  status === "pending" || status === "running";
+export const isRecreateActive = (
+  status: ManagedWarehouseRecreateStatus | undefined,
+) => status === "pending" || status === "running";
+
+function RecreateStatusBadge({
+  status,
+  count,
+}: {
+  status: ManagedWarehouseRecreateStatus;
+  count?: number;
+}) {
+  const { label, color } = STATUSES[status];
+  return (
+    <Badge
+      label={count === undefined ? label : `${label}: ${count}`}
+      color={color}
+    />
+  );
+}
 
 /** One checkbox per Managed Warehouse table that can be recreated. */
 export function RecreateTablesCheckboxes({
@@ -76,7 +95,7 @@ export function useManagedWarehouseRecreateRequest(orgId: string) {
     request: ManagedWarehouseRecreateRequest | null;
   }>(`/admin/organization/${orgId}/managed-warehouse/recreate`, {
     refreshInterval: (latest) =>
-      isActive(latest?.request?.status) ? POLL_INTERVAL_MS : 0,
+      isRecreateActive(latest?.request?.status) ? POLL_INTERVAL_MS : 0,
   });
   return { request: data?.request ?? null, mutate };
 }
@@ -90,7 +109,7 @@ export function RecreateRequestSummary({
     <Flex direction="column" gap="1">
       <Flex align="center" gap="2">
         <Text size="sm">Last recreate:</Text>
-        <Badge label={request.status} color={STATUS_COLORS[request.status]} />
+        <RecreateStatusBadge status={request.status} />
       </Flex>
       <Text size="sm" color="text-mid">
         {request.tables.join(", ")} · requested {datetime(request.requestedAt)}
@@ -99,9 +118,9 @@ export function RecreateRequestSummary({
           : ""}
       </Text>
       {request.error && (
-        <Text size="sm" color="text-mid">
+        <HelperText status="error" size="sm">
           {request.error}
-        </Text>
+        </HelperText>
       )}
     </Flex>
   );
@@ -132,9 +151,9 @@ export default function ManagedWarehouseRecreates({
     },
   );
 
-  const [tables, setTables] = useState<ManagedWarehouseRecreatableTable[]>([
-    "feature_usage",
-  ]);
+  // Start with nothing checked so a bulk run is always a deliberate choice
+  const [tables, setTables] = useState<ManagedWarehouseRecreatableTable[]>([]);
+  const [confirming, setConfirming] = useState(false);
   const [target, setTarget] = useState<"all" | "list">("list");
   const [orgIds, setOrgIds] = useState("");
   const [message, setMessage] = useState("");
@@ -172,19 +191,35 @@ export default function ManagedWarehouseRecreates({
     });
 
   const counts = data?.counts;
+  const targetDescription =
+    target === "all"
+      ? "every Managed Warehouse"
+      : `${organizations.length} organization${organizations.length === 1 ? "" : "s"}`;
 
   return (
     <Flex direction="column" gap="4">
+      {confirming && (
+        <ConfirmDialog
+          title="Recreate Derived Tables"
+          content={`Recreate ${tables.join(", ")} for ${targetDescription}? Two orgs run at a time, and pending recreates can be cancelled.`}
+          yesText="Queue recreates"
+          onConfirm={async () => {
+            setConfirming(false);
+            await request();
+          }}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
       {canRequest && (
         <Frame py="4" px="5">
           <Heading as="h3" size="sm" mb="3">
-            Recreate Tables
+            Recreate Derived Tables
           </Heading>
           <Text as="p" mb="3" color="text-mid">
-            Each selected table is rebuilt and backfilled from raw events, two
-            orgs at a time. Queries keep working while it runs. Orgs whose
-            warehouse hasn&apos;t been set up, or that are already running a
-            recreate, are skipped.
+            Each selected derived table is rebuilt and backfilled from raw
+            events, two orgs at a time. Queries keep working while it runs. Orgs
+            whose warehouse hasn&apos;t been set up, or that are already running
+            a recreate, are skipped.
           </Text>
           <Flex direction="column" gap="4">
             <RecreateTablesCheckboxes value={tables} setValue={setTables} />
@@ -199,7 +234,7 @@ export default function ManagedWarehouseRecreates({
             {target === "list" && (
               <TextField
                 multiline
-                label="Organization ids"
+                label="Organization IDs"
                 placeholder="org_abc123, org_def456"
                 value={orgIds}
                 onChange={(e) => setOrgIds(e.target.value)}
@@ -207,11 +242,10 @@ export default function ManagedWarehouseRecreates({
             )}
             <Flex>
               <Button
-                color="red"
                 disabled={
                   !tables.length || (target === "list" && !organizations.length)
                 }
-                onClick={request}
+                onClick={() => setConfirming(true)}
               >
                 Queue recreates
               </Button>
@@ -269,18 +303,20 @@ export default function ManagedWarehouseRecreates({
         </Flex>
         {counts && (
           <Flex gap="3" mb="3">
-            {(
-              Object.keys(STATUS_COLORS) as ManagedWarehouseRecreateStatus[]
-            ).map((status) => (
-              <Badge
-                key={status}
-                label={`${status}: ${counts[status]}`}
-                color={STATUS_COLORS[status]}
-              />
-            ))}
+            {(Object.keys(STATUSES) as ManagedWarehouseRecreateStatus[]).map(
+              (status) => (
+                <RecreateStatusBadge
+                  key={status}
+                  status={status}
+                  count={counts[status]}
+                />
+              ),
+            )}
           </Flex>
         )}
-        {data && !data.requests.length ? (
+        {!data && !error ? (
+          <Text color="text-mid">Loading…</Text>
+        ) : data && !data.requests.length ? (
           <Text color="text-mid">No recreates queued, running or failed.</Text>
         ) : (
           <Table variant="list" stickyHeader scrollX maxHeight="400px">
@@ -302,10 +338,7 @@ export default function ManagedWarehouseRecreates({
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      label={request.status}
-                      color={STATUS_COLORS[request.status]}
-                    />
+                    <RecreateStatusBadge status={request.status} />
                   </TableCell>
                   <TableCell>{request.tables.join(", ")}</TableCell>
                   <TableCell>{datetime(request.requestedAt)}</TableCell>

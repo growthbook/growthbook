@@ -102,12 +102,14 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
-// The super-admin recreate request isn't part of the datasource and is written
-// outside this schema; only the admin endpoints read it
+// Managed Warehouse recreate state isn't part of the datasource and is written
+// outside this schema: `recreateRequest` by super admins, `recreateStatus` by
+// the license server. Only the admin endpoints read them
 // (services/managedWarehouseRecreate).
 dataSourceSchema.set("toJSON", {
   transform: (doc, ret) => {
     delete ret.recreateRequest;
+    delete ret.recreateStatus;
     return ret;
   },
 });
