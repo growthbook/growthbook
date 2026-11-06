@@ -14,6 +14,7 @@ import {
   PiLock,
   PiMoon,
   PiPlus,
+  PiShieldCheck,
   PiSignOut,
   PiSlackLogo,
   PiSunDim,
@@ -71,11 +72,14 @@ const THEME_ICONS: Record<keyof typeof THEME_LABELS, IconType> = {
 export default function ProfileMenu({
   sidebarItem,
   inPlace,
+  adminLink,
 }: {
   /** Set in the sidebar; without it, it's the header's button. */
   sidebarItem?: SidebarItemLook;
   /** In the drawer, the menu is drawn in place (Sidebar.tsx). */
   inPlace?: SidebarMenuInPlace;
+  /** Admin, for super admins on multi-org installs (Sidebar.tsx's rule). */
+  adminLink?: { name: string; href: string } | null;
 } = {}) {
   const router = useRouter();
   const { name, email, organization, hasCommercialFeature } = useUser();
@@ -212,6 +216,17 @@ export default function ProfileMenu({
         ]
       : []),
     { type: "separator", key: "sep-1" },
+    // Its own group at the top, divided from the rest.
+    ...(adminLink
+      ? [
+          item(
+            "admin",
+            <MenuItemContent Icon={PiShieldCheck} label={adminLink.name} />,
+            () => go(adminLink.href),
+          ),
+          { type: "separator" as const, key: "sep-admin" },
+        ]
+      : []),
     ...(hasApprovalFlows
       ? [
           item(

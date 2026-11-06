@@ -24,7 +24,6 @@ import {
   PiFlask,
   PiGearSix,
   PiMagnifyingGlass,
-  PiShieldCheck,
   PiSidebarSimple,
   PiX,
 } from "react-icons/pi";
@@ -1118,19 +1117,15 @@ export default function Sidebar() {
               active={isActive(settingsNavLink)}
               tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
             />
-            {ADMIN_LINK && showAdmin ? (
-              <SidebarItem
-                collapsed={contentCollapsed}
-                Icon={PiShieldCheck}
-                label={ADMIN_LINK.name}
-                href={ADMIN_LINK.href}
-                active={isActive(ADMIN_LINK)}
-                tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
-              />
-            ) : null}
             <ProfileMenu
               sidebarItem={sidebarItem}
               inPlace={menuInPlace("profile")}
+              // In the profile menu, not the side nav.
+              adminLink={
+                ADMIN_LINK && showAdmin
+                  ? { name: ADMIN_LINK.name, href: ADMIN_LINK.href }
+                  : null
+              }
             />
             <HelpMenu sidebarItem={sidebarItem} inPlace={menuInPlace("help")} />
           </div>
