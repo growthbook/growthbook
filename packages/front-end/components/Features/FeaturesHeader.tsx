@@ -414,12 +414,9 @@ export default function FeaturesHeader({
   // White over the page's violet, which only the content column below shows.
   return (
     <>
+      {/* Bootstrap's spacing: container-fluid's own padding outranks Radix's. */}
       <Box
-        className="container-fluid pagecontents"
-        position="relative"
-        px="4"
-        pt="3"
-        pb="2"
+        className="container-fluid pagecontents position-relative px-4 pt-3 pb-2"
         style={{ background: "var(--color-panel-solid)" }}
       >
         <Box>
@@ -479,11 +476,7 @@ export default function FeaturesHeader({
             pinned: headerPinned,
           })}
         >
-          <Box
-            className="container-fluid pagecontents"
-            position="relative"
-            px="4"
-          >
+          <Box className="position-relative container-fluid pagecontents px-4">
             <Flex align="center" className="header-tabs">
               <Tabs
                 value={tab}
