@@ -1,7 +1,7 @@
 import { CSSProperties, ReactNode, useId, useState } from "react";
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { format, startOfMonth, subMonths } from "date-fns";
-import { DateRange, DayPicker, UI } from "react-day-picker";
+import { DateRange, DayPicker } from "react-day-picker";
 import {
   comparisonMode as comparisonModes,
   dateRangePredefined,
@@ -37,13 +37,6 @@ import {
   DATE_RANGE_PREDEFINED_LABELS,
   LOOKBACK_UNIT_LABELS,
 } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
-
-// Smaller month nav; buttons stay at the 24px minimum target.
-const DAY_PICKER_STYLES = {
-  [UI.PreviousMonthButton]: { width: 24, height: 24 },
-  [UI.NextMonthButton]: { width: 24, height: 24 },
-  [UI.Chevron]: { width: 14, height: 14 },
-};
 
 export type DateRangeCompareValue = {
   dateRange: ExplorationDateRange;
@@ -407,7 +400,6 @@ export default function DateRangeComparePanel({
               }
               month={calendarMonth}
               onMonthChange={setCalendarMonth}
-              styles={DAY_PICKER_STYLES}
               disabled={disabled}
               onSelect={(range: DateRange | undefined) => {
                 if (!range) return;
