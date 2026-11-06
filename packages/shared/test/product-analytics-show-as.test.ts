@@ -13,7 +13,7 @@ import type {
   ProductAnalyticsExploration,
   ShowAs,
 } from "shared/validators";
-import { toValueQueryKey } from "shared/validators";
+import { omitRenderOnlyFields } from "shared/validators";
 import type { FactMetricInterface } from "shared/types/fact-table";
 
 function makeMetric(
@@ -234,18 +234,21 @@ describe("normalizeShowAs", () => {
   });
 });
 
-describe("toValueQueryKey", () => {
+describe("omitRenderOnlyFields", () => {
   it("ignores render-only fields", () => {
     expect(
-      toValueQueryKey({ ...metricValue("revenue", "per_unit"), name: "A" }),
-    ).toEqual(toValueQueryKey({ ...metricValue("revenue"), name: "B" }));
+      omitRenderOnlyFields({
+        ...metricValue("revenue", "per_unit"),
+        name: "A",
+      }),
+    ).toEqual(omitRenderOnlyFields({ ...metricValue("revenue"), name: "B" }));
   });
 
   it("distinguishes values that query differently", () => {
     expect(
-      toValueQueryKey(metricValue("revenue", undefined, "user_id")),
+      omitRenderOnlyFields(metricValue("revenue", undefined, "user_id")),
     ).not.toEqual(
-      toValueQueryKey(metricValue("revenue", undefined, "device_id")),
+      omitRenderOnlyFields(metricValue("revenue", undefined, "device_id")),
     );
   });
 });

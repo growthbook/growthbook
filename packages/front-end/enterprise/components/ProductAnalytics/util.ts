@@ -28,7 +28,7 @@ import {
   SqlDataset,
   MAX_JOURNEY_STEP_COLUMNS,
   datasetHasValues,
-  toValueQueryKey,
+  omitRenderOnlyFields,
 } from "shared/validators";
 import {
   applyStepGroups,
@@ -1347,7 +1347,7 @@ export function toFetchKey(
       chartType: getChartCategory(base.chartType),
       dataset: {
         ...omit(base.dataset, "hiddenColumns"),
-        values: base.dataset.values.map(toValueQueryKey),
+        values: base.dataset.values.map(omitRenderOnlyFields),
       },
     };
   }
@@ -1382,7 +1382,7 @@ export function toFetchKey(
       ...(base.dataset.type === "sql"
         ? omit(base.dataset, "hiddenColumns")
         : base.dataset),
-      values: base.dataset.values.map(toValueQueryKey),
+      values: base.dataset.values.map(omitRenderOnlyFields),
     },
   };
 }

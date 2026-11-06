@@ -716,8 +716,8 @@ export function datasetTypeHasValues(
 /** Value fields that change only how results render, never the query. */
 const RENDER_ONLY_VALUE_FIELDS = ["name", "showAs"] as const;
 
-/** A value's query identity: values with equal keys can share cached results. */
-export function toValueQueryKey(value: ProductAnalyticsValue) {
+/** Values that differ only in render-only fields run the same query. */
+export function omitRenderOnlyFields(value: ProductAnalyticsValue) {
   return omit(value, RENDER_ONLY_VALUE_FIELDS);
 }
 export type ProductAnalyticsFunnelStepResult = z.infer<

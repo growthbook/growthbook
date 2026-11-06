@@ -4,7 +4,7 @@ import {
   ApiAnalyticsExploration,
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
-  toValueQueryKey,
+  omitRenderOnlyFields,
 } from "shared/validators";
 import md5 from "md5";
 import {
@@ -257,7 +257,7 @@ export class AnalyticsExplorationModel extends BaseClass {
           : config.chartType === "rawTable"
             ? []
             : dataset.values.map((value) =>
-                md5(JSON.stringify(toValueQueryKey(value))),
+                md5(JSON.stringify(omitRenderOnlyFields(value))),
               );
 
     return {
