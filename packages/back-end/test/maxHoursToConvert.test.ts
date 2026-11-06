@@ -20,10 +20,12 @@ function buildStep(
 }
 
 function buildFunnelMetric({
+  windowType = "conversion",
   windowValueHours,
   delayValueHours = 0,
   steps,
 }: {
+  windowType?: FunnelFactMetricInterface["windowSettings"]["type"];
   windowValueHours: number;
   delayValueHours?: number;
   steps: MetricFunnelStep[];
@@ -32,7 +34,7 @@ function buildFunnelMetric({
     ...factMetricFactory.build({
       id: "fact__funnel",
       windowSettings: {
-        type: "conversion",
+        type: windowType,
         windowUnit: "hours",
         windowValue: windowValueHours,
         delayUnit: "hours",
@@ -100,5 +102,44 @@ describe("getMaxHoursToConvert for fact funnel metrics", () => {
       ],
     });
     expect(getMaxHoursToConvert(false, [metric], null)).toEqual(6);
+  });
+
+  it("uses the step-window sum when the metric has no conversion envelope", () => {
+    const metric = buildFunnelMetric({
+      windowType: "",
+      windowValueHours: 72,
+      steps: [
+        buildStep("View", { value: 1, unit: "hours" }),
+        buildStep("Cart", { value: 30, unit: "minutes" }),
+        buildStep("Purchase", { value: 30, unit: "minutes" }),
+      ],
+    });
+    expect(getMaxHoursToConvert(false, [metric], null)).toEqual(2);
+  });
+
+  it("uses the step-window sum when the metric window is lookback", () => {
+    const metric = buildFunnelMetric({
+      windowType: "lookback",
+      windowValueHours: 7 * 24,
+      delayValueHours: 1,
+      steps: [
+        buildStep("View", { value: 1, unit: "hours" }),
+        buildStep("Purchase", { value: 1, unit: "hours" }),
+      ],
+    });
+    expect(getMaxHoursToConvert(false, [metric], null)).toEqual(3);
+  });
+
+  it("has no bound when the metric has no conversion envelope and a step is unwindowed", () => {
+    const metric = buildFunnelMetric({
+      windowType: "",
+      windowValueHours: 72,
+      steps: [
+        buildStep("View", { value: 1, unit: "hours" }),
+        buildStep("Cart"),
+        buildStep("Purchase", { value: 1, unit: "hours" }),
+      ],
+    });
+    expect(getMaxHoursToConvert(false, [metric], null)).toEqual(0);
   });
 });
