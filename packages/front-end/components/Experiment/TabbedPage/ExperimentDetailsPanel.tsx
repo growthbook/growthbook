@@ -60,14 +60,14 @@ export default function ExperimentDetailsPanel({
     setCustomFieldId(fieldId);
   };
 
-  const pencil = (label: string, onClick: () => void) => (
-    <PanelEditButton
-      canEdit={canEdit}
-      label={label}
-      onClick={onClick}
-      blockedReason={editsBlocked}
-    />
-  );
+  const pencil = (label: string, onClick: () => void) =>
+    canEdit ? (
+      <PanelEditButton
+        label={label}
+        onClick={onClick}
+        blockedReason={editsBlocked}
+      />
+    ) : null;
 
   const fieldAction = (field: QuickEditField) => {
     // The key only changes while nothing is serving it, or about to.

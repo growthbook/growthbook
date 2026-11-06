@@ -87,14 +87,14 @@ export default function FeatureDetailsPanel({
     setInfoSection(section);
     setCustomFieldId(fieldId);
   };
-  const pencil = (label: string, onClick: () => void) => (
-    <PanelEditButton
-      canEdit={canEdit}
-      label={label}
-      onClick={onClick}
-      blockedReason={blockedReason}
-    />
-  );
+  const pencil = (label: string, onClick: () => void) =>
+    canEdit ? (
+      <PanelEditButton
+        label={label}
+        onClick={onClick}
+        blockedReason={blockedReason}
+      />
+    ) : null;
   const fieldAction = (section: FeatureInfoSection) =>
     pencil(SECTION_HEADERS[section], () => editSection(section));
 

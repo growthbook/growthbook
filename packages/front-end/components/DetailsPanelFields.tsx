@@ -18,20 +18,17 @@ import Tooltip from "@/ui/Tooltip";
 
 // Rows the details panels share, each with the quick-edit button it reveals.
 
-// A row's edit pencil, for those who may edit; disabled with the reason when
-// edits are blocked.
+// A row's edit pencil, disabled with the reason when edits are blocked. Pass
+// it only where the viewer may edit: any action makes its row an action row.
 export function PanelEditButton({
-  canEdit,
   label,
   onClick,
   blockedReason = null,
 }: {
-  canEdit: boolean;
   label: string;
   onClick: () => void;
   blockedReason?: string | null;
 }) {
-  if (!canEdit) return null;
   return (
     <QuickEditButton
       label={label}
