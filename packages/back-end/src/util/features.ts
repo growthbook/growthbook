@@ -336,7 +336,13 @@ export function applyQaOverrideToRule(
   const forced = override.assignment.type === "forced";
 
   rule.key = getQaTrackingKey(experiment.trackingKey);
-  rule.seed = rule.key;
+  // Hash on the same seed the live experiment will use, so a user lands in
+  // the same bucket during QA as after the experiment starts. Without a seed
+  // the SDK falls back to the key, which differs here.
+  rule.seed = phase.seed || experiment.trackingKey;
+  // Connections that get rule ids (dev tools) get the override's id, so the
+  // tools can link back to it; the key suffix marks the rule as QA either way.
+  if (rule.id) rule.id = override.id;
   rule.weights = qaOverrideWeights(override, experiment, phase);
   rule.coverage = forced ? 1 : phase.coverage;
   rule.disableStickyBucketing = true;
@@ -1363,11 +1369,25 @@ export function getFeatureDefinition({
     }
   }
 
+  // QA overrides ignore holdouts: the holdout's force rule sits above the
+  // experiment rule, so a tester in holdout control would never reach the
+  // override. Dropping it only happens on non-production connections while
+  // the experiment is a draft.
+  const hasQaOverride =
+    !!qaOverrides?.size &&
+    (rules ?? []).some(
+      (r) =>
+        r.type === "experiment-ref" &&
+        qaOverrides.has(r.experimentId) &&
+        experimentMap.get(r.experimentId)?.status === "draft",
+    );
+
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
   // pseudo force rule with a prerequisite condition. The environment being enabled is
   // already checked in the getAllPayloadHoldouts function.
   const holdoutRule: FeatureDefinitionRule[] =
     hasPrerequisites &&
+    !hasQaOverride &&
     feature.holdout &&
     holdoutsMap &&
     holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
@@ -1438,19 +1458,20 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          const qaOverride =
-            exp.status === "draft" ? qaOverrides?.get(exp.id)?.[0] : undefined;
+          const expQaOverrides =
+            exp.status === "draft" ? qaOverrides?.get(exp.id) : undefined;
+          const hasExpQaOverride = !!expQaOverrides?.length;
 
           if (
             exp.status === "draft" &&
             !includeDraftExperimentRefs &&
-            !qaOverride
+            !hasExpQaOverride
           )
             return null;
 
           if (
             !includeExperimentInPayload(exp, [], {
-              includeDrafts: includeDraftExperimentRefs || !!qaOverride,
+              includeDrafts: includeDraftExperimentRefs || hasExpQaOverride,
             })
           )
             return null;
@@ -1543,53 +1564,64 @@ export function getFeatureDefinition({
               : phaseVariations.map((v) => ({ key: v.key }));
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
-            if (qaOverride) {
-              applyQaOverrideToRule(
-                rule,
-                exp,
-                phase,
-                qaOverride,
-                savedGroupStrategy,
-              );
-            }
-          }
-          if (rule.condition)
-            savedGroupStrategy.finalizeCondition(rule.condition);
-          if (rule.parentConditions)
-            savedGroupStrategy.finalizeCondition(rule.parentConditions);
-          if (metadataOptions) {
-            const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
-              {
-                // No project here — metadata.projects comes solely from the
-                // rule's own scope below, not the experiment's project.
-                customFields: exp.customFields,
-                tags: exp.tags,
-                statusUpdateSchedule: exp.statusUpdateSchedule,
-              },
-              metadataOptions,
-              projectsMap,
-            );
-            if (expMetadata) rule.metadata = expMetadata;
-            applyRuleProjectMetadata(
-              rule,
-              r,
-              deliveryProjects,
-              metadataOptions,
-              projectsMap,
-            );
           }
 
-          if (allowedKeys) {
-            const picked = pick(
-              rule,
-              allowedKeys.featureRuleKeys,
-            ) as FeatureDefinitionRule;
-            if (includeRuleIds && r.id != null) {
-              (picked as Record<string, unknown>).id = stemRuleId(r.id);
+          const finalizeExperimentRule = (rule: FeatureDefinitionRule) => {
+            if (rule.condition)
+              savedGroupStrategy.finalizeCondition(rule.condition);
+            if (rule.parentConditions)
+              savedGroupStrategy.finalizeCondition(rule.parentConditions);
+            if (metadataOptions) {
+              const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
+                {
+                  // No project here — metadata.projects comes solely from the
+                  // rule's own scope below, not the experiment's project.
+                  customFields: exp.customFields,
+                  tags: exp.tags,
+                  statusUpdateSchedule: exp.statusUpdateSchedule,
+                },
+                metadataOptions,
+                projectsMap,
+              );
+              if (expMetadata) rule.metadata = expMetadata;
+              applyRuleProjectMetadata(
+                rule,
+                r,
+                deliveryProjects,
+                metadataOptions,
+                projectsMap,
+              );
             }
-            return picked;
+
+            if (allowedKeys) {
+              const picked = pick(
+                rule,
+                allowedKeys.featureRuleKeys,
+              ) as FeatureDefinitionRule;
+              if (includeRuleIds && rule.id != null) {
+                (picked as Record<string, unknown>).id = rule.id;
+              }
+              return picked;
+            }
+            return rule;
+          };
+
+          // One rule per QA override, in priority order: the first one whose
+          // filters match wins, the same as any other feature rule.
+          if (expQaOverrides?.length && exp.status !== "stopped") {
+            return expQaOverrides.map((override) =>
+              finalizeExperimentRule(
+                applyQaOverrideToRule(
+                  cloneDeep(rule),
+                  exp,
+                  phase,
+                  override,
+                  savedGroupStrategy,
+                ),
+              ),
+            );
           }
-          return rule;
+          return finalizeExperimentRule(rule);
         }
 
         if (r.type === "contextual-bandit-ref") {
@@ -1945,6 +1977,7 @@ export function getFeatureDefinition({
         }
         return rule;
       })
+      ?.flat()
       ?.filter(isRule) ?? []),
   ];
 

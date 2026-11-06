@@ -658,162 +658,180 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
-    sortedAutoExperiments.map((data) => {
-      const { experiment: e } = data;
-      if (e.status === "stopped" && e.excludeFromPayload) return null;
+  const buildAutoExperiment = (
+    data: VisualExperiment | URLRedirectExperiment,
+    qaOverride: ExperimentQaOverrideInterface | undefined,
+  ): AutoExperimentWithMetadata | null => {
+    const { experiment: e } = data;
+    if (e.status === "stopped" && e.excludeFromPayload) return null;
 
-      const qaOverride =
-        e.status === "draft" ? qaOverrides?.get(e.id)?.[0] : undefined;
-      const qaForced = qaOverride?.assignment.type === "forced";
-      const trackingKey = qaOverride
-        ? getQaTrackingKey(e.trackingKey)
-        : e.trackingKey;
+    const qaForced = qaOverride?.assignment.type === "forced";
+    const trackingKey = qaOverride
+      ? getQaTrackingKey(e.trackingKey)
+      : e.trackingKey;
 
-      const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
+    const phase: ExperimentPhase | null = e.phases?.slice(-1)?.[0] ?? null;
 
-      const variations = getLatestPhaseVariations(e);
+    const variations = getLatestPhaseVariations(e);
 
-      const hasForcedVariation =
-        e.status === "stopped" && e.releasedVariationId;
+    const hasForcedVariation = e.status === "stopped" && e.releasedVariationId;
 
-      const forcedVariation = hasForcedVariation
-        ? variations.find((v) => v.id === e.releasedVariationId)
-        : null;
+    const forcedVariation = hasForcedVariation
+      ? variations.find((v) => v.id === e.releasedVariationId)
+      : null;
 
-      const experimentCondition = mergeConditionAndSavedGroups({
-        savedGroupStrategy,
-        condition: phase?.condition,
-        savedGroups: phase?.savedGroups,
-      });
-      const condition = qaOverride
-        ? qaOverrideCondition({
-            override: qaOverride,
-            experimentCondition,
-            savedGroupStrategy,
-          })
-        : experimentCondition;
-
-      const prerequisites = (qaForced ? [] : (phase?.prerequisites ?? []))
-        ?.map((p) => {
-          const condition = mergeConditionAndSavedGroups({
-            savedGroupStrategy,
-            condition: p.condition,
-          });
-          if (!condition) return null;
-          return {
-            id: p.id,
-            condition,
-          };
+    const experimentCondition = mergeConditionAndSavedGroups({
+      savedGroupStrategy,
+      condition: phase?.condition,
+      savedGroups: phase?.savedGroups,
+    });
+    const condition = qaOverride
+      ? qaOverrideCondition({
+          override: qaOverride,
+          experimentCondition,
+          savedGroupStrategy,
         })
-        .filter(isDefined);
+      : experimentCondition;
 
-      if (!phase) return null;
+    const prerequisites = (qaForced ? [] : (phase?.prerequisites ?? []))
+      ?.map((p) => {
+        const condition = mergeConditionAndSavedGroups({
+          savedGroupStrategy,
+          condition: p.condition,
+        });
+        if (!condition) return null;
+        return {
+          id: p.id,
+          condition,
+        };
+      })
+      .filter(isDefined);
 
-      if (capabilities !== undefined) {
-        if (!capabilities.includes("redirects") && data.type === "redirect")
-          return null;
-        if (!capabilities.includes("prerequisites") && prerequisites.length > 0)
-          return null;
-      }
+    if (!phase) return null;
 
-      const implementationId =
-        data.type === "redirect"
-          ? data.urlRedirect.id
-          : data.visualChangeset.id;
+    if (capabilities !== undefined) {
+      if (!capabilities.includes("redirects") && data.type === "redirect")
+        return null;
+      if (!capabilities.includes("prerequisites") && prerequisites.length > 0)
+        return null;
+    }
 
-      const exp: AutoExperimentWithMetadata = {
-        key: trackingKey,
-        changeId: sha256(`${trackingKey}_${data.type}_${implementationId}`, ""),
-        status: e.status,
-        variations: variations.map((v) => {
-          if (data.type === "redirect") {
-            const match = data.urlRedirect.destinationURLs.find(
-              (d) => d.variation === v.id,
-            );
-            return {
-              urlRedirect: match?.url || "",
-            };
-          }
+    const implementationId =
+      data.type === "redirect" ? data.urlRedirect.id : data.visualChangeset.id;
 
-          const match = data.visualChangeset.visualChanges.find(
-            (vc) => vc.variation === v.id,
+    const exp: AutoExperimentWithMetadata = {
+      key: trackingKey,
+      // Each QA override is its own auto experiment, so its changeId must
+      // differ from the others' (and from the live experiment's).
+      changeId: sha256(
+        `${trackingKey}_${data.type}_${implementationId}${
+          qaOverride ? `_${qaOverride.id}` : ""
+        }`,
+        "",
+      ),
+      status: e.status,
+      variations: variations.map((v) => {
+        if (data.type === "redirect") {
+          const match = data.urlRedirect.destinationURLs.find(
+            (d) => d.variation === v.id,
           );
           return {
-            css: match?.css || "",
-            js: match?.js || "",
-            domMutations: match?.domMutations || [],
+            urlRedirect: match?.url || "",
           };
-        }) as AutoExperiment["variations"],
-        hashVersion: e.hashVersion,
-        hashAttribute: e.hashAttribute,
-        fallbackAttribute: e.fallbackAttribute,
-        disableStickyBucketing: qaOverride ? true : e.disableStickyBucketing,
-        bucketVersion: e.bucketVersion,
-        minBucketVersion: e.minBucketVersion,
-        urlPatterns:
-          data.type === "redirect"
-            ? [
-                {
-                  include: true,
-                  pattern: data.urlRedirect.urlPattern,
-                  type: "simple",
-                },
-              ]
-            : data.visualChangeset.urlPatterns,
-        weights: qaOverride
-          ? qaOverrideWeights(qaOverride, e, phase)
-          : phase.variationWeights,
-        meta: variations.map((v) =>
-          includeExperimentNames === true
-            ? { key: v.key, name: v.name }
-            : { key: v.key },
-        ),
-        seed: qaOverride ? trackingKey : phase.seed,
-        ...(includeExperimentNames === true ? { name: e.name } : {}),
-        phase: `${e.phases.length - 1}`,
-        force: forcedVariation
-          ? variations.indexOf(forcedVariation)
-          : undefined,
-        condition,
-        coverage: qaForced ? 1 : phase.coverage,
-      };
+        }
 
-      // Handle namespace
-      if (phase?.namespace?.enabled && phase.namespace.name) {
-        applyNamespaceToPayload(
-          exp,
-          phase.namespace,
-          namespacesToMap(organization?.settings?.namespaces),
+        const match = data.visualChangeset.visualChanges.find(
+          (vc) => vc.variation === v.id,
         );
-      }
+        return {
+          css: match?.css || "",
+          js: match?.js || "",
+          domMutations: match?.domMutations || [],
+        };
+      }) as AutoExperiment["variations"],
+      hashVersion: e.hashVersion,
+      hashAttribute: e.hashAttribute,
+      fallbackAttribute: e.fallbackAttribute,
+      disableStickyBucketing: qaOverride ? true : e.disableStickyBucketing,
+      bucketVersion: e.bucketVersion,
+      minBucketVersion: e.minBucketVersion,
+      urlPatterns:
+        data.type === "redirect"
+          ? [
+              {
+                include: true,
+                pattern: data.urlRedirect.urlPattern,
+                type: "simple",
+              },
+            ]
+          : data.visualChangeset.urlPatterns,
+      weights: qaOverride
+        ? qaOverrideWeights(qaOverride, e, phase)
+        : phase.variationWeights,
+      meta: variations.map((v) =>
+        includeExperimentNames === true
+          ? { key: v.key, name: v.name }
+          : { key: v.key },
+      ),
+      // QA keeps the live seed so users land in the same bucket after the
+      // experiment starts; the SDK would otherwise fall back to the QA key.
+      seed: qaOverride ? phase.seed || e.trackingKey : phase.seed,
+      ...(includeExperimentNames === true ? { name: e.name } : {}),
+      phase: `${e.phases.length - 1}`,
+      force: forcedVariation ? variations.indexOf(forcedVariation) : undefined,
+      condition,
+      coverage: qaForced ? 1 : phase.coverage,
+    };
 
-      if (prerequisites.length) {
-        exp.parentConditions = prerequisites;
-      }
+    // Handle namespace
+    if (phase?.namespace?.enabled && phase.namespace.name) {
+      applyNamespaceToPayload(
+        exp,
+        phase.namespace,
+        namespacesToMap(organization?.settings?.namespaces),
+      );
+    }
 
-      if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
-        exp.persistQueryString = true;
-      }
+    if (prerequisites.length) {
+      exp.parentConditions = prerequisites;
+    }
 
-      return finalizeAutoExperiment(exp, {
-        metadataSource: {
-          project: e.project,
-          customFields: e.customFields,
-          tags: e.tags,
-          statusUpdateSchedule: e.statusUpdateSchedule,
-        },
-        metadataOptions: {
-          includeProjectIdInMetadata,
-          includeCustomFieldsInMetadata,
-          allowedCustomFieldsInMetadata,
-          includeTagsInMetadata,
-          includeExperimentScheduleInMetadata,
-        },
-        projectsMap,
-        savedGroupStrategy,
-        capabilities,
-      });
+    if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
+      exp.persistQueryString = true;
+    }
+
+    return finalizeAutoExperiment(exp, {
+      metadataSource: {
+        project: e.project,
+        customFields: e.customFields,
+        tags: e.tags,
+        statusUpdateSchedule: e.statusUpdateSchedule,
+      },
+      metadataOptions: {
+        includeProjectIdInMetadata,
+        includeCustomFieldsInMetadata,
+        allowedCustomFieldsInMetadata,
+        includeTagsInMetadata,
+        includeExperimentScheduleInMetadata,
+      },
+      projectsMap,
+      savedGroupStrategy,
+      capabilities,
+    });
+  };
+
+  // A draft with QA overrides becomes one auto experiment per override. Unlike
+  // feature rules there is no first-match-wins here: the SDK evaluates each
+  // one, so overrides with overlapping filters can both apply.
+  const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
+    sortedAutoExperiments.flatMap((data) => {
+      const { experiment: e } = data;
+      const overrides =
+        e.status === "draft" ? qaOverrides?.get(e.id) : undefined;
+      if (overrides?.length) {
+        return overrides.map((o) => buildAutoExperiment(data, o));
+      }
+      return [buildAutoExperiment(data, undefined)];
     });
 
   const cbSdkExperiments = generateCbVisualExperimentsPayload({

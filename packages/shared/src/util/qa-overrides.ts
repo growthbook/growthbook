@@ -1,13 +1,17 @@
 import { QaOverrideFilters } from "shared/types/experiment-qa-override";
 
-export const QA_TRACKING_KEY_SUFFIX = "__qa";
+// Exposures from QA overrides are tracked under `<trackingKey>::qa` so they
+// never mix with the experiment's real results. Generated tracking keys only
+// contain [a-z0-9_-], so the suffix can't occur by accident, and it's plain
+// text inside a SQL string literal.
+export const QA_TRACKING_KEY_SUFFIX = "::qa";
 
 export function getQaTrackingKey(trackingKey: string): string {
   return `${trackingKey}${QA_TRACKING_KEY_SUFFIX}`;
 }
 
-export function isQaTrackingKey(trackingKey: string): boolean {
-  return trackingKey.endsWith(QA_TRACKING_KEY_SUFFIX);
+export function isQaTrackingKey(trackingKey: string | undefined): boolean {
+  return !!trackingKey && trackingKey.endsWith(QA_TRACKING_KEY_SUFFIX);
 }
 
 export const QA_OVERRIDE_EXPERIMENT_TYPES = ["standard", "multi-armed-bandit"];

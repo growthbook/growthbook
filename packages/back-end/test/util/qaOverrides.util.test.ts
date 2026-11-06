@@ -2,9 +2,11 @@ import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { FeatureDefinitionRule } from "shared/types/sdk";
 import { SavedGroupPayloadStrategy } from "shared/sdk-versioning/saved-groups/types";
+import { FeatureInterface } from "shared/types/feature";
 import { qaOverrideAppliesToConnection } from "shared/util";
 import {
   applyQaOverrideToRule,
+  getFeatureDefinition,
   qaOverrideCondition,
   qaOverrideWeights,
 } from "../../src/util/features";
@@ -23,6 +25,7 @@ const phase = {
   variationWeights: [0.34, 0.33, 0.33],
   coverage: 0.5,
   condition: '{"country":"US"}',
+  seed: "phase-seed",
 } as unknown as ExperimentPhase;
 
 // Inline strategy: saved groups become `$inGroup` references, nothing is rewritten.
@@ -142,6 +145,37 @@ describe("applyQaOverrideToRule", () => {
     seed: "phase-seed",
   });
 
+  it("falls back to the tracking key as seed when the phase has none", () => {
+    const rule = applyQaOverrideToRule(
+      buildRule(),
+      experiment,
+      { ...phase, seed: undefined } as ExperimentPhase,
+      forcedOverride,
+      savedGroupStrategy,
+    );
+    expect(rule.seed).toBe("checkout");
+  });
+
+  it("replaces the rule id with the override id when rule ids are included", () => {
+    const rule = applyQaOverrideToRule(
+      { ...buildRule(), id: "fr_abc" },
+      experiment,
+      phase,
+      forcedOverride,
+      savedGroupStrategy,
+    );
+    expect(rule.id).toBe("eqo_1");
+    expect(
+      applyQaOverrideToRule(
+        buildRule(),
+        experiment,
+        phase,
+        forcedOverride,
+        savedGroupStrategy,
+      ).id,
+    ).toBeUndefined();
+  });
+
   it("forcing a variation strips targeting, coverage, prerequisites and namespace", () => {
     const rule = applyQaOverrideToRule(
       buildRule(),
@@ -150,7 +184,8 @@ describe("applyQaOverrideToRule", () => {
       forcedOverride,
       savedGroupStrategy,
     );
-    expect(rule.key).toBe("checkout__qa");
+    expect(rule.key).toBe("checkout::qa");
+    expect(rule.seed).toBe("phase-seed");
     expect(rule.weights).toEqual([0, 1, 0]);
     expect(rule.coverage).toBe(1);
     expect(rule.disableStickyBucketing).toBe(true);
@@ -168,7 +203,8 @@ describe("applyQaOverrideToRule", () => {
       randomOverride,
       savedGroupStrategy,
     );
-    expect(rule.key).toBe("checkout__qa");
+    expect(rule.key).toBe("checkout::qa");
+    expect(rule.seed).toBe("phase-seed");
     expect(rule.weights).toEqual([0.34, 0.33, 0.33]);
     expect(rule.coverage).toBe(0.5);
     expect(rule.condition).toEqual({ country: "US" });
@@ -215,5 +251,146 @@ describe("qaOverrideAppliesToConnection", () => {
         projects: ["p1", "p2"],
       }),
     ).toBe(true);
+  });
+});
+
+describe("getFeatureDefinition with QA overrides", () => {
+  const draftExperiment = {
+    id: "exp_1",
+    archived: false,
+    status: "draft",
+    trackingKey: "checkout",
+    hashAttribute: "id",
+    hashVersion: 2,
+    variations: [
+      { id: "v0", key: "0", name: "Control" },
+      { id: "v1", key: "1", name: "One-page" },
+    ],
+    phases: [
+      {
+        condition: '{"country":"US"}',
+        coverage: 0.5,
+        variationWeights: [0.5, 0.5],
+        seed: "phase-seed",
+        namespace: { enabled: true, name: "ns", range: [0, 0.5] },
+      },
+    ],
+    linkedFeatures: ["feature"],
+  } as unknown as ExperimentInterface;
+
+  const feature = {
+    id: "feature",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    defaultValue: "false",
+    organization: "org",
+    owner: "",
+    valueType: "boolean",
+    archived: false,
+    description: "",
+    version: 1,
+    environmentSettings: {
+      dev: {
+        enabled: true,
+        rules: [
+          {
+            type: "experiment-ref",
+            experimentId: "exp_1",
+            description: "",
+            id: "fr_abc",
+            enabled: true,
+            variations: [
+              { variationId: "v0", value: "false" },
+              { variationId: "v1", value: "true" },
+            ],
+          },
+        ],
+      },
+    },
+  } as unknown as FeatureInterface;
+
+  const build = (
+    qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>,
+    extra: Partial<Parameters<typeof getFeatureDefinition>[0]> = {},
+  ) =>
+    getFeatureDefinition({
+      feature,
+      environment: "dev",
+      groupMap: new Map(),
+      experimentMap: new Map([["exp_1", draftExperiment]]),
+      safeRolloutMap: new Map(),
+      capabilities: ["looseUnmarshalling", "prerequisites"],
+      includeRuleIds: true,
+      qaOverrides,
+      ...extra,
+    });
+
+  it("serves nothing for a draft without overrides", () => {
+    expect(build()?.rules ?? []).toEqual([]);
+  });
+
+  it("emits one rule per override, in order, on the QA key with the live seed", () => {
+    const def = build(
+      new Map([
+        [
+          "exp_1",
+          [
+            { ...forcedOverride, filters: { condition: '{"id":"tester"}' } },
+            randomOverride,
+          ],
+        ],
+      ]),
+    );
+    expect(def?.rules).toHaveLength(2);
+    const [forced, random] = def?.rules ?? [];
+
+    expect(forced).toMatchObject({
+      id: "eqo_1",
+      key: "checkout::qa",
+      seed: "phase-seed",
+      weights: [0, 1],
+      coverage: 1,
+      condition: { id: "tester" },
+      variations: [false, true],
+    });
+    expect(forced.namespace).toBeUndefined();
+
+    expect(random).toMatchObject({
+      id: "eqo_2",
+      key: "checkout::qa",
+      seed: "phase-seed",
+      weights: [0.5, 0.5],
+      coverage: 0.5,
+      condition: { country: "US" },
+      namespace: ["ns", 0, 0.5],
+    });
+  });
+
+  it("drops the feature's holdout rule while an override is active", () => {
+    const holdoutFeature = {
+      ...feature,
+      holdout: { id: "hld_1", value: "false" },
+    } as unknown as FeatureInterface;
+    const holdoutsMap = new Map([
+      [
+        "hld_1",
+        {
+          holdout: { environmentSettings: { dev: { enabled: true } } },
+          holdoutExperiment: {},
+        },
+      ],
+    ]) as unknown as Parameters<typeof getFeatureDefinition>[0]["holdoutsMap"];
+
+    const without = build(undefined, { feature: holdoutFeature, holdoutsMap });
+    expect(without?.rules?.[0]?.parentConditions?.[0]?.id).toBe(
+      "$holdout:hld_1",
+    );
+
+    const withOverride = build(new Map([["exp_1", [forcedOverride]]]), {
+      feature: holdoutFeature,
+      holdoutsMap,
+    });
+    expect(withOverride?.rules).toHaveLength(1);
+    expect(withOverride?.rules?.[0]?.key).toBe("checkout::qa");
   });
 });
