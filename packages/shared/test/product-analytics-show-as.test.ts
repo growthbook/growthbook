@@ -5,6 +5,7 @@ import {
   getExplorationRenderOpts,
   getShowAsChoice,
   getShowAsOptions,
+  isRatioValue,
   normalizeShowAs,
 } from "shared/enterprise";
 import { toClientJourneyExploration } from "shared/journeys";
@@ -12,6 +13,7 @@ import type {
   ExplorationConfig,
   MetricValue,
   ProductAnalyticsExploration,
+  ProductAnalyticsValue,
   ShowAs,
 } from "shared/validators";
 import { omitRenderOnlyFields } from "shared/validators";
@@ -40,16 +42,6 @@ const metrics = new Map(
   ].map((m) => [m.id, m]),
 );
 const getFactMetricById = (id: string) => metrics.get(id) ?? null;
-
-const getShowAsChoices = (
-  config: ExplorationConfig,
-  getMetric: (id: string) => FactMetricInterface | null,
-) =>
-  config.dataset.type === "funnel" || config.dataset.type === "journey"
-    ? []
-    : config.dataset.values.map((v) =>
-        getShowAsChoice(v, config.showAs, getMetric),
-      );
 
 function metricValue(
   metricId: string,
@@ -104,82 +96,89 @@ describe("getShowAsOptions", () => {
 
 describe("getShowAsChoice", () => {
   it("resolves each mean metric independently", () => {
-    const config = metricConfig([
-      metricValue("revenue", "per_unit"),
-      metricValue("revenue", "total"),
-    ]);
-    expect(getShowAsChoices(config, getFactMetricById)).toEqual([
-      mean("per_unit"),
-      mean("total"),
-    ]);
+    expect(
+      getShowAsChoice(
+        metricValue("revenue", "per_unit"),
+        undefined,
+        getFactMetricById,
+      ),
+    ).toEqual(mean("per_unit"));
+    expect(
+      getShowAsChoice(
+        metricValue("revenue", "total"),
+        undefined,
+        getFactMetricById,
+      ),
+    ).toEqual(mean("total"));
   });
 
   it("infers the default from each metric's own aggregation", () => {
-    const config = metricConfig([
-      metricValue("revenue"),
-      metricValue("maxOrder"),
-    ]);
-    expect(getShowAsChoices(config, getFactMetricById)).toEqual([
-      mean("total"),
-      mean("per_unit"),
-    ]);
+    expect(
+      getShowAsChoice(metricValue("revenue"), undefined, getFactMetricById),
+    ).toEqual(mean("total"));
+    expect(
+      getShowAsChoice(metricValue("maxOrder"), undefined, getFactMetricById),
+    ).toEqual(mean("per_unit"));
   });
 
   it("offers no options and renders totals for other metric types", () => {
-    const config = metricConfig([
-      metricValue("converted", "per_unit"),
-      metricValue("aov"),
-      metricValue("revenue"),
-    ]);
-    expect(getShowAsChoices(config, getFactMetricById)).toEqual([
-      none,
-      none,
-      mean("total"),
-    ]);
+    expect(
+      getShowAsChoice(
+        metricValue("converted", "per_unit"),
+        undefined,
+        getFactMetricById,
+      ),
+    ).toEqual(none);
+    expect(
+      getShowAsChoice(metricValue("aov"), undefined, getFactMetricById),
+    ).toEqual(none);
   });
 
   it("offers no options for a slot with no metric selected", () => {
-    const config = metricConfig([metricValue("")]);
-    expect(getShowAsChoices(config, getFactMetricById)).toEqual([none]);
+    expect(
+      getShowAsChoice(metricValue(""), undefined, getFactMetricById),
+    ).toEqual(none);
   });
 
   it("falls back to the deprecated config-level showAs", () => {
-    const config = metricConfig(
-      [metricValue("revenue"), metricValue("revenue", "total")],
-      "per_unit",
-    );
-    expect(getShowAsChoices(config, getFactMetricById)).toEqual([
-      mean("per_unit"),
-      mean("total"),
-    ]);
+    expect(
+      getShowAsChoice(metricValue("revenue"), "per_unit", getFactMetricById),
+    ).toEqual(mean("per_unit"));
+  });
+
+  it("prefers the value's own showAs over the config-level one", () => {
+    expect(
+      getShowAsChoice(
+        metricValue("revenue", "total"),
+        "per_unit",
+        getFactMetricById,
+      ),
+    ).toEqual(mean("total"));
   });
 
   it("resolves an unsaved draft metric", () => {
     const draft = makeMetric("", "mean", "max");
-    const config = metricConfig([{ ...metricValue(""), draftMetric: draft }]);
-    expect(getShowAsChoices(config, () => null)).toEqual([mean("per_unit")]);
+    expect(
+      getShowAsChoice(
+        { ...metricValue(""), draftMetric: draft },
+        undefined,
+        () => null,
+      ),
+    ).toEqual(mean("per_unit"));
   });
 
-  it("offers no options for any value of a non-metric dataset", () => {
-    const config: ExplorationConfig = {
-      ...metricConfig([]),
+  it("offers no options for non-metric values", () => {
+    const factTableValue: ProductAnalyticsValue = {
       type: "fact_table",
-      dataset: {
-        type: "fact_table",
-        factTableId: "ft",
-        values: [
-          {
-            type: "fact_table",
-            name: "Events",
-            valueType: "count",
-            valueColumn: null,
-            unit: null,
-            rowFilters: [],
-          },
-        ],
-      },
+      name: "Events",
+      valueType: "count",
+      valueColumn: null,
+      unit: null,
+      rowFilters: [],
     };
-    expect(getShowAsChoices(config, getFactMetricById)).toEqual([none]);
+    expect(
+      getShowAsChoice(factTableValue, undefined, getFactMetricById),
+    ).toEqual(none);
   });
 });
 
@@ -327,22 +326,53 @@ describe("getEffectiveMetricValue", () => {
   });
 });
 
+describe("isRatioValue", () => {
+  it("is true only for values whose metric is a ratio", () => {
+    expect(isRatioValue(metricValue("aov"), getFactMetricById)).toBe(true);
+    expect(isRatioValue(metricValue("revenue"), getFactMetricById)).toBe(false);
+    expect(isRatioValue(metricValue(""), getFactMetricById)).toBe(false);
+  });
+});
+
+describe("getEffectiveMetricValue for ratios", () => {
+  it("divides numerator by denominator whatever the showAs", () => {
+    const [opts] = getExplorationRenderOpts(
+      metricConfig([metricValue("aov", "total")]),
+      getFactMetricById,
+    );
+    expect(
+      getEffectiveMetricValue({ numerator: 100, denominator: 4 }, opts),
+    ).toBe(25);
+  });
+});
+
 describe("toClientJourneyExploration", () => {
   it("serves a cached result with the requested names and showAs", () => {
     const cached = {
       config: metricConfig([
-        { ...metricValue("revenue", "per_unit"), name: "Old name" },
-        metricValue("maxOrder"),
+        {
+          ...metricValue("revenue", "per_unit", "device_id"),
+          name: "Old name",
+        },
+        metricValue("maxOrder", undefined, "device_id"),
       ]),
       result: { rows: [] },
     } as unknown as ProductAnalyticsExploration;
+    // The requested unit differs from the cached one, so a result that copied
+    // the whole requested dataset would fail: only names and showAs carry over.
     const requested = metricConfig([
-      { ...metricValue("revenue"), name: "New name" },
-      metricValue("maxOrder", "total"),
+      { ...metricValue("revenue", undefined, "user_id"), name: "New name" },
+      metricValue("maxOrder", "total", "user_id"),
     ]);
     expect(
       toClientJourneyExploration(cached, requested).config.dataset,
-    ).toEqual(requested.dataset);
+    ).toEqual({
+      type: "metric",
+      values: [
+        { ...metricValue("revenue", undefined, "device_id"), name: "New name" },
+        metricValue("maxOrder", "total", "device_id"),
+      ],
+    });
   });
 });
 
@@ -448,6 +478,14 @@ describe("buildExplorationColumns", () => {
         ]),
       ),
     ).toEqual(["revenue", "converted"]);
+  });
+
+  it("splits ratio metrics into numerator, denominator and value columns", () => {
+    expect(labels(metricConfig([metricValue("aov")]))).toEqual([
+      "aov Numerator",
+      "aov Denominator",
+      "aov Value",
+    ]);
   });
 
   it("labels totals when they sit beside per-unit columns", () => {

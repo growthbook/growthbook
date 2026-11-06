@@ -12,7 +12,7 @@ import {
   toFetchKey,
 } from "@/enterprise/components/ProductAnalytics/util";
 
-function metricConfig(showAs?: ShowAs): ExplorationConfig {
+function metricConfig(showAs?: ShowAs, unit = "user_id"): ExplorationConfig {
   return {
     type: "metric",
     datasource: "ds",
@@ -26,7 +26,7 @@ function metricConfig(showAs?: ShowAs): ExplorationConfig {
           type: "metric",
           name: "Revenue",
           metricId: "revenue",
-          unit: "user_id",
+          unit,
           denominatorUnit: null,
           rowFilters: [],
           ...(showAs ? { showAs } : {}),
@@ -40,6 +40,12 @@ describe("toFetchKey", () => {
   it("ignores per-value showAs, which only affects rendering", () => {
     expect(toFetchKey(metricConfig("per_unit"))).toEqual(
       toFetchKey(metricConfig()),
+    );
+  });
+
+  it("changes when a value's unit changes, which changes the query", () => {
+    expect(toFetchKey(metricConfig(undefined, "device_id"))).not.toEqual(
+      toFetchKey(metricConfig(undefined, "user_id")),
     );
   });
 });
@@ -178,5 +184,29 @@ describe("fillMissingUnits", () => {
       filled.dataset.type === "metric" &&
         filled.dataset.values.map((v) => v.unit),
     ).toEqual(["device_id", "device_id"]);
+  });
+
+  it("falls back to the Fact Table's first unit when it lacks the shared one", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds",
+      chartType: "line",
+      dimensions: [],
+      dateRange: { predefined: "last30Days" },
+      dataset: {
+        type: "metric",
+        // signups' Fact Table only offers user_id, so it can't join device_id.
+        values: [value("installs", "device_id"), value("signups", null)],
+      },
+    };
+    const filled = fillMissingUnits(
+      config,
+      getFactTableById,
+      getFactMetricById,
+    );
+    expect(
+      filled.dataset.type === "metric" &&
+        filled.dataset.values.map((v) => v.unit),
+    ).toEqual(["device_id", "user_id"]);
   });
 });
