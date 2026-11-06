@@ -1,6 +1,14 @@
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
+import {
+  DataSourceInterfaceWithParams,
+  GrowthbookClickhouseSettings,
+} from "shared/types/datasource";
 import { getActiveVariations } from "shared/experiments";
+import {
+  getManagedWarehouseQueryIdForAttribute,
+  managedWarehouseGeneratesContextualBanditQueries,
+} from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -186,4 +194,69 @@ export function useContextualBanditSearch({
     },
     filterResults,
   });
+}
+
+type ContextualBanditQueryOption = {
+  id: string;
+  userIdType: string;
+  managedBy?: "" | "api";
+};
+
+export const MANAGED_WAREHOUSE_QUERY_HELP_TEXT =
+  "Generated queries are selected automatically to match this bandit's hash attribute. Change the hash attribute to use a different generated query.";
+
+export function resolveContextualBanditQuerySelection({
+  datasource,
+  hashAttribute,
+  queries,
+  selectedQueryId,
+}: {
+  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings"> | null;
+  hashAttribute: string | undefined;
+  queries: ContextualBanditQueryOption[];
+  selectedQueryId?: string;
+}): string {
+  if (!datasource || !queries.length) return "";
+  const selected = queries.find((q) => q.id === selectedQueryId);
+  if (!managedWarehouseGeneratesContextualBanditQueries(datasource)) {
+    return selected?.id ?? queries[0].id;
+  }
+  if (selected && selected.managedBy !== "api") return selected.id;
+  const generatedMatch = getManagedWarehouseQueryIdForAttribute({
+    settings: datasource.settings as GrowthbookClickhouseSettings,
+    attribute: hashAttribute || "id",
+    queries: queries.filter((q) => q.managedBy === "api"),
+  });
+  if (generatedMatch) return generatedMatch;
+  return queries.find((q) => q.managedBy !== "api")?.id ?? "";
+}
+
+export function getDefaultContextualBanditQueryId({
+  datasource,
+  hashAttribute,
+  queries,
+}: {
+  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings"> | null;
+  hashAttribute: string | undefined;
+  queries: ContextualBanditQueryOption[];
+}): string {
+  return resolveContextualBanditQuerySelection({
+    datasource,
+    hashAttribute,
+    queries,
+  });
+}
+
+export function contextualBanditQueryPickerLocked({
+  datasource,
+  queries,
+}: {
+  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings"> | null;
+  queries: ContextualBanditQueryOption[];
+}): boolean {
+  if (!datasource) return false;
+  if (!managedWarehouseGeneratesContextualBanditQueries(datasource)) {
+    return false;
+  }
+  return queries.length > 0 && queries.every((q) => q.managedBy === "api");
 }

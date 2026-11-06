@@ -1,5 +1,6 @@
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
+  buildManagedWarehouseContextualBanditQueries,
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseEventsFactTableColumns,
@@ -11,8 +12,13 @@ import {
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
   ManagedWarehouseIdAttributeIdentifier,
+  managedWarehouseGeneratesContextualBanditQueries,
+  planManagedWarehouseContextualBanditQuerySync,
 } from "shared/util";
-import { DataSourceInterface } from "shared/types/datasource";
+import {
+  DataSourceInterface,
+  GrowthbookClickhouseSettings,
+} from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
 import type {
   ExperimentEvalItem,
@@ -301,6 +307,43 @@ export async function syncManagedWarehouseIdentifiers(
     { skipExposureQueryValidation: true },
   );
 
+  let contextualBanditQuerySyncError: unknown = null;
+  try {
+    await syncManagedWarehouseContextualBanditQueries(
+      context,
+      datasource,
+      attributeSchema,
+    );
+  } catch (e) {
+    logger.error(
+      e,
+      "Failed to sync managed warehouse contextual bandit queries",
+    );
+    contextualBanditQuerySyncError = e;
+  }
+
+  await syncManagedWarehouseEventsFactTable(
+    context,
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
+    idAttributeIdentifier,
+    newUserIdTypes,
+  );
+
+  if (contextualBanditQuerySyncError) {
+    throw contextualBanditQuerySyncError;
+  }
+}
+
+async function syncManagedWarehouseEventsFactTable(
+  context: ReqContext | ApiReqContext,
+  attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[],
+  migratedColumns: NonNullable<GrowthbookClickhouseSettings["migratedColumns"]>,
+  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
+  newUserIdTypes: string[],
+): Promise<void> {
   // Update the events fact table sql + columns + userIdTypes
   const ft = await dangerouslyGetFactTableByIdBypassPermission(
     context.org.id,
@@ -408,6 +451,56 @@ export async function syncManagedWarehouseIdentifiers(
     columns: newColumns,
     userIdTypes: newUserIdTypes,
   });
+}
+
+export async function syncManagedWarehouseContextualBanditQueries(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+  attributeSchema: SDKAttributeSchema | undefined = context.org.settings
+    ?.attributeSchema,
+): Promise<void> {
+  if (
+    datasource.type !== "growthbook_clickhouse" ||
+    !managedWarehouseGeneratesContextualBanditQueries(datasource)
+  ) {
+    return;
+  }
+  const queries = context.models.contextualBanditQueries;
+  const existing = await queries.getManagedWarehouseQueriesByDatasource(
+    datasource.id,
+  );
+  const referencingBandits =
+    await context.models.contextualBandits.getByContextualBanditQueryIds(
+      existing.map((q) => q.id),
+    );
+  const referencedQueryIds = new Set<string>();
+  const preservedColumns = new Set<string>();
+  for (const cb of referencingBandits) {
+    referencedQueryIds.add(cb.contextualBanditQueryId);
+    if (cb.archived) continue;
+    for (const a of cb.contextualAttributes || []) {
+      preservedColumns.add(a);
+    }
+  }
+  const desired = buildManagedWarehouseContextualBanditQueries(
+    attributeSchema,
+    datasource.settings.migratedIdentifiers || [],
+    datasource.settings.migratedColumns || [],
+    datasource.settings.idAttributeIdentifier === "user_id"
+      ? "user_id"
+      : "device_id",
+    [...preservedColumns],
+  );
+  const plan = planManagedWarehouseContextualBanditQuerySync({
+    existing,
+    desired,
+    referencedQueryIds,
+  });
+  await queries.dangerouslyApplyManagedWarehouseQuerySyncPlan(
+    datasource.id,
+    plan,
+    attributeSchema,
+  );
 }
 
 /**

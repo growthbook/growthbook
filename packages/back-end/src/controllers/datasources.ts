@@ -124,6 +124,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   removeManagedWarehouseLegacyIdentifier,
   setManagedWarehouseIdAttributeIdentifier,
+  syncManagedWarehouseContextualBanditQueries,
 } from "back-end/src/services/clickhouse";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -426,6 +427,15 @@ export async function postManagedWarehouse(
     datasourceSettings,
     "managed_warehouse",
   );
+
+  try {
+    await syncManagedWarehouseContextualBanditQueries(context, datasource);
+  } catch (e) {
+    req.log.error(
+      e,
+      "Managed Warehouse created, but contextual bandit query sync failed",
+    );
+  }
 
   const integration = getSourceIntegrationObject(context, datasource);
 
