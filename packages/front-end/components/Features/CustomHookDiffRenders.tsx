@@ -25,6 +25,12 @@ function scopeStr(h: Snap): string {
   return "Global";
 }
 
+function inputFeaturesStr(h: Snap): string {
+  return h?.inputFeatures?.length
+    ? [...h.inputFeatures].sort().join(", ")
+    : "—";
+}
+
 function ChangeRow({
   label,
   from,
@@ -78,6 +84,7 @@ export function renderCustomHookSettingsSection(
     onOff(pre?.incrementalChangesOnly),
     onOff(post.incrementalChangesOnly),
   );
+  add("Input Feature Flags", inputFeaturesStr(pre), inputFeaturesStr(post));
 
   if (!rows.length) return null;
   return (
@@ -112,6 +119,9 @@ export function getCustomHookSettingsBadges(
       label: post.incrementalChangesOnly ? "Incremental on" : "Incremental off",
       action: "update",
     });
+  }
+  if (inputFeaturesStr(pre) !== inputFeaturesStr(post)) {
+    badges.push({ label: "Input Feature Flags changed", action: "update" });
   }
   return badges;
 }
