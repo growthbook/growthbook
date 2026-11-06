@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCaretRightBold, PiPlusBold } from "react-icons/pi";
+import { PiCaretRightBold } from "react-icons/pi";
 import { FactTableInterface } from "shared/types/fact-table";
 import { hasStartDateFilter, usesBackslashStringEscapes } from "shared/sql";
 import { getFactMetricFactTableIds } from "shared/experiments";
@@ -46,11 +46,7 @@ import { DocLink } from "@/components/DocLink";
 import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import FactTableDetailsModal from "./FactTableDetailsModal";
 import NewFactTableModal from "./NewFactTableModal";
-import ColumnList from "./ColumnList";
-import ColumnValues, { ColumnValuesPanel } from "./ColumnValues";
-import VirtualColumnModal from "./VirtualColumnModal";
-import columnStyles from "./ColumnList.module.scss";
-import eventsStyles from "./FactTableEventsTab.module.scss";
+import FactTableColumnsTab from "./FactTableColumnsTab";
 import FactFilterList from "./FactFilterList";
 import FactTableMetricsTab from "./FactTableMetricsTab";
 import AggregatedFactTablesCard from "./AggregatedFactTablesCard";
@@ -97,7 +93,6 @@ export default function FactTableDetailsPage() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [newVirtualOpen, setNewVirtualOpen] = useState(false);
   const [editSQLOpen, setEditSQLOpen] = useState(false);
   const [showSql, setShowSql] = useState(false);
   const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
@@ -183,9 +178,6 @@ export default function FactTableDetailsPage() {
     columns: [],
   });
   const canLoadCounts = canEditColumns && canOpenInExplorer;
-  // Virtual columns carry raw SQL, so they use the stricter gate
-  const canManageVirtualColumns =
-    permissionsUtil.canManageFactTableVirtualColumn(factTable);
 
   const numColumns = factTable.columns.filter((c) => !c.deleted).length;
   const closeMenu = () => setDropdownOpen(false);
@@ -195,12 +187,6 @@ export default function FactTableDetailsPage() {
       {editOpen && (
         <FactTableDetailsModal
           close={() => setEditOpen(false)}
-          factTable={factTable}
-        />
-      )}
-      {newVirtualOpen && (
-        <VirtualColumnModal
-          close={() => setNewVirtualOpen(false)}
           factTable={factTable}
         />
       )}
@@ -423,7 +409,7 @@ export default function FactTableDetailsPage() {
             {eventColumns.map((c, i) => (
               <span key={c.column}>
                 {i > 0 ? ", " : ""}
-                <span className={columnStyles.mono}>{c.column}</span>
+                <span className={styles.mono}>{c.column}</span>
               </span>
             ))}
           </Text>
@@ -560,66 +546,12 @@ export default function FactTableDetailsPage() {
           )}
 
           <TabsContent value="columns">
-            <ColumnList
+            <FactTableColumnsTab
               factTable={factTable}
               canEdit={canEditColumns}
-              hideSearch
-              detailsLayout
-              renderValues={(col) => <ColumnValues column={col} />}
-              renderExpanded={(col) =>
-                // Only string columns get top values
-                col.datatype === "string" ? (
-                  <ColumnValuesPanel
-                    column={col}
-                    counts={valueCounts.counts[col.column]}
-                    loading={!!valueCounts.loading[col.column]}
-                    error={valueCounts.errors[col.column]}
-                    onLoad={
-                      canLoadCounts
-                        ? () => valueCounts.load(col.column)
-                        : undefined
-                    }
-                  />
-                ) : (
-                  <Text color="text-mid">
-                    No value summary for {col.datatype || "unknown"} columns.
-                  </Text>
-                )
-              }
+              canLoadCounts={canLoadCounts}
+              valueCounts={valueCounts}
             />
-            <Flex justify="between" align="center" mt="5" mb="2">
-              <Heading as="h3" size="md" mb="0">
-                Virtual Columns
-              </Heading>
-              {canManageVirtualColumns ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  icon={<PiPlusBold />}
-                  onClick={() => setNewVirtualOpen(true)}
-                >
-                  Add virtual column
-                </Button>
-              ) : null}
-            </Flex>
-            {factTable.columns.some((c) => c.isVirtual && !c.deleted) ? (
-              <ColumnList
-                factTable={factTable}
-                canEdit={canManageVirtualColumns}
-                hideSearch
-                detailsLayout
-                virtual
-                renderValues={(col) => <ColumnValues column={col} />}
-                renderExpanded={(col) => (
-                  <>
-                    <div className={eventsStyles.sectionLabel}>Expression</div>
-                    <div className={columnStyles.expression}>{col.sql}</div>
-                  </>
-                )}
-              />
-            ) : (
-              <Text color="text-mid">No virtual columns yet.</Text>
-            )}
           </TabsContent>
 
           <TabsContent value="sample">

@@ -3,14 +3,12 @@ import {
   getFactTableIdColumn,
   getFactTableTimestampColumn,
 } from "shared/experiments";
-import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PiUserBold,
   PiClockBold,
   PiStackBold,
   PiFunnelBold,
-  PiCaretRightBold,
-  PiArrowClockwise,
   PiPencilSimpleFill,
 } from "react-icons/pi";
 import { FaTriangleExclamation } from "react-icons/fa6";
@@ -23,43 +21,18 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Avatar from "@/ui/Avatar";
-import Badge from "@/ui/Badge";
-import Text from "@/ui/Text";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ColumnModal from "./ColumnModal";
-import VirtualColumnModal from "./VirtualColumnModal";
-import styles from "./ColumnList.module.scss";
 
 export interface Props {
   factTable: FactTableInterface;
   canEdit?: boolean;
-  // Adds a Values column, rendered per non-JSON-field column
-  renderValues?: (column: ColumnInterface) => ReactNode;
-  // Makes columns with stored top values expandable, rendering this plus the
-  // edit button below the row (replaces the pencil)
-  renderExpanded?: (column: ColumnInterface) => ReactNode;
-  hideSearch?: boolean;
-  // Redesigned details page: no icon, display name, or edit columns, and
-  // roomier rows
-  detailsLayout?: boolean;
-  // Lists only virtual columns, which edit in their own modal and can be deleted
-  virtual?: boolean;
 }
 
 const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
 const POLL_TIMEOUT_MS = 60000; // Give up after 1 minute
 
-export default function ColumnList({
-  factTable,
-  canEdit = false,
-  renderValues,
-  renderExpanded,
-  hideSearch = false,
-  detailsLayout = false,
-  virtual = false,
-}: Props) {
+export default function ColumnList({ factTable, canEdit = false }: Props) {
   const [editOpen, setEditOpen] = useState("");
-  const [expanded, setExpanded] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
@@ -89,7 +62,8 @@ export default function ColumnList({
     const out: (ColumnInterface & { jsonFieldParent?: string })[] = [];
     for (const col of factTable.columns || []) {
       if (col.deleted) continue;
-      if (!!col.isVirtual !== virtual) continue;
+      // Virtual columns are managed in their own tab, not the Columns list.
+      if (col.isVirtual) continue;
       out.push(col);
       if (col.datatype === "json" && col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
@@ -108,7 +82,7 @@ export default function ColumnList({
       }
     }
     return out;
-  }, [factTable, virtual]);
+  }, [factTable]);
 
   const timestampColumn = getFactTableTimestampColumn(factTable);
 
@@ -135,53 +109,13 @@ export default function ColumnList({
       pageSize: 10,
     });
 
-  async function refreshColumns() {
-    setRefreshing(true);
-    try {
-      await apiCall(`/fact-tables/${factTable.id}?forceColumnRefresh=1`, {
-        method: "PUT",
-        body: JSON.stringify({}),
-      });
-      await mutateDefinitions();
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
-  const numCols =
-    (detailsLayout ? 3 : 5) + (renderValues ? 1 : 0) + (renderExpanded ? 1 : 0);
-
   const existing = editOpen
     ? factTable.columns.find((c) => c.column === editOpen)
     : null;
 
-  // The details layout puts the table in a frame with a refresh strip on top
-  const refreshStrip =
-    detailsLayout && !virtual ? (
-      <Flex justify="end" align="center" gap="3" px="4" py="3">
-        {canEdit ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={<PiArrowClockwise />}
-            loading={refreshing || !!factTable.columnRefreshPending}
-            onClick={refreshColumns}
-          >
-            Refresh
-          </Button>
-        ) : null}
-      </Flex>
-    ) : null;
-
   return (
     <>
-      {existing && virtual ? (
-        <VirtualColumnModal
-          close={() => setEditOpen("")}
-          factTable={factTable}
-          existing={existing}
-        />
-      ) : existing ? (
+      {existing ? (
         <ColumnModal
           close={() => setEditOpen("")}
           factTable={factTable}
@@ -200,32 +134,44 @@ export default function ColumnList({
         </Callout>
       )}
 
-      {!detailsLayout ? (
-        <Flex align="center" gap="4">
-          {columns.length > 0 && !hideSearch && (
-            <Box mr="auto">
-              <Field
-                size="legacy"
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </Box>
-          )}
-          {canEdit && (
-            <Box>
-              <Button
-                size="sm"
-                variant="outline"
-                loading={refreshing || !!factTable.columnRefreshPending}
-                onClick={refreshColumns}
-              >
-                Refresh
-              </Button>
-            </Box>
-          )}
-        </Flex>
-      ) : null}
+      <Flex align="center" gap="4">
+        {columns.length > 0 && (
+          <Box mr="auto">
+            <Field
+              size="legacy"
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </Box>
+        )}
+        {canEdit && (
+          <Box>
+            <Button
+              size="sm"
+              variant="outline"
+              loading={refreshing || !!factTable.columnRefreshPending}
+              onClick={async () => {
+                setRefreshing(true);
+                try {
+                  await apiCall(
+                    `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
+                    {
+                      method: "PUT",
+                      body: JSON.stringify({}),
+                    },
+                  );
+                  await mutateDefinitions();
+                } finally {
+                  setRefreshing(false);
+                }
+              }}
+            >
+              Refresh
+            </Button>
+          </Box>
+        )}
+      </Flex>
       {columns.some((col) => !col.deleted && col.datatype === "") && (
         <Callout status="warning" mt="2">
           <span>
@@ -237,303 +183,163 @@ export default function ColumnList({
       )}
       {columns.length > 0 ? (
         <>
-          <div className={detailsLayout ? styles.frame : undefined}>
-            {refreshStrip}
-            <table
-              className={
-                detailsLayout
-                  ? `table gbtable mb-0 ${styles.detailsTable}`
-                  : "table table-tiny appbox gbtable mt-2 mb-0"
-              }
-            >
-              <thead>
-                <tr>
-                  {renderExpanded ? <th style={{ width: 30 }}></th> : null}
-                  {!detailsLayout ? <th style={{ width: 30 }}></th> : null}
-                  <SortableTH field="column">Column</SortableTH>
-                  {!detailsLayout ? <th></th> : null}
-                  <SortableTH field="type">Type</SortableTH>
-                  {detailsLayout ? <th>Roles</th> : null}
-                  {renderValues ? <th>Values</th> : null}
-                  {!detailsLayout ? <th style={{ width: 30 }}></th> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((col) => {
-                  // JSON sub-fields are read-only, so they have no panel
-                  const expandable = !!renderExpanded && !col.isJsonField;
-                  const isOpen = expandable && expanded === col.column;
-                  const toggle = () => setExpanded(isOpen ? null : col.column);
-                  return (
-                    <Fragment key={col.column}>
-                      <tr
-                        onClick={expandable ? toggle : undefined}
-                        style={expandable ? { cursor: "pointer" } : undefined}
-                      >
-                        {renderExpanded ? (
-                          <td className={styles.iconCell}>
-                            {expandable ? (
-                              <IconButton
-                                variant="ghost"
-                                size="1"
-                                aria-expanded={isOpen}
-                                aria-label={`${isOpen ? "Collapse" : "Expand"} ${col.column}`}
-                              >
-                                <PiCaretRightBold
-                                  style={{
-                                    transform: isOpen
-                                      ? "rotate(90deg)"
-                                      : undefined,
-                                  }}
-                                />
-                              </IconButton>
-                            ) : null}
-                          </td>
-                        ) : null}
-                        {!detailsLayout ? (
-                          <td>
+          <table className="table table-tiny appbox gbtable mt-2 mb-0">
+            <thead>
+              <tr>
+                <th style={{ width: 30 }}></th>
+                <SortableTH field="column">Column</SortableTH>
+                <th></th>
+                <SortableTH field="type">Type</SortableTH>
+                <th style={{ width: 30 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((col) => (
+                <tr key={col.column}>
+                  <td>
+                    <div
+                      className="d-flex align-items-center"
+                      style={{ minHeight: 32 }}
+                    >
+                      {col.identifier && (
+                        <Tooltip body="User Identifier Type" tipPosition="left">
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiUserBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.column === timestampColumn && (
+                        <Tooltip
+                          body="Main date field used for sorting and filtering"
+                          tipPosition="left"
+                        >
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiClockBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.isAutoSliceColumn && (
+                        <div style={{ position: "relative" }}>
+                          <Tooltip
+                            body={
+                              (!col.autoSlices ||
+                                col.autoSlices.length === 0) &&
+                              col.datatype !== "boolean"
+                                ? "Auto slices enabled, no slice levels configured"
+                                : "Auto slices enabled"
+                            }
+                            tipPosition="left"
+                          >
+                            <Avatar
+                              size="sm"
+                              color="violet"
+                              variant="soft"
+                              radius="small"
+                            >
+                              <PiStackBold size={14} />
+                            </Avatar>
+                          </Tooltip>
+                          {(!col.autoSlices ||
+                            (col.autoSlices.length === 0 &&
+                              col.datatype !== "boolean")) && (
                             <div
-                              className="d-flex align-items-center"
-                              style={{ minHeight: 32 }}
-                            >
-                              {col.identifier && (
-                                <Tooltip
-                                  body="User Identifier Type"
-                                  tipPosition="left"
-                                >
-                                  <Avatar
-                                    size="sm"
-                                    color="violet"
-                                    variant="soft"
-                                    radius="small"
-                                  >
-                                    <PiUserBold size={14} />
-                                  </Avatar>
-                                </Tooltip>
-                              )}
-                              {col.column === timestampColumn && (
-                                <Tooltip
-                                  body="Main date field used for sorting and filtering"
-                                  tipPosition="left"
-                                >
-                                  <Avatar
-                                    size="sm"
-                                    color="violet"
-                                    variant="soft"
-                                    radius="small"
-                                  >
-                                    <PiClockBold size={14} />
-                                  </Avatar>
-                                </Tooltip>
-                              )}
-                              {col.isAutoSliceColumn && (
-                                <div style={{ position: "relative" }}>
-                                  <Tooltip
-                                    body={
-                                      (!col.autoSlices ||
-                                        col.autoSlices.length === 0) &&
-                                      col.datatype !== "boolean"
-                                        ? "Auto slices enabled, no slice levels configured"
-                                        : "Auto slices enabled"
-                                    }
-                                    tipPosition="left"
-                                  >
-                                    <Avatar
-                                      size="sm"
-                                      color="violet"
-                                      variant="soft"
-                                      radius="small"
-                                    >
-                                      <PiStackBold size={14} />
-                                    </Avatar>
-                                  </Tooltip>
-                                  {(!col.autoSlices ||
-                                    (col.autoSlices.length === 0 &&
-                                      col.datatype !== "boolean")) && (
-                                    <div
-                                      style={{
-                                        position: "absolute",
-                                        top: -2,
-                                        right: -2,
-                                        width: 8,
-                                        height: 8,
-                                        backgroundColor: "var(--red-10)",
-                                        borderRadius: "50%",
-                                        border: "1px solid white",
-                                      }}
-                                    />
-                                  )}
-                                </div>
-                              )}
-                              {col.alwaysInlineFilter && (
-                                <Tooltip
-                                  body="Prompt all metrics to filter on this column"
-                                  tipPosition="left"
-                                >
-                                  <Avatar
-                                    size="sm"
-                                    color="violet"
-                                    variant="soft"
-                                    radius="small"
-                                  >
-                                    <PiFunnelBold size={14} />
-                                  </Avatar>
-                                </Tooltip>
-                              )}
-                            </div>
-                          </td>
-                        ) : null}
-                        <td>
-                          {col.isJsonField ? (
-                            <span
-                              className={`text-muted ${detailsLayout ? styles.mono : ""}`}
-                              style={{ paddingLeft: 16 }}
-                            >
-                              {col.column}
-                            </span>
-                          ) : detailsLayout ? (
-                            <span className={`${styles.mono} ${styles.name}`}>
-                              {col.column}
-                            </span>
-                          ) : (
-                            col.column
+                              style={{
+                                position: "absolute",
+                                top: -2,
+                                right: -2,
+                                width: 8,
+                                height: 8,
+                                backgroundColor: "var(--red-10)",
+                                borderRadius: "50%",
+                                border: "1px solid white",
+                              }}
+                            />
                           )}
-                          {detailsLayout && virtual ? (
-                            <Text as="div" size="sm" color="text-mid">
-                              <span className={styles.mono}>{col.sql}</span>
-                            </Text>
-                          ) : null}
-                          {detailsLayout &&
-                          !virtual &&
-                          col.name !== col.column ? (
-                            <Text as="div" size="sm" color="text-mid">
-                              {col.name}
-                            </Text>
-                          ) : null}
-                          {detailsLayout && !virtual && col.description ? (
-                            <Text as="div" size="sm" color="text-mid">
-                              {col.description}
-                            </Text>
-                          ) : null}
-                        </td>
-                        {!detailsLayout ? (
-                          <td>
-                            {col.name !== col.column ? `"${col.name}"` : ""}
-                          </td>
-                        ) : null}
-                        <td>
-                          {col.datatype || "unknown"}{" "}
-                          {col.datatype === "number" && col.numberFormat && (
-                            <>({col.numberFormat})</>
-                          )}
-                          {col.datatype === "" && (
-                            <Tooltip body="Unable to detect the data type. Edit this column to set one.">
-                              <FaTriangleExclamation className="text-danger" />
-                            </Tooltip>
-                          )}
-                        </td>
-                        {detailsLayout ? (
-                          <td>
-                            <Flex gap="1" wrap="wrap">
-                              {[
-                                col.identifier && "Identifier",
-                                col.column === timestampColumn && "Timestamp",
-                                col.alwaysInlineFilter && "Filter",
-                                col.isAutoSliceColumn && "Auto Slice",
-                              ]
-                                .filter((role): role is string => !!role)
-                                .map((role) => (
-                                  <Badge
-                                    key={role}
-                                    label={role}
-                                    color="violet"
-                                    variant="soft"
-                                  />
-                                ))}
-                            </Flex>
-                          </td>
-                        ) : null}
-                        {renderValues ? (
-                          <td>{col.isJsonField ? null : renderValues(col)}</td>
-                        ) : null}
-                        {!detailsLayout ? (
-                          <td>
-                            <div className="d-flex align-items-center px-1">
-                              {canEdit &&
-                                !col.isJsonField &&
-                                !renderExpanded && (
-                                  <IconButton
-                                    size="2"
-                                    variant="ghost"
-                                    onClick={() => setEditOpen(col.column)}
-                                  >
-                                    <PiPencilSimpleFill size={14} />
-                                  </IconButton>
-                                )}
-                            </div>
-                          </td>
-                        ) : null}
-                      </tr>
-                      {isOpen && renderExpanded ? (
-                        <tr>
-                          <td colSpan={numCols}>
-                            <Flex
-                              justify="between"
-                              align="start"
-                              gap="3"
-                              py="2"
-                            >
-                              <Box flexGrow="1">{renderExpanded(col)}</Box>
-                              {canEdit ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setEditOpen(col.column)}
-                                >
-                                  Edit column
-                                </Button>
-                              ) : null}
-                              {canEdit && virtual ? (
-                                <DeleteButton
-                                  useRadix
-                                  displayName="Virtual Column"
-                                  text="Delete"
-                                  deleteMessage="This will remove the virtual column. Metrics or filters that reference it will need to be updated."
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/fact-tables/${factTable.id}/column/${col.column}`,
-                                      { method: "DELETE" },
-                                    );
-                                    await mutateDefinitions();
-                                  }}
-                                />
-                              ) : null}
-                            </Flex>
-                          </td>
-                        </tr>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
-                {!items.length && isFiltered && (
-                  <tr>
-                    <td colSpan={numCols} align={"center"}>
-                      No matching columns.{" "}
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          clear();
-                        }}
-                      >
-                        Clear search field
-                      </a>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                        </div>
+                      )}
+                      {col.alwaysInlineFilter && (
+                        <Tooltip
+                          body="Prompt all metrics to filter on this column"
+                          tipPosition="left"
+                        >
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiFunnelBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    {col.isJsonField ? (
+                      <span className="text-muted" style={{ paddingLeft: 16 }}>
+                        {col.column}
+                      </span>
+                    ) : (
+                      col.column
+                    )}
+                  </td>
+                  <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
+                  <td>
+                    {col.datatype || "unknown"}{" "}
+                    {col.datatype === "number" && col.numberFormat && (
+                      <>({col.numberFormat})</>
+                    )}
+                    {col.datatype === "" && (
+                      <Tooltip body="Unable to detect the data type. Edit this column to set one.">
+                        <FaTriangleExclamation className="text-danger" />
+                      </Tooltip>
+                    )}
+                  </td>
+                  <td>
+                    <div className="d-flex align-items-center px-1">
+                      {canEdit && !col.isJsonField && (
+                        <IconButton
+                          size="2"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditOpen(col.column);
+                          }}
+                        >
+                          <PiPencilSimpleFill size={14} />
+                        </IconButton>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!items.length && isFiltered && (
+                <tr>
+                  <td colSpan={4} align={"center"}>
+                    No matching columns.{" "}
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        clear();
+                      }}
+                    >
+                      Clear search field
+                    </a>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
           {pagination}
         </>
       ) : (

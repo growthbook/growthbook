@@ -25,7 +25,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import FactTableSampleRows from "./FactTableSampleRows";
 import styles from "./FactTableEventsTab.module.scss";
-import columnStyles from "./ColumnList.module.scss";
+import columnStyles from "./FactTableDetailsPage.module.scss";
 import { CountBar, useTopValuesLookbackDays } from "./ColumnValues";
 
 // Keeps an expanded row's height close to the sample rows beside it

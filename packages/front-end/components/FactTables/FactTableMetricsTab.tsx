@@ -14,7 +14,7 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import columnStyles from "./ColumnList.module.scss";
+import columnStyles from "./FactTableDetailsPage.module.scss";
 
 export default function FactTableMetricsTab({
   factTable,
