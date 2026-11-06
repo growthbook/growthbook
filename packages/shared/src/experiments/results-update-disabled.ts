@@ -1,4 +1,4 @@
-import { differenceInHours } from "date-fns";
+import { differenceInMinutes } from "date-fns";
 import { getValidDate } from "shared/dates";
 import { OrganizationSettings } from "shared/types/organization";
 
@@ -29,5 +29,5 @@ export function isExperimentResultsUpdateDisabled(
     experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
   if (!dateEnded) return false;
   const graceHours = settings.stoppedExperimentResultsUpdateGraceHours ?? 0;
-  return differenceInHours(now, getValidDate(dateEnded)) >= graceHours;
+  return differenceInMinutes(now, getValidDate(dateEnded)) / 60 >= graceHours;
 }
