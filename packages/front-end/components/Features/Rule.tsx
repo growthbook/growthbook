@@ -79,7 +79,6 @@ import {
   getUpcomingScheduleRule,
   rampScheduleDates,
   ScheduleDate,
-  scheduleVerb,
 } from "@/services/scheduleRules";
 import { ConflictBanner, ConflictCallout } from "@/services/rule-conflicts";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -670,7 +669,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             key="exp-start"
             color="violet"
             variant="soft"
-            label={`${scheduleVerb(sched.startAt, "Starts", "Started")} ${fmtScheduleDate(sched.startAt)}`}
+            // Still a draft, so it hasn't started, whatever the date.
+            label={`Starts ${fmtScheduleDate(sched.startAt)}`}
           />,
         );
       }

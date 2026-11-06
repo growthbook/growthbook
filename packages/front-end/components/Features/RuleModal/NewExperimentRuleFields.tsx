@@ -164,14 +164,14 @@ export default function NewExperimentRuleFields({
         size="medium"
       />
       <Field
-        label={kind === "bandit" ? "Bandit Name" : "Experiment Name"}
+        label={kind === "bandit" ? "Bandit name" : "Experiment name"}
         required
         minLength={2}
         {...form.register("name")}
       />
       {settings.experimentKeyRegexValidator && (
         <Field
-          label="Tracking Key"
+          label="Tracking key"
           {...form.register("trackingKey")}
           {...trackingKeyFormatProps}
         />
@@ -281,7 +281,7 @@ export default function NewExperimentRuleFields({
       {kind === "bandit" ? (
         <>
           <Field
-            label="Number of Variations"
+            label="Number of variations"
             type="number"
             min={2}
             max={100}

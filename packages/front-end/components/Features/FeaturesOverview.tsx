@@ -224,7 +224,7 @@ export default function FeaturesOverview({
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
-  revision: FeatureRevisionInterface | null;
+  revision: FeatureRevisionInterface;
   revisionList: MinimalFeatureRevisionInterface[];
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
@@ -249,14 +249,19 @@ export default function FeaturesOverview({
     envId: string;
     desiredState: boolean;
   } | null>(null);
-  // The environment whose switch is saving to the draft.
+  // The environment whose switch is saving to the draft. Every switch waits
+  // on it: each save writes the draft's whole environment map, so two at once
+  // would drop one.
   const [savingEnv, setSavingEnv] = useState<string | null>(null);
-  // A switch's save the server refused.
+  // A switch's save the server refused, on the revision it was made on.
   const [envError, setEnvError] = useState<{
     envId: string;
     on: boolean;
     message: string;
   } | null>(null);
+  useEffect(() => {
+    setEnvError(null);
+  }, [revision.version]);
   const { apiCall } = useAuth();
 
   const { hasCommercialFeature } = useUser();
@@ -374,12 +379,12 @@ export default function FeaturesOverview({
 
   const currentVersion = version || baseFeature.version;
 
-  const baseVersion = revision?.baseVersion || feature.version;
+  const baseVersion = revision.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
-  const isLive = revision?.version === feature.version;
-  const isDraft =
-    !!revision &&
-    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
+  const isLive = revision.version === feature.version;
+  const isDraft = (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
+    revision.status,
+  );
 
   const projectId = feature.project;
 
@@ -692,7 +697,7 @@ export default function FeaturesOverview({
                                     toggleEnvironment(en.id, on)
                                   }
                                   disabled={
-                                    savingEnv === en.id ||
+                                    savingEnv !== null ||
                                     !!envBlockedReason(en.id)
                                   }
                                   changed={
@@ -759,7 +764,7 @@ export default function FeaturesOverview({
                   >
                     <Box py="2" style={{ width: 200, flexShrink: 0 }}>
                       <Text weight="regular" color="text-mid">
-                        Net Status
+                        Net status
                       </Text>
                     </Box>
                     {envs.length > 0 && (
@@ -833,7 +838,7 @@ export default function FeaturesOverview({
                               enabled={enabled}
                               onToggle={(on) => toggleEnvironment(en.id, on)}
                               disabled={
-                                savingEnv === en.id || !!envBlockedReason(en.id)
+                                savingEnv !== null || !!envBlockedReason(en.id)
                               }
                               changed={
                                 isDraft && enabled !== liveEnabled(en.id)
@@ -899,76 +904,72 @@ export default function FeaturesOverview({
           )}
         </SectionFrame>
 
-        {revision && (
-          <>
-            <SectionFrame
-              title="Default Value"
-              mt="5"
-              // Its copy and fullscreen buttons show while it's hovered, as a
-              // rule's do.
-              className={cornerStyles.hoverActions}
-              actions={
-                canEditDrafts && showsControls ? (
-                  <UITooltip content={lockReason} enabled={!!lockReason}>
-                    <Button
-                      variant="ghost"
-                      size="md"
-                      disabled={!!lockReason}
-                      onClick={() => setEdit(true)}
-                    >
-                      Edit
-                    </Button>
-                  </UITooltip>
-                ) : null
-              }
-            >
-              <ForceSummary
-                value={getFeatureDefaultValue(feature)}
-                feature={feature}
-                isDefault={true}
-                // Match FeatureRules' tab: ignore a stored env that isn't one
-                // of this feature's environments (falls back to base).
-                environment={
-                  rulesEnv !== null && envs.includes(rulesEnv)
-                    ? rulesEnv
-                    : undefined
-                }
-              />
-            </SectionFrame>
+        <SectionFrame
+          title="Default Value"
+          mt="5"
+          // Its copy and fullscreen buttons show while it's hovered, as a
+          // rule's do.
+          className={cornerStyles.hoverActions}
+          actions={
+            canEditDrafts && showsControls ? (
+              <UITooltip content={lockReason} enabled={!!lockReason}>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  disabled={!!lockReason}
+                  onClick={() => setEdit(true)}
+                >
+                  Edit
+                </Button>
+              </UITooltip>
+            ) : null
+          }
+        >
+          <ForceSummary
+            value={getFeatureDefaultValue(feature)}
+            feature={feature}
+            isDefault={true}
+            // Match FeatureRules' tab: ignore a stored env that isn't one
+            // of this feature's environments (falls back to base).
+            environment={
+              rulesEnv !== null && envs.includes(rulesEnv)
+                ? rulesEnv
+                : undefined
+            }
+          />
+        </SectionFrame>
 
-            {environments.length > 0 ? (
-              <FeatureRules
-                environments={environments}
-                feature={feature}
-                baseFeature={baseFeature}
-                isLocked={isReadOnly}
-                lockedBySchedule={editLockedBySchedule}
-                canEditDrafts={canEditDrafts}
-                experimentsMap={experimentsMap}
-                mutate={mutate}
-                currentVersion={currentVersion}
-                setVersion={setVersion}
-                isDraft={isDraft}
-                safeRolloutsMap={safeRolloutsMap}
-                holdout={holdout}
-                revisionList={revisionList || []}
-                rampSchedules={rampSchedules}
-                draftRevision={revision}
-                rulesEnv={rulesEnv}
-                setRulesEnv={setRulesEnv}
-                baseRevision={baseRevision}
-                stickyHeaderTop={stickyTop}
-              />
-            ) : (
-              <SectionFrame title="Rules" mt="5">
-                <p>
-                  You need at least one environment to add rules. Add powerful
-                  logic on top of your feature. The first rule that matches will
-                  be applied and override the Default Value.
-                </p>
-              </SectionFrame>
-            )}
-          </>
+        {environments.length > 0 ? (
+          <FeatureRules
+            environments={environments}
+            feature={feature}
+            baseFeature={baseFeature}
+            isLocked={isReadOnly}
+            lockedBySchedule={editLockedBySchedule}
+            canEditDrafts={canEditDrafts}
+            experimentsMap={experimentsMap}
+            mutate={mutate}
+            currentVersion={currentVersion}
+            setVersion={setVersion}
+            isDraft={isDraft}
+            safeRolloutsMap={safeRolloutsMap}
+            holdout={holdout}
+            revisionList={revisionList || []}
+            rampSchedules={rampSchedules}
+            draftRevision={revision}
+            rulesEnv={rulesEnv}
+            setRulesEnv={setRulesEnv}
+            baseRevision={baseRevision}
+            stickyHeaderTop={stickyTop}
+          />
+        ) : (
+          <SectionFrame title="Rules" mt="5">
+            <p>
+              You need at least one environment to add rules. Add powerful logic
+              on top of your feature. The first rule that matches will be
+              applied and override the Default Value.
+            </p>
+          </SectionFrame>
         )}
 
         {/* Modals */}

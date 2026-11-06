@@ -17,7 +17,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
 import track from "@/services/track";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
-import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -28,7 +27,7 @@ export interface KillSwitchModalProps {
   // Merged feature (may reflect draft state)
   feature: FeatureInterface;
   // Raw live feature document (un-merged)
-  baseFeature?: FeatureInterface;
+  baseFeature: FeatureInterface;
   // The environment a switch was flipped for, and the state it asks for.
   environment: string;
   desiredState: boolean;
@@ -55,9 +54,8 @@ export default function KillSwitchModal({
   const settings = useOrgSettings();
   const { userId } = useUser();
   const allOrgEnvironments = useEnvironments();
-  const ctx = useFeatureRevisionsContext();
 
-  const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
+  const liveDoc = baseFeature;
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
     liveDoc,
     "feature",

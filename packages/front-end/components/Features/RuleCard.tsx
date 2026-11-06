@@ -5,10 +5,6 @@ import Badge from "@/ui/Badge";
 import cornerStyles from "./CornerActions.module.scss";
 import styles from "./RuleCard.module.scss";
 
-// Shared visual chrome for `Rule` and `HoldoutRule`: the Card, its colored
-// side bar, and a header row (drag handle, index badge, the caller's header)
-// over a divider and the caller's body.
-
 export type RuleCardSideColor =
   | "active"
   | "skipped"

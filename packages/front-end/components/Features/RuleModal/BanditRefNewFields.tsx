@@ -203,13 +203,13 @@ export default function BanditRefNewFields({
             size="legacy"
             required={true}
             minLength={2}
-            label="Bandit Name"
+            label="Bandit name"
             {...form.register("name")}
           />
 
           <Field
             size="legacy"
-            label="Tracking Key"
+            label="Tracking key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
             {...trackingKeyFormatProps}
@@ -246,7 +246,7 @@ export default function BanditRefNewFields({
               Assign Variation by Attribute
             </Text>
             <Text as="div" color="text-mid" mb="2">
-              Will be hashed together with the Tracking Key to determine which
+              Will be hashed together with the tracking key to determine which
               variation to assign
             </Text>
             <SelectField

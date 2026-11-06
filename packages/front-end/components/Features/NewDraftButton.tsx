@@ -58,7 +58,7 @@ export default function NewDraftButton(props: Props) {
             variant="soft"
             style={{ whiteSpace: "nowrap" }}
           >
-            New Draft
+            New draft
           </Button>
         </Tooltip>
         {atDraftCap && (
@@ -126,7 +126,7 @@ function NewDraftModal({
         </>
       }
       size="lg"
-      cta="Create Draft"
+      cta="Create draft"
       ctaEnabled={(!atDraftCap || draftCapAcknowledged) && !uploading}
       aboveFooterContent={
         atDraftCap ? (

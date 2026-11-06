@@ -344,13 +344,13 @@ export default function ExperimentRefNewFields({
             size="legacy"
             required={true}
             minLength={2}
-            label="Experiment Name"
+            label="Experiment name"
             {...form.register("name")}
           />
 
           <Field
             size="legacy"
-            label="Tracking Key"
+            label="Tracking key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
             {...trackingKeyFormatProps}
@@ -396,7 +396,7 @@ export default function ExperimentRefNewFields({
               Assign Variation by Attribute
             </Text>
             <Text as="div" color="text-mid" mb="2">
-              Will be hashed together with the Tracking Key to determine which
+              Will be hashed together with the tracking key to determine which
               variation to assign
             </Text>
             <SelectField
