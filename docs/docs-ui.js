@@ -21,8 +21,9 @@ function hideMintlifyAssistantChrome() {
 
 // The app sets gb_last_active on .growthbook.io whenever a signed-in user
 // opens it (see packages/front-end/services/last-active-cookie.ts). People
-// who've used the app get "Open App"; everyone else gets "Start For Free".
-// The cookie is a spoofable UI hint only.
+// who've used the app get a single "Open App" button; everyone else gets an
+// "Open App" link plus a "Start For Free" button (both go to the app). The
+// cookie is a spoofable UI hint only.
 function hasUsedApp() {
   return document.cookie
     .split(";")
@@ -30,7 +31,11 @@ function hasUsedApp() {
 }
 
 function labelAppCta() {
-  const label = hasUsedApp() ? "Open App" : "Start For Free";
+  const usedApp = hasUsedApp();
+  // styles.css hides the separate Open App link when this class is set,
+  // since the primary button already says "Open App".
+  document.documentElement.classList.toggle("gb-used-app", usedApp);
+  const label = usedApp ? "Open App" : "Start For Free";
   const span = document.querySelector(
     'a.bg-primary[href^="https://app.growthbook.io"] span',
   );

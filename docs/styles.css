@@ -303,17 +303,20 @@ code a {
   }
 }
 
-/* Theme toggle sits left of the app CTA so the CTA is the last thing in the
-   navbar. The CTA lives inside the links <ul> while the toggle is a sibling of
-   it, so flatten the <ul> into the right-hand flex row and reorder. Scoped to
-   the same 1100px navbar container width at which Mintlify shows the <ul>;
-   narrower than that the links collapse into the More actions menu. */
+/* Theme toggle sits left of the app buttons (the Open App link and the
+   primary CTA) so they're the last things in the navbar. Both buttons live
+   inside the links <ul> while the toggle is a sibling of it, so flatten the
+   <ul> into the right-hand flex row and reorder. Scoped to the same 1100px
+   navbar container width at which Mintlify shows the <ul>; narrower than that
+   the links collapse into the More actions menu. */
 @container navbar (min-width: 1100px) {
   #navbar .topbar-right-container > ul {
     display: contents;
   }
 
-  #navbar .topbar-right-container > ul > li:has(> a.bg-primary) {
+  #navbar .topbar-right-container > ul > li:has(> a.bg-primary),
+  #navbar .topbar-right-container > ul > li:has(> a[href^="https://app.growthbook.io"])
+  {
     order: 2;
   }
 
@@ -324,6 +327,13 @@ code a {
   #navbar .topbar-right-container > div:last-child {
     order: 3;
   }
+}
+
+/* Returning app users (docs-ui.js sets .gb-used-app from the gb_last_active
+   cookie) see the primary button as "Open App", so drop the separate link. */
+.gb-used-app #navbar li.navbar-link:has(> a[href^="https://app.growthbook.io"])
+{
+  display: none;
 }
 
 /* GitHub navbar link as a borderless pill with just the GitHub mark and the
