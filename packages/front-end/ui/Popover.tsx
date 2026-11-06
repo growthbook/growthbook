@@ -177,7 +177,13 @@ export function Popover({
               style={appliedContentStyle}
               {...hoverHandlers}
               onOpenAutoFocus={
-                openOnHover ? (e) => e.preventDefault() : onOpenAutoFocus
+                openOnHover
+                  ? (event) => {
+                      // Hover must not steal focus. Callers override this for keyboard opens.
+                      if (onOpenAutoFocus) onOpenAutoFocus(event);
+                      else event.preventDefault();
+                    }
+                  : onOpenAutoFocus
               }
               onCloseAutoFocus={onCloseAutoFocus}
               onEscapeKeyDown={

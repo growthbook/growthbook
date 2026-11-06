@@ -25,9 +25,12 @@ function RowFilterPopoverContent({
 }) {
   const sqlRef = useRef<HTMLDivElement>(null);
   const overflows = useIsOverflowing(sqlRef, SQL_PREVIEW_MAX_HEIGHT);
+  const savedFilter = savedFilterId
+    ? factTable?.filters.find((filter) => filter.id === savedFilterId)
+    : undefined;
   const filterHref =
-    savedFilterId && factTable
-      ? `/fact-tables/${factTable.id}?filter=${encodeURIComponent(savedFilterId)}#filters`
+    savedFilter && factTable
+      ? `/fact-tables/${factTable.id}?filter=${encodeURIComponent(savedFilter.id)}#filters`
       : null;
   // Long SQL is clipped when the fact table can show the rest; an inline
   // filter has no other home, so it scrolls here instead.
@@ -49,14 +52,12 @@ function RowFilterPopoverContent({
         </Box>
       ) : (
         <Text size="sm" color="text-mid">
-          No SQL available
+          {savedFilterId && factTable && !savedFilter
+            ? "This saved filter was deleted"
+            : "No SQL available"}
         </Text>
       )}
-      {filterHref ? (
-        <Link href={filterHref}>
-          {clipped ? "View full filter" : "View saved filter"}
-        </Link>
-      ) : null}
+      {filterHref ? <Link href={filterHref}>View saved filter</Link> : null}
     </Flex>
   );
 }
@@ -69,10 +70,12 @@ function RowFilterBadge({
   factTable: FactTableDefinition | null;
 }) {
   const sql = getRowFilterDisplaySQL(rowFilter, factTable);
+  const description = getRowFilterDescription(rowFilter, factTable);
   const savedFilterId =
     rowFilter.operator === "saved_filter"
       ? (rowFilter.values?.[0] ?? null)
       : null;
+  const openedFromKeyboard = useRef(false);
 
   return (
     <Popover
@@ -80,6 +83,9 @@ function RowFilterBadge({
       side="bottom"
       align="start"
       contentStyle={{ maxWidth: 500 }}
+      onOpenAutoFocus={(event) => {
+        if (!openedFromKeyboard.current) event.preventDefault();
+      }}
       content={
         <RowFilterPopoverContent
           sql={sql}
@@ -88,16 +94,40 @@ function RowFilterBadge({
         />
       }
       trigger={
-        <Badge
-          color="violet"
-          radius="small"
-          style={{
-            whiteSpace: "normal",
-            overflowWrap: "anywhere",
-            cursor: "default",
+        <button
+          type="button"
+          aria-label={description}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              openedFromKeyboard.current = true;
+            }
           }}
-          label={getRowFilterDescription(rowFilter, factTable)}
-        />
+          onPointerDown={() => {
+            openedFromKeyboard.current = false;
+          }}
+          style={{
+            display: "inline-flex",
+            maxWidth: "100%",
+            margin: 0,
+            padding: 0,
+            border: "none",
+            background: "none",
+            font: "inherit",
+            color: "inherit",
+            textAlign: "start",
+            cursor: "pointer",
+          }}
+        >
+          <Badge
+            color="violet"
+            radius="small"
+            style={{
+              whiteSpace: "normal",
+              overflowWrap: "anywhere",
+            }}
+            label={description}
+          />
+        </button>
       }
     />
   );

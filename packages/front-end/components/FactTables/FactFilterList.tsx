@@ -14,9 +14,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useIsOverflowing from "@/hooks/useIsOverflowing";
 import Button from "@/ui/Button";
-import Link from "@/ui/Link";
+import ExpandableBlock from "@/ui/ExpandableBlock";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -24,43 +23,6 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import FactFilterModal from "./FactFilterModal";
-
-const FILTER_SQL_MAX_HEIGHT = 160;
-
-function FilterSqlCell({
-  code,
-  defaultExpanded = false,
-}: {
-  code: string;
-  defaultExpanded?: boolean;
-}) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const overflows = useIsOverflowing(contentRef, FILTER_SQL_MAX_HEIGHT);
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  const clamped = overflows && !expanded;
-
-  return (
-    <div style={{ marginTop: 2 }}>
-      <div
-        className={clamped ? "fade-mask-bottom-1rem" : undefined}
-        style={
-          clamped
-            ? { maxHeight: FILTER_SQL_MAX_HEIGHT, overflow: "hidden" }
-            : undefined
-        }
-      >
-        <div ref={contentRef}>
-          <InlineCode language="sql" code={code} />
-        </div>
-      </div>
-      {overflows ? (
-        <Link size="sm" onClick={() => setExpanded((open) => !open)}>
-          {expanded ? "Show less" : "Show more"}
-        </Link>
-      ) : null}
-    </div>
-  );
-}
 
 function FactFilterRowMenu({
   filter,
@@ -148,6 +110,8 @@ export default function FactFilterList({ factTable }: Props) {
   const router = useRouter();
   const requestedFilterId =
     typeof router.query.filter === "string" ? router.query.filter : "";
+  const [highlightedFilterId, setHighlightedFilterId] =
+    useState(requestedFilterId);
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const didJumpToFilter = useRef(false);
@@ -175,7 +139,12 @@ export default function FactFilterList({ factTable }: Props) {
   const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
   const canDelete = permissionsUtil.canDeleteFactFilter(factTable);
 
-  // `?filter=<id>` deep-links one saved filter: page to it, then scroll to it.
+  useEffect(() => {
+    if (requestedFilterId) setHighlightedFilterId(requestedFilterId);
+  }, [requestedFilterId]);
+
+  // `?filter=<id>` deep-links one saved filter. The highlight is only a
+  // landing cue: drop the query once the row is in view.
   useEffect(() => {
     if (!requestedFilterId || didJumpToFilter.current) return;
     const index = unpaginatedItems.findIndex(
@@ -187,11 +156,18 @@ export default function FactFilterList({ factTable }: Props) {
       setPage(page);
       return;
     }
+    const row = document.getElementById(`fact-filter-${requestedFilterId}`);
+    if (!row) return;
     didJumpToFilter.current = true;
-    document
-      .getElementById(`fact-filter-${requestedFilterId}`)
-      ?.scrollIntoView({ block: "center" });
-  }, [requestedFilterId, unpaginatedItems, currentPage, setPage]);
+    row.scrollIntoView({ block: "center" });
+    const query = { ...router.query };
+    delete query.filter;
+    void router.replace(
+      { pathname: router.pathname, query, hash: "filters" },
+      undefined,
+      { shallow: true },
+    );
+  }, [requestedFilterId, unpaginatedItems, currentPage, setPage, router]);
 
   return (
     <>
@@ -242,7 +218,11 @@ export default function FactFilterList({ factTable }: Props) {
       </div>
       {factTable.filters.length > 0 && (
         <>
-          <table className="table appbox gbtable mt-2 mb-0">
+          <table
+            className="table appbox gbtable mt-2 mb-0"
+            onPointerDown={() => setHighlightedFilterId("")}
+            onKeyDown={() => setHighlightedFilterId("")}
+          >
             <thead>
               <tr>
                 <SortableTH field="name">Name</SortableTH>
@@ -255,8 +235,11 @@ export default function FactFilterList({ factTable }: Props) {
                 <tr
                   key={filter.id}
                   id={`fact-filter-${filter.id}`}
+                  aria-current={
+                    filter.id === highlightedFilterId ? "true" : undefined
+                  }
                   style={
-                    filter.id === requestedFilterId
+                    filter.id === highlightedFilterId
                       ? { backgroundColor: "var(--violet-a3)" }
                       : undefined
                   }
@@ -266,10 +249,14 @@ export default function FactFilterList({ factTable }: Props) {
                     <OfficialBadge type="filter" managedBy={filter.managedBy} />
                   </td>
                   <td style={{ verticalAlign: "top" }}>
-                    <FilterSqlCell
-                      code={filter.value}
-                      defaultExpanded={filter.id === requestedFilterId}
-                    />
+                    <div style={{ marginTop: 2 }}>
+                      <ExpandableBlock
+                        maxHeight={160}
+                        defaultExpanded={filter.id === highlightedFilterId}
+                      >
+                        <InlineCode language="sql" code={filter.value} />
+                      </ExpandableBlock>
+                    </div>
                   </td>
                   <td style={{ verticalAlign: "top" }}>
                     <FactFilterRowMenu
