@@ -195,12 +195,12 @@
   flex-shrink: 0;
 }
 
-// Under the wordmark, from where "GrowthBook" starts, its capitals 4px below
-// the wordmark's baseline (both set in Sidebar.tsx): 2.6px here, plus the 9px
+// Under the wordmark, from where "GrowthBook" starts, its capitals 6px below
+// the wordmark's baseline (both set in Sidebar.tsx): 4.6px here, plus the 9px
 // line's own 1.4px above them. Out of the flow, so the header keeps its height.
 .planLabel {
   position: absolute;
-  top: calc(50% + var(--wordmark-baseline) + 2.6px);
+  top: calc(50% + var(--wordmark-baseline) + 4.6px);
   left: calc(5px + var(--wordmark-inset));
   white-space: nowrap;
 
