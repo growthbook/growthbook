@@ -73,7 +73,7 @@ export async function repairFeatureDriftIfNeeded(
       {
         preserveStoredValues: true,
         casOnDateUpdated: feature.dateUpdated,
-        restoresLiveRevision: true,
+        restoresLiveRevision: live.status === "published",
       },
     );
     Object.assign(feature, repaired);

@@ -1596,8 +1596,8 @@ export async function updateFeature(
     isCompensation?: boolean;
     // Preserve references already accepted in the draft being landed.
     savedGroupScopeRevision?: FeatureRevisionInterface;
-    // Drift repair writing back the live revision: that state was judged when
-    // it published, so neither scope nor hooks may veto restoring it.
+    // Drift repair copying a published revision back onto the feature. Hooks
+    // judge changes, not restoring what is already live.
     restoresLiveRevision?: boolean;
   },
 ): Promise<FeatureInterface> {
@@ -1653,7 +1653,7 @@ export async function updateFeature(
   // the mid-commit mix — and would veto compensation restores. Gated on
   // `bulkPublishApplying` (not the correlation token) so genuine post-commit
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
-  if (!context.bulkPublishApplying && !options.restoresLiveRevision) {
+  if (!context.bulkPublishApplying) {
     if (!options?.isCompensation) {
       await assertFeatureSavedGroupScope(
         context,
@@ -1669,11 +1669,13 @@ export async function updateFeature(
           : feature,
       );
     }
-    await runValidateFeatureHooks({
-      context,
-      feature: projected,
-      original: feature,
-    });
+    if (!options.restoresLiveRevision) {
+      await runValidateFeatureHooks({
+        context,
+        feature: projected,
+        original: feature,
+      });
+    }
   }
 
   // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
