@@ -280,10 +280,7 @@ export function getRowFilterDescription(
   return `${column} ${operator} ${values.join(", ")}`.trim();
 }
 
-/**
- * Dialect-neutral SQL for showing what a row filter does. Without a fact
- * table, falls back to a plain `column operator values` line.
- */
+// Display only: the operators here are not valid SQL in every warehouse.
 export function getRowFilterDisplaySQL(
   rowFilter: RowFilter,
   factTable: FactTableDefinition | null,
@@ -314,7 +311,6 @@ export function getRowFilterDisplaySQL(
   );
 }
 
-/** A `WHERE` clause combining every row filter, for display. */
 export function getRowFiltersDisplaySQL(
   rowFilters: RowFilter[],
   factTable: FactTableDefinition | null,
