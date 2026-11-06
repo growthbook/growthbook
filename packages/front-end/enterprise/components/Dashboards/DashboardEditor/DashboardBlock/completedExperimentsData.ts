@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getExperimentResultDate } from "shared/enterprise";
 import { ResolvedGranularity } from "@/enterprise/components/ProductAnalytics/util";
 
 // Result buckets used by the velocity (stacked-bar) chart. Matches the four
@@ -50,30 +51,6 @@ export type WinRateProjectRow = WinRateSummary & {
   name: string;
 };
 
-/**
- * The date an experiment "completed", using the same rule as the Executive
- * Report: the most recent "Main" phase end, falling back to the most recent
- * phase end. Returns null when no phase has ended.
- */
-export function getExperimentResultDate(
-  experiment: ExperimentInterfaceStringDates,
-): Date | null {
-  const sortByEndedDesc = (
-    a: { dateEnded?: string },
-    b: { dateEnded?: string },
-  ) =>
-    new Date(b.dateEnded || 0).getTime() - new Date(a.dateEnded || 0).getTime();
-
-  const mainPhase = experiment.phases
-    .filter((p) => p.name === "Main")
-    .sort(sortByEndedDesc)[0];
-  const usedPhase =
-    mainPhase ?? [...experiment.phases].sort(sortByEndedDesc)[0];
-
-  if (!usedPhase?.dateEnded) return null;
-  return new Date(usedPhase.dateEnded);
-}
-
 // A stopped experiment's result bucket. Anything that isn't an explicit
 // won/lost/dnf is treated as inconclusive (matches ExecExperimentsGraph).
 export function classifyVelocityResult(
@@ -82,35 +59,6 @@ export function classifyVelocityResult(
   const result = experiment.results;
   if (result === "won" || result === "lost" || result === "dnf") return result;
   return "inconclusive";
-}
-
-/**
- * Filter the org's experiments to the completed set inside a window, matching
- * useCompletedExperiments: standard (non-bandit), stopped, project-scoped, with
- * a result date (getExperimentResultDate: most recent Main phase end, falling
- * back to the most recent phase end) inside [startDate, endDate].
- *
- * Using the single result date — rather than "any phase ended in-window" —
- * keeps this filter consistent with bucketVelocity, so the Win Percentage and
- * Team Velocity blocks count exactly the same experiments for a given window.
- */
-export function filterCompletedExperiments(
-  experiments: ExperimentInterfaceStringDates[],
-  { startDate, endDate, projects }: Window & { projects: string[] },
-): ExperimentInterfaceStringDates[] {
-  return experiments
-    .filter((e) => e.type !== "multi-armed-bandit")
-    .filter((e) => e.status === "stopped")
-    .filter(
-      (e) =>
-        projects.length === 0 ||
-        (e.project ? projects.includes(e.project) : false),
-    )
-    .filter((e) => {
-      const resultDate = getExperimentResultDate(e);
-      if (!resultDate) return false;
-      return resultDate >= startDate && resultDate <= endDate;
-    });
 }
 
 /**

@@ -84,6 +84,8 @@ const urlPathMapping: Record<string, DocSection> = {
   "/dimensions": "dimensions",
   "/datasources": "datasources",
   "/dashboard": "insights",
+  "/insights/health": "insights",
+  "/insights/impact": "insights",
   "/learnings": "insights",
   "/timeline": "insights",
   "/metric-effects": "insights",

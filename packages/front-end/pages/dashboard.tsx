@@ -1,46 +1,15 @@
-import React from "react";
-import { useExperiments } from "@/hooks/useExperiments";
-import Dashboard from "@/components/HomePage/Dashboard";
+import { useEffect } from "react";
+import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
-import Callout from "@/ui/Callout";
+import { getLegacyDashboardRedirect } from "@/components/Insights/legacyDashboardRedirect";
 
-export default function Analysis(): React.ReactElement {
-  const { ready, error: definitionsError, project } = useDefinitions();
-
-  const {
-    experiments,
-    error: experimentsError,
-    loading: experimentsLoading,
-  } = useExperiments(project);
-
-  if (experimentsError || definitionsError) {
-    return (
-      <Callout status="error">
-        An error occurred: {experimentsError?.message || definitionsError}
-      </Callout>
-    );
-  }
-
-  if (experimentsLoading || !ready) {
-    return <LoadingOverlay />;
-  }
-
-  const hasExperiments =
-    experiments.filter((e) => !e.id.match(/^exp_sample/))?.length > 0;
-
-  return (
-    <>
-      <div className="container pagecontents position-relative">
-        {hasExperiments ? (
-          <Dashboard experiments={experiments} />
-        ) : (
-          <div className="getstarted">
-            <ExperimentsGetStarted />
-          </div>
-        )}
-      </div>
-    </>
-  );
+// The Insights dashboard split into Health and Impact; old links still work
+export default function LegacyDashboardRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    if (router.isReady) {
+      router.replace(getLegacyDashboardRedirect(router.query));
+    }
+  }, [router]);
+  return <LoadingOverlay />;
 }

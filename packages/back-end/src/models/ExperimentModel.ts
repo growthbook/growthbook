@@ -743,6 +743,16 @@ export async function getAllExperimentListKeys(
   );
 }
 
+// Cross-org, for background jobs; uses the status index
+export async function getOrganizationsWithRunningExperiments(): Promise<
+  string[]
+> {
+  return getCollection(COLLECTION).distinct("organization", {
+    status: "running",
+    archived: { $ne: true },
+  });
+}
+
 // For super admin views of another org, which have no ReqContext for it
 export async function _dangerousCountExperimentsByOrganization(
   organization: string,

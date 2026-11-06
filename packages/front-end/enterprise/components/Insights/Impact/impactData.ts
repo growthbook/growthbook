@@ -1,11 +1,11 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
+import { getExperimentResultDate } from "shared/enterprise";
 import {
   getStandardErrorFromLargestSample,
   jamesSteinAdjustment,
 } from "@/components/HomePage/ExperimentImpact/JamesSteinAdjustment";
-import { getExperimentResultDate } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/completedExperimentsData";
 
 export const DAYS_PER_YEAR = 365;
 // Below this many experiments, James-Stein shrinkage is too noisy to apply

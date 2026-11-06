@@ -529,7 +529,7 @@ function getDaysLeftStatus({
 
 // A cluster experiment checks SRM on clusters and multiple exposures on
 // subunits; each check is skipped rather than run on the other grain's count.
-function computeSrmAndMultipleExposuresUnhealthyData({
+export function computeSrmAndMultipleExposuresUnhealthyData({
   srm,
   multipleExposures,
   totalUsers,

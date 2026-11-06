@@ -1,12 +1,14 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  filterCompletedExperiments,
+  getExperimentResultDate,
+} from "shared/enterprise";
+import {
   bucketVelocity,
   classifyVelocityResult,
   computeWinRateByProject,
   computeWinRateSummary,
-  filterCompletedExperiments,
   floorToGranularity,
-  getExperimentResultDate,
   getPreviousWindow,
 } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/completedExperimentsData";
 

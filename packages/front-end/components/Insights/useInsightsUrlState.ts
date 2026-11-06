@@ -23,7 +23,7 @@ function readString(value: string | string[] | undefined): string | null {
 const ALL_PROJECTS_PARAM = "all";
 
 // Page state lives in the URL, so a copied link reproduces the view
-export function useImpactUrlState() {
+export function useInsightsUrlState() {
   const router = useRouter();
   const { query } = router;
 
@@ -69,6 +69,10 @@ export function useImpactUrlState() {
     (id: string) => update({ metric: id }),
     [update],
   );
+  const setProject = useCallback(
+    (id: string) => update({ project: id || ALL_PROJECTS_PARAM }),
+    [update],
+  );
   const setDebias = useCallback(
     (on: boolean) => update({ debias: on ? null : "0" }),
     [update],
@@ -98,6 +102,7 @@ export function useImpactUrlState() {
     getShareUrl,
     metricId,
     setMetricId,
+    setProject,
     debias,
     setDebias,
     dateRange,
