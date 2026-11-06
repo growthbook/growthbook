@@ -2,10 +2,12 @@ import {
   CSSProperties,
   Dispatch,
   MouseEvent as ReactMouseEvent,
+  MutableRefObject,
   ReactNode,
   SetStateAction,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -59,11 +61,19 @@ import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
   buildSidebarLinkFilterProps,
   navlinks,
+  isSettingsRoute,
   settingsNavLink,
   SidebarLinkFilterProps,
   SidebarLinkProps,
 } from "./sidebarNav";
-import { useSidebarOpen } from "./SidebarOpenProvider";
+import { SidebarMemory, useSidebarOpen } from "./SidebarOpenProvider";
+import {
+  AutoCollapseTrigger,
+  isAutoCollapsed,
+  isCollapsed as isSidebarCollapsed,
+  pruneExpandedOver,
+  toggleCollapse,
+} from "./sidebarAutoCollapse";
 import {
   SIDEBAR_ICON_SIZE,
   SidebarItemLook,
@@ -142,10 +152,34 @@ const isMac = () =>
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.userAgent);
 
-function useSidebarCollapsed(): [boolean, () => void] {
+/**
+ * Turns transitions off for two frames (one renders, one paints), so a
+ * sidebar that starts collapsed doesn't slide shut on load.
+ */
+function snapWithoutTransition(): () => void {
+  const root = document.documentElement;
+  root.classList.add(SIDEBAR_RESTORE_CLASS);
+  let frame = requestAnimationFrame(() => {
+    frame = requestAnimationFrame(() =>
+      root.classList.remove(SIDEBAR_RESTORE_CLASS),
+    );
+  });
+  return () => {
+    cancelAnimationFrame(frame);
+    root.classList.remove(SIDEBAR_RESTORE_CLASS);
+  };
+}
+
+/** Your saved choice: only the Collapse/Expand button changes it. */
+function useSidebarCollapsed(
+  memory: MutableRefObject<SidebarMemory>,
+): [boolean, (collapsed: boolean) => void] {
   const { userId } = useUser();
   const key = userId ? `gb-sidebar-collapsed:${userId}` : null;
-  const [collapsed, setCollapsed] = useState(false);
+  // Remounted, it starts from what it last read rather than expanded.
+  const [collapsed, setCollapsed] = useState(
+    memory.current.preferCollapsed ?? false,
+  );
 
   useIsomorphicLayoutEffect(() => {
     if (!key) return;
@@ -155,38 +189,24 @@ function useSidebarCollapsed(): [boolean, () => void] {
     } catch (e) {
       // Storage blocked: start expanded.
     }
-    if (!saved) {
-      setCollapsed(false);
-      return;
-    }
+    const firstRead = memory.current.preferCollapsed === null;
+    memory.current.preferCollapsed = saved;
+    setCollapsed(saved);
     // Something earlier in the load may have measured the sidebar open, so its
-    // width would ease from there. Two frames: one renders collapsed, one paints.
-    const root = document.documentElement;
-    root.classList.add(SIDEBAR_RESTORE_CLASS);
-    let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() =>
-        root.classList.remove(SIDEBAR_RESTORE_CLASS),
-      );
-    });
-    setCollapsed(true);
-    return () => {
-      cancelAnimationFrame(frame);
-      root.classList.remove(SIDEBAR_RESTORE_CLASS);
-    };
-  }, [key]);
+    // width would ease from there.
+    return saved && firstRead ? snapWithoutTransition() : undefined;
+  }, [key, memory]);
 
-  const toggle = () => {
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        if (key) window.localStorage.setItem(key, String(next));
-      } catch (e) {
-        // Storage blocked: the toggle still works for this page view.
-      }
-      return next;
-    });
+  const save = (next: boolean) => {
+    memory.current.preferCollapsed = next;
+    setCollapsed(next);
+    try {
+      if (key) window.localStorage.setItem(key, String(next));
+    } catch (e) {
+      // Storage blocked: the choice still holds for this page view.
+    }
   };
-  return [collapsed, toggle];
+  return [collapsed, save];
 }
 
 const FOCUSABLE =
@@ -578,16 +598,66 @@ function SidebarItem({
 export default function Sidebar() {
   const router = useRouter();
   const route = router.route.substring(1);
-  const { open: drawerOpen, setOpen: setDrawerOpen } = useSidebarOpen();
-  const [collapsedPref, toggleCollapsed] = useSidebarCollapsed();
-  // Not saved as your preference.
-  const [autoCollapsed, setAutoCollapsed] = useState(false);
-  const sidebarCollapsed = collapsedPref || autoCollapsed;
+  const { open: drawerOpen, setOpen: setDrawerOpen, memory } = useSidebarOpen();
+  const [collapsedPref, setCollapsedPref] = useSidebarCollapsed(memory);
 
   // Below 1180px the sidebar is a drawer, always expanded.
   const isNarrow = useMediaQuery(
     `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
   );
+
+  // The app collapses it, on top of your saved choice and never saving it
+  // (sidebarAutoCollapse.ts), while the docked AI Assistant panel is open below
+  // 1600px or you're on a Settings page.
+  const { open: agentOpen } = useAgentPanel();
+  const panelDocked = agentOpen && !isNarrow;
+  const belowAutoCollapseWidth = useMediaQuery(AUTO_COLLAPSE_MAX_WIDTH);
+  const onSettings = isSettingsRoute(route);
+  const panelTrigger = panelDocked && belowAutoCollapseWidth;
+  const activeTriggers = useMemo<AutoCollapseTrigger[]>(
+    () => [
+      ...(panelTrigger ? ["agentPanel" as const] : []),
+      ...(onSettings ? ["settings" as const] : []),
+    ],
+    [panelTrigger, onSettings],
+  );
+  // Triggers you expanded it over, until each ends.
+  const [expandedOver, setExpandedOver] = useState<AutoCollapseTrigger[]>(
+    () => memory.current.expandedOver,
+  );
+  useEffect(() => {
+    setExpandedOver((over) => pruneExpandedOver(over, activeTriggers));
+  }, [activeTriggers]);
+  useEffect(() => {
+    memory.current.expandedOver = expandedOver;
+  }, [expandedOver, memory]);
+  const autoCollapseState = {
+    preferCollapsed: collapsedPref,
+    activeTriggers,
+    expandedOver,
+  };
+  const sidebarCollapsed = isSidebarCollapsed(autoCollapseState);
+  // Where a remount eases from: what it last showed, when that differs.
+  const [remountFrom] = useState(() =>
+    memory.current.lastCollapsed !== null &&
+    memory.current.lastCollapsed !== sidebarCollapsed
+      ? memory.current.lastCollapsed
+      : null,
+  );
+  // Opening the page with a trigger active (e.g. on Settings), it starts
+  // collapsed without sliding shut, as a saved collapsed sidebar does.
+  useIsomorphicLayoutEffect(
+    () =>
+      memory.current.lastCollapsed === null &&
+      isAutoCollapsed(autoCollapseState)
+        ? snapWithoutTransition()
+        : undefined,
+    // Only as the page loads.
+    [],
+  );
+  useEffect(() => {
+    memory.current.lastCollapsed = sidebarCollapsed;
+  }, [sidebarCollapsed, memory]);
   // Crossing that width briefly turns transitions off (global.scss), so
   // nothing slides. In a layout effect, so it lands before the frame's styles.
   const switchedFrom = useRef(isNarrow);
@@ -731,47 +801,67 @@ export default function Sidebar() {
     };
   }, [drawer, setDrawerOpen]);
 
+  const easeFrom = useRef(remountFrom);
   useIsomorphicLayoutEffect(() => {
-    document.documentElement.classList.toggle(
-      COLLAPSED_CLASS,
-      sidebarCollapsed,
-    );
+    const root = document.documentElement;
+    // A remount's sidebar is a new element, which won't transition from
+    // nothing: lay it out at what the old one showed (still on the page, see
+    // below), then change it.
+    if (easeFrom.current !== null && navRef.current) {
+      root.classList.toggle(COLLAPSED_CLASS, easeFrom.current);
+      void navRef.current.offsetWidth;
+    }
+    easeFrom.current = null;
+    root.classList.toggle(COLLAPSED_CLASS, sidebarCollapsed);
   }, [sidebarCollapsed]);
-  useEffect(
-    () => () => document.documentElement.classList.remove(COLLAPSED_CLASS),
-    [],
-  );
+  // Cleared when it goes away, but not when it's remounting (entering or
+  // leaving Settings): the new sidebar starts from it and eases on.
+  useIsomorphicLayoutEffect(() => {
+    memory.current.mounted = true;
+    return () => {
+      memory.current.mounted = false;
+      requestAnimationFrame(() => {
+        if (!memory.current.mounted) {
+          document.documentElement.classList.remove(COLLAPSED_CLASS);
+        }
+      });
+    };
+  }, [memory]);
 
   const noHover = useMediaQuery("(hover: none)");
 
   // Collapsing, the labels stay while the sidebar narrows; expanding, they
   // follow at once.
-  const userToggled = useRef(false);
+  const userToggled = useRef(remountFrom !== null);
   const toggleAnimated = () => {
     userToggled.current = true;
     // Before the width changes, so the page's padding moves with it
     // (global.scss); cleared once the sidebar stops (below).
     document.documentElement.classList.add("app-sidebar-motion");
-    // Collapsed for the AI Assistant panel: expanding keeps your saved choice.
-    if (autoCollapsed) setAutoCollapsed(false);
-    else toggleCollapsed();
+    const next = toggleCollapse(autoCollapseState);
+    if (next.preferCollapsed !== collapsedPref) {
+      setCollapsedPref(next.preferCollapsed);
+    }
+    setExpandedOver(next.expandedOver);
   };
 
-  // Once per opening, and not saved: after a reload, your saved choice
-  // applies.
-  const { open: agentOpen } = useAgentPanel();
-  const panelDocked = agentOpen && !isNarrow;
-  const wasPanelDocked = useRef(panelDocked);
-  // Before paint, so it collapses in the same frame the panel starts sliding.
+  // A trigger starting or ending moves it as the button does, when that
+  // changes it. Before the effect below, in the same commit, so it collapses
+  // in the frame the panel starts sliding.
+  const triggersBefore = useRef(activeTriggers);
   useIsomorphicLayoutEffect(() => {
-    const opened = panelDocked && !wasPanelDocked.current;
-    wasPanelDocked.current = panelDocked;
-    if (!opened || sidebarCollapsed) return;
-    if (!window.matchMedia(AUTO_COLLAPSE_MAX_WIDTH).matches) return;
-    userToggled.current = true;
-    setAutoCollapsed(true);
-  }, [panelDocked, sidebarCollapsed]);
-  const [contentCollapsed, setContentCollapsed] = useState(collapsed);
+    const wasCollapsed = isSidebarCollapsed({
+      ...autoCollapseState,
+      activeTriggers: triggersBefore.current,
+    });
+    triggersBefore.current = activeTriggers;
+    if (wasCollapsed !== sidebarCollapsed) userToggled.current = true;
+    // Only when the triggers change.
+  }, [activeTriggers]);
+  // A remount that eases keeps the labels it had while the width moves.
+  const [contentCollapsed, setContentCollapsed] = useState(
+    remountFrom !== null && !isNarrow ? remountFrom : collapsed,
+  );
   // While the sidebar's width moves, the section rows' chevrons hide, so they
   // never slide over the icons as the rows resize (Sidebar.module.scss).
   const [resizing, setResizing] = useState(false);
