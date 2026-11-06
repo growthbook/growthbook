@@ -18,8 +18,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import UITooltip from "@/ui/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
@@ -165,7 +164,7 @@ export default function MetricTabContent() {
                   if (!isDisabledInMenu) return <MetricName metric={metric} />;
                   // Badge tooltip off: one tooltip per option.
                   return (
-                    <Tooltip body={disabledTooltip} usePortal>
+                    <Tooltip content={disabledTooltip}>
                       <span>
                         <MetricName metric={metric} disableTooltip />
                       </span>
@@ -183,7 +182,7 @@ export default function MetricTabContent() {
           </ValueCard>
         );
       })}
-      <UITooltip
+      <Tooltip
         enabled={exclusiveClass !== null}
         content={exclusiveClass ? mixTooltip(exclusiveClass) : ""}
       >
@@ -198,7 +197,7 @@ export default function MetricTabContent() {
             Add metric
           </Flex>
         </Button>
-      </UITooltip>
+      </Tooltip>
     </Flex>
   );
 }
