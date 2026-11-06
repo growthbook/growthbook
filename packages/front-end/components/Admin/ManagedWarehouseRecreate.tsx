@@ -364,7 +364,13 @@ export default function ManagedWarehouseRecreates({
                     <Text mono>{request.tables.join(", ")}</Text>
                   </TableCell>
                   <TableCell>{datetime(request.requestedAt)}</TableCell>
-                  <TableCell>{request.error ?? ""}</TableCell>
+                  <TableCell style={{ maxWidth: 400 }}>
+                    {request.error && (
+                      <HelperText status="error" size="sm">
+                        {request.error}
+                      </HelperText>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
