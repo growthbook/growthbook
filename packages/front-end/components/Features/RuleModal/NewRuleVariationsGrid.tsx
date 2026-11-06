@@ -2,9 +2,9 @@ import { useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPlus, PiTrash } from "react-icons/pi";
-import { FeatureInterface, FeatureValueType } from "shared/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { getEqualWeights } from "shared/experiments";
-import { generateVariationId, parsePlainJSONObject } from "shared/util";
+import { parsePlainJSONObject } from "shared/util";
 import FeatureValueCell from "@/components/Features/FeatureValueCell";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import { PercentField } from "@/components/Forms/PercentSliderField";
@@ -20,49 +20,12 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
+import {
+  newRuleVariation,
+  removeRuleVariation,
+  RuleVariation,
+} from "@/services/ruleVariations";
 import own from "./NewRuleVariationsGrid.module.scss";
-
-export type RuleVariation = {
-  id: string;
-  name: string;
-  value: string;
-  weight: number;
-};
-
-// A value for variation `index` that differs from the others where the type
-// allows: the default for Control, then flipped, counted up or suffixed.
-export function prefillVariationValue(
-  valueType: FeatureValueType,
-  defaultValue: string,
-  index: number,
-): string {
-  if (index === 0) return defaultValue;
-  if (valueType === "boolean") {
-    const flipped = defaultValue === "true" ? "false" : "true";
-    return index % 2 ? flipped : defaultValue;
-  }
-  if (valueType === "number") {
-    const n = Number(defaultValue);
-    return String((isNaN(n) ? 0 : n) + index);
-  }
-  if (valueType === "string") {
-    return defaultValue ? `${defaultValue}-${index}` : `variation-${index}`;
-  }
-  return defaultValue;
-}
-
-export function newRuleVariation(
-  valueType: FeatureValueType,
-  defaultValue: string,
-  index: number,
-): RuleVariation {
-  return {
-    id: generateVariationId(),
-    name: index ? `Variation ${index}` : "Control",
-    value: prefillVariationValue(valueType, defaultValue, index),
-    weight: 0,
-  };
-}
 
 /** A new rule's variations as the experiment page lays them out. */
 export default function NewRuleVariationsGrid({
@@ -101,25 +64,8 @@ export default function NewRuleVariationsGrid({
       equal ? withWeights(next, getEqualWeights(next.length)) : next,
     );
   };
-  const removeVariation = (index: number) => {
-    // Default names follow their position; given ones stay.
-    const next = variations
-      .filter((_, i) => i !== index)
-      .map((v, i) =>
-        i && /^Variation \d+$/.test(v.name)
-          ? { ...v, name: `Variation ${i}` }
-          : v,
-      );
-    const total = next.reduce((sum, v) => sum + v.weight, 0);
-    setVariations(
-      withWeights(
-        next,
-        equal || !total
-          ? getEqualWeights(next.length)
-          : next.map((v) => v.weight / total),
-      ),
-    );
-  };
+  const removeVariation = (index: number) =>
+    setVariations(removeRuleVariation(variations, index));
 
   const firstColumn = styles.pinnedStart;
   const lastColumn = styles.lastColumn;

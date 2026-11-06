@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES, eventUserPersonId } from "shared/validators";
+import { isActiveDraftStatus, eventUserPersonId } from "shared/validators";
 import {
   getReviewSetting,
   liveRevisionFromFeature,
@@ -67,10 +67,7 @@ export default function KillSwitchModal({
     : null;
 
   const activeDrafts = useMemo(
-    () =>
-      revisionList.filter((r) =>
-        (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-      ),
+    () => revisionList.filter((r) => isActiveDraftStatus(r.status)),
     [revisionList],
   );
 

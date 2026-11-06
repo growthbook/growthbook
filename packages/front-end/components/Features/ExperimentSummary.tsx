@@ -157,7 +157,7 @@ export default function ExperimentSummary({
           showPercentages={true}
         />
       </Box>
-      <Flex direction="row" gap="2" mb="3">
+      <Flex direction="row" gap="2">
         <Text weight="medium">TRACK</Text>
         the result using the key
         <Badge

@@ -23,7 +23,7 @@ import {
   getTargetingProjectIds,
   isRampScheduleServing,
 } from "shared/util";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
 import {
   PiArrowBendRightDown,
@@ -41,7 +41,6 @@ import {
   PiCaretDoubleDown,
   PiSpinnerGapBold,
 } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
   ApiContextualBanditInterface,
@@ -118,6 +117,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownSubMenu,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
@@ -1073,17 +1073,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   (!locked || !!rampSchedule) && (
                     <DropdownMenu
                       trigger={
-                        <IconButton
+                        <MoreMenuTrigger
+                          label="Rule actions"
                           className={cornerStyles.actions}
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
                           style={{ margin: 0 }}
-                        >
-                          <BsThreeDotsVertical size={16} />
-                        </IconButton>
+                        />
                       }
                       open={dropdownOpen}
                       onOpenChange={setDropdownOpen}

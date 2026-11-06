@@ -5,6 +5,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import Owner from "@/components/Avatar/Owner";
+import QuickEditButton from "@/components/Experiment/TabbedPage/QuickEditButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import { tagLinkProps } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,6 +17,44 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 // Rows the details panels share, each with the quick-edit button it reveals.
+
+// A row's edit pencil, for those who may edit; disabled with the reason when
+// edits are blocked.
+export function PanelEditButton({
+  canEdit,
+  label,
+  onClick,
+  blockedReason = null,
+}: {
+  canEdit: boolean;
+  label: string;
+  onClick: () => void;
+  blockedReason?: string | null;
+}) {
+  if (!canEdit) return null;
+  return (
+    <QuickEditButton
+      label={label}
+      onClick={onClick}
+      blockedReason={blockedReason}
+      labelTooltip={false}
+    />
+  );
+}
+
+// A teammate in a panel row.
+export function PersonValue({ id }: { id: string }) {
+  return (
+    <Owner
+      ownerId={id}
+      gap="1"
+      size="xs"
+      textColor="text-mid"
+      textSize="sm"
+      truncate
+    />
+  );
+}
 
 export function EmptyValue({ label = "None" }: { label?: string }) {
   return (
@@ -53,16 +92,7 @@ export function OwnerField({
       stacked
       label="Owner"
       action={action}
-      value={
-        <Owner
-          ownerId={owner}
-          gap="1"
-          size="xs"
-          textColor="text-mid"
-          textSize="sm"
-          truncate
-        />
-      }
+      value={<PersonValue id={owner} />}
     />
   );
 }
@@ -101,7 +131,8 @@ export function ProjectField({
             ) : currentProject && currentProject !== project ? (
               <Tooltip content="Not in your current project">
                 <span>
-                  {projectName} <PiWarning className="text-warning" />
+                  {projectName}{" "}
+                  <PiWarning style={{ color: "var(--amber-11)" }} />
                 </span>
               </Tooltip>
             ) : (

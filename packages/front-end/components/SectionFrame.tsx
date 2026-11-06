@@ -72,12 +72,14 @@ export default function SectionFrame({
           align="center"
           justify="between"
           gap="4"
-          px="6"
-          pt="4"
+          px="5"
+          pt="3"
           // Tighter over tabs, which bring their own height.
-          pb={tabs ? "1" : "4"}
+          pb={tabs ? "1" : "3"}
         >
-          <Flex align="center" gap="4" minWidth="0">
+          {/* As tall as an action button, so headers match whatever they hold
+              and don't grow when a late addon (a sparkline) arrives. */}
+          <Flex align="center" gap="4" minWidth="0" minHeight="32px">
             <Heading as="h4" size="md" mb="0">
               {title}
             </Heading>
@@ -89,13 +91,13 @@ export default function SectionFrame({
             </Flex>
           ) : null}
         </Flex>
-        {tabs ? <Box px="6">{tabs}</Box> : null}
+        {tabs ? <Box px="5">{tabs}</Box> : null}
       </Box>
-      <Box px="6" pt="5" pb={footnote ? "0" : "5"}>
+      <Box px="5" pt="4" pb={footnote ? "0" : "4"}>
         {children}
       </Box>
       {footnote ? (
-        <Box px="6" pt="1" pb="3">
+        <Box px="5" pt="1" pb="3">
           <Text as="p" size="sm" color="text-low" align="right" mb="0">
             {footnote}
           </Text>

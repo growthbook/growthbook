@@ -1215,7 +1215,7 @@ function SimpleSchemaEditor({
             />
           </Modal>
         ) : null}
-        <div className="position-relative gb-field-indicator-host mb-3">
+        <div className="gb-field-indicator-host mb-3">
           <Field
             textarea
             value={stringify(valueParsed)}

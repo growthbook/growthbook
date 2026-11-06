@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { QuickEditRow } from "@/components/Experiment/TabbedPage/QuickEditButton";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
@@ -29,7 +29,7 @@ interface Props {
 function useDraftCap(revisionList: MinimalFeatureRevisionInterface[]) {
   const settings = useOrgSettings();
   const activeDraftCount = revisionList.filter((r) =>
-    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+    isActiveDraftStatus(r.status),
   ).length;
   const maxDrafts = settings.maxConcurrentDrafts || 0;
   return {

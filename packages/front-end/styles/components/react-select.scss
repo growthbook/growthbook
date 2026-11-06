@@ -437,6 +437,11 @@
   }
 }
 
+// A field holding indicators; a corner set pins against it.
+.gb-field-indicator-host {
+  position: relative;
+}
+
 // Hidden until the field holding it is hovered or focused.
 .gb-field-indicator--reveal {
   opacity: 0;

@@ -621,6 +621,7 @@ function Node({
   labelColor: string;
   pulse: boolean;
 }) {
+  const showSublabel = !!node.sublabel && state !== "completed";
   const nodeContent = (
     <Flex direction="column" align="center" className={styles.nodeInner}>
       {/* Dot */}
@@ -638,13 +639,13 @@ function Node({
         <span style={{ color: labelColor }}>
           <Text
             as="div"
-            mb="2"
+            mb={showSublabel ? "2" : "0"}
             weight={state === "active" ? "medium" : "regular"}
           >
             {node.label}
           </Text>
         </span>
-        {node.sublabel && state !== "completed" && (
+        {showSublabel && (
           <span className={styles.nodeSublabel}>{node.sublabel}</span>
         )}
       </Flex>

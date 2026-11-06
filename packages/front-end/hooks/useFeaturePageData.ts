@@ -8,7 +8,7 @@ import {
   mergeRevision,
 } from "shared/util";
 import {
-  ACTIVE_DRAFT_STATUSES,
+  isActiveDraftStatus,
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
@@ -229,11 +229,7 @@ export function useFeaturePageData(
   // change: the version on screen and any open drafts, so edits show up
   const refreshData = async () => {
     const changeable = Object.values(cachedRevisions)
-      .filter(
-        (r) =>
-          !inBaseSet(r.version) &&
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-      )
+      .filter((r) => !inBaseSet(r.version) && isActiveDraftStatus(r.status))
       .map((r) => r.version);
     const onScreen = [targetVersion, targetBaseVersion].filter(
       (v): v is number => v !== null && !inBaseSet(v),
@@ -253,9 +249,7 @@ export function useFeaturePageData(
         (v): v is number => v !== null,
       ),
       ...Object.values(cachedRevisions)
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
+        .filter((r) => isActiveDraftStatus(r.status))
         .map((r) => r.version),
     ].filter(
       (v) => inBaseSet(v) && !fresh?.revisions?.some((r) => r.version === v),

@@ -24,6 +24,7 @@ const sideColorVar: Record<RuleCardSideColor, string> = {
 // its actions menu button.
 const HEADER_HEIGHT = 28;
 const HANDLE_WIDTH = 14;
+const BODY_INSET = 28;
 
 interface Props {
   index: number;
@@ -67,7 +68,7 @@ export default function RuleCard({
           backgroundColor: sideColorVar[sideColor],
         }}
       />
-      <Box px="2" pt="2" pb="3">
+      <Box px="2" pt="2" pb="4">
         <Flex align="start" gap="2" mb="2">
           <Flex align="center" gap="1" style={{ height: HEADER_HEIGHT }}>
             <Flex
@@ -118,10 +119,10 @@ export default function RuleCard({
             }}
           />
         )}
-        {/* Lined up with the index badge. */}
+        {/* The same inset from either edge of the card. */}
         <Box
           style={{
-            paddingLeft: `calc(${HANDLE_WIDTH}px + var(--space-1))`,
+            paddingInline: `calc(${BODY_INSET}px - var(--space-2))`,
           }}
         >
           {children}

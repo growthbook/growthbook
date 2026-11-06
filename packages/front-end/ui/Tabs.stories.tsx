@@ -50,9 +50,34 @@ export default function TabsStories() {
           </Box>
         </Tabs>
       </Box>
+
+      <Box>
+        Tabs that don&apos;t fit fold into a More menu, keeping the selected one
+        in view
+        <Box style={{ width: 360 }}>
+          <Tabs defaultValue="production">
+            <TabsList>
+              {OVERFLOW_TABS.map((tab) => (
+                <TabsTrigger key={tab} value={tab}>
+                  {tab}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </Box>
+      </Box>
     </Flex>
   );
 }
+
+const OVERFLOW_TABS = [
+  "production",
+  "staging",
+  "development",
+  "qa",
+  "canary",
+  "sandbox",
+];
 
 function TabContentExample({ number }: { number: number }) {
   useEffect(

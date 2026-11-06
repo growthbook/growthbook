@@ -5,7 +5,7 @@ import {
   eventUserPersonId,
   revisionActor,
   RampScheduleInterface,
-  ACTIVE_DRAFT_STATUSES,
+  isActiveDraftStatus,
 } from "shared/validators";
 import {
   NO_ENVIRONMENT_BINDING,
@@ -253,9 +253,7 @@ export default function ReviewAndPublish({
   // header's RevisionDropdown determines which revision we're reviewing; this
   // component never silently substitutes a different draft.
   const revision = revisions.find((r) => r.version === version) ?? null;
-  const isActiveDraft =
-    !!revision &&
-    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
+  const isActiveDraft = !!revision && isActiveDraftStatus(revision.status);
   const isLive = !!revision && revision.version === feature.version;
   const baseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion,
@@ -265,9 +263,7 @@ export default function ReviewAndPublish({
   // Other active drafts, offered as quick navigation in the revision header.
   const otherAttentionDrafts = revisionList
     .filter(
-      (r) =>
-        (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) &&
-        r.version !== revision?.version,
+      (r) => isActiveDraftStatus(r.status) && r.version !== revision?.version,
     )
     .sort((a, b) => b.version - a.version);
   // Other active drafts, mapped into the shared ReviewHeader's quick-nav shape.

@@ -362,7 +362,7 @@ const EditDOMMutationsModal: FC<{
         )}
         <div className="mb-4">
           <h4>Global CSS</h4>
-          <div className="position-relative gb-field-indicator-host">
+          <div className="gb-field-indicator-host">
             <Field
               size="legacy"
               textarea
@@ -387,7 +387,7 @@ const EditDOMMutationsModal: FC<{
 
         <div className="mb-4">
           <h4>Custom JS</h4>
-          <div className="position-relative gb-field-indicator-host">
+          <div className="gb-field-indicator-host">
             <Field
               size="legacy"
               textarea

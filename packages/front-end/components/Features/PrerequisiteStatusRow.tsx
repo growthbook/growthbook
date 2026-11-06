@@ -10,10 +10,9 @@ import {
   FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { getPrerequisites } from "@/services/features";
 import track from "@/services/track";
@@ -37,6 +36,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -92,9 +92,7 @@ export default function PrerequisiteStatusRow({
   const latestActiveDraft = useMemo(
     () =>
       revisionList
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
+        .filter((r) => isActiveDraftStatus(r.status))
         .sort((a, b) => b.version - a.version)[0] ?? null,
     [revisionList],
   );
@@ -172,20 +170,14 @@ export default function PrerequisiteStatusRow({
   );
 
   const menu = !canEdit ? null : lockedBySchedule ? (
-    <LockedRowMenu iconSize={18} />
+    <LockedRowMenu />
   ) : isLocked ? null : (
     <DropdownMenu
       trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
+        <MoreMenuTrigger
+          label="Prerequisite actions"
           style={{ marginRight: 0 }}
-        >
-          <BsThreeDotsVertical size={18} />
-        </IconButton>
+        />
       }
       open={open}
       onOpenChange={setOpen}

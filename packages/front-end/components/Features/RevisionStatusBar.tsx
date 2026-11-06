@@ -10,14 +10,13 @@ import {
 } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import {
+  isOpenUserDraft,
   isRevisionEditLockedBySchedule,
   isScheduledPublishLockActive,
-  isScheduledPublishPending,
 } from "shared/enterprise";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
-  ACTIVE_DRAFT_STATUSES,
   MinimalFeatureRevisionInterface,
   eventUserPersonId,
 } from "shared/validators";
@@ -30,49 +29,15 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
-import RevisionStatusBadge, {
-  isRampGenerated,
-} from "@/components/Reviews/RevisionStatusBadge";
+import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import { getRevisionStatus } from "@/services/revisionStatus";
 
 // Room for a normal-sized button with even padding.
 export const REVISION_STATUS_BAR_HEIGHT_PX = 48;
-
-type RevisionStatus =
-  | "draft"
-  | "scheduled"
-  | "discarded"
-  | "superseded"
-  | "liveWithDrafts";
-
-function activeDrafts(revisionList: MinimalFeatureRevisionInterface[]) {
-  return revisionList.filter(
-    (r) =>
-      !isRampGenerated(r) &&
-      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-  );
-}
-
-/** What the strip under the tabs says about the viewed revision, if anything. */
-export function getRevisionStatus({
-  revision,
-  liveVersion,
-  revisionList,
-}: {
-  revision: FeatureRevisionInterface;
-  liveVersion: number;
-  revisionList: MinimalFeatureRevisionInterface[];
-}): RevisionStatus | null {
-  if ((ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status)) {
-    return isScheduledPublishPending(revision) ? "scheduled" : "draft";
-  }
-  if (revision.status === "discarded") return "discarded";
-  if (revision.version !== liveVersion) return "superseded";
-  return activeDrafts(revisionList).length > 0 ? "liveWithDrafts" : null;
-}
 
 /**
  * The viewed revision's state, fixed under the page's tabs: what it is, what
@@ -134,7 +99,7 @@ export default function RevisionStatusBar({
     isDraft &&
     (permissionsUtil.canEditFeatureDrafts(baseFeature) || authoredDraft);
 
-  const drafts = activeDrafts(revisionList);
+  const drafts = revisionList.filter(isOpenUserDraft);
   const switchToLive = (
     <Link onClick={() => setVersion(liveVersion)}>Switch to live</Link>
   );

@@ -384,7 +384,7 @@ export default function ExperimentRefSummary({
             )}
           </Box>
 
-          <Flex direction="row" gap="2" mb="3">
+          <Flex direction="row" gap="2">
             <Text weight="medium">TRACK</Text>
             the result using the key
             <PlainEntityBadge label={experiment.trackingKey} />

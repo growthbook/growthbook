@@ -30,7 +30,7 @@ import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
-  ACTIVE_DRAFT_STATUSES,
+  isActiveDraftStatus,
   CreateSafeRolloutInterface,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
@@ -594,7 +594,7 @@ export default function RuleModal({
     revisionList.find((r) => r.version === targetVersion)?.baseVersion,
   ]);
   const isActiveDraft = (r: FeatureRevisionInterface | null | undefined) =>
-    !!r && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
+    !!r && isActiveDraftStatus(r.status);
   const targetRevision = targetRevisions.get(targetVersion);
   const targetDraft = [targetRevision, draftRevision].find(isActiveDraft);
   const targetDraftBase = targetRevisions.get(targetDraft?.baseVersion);

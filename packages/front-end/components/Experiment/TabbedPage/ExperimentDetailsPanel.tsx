@@ -7,7 +7,10 @@ import DetailsPanel, {
   DetailsPanelTab,
   PanelSection,
 } from "@/components/DetailsPanel";
-import { CustomFieldRows } from "@/components/DetailsPanelFields";
+import {
+  CustomFieldRows,
+  PanelEditButton,
+} from "@/components/DetailsPanelFields";
 import ProjectTagBar, {
   ExperimentDataFields,
   QuickEditField,
@@ -24,7 +27,6 @@ import {
   todoTitle,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import Metadata from "@/ui/Metadata";
-import QuickEditButton from "./QuickEditButton";
 import { headerDates } from "./statusSchedule";
 
 export interface Props {
@@ -58,15 +60,14 @@ export default function ExperimentDetailsPanel({
     setCustomFieldId(fieldId);
   };
 
-  const pencil = (label: string, onClick: () => void) =>
-    canEdit ? (
-      <QuickEditButton
-        label={label}
-        onClick={onClick}
-        blockedReason={editsBlocked}
-        labelTooltip={false}
-      />
-    ) : null;
+  const pencil = (label: string, onClick: () => void) => (
+    <PanelEditButton
+      canEdit={canEdit}
+      label={label}
+      onClick={onClick}
+      blockedReason={editsBlocked}
+    />
+  );
 
   const fieldAction = (field: QuickEditField) => {
     // The key only changes while nothing is serving it, or about to.

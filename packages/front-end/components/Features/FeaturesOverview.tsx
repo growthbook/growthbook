@@ -18,7 +18,7 @@ import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex } from "@radix-ui/themes";
 import {
-  ACTIVE_DRAFT_STATUSES,
+  isActiveDraftStatus,
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
@@ -382,9 +382,7 @@ export default function FeaturesOverview({
   const baseVersion = revision.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
   const isLive = revision.version === feature.version;
-  const isDraft = (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
-    revision.status,
-  );
+  const isDraft = isActiveDraftStatus(revision.status);
 
   const projectId = feature.project;
 
@@ -926,6 +924,8 @@ export default function FeaturesOverview({
           }
         >
           <ForceSummary
+            // The section's title already says what it is.
+            label={null}
             value={getFeatureDefaultValue(feature)}
             feature={feature}
             isDefault={true}

@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -25,9 +25,9 @@ import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
 import FeatureDetailsPanel from "@/components/Features/FeatureDetailsPanel";
 import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import RevisionStatusBar, {
-  getRevisionStatus,
   REVISION_STATUS_BAR_HEIGHT_PX,
 } from "@/components/Features/RevisionStatusBar";
+import { getRevisionStatus } from "@/services/revisionStatus";
 import {
   TABS_BAR_HEIGHT_PX,
   TABS_HEADER_HEIGHT_PX,
@@ -167,9 +167,7 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const viewingDraft = (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
-    revision.status,
-  );
+  const viewingDraft = isActiveDraftStatus(revision.status);
   const viewingLive = revision.version === feature.version;
   // Under the tabs, the status bar pushes down what sticks beneath them.
   // Only on the overview, where the revision's content is.

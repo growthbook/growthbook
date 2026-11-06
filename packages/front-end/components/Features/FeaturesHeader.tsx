@@ -10,7 +10,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { PiEye } from "react-icons/pi";
 import {
-  ACTIVE_DRAFT_STATUSES,
+  isActiveDraftStatus,
   REVIEW_REQUESTED_STATUSES,
   HoldoutInterface,
 } from "shared/validators";
@@ -223,10 +223,7 @@ export default function FeaturesHeader({
     (r) => r.version === (version ?? feature.version),
   );
   const viewingDraft =
-    !!viewedRevision &&
-    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
-      viewedRevision.status,
-    );
+    !!viewedRevision && isActiveDraftStatus(viewedRevision.status);
   // Judged on the live flag, like the server.
   const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
 
@@ -417,8 +414,12 @@ export default function FeaturesHeader({
   // White over the page's violet, which only the content column below shows.
   return (
     <>
-      <div
-        className="container-fluid pagecontents position-relative px-4 pt-3 pb-2"
+      <Box
+        className="container-fluid pagecontents"
+        position="relative"
+        px="4"
+        pt="3"
+        pb="2"
         style={{ background: "var(--color-panel-solid)" }}
       >
         <Box>
@@ -460,7 +461,7 @@ export default function FeaturesHeader({
             </Callout>
           ) : null}
         </Box>
-      </div>
+      </Box>
       <>
         <div
           ref={tabsPinSentinelRef}
@@ -478,8 +479,12 @@ export default function FeaturesHeader({
             pinned: headerPinned,
           })}
         >
-          <div className="position-relative container-fluid pagecontents px-4">
-            <div className="d-flex align-items-center header-tabs">
+          <Box
+            className="container-fluid pagecontents"
+            position="relative"
+            px="4"
+          >
+            <Flex align="center" className="header-tabs">
               <Tabs
                 value={tab}
                 onValueChange={setTab}
@@ -526,8 +531,8 @@ export default function FeaturesHeader({
                 />
               </Box>
               <DetailsPanelToggle open={detailsOpen} setOpen={setDetailsOpen} />
-            </div>
-          </div>
+            </Flex>
+          </Box>
           {statusBar}
         </div>
       </>

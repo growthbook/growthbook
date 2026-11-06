@@ -1,11 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef, useState } from "react";
-import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiArrowBendRightDown } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   filterEnvironmentsByFeature,
   getEnabledHoldoutEnvironments,
@@ -27,6 +26,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -167,17 +167,11 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 {canEdit && !isLocked && (
                   <DropdownMenu
                     trigger={
-                      <IconButton
+                      <MoreMenuTrigger
+                        label="Holdout actions"
                         className={cornerStyles.actions}
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
                         style={{ marginRight: "calc(var(--space-2) * -1)" }}
-                      >
-                        <BsThreeDotsVertical size={16} />
-                      </IconButton>
+                      />
                     }
                     open={dropdownOpen}
                     onOpenChange={setDropdownOpen}

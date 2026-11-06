@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { dateNoYear } from "shared/dates";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
@@ -60,7 +60,7 @@ export default function RevisionDropdown({
   const withoutLive = allSorted.filter((r) => r.version !== liveVersion);
 
   const activeDrafts = (r: MinimalFeatureRevisionInterface) =>
-    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
+    isActiveDraftStatus(r.status);
 
   const displayList = publishedOnly
     ? withoutLive

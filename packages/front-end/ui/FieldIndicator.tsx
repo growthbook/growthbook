@@ -101,7 +101,7 @@ export function CopyFieldIndicator({
 
 /**
  * A multi-line field's indicators, in its bottom-right corner. The field's
- * box needs `position: relative` and the `gb-field-indicator-host` class.
+ * box needs the `gb-field-indicator-host` class.
  */
 export function FieldIndicatorCorner({
   right = 14,

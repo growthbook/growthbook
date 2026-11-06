@@ -12,9 +12,8 @@ import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothesis";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
-import NewRuleVariationsGrid, {
-  newRuleVariation,
-} from "@/components/Features/RuleModal/NewRuleVariationsGrid";
+import NewRuleVariationsGrid from "@/components/Features/RuleModal/NewRuleVariationsGrid";
+import { newRuleVariation } from "@/services/ruleVariations";
 import Collapse, { CollapseLink } from "@/ui/Collapse";
 import { CoverageField } from "@/components/Features/FeatureVariationsInput";
 import ExperimentSplitVisual from "@/components/Features/ExperimentSplitVisual";
