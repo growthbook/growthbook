@@ -16,7 +16,6 @@ import useFullFactTable from "@/hooks/useFullFactTable";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { getReadOnlyUnit } from "@/enterprise/components/ProductAnalytics/metricMixing";
 import Text from "@/ui/Text";
 import {
   factTableToColumnSource,
@@ -31,15 +30,18 @@ export default function ValueCard({
   index,
   children,
   filterActions,
+  readOnlyUnit = null,
 }: {
   index: number;
   children: React.ReactNode;
   /** Rendered beside the add-filter buttons. */
   filterActions?: React.ReactNode;
+  /** Metric charts saved with mixed units show each card's unit here. */
+  readOnlyUnit?: string | null;
 }) {
   const { draftExploreState, updateValueInDataset, deleteValueFromDataset } =
     useExplorerContext();
-  const { getFactMetricById, getFactTableById } = useDefinitions();
+  const { getFactMetricById } = useDefinitions();
 
   // ValueCard is only mounted from metric/fact_table/data_source tabs —
   // funnels manage their own step UI. The hooks below must run unconditionally,
@@ -134,7 +136,6 @@ export default function ValueCard({
   // Metric explorations pick one unit for the whole chart (MetricTabContent),
   // so their cards only show the unit when an older config mixes them.
   let supportsUnitSelection = false;
-  let readOnlyUnit: string | null = null;
 
   switch (draftExploreState.dataset.type) {
     case "fact_table":
@@ -143,19 +144,10 @@ export default function ValueCard({
       supportsUnitSelection =
         draftExploreState.dataset.values[index].valueType === "unit_count";
       break;
-    case "metric": {
-      const { values } = draftExploreState.dataset;
-      readOnlyUnit = getReadOnlyUnit(
-        values[index],
-        values,
-        getFactMetricById,
-        getFactTableById,
-      );
-      break;
-    }
     case "population":
       supportsUnitSelection = true;
       break;
+    case "metric":
     case "funnel":
     case "journey":
       break;

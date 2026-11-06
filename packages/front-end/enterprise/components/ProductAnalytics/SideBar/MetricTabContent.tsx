@@ -23,6 +23,7 @@ import {
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
+  getReadOnlyUnit,
   getUnitConflict,
   getUnitPicker,
   setMetricValuesUnit,
@@ -51,6 +52,11 @@ export default function MetricTabContent() {
       ? draftExploreState.dataset.values
       : [];
   const unitPicker = getUnitPicker(values, getFactMetricById, getFactTableById);
+  const unitsAreMixed = getMetricValuesUnitState(
+    values,
+    getFactMetricById,
+    getFactTableById,
+  ).isMixed;
   const addMetricConflict = getAddMetricConflict(
     values.map((v) => getFactMetricById(v.metricId ?? "")?.metricType),
   );
@@ -159,6 +165,7 @@ export default function MetricTabContent() {
           <ValueCard
             key={idx}
             index={idx}
+            readOnlyUnit={getReadOnlyUnit(v, unitsAreMixed, getFactMetricById)}
             filterActions={
               showAsOptions.length > 0 && (
                 <ShowAsInput
@@ -183,24 +190,20 @@ export default function MetricTabContent() {
                 }
                 onChange={(val) => {
                   const newMetric = factMetrics.find((m) => m.id === val);
-                  const newFactTable = newMetric
-                    ? getFactTableById(
+                  // Keep the chart's unit (or this slot's, when it's the only
+                  // metric) if the new metric offers it; otherwise
+                  // fillMissingUnits picks one.
+                  const unit = lockedUnit ?? v.unit;
+                  const newUserIdTypes = newMetric
+                    ? (getFactTableById(
                         getFactMetricPrimaryFactTableId(newMetric),
-                      )
-                    : null;
-
-                  // Join the chart's unit; otherwise keep this slot's unit if
-                  // the new metric offers it, else take its first one.
-                  let unit = lockedUnit ?? v.unit;
-                  if (!unit || !newFactTable?.userIdTypes.includes(unit)) {
-                    unit = newFactTable?.userIdTypes[0] ?? null;
-                  }
-
+                      )?.userIdTypes ?? [])
+                    : [];
                   // A new metric starts from its own inferred showAs.
                   const updates = {
                     ...omit(v, "showAs"),
                     metricId: val,
-                    unit,
+                    unit: unit && newUserIdTypes.includes(unit) ? unit : null,
                     name: newMetric?.name
                       ? generateUniqueValueName(
                           newMetric.name,

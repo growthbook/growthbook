@@ -168,17 +168,11 @@ export function getUnitPicker(
  */
 export function getReadOnlyUnit(
   value: MetricValue,
-  values: MetricValue[],
+  unitsAreMixed: boolean,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-  getFactTableById: (id: string) => FactTableDefinition | null,
 ): string | null {
-  if (!metricSupportsUnitSelection(getFactMetricById(value.metricId))) {
-    return null;
-  }
-  const { isMixed } = getMetricValuesUnitState(
-    values,
-    getFactMetricById,
-    getFactTableById,
-  );
-  return isMixed ? value.unit : null;
+  if (!unitsAreMixed) return null;
+  return metricSupportsUnitSelection(getFactMetricById(value.metricId))
+    ? value.unit
+    : null;
 }

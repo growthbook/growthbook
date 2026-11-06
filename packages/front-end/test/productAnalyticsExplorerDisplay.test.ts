@@ -11,6 +11,7 @@ import {
   getValueAxisName,
 } from "@/enterprise/components/ProductAnalytics/util";
 import {
+  getMetricValuesUnitState,
   getReadOnlyUnit,
   getUnitPicker,
 } from "@/enterprise/components/ProductAnalytics/metricMixing";
@@ -90,6 +91,11 @@ function metricChart(
 function describeExplorerDisplay(config: ExplorationConfig) {
   const values = config.dataset.type === "metric" ? config.dataset.values : [];
   const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+  const unitsAreMixed = getMetricValuesUnitState(
+    values,
+    getFactMetricById,
+    getFactTableById,
+  ).isMixed;
   return {
     axisTitle: getValueAxisName(config, renderOpts),
     seriesNames: renderOpts.values.map((opts) => opts.seriesName),
@@ -106,12 +112,7 @@ function describeExplorerDisplay(config: ExplorationConfig) {
       return {
         showAsOptions: options,
         showAs,
-        readOnlyUnit: getReadOnlyUnit(
-          v,
-          values,
-          getFactMetricById,
-          getFactTableById,
-        ),
+        readOnlyUnit: getReadOnlyUnit(v, unitsAreMixed, getFactMetricById),
       };
     }),
   };

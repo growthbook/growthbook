@@ -22,6 +22,7 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   normalizeShowAs,
+  getShowAsOptions,
   fillMissingUnits,
   getExplorationRenderOpts,
   buildExplorationColumns,
@@ -829,22 +830,20 @@ async function normalizeConfigForExplorer(
   // Move a deprecated top-level `showAs` onto the values and drop it where it
   // isn't one of the metric's Show as options, so we never persist a mode that
   // disagrees with what the chart will actually render.
-  const requested = normalized;
+  const legacyShowAs = normalized.showAs;
+  const dropped =
+    normalized.dataset.type === "metric"
+      ? normalized.dataset.values.filter((v) => {
+          const asked = v.showAs ?? legacyShowAs;
+          const metric = getFactMetricByIdResolver(v.metricId);
+          return (
+            asked !== undefined &&
+            metric !== null &&
+            !getShowAsOptions(metric.metricType).includes(asked)
+          );
+        })
+      : [];
   normalized = normalizeShowAs(normalized, getFactMetricByIdResolver);
-  const keptValues = datasetHasValues(normalized.dataset)
-    ? normalized.dataset.values
-    : [];
-  const dropped = datasetHasValues(requested.dataset)
-    ? requested.dataset.values.filter((v, i) => {
-        const asked =
-          (v.type === "metric" ? v.showAs : undefined) ?? requested.showAs;
-        const kept = keptValues[i];
-        return (
-          asked !== undefined &&
-          !(kept?.type === "metric" && kept.showAs !== undefined)
-        );
-      })
-    : [];
   if (dropped.length) {
     warnings.push(
       `Dropped showAs from ${dropped.map((v) => `"${v.name}"`).join(", ")} — it isn't an option for that metric type (only mean metrics offer showAs). These values render as totals.`,
