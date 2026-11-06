@@ -159,8 +159,9 @@ export default function ProfileMenu({
             <Text as="div" size="sm" color="text-low" truncate>
               {email}
             </Text>
-            {/* With several organizations, the picker below shows it. */}
-            {orgName && !showOrgPicker ? (
+            {/* With several organizations, the org menu (or, without the side
+                nav, the picker below) shows it. */}
+            {orgName && !multiOrg ? (
               <span className={styles.orgLine}>
                 <PiBuildingBold size={12} aria-hidden="true" />
                 <Text size="sm" color="text-low" truncate>
