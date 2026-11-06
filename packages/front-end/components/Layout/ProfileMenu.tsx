@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { IconButton, VisuallyHidden } from "@radix-ui/themes";
@@ -47,7 +47,11 @@ import {
   SidebarMenuEntry,
   SidebarMenuInPlace,
 } from "./SidebarMenu";
-import { useUserOrganizations } from "./useUserOrganizations";
+import {
+  useSwitchOrganization,
+  useUserOrganizations,
+} from "./useUserOrganizations";
+import { useIsTruncated } from "./useIsTruncated";
 import styles from "./ProfileMenu.module.scss";
 
 const ProfileIcon = withOpticalWeight(PiUserCircle);
@@ -75,7 +79,8 @@ export default function ProfileMenu({
 } = {}) {
   const router = useRouter();
   const { name, email, organization, hasCommercialFeature } = useUser();
-  const { logout, orgId, setOrgId } = useAuth();
+  const { logout } = useAuth();
+  const { currentOrgId, switchOrg } = useSwitchOrganization();
   const { setTheme, preferredTheme } = useAppearanceUITheme();
   const organizations = useUserOrganizations();
 
@@ -91,7 +96,6 @@ export default function ProfileMenu({
     !isCloud() &&
     isMultiOrg() &&
     (showMultiOrgSelfSelector() || allowSelfOrgCreation());
-  const currentOrgId = orgId ?? organization.id ?? "";
   const orgName =
     organizations.find((o) => o.id === currentOrgId)?.name ??
     organization.name ??
@@ -99,16 +103,11 @@ export default function ProfileMenu({
   const showOrgPicker = organizations.length > 1;
 
   const chooseOrg = (id: string) => {
-    if (id === currentOrgId || !setOrgId) return;
+    if (id === currentOrgId) return;
     setOpen(false);
     // In the drawer, switching closes it, as choosing an item does.
     inPlace?.onDone();
-    setOrgId(id);
-    try {
-      localStorage.setItem("gb-last-picked-org", `"${id}"`);
-    } catch (e) {
-      console.warn("Unable to save last org in localStorage");
-    }
+    switchOrg(id);
   };
 
   const go = (href: string) => {
@@ -426,21 +425,4 @@ export default function ProfileMenu({
       </DropdownMenu>
     </>
   );
-}
-
-/** Whether the element's text is cut off by its ellipsis. */
-function useIsTruncated(el: HTMLElement | null, text: string): boolean {
-  const [truncated, setTruncated] = useState(false);
-  useEffect(() => {
-    if (!el) {
-      setTruncated(false);
-      return;
-    }
-    const check = () => setTruncated(el.scrollWidth > el.clientWidth);
-    check();
-    const observer = new ResizeObserver(check);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [el, text]);
-  return truncated;
 }

@@ -70,7 +70,14 @@ export function useProjectSelector() {
 }
 
 /** Shows the full name in a tooltip once it's cut off. */
-function TruncatedName({ name, current }: { name: string; current: boolean }) {
+/** A menu row's name: cut off, it shows in full in a tooltip. */
+export function TruncatedName({
+  name,
+  current,
+}: {
+  name: string;
+  current: boolean;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const timer = useRef<number | undefined>(undefined);

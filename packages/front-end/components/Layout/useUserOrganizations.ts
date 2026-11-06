@@ -18,3 +18,27 @@ export function useUserOrganizations(): { id: string; name: string }[] {
   }
   return list;
 }
+
+/**
+ * The current organization and switching to another, remembered for the next
+ * visit. The one switcher behind the side nav's organization menu and the
+ * profile menu's picker.
+ */
+export function useSwitchOrganization(): {
+  currentOrgId: string;
+  switchOrg: (id: string) => void;
+} {
+  const { organization } = useUser();
+  const { orgId, setOrgId } = useAuth();
+  const currentOrgId = orgId ?? organization.id ?? "";
+  const switchOrg = (id: string) => {
+    if (id === currentOrgId || !setOrgId) return;
+    setOrgId(id);
+    try {
+      localStorage.setItem("gb-last-picked-org", `"${id}"`);
+    } catch (e) {
+      console.warn("Unable to save last org in localStorage");
+    }
+  };
+  return { currentOrgId, switchOrg };
+}

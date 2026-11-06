@@ -54,6 +54,7 @@ import GrowthBookLogo, {
 } from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
+import OrgMenu from "./OrgMenu";
 import SidebarProjectSelector from "./SidebarProjectSelector";
 import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
@@ -619,7 +620,7 @@ export default function Sidebar() {
   const [drawerLayer, setDrawerLayer] = useState<HTMLDivElement | null>(null);
   // Drawn by the menu itself (SidebarMenu.tsx) into menuHost.
   const [drawerMenu, setDrawerMenu] = useState<
-    "project" | "profile" | "help" | null
+    "organization" | "project" | "profile" | "help" | null
   >(null);
   const [menuByKeyboard, setMenuByKeyboard] = useState(false);
   const [menuHost, setMenuHost] = useState<HTMLDivElement | null>(null);
@@ -644,7 +645,7 @@ export default function Sidebar() {
   const backToNavRef = useRef(backToNav);
   backToNavRef.current = backToNav;
   const menuInPlace = (
-    name: "project" | "profile" | "help",
+    name: "organization" | "project" | "profile" | "help",
   ): SidebarMenuInPlace | undefined =>
     isNarrow
       ? {
@@ -1010,6 +1011,10 @@ export default function Sidebar() {
 
         {/* Kept mounted while a menu is open in its place: its row draws it. */}
         <div className={drawerMenu ? styles.navHidden : styles.navBody}>
+          <OrgMenu
+            sidebarItem={sidebarItem}
+            inPlace={menuInPlace("organization")}
+          />
           <SidebarProjectSelector
             sidebarItem={sidebarItem}
             inPlace={menuInPlace("project")}
