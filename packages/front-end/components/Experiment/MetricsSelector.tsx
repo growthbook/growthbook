@@ -820,6 +820,7 @@ const MetricsSelector: FC<{
         <OptionPopover
           context="value"
           side="bottom"
+          hoverBridge
           content={
             <MetricOverrideTooltipContent
               id={value}

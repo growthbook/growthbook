@@ -82,6 +82,8 @@ export function SavedGroupOptionWithTooltip({
   return (
     <OptionPopover
       context={context}
+      // A selected group, among the others in the field.
+      hoverBridge={context === "value"}
       content={
         <SavedGroupOptionTooltipContent
           group={group}

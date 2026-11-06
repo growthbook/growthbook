@@ -156,12 +156,16 @@ export function OptionTooltipDescription({
 export function OptionPopover({
   context = "menu",
   side,
+  hoverBridge = false,
   content,
   children,
 }: {
   context?: OptionContext;
   // Overrides the side the context would use, for a control too narrow for it.
   side?: "top" | "right" | "bottom" | "left";
+  // For a value among others in a list that wraps: the popover covers the gap
+  // to its value, so reaching it doesn't cross the next row's values.
+  hoverBridge?: boolean;
   content: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -169,6 +173,7 @@ export function OptionPopover({
   return (
     <Popover
       openOnHover
+      hoverBridge={hoverBridge}
       anchorOnly
       side={side ?? (isValue ? "top" : "right")}
       sideOffset={8}
