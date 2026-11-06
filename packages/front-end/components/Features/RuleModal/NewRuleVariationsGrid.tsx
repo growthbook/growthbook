@@ -250,7 +250,7 @@ export default function NewRuleVariationsGrid({
           feature={feature}
           variations={variations.map((v, index) => ({
             id: v.id,
-            name: v.name,
+            name: v.name || defaultRuleVariationName(index),
             index,
           }))}
           initialValues={Object.fromEntries(
