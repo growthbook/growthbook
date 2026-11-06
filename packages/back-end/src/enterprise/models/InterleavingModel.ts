@@ -73,6 +73,7 @@ import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/exp
 import {
   ensureIndexOnce,
   getCollection,
+  isDuplicateKeyError,
   isDuplicateKeyErrorForIndex,
 } from "back-end/src/util/mongo.util";
 
@@ -94,12 +95,20 @@ function payloadAffectingChanges(
 }
 
 const trackingKeyCollisionMessage = (trackingKey: string) =>
-  `Another interleaving experiment already reports as "${trackingKey}". Set a different tracking key so their exposures can be told apart.`;
+  `Another interleaving experiment already uses the tracking key "${trackingKey}". Set a different tracking key so their exposures can be told apart.`;
 
-const TRACKING_KEY_INDEX = "interleaving_datasourceid_trackingkey_unique";
+const TRACKING_KEY_INDEX = "interleaving_organization_trackingkey_unique";
 const LEGACY_TRACKING_KEY_INDEXES = [
   "interleaving_datasource_trackingkey_unique",
+  "interleaving_datasourceid_trackingkey_unique",
+  // Redundant once the unique index above covers the same reads.
+  "organization_1_trackingKey_1",
 ];
+// Several experiments may share a code key, so this one is not unique. Renamed
+// off the auto-generated name so the stale unique index can be dropped without
+// the drop racing the rebuild.
+const KEY_LOOKUP_INDEX = "interleaving_organization_key";
+const LEGACY_UNIQUE_KEY_INDEX = "organization_1_key_1";
 const INTERLEAVING_AUTOSNAPSHOT_SCAN_INDEX = "interleaving_autosnapshot_scan";
 const INTERLEAVING_COLLECTION = "interleavings";
 const trackingKeyUniquenessIndex = {
@@ -109,11 +118,22 @@ const trackingKeyUniquenessIndex = {
 
 async function ensureTrackingKeyIndex() {
   await waitForIndexes(INTERLEAVING_COLLECTION);
-  await ensureIndexOnce(
-    getCollection(INTERLEAVING_COLLECTION),
-    { organization: 1, datasourceId: 1, trackingKey: 1 },
-    trackingKeyUniquenessIndex,
-  );
+  try {
+    await ensureIndexOnce(
+      getCollection(INTERLEAVING_COLLECTION),
+      { organization: 1, trackingKey: 1 },
+      trackingKeyUniquenessIndex,
+    );
+  } catch (e) {
+    const cause =
+      typeof e === "object" && e !== null && "cause" in e ? e.cause : null;
+    if (isDuplicateKeyError(cause)) {
+      throw new Error(
+        "Existing interleaving experiments use the same tracking key. Contact support to resolve the duplicate tracking keys, then try again.",
+      );
+    }
+    throw e;
+  }
 }
 
 function toJSONSchema(
@@ -145,18 +165,13 @@ const BaseClass = MakeModelClass({
   // updateIfUnchanged guards on) and write an audit row every tick.
   skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
-  indexesToRemove: LEGACY_TRACKING_KEY_INDEXES,
+  indexesToRemove: [...LEGACY_TRACKING_KEY_INDEXES, LEGACY_UNIQUE_KEY_INDEX],
   additionalIndexes: [
     {
+      name: KEY_LOOKUP_INDEX,
       fields: {
         organization: 1,
         key: 1,
-      },
-    },
-    {
-      fields: {
-        organization: 1,
-        trackingKey: 1,
       },
     },
     {
@@ -456,14 +471,18 @@ export class InterleavingModel extends BaseClass {
     try {
       return await write();
     } catch (e) {
+      if (!isDuplicateKeyError(e)) throw e;
       if (
-        [TRACKING_KEY_INDEX, ...LEGACY_TRACKING_KEY_INDEXES].some((name) =>
+        ![TRACKING_KEY_INDEX, ...LEGACY_TRACKING_KEY_INDEXES].some((name) =>
           isDuplicateKeyErrorForIndex(e, name),
         )
       ) {
-        throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
+        this.context.logger.error(
+          e,
+          "Unexpected duplicate key writing an interleaving experiment",
+        );
       }
-      throw e;
+      throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
     }
   }
 
