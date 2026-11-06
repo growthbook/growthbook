@@ -55,6 +55,7 @@ import {
   sanitizeDimensions,
   getRelevantFactTableIds,
   normalizeShowAs,
+  getSharedUnit,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
@@ -939,10 +940,7 @@ export function fillMissingUnits(
 
   // Prefer the unit the other metrics already share, so filling a gap doesn't
   // mix units on a chart that has a single one.
-  const setUnits = new Set(
-    config.dataset.values.flatMap((v) => (v.unit ? [v.unit] : [])),
-  );
-  const sharedUnit = setUnits.size === 1 ? [...setUnits][0] : null;
+  const sharedUnit = getSharedUnit(config);
 
   let changed = false;
   const newValues = config.dataset.values.map((v) => {
