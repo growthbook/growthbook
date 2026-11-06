@@ -88,6 +88,12 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  INTERRUPTED_UPDATE_REASON,
+  LOCK_LOST_ERROR,
+  RESULTS_SUPERSEDED_ERROR,
+  stopIncrementalRefresh,
+} from "back-end/src/services/interruptedRefresh";
+import {
   CLUSTER_HEALTH_QUERY_NAME,
   CLUSTER_TRAFFIC_QUERY_NAME,
   SnapshotResult,
@@ -101,6 +107,7 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import { createOrderedWriter, OrderedWriter } from "./orderedWriter";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
@@ -176,6 +183,18 @@ export interface MetricSourceGroups {
   // cache materializes by comparing the metric's column refs to
   // `factTableId`.
   metrics: FactMetricInterface[];
+}
+
+/**
+ * A run that stopped while changing the units table left it marked; only a
+ * full refresh rebuilds it.
+ */
+
+export function runsAsFullRefresh(
+  fullRefresh: boolean,
+  state: Pick<IncrementalRefreshInterface, "unitsDirtyBy"> | null,
+): boolean {
+  return fullRefresh || !!state?.unitsDirtyBy;
 }
 
 export function getIncrementalRefreshMetricSources({
@@ -313,7 +332,7 @@ function parseMaxTimestampRow(row: Record<string, unknown> | undefined): {
   };
 }
 
-const startExperimentIncrementalRefreshQueries = async (
+export const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
   params: ExperimentIncrementalRefreshQueryParams,
   integration: SourceIntegrationInterface,
@@ -321,6 +340,9 @@ const startExperimentIncrementalRefreshQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
   experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
+  // Each write through it replaces a whole list, so they must land in order.
+  // The runner drains it before releasing the lock.
+  writeSourceLists: OrderedWriter,
 ): Promise<Queries> => {
   const { snapshotSettings, queryParentId, experimentId, metricMap } = params;
 
@@ -419,11 +441,40 @@ const startExperimentIncrementalRefreshQueries = async (
           experimentId,
           executionId,
         );
-      if (!lockHeld) {
-        throw new Error(
-          "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.",
-        );
-      }
+      if (!lockHeld) throw new Error(LOCK_LOST_ERROR);
+      return run(query, setExternalId, queryMetadata);
+    };
+
+  // Writes the state the next refresh relies on, fenced on the lock. A write
+  // that misses the lock fails its query, so the query's write never runs, or
+  // the query never counts as succeeded without its state saved.
+  const saveRunState = async (write: () => Promise<boolean>) => {
+    if (!(await write())) throw new Error(LOCK_LOST_ERROR);
+  };
+  // Marks precede writes; see services/interruptedRefresh.ts.
+  const markUnitsDirty = () =>
+    saveRunState(() =>
+      context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+        experimentId,
+        executionId,
+        { unitsDirtyBy: executionId },
+      ),
+    );
+  // Runs a statement that changes the units table after marking it.
+  const changesUnits =
+    <R>(
+      run: (
+        query: string,
+        setExternalId: ExternalIdCallback,
+        queryMetadata: RunQueryMetadata,
+      ) => Promise<R>,
+    ) =>
+    async (
+      query: string,
+      setExternalId: ExternalIdCallback,
+      queryMetadata: RunQueryMetadata,
+    ): Promise<R> => {
+      await markUnitsDirty();
       return run(query, setExternalId, queryMetadata);
     };
 
@@ -467,6 +518,8 @@ const startExperimentIncrementalRefreshQueries = async (
   // assertIncrementalRefreshPrerequisites (they force a full refresh).
   const factTablesToRebuild = getFactTablesNeedingRebuild({
     existingMetricSources: incrementalRefreshModel?.metricSources ?? [],
+    existingCovariateSources:
+      incrementalRefreshModel?.metricCovariateSources ?? [],
     desiredFanOut,
     currentMetricSettingsHashes,
   });
@@ -543,7 +596,7 @@ const startExperimentIncrementalRefreshQueries = async (
         unitsTableFullName: unitQueryParams.unitsTableFullName,
       }),
       dependencies: [],
-      run: fenced((query, setExternalId, queryMetadata) =>
+      run: changesUnits((query, setExternalId, queryMetadata) =>
         integration.runDropTableQuery(query, setExternalId, queryMetadata),
       ),
       queryType: "experimentIncrementalRefreshDropUnitsTable",
@@ -556,7 +609,7 @@ const startExperimentIncrementalRefreshQueries = async (
       query:
         integration.getCreateExperimentIncrementalUnitsQuery(unitQueryParams),
       dependencies: [dropOldUnitsTableQuery.query],
-      run: fenced((query, setExternalId, queryMetadata) =>
+      run: changesUnits((query, setExternalId, queryMetadata) =>
         integration.runIncrementalWithNoOutputQuery(
           query,
           setExternalId,
@@ -592,7 +645,7 @@ const startExperimentIncrementalRefreshQueries = async (
     query: integration.getDropOldIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
     }),
-    run: fenced((query, setExternalId, queryMetadata) =>
+    run: changesUnits((query, setExternalId, queryMetadata) =>
       integration.runDropTableQuery(query, setExternalId, queryMetadata),
     ),
     dependencies: [updateUnitsTableQuery.query],
@@ -609,7 +662,7 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsTempTableFullName: unitsTempTableFullName,
     }),
     dependencies: [dropUnitsTableQuery.query],
-    run: fenced((query, setExternalId, queryMetadata) =>
+    run: changesUnits((query, setExternalId, queryMetadata) =>
       integration.runIncrementalWithNoOutputQuery(
         query,
         setExternalId,
@@ -628,23 +681,24 @@ const startExperimentIncrementalRefreshQueries = async (
       lastMaxTimestamp: lastMaxTimestamp || null,
     }),
     dependencies: [alterUnitsTableQuery.query],
-    run: (query, setExternalId, queryMetadata) =>
-      integration.runIncrementalWithNoOutputQuery(
+    // Saves the watermark, and clears the units mark, before the query counts
+    // as succeeded.
+    run: async (query, setExternalId, queryMetadata) => {
+      const result = await integration.runIncrementalWithNoOutputQuery(
         query,
         setExternalId,
         queryMetadata,
-      ),
-    onSuccess: async (rows) => {
+      );
       // MAX() is NULL on an empty units table; persist null so a prior
       // watermark cannot survive a full refresh that matched no one.
-      const watermark = parseMaxTimestampRow(rows[0]);
-
-      const lockHeld =
-        await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+      const watermark = parseMaxTimestampRow(result.rows[0]);
+      await saveRunState(() =>
+        context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
           experimentId,
           executionId,
           {
             unitsTableFullName: unitsTableFullName,
+            unitsDirtyBy: null,
             unitsMaxTimestamp: watermark.maxTimestamp,
             unitsMaxTimestampRaw: watermark.maxTimestampRaw,
             experimentSettingsHash:
@@ -654,13 +708,9 @@ const startExperimentIncrementalRefreshQueries = async (
               ),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
           },
-        );
-      if (lockHeld !== true) {
-        context.logger.warn(
-          "Incremental refresh execution lock lost for experiment: " +
-            experimentId,
-        );
-      }
+        ),
+      );
+      return result;
     },
     queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
   });
@@ -702,6 +752,11 @@ const startExperimentIncrementalRefreshQueries = async (
     integration,
     snapshotSettings,
   });
+  // A covariate source belongs to a metric source; one left without it is
+  // dropped rather than kept, marked or not.
+  existingCovariateSources = existingCovariateSources.filter((covariate) =>
+    existingSources.some((source) => source.groupId === covariate.groupId),
+  );
   let runningSourceData = existingSources ?? [];
   let runningCovariateSourceData = existingCovariateSources ?? [];
 
@@ -811,12 +866,29 @@ const startExperimentIncrementalRefreshQueries = async (
         ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
         alterUnitsTableQuery.query,
       ],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runIncrementalWithNoOutputQuery(
+      // A new source isn't listed until its watermark is saved, so only a
+      // listed one needs marking before the insert.
+      run: async (query, setExternalId, queryMetadata) => {
+        if (existingSource) {
+          runningSourceData = runningSourceData.map((s) =>
+            s.groupId === group.groupId ? { ...s, dirtyBy: executionId } : s,
+          );
+          await saveRunState(() =>
+            writeSourceLists(() =>
+              context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+                experimentId,
+                executionId,
+                { metricSources: runningSourceData },
+              ),
+            ),
+          );
+        }
+        return integration.runIncrementalWithNoOutputQuery(
           query,
           setExternalId,
           queryMetadata,
-        ),
+        );
+      },
       metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
     });
@@ -934,22 +1006,38 @@ const startExperimentIncrementalRefreshQueries = async (
             ? [createMetricCovariateTableQuery.query]
             : []),
         ],
-        run: (
+        // Marks a listed table before the insert, and saves the watermark,
+        // clearing the mark, before the query counts as succeeded.
+        run: async (
           query: string,
           setExternalId: ExternalIdCallback,
           queryMetadata: RunQueryMetadata,
-        ) =>
-          integration.runIncrementalWithNoOutputQuery(
+        ) => {
+          if (existingCovariateSource) {
+            runningCovariateSourceData = runningCovariateSourceData.map((s) =>
+              s.groupId === group.groupId ? { ...s, dirtyBy: executionId } : s,
+            );
+            await saveRunState(() =>
+              writeSourceLists(() =>
+                context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+                  experimentId,
+                  executionId,
+                  { metricCovariateSources: runningCovariateSourceData },
+                ),
+              ),
+            );
+          }
+          const result = await integration.runIncrementalWithNoOutputQuery(
             query,
             setExternalId,
             queryMetadata,
-          ),
-        onSuccess: async () => {
+          );
           const incrementalRefresh =
             await context.models.incrementalRefresh.getLockedBySnapshotId(
               experimentId,
               queryParentId,
             );
+          if (!incrementalRefresh) throw new Error(LOCK_LOST_ERROR);
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
           const lastSuccessfulMaxTimestampRaw =
@@ -960,6 +1048,7 @@ const startExperimentIncrementalRefreshQueries = async (
                   ...existingCovariateSource,
                   lastSuccessfulMaxTimestamp,
                   lastSuccessfulMaxTimestampRaw,
+                  dirtyBy: null,
                 }
               : {
                   groupId: group.groupId,
@@ -976,20 +1065,16 @@ const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedCovariateSource : s,
             );
           }
-          const lockHeld =
-            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-              experimentId,
-              executionId,
-              {
-                metricCovariateSources: runningCovariateSourceData,
-              },
-            );
-          if (lockHeld !== true) {
-            context.logger.warn(
-              "Incremental refresh execution lock lost for experiment: " +
+          await saveRunState(() =>
+            writeSourceLists(() =>
+              context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
                 experimentId,
-            );
-          }
+                executionId,
+                { metricCovariateSources: runningCovariateSourceData },
+              ),
+            ),
+          );
+          return result;
         },
       };
 
@@ -1049,34 +1134,28 @@ const startExperimentIncrementalRefreshQueries = async (
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
       }),
       dependencies: [insertMetricsSourceDataQuery.query],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
-      onFailure: async () => {
-        // Remove the source from the running data if max timestamp fails
-        runningSourceData = runningSourceData.filter(
-          (s) => s.groupId !== group.groupId,
+      // Saves the watermark, clearing the mark, before the query counts as
+      // succeeded.
+      run: async (query, setExternalId, queryMetadata) => {
+        const result = await integration.runMaxTimestampQuery(
+          query,
+          setExternalId,
+          queryMetadata,
         );
-        // Note: onFailure is not awaited by QueryRunner, so we must catch
-        // errors here to avoid unhandled promise rejections.
-        context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
-            metricSources: runningSourceData,
-          })
-          .catch((e) =>
-            context.logger.error(
-              e,
-              "Failed to update metric sources on query failure",
-            ),
-          );
-      },
-      onSuccess: async (rows) => {
         // MAX() is NULL on an empty cache; persist null rather than skip
         // the source so the table isn't rebuilt on the next refresh.
-        const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(rows[0]);
+        const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(
+          result.rows[0],
+        );
         // TODO(incremental-refresh): Clean up metadata handling in query runner
         const updatedSource: IncrementalRefreshMetricSourceInterface =
           existingSource
-            ? { ...existingSource, maxTimestamp, maxTimestampRaw }
+            ? {
+                ...existingSource,
+                maxTimestamp,
+                maxTimestampRaw,
+                dirtyBy: null,
+              }
             : {
                 groupId: group.groupId,
                 factTableId: group.factTableId,
@@ -1109,20 +1188,16 @@ const startExperimentIncrementalRefreshQueries = async (
             s.groupId === group.groupId ? updatedSource : s,
           );
         }
-        const lockHeld =
-          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-            experimentId,
-            executionId,
-            {
-              metricSources: runningSourceData,
-            },
-          );
-        if (lockHeld !== true) {
-          context.logger.warn(
-            "Incremental refresh execution lock lost for experiment: " +
+        await saveRunState(() =>
+          writeSourceLists(() =>
+            context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
               experimentId,
-          );
-        }
+              executionId,
+              { metricSources: runningSourceData },
+            ),
+          ),
+        );
+        return result;
       },
       metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
@@ -1381,6 +1456,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private writeSourceLists = createOrderedWriter();
+  // Every query started so far, even if planning the rest then throws.
+  public startedQueries: Queries = [];
+  // Set when the last save replaced the results with an error.
+  private refusedError: string | null = null;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -1419,12 +1499,25 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
     }
 
-    const incrementalRefreshModel = params.fullRefresh
-      ? null
-      : await this.context.models.incrementalRefresh.getLockedBySnapshotId(
-          params.experimentId,
-          this.model.id,
-        );
+    const lockedState =
+      await this.context.models.incrementalRefresh.getLockedBySnapshotId(
+        params.experimentId,
+        this.model.id,
+      );
+    // Read after taking the lock, so it also covers marks a stale run wrote
+    // after this one was planned.
+    if (!params.fullRefresh && runsAsFullRefresh(false, lockedState)) {
+      params = { ...params, fullRefresh: true };
+      this.model.runnerKind = "incremental-full";
+      if (this.experimentUpdateExecutionLogger) {
+        this.experimentUpdateExecutionLogger.plan.runnerKind =
+          "incremental-full";
+        this.experimentUpdateExecutionLogger.plan.fullRefresh = true;
+        this.experimentUpdateExecutionLogger.plan.fullRefreshReason =
+          INTERRUPTED_UPDATE_REASON;
+      }
+    }
+    const incrementalRefreshModel = params.fullRefresh ? null : lockedState;
 
     const experiment = await getExperimentById(
       this.context,
@@ -1457,8 +1550,13 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.context,
       params,
       this.integration,
-      this.startQuery.bind(this),
+      async (queryParams) => {
+        const pointer = await this.startQuery(queryParams);
+        this.startedQueries.push(pointer);
+        return pointer;
+      },
       this.experimentUpdateExecutionLogger,
+      this.writeSourceLists,
     );
   }
 
@@ -1623,16 +1721,24 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       { concludedBy: this.concludedBy },
       this.experimentUpdateExecutionLogger,
     );
-    if (wrote) {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on shutdown error",
-          ),
-        );
-    }
+    if (wrote) await this.stop();
+  }
+
+  // Lands queued source-list writes, then fails the queries that have not
+  // started and releases the lock. Whatever the run changed is still marked.
+  private async stop(queries: Queries = this.model.queries) {
+    await this.writeSourceLists.flush();
+    await stopIncrementalRefresh(this.context, { ...this.model, queries });
+  }
+
+  // For snapshot creation failing after queries started: those were never
+  // recorded on the snapshot.
+  public async stopAfterFailedStart() {
+    await this.stop(this.startedQueries);
+  }
+
+  protected override refusedResultsError(): string | null {
+    return this.refusedError;
   }
 
   async updateModel({
@@ -1650,12 +1756,32 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     error?: string;
     failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
-    const snapshotStatus =
+    let snapshotStatus: ExperimentSnapshotInterface["status"] =
       status === "running"
         ? "running"
         : status === "failed"
           ? "error"
           : "success";
+
+    // Results are saved only once committed while this run holds the lock;
+    // it keeps the lock until they are saved, so a retried save commits
+    // again.
+    let committed = false;
+    this.refusedError = null;
+    if (snapshotStatus === "success") {
+      await this.writeSourceLists.flush();
+      committed = await this.context.models.incrementalRefresh.commitRunResults(
+        this.model.experiment,
+        this.model.id,
+      );
+      if (!committed) {
+        snapshotStatus = "error";
+        result = undefined;
+        error = RESULTS_SUPERSEDED_ERROR;
+        failureCause = "superseded";
+        this.refusedError = error;
+      }
+    }
 
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -1663,6 +1789,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       error,
       ...result,
       status: snapshotStatus,
+      // An Update turns into a full refresh once the lock shows a marked
+      // units table.
+      ...(this.model.runnerKind ? { runnerKind: this.model.runnerKind } : {}),
     };
     await updateSnapshot({
       context: this.context,
@@ -1681,32 +1810,26 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       });
     }
 
-    // Release the incremental refresh lock on any terminal status
-    // TODO: Properly handle partially-succeeded status that also becomes terminal??
     if (snapshotStatus !== "running") {
-      if (snapshotStatus === "success") {
-        await this.context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(
-            this.model.experiment,
-            this.model.id,
-            { materializedBySnapshotId: this.model.id },
-          )
-          .catch((e) =>
+      // Only a snapshot saved as a success may be what the tables point at.
+      if (committed) {
+        const marked = await this.context.models.incrementalRefresh
+          .markMaterialized(this.model.experiment, this.model.id)
+          .catch((e) => {
             this.context.logger.warn(
               e,
               "Failed to record pipeline tables snapshot id on success",
-            ),
-          );
-      }
-
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
+            );
+            return true;
+          });
+        if (!marked) {
           this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
+            { experimentId: this.model.experiment, snapshotId: this.model.id },
+            "Pipeline tables not pointed at this snapshot: another run took the lock after it committed",
+          );
+        }
+      }
+      await this.stop();
     }
 
     return {
