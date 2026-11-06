@@ -63,6 +63,11 @@ import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/F
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
+import { hasGoogleAnalytics4ExposureQuery } from "@/services/datasources";
+import {
+  GA4_EVENTS_TEMPLATE,
+  getAllowedNewFactTableProjects,
+} from "@/services/factTables";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
@@ -234,6 +239,7 @@ const DataSourcePage: FC = () => {
     ready,
     error,
     projects,
+    project,
     factTables: allFactTables,
   } = useDefinitions();
   const { did } = router.query as { did: string };
@@ -293,6 +299,26 @@ const DataSourcePage: FC = () => {
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
+  // Set when the connect page just set up GA4, until the notice is dismissed.
+  const ga4JustSetUp =
+    router.query.setup === "ga4" &&
+    !!d &&
+    hasGoogleAnalytics4ExposureQuery(d.settings);
+  const ga4FactTableCreated = factTables.some(
+    (ft) => ft.name === GA4_EVENTS_TEMPLATE.name,
+  );
+  // Why a missing GA4 fact table is missing, so the notice can say what to do.
+  // The connect page skips it without permission; otherwise the request failed.
+  const ga4FactTableNoPermission =
+    !!d &&
+    getAllowedNewFactTableProjects({
+      datasource: d,
+      project,
+      permissionsUtil,
+    }) === null;
+  // Matches the "Add fact table" button in Finish Setting Up.
+  const canAddFactTable =
+    !!d && permissionsUtil.canCreateFactTable({ projects: d.projects ?? [] });
   const { data: experimentsData, error: experimentsError } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
   }>(
@@ -624,6 +650,48 @@ const DataSourcePage: FC = () => {
             : undefined
         }
       >
+        {ga4JustSetUp && (
+          <Callout
+            status={ga4FactTableCreated ? "success" : "warning"}
+            mb="4"
+            action={
+              <Button
+                size="sm"
+                variant="ghost"
+                color="inherit"
+                onClick={() =>
+                  router.replace(`/datasources/${did}`, undefined, {
+                    shallow: true,
+                  })
+                }
+              >
+                Dismiss
+              </Button>
+            }
+          >
+            {ga4FactTableCreated ? (
+              <>
+                Google Analytics 4 is set up. GrowthBook added the{" "}
+                <Text mono>user_id</Text> and <Text mono>anonymous_id</Text>{" "}
+                identifier types, an experiment assignment query, and a GA4
+                Events fact table.
+              </>
+            ) : (
+              <>
+                Google Analytics 4 is partly set up. GrowthBook added the{" "}
+                <Text mono>user_id</Text> and <Text mono>anonymous_id</Text>{" "}
+                identifier types and an experiment assignment query
+                {ga4FactTableNoPermission
+                  ? ", but you don't have permission to create the GA4 Events fact table."
+                  : ", but couldn't create the GA4 Events fact table."}{" "}
+                {canAddFactTable
+                  ? "Add a fact table in Finish Setting Up below."
+                  : "Ask an admin to add one in Finish Setting Up."}
+              </>
+            )}
+          </Callout>
+        )}
+
         {showFinishSettingUp && (
           <Frame px="0" py="0" style={{ overflow: "hidden" }}>
             <FinishSettingUp
