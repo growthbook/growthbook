@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { omit } from "lodash";
+import { isEqual, omit } from "lodash";
 import {
   CustomQualityCheck,
   ExperimentationHealthQualitySettings,
@@ -79,6 +79,8 @@ export async function putExperimentationHealthSettings(
   }
 
   if (project !== ORG_DEFAULT_SCOPE) {
+    // The quality threshold is the organization's alone
+    quality = omit(quality, "threshold");
     const projectDoc = await context.models.projects.getById(project);
     if (!projectDoc) {
       return res.status(404).json({
@@ -121,11 +123,21 @@ export async function putExperimentationHealthSettings(
     };
   }
 
+  const before =
+    await context.models.experimentationHealthSettings.getForScope(project);
   const settings =
     await context.models.experimentationHealthSettings.upsertForScope(project, {
       quality,
     });
-  recheckScope(context, project);
+  // The threshold doesn't change scores, so changing only it skips the recheck
+  if (
+    !isEqual(
+      omit(before?.quality ?? {}, "threshold"),
+      omit(quality, "threshold"),
+    )
+  ) {
+    recheckScope(context, project);
+  }
   return res.status(200).json({ status: 200, settings });
 }
 

@@ -59,6 +59,14 @@ export function resolveExperimentQualitySettings({
   );
 }
 
+// Matches where the Strong band starts
+export const DEFAULT_QUALITY_THRESHOLD = 80;
+
+// The score that counts as good quality, set on the organization default only
+export function getQualityThreshold(orgRecord?: HealthRecord | null): number {
+  return orgRecord?.quality?.threshold ?? DEFAULT_QUALITY_THRESHOLD;
+}
+
 // How many settings a record customizes (for "N settings customized")
 export function countHealthOverrides(record?: HealthRecord | null): number {
   if (!record) return 0;
