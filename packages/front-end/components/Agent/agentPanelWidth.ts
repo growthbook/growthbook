@@ -15,8 +15,13 @@ export const PANEL_MAX_WIDTH = 720;
  * rail, such as the experiment page's 360px one beside its content.
  */
 export const PAGE_MIN_WIDTH = 800;
-/** How far past the widest a drag goes before releasing expands it. */
-export const SNAP_PAST_PX = 80;
+/**
+ * Expanding by dragging is deliberate: this far past the widest, and held
+ * there this long, before releasing expands it. A quick, hard drag just
+ * leaves it at its widest.
+ */
+export const SNAP_PAST_PX = 120;
+export const SNAP_HOLD_MS = 500;
 export const KEY_STEP_PX = 16;
 export const KEY_STEP_LARGE_PX = 64;
 
@@ -44,8 +49,8 @@ export function panelWidthCss(width: number): string {
 }
 
 /**
- * Dragging its inner (left) edge: moving left widens it. Far enough past the
- * widest, releasing expands it.
+ * Dragging its inner (left) edge: moving left widens it. pastSnap is far
+ * enough past the widest to start the hold that arms expanding.
  */
 export function dragPanelWidth({
   startWidth,
@@ -57,9 +62,12 @@ export function dragPanelWidth({
   startX: number;
   x: number;
   max: number;
-}): { width: number; snap: boolean } {
+}): { width: number; pastSnap: boolean } {
   const raw = startWidth + (startX - x);
-  return { width: clampPanelWidth(raw, max), snap: raw >= max + SNAP_PAST_PX };
+  return {
+    width: clampPanelWidth(raw, max),
+    pastSnap: raw >= max + SNAP_PAST_PX,
+  };
 }
 
 /**

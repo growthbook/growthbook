@@ -14,6 +14,7 @@ import {
   dragPanelWidth,
   keyPanelWidth,
   maxPanelWidth,
+  SNAP_HOLD_MS,
 } from "./agentPanelWidth";
 import styles from "./AgentPanelResizeHandle.module.scss";
 
@@ -67,19 +68,26 @@ export default function AgentPanelResizeHandle({
     startWidth: number;
     max: number;
     width: number;
-    snap: boolean;
+    /** Past the snap distance, counting down to arming. */
+    holdTimer: number | null;
+    /** Held long enough: releasing expands. */
+    armed: boolean;
   } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [snapping, setSnapping] = useState(false);
 
   const endDrag = () => {
+    if (drag.current?.holdTimer) window.clearTimeout(drag.current.holdTimer);
     drag.current = null;
     setDragging(false);
     setSnapping(false);
     document.documentElement.classList.remove(RESIZING_CLASS);
   };
   useEffect(
-    () => () => document.documentElement.classList.remove(RESIZING_CLASS),
+    () => () => {
+      if (drag.current?.holdTimer) window.clearTimeout(drag.current.holdTimer);
+      document.documentElement.classList.remove(RESIZING_CLASS);
+    },
     [],
   );
   // Esc cancels a drag, before anything else (e.g. closing the panel) sees
@@ -116,7 +124,8 @@ export default function AgentPanelResizeHandle({
       startWidth,
       max: dragMax,
       width: startWidth,
-      snap: false,
+      holdTimer: null,
+      armed: false,
     };
     setDragging(true);
     document.documentElement.classList.add(RESIZING_CLASS);
@@ -131,15 +140,27 @@ export default function AgentPanelResizeHandle({
       max: d.max,
     });
     d.width = next.width;
-    d.snap = next.snap;
-    setSnapping(next.snap);
+    if (next.pastSnap && d.holdTimer === null && !d.armed) {
+      // Held still produces no moves, so a timer arms it.
+      d.holdTimer = window.setTimeout(() => {
+        d.holdTimer = null;
+        d.armed = true;
+        setSnapping(true);
+      }, SNAP_HOLD_MS);
+    } else if (!next.pastSnap) {
+      // Back inside: the hold starts over.
+      if (d.holdTimer !== null) window.clearTimeout(d.holdTimer);
+      d.holdTimer = null;
+      d.armed = false;
+      setSnapping(false);
+    }
     onPreview(next.width);
   };
   const onPointerUp = () => {
     const d = drag.current;
     if (!d) return;
     endDrag();
-    if (d.snap) {
+    if (d.armed) {
       // Expanding keeps the width you had, for when it docks again.
       onPreview(d.startWidth);
       onExpand();

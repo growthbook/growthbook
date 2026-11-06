@@ -50,25 +50,25 @@ describe("dragPanelWidth", () => {
   it("widens as the edge moves left and narrows as it moves right", () => {
     expect(dragPanelWidth({ ...base, x: 900 })).toEqual({
       width: 500,
-      snap: false,
+      pastSnap: false,
     });
     expect(dragPanelWidth({ ...base, x: 1020 })).toEqual({
       width: 380,
-      snap: false,
+      pastSnap: false,
     });
     expect(dragPanelWidth({ ...base, x: 1100 })).toEqual({
       width: PANEL_MIN_WIDTH,
-      snap: false,
+      pastSnap: false,
     });
   });
 
-  it("holds at the widest until far enough past it to expand", () => {
+  it("holds at the widest; only well past it can a hold arm expanding", () => {
     expect(
       dragPanelWidth({ ...base, x: 1000 - 200 - SNAP_PAST_PX + 1 }),
-    ).toEqual({ width: 600, snap: false });
+    ).toEqual({ width: 600, pastSnap: false });
     expect(dragPanelWidth({ ...base, x: 1000 - 200 - SNAP_PAST_PX })).toEqual({
       width: 600,
-      snap: true,
+      pastSnap: true,
     });
   });
 });
