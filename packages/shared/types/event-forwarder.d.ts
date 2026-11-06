@@ -6,6 +6,7 @@
 export type EventForwarderSinkType = "bigquery" | "snowflake" | "databricks";
 
 export type EventForwarderStatus =
+  | "unconfigured"
   | "pending"
   | "ready"
   | "paused"
@@ -109,4 +110,5 @@ export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {
   connectorName?: string;
   connectorId?: string;
   lastProvisioningError?: string;
+  inHouseConsumer: boolean;
 };

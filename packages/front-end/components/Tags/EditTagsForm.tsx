@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import TagsInput from "./TagsInput";
 
 const EditTagsForm: FC<{
@@ -27,7 +28,7 @@ const EditTagsForm: FC<{
       header="Edit Tags"
       open={true}
       close={cancel}
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         await save(data.tags);
         refreshTags(data.tags);
         mutate();

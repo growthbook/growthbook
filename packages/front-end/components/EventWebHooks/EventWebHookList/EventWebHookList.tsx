@@ -1,13 +1,19 @@
 import React, { FC, useCallback, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowRight, PiPlus } from "react-icons/pi";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
-import { docUrl, DocLink } from "@/components/DocLink";
+import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {
@@ -16,12 +22,14 @@ type EventWebHookListProps = {
   isModalOpen: boolean;
   onAdd: (data: EventWebHookEditParams) => Promise<void>;
   eventWebHooks: EventWebHookInterface[];
+  isLoaded: boolean;
   errorMessage: string | null;
   createError: string | null;
 };
 
 export const EventWebHookList: FC<EventWebHookListProps> = ({
   eventWebHooks,
+  isLoaded,
   isModalOpen,
   onAdd,
   onModalClose,
@@ -44,22 +52,15 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
         />
       ) : null}
 
-      <div className="mb-4">
-        <div className="d-flex align-items-center">
-          <h2>Event Webhooks</h2>
-          <div className="ml-auto">
-            <Button onClick={onCreateModalOpen}>New Event Webhook</Button>
-          </div>
-        </div>
-        <p>
-          Monitor specific events globally across features and experiments.
-          <span className="ml-2">
-            <DocLink useRadix={false} docSection={"eventWebhooks"}>
-              View Documentation &gt;
-            </DocLink>
-          </span>
-        </p>
-      </div>
+      <SettingsPageHeader
+        as="h2"
+        title="Webhooks"
+        actions={
+          <Button icon={<PiPlus />} onClick={onCreateModalOpen}>
+            Add webhook
+          </Button>
+        }
+      />
 
       {/* Feedback messages */}
       {errorMessage && (
@@ -69,29 +70,24 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       )}
 
       {/* Empty state*/}
-      {eventWebHooks.length === 0 && (
-        <div className="row">
-          <div className="col" />
-          <div className="col-4 d-flex flex-column justify-content-center text-center">
-            <h2>Monitor Specific Events</h2>
-            <p>
-              Send targeted notifications to popular apps like Discord and
-              Slack. Apply globally for all features and experiments, or filter
-              by environment, project, or tags.
-            </p>
-            <div className="d-flex">
-              <Button
-                mr="2"
-                variant="outline"
-                onClick={() => window.open(docUrl("eventWebhooks"), "_blank")}
-              >
-                Setup Instructions
-              </Button>
-              <Button onClick={onCreateModalOpen}>New Event Webhook</Button>
-            </div>
-          </div>
-          <div className="col" />
-        </div>
+      {isLoaded && !errorMessage && eventWebHooks.length === 0 && (
+        <Frame py="7">
+          <Flex direction="column" align="center" gap="2">
+            <Heading as="h3" size="lg">
+              Monitor Specific Events
+            </Heading>
+            <Box maxWidth="560px">
+              <Text as="p" align="center" color="text-mid" mb="2">
+                Send targeted notifications to popular apps like Discord and
+                Slack. Apply globally for all features and experiments, or
+                filter by environment, project, or tags.
+              </Text>
+            </Box>
+            <DocLink docSection="eventWebhooks">
+              Setup instructions <PiArrowRight />
+            </DocLink>
+          </Flex>
+        </Frame>
       )}
 
       {eventWebHooks.length > 0 && (
@@ -161,6 +157,7 @@ export const EventWebHookListContainer = () => {
       onModalClose={() => setIsModalOpen(false)}
       onCreateModalOpen={handleCreateModalOpen}
       eventWebHooks={data?.eventWebHooks || []}
+      isLoaded={!!data}
       onAdd={handleAdd}
       errorMessage={error?.message || null}
       createError={null}

@@ -1,6 +1,20 @@
 import { useEffect, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiPlus, PiX } from "react-icons/pi";
+import { PiPlus } from "react-icons/pi";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import {
   ConversionWindow,
   FunnelSettings,
@@ -27,7 +41,15 @@ import {
   SampleRowsButton,
 } from "@/components/FactTables/RowFilterInput";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
-import { updateFunnelSteps } from "./funnelStepUpdates";
+import useSortableItem from "@/hooks/useSortableItem";
+import FunnelStepActionsMenu from "./FunnelStepActionsMenu";
+import FunnelStepDragHandle from "./FunnelStepDragHandle";
+import {
+  insertFunnelStep,
+  moveFunnelStep,
+  renumberStepNames,
+  updateFunnelSteps,
+} from "./funnelStepUpdates";
 import styles from "./FunnelStepsInput.module.scss";
 
 const CONVERSION_WINDOW_UNITS: ConversionWindow["unit"][] = [
@@ -46,7 +68,15 @@ function FunnelStepInput({
   setInheritTable,
   updateStep,
   removeStep,
+  insertStep,
+  canAddStep,
+  canDelete,
+  sortableId,
 }: {
+  sortableId: string;
+  insertStep: (atIndex: number) => void;
+  canAddStep: boolean;
+  canDelete: boolean;
   step: FunnelStep;
   index: number;
   factTableOptions: { label: string; value: string }[];
@@ -58,6 +88,9 @@ function FunnelStepInput({
 }) {
   const { getFactTableById } = useDefinitions();
   const { factTable: fullFactTable } = useFullFactTable(step.factTableId);
+  const { setNodeRef, style, handle } = useSortableItem(sortableId);
+  // Step 1 is pinned: it's the metric's primary fact table.
+  const pinned = index === 0;
 
   const setRowFilters = (rowFilters: RowFilter[]) => {
     updateStep(index, {
@@ -85,170 +118,181 @@ function FunnelStepInput({
   };
 
   return (
-    <Frame
-      mb="0"
-      px="3"
-      py="0"
-      pt="3"
-      style={{ backgroundColor: "var(--gray-a2)" }}
+    <Box
+      ref={pinned ? undefined : setNodeRef}
+      style={pinned ? undefined : style}
     >
-      <Flex justify="between" align="center" gap="3" mb="3">
-        <Flex align="center" gap="2" minWidth="0" flexGrow="1">
-          <Avatar size="sm">{index + 1}</Avatar>
-          <TextField
-            aria-label={`Step ${index + 1} name`}
-            placeholder={`Step ${index + 1}`}
-            value={step.name}
-            onChange={(e) => updateStep(index, { name: e.target.value })}
-            required
-            className={styles.stepName}
-            containerClassName={styles.stepNameContainer}
-          />
-        </Flex>
-        <Flex align="center" gap="3" flexShrink="0">
-          {fullFactTable && (
-            <SampleRowsButton
-              factTable={fullFactTable}
-              value={step.rowFilters || []}
-              setValue={setRowFilters}
+      <Frame
+        mb="0"
+        px="3"
+        py="0"
+        pt="3"
+        style={{ backgroundColor: "var(--gray-a2)" }}
+      >
+        <Flex justify="between" align="center" gap="3" mb="3">
+          <Flex align="center" gap="2" minWidth="0" flexGrow="1">
+            <FunnelStepDragHandle
+              handleProps={pinned ? undefined : handle}
+              label={step.name || `step ${index + 1}`}
             />
-          )}
-          <Button
-            variant="ghost"
-            color="gray"
-            aria-label={`Remove step ${index + 1}`}
-            onClick={() => removeStep(index)}
-          >
-            <PiX />
-          </Button>
-        </Flex>
-      </Flex>
-
-      <Flex>
-        <Box width="100%">
-          {index > 0 && (
-            <Box mb="3">
-              <Switch
-                label="Keep fact table from previous step"
-                value={inheritTable}
-                onChange={setInheritTable}
-              />
-            </Box>
-          )}
-          {!inheritTable && (
-            <Select
-              label="Fact table"
-              size="sm"
-              mb="3"
-              disabled={disableFactTableSelector}
-              value={step.factTableId}
-              placeholder="Select a fact table"
-              setValue={(factTableId) => {
-                const newFactTable = getFactTableById(factTableId);
-                if (!newFactTable) return;
-
-                // Repointing a step drops its filters, whose columns no longer
-                // apply to the new table.
-                updateStep(index, {
-                  factTableId,
-                  rowFilters: getInitialInlineFilters(newFactTable, []),
-                });
-              }}
-            >
-              {factTableOptions.map(({ value: id, label }) => (
-                <SelectItem key={id} value={id}>
-                  {label}
-                  <OfficialBadge
-                    managedBy={getFactTableById(id)?.managedBy}
-                    type="fact table"
-                    usePortal
-                  />
-                </SelectItem>
-              ))}
-            </Select>
-          )}
-        </Box>
-      </Flex>
-
-      {step.factTableId && (
-        <>
-          {fullFactTable && (
-            <Box mb="3">
-              <RowFilterInput
-                hideSampleRows
+            <Avatar size="sm">{index + 1}</Avatar>
+            <TextField
+              aria-label={`Step ${index + 1} name`}
+              placeholder={`Step ${index + 1}`}
+              value={step.name}
+              onChange={(e) => updateStep(index, { name: e.target.value })}
+              required
+              className={styles.stepName}
+              containerClassName={styles.stepNameContainer}
+            />
+          </Flex>
+          <Flex align="center" gap="3" flexShrink="0">
+            {fullFactTable && (
+              <SampleRowsButton
                 factTable={fullFactTable}
                 value={step.rowFilters || []}
                 setValue={setRowFilters}
               />
-            </Box>
-          )}
+            )}
+            <FunnelStepActionsMenu
+              rowFilters={step.rowFilters || []}
+              canInsertAbove={canAddStep && !pinned}
+              canInsertBelow={canAddStep}
+              canDelete={canDelete}
+              onInsertAbove={() => insertStep(index)}
+              onInsertBelow={() => insertStep(index + 1)}
+              onDelete={() => removeStep(index)}
+            />
+          </Flex>
+        </Flex>
 
-          <details className={styles.behavior}>
-            <summary>Step behavior</summary>
-            <Box mt="3" mb="3">
-              <Checkbox
-                label="Optional step"
-                description="Users can skip this step without breaking the funnel."
-                value={step.optional}
-                setValue={(v) => updateStep(index, { optional: v === true })}
-              />
-            </Box>
+        <Flex>
+          <Box width="100%">
+            {index > 0 && (
+              <Box mb="3">
+                <Switch
+                  label="Keep fact table from previous step"
+                  value={inheritTable}
+                  onChange={setInheritTable}
+                />
+              </Box>
+            )}
+            {!inheritTable && (
+              <Select
+                label="Fact table"
+                size="sm"
+                mb="3"
+                disabled={disableFactTableSelector}
+                value={step.factTableId}
+                placeholder="Select a fact table"
+                setValue={(factTableId) => {
+                  const newFactTable = getFactTableById(factTableId);
+                  if (!newFactTable) return;
 
-            <Box mb="3">
-              <Switch
-                label="Conversion window"
-                description={
-                  step.conversionWindow
-                    ? index === 0
-                      ? "Maximum time after exposure to reach this step."
-                      : "Must occur within this time of the nearest required prior step."
-                    : undefined
-                }
-                value={!!step.conversionWindow}
-                onChange={(checked) =>
-                  setConversionWindow(
-                    checked ? { value: 1, unit: "days" } : null,
-                  )
-                }
-              />
-              {/* pl matches the switch width + gap (28px + 8px) so the
+                  updateStep(index, {
+                    factTableId,
+                    rowFilters: getInitialInlineFilters(newFactTable, []),
+                  });
+                }}
+              >
+                {factTableOptions.map(({ value: id, label }) => (
+                  <SelectItem key={id} value={id}>
+                    {label}
+                    <OfficialBadge
+                      managedBy={getFactTableById(id)?.managedBy}
+                      type="fact table"
+                      usePortal
+                    />
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
+          </Box>
+        </Flex>
+
+        {step.factTableId && (
+          <>
+            {fullFactTable && (
+              <Box mb="3">
+                <RowFilterInput
+                  hideSampleRows
+                  factTable={fullFactTable}
+                  value={step.rowFilters || []}
+                  setValue={setRowFilters}
+                />
+              </Box>
+            )}
+
+            <details className={styles.behavior}>
+              <summary>Step behavior</summary>
+              <Box mt="3" mb="3">
+                <Checkbox
+                  label="Optional step"
+                  description="Users can skip this step without breaking the funnel."
+                  value={step.optional}
+                  setValue={(v) => updateStep(index, { optional: v === true })}
+                />
+              </Box>
+
+              <Box mb="3">
+                <Switch
+                  label="Conversion window"
+                  description={
+                    step.conversionWindow
+                      ? index === 0
+                        ? "Maximum time after exposure to reach this step."
+                        : "Must occur within this time of the nearest required prior step."
+                      : undefined
+                  }
+                  value={!!step.conversionWindow}
+                  onChange={(checked) =>
+                    setConversionWindow(
+                      checked ? { value: 1, unit: "days" } : null,
+                    )
+                  }
+                />
+                {/* pl matches the switch width + gap (28px + 8px) so the
                 fields align with the description text above. */}
-              {step.conversionWindow && (
-                <Flex align="center" gap="2" mt="2" pl="36px">
-                  <Field
-                    size="md"
-                    aria-label="Conversion window length"
-                    type="number"
-                    min={1}
-                    value={step.conversionWindow.value}
-                    onChange={(e) =>
-                      setConversionWindow({
-                        value: Math.max(1, Number(e.currentTarget.value) || 1),
-                      })
-                    }
-                    containerStyle={{ marginBottom: 0, width: 80 }}
-                  />
-                  <SelectField
-                    size="small"
-                    aria-label="Conversion window unit"
-                    value={step.conversionWindow.unit}
-                    options={CONVERSION_WINDOW_UNITS.map((u) => ({
-                      label: u,
-                      value: u,
-                    }))}
-                    onChange={(unit) =>
-                      setConversionWindow({
-                        unit: unit as ConversionWindow["unit"],
-                      })
-                    }
-                  />
-                </Flex>
-              )}
-            </Box>
-          </details>
-        </>
-      )}
-    </Frame>
+                {step.conversionWindow && (
+                  <Flex align="center" gap="2" mt="2" pl="36px">
+                    <Field
+                      size="md"
+                      aria-label="Conversion window length"
+                      type="number"
+                      min={1}
+                      value={step.conversionWindow.value}
+                      onChange={(e) =>
+                        setConversionWindow({
+                          value: Math.max(
+                            1,
+                            Number(e.currentTarget.value) || 1,
+                          ),
+                        })
+                      }
+                      containerStyle={{ marginBottom: 0, width: 80 }}
+                    />
+                    <SelectField
+                      size="md"
+                      aria-label="Conversion window unit"
+                      value={step.conversionWindow.unit}
+                      options={CONVERSION_WINDOW_UNITS.map((u) => ({
+                        label: u,
+                        value: u,
+                      }))}
+                      onChange={(unit) =>
+                        setConversionWindow({
+                          unit: unit as ConversionWindow["unit"],
+                        })
+                      }
+                    />
+                  </Flex>
+                )}
+              </Box>
+            </details>
+          </>
+        )}
+      </Frame>
+    </Box>
   );
 }
 
@@ -278,6 +322,21 @@ export default function FunnelStepsInput({
           : [],
       ),
     ),
+  );
+
+  // Stable drag-and-drop ids, aligned with `value.steps`.
+  const stepIds = useRef<string[]>([]);
+  const nextStepId = useRef(0);
+  while (stepIds.current.length < value.steps.length) {
+    stepIds.current.push(`funnel-step-${nextStepId.current++}`);
+  }
+  stepIds.current.length = value.steps.length;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const initializedFilterTables = useRef<string[]>([]);
@@ -361,16 +420,9 @@ export default function FunnelStepsInput({
         .map((i) => (i > index ? i - 1 : i)),
     );
     overriddenTables.current.delete(0);
-    const steps = value.steps
-      .map((step, i) => ({ step, originalIndex: i }))
-      .filter(({ originalIndex }) => originalIndex !== index)
-      .map(({ step, originalIndex }, i) => ({
-        ...step,
-        name:
-          step.name === `Step ${originalIndex + 1}`
-            ? `Step ${i + 1}`
-            : step.name,
-      }));
+    stepIds.current.splice(index, 1);
+    initializedFilterTables.current.splice(index, 1);
+    const steps = renumberStepNames(value.steps.filter((_, i) => i !== index));
     setValue({
       ...value,
       steps: updateFunnelSteps(
@@ -383,53 +435,96 @@ export default function FunnelStepsInput({
     });
   };
 
-  const addStep = () => {
-    const previousFactTableId =
-      value.steps.at(-1)?.factTableId || initialFactTable || "";
-    const previousFactTable = getFactTableById(previousFactTableId);
+  const moveStep = (from: number, to: number) => {
+    const result = moveFunnelStep(
+      value.steps,
+      from,
+      to,
+      overriddenTables.current,
+    );
+    if (!result) return;
+    overriddenTables.current = result.overriddenTables;
+    stepIds.current = arrayMove(stepIds.current, from, to);
+    initializedFilterTables.current = arrayMove(
+      initializedFilterTables.current,
+      from,
+      to,
+    );
+    setValue({ ...value, steps: result.steps });
+  };
 
-    setValue({
-      ...value,
-      steps: [
-        ...value.steps,
-        {
-          name: `Step ${value.steps.length + 1}`,
-          factTableId: previousFactTableId,
-          rowFilters: previousFactTable
-            ? getInitialInlineFilters(previousFactTable)
-            : [],
-          optional: false,
-        },
-      ],
-    });
+  const insertStep = (atIndex: number) => {
+    const previousFactTableId =
+      value.steps[atIndex - 1]?.factTableId || initialFactTable || "";
+    const previousFactTable = getFactTableById(previousFactTableId);
+    const result = insertFunnelStep(
+      value.steps,
+      atIndex,
+      {
+        name: `Step ${atIndex + 1}`,
+        factTableId: previousFactTableId,
+        rowFilters: previousFactTable
+          ? getInitialInlineFilters(previousFactTable)
+          : [],
+        optional: false,
+      },
+      overriddenTables.current,
+    );
+    overriddenTables.current = result.overriddenTables;
+    stepIds.current.splice(atIndex, 0, `funnel-step-${nextStepId.current++}`);
+    initializedFilterTables.current.splice(atIndex, 0, previousFactTableId);
+    setValue({ ...value, steps: result.steps });
   };
 
   return (
     <Flex direction="column" gap="3">
-      {value.steps.map((step, i) => (
-        <FunnelStepInput
-          key={i}
-          step={step}
-          index={i}
-          factTableOptions={factTableOptions}
-          // When created from a fact table, step 1 stays anchored to it.
-          disableFactTableSelector={i === 0 && !!initialFactTable}
-          inheritTable={i > 0 && !overriddenTables.current.has(i)}
-          setInheritTable={(inherit) => {
-            if (inherit) overriddenTables.current.delete(i);
-            else overriddenTables.current.add(i);
-            updateStep(i, {});
-          }}
-          updateStep={updateStep}
-          removeStep={removeStep}
-        />
-      ))}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={({ active, over }) => {
+          if (!over) return;
+          moveStep(
+            stepIds.current.indexOf(String(active.id)),
+            stepIds.current.indexOf(String(over.id)),
+          );
+        }}
+      >
+        <SortableContext
+          items={stepIds.current.slice(1)}
+          strategy={verticalListSortingStrategy}
+        >
+          {value.steps.map((step, i) => (
+            <FunnelStepInput
+              key={stepIds.current[i]}
+              sortableId={stepIds.current[i]}
+              step={step}
+              index={i}
+              factTableOptions={factTableOptions}
+              disableFactTableSelector={i === 0 && !!initialFactTable}
+              inheritTable={i > 0 && !overriddenTables.current.has(i)}
+              setInheritTable={(inherit) => {
+                if (inherit) overriddenTables.current.delete(i);
+                else overriddenTables.current.add(i);
+                updateStep(i, {});
+              }}
+              updateStep={updateStep}
+              removeStep={removeStep}
+              insertStep={insertStep}
+              canAddStep={value.steps.length < MAX_FUNNEL_STEPS}
+              // Anchored step 1 can't go: the next step would get its lock.
+              canDelete={
+                value.steps.length > 1 && !(i === 0 && !!initialFactTable)
+              }
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       <Box>
         <Button
           variant="ghost"
           disabled={value.steps.length >= MAX_FUNNEL_STEPS}
-          onClick={addStep}
+          onClick={() => insertStep(value.steps.length)}
         >
           <PiPlus /> Add a step
         </Button>

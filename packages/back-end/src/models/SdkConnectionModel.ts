@@ -39,6 +39,10 @@ import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCac
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import {
+  getBackendFeatureValue,
+  getTrustedOrgAttributes,
+} from "back-end/src/services/growthbook";
+import {
   generateEncryptionKey,
   generateSigningKey,
 } from "back-end/src/util/api-key.util";
@@ -84,6 +88,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeReferencedPrerequisites: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
+  tracesEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
   savedGroupFormat: String,
   eventTracker: String,
@@ -196,6 +201,13 @@ function readableConnections(
     );
 }
 
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountSDKConnectionsByOrganization(
+  organization: string,
+): Promise<number> {
+  return SDKConnectionModel.countDocuments({ organization });
+}
+
 // Not filtered by the caller's project read access: used as a referential
 // integrity check before an environment is removed.
 export async function countSDKConnectionsByEnvironment(
@@ -234,6 +246,7 @@ export async function findSDKConnectionsByIds(
 
 // Not org-scoped — authenticated callers must scope to their own org.
 export async function findSDKConnectionByKey(key: string) {
+  if (key && typeof key !== "string") return null;
   const doc = await SDKConnectionModel.findOne({ key });
   return doc ? toInterface(doc) : null;
 }
@@ -274,12 +287,27 @@ export const createSDKConnectionValidator = z
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
+    tracesEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z.boolean().optional(),
     managedBy: managedByValidator.optional(),
   })
   .strict();
+
+function assertCanEnableTraces(context: ReqContext | ApiReqContext) {
+  if (
+    !getBackendFeatureValue(
+      "trace-ingest",
+      false,
+      getTrustedOrgAttributes(context.org),
+    )
+  ) {
+    context.throwBadRequestError(
+      "Traces aren't available for this organization.",
+    );
+  }
+}
 
 function generateSDKConnectionKey() {
   // IMPORTANT: we use the /^sdk-/ regex to match against this for incoming API requests
@@ -300,6 +328,7 @@ export async function createSDKConnection(
     includeReferencedPrerequisites = true,
     ...otherParams
   } = createSDKConnectionValidator.parse(params);
+  if (otherParams.tracesEnabled) assertCanEnableTraces(context);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
@@ -392,6 +421,7 @@ export const editSDKConnectionValidator = z
     includeTagsInMetadata: z.boolean().optional(),
     includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
+    tracesEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z.boolean().optional(),
@@ -406,6 +436,9 @@ export async function editSDKConnection(
 ) {
   const { proxyEnabled, proxyHost, languages, ...rest } =
     editSDKConnectionValidator.parse(updates);
+  if (rest.tracesEnabled && !connection.tracesEnabled) {
+    assertCanEnableTraces(context);
+  }
 
   // Keep only the fields that were sent. A field that was left out comes
   // through as `undefined`, and the payload rebuild below would use that
@@ -574,6 +607,7 @@ export async function deleteSDKConnectionModel(
 }
 
 export async function markSDKConnectionUsed(key: string) {
+  if (key && typeof key !== "string") return;
   await SDKConnectionModel.updateOne(
     { key },
     {

@@ -37,6 +37,7 @@ import {
   RampStepAction,
   SafeRolloutInterface,
   SafeRolloutRule,
+  stripUnknownRuleFields,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
@@ -112,7 +113,6 @@ import { scheduleAutoName } from "@/components/Features/RuleModal/ScheduleInputs
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Page from "@/components/Modal/Page";
-import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
@@ -1622,6 +1622,7 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
+        delete (values as { fallbackAttribute?: string }).fallbackAttribute;
       } else if (values.type === "rollout") {
         // An empty seed means "stamp this rule's own id" (the default for
         // duplicates) — omit it rather than submitting "".
@@ -1629,6 +1630,7 @@ export default function RuleModal({
           // eslint-disable-next-line
           delete (values as any).seed;
         }
+        if (!values.fallbackAttribute) delete values.fallbackAttribute;
       }
       if (
         values.scheduleRules &&
@@ -1697,6 +1699,9 @@ export default function RuleModal({
         hasDescription: values.description && values.description.length > 0,
         numEnvironments: selectedEnvironments.length,
       });
+      // The form carries widget-only fields for every rule type; drop the ones
+      // this type doesn't store, or they read as changes in every later diff.
+      values = stripUnknownRuleFields(values);
       let res: { version: number } | undefined;
 
       if (mode === "edit") {
@@ -2667,6 +2672,7 @@ export default function RuleModal({
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "experiment" ? (
           <ExperimentRefFields
+            kind="experiment"
             feature={feature}
             existingRule={mode === "edit"}
             defaultValues={defaultValues}
@@ -2681,7 +2687,8 @@ export default function RuleModal({
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "bandit" ? (
-          <BanditRefFields
+          <ExperimentRefFields
+            kind="bandit"
             feature={feature}
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}

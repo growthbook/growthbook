@@ -144,6 +144,11 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
             req.context.permissions.throwPermissionError();
           }
+          if (cb.archived) {
+            throw new Error(
+              "Unarchive this Contextual Bandit before starting it",
+            );
+          }
           const linkedFeatures = await getContextualBanditLinkedFeatureInfo(
             req.context,
             cb,
@@ -652,8 +657,10 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     // payloads, so it needs the same run permission the start/stop endpoints
     // check; other edits only need the update permission.
     if (
-      updated?.status !== undefined &&
-      updated.status !== existing.status &&
+      ((updated?.status !== undefined && updated.status !== existing.status) ||
+        (existing.status === "running" &&
+          updated?.archived !== undefined &&
+          updated.archived !== existing.archived)) &&
       !this.context.permissions.canRunContextualBandit(
         existing,
         this.context.org.settings?.environments?.map((e) => e.id) ?? [],
@@ -691,6 +698,12 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
         existing,
         "contextualBandit.refresh",
       );
+    }
+  }
+
+  protected async beforeDelete(doc: ContextualBanditInterface) {
+    if (doc.status === "running") {
+      throw new Error("Stop this Contextual Bandit before deleting it");
     }
   }
 
@@ -1042,6 +1055,7 @@ export async function dangerousFindContextualBanditsToUpdate(
     .find({
       datasource: { $exists: true, $ne: "" },
       status: "running",
+      archived: { $ne: true },
       autoSnapshots: true,
       nextSnapshotAttempt: {
         $exists: true,

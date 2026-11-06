@@ -28,13 +28,11 @@ import {
   MAX_AUTO_RUN_ARTIFACTS,
 } from "shared/validators";
 import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_MIN_SAMPLE_SIZE,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
-  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { ensureAttributeExists } from "@/services/importing/statsig/transformers/attributeCreator";
 
@@ -1139,8 +1137,6 @@ export function transformMetric(
       stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     },
     inverse: metric.desired_change === "decrease",
-    loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
-    winRisk: DEFAULT_WIN_RISK_THRESHOLD,
     maxPercentChange: DEFAULT_MAX_PERCENT_CHANGE,
     minPercentChange: DEFAULT_MIN_PERCENT_CHANGE,
     minSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
@@ -2436,9 +2432,13 @@ export async function runEppoImport({
             current.status !== experiment.status &&
             !(current.status === "running" && experiment.status === "stopped")
           ) {
+            // Records a start Eppo already made, so no start checklist.
             await apiCall(`/experiment/${id}/status`, {
               method: "POST",
-              body: JSON.stringify({ status: experiment.status }),
+              body: JSON.stringify({
+                status: experiment.status,
+                ...(experiment.status === "running" && { skipChecklist: true }),
+              }),
             });
             current = { ...current, status: experiment.status };
           }

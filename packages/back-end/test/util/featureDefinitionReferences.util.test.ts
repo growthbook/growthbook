@@ -287,6 +287,32 @@ describe("loadSavedGroupsWithNested", () => {
     expect(calls).toEqual([["grp_top"], ["grp_list", "grp_mid"], ["grp_leaf"]]);
   });
 
+  it("loads the source of a derived group, directly or through a condition group", async () => {
+    const { calls, loadByIds } = store([
+      {
+        id: "grp_cond",
+        type: "condition",
+        condition: '{"$savedGroups":["grp_b:parent_id"]}',
+      },
+      // Remote groups are neither lists nor conditions with references
+      { id: "grp_a", type: "condition" },
+      { id: "grp_b", type: "condition" },
+    ]);
+    const loaded = await loadSavedGroupsWithNested(
+      ["grp_a:parent_id", "grp_cond"],
+      loadByIds,
+    );
+    expect(loaded.map((g) => g.id).sort()).toEqual([
+      "grp_a",
+      "grp_b",
+      "grp_cond",
+    ]);
+    expect(calls).toEqual([
+      ["grp_a", "grp_a:parent_id", "grp_cond"],
+      ["grp_b", "grp_b:parent_id"],
+    ]);
+  });
+
   it("makes no query for an empty id set and tolerates ids that do not exist", async () => {
     const empty = store([]);
     expect(await loadSavedGroupsWithNested([], empty.loadByIds)).toEqual([]);

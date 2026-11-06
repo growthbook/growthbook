@@ -22,12 +22,10 @@ import {
 } from "shared/experiments";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_WIN_RISK_THRESHOLD,
   DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_MIN_SAMPLE_SIZE,
@@ -41,18 +39,6 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
-
-export function resolveFactMetricCreation(
-  ready: boolean,
-  newFlow: boolean,
-  hasFactTable: boolean,
-  embedded = false,
-) {
-  if (!ready) return "pending";
-  if (newFlow && !embedded) return "page";
-  if (!hasFactTable) return "fact-table";
-  return newFlow ? "inline" : "modal";
-}
 
 export function duplicateFactMetric(
   metric: FactMetricInterface,
@@ -129,7 +115,7 @@ export function getDefaultFactMetricProps({
   // Starting data source when no fact table is chosen yet (e.g. "Add" from a
   // data source's page) - otherwise the org default wins.
   initialDatasource?: string;
-  managedBy?: "" | "api" | "admin";
+  managedBy?: FactMetricInterface["managedBy"];
 }): CreateFactMetricFormProps & { targetMDE: number } {
   const existingMetricType = existing?.metricType;
   return {
@@ -177,8 +163,6 @@ export function getDefaultFactMetricProps({
       delayUnit: "hours",
       delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     },
-    winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
-    loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
     minPercentChange:
       existing?.minPercentChange ??
       metricDefaults.minPercentageChange ??
@@ -220,8 +204,7 @@ export function getDefaultFactMetricProps({
 // metric shows these as whole percents (5) instead, so this is the one
 // adapter between the two: call it right after getDefaultFactMetricProps to
 // seed a form, and fromFactMetricFormValues (below) to undo it before
-// sending a payload back to the API. winRisk/loseRisk are excluded: neither
-// is displayed by MetricEditor's form, so they pass through unscaled.
+// sending a payload back to the API.
 export function toFactMetricFormValues(
   defaults: CreateFactMetricFormProps & { targetMDE: number },
 ): CreateFactMetricFormProps {
@@ -336,8 +319,7 @@ export function fromFactMetricFormValues(
 }
 
 // Anonymized telemetry props for creating or editing a fact metric - which
-// settings people use. Shared by the old modal and the full-page editor so
-// the new-metric-creation-flow experiment compares like with like.
+// settings people use. Shared by the modal and the full-page editor.
 export function getFactMetricTrackProps(
   values: {
     metricType: FactMetricInterface["metricType"];
@@ -469,20 +451,6 @@ export function validateFactMetricFormValues(
       throw new Error(`${label} must be a number of 0 or more.`);
     }
   }
-}
-
-export function getMetricConversionTitle(type: MetricType): string {
-  // TODO: support more metric types
-  if (type === "count") {
-    return "Count per User";
-  }
-  if (type === "duration") {
-    return "Duration";
-  }
-  if (type === "revenue") {
-    return "Revenue";
-  }
-  return "Conversion Rate";
 }
 
 export function getPercentileLabel(quantile: number): string {

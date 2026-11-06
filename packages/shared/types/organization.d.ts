@@ -278,6 +278,9 @@ export interface OrganizationSettings {
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
+  // Cluster experiments: share of clusters with mixed assignment, or of
+  // subunits in more than one cluster, that triggers a health warning.
+  clusterIssueMinPercent?: number;
   defaultRole?: MemberRoleWithProjects;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
@@ -617,6 +620,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    tracesBytes?: UsageLimit;
     eventForwarderEvents?: UsageLimit;
   };
   cdn: {
@@ -624,6 +628,10 @@ export type OrganizationUsage = {
     status: "under" | "approaching" | "over";
   };
   managedClickhouse?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
+  traces?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };

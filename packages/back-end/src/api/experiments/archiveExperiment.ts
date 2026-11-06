@@ -1,0 +1,116 @@
+import {
+  deleteExperimentValidator,
+  ExperimentInterfaceExcludingHoldouts,
+  postExperimentArchiveValidator,
+  postExperimentUnarchiveValidator,
+} from "shared/validators";
+import { PermissionError } from "shared/util";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { auditDetailsDelete } from "back-end/src/services/audit";
+import {
+  archiveExperimentWithCleanup,
+  deleteExperimentWithCleanup,
+  unarchiveExperimentWithCleanup,
+} from "back-end/src/services/experimentRemoval";
+import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  confirmationLink,
+  requireConfirmation,
+  unarchiveActions,
+} from "back-end/src/services/confirmations";
+import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
+import { requireExperiment } from "./requireExperiment";
+
+export const postExperimentArchive = createApiRequestHandler(
+  postExperimentArchiveValidator,
+)(async (req) => {
+  const experiment = await requireExperiment(req.context, req.params.id);
+  if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
+    req.context.permissions.throwPermissionError();
+  }
+  await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
+
+  const updated = await archiveExperimentWithCleanup({
+    context: req.context,
+    experiment,
+    linkedChanges: req.body.linkedChanges,
+    eventAudit: req.eventAudit,
+    audit: req.audit,
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
+  });
+  await req.audit({
+    event: "experiment.archive",
+    entity: { object: "experiment", id: experiment.id },
+  });
+  return {
+    experiment: await toEnhancedExperimentApiResponse(
+      req.context,
+      updated as ExperimentInterfaceExcludingHoldouts,
+    ),
+  };
+});
+
+export const postExperimentUnarchive = createApiRequestHandler(
+  postExperimentUnarchiveValidator,
+)(async (req) => {
+  const experiment = await requireExperiment(req.context, req.params.id);
+  if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
+    req.context.permissions.throwPermissionError();
+  }
+  await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
+  await requireConfirmation(req.context, {
+    actions: unarchiveActions(experiment),
+    project: experiment.project,
+    summary: `Unarchive ${experiment.name}`,
+    links: [confirmationLink("experiment", experiment.id, experiment.name)],
+    pin: [experiment.status, experiment.archived],
+  });
+  const updated = await unarchiveExperimentWithCleanup({
+    context: req.context,
+    experiment,
+  });
+  await req.audit({
+    event: "experiment.unarchive",
+    entity: { object: "experiment", id: experiment.id },
+  });
+  return {
+    experiment: await toEnhancedExperimentApiResponse(
+      req.context,
+      updated as ExperimentInterfaceExcludingHoldouts,
+    ),
+  };
+});
+
+export const deleteExperiment = createApiRequestHandler(
+  deleteExperimentValidator,
+)(async (req) => {
+  const experiment = await requireExperiment(req.context, req.params.id);
+  if (!req.context.permissions.canDeleteExperiment(experiment)) {
+    req.context.permissions.throwPermissionError();
+  }
+  await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
+  const restApiBypassesReviews = canUseRestApiBypassSetting(req);
+  // Same rule as Feature Flags: archive first, unless the org lets the REST
+  // API act on live objects outright.
+  if (!experiment.archived && !restApiBypassesReviews) {
+    throw new PermissionError(
+      "Cannot delete a live experiment via the REST API when 'REST API always bypasses approval requirements' is disabled. Archive the experiment first, or enable the bypass setting in organization settings.",
+    );
+  }
+
+  await deleteExperimentWithCleanup({
+    context: req.context,
+    experiment,
+    linkedChanges: req.query.linkedChanges,
+    eventAudit: req.eventAudit,
+    audit: req.audit,
+    restApiBypassesReviews,
+  });
+  await req.audit({
+    event: "experiment.delete",
+    entity: { object: "experiment", id: experiment.id },
+    details: auditDetailsDelete(experiment),
+  });
+  return { deletedId: experiment.id };
+});

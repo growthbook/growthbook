@@ -11,11 +11,6 @@ import Table, {
 } from "@/ui/Table";
 import styles from "./Heatmap.module.scss";
 
-/**
- * Radix accent color scales that the heatmap can tint cells with. Each maps to
- * the global `--<scale>-N` design tokens, so the gradient adapts to light/dark
- * theme automatically (no hardcoded hex).
- */
 export type HeatmapColorScale =
   | "violet"
   | "indigo"
@@ -91,7 +86,43 @@ function cellBackground(
   };
 }
 
-function normalizeValues(
+export function cellShadeKey(
+  cell: Pick<HeatmapCellData, "value" | "display">,
+  formatValue: (value: number) => string,
+): string | null {
+  if (cell.value === null || Number.isNaN(cell.value)) return null;
+  return typeof cell.display === "string"
+    ? cell.display
+    : formatValue(cell.value);
+}
+
+export function buildDisplayRepresentatives(
+  values: (number | null)[],
+  keys: (string | null)[],
+): Map<string, number> {
+  const representativeByKey = new Map<string, number>();
+  values.forEach((v, i) => {
+    const key = keys[i];
+    if (v === null || Number.isNaN(v) || key === null) return;
+    if (!representativeByKey.has(key)) representativeByKey.set(key, v);
+  });
+  return representativeByKey;
+}
+
+export function quantizeByDisplay(
+  values: (number | null)[],
+  keys: (string | null)[],
+  representatives: Map<string, number>,
+): (number | null)[] {
+  return values.map((v, i) => {
+    if (v === null || Number.isNaN(v)) return v;
+    const key = keys[i];
+    if (key === null) return v;
+    return representatives.get(key) ?? v;
+  });
+}
+
+export function normalizeValues(
   values: (number | null)[],
   bounds?: { min: number; max: number },
 ): (number | null)[] {
@@ -139,14 +170,30 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
   },
   ref,
 ) {
+  const allCells = useMemo(() => rows.flatMap((row) => row.cells), [rows]);
+  const allValues = useMemo(() => allCells.map((c) => c.value), [allCells]);
+  const shadeKeys = useMemo(
+    () => allCells.map((c) => cellShadeKey(c, formatValue)),
+    [allCells, formatValue],
+  );
+  const gridRepresentatives = useMemo(
+    () =>
+      normalize === "all"
+        ? buildDisplayRepresentatives(allValues, shadeKeys)
+        : null,
+    [normalize, allValues, shadeKeys],
+  );
+
   const globalBounds = useMemo(() => {
-    if (normalize !== "all") return undefined;
-    const numeric = rows
-      .flatMap((row) => row.cells.map((c) => c.value))
-      .filter((v): v is number => v !== null && !Number.isNaN(v));
+    if (normalize !== "all" || !gridRepresentatives) return undefined;
+    const numeric = quantizeByDisplay(
+      allValues,
+      shadeKeys,
+      gridRepresentatives,
+    ).filter((v): v is number => v !== null && !Number.isNaN(v));
     if (numeric.length === 0) return undefined;
     return { min: Math.min(...numeric), max: Math.max(...numeric) };
-  }, [normalize, rows]);
+  }, [normalize, allValues, shadeKeys, gridRepresentatives]);
 
   return (
     <div ref={ref} {...marginProps}>
@@ -181,8 +228,14 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
         </TableHeader>
         <TableBody>
           {rows.map((row) => {
+            const rowValues = row.cells.map((c) => c.value);
+            const rowKeys = row.cells.map((c) => cellShadeKey(c, formatValue));
+            const representatives =
+              normalize === "all" && gridRepresentatives
+                ? gridRepresentatives
+                : buildDisplayRepresentatives(rowValues, rowKeys);
             const intensities = normalizeValues(
-              row.cells.map((c) => c.value),
+              quantizeByDisplay(rowValues, rowKeys, representatives),
               normalize === "all" ? globalBounds : undefined,
             );
             return (

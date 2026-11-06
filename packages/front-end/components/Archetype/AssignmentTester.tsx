@@ -23,6 +23,7 @@ import DatePicker from "@/components/DatePicker";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
+import { coveragePercentFormatter } from "@/services/utils";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -153,7 +154,9 @@ export default function AssignmentTester({
             matchedRuleName = "Forced";
             if (matchedRule && matchedRule?.coverage) {
               matchedRuleName =
-                "Rollout (" + matchedRule?.coverage * 100 + "%)";
+                "Rollout (" +
+                coveragePercentFormatter.format(matchedRule.coverage) +
+                ")";
             }
           } else if (tr?.result?.source === "defaultValue") {
             matchedRuleName = "None - Returned Default Value";

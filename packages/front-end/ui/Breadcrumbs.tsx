@@ -1,4 +1,5 @@
 import React from "react";
+import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { PiCaretRight } from "react-icons/pi";
 import Link from "@/ui/Link";
@@ -10,10 +11,17 @@ export interface BreadcrumbItem {
   href?: string;
 }
 
-export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+// Gray ancestors with "/" separators; only the current crumb is bold.
+export default function Breadcrumbs({
+  items,
+  muted = false,
+}: {
+  items: BreadcrumbItem[];
+  muted?: boolean;
+}) {
   return (
     <nav aria-label="Breadcrumb">
-      <Flex align="center" gap="1">
+      <Flex align="center" gap={muted ? "2" : "1"}>
         {items.map((item, i) => {
           const isLast = i === items.length - 1;
 
@@ -21,10 +29,16 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
             <React.Fragment key={i}>
               {i > 0 && (
                 <span className={styles.separator} aria-hidden="true">
-                  <PiCaretRight
-                    size={15}
-                    style={{ color: "var(--color-text-high)" }}
-                  />
+                  {muted ? (
+                    <Text size="md" color="text-low">
+                      /
+                    </Text>
+                  ) : (
+                    <PiCaretRight
+                      size={15}
+                      style={{ color: "var(--color-text-high)" }}
+                    />
+                  )}
                 </span>
               )}
               <span
@@ -37,7 +51,8 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                     truncate
                     href={item.href}
                     size="md"
-                    weight="bold"
+                    weight={muted && !isLast ? "regular" : "bold"}
+                    color={muted && !isLast ? "gray" : undefined}
                     aria-current={isLast ? "page" : undefined}
                   >
                     {item.display}
@@ -45,12 +60,14 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 ) : (
                   <span
                     aria-current={isLast ? "page" : undefined}
-                    className={!isLast ? styles.crumbLink : undefined}
+                    className={clsx(!isLast && styles.crumbLink, {
+                      [styles.mutedCrumb]: muted && !isLast,
+                    })}
                   >
                     <Text
                       size="md"
-                      weight="semibold"
-                      color="text-high"
+                      weight={muted && !isLast ? "regular" : "semibold"}
+                      color={muted && !isLast ? undefined : "text-high"}
                       truncate
                     >
                       {item.display}
