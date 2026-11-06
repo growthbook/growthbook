@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import {
   DefinitionsContext,
@@ -13,7 +12,6 @@ import {
   getMetricPreviewUnits,
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import { usePreviewDateRange } from "@/components/QueryPreview/previewUtils";
-import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
 import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import MetricPreviewChart from "./MainSection/MetricPreviewChart";
 import PreviewExplorer, { DisabledPreview } from "./PreviewExplorer";
@@ -40,27 +38,18 @@ export default function MetricPerformance({
     [definitions, draft, metric],
   );
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
-  const [selectedDenominatorUnit, setSelectedDenominatorUnit] = useState<
-    string | null
-  >(null);
   const units = getMetricPreviewUnits(metric, getFactTableById);
   const unit =
-    selectedUnit && units.numerator.includes(selectedUnit)
+    selectedUnit && units.includes(selectedUnit)
       ? selectedUnit
-      : (units.numerator[0] ?? null);
-  const denominatorUnit =
-    selectedDenominatorUnit &&
-    units.denominator.includes(selectedDenominatorUnit)
-      ? selectedDenominatorUnit
-      : (units.denominator[0] ?? null);
-  const numeratorFactTable = getFactTableById(
+      : (units[0] ?? null);
+  const unitFactTable = getFactTableById(
     metric?.metricType === "funnel"
       ? (metric.funnelSettings?.steps[0]?.factTableId ?? "")
       : (metric?.numerator.factTableId ?? ""),
   );
-  const denominatorFactTable = getFactTableById(
-    metric?.denominator?.factTableId ?? "",
-  );
+  const multiTable =
+    metric?.metricType === "funnel" || metric?.metricType === "ratio";
   const dateRange = usePreviewDateRange();
   const config = useMemo(
     () =>
@@ -68,11 +57,10 @@ export default function MetricPerformance({
         ? getMetricPreviewConfig(metric, {
             draft,
             unit,
-            denominatorUnit,
             dateRange,
           })
         : null,
-    [metric, draft, unit, denominatorUnit, dateRange],
+    [metric, draft, unit, dateRange],
   );
   const permissions = usePermissionsUtil();
   const datasource = getDatasourceById(datasourceId);
@@ -98,83 +86,22 @@ export default function MetricPerformance({
         warehouseUnavailableText="Metric performance will be available when the warehouse is ready."
         renderChart={(state) => <MetricPreviewChart {...state} />}
         controls={
-          <Flex
-            direction="column"
-            gap="3"
-            width={
-              metric?.metricType === "ratio" || metric?.metricType === "funnel"
-                ? "100%"
-                : undefined
-            }
-            minWidth="0"
-          >
-            {metric?.metricType === "ratio" && (
-              <Flex direction="column" gap="1">
-                <Text size="sm" weight="semibold" color="text-mid">
-                  Numerator
-                </Text>
-                <Text size="sm" color="text-mid">
-                  {numeratorFactTable?.name ||
-                    metric.numerator.factTableId ||
-                    "Select a fact table"}
-                </Text>
-              </Flex>
-            )}
-            {units.numerator.length > 0 && (
-              <PreviewUnitSelect
-                units={units.numerator}
-                value={unit}
-                setValue={setSelectedUnit}
-                factTable={numeratorFactTable}
-                size={
-                  metric?.metricType === "ratio" ||
-                  metric?.metricType === "funnel"
-                    ? "md"
-                    : "sm"
-                }
-                aria-label={
-                  metric?.metricType === "ratio"
-                    ? "Numerator unit"
-                    : metric?.metricType === "funnel"
-                      ? "Shared unit for all steps"
-                      : "Unit"
-                }
-              />
-            )}
-            {metric?.metricType === "funnel" &&
-              units.numerator.length === 0 && (
-                <Text size="sm" color="text-mid">
-                  The steps need a shared identifier to preview this funnel.
-                </Text>
-              )}
-            {metric?.metricType === "ratio" && (
-              <>
-                <div className={styles.ratioDivider} aria-hidden="true">
-                  <span>÷</span>
-                </div>
-                <Flex direction="column" gap="1">
-                  <Text size="sm" weight="semibold" color="text-mid">
-                    Denominator
-                  </Text>
-                  <Text size="sm" color="text-mid">
-                    {denominatorFactTable?.name ||
-                      metric.denominator?.factTableId ||
-                      "Select a fact table"}
-                  </Text>
-                </Flex>
-              </>
-            )}
-            {units.denominator.length > 0 && (
-              <PreviewUnitSelect
-                units={units.denominator}
-                value={denominatorUnit}
-                setValue={setSelectedDenominatorUnit}
-                factTable={denominatorFactTable}
-                size="md"
-                aria-label="Denominator unit"
-              />
-            )}
-          </Flex>
+          units.length > 0 ? (
+            <PreviewUnitSelect
+              units={units}
+              value={unit}
+              setValue={setSelectedUnit}
+              factTable={unitFactTable}
+              size="sm"
+              aria-label="Unit"
+            />
+          ) : multiTable ? (
+            <Text size="sm" color="text-mid">
+              {metric?.metricType === "ratio"
+                ? "The numerator and denominator need a shared identifier to preview this ratio."
+                : "The steps need a shared identifier to preview this funnel."}
+            </Text>
+          ) : undefined
         }
       />
     </DefinitionsContext.Provider>

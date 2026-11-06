@@ -83,28 +83,3 @@
   min-width: 0;
   overflow: auto;
 }
-
-.ratioDivider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--gray-11);
-
-  &::before,
-  &::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--gray-a5);
-  }
-
-  span {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border: 1px solid var(--gray-a5);
-    border-radius: 50%;
-    background: var(--gray-a2);
-  }
-}

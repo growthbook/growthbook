@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
 import { reconcileInlineFilterPrompts } from "shared/experiments";
-import { isExternallyManaged } from "shared/validators";
 import {
   CreateFactMetricFormProps,
   getInitialInlineFilters,
@@ -22,8 +21,6 @@ import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/Metric
 import Field from "@/components/Forms/Field";
 import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
-import Checkbox from "@/ui/Checkbox";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
 import MetricTypeSelect, {
@@ -95,16 +92,6 @@ export default function MetricEditor({
     project,
   } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const permissionsUtil = usePermissionsUtil();
-  // Official status changes who can edit the metric, so it sits with the
-  // name rather than in Advanced Settings.
-  const canEditOfficial =
-    canEdit &&
-    permissionsUtil.canUpdateOfficialResources(
-      { projects: form.watch("projects") },
-      {},
-    ) &&
-    hasCommercialFeature("manage-official-resources");
   const [showDescription, setShowDescription] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showCappingConversionNotice, setShowCappingConversionNotice] =
@@ -118,7 +105,13 @@ export default function MetricEditor({
     !!denominator?.factTableId &&
       denominator.factTableId !== numerator.factTableId,
   );
-  const initializedFilterTables = useRef({ numerator: "", denominator: "" });
+  // Seeded with the tables already loaded, so editing an existing metric
+  // doesn't add empty inline-filter prompts it never had. Prompts are only
+  // added when a fact table is newly picked.
+  const initializedFilterTables = useRef({
+    numerator: numerator.factTableId,
+    denominator: denominator?.factTableId ?? "",
+  });
   useEffect(() => {
     if (!canEdit || metricType === "funnel") return;
     for (const field of ["numerator", "denominator"] as const) {
@@ -419,18 +412,6 @@ export default function MetricEditor({
                   )}
                 </div>
               </Grid>
-              {canEditOfficial && (
-                <Checkbox
-                  label="Mark as official metric"
-                  disabled={isExternallyManaged(form.watch("managedBy"))}
-                  disabledMessage="This metric is managed by the API, so it cannot be edited in the UI."
-                  description="Official metrics can only be modified by admins or users with the Manage Official Resources policy."
-                  value={form.watch("managedBy") === "admin"}
-                  setValue={(value) =>
-                    form.setValue("managedBy", value ? "admin" : "")
-                  }
-                />
-              )}
             </Flex>
           ) : (
             <Flex direction="column" gap="6">

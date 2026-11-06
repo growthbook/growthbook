@@ -11,36 +11,29 @@ import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { isFactFunnelMetric } from "shared/experiments";
 import { funnelSettingsToFunnelDataset } from "shared/funnels";
 
+// Identifiers every table in the metric shares. Experiments join a ratio's
+// numerator and denominator (and a funnel's steps) on one unit, so the preview
+// does too.
 export function getMetricPreviewUnits(
   metric: FactMetricInterface | null,
   getFactTable: (id: string) => Pick<FactTableDefinition, "userIdTypes"> | null,
-): { numerator: string[]; denominator: string[] } {
-  if (!metric) return { numerator: [], denominator: [] };
-  if (isFactFunnelMetric(metric)) {
-    const tables = metric.funnelSettings.steps.map((step) =>
-      getFactTable(step.factTableId),
-    );
-    const units = tables[0]?.userIdTypes ?? [];
-    return {
-      numerator: units.filter((unit) =>
-        tables.every((table) => table?.userIdTypes.includes(unit)),
-      ),
-      denominator: [],
-    };
-  }
+): string[] {
+  if (!metric) return [];
   if (
     metric.metricType === "quantile" &&
     metric.quantileSettings?.type === "event"
   ) {
-    return { numerator: [], denominator: [] };
+    return [];
   }
-  return {
-    numerator: getFactTable(metric.numerator.factTableId)?.userIdTypes ?? [],
-    denominator:
-      metric.metricType === "ratio" && metric.denominator
-        ? (getFactTable(metric.denominator.factTableId)?.userIdTypes ?? [])
-        : [],
-  };
+  const tableIds = isFactFunnelMetric(metric)
+    ? metric.funnelSettings.steps.map((step) => step.factTableId)
+    : metric.metricType === "ratio" && metric.denominator
+      ? [metric.numerator.factTableId, metric.denominator.factTableId]
+      : [metric.numerator.factTableId];
+  const tables = tableIds.map((id) => getFactTable(id));
+  return (tables[0]?.userIdTypes ?? []).filter((unit) =>
+    tables.every((table) => table?.userIdTypes.includes(unit)),
+  );
 }
 
 const PREVIEW_NAME = "Metric preview";
@@ -87,12 +80,10 @@ export function getMetricPreviewConfig(
   {
     draft,
     unit,
-    denominatorUnit,
     dateRange,
   }: {
     draft: boolean;
     unit: string | null;
-    denominatorUnit: string | null;
     dateRange: ExplorationConfig["dateRange"];
   },
 ): ExplorationConfig {
@@ -124,7 +115,7 @@ export function getMetricPreviewConfig(
           name: draft ? PREVIEW_NAME : metric.name,
           rowFilters: [],
           unit,
-          denominatorUnit,
+          denominatorUnit: metric.metricType === "ratio" ? unit : null,
         },
       ],
     },
