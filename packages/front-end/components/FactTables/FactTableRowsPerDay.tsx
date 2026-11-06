@@ -6,17 +6,13 @@ import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
-import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
+import { getInitialConfigByBlockType } from "shared/enterprise";
 import { ago } from "shared/dates";
 import {
   CacheOption,
   useExploreData,
 } from "@/enterprise/components/ProductAnalytics/useExploreData";
-import {
-  createEmptyDataset,
-  createEmptyValue,
-  explorationPollDelayMs,
-} from "@/enterprise/components/ProductAnalytics/util";
+import { explorationPollDelayMs } from "@/enterprise/components/ProductAnalytics/util";
 import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
@@ -77,31 +73,42 @@ export default function FactTableRowsPerDay({
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const config = useMemo(
-    () =>
-      ({
-        ...DEFAULT_EXPLORE_STATE,
-        type: "fact_table",
-        datasource: factTable.datasource,
-        chartType: "bar",
-        dimensions: [
-          { dimensionType: "date", column: "date", dateGranularity: "day" },
+  const config = useMemo((): ExplorationConfig => {
+    const base = getInitialConfigByBlockType(
+      "fact-table-exploration",
+      factTable.datasource,
+    );
+    // Always true for this block type; narrows the dataset
+    if (base.type !== "fact_table") return base;
+    return {
+      ...base,
+      chartType: "bar",
+      dimensions: [
+        { dimensionType: "date", column: "date", dateGranularity: "day" },
+      ],
+      dateRange: {
+        predefined: "last30Days",
+        lookbackValue: RANGE_DAYS,
+        lookbackUnit: "day",
+        startDate: null,
+        endDate: null,
+      },
+      dataset: {
+        ...base.dataset,
+        factTableId: factTable.id,
+        values: [
+          {
+            name: "Count",
+            rowFilters: [],
+            type: "fact_table",
+            valueType: "count",
+            valueColumn: null,
+            unit: null,
+          },
         ],
-        dateRange: {
-          predefined: "last30Days",
-          lookbackValue: RANGE_DAYS,
-          lookbackUnit: "day",
-          startDate: null,
-          endDate: null,
-        },
-        dataset: {
-          ...createEmptyDataset("fact_table"),
-          factTableId: factTable.id,
-          values: [createEmptyValue("fact_table")],
-        },
-      }) as ExplorationConfig,
-    [factTable.id, factTable.datasource],
-  );
+      },
+    };
+  }, [factTable.id, factTable.datasource]);
 
   const run = useCallback(
     async (cache: CacheOption) => {
