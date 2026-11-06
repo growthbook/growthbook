@@ -7,7 +7,7 @@ import {
 } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { isFactMetric } from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
@@ -20,7 +20,9 @@ import {
   ScheduleUpdateInput,
   validateScheduleUpdate,
 } from "back-end/src/services/experimentScheduling";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
+  assertClusterExperimentMetricsSupported,
   assertValidBucketVersions,
   assertValidReleasedVariationId,
   createMetric,
@@ -2455,5 +2457,52 @@ describe("getAnalysisEndDateSettingsError", () => {
         }),
       ).toMatch(/HH:MM/);
     }
+  });
+});
+
+describe("assertClusterExperimentMetricsSupported activation metric", () => {
+  // ft_subunit exposes the sub-unit id; ft_cluster_only exposes only the
+  // cluster id (fails the units-query sub-unit join for activation metrics).
+  const factMetric = (factTableId: string) =>
+    ({
+      id: `met_${factTableId}`,
+      name: `Metric ${factTableId}`,
+      metricType: "mean",
+      numerator: { factTableId, column: "value", aggregation: "sum" },
+      denominator: null,
+    }) as unknown as ExperimentMetricInterface;
+
+  const factTableMap = new Map([
+    ["ft_subunit", { userIdTypes: ["user_id", "region_id"] }],
+    ["ft_cluster_only", { userIdTypes: ["region_id"] }],
+  ]) as unknown as FactTableMap;
+
+  const datasource = { settings: {} } as unknown as DataSourceInterface;
+
+  const run = (activationFactTableId: string) =>
+    assertClusterExperimentMetricsSupported({
+      activationMetric: `met_${activationFactTableId}`,
+      metricMap: new Map([
+        [`met_${activationFactTableId}`, factMetric(activationFactTableId)],
+      ]),
+      metricGroups: [],
+      clusterIdentifier: "region_id",
+      clusterSubUnitIdentifier: "user_id",
+      factTableMap,
+      datasource,
+    });
+
+  // Activation metrics are fully locked for cluster experiments, so both the
+  // cluster-level and sub-unit fact tables are rejected.
+  it("rejects an activation metric that only exposes the cluster identifier", () => {
+    expect(() => run("ft_cluster_only")).toThrow(
+      /Activation metrics aren't supported for cluster experiments/,
+    );
+  });
+
+  it("rejects an activation metric even when it exposes the sub-unit identifier", () => {
+    expect(() => run("ft_subunit")).toThrow(
+      /Activation metrics aren't supported for cluster experiments/,
+    );
   });
 });

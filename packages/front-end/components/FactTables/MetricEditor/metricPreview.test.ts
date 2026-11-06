@@ -10,14 +10,12 @@ import {
   getDefaultFactMetricProps,
   toFactMetricFormValues,
 } from "@/services/metrics";
+import { getPreviewDateRange } from "@/components/QueryPreview/previewUtils";
 import { getDraftMetricPreview } from "./draftMetricPreview";
 import {
-  formatPreviewHeadline,
   getMetricPreviewConfig,
-  getMetricPreviewDateRange,
   getMetricPreviewSummary,
   getMetricPreviewUnits,
-  getMetricPreviewUnitLabel,
   getPreviewDraftMetric,
 } from "./metricPreview";
 
@@ -54,13 +52,6 @@ const rows: ProductAnalyticsResultRow[] = [
   },
 ];
 
-it("uses seven complete UTC days, including across month boundaries", () => {
-  expect(getMetricPreviewDateRange(new Date("2026-10-03T13:15:00Z"))).toEqual({
-    predefined: "customDateRange",
-    startDate: "2026-09-26",
-    endDate: "2026-10-02",
-  });
-});
 it("uses a weighted per-unit average for mean metrics", () => {
   expect(
     getMetricPreviewSummary(rows, { metricType: "mean", numerator }),
@@ -153,7 +144,7 @@ it("uses the selected numerator and denominator identifiers in the query", () =>
       draft: true,
       unit: "account_id",
       denominatorUnit: "device_id",
-      dateRange: getMetricPreviewDateRange(),
+      dateRange: getPreviewDateRange(),
     },
   );
   expect(config.dataset).toMatchObject({
@@ -171,7 +162,7 @@ it("keeps the query identity when only non-query fields change", () => {
     draft: true,
     unit: "user_id",
     denominatorUnit: null,
-    dateRange: getMetricPreviewDateRange(new Date("2026-10-03T00:00:00Z")),
+    dateRange: getPreviewDateRange(new Date("2026-10-03T00:00:00Z")),
   };
   const base = metric();
   const edited: FactMetricInterface = {
@@ -251,39 +242,9 @@ it("offers only identifiers shared by all funnel steps", () => {
       draft: true,
       unit: "account_id",
       denominatorUnit: null,
-      dateRange: getMetricPreviewDateRange(),
+      dateRange: getPreviewDateRange(),
     }).dataset,
   ).toMatchObject({ unit: "account_id" });
-});
-
-describe("getMetricPreviewUnitLabel", () => {
-  it("prefers the display name of the mapped column", () => {
-    expect(
-      getMetricPreviewUnitLabel("user_id", {
-        userIdColumns: { user_id: "customer_key" },
-        columns: [{ column: "customer_key", name: "Members" }],
-      }),
-    ).toEqual({ label: "Members", column: "customer_key" });
-  });
-  it("uses common identifier names and preserves the raw column", () => {
-    expect(getMetricPreviewUnitLabel("userId", null)).toEqual({
-      label: "Users",
-      column: "userId",
-    });
-    expect(
-      getMetricPreviewUnitLabel("account_id", {
-        columns: [],
-        userIdColumns: { account_id: "properties.account" },
-      }),
-    ).toEqual({ label: "Accounts", column: "properties.account" });
-  });
-  it("humanizes unknown identifiers and ignores blank display names", () => {
-    expect(
-      getMetricPreviewUnitLabel("workspace_key", {
-        columns: [{ column: "workspace_key", name: "  " }],
-      }),
-    ).toEqual({ label: "Workspace Key", column: "workspace_key" });
-  });
 });
 
 it("finds the latest populated day regardless of row order", () => {
@@ -325,21 +286,7 @@ it("uses the per-unit scale for mean metric charts", () => {
       draft: true,
       unit: "user_id",
       denominatorUnit: null,
-      dateRange: getMetricPreviewDateRange(),
+      dateRange: getPreviewDateRange(),
     }).showAs,
   ).toBe("per_unit");
-});
-
-describe("formatPreviewHeadline", () => {
-  it("keeps every magnitude short enough for the headline", () => {
-    expect(formatPreviewHeadline(4.114)).toBe("4.11");
-    expect(formatPreviewHeadline(27206)).toBe("27,206");
-    expect(formatPreviewHeadline(99999.999)).toBe("100,000");
-    expect(formatPreviewHeadline(1234567)).toBe("1.23M");
-    expect(formatPreviewHeadline(-987654321098)).toBe("-987.65B");
-    expect(formatPreviewHeadline(999.99e12)).toBe("999.99T");
-    expect(formatPreviewHeadline(0.004216)).toBe("0.00422");
-    expect(formatPreviewHeadline(0.0000123)).toBe("1.23e-5");
-    expect(formatPreviewHeadline(0)).toBe("0");
-  });
 });

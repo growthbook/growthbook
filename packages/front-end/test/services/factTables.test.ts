@@ -47,6 +47,22 @@ describe("getColumnMappingError", () => {
   it("rejects a single unknown column serving as both", () => {
     expect(getColumnMappingError(cols(""))).toMatch(/separate/);
   });
+
+  it("checks the options a caller passes instead of the types", () => {
+    const columns = cols("string", "boolean");
+    expect(getColumnMappingError(columns)).toMatch(/date column/);
+    expect(
+      getColumnMappingError(columns, false, {
+        timestampOptions: [columns[1]],
+      }),
+    ).toBeNull();
+    expect(
+      getColumnMappingError(columns, false, {
+        timestampOptions: [columns[1]],
+        identifierOptions: [],
+      }),
+    ).toMatch(/identifier/);
+  });
 });
 
 const schema = (schemaName: string, ...names: string[]): SchemaWithPath => ({
@@ -386,6 +402,27 @@ describe("rematchUserIdColumns", () => {
   it("drops identifiers with no matching column", () => {
     expect(
       rematchUserIdColumns({ user_id: "gone" }, ["user_id"], columns),
+    ).toEqual({});
+  });
+
+  it("keeps a JSON field while its JSON column exists", () => {
+    const withJson = [
+      ...columns,
+      { column: "properties", datatype: "json" as const },
+    ];
+    expect(
+      rematchUserIdColumns(
+        { user_id: "properties.userId" },
+        ["user_id"],
+        withJson,
+      ),
+    ).toEqual({ user_id: "properties.userId" });
+    expect(
+      rematchUserIdColumns(
+        { user_id: "properties.userId" },
+        ["user_id"],
+        columns,
+      ),
     ).toEqual({});
   });
 });

@@ -14,10 +14,14 @@ import {
   supportsEventForwarder,
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
+import { isTestableDataSourceType } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureValue, useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
+import { getDataSourceSqlDialect } from "shared/dialects";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -39,7 +43,6 @@ import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSetting
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 import { dataSourceConnections } from "@/services/eventSchema";
 import {
   getDataRegionLabel,
@@ -67,6 +70,7 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
 import ConnectedResources from "@/components/Settings/EditDataSource/ConnectedResources";
 import DataSourceDescriptionSection from "@/components/Settings/EditDataSource/DataSourceDescriptionSection";
+import LlmTracingSettings from "@/components/Settings/EditDataSource/LlmTracingSettings";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import Explorer from "@/enterprise/components/ProductAnalytics/Explorer";
@@ -74,9 +78,11 @@ import TextField from "@/ui/TextField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { DataSourceUsage } from "@/pages/datasources/queries/[did]";
 import useURLHash from "@/hooks/useURLHash";
+import { InterleavingExposureQueries } from "@/components/Settings/EditDataSource/InterleavingExposureQueries/InterleavingExposureQueries";
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
 export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
+export const IEQ_ANCHOR_ID = "interleaving-exposure-queries";
 
 // Default when this Data Source has no Event Forwarder tab. Queries is only
 // rendered for SQL sources; non-SQL sources fall back to Usage.
@@ -99,6 +105,7 @@ const EXPLORER_HEIGHT_WHEN_PAGE_SCROLLS = "max(480px, calc(100vh - 280px))";
 const LEGACY_ANCHOR_TABS: Record<string, (typeof DATA_SOURCE_TABS)[number]> = {
   [EAQ_ANCHOR_ID]: "queries",
   [CBAQ_ANCHOR_ID]: "queries",
+  [IEQ_ANCHOR_ID]: "queries",
 };
 
 function quotePropertyName(name: string) {
@@ -203,7 +210,6 @@ function DataSourceDescriptionPreview({
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
-  const newDataSourceOnboarding = useNewDataSourceOnboarding();
   const [editConn, setEditConn] = useState(false);
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -246,7 +252,7 @@ const DataSourcePage: FC = () => {
   // Event Forwarder is first so an empty hash opens it when this Data Source
   // has one.
   const showEventForwarderTab = Boolean(
-    newDataSourceOnboarding.enabled &&
+    isCloud() &&
       d?.eventForwarderConfig &&
       d.eventForwarderConfig.status !== "unconfigured",
   );
@@ -313,7 +319,6 @@ const DataSourcePage: FC = () => {
     !!d &&
     d.properties?.queryLanguage === "sql" &&
     !isManagedWarehouse &&
-    newDataSourceOnboarding.enabled &&
     !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
 
   // Stretch the page to the bottom of the viewport, then give the explorer the
@@ -366,6 +371,8 @@ const DataSourcePage: FC = () => {
   const { hasCommercialFeature, settings: orgSettings } = useUser();
   // Default ON; the remote flag only turns this off for specific orgs.
   const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
+  const interleavingEnabled =
+    isInterleavingEnabled(useGrowthBook<AppFeatures>());
 
   // Only the never-provisioned state replaces the settings UI with the onboarding
   // callout. A transient migration must NOT blank the config page — query sub-surfaces
@@ -401,6 +408,14 @@ const DataSourcePage: FC = () => {
   const canUpdateDataSourceSettings =
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
+
+  // Interleaving analysis unnests a JSON array of ranked items, so only
+  // dialects that can do that are offered the section.
+  const showInterleavingQueries =
+    !!d &&
+    interleavingEnabled &&
+    hasCommercialFeature("interleaving") &&
+    !!getDataSourceSqlDialect(d.type)?.jsonArray;
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
 
@@ -628,17 +643,6 @@ const DataSourcePage: FC = () => {
           </Frame>
         )}
 
-        {supportsSQL &&
-          !isManagedWarehouse &&
-          !newDataSourceOnboarding.enabled &&
-          d.dateUpdated === d.dateCreated &&
-          d.settings?.schemaFormat !== "custom" && (
-            <Callout status="info" mb="4">
-              We have prefilled the identifier types and assignment queries.
-              These may require editing to fit your data structure.
-            </Callout>
-          )}
-
         {isManagedWarehouse &&
           (managedWarehouseAwaitingProvisioning ? (
             <ManagedWarehouseNoEventsCallout />
@@ -777,6 +781,14 @@ const DataSourcePage: FC = () => {
                         />
                       </Frame>
                     )}
+                  {showInterleavingQueries && (
+                    <Frame id={IEQ_ANCHOR_ID} mb="0">
+                      <InterleavingExposureQueries
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    </Frame>
+                  )}
                   {!isManagedWarehouse && (
                     <>
                       <Frame mb="0">
@@ -828,7 +840,7 @@ const DataSourcePage: FC = () => {
                 <Flex
                   direction="column"
                   gap="3"
-                  mt={exploreFillsViewport ? "0" : "3"}
+                  mt="3"
                   style={
                     exploreFillsViewport ? { flex: 1, minHeight: 0 } : undefined
                   }
@@ -937,7 +949,7 @@ const DataSourcePage: FC = () => {
                       size="sm"
                     />
                     {canUpdateConnectionParams &&
-                      (newDataSourceOnboarding.enabled ? (
+                      (isTestableDataSourceType(d.type) ? (
                         <LinkButton
                           href={`/datasources/${d.id}/connect`}
                           variant="outline"
@@ -1016,6 +1028,14 @@ const DataSourcePage: FC = () => {
                 </Callout>
               )}
 
+              <LlmTracingSettings
+                dataSource={d}
+                factTables={factTables}
+                canEdit={canUpdateDataSourceSettings}
+                onOpenTab={setTab}
+                onRefresh={refreshDataSource}
+              />
+
               <Frame mb="0">
                 <HistoryTable type="datasource" id={d.id} maxHeight="420px" />
               </Frame>
@@ -1080,12 +1100,13 @@ const DataSourcePage: FC = () => {
         <DataSourceForm
           existing={true}
           data={d}
-          source={"datasource-detail"}
+          source="datasource-detail"
           onSuccess={async () => {
             await Promise.all([
               mutateDefinitions({}),
               mutateCurrentDataSource(),
             ]);
+            setEditConn(false);
           }}
           onCancel={() => {
             setEditConn(false);

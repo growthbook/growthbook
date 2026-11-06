@@ -101,6 +101,15 @@ function getHealthFlags(
     srm: health.srm,
     multipleExposures: health.multipleExposures,
     totalUsers: health.totalUsers,
+    srmTotalUnits: health.srmTotalUnits,
+    subUnitMultipleExposures: health.subUnitMultipleExposures ?? null,
+    // Same rule as the experiment's own health check
+    isClusterExperiment: !!(
+      e.isClusterExperiment ||
+      health.clusterAssignment ||
+      health.clusterSubUnitMapping ||
+      health.subUnitMultipleExposures
+    ),
     numOfVariations: getLatestPhaseVariations(e).length,
     minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
     healthSettings,

@@ -26,6 +26,7 @@ import {
 import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import { OrganizationSettings } from "shared/types/organization";
 import {
+  DEFAULT_CLUSTER_ISSUE_THRESHOLD,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
@@ -35,7 +36,11 @@ import {
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
 import { daysBetween, getValidDate, hoursBetween } from "../../dates";
-import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
+import {
+  getClusterIssueHealthData,
+  getMultipleExposureHealthData,
+  getSRMHealthData,
+} from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
@@ -289,6 +294,8 @@ export function getHealthSettings(
     multipleExposureMinPercent:
       settings?.multipleExposureMinPercent ??
       DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+    clusterIssueMinPercent:
+      settings?.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD,
   };
 }
 
@@ -520,45 +527,73 @@ function getDaysLeftStatus({
   }
 }
 
+// A cluster experiment checks SRM on clusters and multiple exposures on
+// subunits; each check is skipped rather than run on the other grain's count.
 export function computeSrmAndMultipleExposuresUnhealthyData({
   srm,
   multipleExposures,
   totalUsers,
+  srmTotalUnits,
+  subUnitMultipleExposures,
+  isClusterExperiment,
   numOfVariations,
   minUsersPerVariation,
   healthSettings,
 }: {
   srm: number;
   multipleExposures: number;
-  totalUsers: number;
+  totalUsers: number | null;
+  srmTotalUnits?: number | null;
+  subUnitMultipleExposures?: {
+    totalSubUnits: number;
+    multipleExposedSubUnits: number;
+  } | null;
+  isClusterExperiment: boolean;
   numOfVariations: number;
   minUsersPerVariation: number;
   healthSettings: ExperimentHealthSettings;
 }): Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> {
   const result: Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> = {};
 
-  const srmHealthData = getSRMHealthData({
-    srm,
-    srmThreshold: healthSettings.srmThreshold,
-    totalUsersCount: totalUsers,
-    numOfVariations,
-    minUsersPerVariation,
-  });
-  if (srmHealthData === "unhealthy") {
+  const srmUnits = isClusterExperiment
+    ? srmTotalUnits
+    : (srmTotalUnits ?? totalUsers);
+  if (
+    srmUnits &&
+    getSRMHealthData({
+      srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: srmUnits,
+      numOfVariations,
+      minUsersPerVariation,
+    }) === "unhealthy"
+  ) {
     result.srm = true;
   }
 
-  const multipleExposuresHealthData = getMultipleExposureHealthData({
-    multipleExposuresCount: multipleExposures,
-    totalUsersCount: totalUsers,
-    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-    minPercentThreshold: healthSettings.multipleExposureMinPercent,
-  });
-  if (multipleExposuresHealthData.status === "unhealthy") {
-    result.multipleExposures = {
-      rawDecimal: multipleExposuresHealthData.rawDecimal,
-      multipleExposedUsers: multipleExposures,
-    };
+  const exposures = isClusterExperiment
+    ? subUnitMultipleExposures
+      ? {
+          count: subUnitMultipleExposures.multipleExposedSubUnits,
+          total: subUnitMultipleExposures.totalSubUnits,
+        }
+      : null
+    : totalUsers
+      ? { count: multipleExposures, total: totalUsers }
+      : null;
+  if (exposures) {
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: exposures.count,
+      totalUsersCount: exposures.total,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      result.multipleExposures = {
+        rawDecimal: multipleExposuresHealthData.rawDecimal,
+        multipleExposedUsers: exposures.count,
+      };
+    }
   }
 
   return result;
@@ -650,13 +685,27 @@ export function getExperimentResultStatus({
     ? getDaysLeftStatus({ daysNeeded })
     : undefined;
 
-  if (healthSummary?.totalUsers) {
+  const isClusterSummary = !!(
+    healthSummary?.clusterAssignment ||
+    healthSummary?.clusterSubUnitMapping ||
+    healthSummary?.subUnitMultipleExposures
+  );
+  // The summary alone can miss a cluster experiment whose cluster checks
+  // failed, and the flag alone can be newer than the summary.
+  const isClusterExperiment =
+    !!experimentData.isClusterExperiment || isClusterSummary;
+
+  if (healthSummary) {
     Object.assign(
       unhealthyData,
       computeSrmAndMultipleExposuresUnhealthyData({
         srm: healthSummary.srm,
         multipleExposures: healthSummary.multipleExposures,
         totalUsers: healthSummary.totalUsers,
+        srmTotalUnits: healthSummary.srmTotalUnits,
+        subUnitMultipleExposures:
+          healthSummary.subUnitMultipleExposures ?? null,
+        isClusterExperiment,
         numOfVariations: getLatestPhaseVariations(experimentData).length,
         minUsersPerVariation:
           experimentData.type === "multi-armed-bandit"
@@ -665,7 +714,9 @@ export function getExperimentResultStatus({
         healthSettings,
       }),
     );
+  }
 
+  if (healthSummary?.totalUsers) {
     if (healthSummary.covariateImbalance?.isImbalanced) {
       unhealthyData.covariateImbalance = true;
     }
@@ -687,11 +738,46 @@ export function getExperimentResultStatus({
     }
   }
 
+  if (healthSummary?.clusterAssignment) {
+    const { mixedClusters, totalClusters } = healthSummary.clusterAssignment;
+    const clusterAssignmentHealth = getClusterIssueHealthData({
+      affectedCount: mixedClusters,
+      totalCount: totalClusters,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    if (clusterAssignmentHealth.status === "unhealthy") {
+      unhealthyData.clusterAssignment = {
+        rawDecimal: clusterAssignmentHealth.rawDecimal,
+        mixedClusters,
+      };
+    }
+  }
+
+  if (healthSummary?.clusterSubUnitMapping) {
+    const { multiClusterUnits, totalUnits } =
+      healthSummary.clusterSubUnitMapping;
+    const clusterMappingHealth = getClusterIssueHealthData({
+      affectedCount: multiClusterUnits,
+      totalCount: totalUnits,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    if (clusterMappingHealth.status === "unhealthy") {
+      unhealthyData.clusterMapping = {
+        rawDecimal: clusterMappingHealth.rawDecimal,
+        multiClusterUnits,
+      };
+    }
+  }
+
   const unhealthyStatuses = [
     ...(unhealthyData.srm ? ["SRM"] : []),
-    ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
+    ...(unhealthyData.multipleExposures
+      ? [isClusterSummary ? "Subunit multiple exposures" : "Multiple exposures"]
+      : []),
     ...(unhealthyData.lowPowered ? ["Low powered"] : []),
     ...(unhealthyData.covariateImbalance ? ["Pre-exposure bias"] : []),
+    ...(unhealthyData.clusterAssignment ? ["Mixed cluster assignment"] : []),
+    ...(unhealthyData.clusterMapping ? ["Units in multiple clusters"] : []),
   ];
   // 1. Always show unhealthy status if they exist
   if (unhealthyStatuses.length > 0) {

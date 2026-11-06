@@ -26,3 +26,4 @@ export * from "./validators/dashboard-block";
 export * from "./validators/dashboard-template";
 export * from "./insights/completedExperiments";
 export * from "./insights/programHealth";
+export * from "./product-analytics/populations";

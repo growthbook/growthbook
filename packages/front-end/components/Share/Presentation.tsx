@@ -487,6 +487,7 @@ const Presentation = ({
                     weight: phase?.variationWeights?.[i] || 0,
                   }),
                 )}
+                snapshot={snapshot}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={snapshot?.analyses?.[0]?.results?.[0]}
                 reportDate={snapshot.dateCreated}
