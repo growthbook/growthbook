@@ -461,7 +461,7 @@ export function getSharedUnit(config: ExplorationConfig | null): string | null {
 
 /**
  * Value-axis title when no custom `valueAxisLabel` is set. Empty unless every
- * value on the axis renders the same way (see `getSharedShowAs`).
+ * value on the axis renders the same way (see `getCommonShowAs`).
  */
 export function getDefaultValueAxisName(
   config: ExplorationConfig | null,
@@ -471,20 +471,18 @@ export function getDefaultValueAxisName(
   const choices = config.dataset.values.map((v) =>
     getShowAsChoice(v, config.showAs, getFactMetricById),
   );
-  const sharedShowAs = getSharedShowAs(choices);
-  if (sharedShowAs === null) return "";
-  if (sharedShowAs === "total") return "Total";
+  const commonShowAs = getCommonShowAs(choices);
+  if (commonShowAs === null) return "";
+  if (commonShowAs === "total") return "Total";
   const sharedUnit = getSharedUnit(config);
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
 }
 
 /**
- * The mode every value renders in, counting values without Show as options as
- * the `total` they render. Null when modes differ — e.g. a per-unit mean next
- * to a proportion, which plots raw counts — or when no value offers options,
- * since Total/Per unit then describes no choice.
+ * Returns the common ShowAs mode when all values in a metric dataset agree on a
+ * single mode, otherwise null
  */
-function getSharedShowAs(choices: ShowAsChoice[]): ShowAs | null {
+function getCommonShowAs(choices: ShowAsChoice[]): ShowAs | null {
   if (!choices.some((choice) => choice.options.length > 0)) return null;
   const modes = new Set(choices.map((choice) => choice.showAs));
   return modes.size === 1 ? [...modes][0] : null;
@@ -521,14 +519,14 @@ function shouldAnnotateSeriesNames(
   config: ExplorationConfig,
   choices: ShowAsChoice[],
 ): boolean {
-  const sharedShowAs = getSharedShowAs(choices);
+  const commonShowAs = getCommonShowAs(choices);
   const modesAreMixed =
-    sharedShowAs === null &&
+    commonShowAs === null &&
     choices.some((choice) => choice.options.length > 0);
   const axisTitleNamesUnit =
     config.chartSettings?.valueAxisLabel === undefined &&
     getSharedUnit(config) !== null;
-  return modesAreMixed || (sharedShowAs === "per_unit" && !axisTitleNamesUnit);
+  return modesAreMixed || (commonShowAs === "per_unit" && !axisTitleNamesUnit);
 }
 
 /**
