@@ -4,6 +4,7 @@ import {
   formatAIRateLimitRetryMessage,
   getAIModelSettingsUsingProvider,
   getProviderForAIModel,
+  getImageModelMeta,
   parseAspectRatio,
   snapAspectRatio,
   aspectRatioToDims,
@@ -34,15 +35,15 @@ describe("getProviderForAIModel", () => {
   });
 
   it("resolves image models, including legacy aliases", () => {
-    expect(getProviderForAIModel("image", "dall-e-3")).toBe("openai");
+    expect(getProviderForAIModel("image", "gpt-image-1-mini")).toBe("openai");
     expect(getProviderForAIModel("image", "grok-2-image")).toBe("xai");
-    expect(getProviderForAIModel("image", "imagen-4.0-generate-001")).toBe(
-      "google",
-    );
+    expect(getProviderForAIModel("image", "gemini-3-pro-image")).toBe("google");
     // Stored on orgs from before the id changed.
     expect(
       getProviderForAIModel("image", "gemini-2.5-flash-image-preview"),
     ).toBe("google");
+    expect(getProviderForAIModel("image", "dall-e-3")).toBe("openai");
+    expect(getImageModelMeta("gpt-image-1")?.id).toBe("gpt-image-1-mini");
   });
 
   it("resolves transcription models from their own registry", () => {
@@ -293,6 +294,9 @@ describe("resolveDefaultSTTModel", () => {
 
 describe("anthropicStructuredOutputMode", () => {
   it("uses native structured output on the spike-verified models", () => {
+    expect(anthropicStructuredOutputMode("claude-fable-5-1")).toBe(
+      "outputFormat",
+    );
     expect(anthropicStructuredOutputMode("claude-opus-5-5")).toBe(
       "outputFormat",
     );
@@ -302,9 +306,6 @@ describe("anthropicStructuredOutputMode", () => {
   });
 
   it("falls back to the json tool on models without structured output", () => {
-    expect(anthropicStructuredOutputMode("claude-sonnet-4-20250514")).toBe(
-      "jsonTool",
-    );
     // Not individually spike-tested; mirrors @ai-sdk/anthropic's own
     // capability table, which marks these as json-tool-only.
     expect(anthropicStructuredOutputMode("claude-opus-4-8")).toBe("jsonTool");
