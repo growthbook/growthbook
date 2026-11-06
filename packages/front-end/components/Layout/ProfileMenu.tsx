@@ -61,6 +61,7 @@ const ActivityIcon = withOpticalWeight(PiListChecks);
 const TokenIcon = withOpticalWeight(PiKey);
 const LockIcon = withOpticalWeight(PiLock);
 const SignOutIcon = withOpticalWeight(PiSignOut);
+const AdminIcon = withOpticalWeight(PiShieldCheck);
 
 const THEME_LABELS = { system: "System", light: "Light", dark: "Dark" };
 const THEME_ICONS: Record<keyof typeof THEME_LABELS, IconType> = {
@@ -221,7 +222,7 @@ export default function ProfileMenu({
       ? [
           item(
             "admin",
-            <MenuItemContent Icon={PiShieldCheck} label={adminLink.name} />,
+            <MenuItemContent Icon={AdminIcon} label={adminLink.name} />,
             () => go(adminLink.href),
           ),
           { type: "separator" as const, key: "sep-admin" },
