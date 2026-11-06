@@ -94,6 +94,20 @@ export function selectColumnsForTopValues({
   return [...alwaysCaptured, ...newlyCaptured];
 }
 
+type TopValueCount = NonNullable<ColumnInterface["topValueCounts"]>[number];
+
+// The one writer for a column's top values, so the string list can't drift from the counts
+export function getTopValueFields(counts: TopValueCount[]): {
+  topValues: string[];
+  topValueCounts: TopValueCount[];
+};
+export function getTopValueFields(
+  counts: TopValueCount[] | undefined,
+): Pick<ColumnInterface, "topValues" | "topValueCounts">;
+export function getTopValueFields(counts: TopValueCount[] | undefined) {
+  return { topValues: counts?.map((c) => c.value), topValueCounts: counts };
+}
+
 export async function runColumnsTopValuesQuery(
   ...args: Parameters<typeof runColumnsTopValueCountsQuery>
 ): Promise<Record<string, string[]>> {
@@ -426,10 +440,11 @@ export async function refreshColumnTopValues(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const counts = countsByColumn[col.column] || [];
-          const topValues = counts.map((c) => c.value);
+          const { topValues, topValueCounts } = getTopValueFields(
+            countsByColumn[col.column] || [],
+          );
           col.topValues = topValues;
-          col.topValueCounts = counts;
+          col.topValueCounts = topValueCounts;
           col.topValuesDate = new Date();
 
           if (col.isAutoSliceColumn) {

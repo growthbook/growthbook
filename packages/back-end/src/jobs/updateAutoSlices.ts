@@ -15,6 +15,7 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { logger } from "back-end/src/util/logger";
 import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
 import {
+  getTopValueFields,
   runColumnsTopValueCountsQuery,
   TOP_VALUES_CHUNK_SIZE,
 } from "back-end/src/services/factTableColumns";
@@ -151,12 +152,11 @@ async function updateAutoSlicesForColumns(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const counts = countsByColumn[col.column];
-          const topValues = counts?.map((c) => c.value);
-
-          // Persist topValues, their counts, and topValuesDate
+          const { topValues, topValueCounts } = getTopValueFields(
+            countsByColumn[col.column],
+          );
           col.topValues = topValues;
-          col.topValueCounts = counts;
+          col.topValueCounts = topValueCounts;
           col.topValuesDate = new Date();
 
           // Skip autoSlices update if no top values.

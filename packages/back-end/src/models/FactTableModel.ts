@@ -669,7 +669,7 @@ export async function updateColumn({
   context?: ReqContext | ApiReqContext;
   factTable: FactTableInterface;
   column: string;
-  // topValueCounts is internal-only, so it isn't in the public validator
+  // topValueCounts is internal-only; set it with getTopValueFields
   changes: UpdateColumnProps & Pick<ColumnInterface, "topValueCounts">;
 }) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);

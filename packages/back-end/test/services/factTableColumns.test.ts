@@ -2,6 +2,7 @@ import { ColumnInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { TestQueryResult } from "shared/types/integrations";
 import {
+  getTopValueFields,
   mergeRefreshedTopValues,
   refreshColumnTopValues,
   runColumnDetectionQuery,
@@ -70,6 +71,26 @@ async function refreshColumns({
     userIdTypes: [],
   });
 }
+
+describe("getTopValueFields", () => {
+  it("derives the string list from the counts", () => {
+    const counts = [
+      { value: "a", count: 3 },
+      { value: "b", count: 1 },
+    ];
+    expect(getTopValueFields(counts)).toEqual({
+      topValues: ["a", "b"],
+      topValueCounts: counts,
+    });
+  });
+
+  it("leaves both fields unset when there are no counts", () => {
+    expect(getTopValueFields(undefined)).toEqual({
+      topValues: undefined,
+      topValueCounts: undefined,
+    });
+  });
+});
 
 describe("selectColumnsForTopValues", () => {
   it("selects all eligible string columns when under the cap", () => {
