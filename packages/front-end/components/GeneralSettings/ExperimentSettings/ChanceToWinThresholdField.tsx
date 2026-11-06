@@ -1,12 +1,3 @@
-import { ReactNode } from "react";
-import {
-  FieldPath,
-  FieldValues,
-  RegisterOptions,
-  UseFormReturn,
-} from "react-hook-form";
-import Field from "@/components/Forms/Field";
-
 export function getConfidenceLevelHighlight(percent: number | undefined): {
   highlightColor: string;
   warningMsg: string;
@@ -46,83 +37,10 @@ export function getConfidenceLevelHighlight(percent: number | undefined): {
   return { highlightColor, warningMsg };
 }
 
-interface ChanceToWinThresholdFieldProps<
-  TFormValues extends FieldValues,
-  TName extends FieldPath<TFormValues>,
-> {
-  value: number | undefined;
-  form: UseFormReturn<TFormValues>;
-  name: TName;
-  disabled?: boolean;
-  label?: string;
-  defaultValue?: number;
-  helpTextAppend?: ReactNode;
-  containerClassName?: string;
-  rules?: Omit<RegisterOptions<TFormValues, TName>, "min" | "max">;
-}
-
-export default function ChanceToWinThresholdField<
-  TFormValues extends FieldValues,
-  TName extends FieldPath<TFormValues>,
->({
-  value,
-  form,
-  name,
-  disabled = false,
-  label = "Chance to win threshold",
-  defaultValue,
-  helpTextAppend,
-  containerClassName = "mb-3",
-  rules,
-}: ChanceToWinThresholdFieldProps<TFormValues, TName>) {
-  const { highlightColor, warningMsg } = getConfidenceLevelHighlight(value);
-
-  const registerProps = form.register(name, {
-    ...rules,
-    min: 70,
-    max: 99.9999,
-  });
-
-  const fieldError = form.formState.errors[name];
-  const errorMessage =
-    typeof fieldError?.message === "string" ? fieldError.message : undefined;
-
-  return (
-    <Field
-      size="legacy"
-      label={label}
-      type="number"
-      step="any"
-      min="70"
-      max="99.9999"
-      placeholder={
-        typeof defaultValue === "number" ? String(defaultValue) : undefined
-      }
-      style={{
-        width: "80px",
-        borderColor: highlightColor,
-        backgroundColor: highlightColor ? highlightColor + "15" : "",
-      }}
-      className="ml-2"
-      containerClassName={containerClassName}
-      append="%"
-      disabled={disabled}
-      error={errorMessage}
-      helpText={
-        <>
-          {helpTextAppend}
-          <div
-            className="ml-2"
-            style={{
-              color: highlightColor,
-              flexBasis: "100%",
-            }}
-          >
-            {warningMsg}
-          </div>
-        </>
-      }
-      {...registerProps}
-    />
-  );
+// Tints a field the color of its warning.
+export function warningHighlight(color: string) {
+  return {
+    borderColor: color,
+    backgroundColor: color ? color + "15" : "",
+  };
 }

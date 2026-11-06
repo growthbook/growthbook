@@ -1470,6 +1470,7 @@ export default function RuleModal({
           description: values.description,
           hypothesis: values.hypothesis,
           linkedFeatures: [feature.id],
+          implementationType: "feature",
           attributionModel: settings?.attributionModel || "firstExposure",
           targetURLRegex: "",
           ideaSource: "",

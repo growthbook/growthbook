@@ -18,7 +18,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     id: "experiments",
     title: "Experiments",
     description:
-      "Launch requirements, how results refresh, sticky bucketing, health checks, and shipping decisions.",
+      "Defaults for new experiments, launch requirements, how results refresh, sticky bucketing, health checks, and shipping decisions.",
   },
   {
     id: "statistics",

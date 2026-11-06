@@ -32,6 +32,7 @@ import {
   pendingMember,
   projectMemberRole,
   SdkPayloadSizeAlert,
+  SelectableImplementationType,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { ApiKeyInterface } from "shared/types/apikey";
@@ -410,6 +411,8 @@ export interface OrganizationSettings {
   experimentKeyRegexValidator?: string; // Enforced on user-entered keys only; system-generated keys are exempt
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
+  // A Project's own setting overrides it.
+  defaultExperimentImplementation?: SelectableImplementationType;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;

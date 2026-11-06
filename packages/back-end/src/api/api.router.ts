@@ -36,6 +36,7 @@ import {
   ApiRateLimitSettings,
   getApiRateLimitBucket,
 } from "back-end/src/util/apiRateLimit";
+import { guardManagedFeatureRoutes } from "back-end/src/services/managedFeatures";
 import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
 import { getSavedGroupUploadFile } from "./saved-groups/getSavedGroupUploadFile";
 import { featureRoutes } from "./features/features.router";
@@ -197,8 +198,8 @@ router.get("/", indexHandler);
 router.get("/v1/", indexHandler);
 
 export const allRoutes = [
-  ...featureRoutes,
-  ...featureV2Routes,
+  ...guardManagedFeatureRoutes(featureRoutes),
+  ...guardManagedFeatureRoutes(featureV2Routes),
   ...archetypesRoutes,
   ...experimentsRoutes,
   ...contextualBanditsRoutes,

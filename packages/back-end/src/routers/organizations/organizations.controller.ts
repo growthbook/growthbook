@@ -93,6 +93,7 @@ import {
 } from "back-end/src/services/audit";
 import {
   getAllFeatures,
+  getFeaturePreviousIds,
   hasNonDemoFeature,
 } from "back-end/src/models/FeatureModel";
 import {
@@ -320,10 +321,14 @@ export async function getHistory(
         ? await getApiKeyIdsHiddenFromKeyViewers(context)
         : [];
 
+  // A renamed flag's history includes what was recorded under its old ids.
+  const previousIds =
+    type === "feature" && id ? await getFeaturePreviousIds(context, id) : [];
+
   const history = await getAuditHistory(
     context.org.id,
     type,
-    id,
+    id && previousIds.length ? [id, ...previousIds] : id,
     parseIntWithDefaultCapped(req.query.limit, 50, 100), // Max 100 per page
     {
       event: parseEventParam(req.query.event),

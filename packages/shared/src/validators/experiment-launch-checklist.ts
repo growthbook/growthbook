@@ -50,3 +50,5 @@ export function getHiddenBuiltInChecklistItems(
 
 /** Checklist key prefix for a linked Feature Flag draft's outstanding approval. */
 export const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
+// The managed flag's draft is behind live; like approval, a start bypass waives it.
+export const STALE_VALUES_ITEM_PREFIX = "staleVariationValues:";

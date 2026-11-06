@@ -30,9 +30,11 @@ export default function ExpandableBlock({ children }: { children: ReactNode }) {
         <div ref={content}>{children}</div>
       </Box>
       {overflows ? (
-        <Link size="sm" onClick={() => setExpanded(!expanded)}>
-          {expanded ? "Collapse" : "Expand..."}
-        </Link>
+        <Box mt="3">
+          <Link size="sm" onClick={() => setExpanded(!expanded)}>
+            {expanded ? "Collapse" : "Expand..."}
+          </Link>
+        </Box>
       ) : null}
     </Box>
   );

@@ -218,6 +218,17 @@ export const sdkLanguages = [
 
 export const statsEngines = ["bayesian", "frequentist"] as const;
 
+// What a new experiment can start as; "multi" is never offered up front.
+export const selectableImplementationTypes = [
+  "values",
+  "feature",
+  "urlredirect",
+  "visual",
+  "none",
+] as const;
+
+export const DEFAULT_EXPERIMENT_IMPLEMENTATION = "none";
+
 export const attributeDataTypes = [
   "boolean",
   "string",

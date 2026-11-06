@@ -4,7 +4,8 @@ import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import ImportExperimentList from "./ImportExperimentList";
@@ -90,27 +91,18 @@ const ImportExperimentModal: FC<{
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="import-experiment"
       header="Import Experiment"
       open={true}
-      size="max"
+      size="xl"
       close={() => onClose()}
+      secondaryAction={
+        <Button variant="ghost" onClick={() => setImportModal(false)}>
+          Create from scratch
+        </Button>
+      }
     >
-      <Callout status="info" mb="3">
-        Don&apos;t see your experiment listed below?{" "}
-        <a
-          role="button"
-          className="link"
-          onClick={(e) => {
-            e.preventDefault();
-            setImportModal(false);
-          }}
-        >
-          Create From Scratch
-        </a>
-      </Callout>
-      <h2>Import from Data source</h2>
       {importId && (
         <ImportExperimentList
           key={importId}
@@ -127,7 +119,6 @@ const ImportExperimentModal: FC<{
             {error}
           </Callout>
           <SelectField
-            size="legacy"
             label="Choose a Data Source"
             value={datasourceId}
             onChange={(value) => setDatasourceId(value)}
@@ -138,7 +129,7 @@ const ImportExperimentModal: FC<{
           />
         </>
       ) : null}
-    </Modal>
+    </ModalStandard>
   );
 };
 export default ImportExperimentModal;

@@ -55,7 +55,6 @@ export default function CollapsiblePanelLayout({
   );
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const layout = useRef<HTMLDivElement>(null);
-  const panelBox = useRef<HTMLDivElement>(null);
   const footerBox = useRef<HTMLDivElement>(null);
   const contentBox = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -120,24 +119,6 @@ export default function CollapsiblePanelLayout({
     window.addEventListener("pointercancel", onUp);
   };
 
-  // Until the page scrolls, the panel starts below its sticky offset, so a
-  // viewport-minus-header height would hang off screen. Size it to what shows.
-  useEffect(() => {
-    const el = panelBox.current;
-    if (!el) return;
-    const fit = () => {
-      const offset = Math.max(el.getBoundingClientRect().top, 0);
-      el.style.height = `${Math.max(0, window.innerHeight - offset - footerClearance)}px`;
-    };
-    fit();
-    window.addEventListener("scroll", fit, { passive: true });
-    window.addEventListener("resize", fit);
-    return () => {
-      window.removeEventListener("scroll", fit);
-      window.removeEventListener("resize", fit);
-    };
-  });
-
   // Never branch around `children`: moving it to a different position in the
   // tree would remount the whole page on every toggle, refetching its data.
   const showPanel = open && !previewCollapsed;
@@ -190,7 +171,7 @@ export default function CollapsiblePanelLayout({
         // The pinned header's shadow, facing left. The negative spread keeps it
         // from bleeding above the panel.
         boxShadow:
-          "-1px 0 2px -1px rgba(0, 0, 0, 0.1), -4px 0 4px -2px rgba(0, 0, 0, 0.025)",
+          "-1px 0 2px -1px var(--lift-shadow-near), -4px 0 4px -2px var(--lift-shadow-far)",
       }
     : {};
 
@@ -219,13 +200,14 @@ export default function CollapsiblePanelLayout({
       </Flex>
       {mounted ? (
         <Box
-          ref={panelBox}
           position="sticky"
           flexShrink="0"
           width={`${currentWidth}px`}
           style={{
             top,
-            // Until `fit` measures it.
+            // Its stuck height throughout: resized as the page scrolled, it
+            // would lag the scroll. Until it sticks, its end runs past the
+            // window's.
             height: `calc(100vh - ${top + footerClearance}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
@@ -251,8 +233,9 @@ export default function CollapsiblePanelLayout({
             }}
           />
           {/* Clips the contents mid-slide; the handle sits outside it so it
-              can straddle the border. */}
-          <Box height="100%" style={{ overflow: "hidden" }}>
+              can straddle the border. Clip, not hidden, so what's inside can
+              still stick to the window. */}
+          <Box height="100%" style={{ overflow: "clip" }}>
             {/* Holds its width mid-slide so the contents don't reflow. A
                 full-height column: the panel lays out and scrolls its own. */}
             <Flex

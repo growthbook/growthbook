@@ -94,6 +94,7 @@ import {
   scopeLinkedRefRule,
 } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { assertLoadedFeatureNotManaged } from "back-end/src/services/managedFeatures";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -322,6 +323,9 @@ export async function linkFeatureToContextualBandit({
   ) {
     throw new Error("Invalid contextual bandit rule");
   }
+
+  // The route-level managed guard keys on :id; these routes use :featureId.
+  assertLoadedFeatureNotManaged(feature);
 
   if (!environments.length) {
     throw new Error(

@@ -26,7 +26,7 @@ const on = (
   i: LinkedFeatureInfo,
   pick?: Parameters<typeof resolveDraftPick>[1],
 ) => {
-  const { draft, target } = resolveDraftPick(i, pick);
+  const { draft, target } = resolveDraftPick(i, pick, "exp_1");
   return target === "new" ? "new" : draft?.version;
 };
 
@@ -40,7 +40,7 @@ describe("resolveDraftPick", () => {
     const pick = { newestVersion: 7, target: 5 };
     expect(on(info(7, 5), pick)).toBe(5);
     expect(on(info(8, 7, 5), pick)).toBe(5);
-    expect(resolveDraftPick(info(8, 7, 5), pick).launches).toBe(false);
+    expect(resolveDraftPick(info(8, 7, 5), pick, "exp_1").launches).toBe(false);
     // Published or discarded elsewhere: back to the newest.
     expect(on(info(7), pick)).toBe(7);
   });
@@ -49,7 +49,7 @@ describe("resolveDraftPick", () => {
     const pick = { newestVersion: 7, target: "new" as const };
     expect(on(info(7, 5), pick)).toBe("new");
     // Still lists the drafts to switch back to.
-    expect(resolveDraftPick(info(7, 5), pick).draft?.version).toBe(7);
+    expect(resolveDraftPick(info(7, 5), pick, "exp_1").draft?.version).toBe(7);
     expect(on(info(8, 7, 5), pick)).toBe(8);
     const cleaned = {
       ...info(7),
@@ -59,13 +59,19 @@ describe("resolveDraftPick", () => {
   });
 
   it("holds a new draft whatever opens while values are staged for it", () => {
-    expect(resolveDraftPick(info(8), undefined, true).target).toBe("new");
+    expect(resolveDraftPick(info(8), undefined, "exp_1", true).target).toBe(
+      "new",
+    );
   });
 });
 
 describe("draftReviewState", () => {
-  const pending = (fields: Partial<PendingDraft>) =>
-    ({ status: "draft", pendingApproval: false, ...fields }) as PendingDraft;
+  // Only whether the approval is satisfied matters here.
+  const pending = (
+    fields: Omit<Partial<PendingDraft>, "approval"> & {
+      approval?: { satisfied: boolean };
+    },
+  ) => ({ status: "draft", pendingApproval: false, ...fields }) as PendingDraft;
 
   it.each([
     ["needs no review", pending({}), "ready", "Publish"],

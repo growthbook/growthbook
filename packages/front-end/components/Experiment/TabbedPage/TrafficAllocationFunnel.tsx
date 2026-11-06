@@ -19,6 +19,7 @@ import {
 import {
   coverageToHoldoutSize,
   generateVariationId,
+  isManagedByExperiment,
   isNamespaceSelectable,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -50,6 +51,7 @@ import { coveragePercentFormatter } from "@/services/utils";
 import FunnelConnector from "./FunnelConnector";
 import { ImplementationColumn } from "./ImplementationColumn";
 import VariationValuesTable from "./VariationValuesTable";
+import ManagedFlagEnvironments from "./ManagedFlagEnvironments";
 import { InfoTip } from "./SetupFieldRow";
 import { DraftPick, FlagDraftPicks } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
@@ -419,6 +421,9 @@ export default function TrafficAllocationFunnel({
 
   const phaseVariations = getLatestPhaseVariations(experiment);
   const numVariations = phaseVariations.length;
+  const managedFlag = linkedFeatures.find((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  );
   const variationWeights = phase.variationWeights ?? [];
   const coverage = phase.coverage ?? 1;
 
@@ -438,6 +443,14 @@ export default function TrafficAllocationFunnel({
       ) : null}
       <Flex direction="column">
         <Flex align="center" direction="column">
+          {managedFlag ? (
+            <ManagedFlagEnvironments
+              experiment={experiment}
+              info={managedFlag}
+              flagEnvironments={flagEnvironments}
+              canEdit={canEditFlagValues}
+            />
+          ) : null}
           {holdoutId ? (
             <>
               <FunnelCard

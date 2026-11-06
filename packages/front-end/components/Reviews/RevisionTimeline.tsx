@@ -143,9 +143,43 @@ function auditVerb(action: string): string {
   );
 }
 
+/** The comment a log entry carries, if its value is JSON with one. */
+export function logComment(log: { value: string }): string | undefined {
+  try {
+    return JSON.parse(log.value)?.comment;
+  } catch (e) {
+    return undefined;
+  }
+}
+
+/** A verdict's icon in place of the user avatar; null for anything else. */
+export function verdictAvatar(
+  action: string,
+  size: "sm" | "md",
+  uncovered: boolean,
+) {
+  const color =
+    action === "Approved"
+      ? "green"
+      : action === "Requested Changes"
+        ? "red"
+        : null;
+  if (!color) return null;
+  return (
+    <Avatar
+      size={size}
+      color={color}
+      variant={uncovered ? "soft" : "solid"}
+      ring={uncovered}
+    >
+      <>{rowVisual(action).icon}</>
+    </Avatar>
+  );
+}
+
 // Icons and colors mirror RevisionStatusBadge so the timeline and the
 // actions-column header speak the same visual language.
-function rowVisual(action: string): RowVisual {
+export function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
       return {
@@ -280,7 +314,7 @@ export type VerdictRetraction = {
 
 // Verdict tags: why an approval doesn't count, and whether it was retracted.
 // One row so they never crowd the header line.
-function VerdictTags({
+export function VerdictTags({
   uncoveredReason,
   retraction,
   mb,
@@ -357,12 +391,7 @@ export function RevisionLogRow({
   } catch (e) {
     valueContainsData = value.length > 0;
   }
-  let comment: string | undefined;
-  try {
-    comment = JSON.parse(log.value)?.comment;
-  } catch (e) {
-    // not JSON
-  }
+  const comment = logComment(log);
 
   const visual = rowVisual(log.action);
 
@@ -404,30 +433,14 @@ export function RevisionLogRow({
   }
 
   const renderAsCard = visual.showCommentBody && !!comment;
-  // Replace the user avatar with a colored verdict icon (green check for
-  // approvals, red speech bubble for change requests) so the timeline reads
-  // at a glance. Plain comments keep the user avatar.
-  const verdictAvatarColor: "green" | "red" | null =
-    log.action === "Approved"
-      ? "green"
-      : log.action === "Requested Changes"
-        ? "red"
-        : null;
   const uncoveredReason =
     log.action === "Approved" && logUserId
       ? uncoveredApproverReasons?.get(logUserId)
       : undefined;
-  const verdictUncovered = !!uncoveredReason;
-  const verdictLeading = verdictAvatarColor ? (
-    <Avatar
-      size="md"
-      color={verdictAvatarColor}
-      variant={verdictUncovered ? "soft" : "solid"}
-      ring={verdictUncovered}
-    >
-      <>{visual.icon}</>
-    </Avatar>
-  ) : undefined;
+  // Replace the user avatar with a colored verdict icon (green check for
+  // approvals, red speech bubble for change requests) so the timeline reads
+  // at a glance. Plain comments keep the user avatar.
+  const verdictLeading = verdictAvatar(log.action, "md", !!uncoveredReason);
 
   if (renderAsCard) {
     return (
@@ -610,6 +623,87 @@ function buildTimelineBlocks(
   return blocks;
 }
 
+/** Chronological, newest last. */
+export function sortRevisionLog(logs: RevisionLog[]): RevisionLog[] {
+  return [...logs].sort((a, b) =>
+    (a.timestamp as unknown as string).localeCompare(
+      b.timestamp as unknown as string,
+    ),
+  );
+}
+
+// A verdict (Approved / Requested Changes) is invalidated by the FIRST of the
+// following events to appear after it:
+//   - same-user `Undo Review`           → "Retracted"
+//   - any-user `Recall Review`          → "Discarded by {recaller}"
+//   - same-user new verdict             → superseded (no badge)
+// A subsequent `Review Requested` resets the window — verdicts after that
+// point are fresh decisions on the re-requested review.
+export function scanVerdictRetractions(
+  sorted: RevisionLog[],
+  userId: string | undefined,
+): WeakMap<RevisionLog, VerdictRetraction> {
+  const retractions = new WeakMap<RevisionLog, VerdictRetraction>();
+  for (let i = 0; i < sorted.length; i++) {
+    const entry = sorted[i];
+    if (entry.action !== "Approved" && entry.action !== "Requested Changes")
+      continue;
+    const uid = eventUserIdentity(entry.user ?? null);
+    if (!uid) continue;
+    for (let j = i + 1; j < sorted.length; j++) {
+      const next = sorted[j];
+      if (next.action === "Review Requested") {
+        // New review cycle started; previous verdicts are historical but not
+        // marked retracted/discarded by this scan — only events between i and
+        // the recall/undo count.
+        break;
+      }
+      if (next.action === "Recall Review") {
+        const recaller = eventUserCredit(next.user ?? null);
+        const recallerName = recaller.name || recaller.email || null;
+        const isSelfRecall = !!recaller.id && recaller.id === userId;
+        const label = isSelfRecall
+          ? "Discarded by you"
+          : recallerName
+            ? `Discarded by ${recallerName}`
+            : "Discarded";
+        retractions.set(entry, { kind: "recall", label });
+        break;
+      }
+      const nextUid = eventUserIdentity(next.user ?? null);
+      if (nextUid !== uid) continue;
+      if (next.action === "Undo Review") {
+        retractions.set(entry, { kind: "self", label: "Retracted" });
+        break;
+      }
+      if (next.action === "Approved" || next.action === "Requested Changes") {
+        // Superseded by a fresh verdict; not a retraction.
+        break;
+      }
+    }
+  }
+  return retractions;
+}
+
+// The current user's most recent active verdict (not retracted and not
+// superseded): the row that gets the "Retract review" item.
+export function findActiveVerdict(
+  sorted: RevisionLog[],
+  userId: string | undefined,
+  retractions: WeakMap<RevisionLog, VerdictRetraction>,
+): RevisionLog | null {
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const entry = sorted[i];
+    if (entry.action !== "Approved" && entry.action !== "Requested Changes")
+      continue;
+    const uid = eventUserIdentity(entry.user ?? null);
+    if (!uid || uid !== userId) continue;
+    if (retractions.has(entry)) continue;
+    return entry;
+  }
+  return null;
+}
+
 export default function RevisionTimeline({
   logs,
   collapseFilter,
@@ -640,73 +734,9 @@ export default function RevisionTimeline({
     useMemo(() => {
       // Chronological (newest at the bottom) — the comment composer sits
       // below the timeline, where new entries append.
-      const sorted = [...logs].sort((a, b) =>
-        (a.timestamp as unknown as string).localeCompare(
-          b.timestamp as unknown as string,
-        ),
-      );
-      // A verdict (Approved / Requested Changes) is invalidated by the FIRST
-      // of the following events to appear after it:
-      //   - same-user `Undo Review`           → "Retracted"
-      //   - any-user `Recall Review`          → "Discarded by {recaller}"
-      //   - same-user new verdict             → superseded (no badge)
-      // A subsequent `Review Requested` resets the window — verdicts after
-      // that point are fresh decisions on the re-requested review.
-      const retractions = new WeakMap<RevisionLog, VerdictRetraction>();
-      for (let i = 0; i < sorted.length; i++) {
-        const entry = sorted[i];
-        if (entry.action !== "Approved" && entry.action !== "Requested Changes")
-          continue;
-        const uid = eventUserIdentity(entry.user ?? null);
-        if (!uid) continue;
-        for (let j = i + 1; j < sorted.length; j++) {
-          const next = sorted[j];
-          if (next.action === "Review Requested") {
-            // New review cycle started; previous verdicts are historical but
-            // not marked retracted/discarded by this scan — only events
-            // between i and the recall/undo count.
-            break;
-          }
-          if (next.action === "Recall Review") {
-            const recaller = eventUserCredit(next.user ?? null);
-            const recallerName = recaller.name || recaller.email || null;
-            const isSelfRecall = !!recaller.id && recaller.id === userId;
-            const label = isSelfRecall
-              ? "Discarded by you"
-              : recallerName
-                ? `Discarded by ${recallerName}`
-                : "Discarded";
-            retractions.set(entry, { kind: "recall", label });
-            break;
-          }
-          const nextUid = eventUserIdentity(next.user ?? null);
-          if (nextUid !== uid) continue;
-          if (next.action === "Undo Review") {
-            retractions.set(entry, { kind: "self", label: "Retracted" });
-            break;
-          }
-          if (
-            next.action === "Approved" ||
-            next.action === "Requested Changes"
-          ) {
-            // Superseded by a fresh verdict; not a retraction.
-            break;
-          }
-        }
-      }
-      // Find the current user's most recent active verdict (not retracted and
-      // not superseded). This is the row that gets the "Retract review" item.
-      let activeVerdict: RevisionLog | null = null;
-      for (let i = sorted.length - 1; i >= 0; i--) {
-        const entry = sorted[i];
-        if (entry.action !== "Approved" && entry.action !== "Requested Changes")
-          continue;
-        const uid = eventUserIdentity(entry.user ?? null);
-        if (!uid || uid !== userId) continue;
-        if (retractions.has(entry)) continue;
-        activeVerdict = entry;
-        break;
-      }
+      const sorted = sortRevisionLog(logs);
+      const retractions = scanVerdictRetractions(sorted, userId);
+      const activeVerdict = findActiveVerdict(sorted, userId, retractions);
       return {
         blocks: buildTimelineBlocks(sorted, collapseFilter),
         verdictRetractions: retractions,

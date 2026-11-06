@@ -4,7 +4,11 @@ import {
   apiErrorRegistry,
 } from "shared/validators";
 import { experimentFieldLabels } from "shared/experiments";
-import { capitalizeFirstCharacter } from "shared/util";
+import {
+  capitalizeFirstCharacter,
+  type ImplementationLinkages,
+  storedImplementationType,
+} from "shared/util";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 
 export abstract class ApiError<C extends ApiErrorCode> extends Error {
@@ -199,6 +203,45 @@ export class PlanDoesNotAllowError extends Error {
   }
 }
 
+export type ManagedFeatureErrorSurface = "app" | "rest";
+
+// 403 rather than a permission error: no grant makes this allowed — ejecting
+// the flag is what makes it possible.
+export class ManagedFeatureError extends ApiError<"feature_managed_by_experiment"> {
+  constructor({
+    featureId,
+    experimentId,
+    surface = "app",
+  }: {
+    featureId: string;
+    experimentId: string;
+    surface?: ManagedFeatureErrorSurface;
+  }) {
+    super(
+      "feature_managed_by_experiment",
+      surface === "rest"
+        ? `Feature Flag "${featureId}" is managed by experiment "${experimentId}". Change it through the Experiment Values endpoints (/experiments/${experimentId}/variation-values), or detach it first (POST /experiments/${experimentId}/variation-values/detach) to edit it directly.`
+        : `Feature Flag "${featureId}" is managed by experiment "${experimentId}". Make changes from the experiment, or convert the Feature Flag to unmanaged first to edit it directly.`,
+      { featureId, experimentId },
+    );
+    this.name = "ManagedFeatureError";
+  }
+}
+
+// Values is an experiment's whole implementation: converting its Feature Flag
+// to unmanaged is what makes room for another.
+export function assertNotValuesImplementation(
+  context: { isApiRequest: boolean },
+  experiment: ImplementationLinkages & { id: string },
+): void {
+  if (storedImplementationType(experiment) !== "values") return;
+  throw new BadRequestError(
+    context.isApiRequest
+      ? `Experiment "${experiment.id}" serves its variation values from a managed Feature Flag. Detach it first (POST /experiments/${experiment.id}/variation-values/detach) to add another implementation.`
+      : "This experiment serves its variation values from its own Feature Flag. Convert it to an unmanaged Feature Flag first to add another implementation.",
+  );
+}
+
 export class NotFoundError extends Error {
   status = 404;
   constructor(message?: string) {
@@ -224,6 +267,13 @@ export class DraftLimitError extends ConflictError {
   constructor(message: string) {
     super(message);
     this.name = "DraftLimitError";
+  }
+}
+
+export class FeatureKeyTakenError extends ApiError<"feature_key_taken"> {
+  constructor(message: string, details: ApiErrorDetails<"feature_key_taken">) {
+    super("feature_key_taken", message, details);
+    this.name = "FeatureKeyTakenError";
   }
 }
 

@@ -39,10 +39,12 @@ import {
   stepHoldConditions,
 } from "./ramp-schedule";
 
+import { featureManagedByValidator } from "./managed-by";
 import { namedSchema } from "./openapi-helpers";
 import {
   experimentAnalysisSettingsDraft,
   experimentInterface,
+  implementationType,
   statusUpdateScheduleInput,
   experimentPhase,
   variation,
@@ -858,6 +860,23 @@ export const featureInterface = z
         value: z.string(),
       })
       .optional(),
+    // An experiment owns the flag; every direct write path refuses while it's
+    // set (`assertFeatureNotManaged`).
+    managedBy: featureManagedByValidator.optional(),
+    // Keys this flag was known by before a rename, oldest first. Only managed
+    // flags can be renamed; history and code refs still find the old keys.
+    previousIds: z.array(z.string()).optional(),
+    // Set until a rename's cascade has moved every reference off `from`; the
+    // next rename finishes it first. `cleaned` once the new id's leftovers
+    // from a deleted flag are gone.
+    renaming: z
+      .object({
+        from: z.string(),
+        to: z.string(),
+        claimedAt: z.date(),
+        cleaned: z.boolean().optional(),
+      })
+      .optional(),
   })
   .strict();
 
@@ -1404,6 +1423,11 @@ export const apiFeatureValidator = namedSchema(
       }),
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,
+      managedBy: featureManagedByValidator
+        .optional()
+        .describe(
+          "Set when an experiment owns this flag. Its values are edited, reviewed and published from that experiment, and every direct write to the flag is refused.",
+        ),
     })
     .strict(),
 );
@@ -2242,6 +2266,8 @@ const experimentChangesFields = experimentAnalysisSettingsDraft
     description: z.string(),
     hypothesis: z.string(),
     variations: z.array(variation),
+    // A managed flag is converted, deleted or created to match, as the save lands.
+    implementationType: z.enum(implementationType),
     // "" clears the holdout.
     holdoutId: z.string(),
     // Targeting. The phase's fields are written to the latest one, or to a new
@@ -2306,6 +2332,7 @@ export const experimentChangesBody = z
           .object({
             featureId: z.string(),
             variations: z.array(experimentRefVariation),
+            valueType: z.enum(featureValueType).optional(),
             // JSON only. Omitted leaves the rule's sparse flag as it is.
             sparse: z.boolean().optional(),
             // The rule's environment scope. Omitted leaves it as it is.
@@ -2372,6 +2399,20 @@ export const experimentChangesBody = z
     unlinkFeatures: z.array(z.string()).optional(),
     // Flags whose pending removal to undo: the rule goes back into the drafts.
     keepFeatures: z.array(z.string()).optional(),
+    // Consents to deleting the managed flag when the save leaves Values.
+    deleteManagedFlag: z.boolean().optional(),
+    // Values for the experiment's own Feature Flag when it has none yet; the
+    // save creates the flag with them.
+    managedFlag: z
+      .object({
+        valueType: z.enum(featureValueType),
+        variations: z.array(experimentRefVariation),
+        sparse: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+    // A new id for the experiment's own Feature Flag, applied last.
+    renameManagedFlag: z.object({ to: z.string() }).strict().optional(),
     addUrlRedirects: z.array(stagedUrlRedirect).optional(),
     // Each with the dateUpdated it was loaded at; one changed since fails the save.
     editUrlRedirects: z

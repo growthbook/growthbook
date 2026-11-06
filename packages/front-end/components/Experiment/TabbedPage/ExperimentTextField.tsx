@@ -2,14 +2,18 @@ import { useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { computeAIUsageData } from "shared/ai";
+import { PiPlus } from "react-icons/pi";
 import track from "@/services/track";
 import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothesis";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
+import Link from "@/ui/Link";
 import {
   useExperimentFieldEdit,
   useStagedState,
 } from "@/components/Experiment/TabbedPage/ExperimentEdits";
-import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import SetupFieldRow, {
+  LABEL_WIDTH,
+} from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
@@ -92,6 +96,27 @@ export default function ExperimentTextField({
   ) : (
     <ExperimentTextValue field={field} value={savedValue} />
   );
+
+  // Beside a hypothesis, an empty description is offered rather than shown.
+  if (
+    !editable &&
+    canEdit &&
+    !savedValue &&
+    field === "description" &&
+    experiment.type !== "multi-armed-bandit" &&
+    experiment.type !== "holdout"
+  ) {
+    return (
+      <Box py="2" ml={`calc(${LABEL_WIDTH} + var(--space-4))`}>
+        <Link color="gray" onClick={() => setEditingOnDemand(true)}>
+          <Flex align="center" gap="1">
+            <PiPlus />
+            Add description
+          </Flex>
+        </Link>
+      </Box>
+    );
+  }
 
   return (
     <SetupFieldRow

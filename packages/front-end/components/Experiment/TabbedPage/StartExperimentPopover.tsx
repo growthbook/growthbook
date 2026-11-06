@@ -18,6 +18,7 @@ import {
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -135,6 +136,9 @@ function StartContent({
   const pastSchedule = gate.schedule === "past" && dateLabel;
   const { checklistItemsRemaining, loadError, summary } =
     usePreLaunchChecklist();
+  const managedId =
+    useManagedExperimentFlags({ experiment, linkedFeatures }).managedFeature
+      ?.feature.id ?? null;
   const showTodo =
     checklistItemsRemaining !== 0 || loadError || summary.flagged.length > 0;
   // Starting publishes what's stored, not what's staged.
@@ -149,7 +153,10 @@ function StartContent({
         {getStartTitle(experiment, new Date(), true)}
       </Heading>
 
-      <StartFailures failures={start.pendingDraftFailures} />
+      <StartFailures
+        failures={start.pendingDraftFailures}
+        managedFeatureId={managedId}
+      />
       <StartChecklistFailures items={start.checklistFailures} />
       {pastSchedule ? (
         <Callout status="warning" size="sm">

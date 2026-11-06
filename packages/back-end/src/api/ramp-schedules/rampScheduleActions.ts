@@ -46,6 +46,7 @@ import {
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { assertLoadedFeatureNotManaged } from "back-end/src/services/managedFeatures";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import {
@@ -543,6 +544,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
   ) => {
     const feature = await getFeature(req.context, featureId);
     if (!feature) throw new Error(`Feature '${featureId}' not found`);
+    assertLoadedFeatureNotManaged(feature, "rest");
     assertRampPlanChangeAllowed(
       req.context,
       feature,

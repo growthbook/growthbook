@@ -8,6 +8,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
+import ScrollArea from "@/ui/ScrollArea";
 import { TextField } from "@/ui/TextField";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -157,77 +158,83 @@ export default function SettingsNav() {
           {resultText}
         </div>
       )}
-      <div className={styles.scroll}>
-        {showGeneral && (
-          <nav aria-label="General settings sections" className={styles.group}>
-            <div className={styles.groupLabel}>General</div>
-            {sections.map((s) => {
-              const active = onGeneral
-                ? s.id === activeSection
-                : s.id === fallbackSection;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={clsx(styles.item, { [styles.active]: active })}
-                  aria-current={active ? "location" : undefined}
-                  onClick={() => {
-                    if (!onGeneral) {
-                      router.push(`/settings#${s.id}`);
-                      return;
-                    }
-                    pinSection(s.id);
-                    scrollToSettingsSection(s.id);
-                    // Keeps the hash shareable; scroll: false leaves the jump alone.
-                    router.replace(`/settings#${s.id}`, undefined, {
-                      shallow: true,
-                      scroll: false,
-                    });
-                  }}
-                >
-                  <span className={styles.itemLabel}>{s.title}</span>
-                  {dirtySectionIds.includes(s.id) && (
-                    <span
-                      className={sectionStyles.unsavedDot}
-                      role="img"
-                      aria-label="Unsaved changes"
-                    />
-                  )}
-                  {hasQuery && (
-                    <Badge
-                      color="gray"
-                      variant="soft"
-                      radius="full"
-                      label={String(counts[s.id] ?? 0)}
-                    />
-                  )}
-                </button>
-              );
-            })}
-            {hasQuery && !sections.length && (
-              <div className={styles.empty}>No sections match.</div>
-            )}
-          </nav>
-        )}
-        {pages.length > 0 && (
-          <nav aria-label="Organization settings" className={styles.group}>
-            <div className={styles.groupLabel}>Organization</div>
-            {pages.map((l) => {
-              const active = l === activePage;
-              return (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={clsx(styles.item, { [styles.active]: active })}
-                  aria-current={active ? "page" : undefined}
-                >
-                  <span className={styles.itemLabel}>{l.name}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        )}
-      </div>
+      {/* The search sits above it, its shadow cast once the list scrolls under. */}
+      <ScrollArea edgeCue="deep-shadow" className={styles.scrollArea}>
+        <div className={styles.scroll}>
+          {showGeneral && (
+            <nav
+              aria-label="General settings sections"
+              className={styles.group}
+            >
+              <div className={styles.groupLabel}>General</div>
+              {sections.map((s) => {
+                const active = onGeneral
+                  ? s.id === activeSection
+                  : s.id === fallbackSection;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={clsx(styles.item, { [styles.active]: active })}
+                    aria-current={active ? "location" : undefined}
+                    onClick={() => {
+                      if (!onGeneral) {
+                        router.push(`/settings#${s.id}`);
+                        return;
+                      }
+                      pinSection(s.id);
+                      scrollToSettingsSection(s.id);
+                      // Keeps the hash shareable; scroll: false leaves the jump alone.
+                      router.replace(`/settings#${s.id}`, undefined, {
+                        shallow: true,
+                        scroll: false,
+                      });
+                    }}
+                  >
+                    <span className={styles.itemLabel}>{s.title}</span>
+                    {dirtySectionIds.includes(s.id) && (
+                      <span
+                        className={sectionStyles.unsavedDot}
+                        role="img"
+                        aria-label="Unsaved changes"
+                      />
+                    )}
+                    {hasQuery && (
+                      <Badge
+                        color="gray"
+                        variant="soft"
+                        radius="full"
+                        label={String(counts[s.id] ?? 0)}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+              {hasQuery && !sections.length && (
+                <div className={styles.empty}>No sections match.</div>
+              )}
+            </nav>
+          )}
+          {pages.length > 0 && (
+            <nav aria-label="Organization settings" className={styles.group}>
+              <div className={styles.groupLabel}>Organization</div>
+              {pages.map((l) => {
+                const active = l === activePage;
+                return (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className={clsx(styles.item, { [styles.active]: active })}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <span className={styles.itemLabel}>{l.name}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
+        </div>
+      </ScrollArea>
     </aside>
   );
 }

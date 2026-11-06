@@ -34,6 +34,7 @@ import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnect
 import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { ReqContext } from "back-end/types/request";
 import { flagBypass } from "back-end/src/services/featurePublishGates";
+import { getManagedFeatureForExperiment } from "back-end/src/services/managedFeatures";
 import {
   evaluateStartGates,
   rampLockedGate,
@@ -586,6 +587,7 @@ export async function planStartGates(
         d.revisionVersion,
       ]),
     ),
+    (await getManagedFeatureForExperiment(context, experiment))?.id ?? null,
   );
   for (const featureId of experiment.linkedFeatures ?? []) {
     try {

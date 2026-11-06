@@ -28,7 +28,7 @@ import {
 const MENU_ITEM_DESCRIPTIONS: Record<LinkedChange, string> = {
   "feature-flag": "Make code changes in your app",
   "visual-editor": "No-code browser extension",
-  redirects: "A/B test URL redirects",
+  redirects: "Test standalone pages without a Feature Flag",
 };
 const MENU_ITEM_HEADERS: Record<LinkedChange, string> = {
   "feature-flag": "Feature Flag",

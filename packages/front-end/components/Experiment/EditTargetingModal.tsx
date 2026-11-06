@@ -4,6 +4,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
+import { isAnalysisOnly } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -15,6 +16,7 @@ import SelectField from "@/components/Forms/SelectField";
 import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import {
   followAssignmentAttribute,
@@ -146,6 +148,8 @@ export default function EditTargetingModal({
   const settings = useOrgSettings();
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
+  // Served elsewhere, so the SDK-only settings don't apply.
+  const analysisOnly = isAnalysisOnly(experiment);
 
   if (safeToEdit && section === "namespace") {
     return (
@@ -188,7 +192,14 @@ export default function EditTargetingModal({
         size="lg"
       >
         <div className="pt-2">
-          {experiment.hashVersion === 1 && (
+          {analysisOnly ? (
+            <Callout status="info" mb="4">
+              GrowthBook doesn&apos;t serve this experiment, so targeting here
+              records how your own system runs it. Changing it doesn&apos;t
+              change who sees what.
+            </Callout>
+          ) : null}
+          {!analysisOnly && experiment.hashVersion === 1 && (
             <SDKCapabilityWarning
               capability="bucketingV2"
               project={experiment.project}
@@ -218,7 +229,9 @@ export default function EditTargetingModal({
             }}
             formatOptionLabel={formatAttributeOptionLabel}
             helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
+              analysisOnly
+                ? "The attribute your own system assigns variations by."
+                : "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
           />
           {followed ? (
@@ -244,7 +257,7 @@ export default function EditTargetingModal({
             hashAttribute={form.watch("hashAttribute")}
             source="Edit Targeting"
           />
-          {orgStickyBucketing ? (
+          {orgStickyBucketing && !analysisOnly ? (
             <StickyBucketingToggle
               my="6"
               disableStickyBucketing={disableStickyBucketing}
@@ -254,14 +267,15 @@ export default function EditTargetingModal({
               description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
             />
           ) : null}
-          {!disableStickyBucketing && (
+          {!disableStickyBucketing && !analysisOnly && (
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
               extraIndicator={attributeScopeToggle}
             />
           )}
-          {!sdkConnectionsLoading &&
+          {!analysisOnly &&
+            !sdkConnectionsLoading &&
             !hasSDKWithNoBucketingV2 &&
             experiment.hashVersion === 1 && (
               <HashVersionSelector

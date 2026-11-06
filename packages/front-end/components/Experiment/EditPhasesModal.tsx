@@ -176,7 +176,7 @@ export default function EditPhasesModal({
           </TableBody>
         </Table>
       </Box>
-      {/* A draft starts through its start flow, which the server requires. */}
+      {/* A draft starts from its review, which the server requires. */}
       {!isDraft && (experiment.status !== "running" || !hasLinkedChanges) && (
         <Button
           icon={<GBAddCircle />}

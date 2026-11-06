@@ -23,6 +23,7 @@ export function QuickEditRow({
   onEdit,
   blockedReason = null,
   align = "start",
+  centered = false,
   children,
 }: {
   label: string;
@@ -30,12 +31,25 @@ export function QuickEditRow({
   /** Shown on the row instead of opening the editor. */
   blockedReason?: string | null;
   align?: "start" | "center";
+  // Wraps around its centre, the button spilling past the end so it doesn't
+  // pull the content off centre.
+  centered?: boolean;
   children: ReactNode;
 }) {
+  const button = onEdit ? (
+    <QuickEditButton
+      label={label}
+      onClick={onEdit}
+      blockedReason={blockedReason}
+      labelTooltip={false}
+      fillsRow={!blockedReason}
+    />
+  ) : null;
   return (
     <Flex
       align={align}
-      justify="between"
+      justify={centered ? "center" : "between"}
+      wrap={centered ? "wrap" : undefined}
       gap="3"
       className={
         onEdit
@@ -44,15 +58,11 @@ export function QuickEditRow({
       }
     >
       {children}
-      {onEdit ? (
-        <QuickEditButton
-          label={label}
-          onClick={onEdit}
-          blockedReason={blockedReason}
-          labelTooltip={false}
-          fillsRow={!blockedReason}
-        />
-      ) : null}
+      {button && centered ? (
+        <span className={styles.spills}>{button}</span>
+      ) : (
+        button
+      )}
     </Flex>
   );
 }

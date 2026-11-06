@@ -1,7 +1,6 @@
 import { FC, useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DataSourceInterfaceWithParams,
@@ -19,6 +18,9 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
+import ImplementationTypeSelect, {
+  useImplementationTypeField,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
   formatAttributeOptionLabel,
@@ -29,7 +31,6 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothesis";
-import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -59,7 +60,6 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
   source: string;
-  onSwitchToLegacy?: () => void;
 };
 
 // Auto-select a datasource only when the choice is unambiguous, and never the
@@ -245,7 +245,6 @@ function getAutoExposureQueryIdentifierType({
 const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   onClose,
   source,
-  onSwitchToLegacy,
 }) => {
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -270,10 +269,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
     useSDKConnections();
 
-  const showSwitchToOldExpCreate = useFeatureIsOn(
-    "show-switch-to-old-exp-create",
-  );
-
   const initialProject = ctxProject || "";
 
   const initialAttributeSchema = useAttributeSchema(false, initialProject);
@@ -289,6 +284,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       templateId: "",
       holdoutId: undefined,
       customFields: undefined,
+      implementationType: "none",
     },
   });
 
@@ -296,6 +292,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     form.watch("trackingKey"),
   );
   const selectedProject = form.watch("project") ?? "";
+  const setImplementationType = useImplementationTypeField(form);
   const creatingInDemoProject =
     !!demoProjectId && selectedProject === demoProjectId;
 
@@ -524,6 +521,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     data = {
       ...data,
       type: "standard",
+      implementationType: rawValue.implementationType ?? "none",
       status: "draft",
       project,
       name,
@@ -586,25 +584,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       close={() => onClose?.()}
       trackingEventModalType="simple-new-experiment-create"
       trackingEventModalSource={source}
-      headerAction={
-        onSwitchToLegacy && showSwitchToOldExpCreate ? (
-          <Link onClick={onSwitchToLegacy} color="gray">
-            Switch to old experience
-          </Link>
-        ) : undefined
-      }
     >
       <Flex direction="column" gap="4" mb="4">
-        {showSwitchToOldExpCreate && (
-          <Callout
-            status="info"
-            dismissible
-            id="new-experiment-create-flow-callout"
-          >
-            Other experiment configuration steps now live on the experiment
-            overview page.
-          </Callout>
-        )}
         {creatingInDemoProject && (
           <Callout status="warning">
             You are creating an experiment in the Sample Data Project.
@@ -730,6 +711,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           trackingSource="simple-new-experiment-form"
           onUploadingChange={setHypothesisUploading}
           ariaLabelledBy={hypothesisLabelId}
+        />
+      </Box>
+
+      <Box mb="4">
+        <ImplementationTypeSelect
+          value={form.watch("implementationType")}
+          setValue={setImplementationType}
         />
       </Box>
 

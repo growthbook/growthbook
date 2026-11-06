@@ -2,7 +2,7 @@ import {
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
-import { pendingDraftApproved } from "shared/util";
+import { isManagedByExperiment, pendingDraftApproved } from "shared/util";
 
 /** Which of a flag's drafts its row shows and saves to. */
 export type DraftPick = {
@@ -17,10 +17,16 @@ export interface FlagDraftPicks {
 }
 
 // Only worth it when the newest draft holds changes that can't publish with
-// the experiment, and the rule is live for a new draft to start from.
-export function canStartSeparateDraft(info: LinkedFeatureInfo): boolean {
+// the experiment, and the rule is live for a new draft to start from. A
+// managed flag keeps one draft.
+export function canStartSeparateDraft(
+  info: LinkedFeatureInfo,
+  experimentId: string,
+): boolean {
   return (
-    !!info.liveHasMatchingRule && !!info.pendingDraft?.hasUnrelatedDraftChanges
+    !isManagedByExperiment(info.feature, experimentId) &&
+    !!info.liveHasMatchingRule &&
+    !!info.pendingDraft?.hasUnrelatedDraftChanges
   );
 }
 
@@ -38,6 +44,7 @@ export function flagDrafts(
 export function resolveDraftPick(
   info: LinkedFeatureInfo,
   pick: DraftPick | undefined,
+  experimentId: string,
   // Values staged for a new draft keep it until they're saved or discarded.
   holdsNew = false,
 ) {
@@ -47,7 +54,7 @@ export function resolveDraftPick(
     holdsNew ||
     (picked === "new" &&
       pick?.newestVersion === (drafts[0]?.version ?? null) &&
-      canStartSeparateDraft(info));
+      canStartSeparateDraft(info, experimentId));
   const draft =
     (typeof picked === "number"
       ? drafts.find((d) => d.version === picked)

@@ -95,6 +95,8 @@ export type SelectFieldProps = Omit<
   "aria-label"?: string;
   /** Tallest the open menu grows before it scrolls, in px (default 300). */
   maxMenuHeight?: number;
+  /** Shortest it shrinks to below the field before opening upward instead. */
+  minMenuHeight?: number;
 };
 
 // The shared ladder, plus `legacy` for the un-migrated default.
@@ -319,6 +321,7 @@ const SelectField: FC<SelectFieldProps> = ({
   errorLevel = "error",
   "aria-label": ariaLabel,
   maxMenuHeight,
+  minMenuHeight,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -466,6 +469,7 @@ const SelectField: FC<SelectFieldProps> = ({
                   id={id}
                   aria-label={ariaLabel}
                   maxMenuHeight={maxMenuHeight}
+                  minMenuHeight={minMenuHeight}
                   ref={ref}
                   className={clsx({
                     error: outline === "error",
@@ -543,6 +547,7 @@ const SelectField: FC<SelectFieldProps> = ({
                   id={id}
                   aria-label={ariaLabel}
                   maxMenuHeight={maxMenuHeight}
+                  minMenuHeight={minMenuHeight}
                   ref={ref}
                   className={clsx({
                     error: outline === "error",
