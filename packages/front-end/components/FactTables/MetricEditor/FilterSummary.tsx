@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FactTableDefinition, RowFilter } from "shared/types/fact-table";
 import {
@@ -13,6 +13,10 @@ import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 
 const SQL_PREVIEW_MAX_HEIGHT = 200;
+// Matches Popover's content padding. The preview owns that padding so the
+// pointer can rest on it without the preview closing.
+const PREVIEW_PADDING = "15px 20px";
+const PREVIEW_CLOSE_DELAY_MS = 120;
 
 function RowFilterPopoverContent({
   sql,
@@ -75,29 +79,71 @@ function RowFilterBadge({
     rowFilter.operator === "saved_filter"
       ? (rowFilter.values?.[0] ?? null)
       : null;
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openedFromKeyboard = useRef(false);
+
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  const openPreview = () => {
+    cancelClose();
+    setOpen(true);
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(
+      () => setOpen(false),
+      PREVIEW_CLOSE_DELAY_MS,
+    );
+  };
+
+  useEffect(() => cancelClose, []);
 
   return (
     <Popover
-      openOnHover
+      open={open}
+      onOpenChange={setOpen}
       side="bottom"
       align="start"
-      contentStyle={{ maxWidth: 500 }}
+      contentStyle={{ maxWidth: 500, padding: 0 }}
       onOpenAutoFocus={(event) => {
         if (!openedFromKeyboard.current) event.preventDefault();
         openedFromKeyboard.current = false;
       }}
+      onCloseAutoFocus={(event) => {
+        const layer = event.currentTarget;
+        const active = document.activeElement;
+        const focusInside =
+          layer instanceof Element &&
+          active instanceof Node &&
+          layer.contains(active);
+        // A pointer close otherwise focuses this pill. That focus lands
+        // outside the next preview and dismisses it.
+        if (!focusInside) event.preventDefault();
+      }}
       content={
-        <RowFilterPopoverContent
-          sql={sql}
-          factTable={factTable}
-          savedFilterId={savedFilterId}
-        />
+        <div
+          onMouseEnter={openPreview}
+          onMouseLeave={scheduleClose}
+          style={{ padding: PREVIEW_PADDING }}
+        >
+          <RowFilterPopoverContent
+            sql={sql}
+            factTable={factTable}
+            savedFilterId={savedFilterId}
+          />
+        </div>
       }
       trigger={
         <button
           type="button"
           aria-label={description}
+          onMouseEnter={openPreview}
+          onMouseLeave={scheduleClose}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               openedFromKeyboard.current = true;
@@ -105,6 +151,12 @@ function RowFilterBadge({
           }}
           onPointerDown={() => {
             openedFromKeyboard.current = false;
+          }}
+          onClick={(event) => {
+            // Skip Radix's click toggle, which would close a preview the
+            // pointer already opened. Opening here keeps keyboard activation.
+            event.preventDefault();
+            openPreview();
           }}
           style={{
             display: "inline-flex",

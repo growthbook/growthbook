@@ -159,22 +159,7 @@ export function Popover({
           {clonedTrigger}
         </RadixPopover.Anchor>
       ) : (
-        <RadixPopover.Trigger
-          asChild={triggerAsChild}
-          {...hoverHandlers}
-          // A click toggles Radix's open state. On a hover popover that
-          // closes the preview the pointer just opened. preventDefault
-          // skips that toggle; Enter and Space still fire this click.
-          onClick={
-            openOnHover
-              ? (event) => {
-                  event.preventDefault();
-                  cancelClose();
-                  setHoverOpen(true);
-                }
-              : undefined
-          }
-        >
+        <RadixPopover.Trigger asChild={triggerAsChild} {...hoverHandlers}>
           {clonedTrigger}
         </RadixPopover.Trigger>
       )}
@@ -192,32 +177,9 @@ export function Popover({
               style={appliedContentStyle}
               {...hoverHandlers}
               onOpenAutoFocus={
-                openOnHover
-                  ? (event) => {
-                      // Hover must not steal focus. Callers override this for keyboard opens.
-                      if (onOpenAutoFocus) onOpenAutoFocus(event);
-                      else event.preventDefault();
-                    }
-                  : onOpenAutoFocus
+                openOnHover ? (e) => e.preventDefault() : onOpenAutoFocus
               }
-              onCloseAutoFocus={
-                openOnHover
-                  ? (event) => {
-                      onCloseAutoFocus?.(event);
-                      if (event.defaultPrevented) return;
-                      const layer = event.currentTarget;
-                      const active = document.activeElement;
-                      const focusInside =
-                        layer instanceof Element &&
-                        active instanceof Node &&
-                        layer.contains(active);
-                      // A pointer close otherwise focuses the trigger. That
-                      // focus lands outside the popover the pointer just
-                      // opened and dismisses it.
-                      if (!focusInside) event.preventDefault();
-                    }
-                  : onCloseAutoFocus
-              }
+              onCloseAutoFocus={onCloseAutoFocus}
               onEscapeKeyDown={
                 disableDismiss ? (e) => e.preventDefault() : undefined
               }
