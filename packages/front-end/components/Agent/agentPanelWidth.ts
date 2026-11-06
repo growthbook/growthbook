@@ -20,8 +20,9 @@ export const PANEL_MAX_WIDTH = 900;
  * What the page keeps beside it, side nav aside: the narrowest our main pages
  * take without breaking (reflowing is fine). Metrics' filter row is cut off
  * below it, and the experiment page's linked changes overlap a little under
- * that. A busier page (e.g. with its right rail open) can ask you to collapse
- * the side nav or the rail for a wider panel.
+ * that. A page with its own right rail (the experiment page's details) keeps
+ * the same room: when docking the rail would leave less, the rail floats over
+ * the content instead (CollapsiblePanelLayout).
  */
 export const PAGE_MIN_WIDTH = 540;
 /**
