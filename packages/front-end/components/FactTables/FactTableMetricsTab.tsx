@@ -68,7 +68,9 @@ export default function FactTableMetricsTab({
             {visible.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <Link href={`/fact-metrics/${m.id}`}>{m.name}</Link>
+                  <Link weight="bold" href={`/fact-metrics/${m.id}`}>
+                    {m.name}
+                  </Link>
                   <OfficialBadge type="metric" managedBy={m.managedBy} />
                 </td>
                 <td>
