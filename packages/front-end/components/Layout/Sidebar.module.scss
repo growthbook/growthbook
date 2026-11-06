@@ -169,7 +169,8 @@
   flex-shrink: 0;
   align-self: flex-start;
   padding: 3px 5px;
-  margin-bottom: 5px;
+  // A little more room above the project selector than the other rows get.
+  margin-bottom: 7px;
   border-radius: var(--radius-3);
   text-decoration: none;
 
