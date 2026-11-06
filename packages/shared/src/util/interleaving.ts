@@ -54,15 +54,13 @@ export function interleavingInSDKPayload(il: {
   return il.status === "running" && !il.archived;
 }
 
-type InterleavingAnalysisConfig = {
-  datasourceId: string;
-  interleavingExposureQueryId: string;
-  userIdType: string;
-};
+type InterleavingAnalysisConfig = Pick<
+  InterleavingInterface,
+  "datasourceId" | "interleavingExposureQueryId" | "userIdType"
+>;
 
-type InterleavingResultsInputs = InterleavingAnalysisConfig & {
-  metrics: unknown[];
-};
+type InterleavingResultsInputs = InterleavingAnalysisConfig &
+  Pick<InterleavingInterface, "metrics">;
 
 export function interleavingAnalysisConfigured(
   il: InterleavingAnalysisConfig,

@@ -73,7 +73,6 @@ import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/exp
 import {
   ensureIndexOnce,
   getCollection,
-  isDuplicateKeyError,
   isDuplicateKeyErrorForIndex,
 } from "back-end/src/util/mongo.util";
 
@@ -97,11 +96,9 @@ function payloadAffectingChanges(
 const trackingKeyCollisionMessage = (trackingKey: string) =>
   `Another interleaving experiment already reports as "${trackingKey}". Set a different tracking key so their exposures can be told apart.`;
 
-const TRACKING_KEY_INDEX = "interleaving_organization_trackingkey_unique";
+const TRACKING_KEY_INDEX = "interleaving_datasourceid_trackingkey_unique";
 const LEGACY_TRACKING_KEY_INDEXES = [
   "interleaving_datasource_trackingkey_unique",
-  "interleaving_datasourceid_trackingkey_unique",
-  "organization_1_trackingKey_1",
 ];
 const INTERLEAVING_AUTOSNAPSHOT_SCAN_INDEX = "interleaving_autosnapshot_scan";
 const INTERLEAVING_COLLECTION = "interleavings";
@@ -112,23 +109,11 @@ const trackingKeyUniquenessIndex = {
 
 async function ensureTrackingKeyIndex() {
   await waitForIndexes(INTERLEAVING_COLLECTION);
-  try {
-    await ensureIndexOnce(
-      getCollection(INTERLEAVING_COLLECTION),
-      { organization: 1, trackingKey: 1 },
-      trackingKeyUniquenessIndex,
-    );
-  } catch (e) {
-    const cause = (e as { cause?: unknown })?.cause;
-    if (isDuplicateKeyError(cause)) {
-      throw new Error(
-        `Two interleaving experiments share a tracking key, which is no longer allowed: ${
-          (cause as { message?: string }).message ?? ""
-        }. Rename one of them so every tracking key is unique within the organization, then retry.`,
-      );
-    }
-    throw e;
-  }
+  await ensureIndexOnce(
+    getCollection(INTERLEAVING_COLLECTION),
+    { organization: 1, datasourceId: 1, trackingKey: 1 },
+    trackingKeyUniquenessIndex,
+  );
 }
 
 function toJSONSchema(
@@ -166,6 +151,12 @@ const BaseClass = MakeModelClass({
       fields: {
         organization: 1,
         key: 1,
+      },
+    },
+    {
+      fields: {
+        organization: 1,
+        trackingKey: 1,
       },
     },
     {
