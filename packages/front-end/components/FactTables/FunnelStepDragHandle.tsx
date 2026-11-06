@@ -2,7 +2,7 @@ import React from "react";
 import { Box } from "@radix-ui/themes";
 import { PiDotsSixVertical } from "react-icons/pi";
 
-// No `handleProps` (pinned step 1): same-size spacer keeps numbers aligned.
+// No `handleProps` (pinned step 1): nothing, so the step sits flush left.
 export default function FunnelStepDragHandle({
   handleProps,
   label,
@@ -10,9 +10,7 @@ export default function FunnelStepDragHandle({
   handleProps?: React.HTMLAttributes<HTMLElement>;
   label: string;
 }) {
-  if (!handleProps) {
-    return <Box aria-hidden style={{ width: 14, flexShrink: 0 }} />;
-  }
+  if (!handleProps) return null;
   return (
     <Box
       {...handleProps}
