@@ -35,6 +35,7 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { rejectQueryOperators } from "./middleware/rejectQueryOperators";
 import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
@@ -252,6 +253,7 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
 }
 
 app.use(cookieParser());
+app.use(rejectQueryOperators);
 
 // Health check route  (does not require JWT or cors)
 app.get("/healthcheck", (req, res) => {
@@ -1117,6 +1119,10 @@ app.post(
 app.post(
   "/datasource/:id/event-forwarder/resume",
   datasourcesController.postResumeEventForwarder,
+);
+app.post(
+  "/datasource/:id/event-forwarder/migrate",
+  datasourcesController.postMigrateEventForwarder,
 );
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.post(

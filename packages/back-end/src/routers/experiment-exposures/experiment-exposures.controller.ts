@@ -12,6 +12,7 @@ import {
   formatQueryExecutionErrorForApi,
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
+  getExposureQueryIdentifierTypes,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
   parseOptionalInt,
@@ -128,6 +129,21 @@ export async function postExposures(
     return;
   }
 
+  const subUnitIdentifierType =
+    (experiment.isClusterExperiment && experiment.clusterSubUnitIdentifier) ||
+    null;
+  if (
+    subUnitIdentifierType &&
+    !getExposureQueryIdentifierTypes(exposureQuery).includes(
+      subUnitIdentifierType,
+    )
+  ) {
+    context.throwBadRequestError(
+      `Assignment query "${exposureQuery.name || exposureQuery.id}" doesn't declare the sub-unit identifier type "${subUnitIdentifierType}".`,
+    );
+    return;
+  }
+
   const windowMs =
     new Date(req.body.endDate).getTime() -
     new Date(req.body.startDate).getTime();
@@ -175,6 +191,7 @@ export async function postExposures(
     startDate,
     endDate,
     dimensions,
+    subUnitIdentifierType,
     phase: { index: String(phaseIndex) },
     customFields: experiment.customFields,
     rowFilters,
@@ -200,6 +217,12 @@ export async function postExposures(
     timestampColumn: getExposureQueryTimestampColumn(resolvedExposureQuery),
     variationIdColumn: getExposureQueryVariationIdColumn(resolvedExposureQuery),
   };
+  const subUnitIdColumn = subUnitIdentifierType
+    ? getExposureQueryIdentifierColumn(
+        resolvedExposureQuery,
+        subUnitIdentifierType,
+      )
+    : null;
   const cacheKey = getExposuresCacheKey({
     experimentId: experiment.id,
     experimentTrackingKey: experiment.trackingKey,
@@ -208,6 +231,8 @@ export async function postExposures(
     identifierType: resolvedExposureQuery.identifierType,
     columnMapping: {
       ...columnMapping,
+      // Only when set, so non-cluster cache keys stay unchanged
+      ...(subUnitIdColumn ? { subUnitIdColumn } : {}),
       experimentIdColumn: getExposureQueryExperimentIdColumn(
         resolvedExposureQuery,
       ),
@@ -304,6 +329,7 @@ export async function postExposures(
   const { records, extraColumns, valuesTruncated } = shapeExposureRows({
     rows: bufferRows,
     ...columnMapping,
+    subUnitIdColumn,
     dimensions,
     caseSensitive: integration.columnNamesAreCaseSensitive,
   });

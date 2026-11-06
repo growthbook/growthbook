@@ -4,7 +4,11 @@ import type {
   FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
-import { describePopulationStep } from "@/components/Populations/populationUtils";
+import {
+  describePopulationStep,
+  getPopulationMemberCounts,
+  getPopulationPreviewConfig,
+} from "@/components/Populations/populationUtils";
 
 function column(
   name: string,
@@ -193,5 +197,82 @@ describe("describePopulationStep", () => {
     ).toBe(
       "Has ftb_events matching country = US and total amount >100 per user_id",
     );
+  });
+});
+
+describe("getPopulationPreviewConfig", () => {
+  it("carries each step's filters and the chosen unit into the query", () => {
+    const region: RowFilter = {
+      column: "region",
+      operator: "=",
+      values: ["EU"],
+    };
+    const dateRange = {
+      predefined: "customDateRange" as const,
+      startDate: "2026-10-23",
+      endDate: "2026-10-29",
+    };
+    const config = getPopulationPreviewConfig(
+      {
+        datasource: "ds_main",
+        steps: [
+          {
+            ...step("ftb_events"),
+            rowFilters: [region],
+            aggregateFilter: ">=3",
+            aggregateFilterColumn: "$$count",
+          },
+        ],
+      },
+      "anonymous_id",
+      dateRange,
+    );
+
+    expect(config.datasource).toBe("ds_main");
+    expect(config.dateRange).toBe(dateRange);
+    expect(config.dimensions).toEqual([
+      { dimensionType: "date", column: "date", dateGranularity: "day" },
+    ]);
+    expect(config.dataset.values).toEqual([
+      {
+        type: "population",
+        name: "Members",
+        unit: "anonymous_id",
+        source: { type: "factTable", factTableId: "ftb_events" },
+        rowFilters: [region],
+        aggregateFilter: ">=3",
+        aggregateFilterColumn: "$$count",
+      },
+    ]);
+  });
+});
+
+describe("getPopulationMemberCounts", () => {
+  it("orders daily counts, fills empty days, and totals the full range", () => {
+    expect(
+      getPopulationMemberCounts({
+        dateStart: "2026-09-01T00:00:00Z",
+        dateEnd: "2026-09-03T12:00:00Z",
+        result: {
+          rows: [
+            {
+              dimensions: ["2026-09-03"],
+              values: [{ metricId: "count", numerator: 12, denominator: null }],
+            },
+            {
+              dimensions: ["2026-09-01"],
+              values: [{ metricId: "count", numerator: 8, denominator: null }],
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      dailyValues: [
+        { day: "2026-09-01", value: 8 },
+        { day: "2026-09-02", value: 0 },
+        { day: "2026-09-03", value: 12 },
+      ],
+      total: 20,
+    });
   });
 });
