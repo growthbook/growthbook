@@ -308,11 +308,11 @@ export function getMetricMixClass(
  * How a value renders when its metric type offers no Show as options: its raw
  * value. Ratios ignore it and always render numerator / denominator.
  */
-const DEFAULT_SHOW_AS: ShowAs = "total";
+const NO_SHOW_AS_CHOICE_DEFAULT: ShowAs = "total";
 
 /**
  * The Show as options each metric type offers, in display order. A type that
- * isn't listed offers no choice and renders as `DEFAULT_SHOW_AS`.
+ * isn't listed offers no choice and renders as `NO_SHOW_AS_CHOICE_DEFAULT`.
  *
  * - mean: the numerator sums each unit's value, so dividing by the unit count
  *   gives a real per-unit average.
@@ -344,7 +344,7 @@ export type ShowAsChoice = {
 
 const NO_SHOW_AS_CHOICE: ShowAsChoice = {
   options: [],
-  showAs: DEFAULT_SHOW_AS,
+  showAs: NO_SHOW_AS_CHOICE_DEFAULT,
 };
 
 /** The parts of a metric definition that decide how its values can render. */
@@ -368,9 +368,11 @@ function getDraftOrSavedMetric(
  * values shared across units) — otherwise `total`.
  */
 export function inferShowAs(metric: ShowAsMetric | null): ShowAs {
-  if (metric?.metricType !== "mean") return DEFAULT_SHOW_AS;
-  const agg = metric.numerator?.aggregation ?? "sum";
-  return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
+  if (metric?.metricType === "mean") {
+    const agg = metric.numerator?.aggregation ?? "sum";
+    return agg === "max" || agg === "count distinct" ? "per_unit" : "total";
+  }
+  return NO_SHOW_AS_CHOICE_DEFAULT;
 }
 
 /**
@@ -412,8 +414,8 @@ export function getShowAsChoiceByIndex(
  * config-level `showAs` onto the metric values that offer it as an option and
  * strips `showAs` that isn't one of the value's options, so a stored config
  * never claims a mode that won't render. Values whose metric hasn't resolved
- * yet keep theirs until their options are known. Call it alongside the other write-time normalizers
- * (validateDimensions, fillMissingUnits).
+ * yet keep theirs until their options are known. Call it alongside the other
+ * write-time normalizers (validateDimensions, fillMissingUnits).
  *
  * Returns the same reference when nothing changed so callers can use identity
  * comparisons to avoid unnecessary re-renders.
@@ -422,28 +424,35 @@ export function normalizeShowAs<T extends ExplorationConfig>(
   config: T,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): T {
-  const legacyShowAs = config.showAs;
-  const withoutLegacy = omit(config, "showAs");
-  if (config.dataset.type !== "metric") {
-    return legacyShowAs === undefined ? config : (withoutLegacy as T);
-  }
+  // Other dataset types don't support showAs.
+  if (config.dataset.type !== "metric") return config;
 
-  let changed = legacyShowAs !== undefined;
-  const values = config.dataset.values.map((value) => {
+  const legacyShowAs = config.showAs;
+  const hasLegacyShowAs = legacyShowAs !== undefined;
+  let valuesChanged = false;
+
+  const values = config.dataset.values.map((value): MetricValue => {
+    const showAs = value.showAs ?? legacyShowAs;
+    if (showAs === undefined) return value;
+
     const metric = getDraftOrSavedMetric(value, getFactMetricById);
-    const requested = value.showAs ?? legacyShowAs;
-    const showAs =
-      requested !== undefined &&
-      (!metric || getShowAsOptions(metric.metricType).includes(requested))
-        ? requested
-        : undefined;
-    if (showAs === value.showAs) return value;
-    changed = true;
-    return showAs === undefined ? omit(value, "showAs") : { ...value, showAs };
+    // No metric yet (not picked, or definitions still loading): its options
+    // are unknown, so keep the choice rather than lose it.
+    const optionsAreUnknown = metric === null;
+    const metricOffersShowAs =
+      metric !== null && getShowAsOptions(metric.metricType).includes(showAs);
+    const keepShowAs = optionsAreUnknown || metricOffersShowAs;
+    const alreadyStored = value.showAs === showAs;
+
+    if (keepShowAs && alreadyStored) return value;
+    valuesChanged = true;
+    if (keepShowAs) return { ...value, showAs };
+    return omit(value, "showAs");
   });
-  if (!changed) return config;
+
+  if (!hasLegacyShowAs && !valuesChanged) return config;
   return {
-    ...withoutLegacy,
+    ...omit(config, "showAs"),
     dataset: { ...config.dataset, values },
   } as T;
 }
@@ -538,7 +547,7 @@ function getSeriesNameByIndex(
     annotate
       ? getAnnotatedName(
           value,
-          showAsChoiceByIndex[i]?.showAs ?? DEFAULT_SHOW_AS,
+          showAsChoiceByIndex[i]?.showAs ?? NO_SHOW_AS_CHOICE_DEFAULT,
           sharedUnit,
         )
       : value.name,
