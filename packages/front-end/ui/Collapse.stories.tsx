@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Flex, Text } from "@radix-ui/themes";
-import Collapse, { CollapseTrigger } from "./Collapse";
+import Collapse, { CollapseLink, CollapseTrigger } from "./Collapse";
 
 export default function CollapseStories() {
   const [closed, setClosed] = useState(false);
   const [opened, setOpened] = useState(true);
+  const [linkOpen, setLinkOpen] = useState(false);
   return (
     <Flex direction="column" gap="4">
       <Flex direction="column" gap="2">
@@ -28,6 +29,18 @@ export default function CollapseStories() {
         </CollapseTrigger>
         <Collapse open={opened}>
           <Text as="p">Slides shut, and its contents leave the tab order.</Text>
+        </Collapse>
+      </Flex>
+
+      <Flex direction="column" gap="2" align="start">
+        <Text size="2" weight="bold">
+          Toggled by a link
+        </Text>
+        <CollapseLink open={linkOpen} onOpenChange={setLinkOpen}>
+          {linkOpen ? "Hide details" : "Show details"}
+        </CollapseLink>
+        <Collapse open={linkOpen}>
+          <Text as="p">For where a full-width row is too heavy.</Text>
         </Collapse>
       </Flex>
     </Flex>

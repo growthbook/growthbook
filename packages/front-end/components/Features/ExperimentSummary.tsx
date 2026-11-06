@@ -6,16 +6,13 @@ import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Badge from "@/ui/Badge";
 import LinkButton from "@/ui/LinkButton";
-import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import { coveragePercentFormatter } from "@/services/utils";
-import Tooltip from "@/ui/Tooltip";
-import VariationNumber from "@/ui/VariationNumber";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay, { LISTED_VALUE_STYLE } from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import RolloutRow from "./RolloutRow";
 import RuleField from "./RuleField";
-import variationsTableStyles from "./RuleVariationsTable.module.scss";
+import RuleVariationsTable from "./RuleVariationsTable";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -85,39 +82,25 @@ export default function ExperimentSummary({
       </RolloutRow>
       <RuleField label="Serve" align="start">
         <Box>
-          <Table variant="surface" className={variationsTableStyles.table}>
-            <TableBody>
-              {values.map((r, j) => (
-                <TableRow key={j} style={{ color: "var(--color-text-high)" }}>
-                  <TableCell style={{ whiteSpace: "nowrap" }}>
-                    <Tooltip content={r?.name}>
-                      <Box className={variationsTableStyles.marker}>
-                        <VariationNumber number={j} />
-                      </Box>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell width="100%">
-                    <ValueDisplay
-                      value={r.value}
-                      type={type}
-                      fullStyle={LISTED_VALUE_STYLE}
-                      showFullscreenButton={true}
-                      actionsOverlay={{ inline: true }}
-                    />
-                    <ValidateValue value={r.value} feature={feature} />
-                  </TableCell>
-                  <TableCell
-                    style={{
-                      color: "var(--color-text-mid)",
-                      textAlign: "right",
-                    }}
-                  >
-                    {percentFormatter.format(r.weight)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RuleVariationsTable
+            rows={values.map((r, j) => ({
+              key: String(j),
+              name: r.name ?? "",
+              weight: r.weight,
+              value: (
+                <>
+                  <ValueDisplay
+                    value={r.value}
+                    type={type}
+                    fullStyle={LISTED_VALUE_STYLE}
+                    showFullscreenButton={true}
+                    actionsOverlay={{ inline: true }}
+                  />
+                  <ValidateValue value={r.value} feature={feature} />
+                </>
+              ),
+            }))}
+          />
         </Box>
         <Box mt="3">
           <ExperimentSplitVisual

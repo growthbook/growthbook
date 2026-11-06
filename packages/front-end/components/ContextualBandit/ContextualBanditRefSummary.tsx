@@ -10,19 +10,16 @@ import { hasTargetingConfigured } from "shared/experiments";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay, {
   LISTED_VALUE_STYLE,
 } from "@/components/Features/ValueDisplay";
 import RuleField from "@/components/Features/RuleField";
 import RolloutRow from "@/components/Features/RolloutRow";
-import VariationNumber from "@/ui/VariationNumber";
 import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
-import Tooltip from "@/ui/Tooltip";
-import variationsTableStyles from "@/components/Features/RuleVariationsTable.module.scss";
+import RuleVariationsTable from "@/components/Features/RuleVariationsTable";
 
 export function isContextualBanditRefRuleSkipped(
   cb: ApiContextualBanditInterface,
@@ -85,6 +82,26 @@ export default function ContextualBanditRefSummary({
   // The card's ribbon says why these serve nothing.
   if (cb.archived || cb.status === "stopped") return null;
 
+  const defaultConfigKey = getFeatureBaseConfigKey(feature);
+  const variationValue = (value: string) => {
+    const configKey =
+      defaultConfigKey !== null
+        ? (getConfigBackingKey(value) ?? defaultConfigKey)
+        : null;
+    return configKey !== null ? (
+      <ConfigBackedSummary
+        label={null}
+        value={value}
+        configKey={configKey}
+        feature={feature}
+        sparse
+        environment={environment}
+      />
+    ) : (
+      <ValueDisplay value={value} type={type} fullStyle={LISTED_VALUE_STYLE} />
+    );
+  };
+
   return (
     <Box>
       {hasTargetingConfigured({
@@ -120,60 +137,22 @@ export default function ContextualBanditRefSummary({
       <RuleField label="Serve" mb="0" align="start">
         <Box>
           <ValueDiffProvider>
-            <Table variant="surface" className={variationsTableStyles.table}>
-              <TableBody>
-                {cb.variations.map((v, i) => {
-                  const ruleVariation = rule.variations.find(
-                    (rv) => rv.variationId === v.id,
-                  );
-                  return (
-                    <TableRow
-                      key={v.id}
-                      style={{ color: "var(--color-text-high)" }}
-                    >
-                      <TableCell style={{ whiteSpace: "nowrap" }}>
-                        <Tooltip content={v.name || v.key}>
-                          <Box className={variationsTableStyles.marker}>
-                            <VariationNumber number={i} />
-                          </Box>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell width="100%">
-                        {ruleVariation ? (
-                          (() => {
-                            const defaultConfigKey =
-                              getFeatureBaseConfigKey(feature);
-                            const configKey =
-                              defaultConfigKey !== null
-                                ? (getConfigBackingKey(ruleVariation.value) ??
-                                  defaultConfigKey)
-                                : null;
-                            return configKey !== null ? (
-                              <ConfigBackedSummary
-                                label={null}
-                                value={ruleVariation.value}
-                                configKey={configKey}
-                                feature={feature}
-                                sparse={defaultConfigKey !== null}
-                                environment={environment}
-                              />
-                            ) : (
-                              <ValueDisplay
-                                value={ruleVariation.value}
-                                type={type}
-                                fullStyle={LISTED_VALUE_STYLE}
-                              />
-                            );
-                          })()
-                        ) : (
-                          <em>not set</em>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <RuleVariationsTable
+              rows={cb.variations.map((v) => {
+                const ruleVariation = rule.variations.find(
+                  (rv) => rv.variationId === v.id,
+                );
+                return {
+                  key: v.id,
+                  name: v.name || v.key,
+                  value: ruleVariation ? (
+                    variationValue(ruleVariation.value)
+                  ) : (
+                    <em>not set</em>
+                  ),
+                };
+              })}
+            />
           </ValueDiffProvider>
         </Box>
       </RuleField>

@@ -1,4 +1,4 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import Link from "./Link";
 
 export default function LinkStories() {
@@ -39,6 +39,13 @@ export default function LinkStories() {
         </Link>
         .
       </Box>
+      <Text as="div" color="red">
+        Or{" "}
+        <Link href="#" color="inherit">
+          inherit the color
+        </Link>{" "}
+        of the text around it, until hovered.
+      </Text>
 
       <Box>
         Here&apos;s the Link without href where it{" "}

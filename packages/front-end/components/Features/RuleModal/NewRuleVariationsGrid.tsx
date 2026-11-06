@@ -7,6 +7,7 @@ import { getEqualWeights } from "shared/experiments";
 import { parsePlainJSONObject } from "shared/util";
 import FeatureValueCell from "@/components/Features/FeatureValueCell";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
+import Field from "@/components/Forms/Field";
 import { PercentField } from "@/components/Forms/PercentSliderField";
 import FlagValuesModal from "@/components/Experiment/TabbedPage/FlagValuesModal";
 import styles from "@/components/Experiment/TabbedPage/VariationValuesTable.module.scss";
@@ -19,7 +20,7 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import VariationLabel from "@/ui/VariationLabel";
+import VariationNumber from "@/ui/VariationNumber";
 import {
   newRuleVariation,
   removeRuleVariation,
@@ -105,9 +106,22 @@ export default function NewRuleVariationsGrid({
           {variations.map((v, i) => (
             <div key={v.id} className={own.row}>
               <div className={clsx(styles.cell, firstColumn)}>
-                <div className={styles.fieldLine}>
-                  <VariationLabel number={i} name={v.name} />
-                </div>
+                <Flex align="center" gap="2" className={styles.fieldLine}>
+                  <VariationNumber number={i} />
+                  <Field
+                    value={v.name}
+                    placeholder={i ? `Variation ${i}` : "Control"}
+                    aria-label={`Variation ${i} name`}
+                    containerStyle={{ flex: 1, minWidth: 0 }}
+                    onChange={(e) =>
+                      setVariations(
+                        variations.map((x, j) =>
+                          j === i ? { ...x, name: e.target.value } : x,
+                        ),
+                      )
+                    }
+                  />
+                </Flex>
               </div>
               {hideSplits ? null : (
                 <div className={styles.cell}>

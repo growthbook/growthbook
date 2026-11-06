@@ -22,10 +22,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import { coveragePercentFormatter } from "@/services/utils";
 import Tooltip from "@/ui/Tooltip";
-import VariationNumber from "@/ui/VariationNumber";
 import ValueDisplay, { LISTED_VALUE_STYLE } from "./ValueDisplay";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 import { ValueDiffProvider } from "./ValueDiffContext";
@@ -36,7 +34,7 @@ import { EntityBadge, PlainEntityBadge } from "./EntityBadge";
 import ForceSummary from "./ForceSummary";
 import RolloutRow from "./RolloutRow";
 import RuleField from "./RuleField";
-import variationsTableStyles from "./RuleVariationsTable.module.scss";
+import RuleVariationsTable from "./RuleVariationsTable";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -208,6 +206,7 @@ export default function ExperimentRefSummary({
                         ?.label || (
                         <Tooltip content="This namespace was not found">
                           <span
+                            tabIndex={0}
                             style={{
                               color: "var(--red-11)",
                               fontStyle: "italic",
@@ -253,98 +252,36 @@ export default function ExperimentRefSummary({
           <RuleField label="Serve" align="start">
             <Box>
               <ValueDiffProvider>
-                <Table
-                  variant="surface"
-                  className={variationsTableStyles.table}
-                >
-                  <TableBody>
-                    {getLatestPhaseVariations(experiment).map(
-                      (variation, j) => {
-                        const variationEntry = variations.find(
-                          (v) => v.variationId === variation.id,
-                        );
-                        const isMissing = variationEntry === undefined;
-                        const value = variationEntry?.value ?? "";
-
-                        const weight = phase.variationWeights?.[j] || 0;
-
-                        return (
-                          <TableRow
-                            key={j}
-                            style={{ color: "var(--color-text-high)" }}
-                          >
-                            <TableCell style={{ whiteSpace: "nowrap" }}>
-                              <Tooltip content={variation.name}>
-                                <Box className={variationsTableStyles.marker}>
-                                  <VariationNumber number={j} />
-                                </Box>
-                              </Tooltip>
-                            </TableCell>
-                            {!isBandit && (
-                              <TableCell
-                                style={{
-                                  color: "var(--color-text-mid)",
-                                  textAlign: "right",
-                                }}
-                              >
-                                {percentFormatter.format(weight)}
-                              </TableCell>
-                            )}
-                            <TableCell width="100%">
-                              {isMissing ? (
-                                <HelperText status="warning">
-                                  Define missing values
-                                </HelperText>
-                              ) : (
-                                (() => {
-                                  // Config-backed arms render the config's name —
-                                  // never the raw `@config:` directive. Only a
-                                  // config-backed feature resolves configs.
-                                  const baseConfigKey =
-                                    getFeatureBaseConfigKey(feature);
-                                  const configKey =
-                                    baseConfigKey !== null
-                                      ? (getConfigBackingKey(value) ??
-                                        baseConfigKey)
-                                      : null;
-                                  if (configKey !== null) {
-                                    return (
-                                      <ConfigBackedSummary
-                                        label={null}
-                                        value={value}
-                                        configKey={configKey}
-                                        feature={feature}
-                                        sparse={rule.sparse}
-                                        environment={environment}
-                                      />
-                                    );
-                                  }
-                                  return (
-                                    <>
-                                      <ValueDisplay
-                                        value={value}
-                                        type={type}
-                                        fullStyle={LISTED_VALUE_STYLE}
-                                        showFullscreenButton={true}
-                                        sparse={rule.sparse}
-                                        defaultValue={feature.defaultValue}
-                                        actionsOverlay={{ inline: true }}
-                                      />
-                                      <ValidateValue
-                                        value={value}
-                                        feature={feature}
-                                      />
-                                    </>
-                                  );
-                                })()
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      },
-                    )}
-                  </TableBody>
-                </Table>
+                <RuleVariationsTable
+                  rows={getLatestPhaseVariations(experiment).map(
+                    (variation, j) => {
+                      const variationEntry = variations.find(
+                        (v) => v.variationId === variation.id,
+                      );
+                      return {
+                        key: variation.id,
+                        name: variation.name,
+                        // A Bandit sets its own split.
+                        weight: isBandit
+                          ? undefined
+                          : phase.variationWeights?.[j] || 0,
+                        value:
+                          variationEntry === undefined ? (
+                            <HelperText status="warning">
+                              Define missing values
+                            </HelperText>
+                          ) : (
+                            <ExperimentRefVariationValue
+                              value={variationEntry.value}
+                              feature={feature}
+                              sparse={rule.sparse}
+                              environment={environment}
+                            />
+                          ),
+                      };
+                    },
+                  )}
+                />
               </ValueDiffProvider>
             </Box>
             {/* A Bandit sets its own split. */}
@@ -388,5 +325,51 @@ export default function ExperimentRefSummary({
         </>
       )}
     </Box>
+  );
+}
+
+// An arm's value. Config-backed arms show the config's name, never the raw
+// `@config:` directive; only a config-backed feature resolves configs.
+function ExperimentRefVariationValue({
+  value,
+  feature,
+  sparse,
+  environment,
+}: {
+  value: string;
+  feature: FeatureInterface;
+  sparse?: boolean;
+  environment?: string;
+}) {
+  const baseConfigKey = getFeatureBaseConfigKey(feature);
+  const configKey =
+    baseConfigKey !== null
+      ? (getConfigBackingKey(value) ?? baseConfigKey)
+      : null;
+  if (configKey !== null) {
+    return (
+      <ConfigBackedSummary
+        label={null}
+        value={value}
+        configKey={configKey}
+        feature={feature}
+        sparse={sparse}
+        environment={environment}
+      />
+    );
+  }
+  return (
+    <>
+      <ValueDisplay
+        value={value}
+        type={feature.valueType}
+        fullStyle={LISTED_VALUE_STYLE}
+        showFullscreenButton={true}
+        sparse={sparse}
+        defaultValue={feature.defaultValue}
+        actionsOverlay={{ inline: true }}
+      />
+      <ValidateValue value={value} feature={feature} />
+    </>
   );
 }

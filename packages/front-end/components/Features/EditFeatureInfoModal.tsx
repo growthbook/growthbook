@@ -331,7 +331,7 @@ const EditFeatureInfoModal: FC<{
                 Changing the project may prevent this Feature and any linked
                 Experiments from being sent to users.{" "}
                 <Tooltip content="SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload.">
-                  <span style={{ display: "inline-flex" }}>
+                  <span tabIndex={0} style={{ display: "inline-flex" }}>
                     <PiInfo />
                   </span>
                 </Tooltip>
