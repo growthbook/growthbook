@@ -59,8 +59,8 @@ export function removeRuleVariation(
   const next = variations
     .filter((_, i) => i !== index)
     .map((v, i) =>
-      i && /^Variation \d+$/.test(v.name)
-        ? { ...v, name: `Variation ${i}` }
+      /^(Control|Variation \d+)$/.test(v.name)
+        ? { ...v, name: defaultRuleVariationName(i) }
         : v,
     );
   const total = next.reduce((sum, v) => sum + v.weight, 0);

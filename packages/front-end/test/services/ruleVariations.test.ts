@@ -53,6 +53,18 @@ describe("removeRuleVariation", () => {
     expect(next.map((v) => v.name)).toEqual(["Control", "Blue", "Variation 2"]);
   });
 
+  it("renames the next default to Control when Control goes", () => {
+    const next = removeRuleVariation(
+      [
+        variation("Control", 1 / 3),
+        variation("Variation 1", 1 / 3),
+        variation("Variation 2", 1 / 3),
+      ],
+      0,
+    );
+    expect(next.map((v) => v.name)).toEqual(["Control", "Variation 1"]);
+  });
+
   it("keeps an even split even", () => {
     const next = removeRuleVariation(
       [

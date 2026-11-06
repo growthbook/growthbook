@@ -39,7 +39,7 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
-import { growthbook } from "@/services/utils";
+import { growthbook, initGrowthBook } from "@/services/utils";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
@@ -167,9 +167,7 @@ function App({
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    growthbook.init({ streaming: true }).catch(() => {
-      console.log("Failed to fetch GrowthBook feature definitions");
-    });
+    void initGrowthBook();
   }, []);
 
   const renderPreAuth = () => {

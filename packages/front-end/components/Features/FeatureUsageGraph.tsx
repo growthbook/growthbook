@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { BarStack } from "@visx/shape";
 import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
@@ -43,6 +44,7 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 import styles from "./FeatureUsageGraph.module.scss";
 
 function generateTimeSeries(lookback: FeatureUsageLookback, keys: string[]) {
@@ -1100,6 +1102,7 @@ export function FeatureUsageSparkline({
 }) {
   const { sparkFeatureUsage, showFeatureUsage, managedWarehouseUnavailable } =
     useFeatureUsage();
+  const redesign = useFeaturePageRedesign();
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
@@ -1146,14 +1149,19 @@ export function FeatureUsageSparkline({
   const hasData = rawMaxValue > 0;
   const maxValue = rawMaxValue || 1;
 
-  // Short enough that it, with its padding, fits a header row's 32px.
-  const W = 76;
+  // Short enough that it, with its padding, fits a header row's 32px; the
+  // page it's tested against keeps its larger one.
+  const W = redesign ? 76 : 90;
   const BOTTOM_PAD = 2;
-  const H = 20;
+  const H = redesign ? 20 : 28;
   const AXIS_H = 1;
   const CHART_H = H - AXIS_H;
 
-  const xScale = scaleBand({ domain: xDomain, range: [0, W], padding: 0.35 });
+  const xScale = scaleBand({
+    domain: xDomain,
+    range: [0, W],
+    padding: redesign ? 0.35 : 0.2,
+  });
   const yScale = scaleLinear<number>({
     domain: [0, maxValue],
     range: [CHART_H, 0],
@@ -1166,7 +1174,7 @@ export function FeatureUsageSparkline({
           align="center"
           gap="1"
           onClick={() => setModalOpen(true)}
-          className={styles.sparkTrigger}
+          className={clsx(styles.sparkTrigger, !redesign && styles.legacy)}
         >
           <svg width={W} height={H + BOTTOM_PAD}>
             <defs>

@@ -127,7 +127,7 @@ export function ProjectField({
             {hidden ? (
               <HiddenProject id={project} />
             ) : currentProject && currentProject !== project ? (
-              <Tooltip content="Not in your current project">
+              <Tooltip content="Not in your current Project">
                 <span>
                   {projectName}{" "}
                   <PiWarning style={{ color: "var(--amber-11)" }} />

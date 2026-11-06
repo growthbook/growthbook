@@ -66,10 +66,6 @@ import SectionFrame from "@/components/SectionFrame";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import FeatureRules from "./FeatureRulesNew";
-import {
-  featureStatusColors,
-  NonLiveRevisionTooltipNote,
-} from "./FeaturesOverview";
 import cornerStyles from "./CornerActions.module.scss";
 
 // A changeable environment's switch, its state named after it. In a grid
@@ -190,6 +186,28 @@ function environmentKillSwitchTooltipBody(
         </Text>
       ) : null}
     </Text>
+  );
+}
+
+export const featureStatusColors = {
+  on: "var(--green-10)",
+  off: "var(--red-11)",
+  offMuted: "var(--color-text-low)",
+  warning: "var(--amber-11)",
+  danger: "var(--red-9)",
+} as const;
+
+export function NonLiveRevisionTooltipNote({
+  kind,
+}: {
+  kind: "draft" | "inactive";
+}) {
+  return (
+    <Callout status="warning" size="sm" mt="2">
+      You are viewing a{" "}
+      <strong>{kind === "draft" ? "draft" : "inactive revision"}</strong>; it
+      may not reflect the actual state of the feature.
+    </Callout>
   );
 }
 

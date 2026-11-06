@@ -51,6 +51,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { Rule, SortableRule } from "./Rule";
 import { HoldoutRule } from "./HoldoutRule";
 import cornerStyles from "./CornerActions.module.scss";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 type CommonProps = {
   feature: FeatureInterface;
@@ -104,6 +105,7 @@ type RuleListProps = CommonProps &
   );
 
 export default function RuleList(props: RuleListProps) {
+  const redesign = useFeaturePageRedesign();
   const {
     feature,
     baseFeature,
@@ -460,7 +462,7 @@ export default function RuleList(props: RuleListProps) {
   }
 
   return (
-    <Flex direction="column" gap="5">
+    <Flex direction="column" gap={redesign ? "5" : "4"}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

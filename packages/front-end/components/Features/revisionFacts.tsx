@@ -12,7 +12,7 @@ import {
 import EventUser from "@/components/Avatar/EventUser";
 import Text from "@/ui/Text";
 
-export type RevisionFact = { label: string; value: ReactNode };
+type RevisionFact = { label: string; value: ReactNode };
 
 // What a revision's details say about it, in order, wherever they're listed.
 export function revisionFacts(

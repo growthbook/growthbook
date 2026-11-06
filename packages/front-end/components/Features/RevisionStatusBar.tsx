@@ -133,7 +133,7 @@ export default function RevisionStatusBar({
         </Button>
       </>
     );
-    if (status === "scheduled") {
+    if (status === "scheduled" && revision.scheduledPublishAt) {
       const editsLocked = isRevisionEditLockedBySchedule(revision);
       const lockClauses = [
         editsLocked ? "edits are locked" : null,
@@ -146,7 +146,7 @@ export default function RevisionStatusBar({
       label = editsLocked ? "Draft · locked" : "Draft · scheduled";
       message = (
         <>
-          Publishes {datetime(revision.scheduledPublishAt as Date)}
+          Publishes {datetime(revision.scheduledPublishAt)}
           {inReview ? " once approved" : ""}
           {lockClauses.length ? `; ${lockClauses.join(" and ")}` : ""}.
         </>
@@ -177,8 +177,8 @@ export default function RevisionStatusBar({
     icon = <PiPencil />;
     message =
       drafts.length === 1
-        ? "This feature has a draft."
-        : `This feature has ${drafts.length} drafts.`;
+        ? "This Feature Flag has a draft."
+        : `This Feature Flag has ${drafts.length} drafts.`;
     actions =
       drafts.length === 1 ? (
         <Link onClick={() => setVersion(drafts[0].version)}>

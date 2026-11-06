@@ -70,7 +70,7 @@ const SECTION_FIELDS = {
   customFields: ["customFields"],
 } as const satisfies Record<FeatureInfoSection, readonly string[]>;
 
-const EditFeatureInfoModal: FC<{
+const EditFeatureInfoModalNew: FC<{
   // The feature as viewed (draft changes merged in) and as published.
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
@@ -386,4 +386,4 @@ const EditFeatureInfoModal: FC<{
   );
 };
 
-export default EditFeatureInfoModal;
+export default EditFeatureInfoModalNew;

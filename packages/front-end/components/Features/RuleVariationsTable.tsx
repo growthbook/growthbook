@@ -10,7 +10,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-export type RuleVariationRow = {
+type RuleVariationRow = {
   key: string;
   name: string;
   // Absent where the rule doesn't set the split, as a Bandit's.

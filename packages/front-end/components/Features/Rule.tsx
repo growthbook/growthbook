@@ -125,6 +125,7 @@ import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import RuleField from "./RuleField";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 function fmtScheduleDate(d: Date | string): string {
   return new Date(d).toLocaleDateString(undefined, {
@@ -373,6 +374,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref,
   ) => {
     const { apiCall } = useAuth();
+    const redesign = useFeaturePageRedesign();
     const { hasCommercialFeature } = useUser();
     const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
 
@@ -528,10 +530,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       return envList.length === 0 ? "all" : new Set(envList);
     }, [settings?.requireReviews, feature]);
 
-    const { contextualBanditsMap: cbMap } = useContextualBandits(
-      feature.project,
-      true,
-    );
+    // The same lookup as the rule's summary, so the two agree on the bandit
+    // even when it sits in another project.
+    const { contextualBanditsMap: cbMap } = useContextualBandits();
     const linkedContextualBandit =
       rule.type === "contextual-bandit-ref"
         ? cbMap?.get(rule.contextualBanditId)
@@ -1724,7 +1725,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     condition={rule.condition || ""}
                     savedGroups={rule.savedGroups}
                     prerequisites={rule.prerequisites}
-                    prefix={<Text weight="medium">IF</Text>}
+                    prefix={
+                      redesign ? <Text weight="medium">IF</Text> : undefined
+                    }
                   />
                 ) : (
                   "All traffic"
@@ -2101,6 +2104,13 @@ export function getRuleMetaInfo({
     rule?.scheduleRules?.length &&
     rule.scheduleRules.at(-1)?.timestamp !== null;
 
+  const targetReason =
+    rule.type === "experiment-ref"
+      ? experimentRefSkipReason(linkedExperiment, isDraft)
+      : rule.type === "contextual-bandit-ref" && linkedContextualBandit
+        ? contextualBanditSkipReason(linkedContextualBandit, isDraft)
+        : null;
+
   if (!rule.enabled) {
     // An approval-gated ramp holds the rule off (zero traffic) until someone
     // approves the start — surface that instead of a bare "Disabled" so it's
@@ -2193,6 +2203,10 @@ export function getRuleMetaInfo({
           }
         />
       ),
+      // Its summary has nothing to show for a missing or retired target.
+      callout: targetReason ? (
+        <Callout status="info">{targetReason}</Callout>
+      ) : undefined,
       sideColor: "disabled",
     };
   }

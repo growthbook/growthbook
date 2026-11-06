@@ -26,10 +26,16 @@ export default function RuleField({
   align?: "baseline" | "start";
 }) {
   const redesign = useFeaturePageRedesign();
-  // The page it's tested against: an inline label leading the value.
+  // The page it's tested against: an inline label leading the value, or above
+  // a table, as main's were.
   if (!redesign) {
     return (
-      <Flex align={align === "start" ? "start" : "baseline"} gap="2" mb={mb}>
+      <Flex
+        direction={align === "start" ? "column" : "row"}
+        align={align === "start" ? "stretch" : "baseline"}
+        gap="2"
+        mb={mb}
+      >
         <Box flexShrink="0">
           <Text weight="medium">{label.toUpperCase()}</Text>
         </Box>

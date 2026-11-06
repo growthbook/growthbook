@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { PiDotsSixVertical } from "react-icons/pi";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
 import cornerStyles from "./CornerActions.module.scss";
 import styles from "./RuleCard.module.scss";
 import { useFeaturePageRedesign } from "./FeaturePageRedesign";
@@ -37,13 +38,11 @@ export default function RuleCard({
 }: Props) {
   const redesign = useFeaturePageRedesign();
   const handle = dragHandleProps ? (
-    <div
-      {...dragHandleProps}
-      title="Drag and drop to re-order rules"
-      className={styles.grab}
-    >
-      <PiDotsSixVertical size={16} />
-    </div>
+    <Tooltip content="Drag and drop to re-order rules">
+      <div {...dragHandleProps} className={styles.grab}>
+        <PiDotsSixVertical size={16} />
+      </div>
+    </Tooltip>
   ) : (
     <Box aria-hidden className={styles.idleHandle}>
       <PiDotsSixVertical size={16} />
@@ -61,7 +60,7 @@ export default function RuleCard({
   // The page it's tested against: header and details in one column.
   if (!redesign) {
     return (
-      <Card className={cornerStyles.hoverActions}>
+      <Card>
         <div className={clsx(styles.sideBar, styles[sideColor])} />
         <Flex align="start" justify="between" gap="2" p="1">
           <Box className={styles.handle}>{handle}</Box>
