@@ -61,13 +61,7 @@ export default function PopoverStories() {
 
       <Box>
         <Box mb="2">
-          <Text weight="medium">Open on hover, bridged</Text>
-        </Box>
-        <Box mb="2">
-          <Text size="2" color="gray">
-            Hover a top-row tag, then move down onto its popover: the bridge
-            covers the gap, so the tags below don&apos;t take over.
-          </Text>
+          <Text weight="medium">Open on hover, in wrapped rows</Text>
         </Box>
         <Flex wrap="wrap" gap="1" style={{ maxWidth: 280 }}>
           {["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"].map(
@@ -75,7 +69,6 @@ export default function PopoverStories() {
               <Popover
                 key={tag}
                 openOnHover
-                hoverBridge
                 anchorOnly
                 side="bottom"
                 sideOffset={8}

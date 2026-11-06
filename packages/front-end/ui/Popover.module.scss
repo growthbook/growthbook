@@ -19,9 +19,6 @@
   }
 }
 
-// A hover popover reaches across the gap to its trigger, so the pointer moves
-// straight onto it without passing over what's in between (a second row of
-// tags under the first, each with a popover of its own).
 .HoverBridge {
   position: relative;
 
@@ -29,29 +26,29 @@
     content: "";
     position: absolute;
   }
+  &[data-side="bottom"]::before,
+  &[data-side="top"]::before {
+    left: var(--hover-bridge-start);
+    width: var(--hover-bridge-length);
+    height: var(--hover-bridge);
+  }
+  &[data-side="right"]::before,
+  &[data-side="left"]::before {
+    top: var(--hover-bridge-start);
+    height: var(--hover-bridge-length);
+    width: var(--hover-bridge);
+  }
   &[data-side="bottom"]::before {
     bottom: 100%;
-    left: 0;
-    right: 0;
-    height: var(--hover-bridge);
   }
   &[data-side="top"]::before {
     top: 100%;
-    left: 0;
-    right: 0;
-    height: var(--hover-bridge);
   }
   &[data-side="right"]::before {
     right: 100%;
-    top: 0;
-    bottom: 0;
-    width: var(--hover-bridge);
   }
   &[data-side="left"]::before {
     left: 100%;
-    top: 0;
-    bottom: 0;
-    width: var(--hover-bridge);
   }
 }
 
