@@ -16,7 +16,11 @@ import type {
   JSONColumnFields,
 } from "shared/types/fact-table";
 
-/** Per-org Managed Warehouse tables a super admin can recreate on their own. */
+/**
+ * Managed Warehouse derived tables that can be recreated using the license
+ * server's `recreate-tables`. `session_replay` covers the session replay table
+ * and view.
+ */
 export const MANAGED_WAREHOUSE_RECREATABLE_TABLES = [
   "events",
   "experiment_views",
