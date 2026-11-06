@@ -869,7 +869,14 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     // todo: don't use link. investigate why clicking through returns the stub only.
     const payload = await evaluateFeatures({
-      payload: defs,
+      // proxy-eval types dateUpdated as a string. The cached payload already
+      // has a string at runtime, despite the Date type
+      payload: {
+        ...defs,
+        dateUpdated: defs.dateUpdated
+          ? new Date(defs.dateUpdated).toISOString()
+          : undefined,
+      },
       attributes,
       forcedVariations,
       forcedFeatures,

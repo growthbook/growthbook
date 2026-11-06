@@ -79,6 +79,7 @@ import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import usePinnedHeader from "@/hooks/usePinnedHeader";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { DetailsPanelToggle } from "@/components/CollapsiblePanelLayout";
 import { hasHealthData } from "@/components/HealthTab/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
@@ -95,6 +96,8 @@ import {
   hasStatusSchedule,
   allDates,
   headerDates,
+  headerDetails,
+  LabeledDate,
   scheduledTime,
 } from "./statusSchedule";
 import { getStartTitle } from "./startActions";
@@ -385,6 +388,7 @@ export default function ExperimentHeader({
   const disableHealthTab = !hasHealthData(dataSource);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const clusterBlocksBandit = !isBandit && !!experiment.isClusterExperiment;
   const isHoldout = experiment.type === "holdout";
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
@@ -514,10 +518,14 @@ export default function ExperimentHeader({
     ? !!holdout && hasStatusSchedule(holdout)
     : hasStatusSchedule(experiment);
   const nextScheduledStartDate = armedStartDate(experiment);
-  const everyDate = allDates(experiment);
-  const everyDateList = (
+  const now = new Date();
+  const shownDates = headerDates(experiment, now);
+  const everyDate = allDates(experiment, now);
+  const details = headerDetails(experiment, now);
+  const dateList = (dates: LabeledDate[], lead?: string | null) => (
     <Flex direction="column" gap="1">
-      {everyDate.map(({ label, value }) => (
+      {lead ? <span>{lead}</span> : null}
+      {dates.map(({ label, value }) => (
         <span key={label}>
           <Text size="inherit" weight="semibold">
             {label}:
@@ -527,36 +535,68 @@ export default function ExperimentHeader({
       ))}
     </Flex>
   );
-  // Breaks only between dates, never inside one, or keeps to one line. The
-  // rest of its dates are in the tooltip, when it has any.
-  const datesLine = (oneLine: boolean) => (
-    <Tooltip enabled={everyDate.length > 1} content={everyDateList}>
-      <span
-        tabIndex={everyDate.length > 1 ? 0 : undefined}
-        // Inset, so the box clipping it to one line keeps its focus ring.
-        style={{ textAlign: "right", outlineOffset: -2 }}
-      >
-        <Text color="text-mid" whiteSpace={oneLine ? "nowrap" : "normal"}>
-          {headerDates(experiment, new Date()).map(({ label, value }, i) => (
-            <Fragment key={label}>
-              {i > 0 ? " · " : null}
-              <Text size="inherit" whiteSpace="nowrap">
-                <Text
-                  size="inherit"
-                  weight="semibold"
-                  color="text-high"
-                  whiteSpace="nowrap"
-                >
-                  {label}:
-                </Text>{" "}
-                {value}
-              </Text>
-            </Fragment>
-          ))}
-        </Text>
-      </span>
-    </Tooltip>
+  const everyDateList = dateList(everyDate);
+  // What the line doesn't already say; nothing, when it says it all.
+  const detailsList =
+    details.runtime || details.dates.length
+      ? dateList(details.dates, details.runtime)
+      : null;
+  // A phase's tooltip reads as it would were that phase the only one.
+  const phaseDetails = (index: number) => {
+    const phase = experiment.phases[index];
+    if (!phase) return null;
+    const { runtime, dates } = headerDetails(
+      {
+        ...experiment,
+        phases: [phase],
+        // An earlier phase ended, though the experiment runs on.
+        status:
+          index < experiment.phases.length - 1 ? "stopped" : experiment.status,
+      },
+      now,
+    );
+    return runtime || dates.length ? dateList(dates, runtime) : null;
+  };
+  const datesBox = useRef<HTMLDivElement>(null);
+  // Off with the dashboard, so it measures the box anew once the tabs show it.
+  const datesCut = useIsOverflowingX(
+    datesBox,
+    !hasMultiplePhases && !showDashboardView,
+    shownDates.map(({ value }) => value).join(),
   );
+  // Breaks only between dates, never inside one, or keeps to one line. Its
+  // tooltip adds what the line leaves out, or, cut short, has every date.
+  const datesLine = (oneLine: boolean) => {
+    const tip = oneLine && datesCut ? everyDateList : detailsList;
+    return (
+      <Tooltip enabled={!!tip} content={tip}>
+        <span
+          tabIndex={tip ? 0 : undefined}
+          // Inset, so the box clipping it to one line keeps its focus ring.
+          style={{ textAlign: "right", outlineOffset: -2 }}
+        >
+          <Text color="text-mid" whiteSpace={oneLine ? "nowrap" : "normal"}>
+            {shownDates.map(({ label, value }, i) => (
+              <Fragment key={label}>
+                {i > 0 ? " · " : null}
+                <Text size="inherit" whiteSpace="nowrap">
+                  <Text
+                    size="inherit"
+                    weight="semibold"
+                    color="text-high"
+                    whiteSpace="nowrap"
+                  >
+                    {label}:
+                  </Text>{" "}
+                  {value}
+                </Text>
+              </Fragment>
+            ))}
+          </Text>
+        </span>
+      </Tooltip>
+    );
+  };
   const startGate = useStartGate({
     experiment,
     linkedFeatures,
@@ -613,6 +653,7 @@ export default function ExperimentHeader({
           header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
           submit={async () => {
             if (!isBandit && !hasMultiArmedBanditFeature) return;
+            if (clusterBlocksBandit) return;
             try {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
@@ -638,65 +679,78 @@ export default function ExperimentHeader({
               </PremiumTooltip>
             )
           }
-          ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+          ctaEnabled={
+            (isBandit || hasMultiArmedBanditFeature) && !clusterBlocksBandit
+          }
         >
           <div>
-            <p>
-              Are you sure you want to convert this{" "}
-              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
-            </p>
-            {!isBandit && experiment.goalMetrics.length > 0 && (
+            {clusterBlocksBandit ? (
               <Callout status="warning">
-                <Collapsible
-                  trigger={
-                    <Flex justify="between" gap="1">
-                      Some of your experiment settings may be altered.{" "}
-                      <Box>
-                        <FaAngleRight className="chevron" />
-                      </Box>
-                    </Flex>
-                  }
-                  transitionTime={100}
-                >
-                  <ul className="ml-0 pl-3 mt-3">
-                    <li>
-                      A <strong>single decision metric</strong> will be
-                      automatically assigned. You may change this before running
-                      the experiment.
-                    </li>
-                    <li>
-                      Experiment variations will begin with{" "}
-                      <strong>equal weights</strong> (
-                      {(() => {
-                        const variations = getLatestPhaseVariations(experiment);
-                        return variations
-                          .map((_, i) =>
-                            i < 3
-                              ? formatPercent(1 / variations.length)
-                              : i === 3
-                                ? "..."
-                                : null,
-                          )
-                          .filter(Boolean)
-                          .join(", ");
-                      })()}
-                      ).
-                    </li>
-                    <li>
-                      The stats engine will be locked to{" "}
-                      <strong>Bayesian</strong>.
-                    </li>
-                    <li>
-                      Any <strong>Activation Metric</strong>,{" "}
-                      <strong>Segments</strong>,{" "}
-                      <strong>Conversion Window overrides</strong>,{" "}
-                      <strong>Custom SQL Filters</strong>, or{" "}
-                      <strong>Metric Overrides</strong> will be removed.
-                    </li>
-                  </ul>
-                </Collapsible>
+                {
+                  "Cluster experiments can't be run as Bandits. To convert this one, first turn off cluster experiment in the Analysis Plan's Data Source settings."
+                }
               </Callout>
+            ) : (
+              <>
+                <p>
+                  Are you sure you want to convert this{" "}
+                  {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+                  <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+                </p>
+                {!isBandit && experiment.goalMetrics.length > 0 && (
+                  <Callout status="warning">
+                    <Collapsible
+                      trigger={
+                        <Flex justify="between" gap="1">
+                          Some of your experiment settings may be altered.{" "}
+                          <Box>
+                            <FaAngleRight className="chevron" />
+                          </Box>
+                        </Flex>
+                      }
+                      transitionTime={100}
+                    >
+                      <ul className="ml-0 pl-3 mt-3">
+                        <li>
+                          A <strong>single decision metric</strong> will be
+                          automatically assigned. You may change this before
+                          running the experiment.
+                        </li>
+                        <li>
+                          Experiment variations will begin with{" "}
+                          <strong>equal weights</strong> (
+                          {(() => {
+                            const variations =
+                              getLatestPhaseVariations(experiment);
+                            return variations
+                              .map((_, i) =>
+                                i < 3
+                                  ? formatPercent(1 / variations.length)
+                                  : i === 3
+                                    ? "..."
+                                    : null,
+                              )
+                              .filter(Boolean)
+                              .join(", ");
+                          })()}
+                          ).
+                        </li>
+                        <li>
+                          The stats engine will be locked to{" "}
+                          <strong>Bayesian</strong>.
+                        </li>
+                        <li>
+                          Any <strong>Activation Metric</strong>,{" "}
+                          <strong>Segments</strong>,{" "}
+                          <strong>Conversion Window overrides</strong>,{" "}
+                          <strong>Custom SQL Filters</strong>, or{" "}
+                          <strong>Metric Overrides</strong> will be removed.
+                        </li>
+                      </ul>
+                    </Collapsible>
+                  </Callout>
+                )}
+              </>
             )}
           </div>
         </Modal>
@@ -1461,13 +1515,14 @@ export default function ExperimentHeader({
                             isBandit={experiment.type === "multi-armed-bandit"}
                             isHoldout={experiment.type === "holdout"}
                             holdout={holdout}
-                            details={everyDateList}
+                            details={phaseDetails}
                           />
                         </Text>
                       ) : (
                         // Short of room, it ends in an ellipsis; its tooltip
                         // has every date.
                         <Box
+                          ref={datesBox}
                           minWidth="0"
                           style={{
                             overflow: "hidden",

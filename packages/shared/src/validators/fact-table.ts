@@ -242,6 +242,19 @@ export const updateFactTablePropsValidator = z
     eventName: z.string().optional(),
     tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
+    // Changes only these fields of each named column, in the same write.
+    // Fields that need more checks go through the column endpoint.
+    columnUpdates: z
+      .record(
+        z.string(),
+        updateColumnPropsValidator.pick({
+          name: true,
+          description: true,
+          numberFormat: true,
+          alwaysInlineFilter: true,
+        }),
+      )
+      .optional(),
     managedBy: factManagedByValidator.optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
