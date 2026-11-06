@@ -5,7 +5,6 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiCaretUp,
-  PiDotsSixVertical,
   PiPencilSimple,
   PiPlus,
   PiUserFill,
@@ -23,6 +22,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import FunnelStepDragHandle from "@/components/FactTables/FunnelStepDragHandle";
 import FunnelStepActionsMenu from "@/components/FactTables/FunnelStepActionsMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -36,8 +36,7 @@ import { factTableToColumnSource } from "@/components/FactTables/rowFilterUtils"
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
 
-// Radix ghost buttons pull in with negative margins, so their hover circles
-// touch; zero them so the header's 4px gap shows.
+// Undo Radix ghost negative margins so the 4px gap shows.
 const HEADER_BUTTON_STYLE: React.CSSProperties = { margin: 0 };
 
 const CONVERSION_WINDOW_UNITS: ConversionWindow["unit"][] = [
@@ -76,10 +75,8 @@ interface Props {
   /** Delete handler lives in the parent so it can keep the per-step
    *  collapse state aligned with the underlying steps array. */
   onDelete: (index: number) => void;
-  /** Inserts a new step at this position (shifting later steps down). */
   onInsert: (atIndex: number) => void;
   canAddStep: boolean;
-  /** dnd-kit listeners/attributes for the drag handle. */
   dragHandleProps?: React.HTMLAttributes<HTMLElement>;
   /** Intersection of user id types across all steps; step 1 shows the unit
    *  picker beside Add Filter when non-empty. */
@@ -241,20 +238,10 @@ export default function FunnelStepCard({
           className={styles.titleGroup}
           style={{ minWidth: 0, flex: 1 }}
         >
-          {/* Step 1 is pinned (it owns the funnel's fact table): a same-size
-              spacer instead of a handle keeps the step numbers aligned. */}
-          {!dragHandleProps ? (
-            <Box aria-hidden style={{ width: 14, flexShrink: 0 }} />
-          ) : (
-            <Box
-              {...dragHandleProps}
-              title="Drag to reorder"
-              aria-label={`Drag to reorder ${step.name}`}
-              style={{ flexShrink: 0, cursor: "grab", display: "flex" }}
-            >
-              <PiDotsSixVertical size={14} color="var(--gray-a9)" />
-            </Box>
-          )}
+          <FunnelStepDragHandle
+            handleProps={dragHandleProps}
+            label={step.name}
+          />
           <Box style={{ flexShrink: 0 }}>
             <Text size="sm" color="text-low">
               {index + 1}.
@@ -321,7 +308,6 @@ export default function FunnelStepCard({
           </IconButton>
           <FunnelStepActionsMenu
             rowFilters={step.rowFilters}
-            // Step 1 is pinned (it owns the funnel's fact table): nothing above it.
             canInsertAbove={canAddStep && index > 0}
             canInsertBelow={canAddStep}
             canDelete={steps.length > 1}

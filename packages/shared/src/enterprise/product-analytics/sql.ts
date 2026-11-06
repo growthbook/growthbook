@@ -1758,8 +1758,7 @@ export function buildFunnelSql(
   // so the inlined dimensionExpr (which references _dimension0_top) is
   // resolvable.
   if (dimension?.dimensionType === "dynamic") {
-    // Rank values on step-1 events only. The raw CTE also holds rows for later
-    // steps on the same table, whose (often empty) values would skew the top N.
+    // Rank on step-1 rows only; later steps on the same table skew the top N.
     const initialRawCte = ctes[0];
     const step1Filters = generateRowFilterSQL(
       steps[0].rowFilters,

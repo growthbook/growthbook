@@ -29,7 +29,6 @@ import {
   MAX_FUNNEL_STEPS,
 } from "shared/funnels";
 import { isProjectListValidForProject } from "shared/util";
-import { CSS } from "@dnd-kit/utilities";
 import Button from "@/ui/Button";
 import useSortableItem from "@/hooks/useSortableItem";
 import Text from "@/ui/Text";
@@ -55,15 +54,10 @@ function SortableFunnelStepCard({
   FunnelStepCardProps,
   "dragHandleProps"
 >) {
-  const { setNodeRef, style, handle, transform } = useSortableItem(id);
+  const { setNodeRef, style, handle } = useSortableItem(id);
   if (pinned) return <FunnelStepCard {...props} />;
   return (
-    // Translate only: the default transform also scales to the hovered card,
-    // which stretches/squishes cards of different heights.
-    <Box
-      ref={setNodeRef}
-      style={{ ...style, transform: CSS.Translate.toString(transform) }}
-    >
+    <Box ref={setNodeRef} style={style}>
       <FunnelStepCard {...props} dragHandleProps={handle} />
     </Box>
   );
@@ -82,7 +76,6 @@ const NEW_FUNNEL_VALUE = "__new_funnel__";
  *  are "locked open" and skipped by the auto-collapse logic. */
 type StepUiState = { id: string; collapsed: boolean; userExpanded: boolean };
 
-// Stable per-step ids so drag-and-drop and card-local state follow the step.
 let nextStepUiId = 0;
 const newStepUi = (collapsed = false): StepUiState => ({
   id: `funnel-step-${nextStepUiId++}`,
@@ -346,13 +339,11 @@ export default function FunnelTabContent() {
   const handleInsertStep = (atIndex: number) => {
     setDraftExploreState((prev) => {
       if (prev.dataset.type !== "funnel") return prev;
-      // Never 0: the menu hides "Insert step above" on step 1.
       const previousFactTable =
         prev.dataset.steps[atIndex - 1]?.factTableId ?? "";
       // Default the new step's fact table to the previous step's — the most
       // common case. The picker is hidden on inherited steps, so the user
       // doesn't see a redundant select until they actively want to override.
-      // Default name; normalizeFunnelStepOrder renumbers it to its position.
       const newStep = createEmptyFunnelStep({
         name: `Step ${atIndex + 1}`,
         factTableId: previousFactTable,
@@ -373,7 +364,6 @@ export default function FunnelTabContent() {
         } as FunnelDataset,
       } as ExplorationConfig;
     });
-    // Collapse every existing step so only the new one is open.
     setInstantCollapseTransition(true);
     setUiState((prev) => {
       const next = prev.map((s) => ({
@@ -386,7 +376,7 @@ export default function FunnelTabContent() {
     });
   };
 
-  // Step 1 is pinned: it owns the funnel's fact table and group-by columns.
+  // Step 1 is pinned: it owns the funnel's fact table.
   const handleMoveStep = (from: number, to: number) => {
     if (from === to || from < 1 || to < 1 || to >= steps.length) return;
     setDraftExploreState((prev) => {
@@ -509,7 +499,6 @@ export default function FunnelTabContent() {
             }}
           >
             <SortableContext
-              // Step 1 isn't sortable, so nothing can be dropped above it.
               items={uiState.slice(1).map((s) => s.id)}
               strategy={verticalListSortingStrategy}
             >

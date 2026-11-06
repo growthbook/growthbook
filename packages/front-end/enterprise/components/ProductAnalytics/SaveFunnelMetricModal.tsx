@@ -25,7 +25,6 @@ import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
 import styles from "./SaveFunnelMetricModal.module.scss";
 
-// Bullets line up with the callout text instead of the default 40px indent.
 const LIST_STYLE: React.CSSProperties = {
   marginTop: "var(--space-1)",
   marginBottom: 0,
@@ -195,7 +194,7 @@ export default function SaveFunnelMetricModal({
           {...form.register("description")}
         />
 
-        {/* Default className adds mt-4/mb-3; the Flex gap spaces it here. */}
+        {/* Drop default mt-4/mb-3; the Flex gap spaces it. */}
         <MetricWindowSettingsForm form={form} type="funnel" className="" />
 
         <MultiSelectField

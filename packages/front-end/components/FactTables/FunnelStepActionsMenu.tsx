@@ -8,8 +8,8 @@ import {
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
+import styles from "./FunnelStepActionsMenu.module.scss";
 
-// Compact rows (design feedback on PR #7588).
 const MENU_ITEM_STYLE: React.CSSProperties = {
   height: 28,
   paddingLeft: 8,
@@ -17,7 +17,7 @@ const MENU_ITEM_STYLE: React.CSSProperties = {
   fontSize: "var(--font-size-1)",
 };
 
-/** Edge-to-edge divider; the shared separator insets by item padding. */
+// Edge-to-edge, unlike DropdownMenuSeparator.
 function MenuDivider() {
   const bleed = "calc(-1 * var(--base-menu-content-padding))";
   return (
@@ -35,9 +35,9 @@ function MenuDivider() {
 }
 
 /**
- * The ⋯ menu on a funnel step (Explorer builder and funnel metric editor).
- * - actions that don't apply are hidden, not disabled; no actions, no menu
- * - deleting a step with any filled-in filter asks inline first
+ * Funnel step ⋯ menu (Explorer and metric editor).
+ * - inapplicable actions are hidden; none left, no menu
+ * - deleting a step with filters asks inline first
  */
 export default function FunnelStepActionsMenu({
   rowFilters,
@@ -59,8 +59,7 @@ export default function FunnelStepActionsMenu({
   triggerStyle?: React.CSSProperties;
 }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  // "Delete step" unmounts when the confirm row appears; move focus to Cancel
-  // so keyboard users aren't left without a focused item.
+  // "Delete step" unmounts on confirm; keep keyboard focus on Cancel.
   const cancelDeleteClass = `funnel-step-cancel-${useId().replace(/:/g, "")}`;
   useEffect(() => {
     if (!confirmingDelete) return;
@@ -92,35 +91,24 @@ export default function FunnelStepActionsMenu({
       )}
       {canDelete && hasInsertGroup && <MenuDivider />}
       {!canDelete ? null : confirmingDelete ? (
-        // Menu items (not plain buttons) so arrow keys reach them.
         <Flex align="center" justify="between" gap="5" pl="2">
           <Text size="sm" weight="medium">
             Delete?
           </Text>
           <Flex align="center" gap="2">
             <DropdownMenuItem
-              className={cancelDeleteClass}
-              // Gray outline; inline bg/color also beat the purple highlight
-              // Radix gives the focused item.
-              style={{
-                ...MENU_ITEM_STYLE,
-                backgroundColor: "transparent",
-                color: "var(--gray-12)",
-                boxShadow: "inset 0 0 0 1px var(--gray-a7)",
-              }}
+              className={`${styles.cancel} ${cancelDeleteClass}`}
+              style={MENU_ITEM_STYLE}
               onClick={(event) => {
-                event.preventDefault(); // stay open, back to "Delete step"
+                event.preventDefault(); // stay open
                 setConfirmingDelete(false);
               }}
             >
               Cancel
             </DropdownMenuItem>
             <DropdownMenuItem
-              style={{
-                ...MENU_ITEM_STYLE,
-                backgroundColor: "var(--red-9)",
-                color: "var(--red-contrast)",
-              }}
+              className={styles.confirm}
+              style={MENU_ITEM_STYLE}
               onClick={onDelete}
             >
               Confirm
@@ -132,12 +120,11 @@ export default function FunnelStepActionsMenu({
           style={MENU_ITEM_STYLE}
           color="red"
           onClick={(event) => {
-            // Empty steps go right away; anything with a filter asks first.
             if (!rowFilters.some(isRowFilterComplete)) {
               onDelete();
               return;
             }
-            event.preventDefault(); // keep the menu open for the confirm row
+            event.preventDefault(); // stay open
             setConfirmingDelete(true);
           }}
         >

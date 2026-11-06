@@ -1,5 +1,16 @@
 import { FunnelStep } from "shared/types/fact-table";
 
+const DEFAULT_STEP_NAME = /^Step \d+$/;
+
+/** Default "Step N" names follow position; custom names are kept. */
+export function renumberStepNames<T extends { name: string }>(steps: T[]): T[] {
+  return steps.map((step, i) =>
+    DEFAULT_STEP_NAME.test(step.name) && step.name !== `Step ${i + 1}`
+      ? { ...step, name: `Step ${i + 1}` }
+      : step,
+  );
+}
+
 export function updateFunnelSteps(
   steps: FunnelStep[],
   index: number,
@@ -26,22 +37,14 @@ export function updateFunnelSteps(
 }
 
 /**
- * Moves a step to a new position; returns null for moves involving step 1.
- * - step 1 is pinned: it's the metric's primary fact table
- * - each step keeps its own fact table: overrides are recomputed from the new
- *   order instead of re-inheriting from the new predecessor
- * - default "Step N" names follow position
+ * Moves a step; null for moves involving pinned step 1.
+ * - each step keeps its fact table: overrides recomputed from the new order
  */
 export function moveFunnelStep(steps: FunnelStep[], from: number, to: number) {
   if (from === to || from < 1 || to < 1 || to >= steps.length) return null;
-  const order = steps.map((_, i) => i);
-  order.splice(to, 0, ...order.splice(from, 1));
-  const next = order.map((originalIndex, i) => {
-    const step = steps[originalIndex];
-    return step.name === `Step ${originalIndex + 1}`
-      ? { ...step, name: `Step ${i + 1}` }
-      : step;
-  });
+  const moved = [...steps];
+  moved.splice(to, 0, ...moved.splice(from, 1));
+  const next = renumberStepNames(moved);
   const overriddenTables = new Set(
     next.flatMap((step, i) =>
       i > 0 && step.factTableId !== next[i - 1].factTableId ? [i] : [],
@@ -50,28 +53,18 @@ export function moveFunnelStep(steps: FunnelStep[], from: number, to: number) {
   return { steps: next, overriddenTables };
 }
 
-/**
- * Inserts `newStep` at `atIndex`, shifting later steps down.
- * - overrides move with their steps; the new step inherits (not overridden)
- * - default "Step N" names follow position
- */
+/** Inserts `newStep` at `atIndex`; overrides move with their steps. */
 export function insertFunnelStep(
   steps: FunnelStep[],
   atIndex: number,
   newStep: FunnelStep,
   overriddenTables: ReadonlySet<number>,
 ) {
-  const next = [
+  const next = renumberStepNames([
     ...steps.slice(0, atIndex),
     newStep,
-    ...steps
-      .slice(atIndex)
-      .map((step, i) =>
-        step.name === `Step ${atIndex + i + 1}`
-          ? { ...step, name: `Step ${atIndex + i + 2}` }
-          : step,
-      ),
-  ];
+    ...steps.slice(atIndex),
+  ]);
   const overrides = new Set(
     [...overriddenTables].map((i) => (i >= atIndex ? i + 1 : i)),
   );

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiDotsSixVertical, PiPlus } from "react-icons/pi";
+import { PiPlus } from "react-icons/pi";
 import {
   closestCenter,
   DndContext,
@@ -15,7 +15,6 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import {
   ConversionWindow,
   FunnelSettings,
@@ -44,9 +43,11 @@ import {
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import useSortableItem from "@/hooks/useSortableItem";
 import FunnelStepActionsMenu from "./FunnelStepActionsMenu";
+import FunnelStepDragHandle from "./FunnelStepDragHandle";
 import {
   insertFunnelStep,
   moveFunnelStep,
+  renumberStepNames,
   updateFunnelSteps,
 } from "./funnelStepUpdates";
 import styles from "./FunnelStepsInput.module.scss";
@@ -69,11 +70,13 @@ function FunnelStepInput({
   removeStep,
   insertStep,
   canAddStep,
+  canDelete,
   sortableId,
 }: {
   sortableId: string;
   insertStep: (atIndex: number) => void;
   canAddStep: boolean;
+  canDelete: boolean;
   step: FunnelStep;
   index: number;
   factTableOptions: { label: string; value: string }[];
@@ -85,7 +88,7 @@ function FunnelStepInput({
 }) {
   const { getFactTableById } = useDefinitions();
   const { factTable: fullFactTable } = useFullFactTable(step.factTableId);
-  const { setNodeRef, style, handle, transform } = useSortableItem(sortableId);
+  const { setNodeRef, style, handle } = useSortableItem(sortableId);
   // Step 1 is pinned: it's the metric's primary fact table.
   const pinned = index === 0;
 
@@ -117,13 +120,7 @@ function FunnelStepInput({
   return (
     <Box
       ref={pinned ? undefined : setNodeRef}
-      // Translate only: the default transform also scales to the hovered step,
-      // which stretches/squishes steps of different heights.
-      style={
-        pinned
-          ? undefined
-          : { ...style, transform: CSS.Translate.toString(transform) }
-      }
+      style={pinned ? undefined : style}
     >
       <Frame
         mb="0"
@@ -134,19 +131,10 @@ function FunnelStepInput({
       >
         <Flex justify="between" align="center" gap="3" mb="3">
           <Flex align="center" gap="2" minWidth="0" flexGrow="1">
-            {/* Same-size spacer on the pinned step keeps the numbers aligned. */}
-            {pinned ? (
-              <Box aria-hidden style={{ width: 14, flexShrink: 0 }} />
-            ) : (
-              <Box
-                {...handle}
-                title="Drag to reorder"
-                aria-label={`Drag to reorder ${step.name || `step ${index + 1}`}`}
-                style={{ flexShrink: 0, cursor: "grab", display: "flex" }}
-              >
-                <PiDotsSixVertical size={14} color="var(--gray-a9)" />
-              </Box>
-            )}
+            <FunnelStepDragHandle
+              handleProps={pinned ? undefined : handle}
+              label={step.name || `step ${index + 1}`}
+            />
             <Avatar size="sm">{index + 1}</Avatar>
             <TextField
               aria-label={`Step ${index + 1} name`}
@@ -168,10 +156,9 @@ function FunnelStepInput({
             )}
             <FunnelStepActionsMenu
               rowFilters={step.rowFilters || []}
-              // Step 1 is pinned (the metric's primary fact table): nothing above it.
               canInsertAbove={canAddStep && !pinned}
               canInsertBelow={canAddStep}
-              canDelete
+              canDelete={canDelete}
               onInsertAbove={() => insertStep(index)}
               onInsertBelow={() => insertStep(index + 1)}
               onDelete={() => removeStep(index)}
@@ -202,8 +189,6 @@ function FunnelStepInput({
                   const newFactTable = getFactTableById(factTableId);
                   if (!newFactTable) return;
 
-                  // Repointing a step drops its filters, whose columns no longer
-                  // apply to the new table.
                   updateStep(index, {
                     factTableId,
                     rowFilters: getInitialInlineFilters(newFactTable, []),
@@ -339,7 +324,7 @@ export default function FunnelStepsInput({
     ),
   );
 
-  // Stable per-step ids for drag-and-drop; kept aligned with `value.steps`.
+  // Stable drag-and-drop ids, aligned with `value.steps`.
   const stepIds = useRef<string[]>([]);
   const nextStepId = useRef(0);
   while (stepIds.current.length < value.steps.length) {
@@ -437,16 +422,7 @@ export default function FunnelStepsInput({
     overriddenTables.current.delete(0);
     stepIds.current.splice(index, 1);
     initializedFilterTables.current.splice(index, 1);
-    const steps = value.steps
-      .map((step, i) => ({ step, originalIndex: i }))
-      .filter(({ originalIndex }) => originalIndex !== index)
-      .map(({ step, originalIndex }, i) => ({
-        ...step,
-        name:
-          step.name === `Step ${originalIndex + 1}`
-            ? `Step ${i + 1}`
-            : step.name,
-      }));
+    const steps = renumberStepNames(value.steps.filter((_, i) => i !== index));
     setValue({
       ...value,
       steps: updateFunnelSteps(
@@ -472,7 +448,6 @@ export default function FunnelStepsInput({
     setValue({ ...value, steps: result.steps });
   };
 
-  // New steps inherit the fact table of the step above.
   const insertStep = (atIndex: number) => {
     const previousFactTableId =
       value.steps[atIndex - 1]?.factTableId || initialFactTable || "";
@@ -510,7 +485,6 @@ export default function FunnelStepsInput({
         }}
       >
         <SortableContext
-          // Step 1 isn't sortable, so nothing can be dropped above it.
           items={stepIds.current.slice(1)}
           strategy={verticalListSortingStrategy}
         >
@@ -521,7 +495,6 @@ export default function FunnelStepsInput({
               step={step}
               index={i}
               factTableOptions={factTableOptions}
-              // When created from a fact table, step 1 stays anchored to it.
               disableFactTableSelector={i === 0 && !!initialFactTable}
               inheritTable={i > 0 && !overriddenTables.current.has(i)}
               setInheritTable={(inherit) => {
@@ -533,6 +506,10 @@ export default function FunnelStepsInput({
               removeStep={removeStep}
               insertStep={insertStep}
               canAddStep={value.steps.length < MAX_FUNNEL_STEPS}
+              // Anchored step 1 can't go: the next step would get its lock.
+              canDelete={
+                value.steps.length > 1 && !(i === 0 && !!initialFactTable)
+              }
             />
           ))}
         </SortableContext>
