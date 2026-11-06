@@ -159,7 +159,22 @@ export function Popover({
           {clonedTrigger}
         </RadixPopover.Anchor>
       ) : (
-        <RadixPopover.Trigger asChild={triggerAsChild} {...hoverHandlers}>
+        <RadixPopover.Trigger
+          asChild={triggerAsChild}
+          {...hoverHandlers}
+          // A click toggles Radix's open state. On a hover popover that
+          // closes the preview the pointer just opened. preventDefault
+          // skips that toggle; Enter and Space still fire this click.
+          onClick={
+            openOnHover
+              ? (event) => {
+                  event.preventDefault();
+                  cancelClose();
+                  setHoverOpen(true);
+                }
+              : undefined
+          }
+        >
           {clonedTrigger}
         </RadixPopover.Trigger>
       )}

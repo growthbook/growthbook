@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import useIsOverflowing from "@/hooks/useIsOverflowing";
 import Link from "@/ui/Link";
@@ -19,6 +19,7 @@ export default function ExpandableBlock({
   bleed?: boolean;
 }) {
   const content = useRef<HTMLDivElement>(null);
+  const contentId = useId();
   const overflows = useIsOverflowing(content, maxHeight);
   const [expanded, setExpanded] = useState(defaultExpanded);
   const clamped = overflows && !expanded;
@@ -30,6 +31,7 @@ export default function ExpandableBlock({
   return (
     <Box>
       <Box
+        id={contentId}
         className={clamped ? "fade-mask-bottom-1rem" : undefined}
         style={{
           maxHeight: expanded
@@ -51,7 +53,12 @@ export default function ExpandableBlock({
         <div ref={content}>{children}</div>
       </Box>
       {overflows ? (
-        <Link size="sm" onClick={() => setExpanded((open) => !open)}>
+        <Link
+          size="sm"
+          aria-expanded={expanded}
+          aria-controls={contentId}
+          onClick={() => setExpanded((open) => !open)}
+        >
           {expanded ? "Show less" : "Show more"}
         </Link>
       ) : null}

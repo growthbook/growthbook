@@ -85,6 +85,7 @@ function RowFilterBadge({
       contentStyle={{ maxWidth: 500 }}
       onOpenAutoFocus={(event) => {
         if (!openedFromKeyboard.current) event.preventDefault();
+        openedFromKeyboard.current = false;
       }}
       content={
         <RowFilterPopoverContent

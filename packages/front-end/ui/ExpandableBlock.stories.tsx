@@ -19,7 +19,7 @@ export default function ExpandableBlockStories() {
       </Flex>
       <Flex direction="column" gap="2">
         <Text size="2" weight="bold">
-          Clamped
+          Clamped. Show more sets aria-expanded and aria-controls.
         </Text>
         <ExpandableBlock maxHeight={80}>
           <Text size="2">{longText}</Text>
