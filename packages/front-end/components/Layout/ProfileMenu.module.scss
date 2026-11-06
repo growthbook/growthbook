@@ -52,6 +52,17 @@
       --avatar-fallback-one-letter-font-size: 12px;
       --avatar-fallback-two-letters-font-size: 10px;
     }
+
+    // Darker than soft's a3, so the circle shows against the nav: two steps in
+    // light, one in dark, where a3 shows more and a5 would drop the initials
+    // under 4.5:1 on hover. Avatar has no option for it.
+    :global(.rt-AvatarFallback) {
+      background-color: var(--accent-a5);
+
+      :global(.dark-theme) & {
+        background-color: var(--accent-a4);
+      }
+    }
   }
 
   // On the avatar's corner: its 1px spill plus the icon's 1px.
