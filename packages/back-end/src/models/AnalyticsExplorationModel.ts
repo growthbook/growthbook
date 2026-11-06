@@ -11,6 +11,7 @@ import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   hasTimestampColumn,
+  withRequestedDisplayConfig,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
@@ -18,7 +19,6 @@ import {
   journeyFamilyIdentity,
   journeyCacheCandidateVerdict,
   journeyResultCanServe,
-  toClientJourneyExploration,
 } from "shared/journeys";
 import {
   getQueryById,
@@ -53,7 +53,7 @@ import { MakeModelClass } from "./BaseModel";
 function toApiInterface(
   exploration: ProductAnalyticsExploration,
 ): ApiAnalyticsExploration {
-  const client = toClientJourneyExploration(exploration, exploration.config);
+  const client = withRequestedDisplayConfig(exploration, exploration.config);
   if (client.config.type === "population") {
     throw new Error("Population previews are not part of the REST API");
   }

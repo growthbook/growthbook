@@ -7,8 +7,8 @@ import {
   getShowAsOptions,
   isRatioValue,
   normalizeShowAs,
+  withRequestedDisplayConfig,
 } from "shared/enterprise";
-import { toClientJourneyExploration } from "shared/journeys";
 import type {
   ExplorationConfig,
   MetricValue,
@@ -346,7 +346,7 @@ describe("getEffectiveMetricValue for ratios", () => {
   });
 });
 
-describe("toClientJourneyExploration", () => {
+describe("withRequestedDisplayConfig", () => {
   it("serves a cached result with the requested names and showAs", () => {
     const cached = {
       config: metricConfig([
@@ -365,7 +365,7 @@ describe("toClientJourneyExploration", () => {
       metricValue("maxOrder", "total", "user_id"),
     ]);
     expect(
-      toClientJourneyExploration(cached, requested).config.dataset,
+      withRequestedDisplayConfig(cached, requested).config.dataset,
     ).toEqual({
       type: "metric",
       values: [

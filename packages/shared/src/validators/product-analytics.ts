@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import { omit, pick } from "lodash";
 import { z } from "zod";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
@@ -719,6 +719,21 @@ const RENDER_ONLY_VALUE_FIELDS = ["name", "showAs"] as const;
 /** Values that differ only in render-only fields run the same query. */
 export function omitRenderOnlyFields(value: ProductAnalyticsValue) {
   return omit(value, RENDER_ONLY_VALUE_FIELDS);
+}
+
+/**
+ * A cached value with the requested value's render-only fields. Copied even
+ * when absent: no `showAs` means the default.
+ */
+export function withRequestedRenderFields<T extends ProductAnalyticsValue>(
+  cached: T,
+  requested: ProductAnalyticsValue,
+): T {
+  // lodash's omit/pick types lose T; only render-only fields change.
+  return {
+    ...omit(cached, RENDER_ONLY_VALUE_FIELDS),
+    ...pick(requested, RENDER_ONLY_VALUE_FIELDS),
+  } as T;
 }
 export type ProductAnalyticsFunnelStepResult = z.infer<
   typeof productAnalyticsFunnelStepResultValidator

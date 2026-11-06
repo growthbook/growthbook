@@ -1,17 +1,14 @@
 import { isEqual } from "lodash";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type {
-  ExplorationConfig,
   JourneyDataset,
   JourneyPathStep,
   JourneyStepGroup,
   ProductAnalyticsDimension,
-  ProductAnalyticsExploration,
   ProductAnalyticsJourneyRow,
   ProductAnalyticsResultRow,
 } from "./validators/product-analytics";
 import {
-  datasetHasValues,
   DEFAULT_JOURNEY_OPTIONS_PER_STEP,
   MAX_JOURNEY_LOOKAHEAD_DEPTH,
   MAX_JOURNEY_OPTIONS_PER_STEP,
@@ -682,69 +679,6 @@ export function journeyDisplayLookaheadDepth(
     }
   }
   return depth;
-}
-
-/** Overlay the requested path and collapse cached lookahead to the display frontier. */
-export function toClientJourneyExploration(
-  exploration: ProductAnalyticsExploration,
-  requested: ExplorationConfig,
-): ProductAnalyticsExploration {
-  if (exploration.config.type !== "journey" || requested.type !== "journey") {
-    const { dataset } = exploration.config;
-    const requestedDataset = requested.dataset;
-    return {
-      ...exploration,
-      config: {
-        ...exploration.config,
-        chartType: requested.chartType,
-        showAs: requested.showAs,
-        chartSettings: requested.chartSettings,
-        dateRange: requested.dateRange,
-        ...(datasetHasValues(dataset) && datasetHasValues(requestedDataset)
-          ? {
-              dataset: {
-                ...dataset,
-                values: dataset.values.map((value, i) => {
-                  const requestedValue = requestedDataset.values[i];
-                  return {
-                    ...value,
-                    name: requestedValue.name,
-                    // Copied even when absent: no `showAs` means the default.
-                    showAs:
-                      "showAs" in requestedValue
-                        ? requestedValue.showAs
-                        : undefined,
-                  };
-                }),
-              },
-            }
-          : {}),
-      } as ExplorationConfig,
-    };
-  }
-  const cachedDataset = exploration.config.dataset;
-  const requestedDataset = requested.dataset;
-  const rows = projectJourneyRows({
-    cachedDataset,
-    cachedRows: exploration.result?.rows ?? [],
-    requestedDataset,
-  });
-  return {
-    ...exploration,
-    config: {
-      ...exploration.config,
-      chartType: requested.chartType,
-      showAs: requested.showAs,
-      chartSettings: requested.chartSettings,
-      dateRange: requested.dateRange,
-      dataset: {
-        ...cachedDataset,
-        path: requestedDataset.path,
-        optionsPerStep: requestedDataset.optionsPerStep,
-      },
-    },
-    result: { ...(exploration.result ?? { rows: [] }), rows },
-  };
 }
 
 export function journeyDimValueCount(
