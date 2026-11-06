@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { VisuallyHidden } from "@radix-ui/themes";
-import { PiBuilding, PiCheck } from "react-icons/pi";
+import { PiBuildings, PiCheck } from "react-icons/pi";
 import { DropdownMenu } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { withOpticalWeight } from "./opticalWeight";
@@ -23,7 +23,7 @@ import {
 import { useIsTruncated } from "./useIsTruncated";
 import styles from "./OrgMenu.module.scss";
 
-const OrgIcon = withOpticalWeight(PiBuilding);
+const OrgIcon = withOpticalWeight(PiBuildings);
 
 /** The side nav's organization switcher, for members of more than one. */
 export default function OrgMenu({
