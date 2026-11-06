@@ -19,7 +19,7 @@ In each case, a cluster of units nests another set of units.
   <img src="/static/images/cluster-experiments/cluster-diagram.png" alt="Diagram illustrating cluster-level assignment and user-level analysis in a cluster experiment. Organizations are grouped into treatment (purple) and control (teal) clusters. Each organization (e.g., Organization A, B, C, D) nests multiple users (e.g., User A1, A2, A3). Arrows show the hierarchical relationship between clusters (organizations) and individual users, with assignment occurring at the cluster level and analysis performed at the user level." width="800" />
 </Frame>
 
-Users in the same cluster tend to behave alike and all get the same variation, so they are not independent observations. If you analyze them as if they were randomized at the user level, confidence intervals are too narrow, producing too many false positives. Turning on **Cluster experiment** tells GrowthBook how the experiment was randomized so it can analyze it correctly.
+Users in the same cluster tend to behave alike and all get the same variation, so they are not independent observations. If you analyze them as if they were randomized at the user level, confidence intervals are too narrow, producing too many false positives. Telling GrowthBook you are running a **Cluster experiment** ensures we know the planned randomization and therefore can analyze it correctly.
 
 The examples on this page randomize by `organization_id` and analyze by `user_id`.
 
@@ -74,7 +74,7 @@ The REST API supports the same setting through the `isClusterExperiment` and `cl
 
 Cluster experiments support [Fact Metrics](/app/metrics#fact-tables) of type proportion, retention, mean, and ratio. You don't need to create separate cluster-level versions of your metrics. GrowthBook decides how to analyze each metric from the identifiers its fact table exposes:
 
-- **Subunit metrics.** If the fact table has the subunit identifier (directly or through an [identifier join](/app/datasources#identifier-join-tables)), the metric is analyzed per subunit, as described in [Methodology](#methodology). This needs the metric's aggregations to be sum, count distinct, or max.
+- **Subunit metrics.** If the fact table has the subunit identifier (directly or through an [identifier join](/app/datasources#identifier-join-tables)), the metric is analyzed per subunit, as described in [Methodology](#methodology). This needs the metric's aggregations to be sum, count distinct, max, or hll merge.
 - **Cluster metrics.** If the fact table has only the cluster identifier, the metric is analyzed with the cluster as the unit, like a standard experiment randomized on `organization_id`.
 
 The metric picker groups your metrics by the identifier they are analyzed on, and shows as disabled the metrics a cluster experiment cannot use.
