@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Flex, Text, Box } from "@radix-ui/themes";
 import { Popover } from "./Popover";
+import Badge from "./Badge";
 import Button from "./Button";
 import Switch from "./Switch";
 
@@ -78,18 +79,7 @@ export default function PopoverStories() {
                 anchorOnly
                 side="bottom"
                 sideOffset={8}
-                trigger={
-                  <Box
-                    px="2"
-                    py="1"
-                    style={{
-                      border: "1px solid var(--gray-a6)",
-                      borderRadius: "var(--radius-2)",
-                    }}
-                  >
-                    {tag}
-                  </Box>
-                }
+                trigger={<Badge label={tag} variant="outline" />}
                 content={
                   <Flex direction="column" gap="2" align="start">
                     <Text weight="bold">{tag}</Text>
