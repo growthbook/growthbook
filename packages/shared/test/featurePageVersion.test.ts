@@ -1,4 +1,7 @@
-import { getFeaturePageDefaultVersion } from "../src/revisions/featurePageVersion";
+import {
+  getFeaturePageDefaultVersion,
+  isUsersOpenDraft,
+} from "../src/revisions/featurePageVersion";
 
 const user = (id: string) => ({ type: "dashboard", id });
 // Newest first, the way the page and server both list revisions
@@ -60,5 +63,22 @@ describe("getFeaturePageDefaultVersion", () => {
     ["your draft when the requested version doesn't exist", 99, "u_me", 6],
   ] as const)("opens on %s", (_, requested, userId, expected) => {
     expect(pick(requested, userId)).toBe(expected);
+  });
+});
+
+describe("isUsersOpenDraft", () => {
+  const byVersion = (v: number) => revisionList.find((r) => r.version === v)!;
+  it.each([
+    ["your open draft", 5, "u_me", true],
+    ["your draft in review", 6, "u_me", true],
+    ["a draft you contributed to", 4, "u_c", true],
+    ["a draft your personal token made", 11, "u_pat", true],
+    ["someone else's draft", 9, "u_me", false],
+    ["a ramp-schedule draft you contributed to", 8, "u_me", false],
+    ["your discarded draft", 7, "u_me", false],
+    ["your published revision", 3, "u_me", false],
+    ["any draft when there's no user", 5, null, false],
+  ] as const)("%s", (_, version, userId, expected) => {
+    expect(isUsersOpenDraft(byVersion(version), userId)).toBe(expected);
   });
 });
