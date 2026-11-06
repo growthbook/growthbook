@@ -56,6 +56,55 @@
   }
 }
 
+// Tables in answers (the AI's own and query results): never squeezed enough
+// to split words. A narrower panel scrolls them sideways in their frame,
+// header and body together, the cut-off edge fading while there's more that
+// way (AgentPanel.tsx sets data-more-*). Over AIChatPrimitives' .bubble,
+// which lets any text break anywhere.
+.panel table {
+  min-width: 350px;
+
+  &,
+  * {
+    overflow-wrap: normal !important;
+  }
+}
+
+// The AI's tables (Markdown's tableFrameClassName): the frame scrolls, so the
+// table inside is a table again, not Markdown's own scrolling block.
+.tableFrame {
+  overflow-x: auto;
+  margin-bottom: 1em;
+}
+
+.panel .tableFrame > table {
+  display: table;
+  max-width: none;
+  overflow: visible;
+  margin-bottom: 0;
+}
+
+.panel :global([data-more-left]),
+.panel :global([data-more-right]) {
+  --fade-left: 0px;
+  --fade-right: 0px;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--fade-left),
+    #000 calc(100% - var(--fade-right)),
+    transparent
+  );
+}
+
+.panel :global([data-more-left]) {
+  --fade-left: 24px;
+}
+
+.panel :global([data-more-right]) {
+  --fade-right: 24px;
+}
+
 // Dragging its edge, it follows the pointer without easing.
 :global(html.agent-dock-resizing) .panel {
   transition: none !important;

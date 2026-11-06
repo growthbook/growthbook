@@ -21,6 +21,7 @@ import {
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
 import { AGENT_PANEL_PORTAL_Z_INDEX } from "./AgentPanelContext";
 import { groupConversationsByRecency } from "./chatHistoryUtils";
+import styles from "./AgentChatHistory.module.scss";
 
 const MENU_WIDTH = 300;
 // ScrollArea's viewport is max-content sized, so a nowrap title needs a hard cap.
@@ -87,6 +88,7 @@ export default function AgentChatHistory({
             size="md"
             icon={<PiCaretDownBold size={12} />}
             iconPosition="right"
+            className={styles.titleButton}
             aria-label={`${currentTitle}. Conversations: start a new one or open a recent one`}
             style={{
               maxWidth: "100%",
@@ -108,7 +110,7 @@ export default function AgentChatHistory({
               <span
                 style={{
                   display: "block",
-                  maxWidth: 200,
+                  minWidth: 0,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",

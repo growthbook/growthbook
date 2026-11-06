@@ -1,12 +1,16 @@
 /**
- * The docked AI Assistant panel's width: yours to drag wider, within limits
- * that keep the page usable. Past the widest, dragging on switches to its
+ * The docked AI Assistant panel's width: yours to drag, within limits that
+ * keep it and the page usable. Past the widest, dragging on switches to its
  * expanded (focus) mode instead.
  */
 
-/** Where it starts, and its narrowest: resizing only widens it. */
+/** Where it starts. */
 export const PANEL_DEFAULT_WIDTH = 400;
-export const PANEL_MIN_WIDTH = PANEL_DEFAULT_WIDTH;
+/**
+ * Its narrowest: tables in answers scroll sideways rather than squeeze
+ * (AgentPanel.module.scss), and the header's title truncates to fit.
+ */
+export const PANEL_MIN_WIDTH = 300;
 /**
  * About the expanded mode's 800px column and its padding; wider reads better
  * expanded.

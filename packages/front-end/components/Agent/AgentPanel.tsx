@@ -219,6 +219,20 @@ const useIsomorphicLayoutEffect =
 // Below 1024px there's too little room beside it, so the panel covers the
 // window.
 const OVERLAY_MAX_WIDTH = "(max-width: 1023px)";
+/**
+ * Marks a table's scrolling frame with which edges have more to scroll
+ * (data-more-left, data-more-right), for the fade (AgentPanel.module.scss).
+ */
+function markTableFrameEdges(tableFrame: HTMLElement) {
+  if (!/auto|scroll/.test(getComputedStyle(tableFrame).overflowX)) return;
+  const { scrollLeft, clientWidth, scrollWidth } = tableFrame;
+  tableFrame.toggleAttribute("data-more-left", scrollLeft > 1);
+  tableFrame.toggleAttribute(
+    "data-more-right",
+    scrollLeft + clientWidth < scrollWidth - 1,
+  );
+}
+
 const PANEL_FOCUSABLE =
   "a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [contenteditable='true'], [tabindex]:not([tabindex='-1'])";
 
@@ -326,6 +340,7 @@ export default function AgentPanel({
     },
     [panelWidthKey],
   );
+
   // While dragging, straight onto the page and the panel: no re-render.
   const previewPanelWidth = useCallback((width: number) => {
     const css = panelWidthCss(width);
@@ -927,6 +942,47 @@ export default function AgentPanel({
     ],
   );
 
+  // Tables in answers scroll sideways in their frames (AgentPanel.module.scss);
+  // a frame's cut-off edge fades while there's more that way.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    let frame = 0;
+    const updateAll = () => {
+      frame = 0;
+      panel.querySelectorAll("table").forEach((table) => {
+        const tableFrame = table.parentElement;
+        if (tableFrame) markTableFrameEdges(tableFrame);
+      });
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(updateAll);
+    };
+    // Scroll doesn't bubble: caught on the way down.
+    const onScroll = (e: Event) => {
+      if (
+        e.target instanceof HTMLElement &&
+        e.target.querySelector(":scope > table")
+      ) {
+        markTableFrameEdges(e.target);
+      }
+    };
+    schedule();
+    panel.addEventListener("scroll", onScroll, true);
+    const resize = new ResizeObserver(schedule);
+    resize.observe(panel);
+    // New and streaming answers.
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(panel, { childList: true, subtree: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      panel.removeEventListener("scroll", onScroll, true);
+      resize.disconnect();
+      mutations.disconnect();
+    };
+    // The panel's element only exists while it's rendered.
+  }, [rendered]);
+
   if (!rendered) return null;
 
   const latestActivityItem = [...visibleItems]
@@ -1037,6 +1093,8 @@ export default function AgentPanel({
       <Flex
         align="center"
         justify="between"
+        // The title truncates short of the buttons (AgentChatHistory).
+        gap="3"
         px="5"
         style={{ minHeight: 44, paddingTop: 8, paddingBottom: 4 }}
       >
@@ -1440,6 +1498,7 @@ function ActiveTurnItemRow({
             styles.prose,
             waitingForLink && aiChatStyles.streamingMarkdown,
           )}
+          tableFrameClassName={styles.tableFrame}
         >
           {displayed}
         </Markdown>
@@ -1566,6 +1625,7 @@ function PersistedTurn({
           <Markdown
             resolveInternalHref={resolveAgentPanelInternalHref}
             className={styles.prose}
+            tableFrameClassName={styles.tableFrame}
           >
             {replyContent}
           </Markdown>

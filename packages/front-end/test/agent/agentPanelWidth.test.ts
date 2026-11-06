@@ -14,8 +14,9 @@ import {
 } from "@/components/Agent/agentPanelWidth";
 
 describe("limits", () => {
-  it("starts at its narrowest: resizing only widens it", () => {
-    expect(PANEL_MIN_WIDTH).toBe(PANEL_DEFAULT_WIDTH);
+  it("opens at 400px and narrows to 300px", () => {
+    expect(PANEL_DEFAULT_WIDTH).toBe(400);
+    expect(PANEL_MIN_WIDTH).toBe(300);
   });
 });
 
@@ -32,16 +33,17 @@ describe("maxPanelWidth", () => {
 
   it("never goes under the minimum on a small window", () => {
     expect(maxPanelWidth(1100, 0)).toBe(560);
-    expect(maxPanelWidth(900, 0)).toBe(PANEL_MIN_WIDTH);
+    expect(maxPanelWidth(800, 0)).toBe(PANEL_MIN_WIDTH);
   });
 });
 
 describe("canResizePanel", () => {
-  it("only with room to widen it by at least a key step", () => {
-    expect(canResizePanel(maxPanelWidth(900, 0))).toBe(false);
-    expect(canResizePanel(maxPanelWidth(1190, 240))).toBe(false);
-    expect(canResizePanel(maxPanelWidth(1196, 240))).toBe(true);
-    expect(canResizePanel(maxPanelWidth(1100, 0))).toBe(true);
+  it("only with room to resize it by at least a key step", () => {
+    expect(canResizePanel(PANEL_MIN_WIDTH)).toBe(false);
+    expect(canResizePanel(PANEL_MIN_WIDTH + 15)).toBe(false);
+    expect(canResizePanel(PANEL_MIN_WIDTH + 16)).toBe(true);
+    // Docked (from 1024px), there's always room.
+    expect(canResizePanel(maxPanelWidth(1024, 0))).toBe(true);
   });
 });
 
@@ -56,7 +58,7 @@ describe("clampPanelWidth", () => {
 describe("panelWidthCss", () => {
   it("states the same limits for the browser to apply", () => {
     expect(panelWidthCss(480)).toBe(
-      "clamp(400px, 480px, max(400px, min(900px, 100vw - var(--page-nav-width, 0px) - 540px)))",
+      "clamp(300px, 480px, max(300px, min(900px, 100vw - var(--page-nav-width, 0px) - 540px)))",
     );
   });
 });
@@ -101,7 +103,7 @@ describe("keyPanelWidth", () => {
     expect(keyPanelWidth(500, "Home", false, 700)).toBe(PANEL_MIN_WIDTH);
     expect(keyPanelWidth(500, "End", false, 700)).toBe(700);
     expect(keyPanelWidth(690, "ArrowLeft", false, 700)).toBe(700);
-    expect(keyPanelWidth(410, "ArrowRight", false, 700)).toBe(PANEL_MIN_WIDTH);
+    expect(keyPanelWidth(310, "ArrowRight", false, 700)).toBe(PANEL_MIN_WIDTH);
   });
 
   it("ignores other keys", () => {
@@ -115,10 +117,10 @@ describe("parseSavedPanelWidth", () => {
     expect(parseSavedPanelWidth("900")).toBe(900);
   });
 
-  it("ignores a missing, broken or out-of-range one, including the old 360px minimum", () => {
+  it("ignores a missing, broken or out-of-range one", () => {
     expect(parseSavedPanelWidth(null)).toBeNull();
     expect(parseSavedPanelWidth("wide")).toBeNull();
-    expect(parseSavedPanelWidth("360")).toBeNull();
+    expect(parseSavedPanelWidth("250")).toBeNull();
     expect(parseSavedPanelWidth("5000")).toBeNull();
   });
 });
