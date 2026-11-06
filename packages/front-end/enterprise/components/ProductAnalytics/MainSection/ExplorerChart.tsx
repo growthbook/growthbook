@@ -249,7 +249,9 @@ export default function ExplorerChart({
         : 0;
       return {
         value,
-        label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
+        label: v.name?.trim()
+          ? renderOpts.values[metricIndex].seriesName
+          : `Metric ${metricIndex + 1}`,
       };
     });
   }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
