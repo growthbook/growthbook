@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ComponentProps, useEffect, useId, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import Modal from "@/ui/Modal";
@@ -26,6 +26,19 @@ export default function NewNavigationIntroModal() {
     }
   }, [router.isReady, router.query.preview]);
 
+  const descriptionId = useId();
+  // Focus goes to the dialog itself, so no focus ring shows until you tab. The
+  // body's two paragraphs are its description, read out as it opens; Modal's
+  // own Description holds only one, so the link is set here, before focusing.
+  const onOpenAutoFocus: ComponentProps<
+    typeof Modal.Root
+  >["onOpenAutoFocus"] = (e) => {
+    e.preventDefault();
+    const dialog = e.currentTarget as HTMLElement;
+    dialog.setAttribute("aria-describedby", descriptionId);
+    dialog.focus({ preventScroll: true });
+  };
+
   return (
     <Modal.Root
       open={open}
@@ -33,8 +46,9 @@ export default function NewNavigationIntroModal() {
       size="md"
       // Got it, Escape and clicking outside all close it.
       dismissible
-      // The body is two paragraphs, which Modal.Description can't hold.
+      // Described by the body instead (onOpenAutoFocus).
       hasDescription={false}
+      onOpenAutoFocus={onOpenAutoFocus}
       // Not tracked while it's preview-only.
       trackingEventModalType=""
     >
@@ -73,7 +87,7 @@ export default function NewNavigationIntroModal() {
         </Flex>
       </Modal.Header>
       <Modal.Body>
-        <Flex direction="column" gap="3">
+        <Flex id={descriptionId} direction="column" gap="3">
           <Text as="p" color="text-mid">
             We&apos;ve simplified the header and moved its menus into the side
             navigation, so everything lives in one place. Collapse it any time
