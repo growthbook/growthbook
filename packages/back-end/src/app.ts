@@ -176,6 +176,7 @@ import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { experimentExposuresRouter } from "./routers/experiment-exposures/experiment-exposures.router";
+import { adminManagedWarehouseRouter } from "./routers/admin-managed-warehouse/admin-managed-warehouse.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -1281,6 +1282,7 @@ app.post(
   "/admin/sso-connection",
   adminController._dangerousAdminUpsertSSOConnection,
 );
+app.use(adminManagedWarehouseRouter);
 
 // License
 app.get("/license", licenseController.getLicenseData);

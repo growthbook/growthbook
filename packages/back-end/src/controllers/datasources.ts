@@ -126,7 +126,8 @@ import {
   removeManagedWarehouseLegacyIdentifier,
   setManagedWarehouseIdAttributeIdentifier,
 } from "back-end/src/services/clickhouse";
-import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
+import { requestManagedWarehouseRecreates } from "back-end/src/services/managedWarehouseRecreate";
+import { queueManagedWarehouseRecreate } from "back-end/src/jobs/recreateManagedWarehouseTables";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
@@ -2054,18 +2055,21 @@ export async function postRecreateManagedWarehouse(
     req.body ?? {},
   );
 
-  const result = await dangerousRecreateClickhouseTables(
-    context.org.id,
-    tables,
-  );
-  if (result === "already-running") {
+  const created = await requestManagedWarehouseRecreates({
+    organizations: [context.org.id],
+    tables: tables ?? [...MANAGED_WAREHOUSE_RECREATABLE_TABLES],
+    requestedBy: context.userId,
+  });
+  if (!created) {
     res.status(409).json({
       status: 409,
       message:
-        "A recreate is already in progress for this Managed Warehouse. Please wait for it to finish before triggering another.",
+        "A recreate is already in progress for this Managed Warehouse, or it hasn't been set up yet.",
     });
     return;
   }
+  // Start now rather than on the next sweep
+  await queueManagedWarehouseRecreate(context.org.id);
 
   res.status(200).json({
     status: 200,

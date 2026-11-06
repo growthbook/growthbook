@@ -102,6 +102,15 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
+// The super-admin recreate request isn't part of the datasource and is written
+// outside this schema; only the admin endpoints read it
+// (services/managedWarehouseRecreate).
+dataSourceSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.recreateRequest;
+    return ret;
+  },
+});
 
 // At most one Managed Warehouse per org. Partial so other datasource types
 // stay unconstrained. exists() is the fast path; this index closes the race

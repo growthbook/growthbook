@@ -1,0 +1,292 @@
+import {
+  MANAGED_WAREHOUSE_RECREATABLE_TABLES,
+  ManagedWarehouseRecreatableTable,
+} from "shared/util";
+import type {
+  ManagedWarehouseRecreateRequest,
+  ManagedWarehouseRecreateStatus,
+} from "shared/validators";
+import { getCollection } from "back-end/src/util/mongo.util";
+import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
+import { logger } from "back-end/src/util/logger";
+
+// Recreate requests live on each org's Managed Warehouse datasource document
+// (see managedWarehouseRecreateRequestValidator). `recreateStatus` is written by
+// the license server when a recreate it started finishes.
+type RecreateDatasourceDoc = {
+  organization: string;
+  type: string;
+  settings?: { hasBeenProvisioned?: boolean };
+  recreateRequest?: ManagedWarehouseRecreateRequest;
+  recreateStatus?: { status: "success" | "error"; at: Date; error?: string };
+};
+
+/** How many recreates may run at once across all orgs. */
+export const MAX_CONCURRENT_RECREATES = 2;
+
+// The license server holds its lock for 30 minutes; allow well beyond that
+// before giving up on hearing back.
+const RECREATE_TIMEOUT_MS = 3 * 60 * 60 * 1000;
+
+const MANAGED_WAREHOUSE_FILTER = { type: "growthbook_clickhouse" } as const;
+
+function datasources() {
+  return getCollection<RecreateDatasourceDoc>("datasources");
+}
+
+/**
+ * Request a recreate of the given tables for each org's Managed Warehouse.
+ * Never-provisioned warehouses (no tables yet) and orgs with a recreate already
+ * running are skipped. Returns how many requests were created.
+ */
+export async function requestManagedWarehouseRecreates({
+  organizations,
+  tables,
+  requestedBy,
+}: {
+  organizations: string[] | "all";
+  tables: ManagedWarehouseRecreatableTable[];
+  requestedBy: string;
+}): Promise<number> {
+  const request: ManagedWarehouseRecreateRequest = {
+    tables,
+    requestedBy,
+    requestedAt: new Date(),
+    status: "pending",
+  };
+  const res = await datasources().updateMany(
+    {
+      ...MANAGED_WAREHOUSE_FILTER,
+      "settings.hasBeenProvisioned": { $ne: false },
+      "recreateRequest.status": { $ne: "running" },
+      ...(organizations === "all"
+        ? {}
+        : { organization: { $in: organizations } }),
+    },
+    { $set: { recreateRequest: request } },
+  );
+  return res.modifiedCount;
+}
+
+export async function getManagedWarehouseRecreateRequest(
+  organization: string,
+): Promise<ManagedWarehouseRecreateRequest | null> {
+  const doc = await datasources().findOne(
+    { ...MANAGED_WAREHOUSE_FILTER, organization },
+    { projection: { recreateRequest: 1 } },
+  );
+  return doc?.recreateRequest ?? null;
+}
+
+/** Counts by status, plus every request that isn't done. */
+export async function getManagedWarehouseRecreateSummary(): Promise<{
+  counts: Record<ManagedWarehouseRecreateStatus, number>;
+  requests: {
+    organization: string;
+    request: ManagedWarehouseRecreateRequest;
+  }[];
+}> {
+  const docs = await datasources()
+    .find(
+      { ...MANAGED_WAREHOUSE_FILTER, recreateRequest: { $exists: true } },
+      { projection: { organization: 1, recreateRequest: 1 } },
+    )
+    .toArray();
+
+  const counts: Record<ManagedWarehouseRecreateStatus, number> = {
+    pending: 0,
+    running: 0,
+    done: 0,
+    failed: 0,
+  };
+  const requests: {
+    organization: string;
+    request: ManagedWarehouseRecreateRequest;
+  }[] = [];
+  for (const { organization, recreateRequest } of docs) {
+    if (!recreateRequest) continue;
+    counts[recreateRequest.status]++;
+    if (recreateRequest.status !== "done") {
+      requests.push({ organization, request: recreateRequest });
+    }
+  }
+  requests.sort(
+    (a, b) => a.request.requestedAt.getTime() - b.request.requestedAt.getTime(),
+  );
+  return { counts, requests };
+}
+
+/** Put every failed request back in the queue. Returns how many. */
+export async function retryFailedManagedWarehouseRecreates(
+  requestedBy: string,
+): Promise<number> {
+  const res = await datasources().updateMany(
+    { ...MANAGED_WAREHOUSE_FILTER, "recreateRequest.status": "failed" },
+    {
+      $set: {
+        "recreateRequest.status": "pending",
+        "recreateRequest.requestedBy": requestedBy,
+        "recreateRequest.requestedAt": new Date(),
+      },
+      $unset: {
+        "recreateRequest.startedAt": "",
+        "recreateRequest.finishedAt": "",
+        "recreateRequest.error": "",
+      },
+    },
+  );
+  return res.modifiedCount;
+}
+
+/** Drop every request that hasn't started yet. Returns how many. */
+export async function cancelPendingManagedWarehouseRecreates(): Promise<number> {
+  const res = await datasources().updateMany(
+    { ...MANAGED_WAREHOUSE_FILTER, "recreateRequest.status": "pending" },
+    { $unset: { recreateRequest: "" } },
+  );
+  return res.modifiedCount;
+}
+
+export async function getOrganizationsWithRecreateStatus(
+  status: ManagedWarehouseRecreateStatus,
+  limit: number,
+): Promise<string[]> {
+  if (limit <= 0) return [];
+  const docs = await datasources()
+    .find(
+      { ...MANAGED_WAREHOUSE_FILTER, "recreateRequest.status": status },
+      {
+        projection: { organization: 1 },
+        sort: { "recreateRequest.requestedAt": 1 },
+        limit,
+      },
+    )
+    .toArray();
+  return docs.map((d) => d.organization);
+}
+
+export async function countRunningManagedWarehouseRecreates(): Promise<number> {
+  return datasources().countDocuments({
+    ...MANAGED_WAREHOUSE_FILTER,
+    "recreateRequest.status": "running",
+  });
+}
+
+async function finishRecreate(
+  organization: string,
+  startedAt: Date,
+  status: "done" | "failed",
+  error?: string,
+) {
+  await datasources().updateOne(
+    {
+      ...MANAGED_WAREHOUSE_FILTER,
+      organization,
+      "recreateRequest.status": "running",
+      "recreateRequest.startedAt": startedAt,
+    },
+    {
+      $set: {
+        "recreateRequest.status": status,
+        "recreateRequest.finishedAt": new Date(),
+        ...(error ? { "recreateRequest.error": error } : {}),
+      },
+    },
+  );
+}
+
+/**
+ * Move an org's recreate request forward one step: start it if it's pending
+ * and there's room, or record the result if the license server has finished it.
+ */
+export async function advanceManagedWarehouseRecreate(
+  organization: string,
+): Promise<void> {
+  const doc = await datasources().findOne(
+    { ...MANAGED_WAREHOUSE_FILTER, organization },
+    { projection: { recreateRequest: 1, recreateStatus: 1 } },
+  );
+  const request = doc?.recreateRequest;
+  if (!request) return;
+
+  if (request.status === "running" && request.startedAt) {
+    const result = doc.recreateStatus;
+    if (result && result.at > request.startedAt) {
+      await finishRecreate(
+        organization,
+        request.startedAt,
+        result.status === "success" ? "done" : "failed",
+        result.error,
+      );
+    } else if (Date.now() - request.startedAt.getTime() > RECREATE_TIMEOUT_MS) {
+      await finishRecreate(
+        organization,
+        request.startedAt,
+        "failed",
+        "The license server didn't report a result within 3 hours",
+      );
+    }
+    return;
+  }
+
+  if (request.status !== "pending") return;
+  if (
+    (await countRunningManagedWarehouseRecreates()) >= MAX_CONCURRENT_RECREATES
+  ) {
+    return;
+  }
+
+  // Claim the request before calling the license server, so a second job
+  // can't start the same recreate.
+  const startedAt = new Date();
+  const claimed = await datasources().updateOne(
+    {
+      ...MANAGED_WAREHOUSE_FILTER,
+      organization,
+      "recreateRequest.status": "pending",
+      "recreateRequest.requestedAt": request.requestedAt,
+    },
+    {
+      $set: {
+        "recreateRequest.status": "running",
+        "recreateRequest.startedAt": startedAt,
+      },
+    },
+  );
+  if (!claimed.modifiedCount) return;
+
+  try {
+    const allTables = MANAGED_WAREHOUSE_RECREATABLE_TABLES.every((t) =>
+      request.tables.includes(t),
+    );
+    const result = await dangerousRecreateClickhouseTables(
+      organization,
+      allTables ? undefined : request.tables,
+    );
+    if (result === "already-running") {
+      // Another recreate holds the org's lock. Requeue so the sweep retries.
+      await datasources().updateOne(
+        {
+          ...MANAGED_WAREHOUSE_FILTER,
+          organization,
+          "recreateRequest.startedAt": startedAt,
+        },
+        {
+          $set: { "recreateRequest.status": "pending" },
+          $unset: { "recreateRequest.startedAt": "" },
+        },
+      );
+    }
+  } catch (e) {
+    logger.error(
+      e,
+      `Failed to start Managed Warehouse recreate for ${organization}`,
+    );
+    await finishRecreate(
+      organization,
+      startedAt,
+      "failed",
+      e instanceof Error ? e.message : String(e),
+    );
+  }
+}

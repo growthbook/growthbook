@@ -42,11 +42,15 @@ import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
 import KeyValues from "@/components/Admin/KeyValues";
+import {
+  RecreateRequestSummary,
+  RecreateTablesCheckboxes,
+  useManagedWarehouseRecreateRequest,
+} from "@/components/Admin/ManagedWarehouseRecreate";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -185,6 +189,8 @@ function OrganizationDetail({
   const [recreateTables, setRecreateTables] = useState<
     ManagedWarehouseRecreatableTable[]
   >([...MANAGED_WAREHOUSE_RECREATABLE_TABLES]);
+  const { request: recreateRequest, mutate: mutateRecreateRequest } =
+    useManagedWarehouseRecreateRequest(org.id);
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
 
   const users = new Map((membersData?.members ?? []).map((u) => [u.id, u]));
@@ -436,30 +442,17 @@ function OrganizationDetail({
                 ),
               },
             );
+            await mutateRecreateRequest();
           }}
         >
           <Text as="p" mb="3">
             Each selected table is rebuilt and backfilled from raw events. This
             may take several minutes. Queries keep working while it runs.
           </Text>
-          <Flex direction="column" gap="2">
-            {MANAGED_WAREHOUSE_RECREATABLE_TABLES.map((table) => (
-              <Checkbox
-                key={table}
-                label={table}
-                value={recreateTables.includes(table)}
-                setValue={(checked) =>
-                  setRecreateTables((prev) =>
-                    checked
-                      ? MANAGED_WAREHOUSE_RECREATABLE_TABLES.filter(
-                          (t) => t === table || prev.includes(t),
-                        )
-                      : prev.filter((t) => t !== table),
-                  )
-                }
-              />
-            ))}
-          </Flex>
+          <RecreateTablesCheckboxes
+            value={recreateTables}
+            setValue={setRecreateTables}
+          />
         </ModalStandard>
       )}
       {rawOpen && (
@@ -862,19 +855,24 @@ function OrganizationDetail({
             {isCloud() && canProvision && (
               <Box mt="3">
                 {managedWarehouse ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    color="red"
-                    onClick={() => {
-                      setRecreateTables([
-                        ...MANAGED_WAREHOUSE_RECREATABLE_TABLES,
-                      ]);
-                      setRecreateOpen(true);
-                    }}
-                  >
-                    Drop and recreate Managed Warehouse
-                  </Button>
+                  <Flex direction="column" gap="3" align="start">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      color="red"
+                      onClick={() => {
+                        setRecreateTables([
+                          ...MANAGED_WAREHOUSE_RECREATABLE_TABLES,
+                        ]);
+                        setRecreateOpen(true);
+                      }}
+                    >
+                      Drop and recreate Managed Warehouse
+                    </Button>
+                    {recreateRequest && (
+                      <RecreateRequestSummary request={recreateRequest} />
+                    )}
+                  </Flex>
                 ) : (
                   <Button
                     size="sm"
