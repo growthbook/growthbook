@@ -5,7 +5,7 @@ import { IconButton, VisuallyHidden } from "@radix-ui/themes";
 import clsx from "clsx";
 import { IconType } from "react-icons";
 import {
-  PiBuildingBold,
+  PiBuildingsBold,
   PiCircleHalf,
   PiFileText,
   PiHourglassHigh,
@@ -163,7 +163,7 @@ export default function ProfileMenu({
                 nav, the picker below) shows it. */}
             {orgName && !multiOrg ? (
               <span className={styles.orgLine}>
-                <PiBuildingBold size={12} aria-hidden="true" />
+                <PiBuildingsBold size={12} aria-hidden="true" />
                 <Text size="sm" color="text-low" truncate>
                   {orgName}
                 </Text>
