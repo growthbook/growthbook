@@ -127,11 +127,11 @@ const EnvironmentsPage: FC = () => {
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Environment</TableColumnHeader>
-              <TableColumnHeader>Production</TableColumnHeader>
               <TableColumnHeader>Description</TableColumnHeader>
               <TableColumnHeader>Projects</TableColumnHeader>
               <TableColumnHeader>SDK Connections</TableColumnHeader>
               <TableColumnHeader>Default state</TableColumnHeader>
+              <TableColumnHeader>Production</TableColumnHeader>
               <TableColumnHeader>Show on features page</TableColumnHeader>
               <TableColumnHeader style={{ width: 30 }} />
             </TableRow>
@@ -161,25 +161,6 @@ const EnvironmentsPage: FC = () => {
               return (
                 <TableRow key={e.id}>
                   <TableCell>{e.id}</TableCell>
-                  <TableCell>
-                    <Tooltip
-                      body={
-                        isProductionEnvironment(e)
-                          ? "Production environment"
-                          : "Non-production environment"
-                      }
-                    >
-                      {isProductionEnvironment(e) ? (
-                        <FaRegCircleCheck
-                          style={{ color: "var(--green-9)", fontSize: 18 }}
-                        />
-                      ) : (
-                        <FaRegCircleXmark
-                          style={{ color: "var(--gray-8)", fontSize: 18 }}
-                        />
-                      )}
-                    </Tooltip>
-                  </TableCell>
                   <TableCell>{e.description}</TableCell>
                   <TableCell>
                     {(e?.projects?.length || 0) > 0 ? (
@@ -229,6 +210,25 @@ const EnvironmentsPage: FC = () => {
                       ) : (
                         <FaRegCircleCheck
                           style={{ color: "var(--green-9)", fontSize: 18 }}
+                        />
+                      )}
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip
+                      body={
+                        isProductionEnvironment(e)
+                          ? "Production environment"
+                          : "Non-production environment"
+                      }
+                    >
+                      {isProductionEnvironment(e) ? (
+                        <FaRegCircleCheck
+                          style={{ color: "var(--green-9)", fontSize: 18 }}
+                        />
+                      ) : (
+                        <FaRegCircleXmark
+                          style={{ color: "var(--gray-8)", fontSize: 18 }}
                         />
                       )}
                     </Tooltip>
