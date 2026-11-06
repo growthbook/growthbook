@@ -33,6 +33,7 @@ import { AttributeBadge } from "./AttributeBadge";
 import { EntityBadge, PlainEntityBadge } from "./EntityBadge";
 import ForceSummary from "./ForceSummary";
 import RolloutRow from "./RolloutRow";
+import RuleField from "./RuleField";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -67,7 +68,7 @@ export function TempRolloutCallout({
     experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
   const isOld = getTempRolloutStaleReason(experiment) === "old-temp-rollout";
   return (
-    <Callout status={isOld ? "warning" : "info"} size="sm" mt="3">
+    <Callout status={isOld ? "warning" : "info"} size="sm" mb="3">
       Temporary rollout from {isBandit ? "a Bandit" : "an experiment"} that
       stopped {lastPhaseEnded ? ago(lastPhaseEnded) : "earlier"}.{" "}
       {isOld
@@ -165,45 +166,42 @@ export default function ExperimentRefSummary({
         </Callout>
       )}
       {hasCondition && (
-        <Flex direction="row" gap="2" mb="3">
-          <Text weight="medium">IF</Text>
-          <Box>
-            <ConditionDisplay
-              condition={phase.condition}
-              savedGroups={phase.savedGroups}
-              prerequisites={phase.prerequisites}
-            />
-          </Box>
-        </Flex>
+        <RuleField label="Targeting">
+          <ConditionDisplay
+            condition={phase.condition}
+            savedGroups={phase.savedGroups}
+            prerequisites={phase.prerequisites}
+          />
+        </RuleField>
       )}
 
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">SPLIT</Text>
-        by
-        <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
-        {hasNamespace && (
-          <>
-            in the namespace
-            <NextLink href={`/namespaces`}>
-              <EntityBadge
-                label={
-                  <Text color="text-high">
-                    {namespaces?.find((n) => n.name === phase.namespace!.name)
-                      ?.label || (
-                      <span
-                        className="italic text-danger"
-                        title="this namespace is not found"
-                      >
-                        <FaExclamationTriangle /> {phase.namespace!.name}
-                      </span>
-                    )}
-                  </Text>
-                }
-              />
-            </NextLink>
-          </>
-        )}
-      </Flex>
+      <RuleField label="Split by">
+        <Flex align="center" gap="2" wrap="wrap">
+          <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
+          {hasNamespace && (
+            <>
+              in the namespace
+              <NextLink href={`/namespaces`}>
+                <EntityBadge
+                  label={
+                    <Text color="text-high">
+                      {namespaces?.find((n) => n.name === phase.namespace!.name)
+                        ?.label || (
+                        <span
+                          className="italic text-danger"
+                          title="this namespace is not found"
+                        >
+                          <FaExclamationTriangle /> {phase.namespace!.name}
+                        </span>
+                      )}
+                    </Text>
+                  }
+                />
+              </NextLink>
+            </>
+          )}
+        </Flex>
+      </RuleField>
       <RolloutRow coverage={effectiveCoverage}>
         {hasNamespace && (
           <>
@@ -229,161 +227,159 @@ export default function ExperimentRefSummary({
         />
       ) : (
         <>
-          <Flex gap="2">
-            <Text weight="medium">SERVE</Text>
+          <RuleField label="Serve">
             {useStickyBucketing ? (
-              <Text>
-                (Sticky Bucketing{" "}
-                {experiment.disableStickyBucketing ? "disabled" : "enabled"})
+              <Text as="div" color="text-mid">
+                Sticky Bucketing{" "}
+                {experiment.disableStickyBucketing ? "disabled" : "enabled"}
               </Text>
             ) : null}
-          </Flex>
+            <Box
+              mt={useStickyBucketing ? "2" : "0"}
+              px="3"
+              style={{
+                border: "1px solid var(--gray-a5)",
+                borderRadius: "var(--radius-2)",
+              }}
+            >
+              <ValueDiffProvider>
+                <Table>
+                  <TableBody>
+                    {getLatestPhaseVariations(experiment).map(
+                      (variation, j) => {
+                        const variationEntry = variations.find(
+                          (v) => v.variationId === variation.id,
+                        );
+                        const isMissing = variationEntry === undefined;
+                        const value = variationEntry?.value ?? "";
 
-          <Box
-            mt="3"
-            px="3"
-            style={{
-              border: "1px solid var(--gray-a5)",
-              borderRadius: "var(--radius-2)",
-            }}
-          >
-            <ValueDiffProvider>
-              <Table>
-                <TableBody>
-                  {getLatestPhaseVariations(experiment).map((variation, j) => {
-                    const variationEntry = variations.find(
-                      (v) => v.variationId === variation.id,
-                    );
-                    const isMissing = variationEntry === undefined;
-                    const value = variationEntry?.value ?? "";
+                        const weight = phase.variationWeights?.[j] || 0;
 
-                    const weight = phase.variationWeights?.[j] || 0;
-
-                    return (
-                      <TableRow
-                        key={j}
-                        style={{ color: "var(--color-text-high)" }}
-                      >
-                        <TableCell style={{ whiteSpace: "nowrap" }}>
-                          <Flex align="center" gap="2">
-                            <span
-                              style={{
-                                color: getVariationColor(j, true),
-                                borderColor: getVariationColor(j, true),
-                                fontSize: "14px",
-                                width: 20,
-                                height: 20,
-                                borderRadius: 20,
-                                borderWidth: 1,
-                                borderStyle: "solid",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                flexShrink: 0,
-                              }}
-                            >
-                              {j}
-                            </span>
-                            <Text weight="medium" whiteSpace="nowrap">
-                              {variation.name}
-                            </Text>
-                          </Flex>
-                        </TableCell>
-                        {!isBandit && (
-                          <TableCell
-                            style={{
-                              color: "var(--color-text-mid)",
-                              textAlign: "right",
-                            }}
+                        return (
+                          <TableRow
+                            key={j}
+                            style={{ color: "var(--color-text-high)" }}
                           >
-                            {percentFormatter.format(weight)}
-                          </TableCell>
-                        )}
-                        <TableCell width="100%">
-                          {isMissing ? (
-                            <HelperText status="warning">
-                              Define missing values
-                            </HelperText>
-                          ) : (
-                            (() => {
-                              // Config-backed arms render the config's name —
-                              // never the raw `@config:` directive. Only a
-                              // config-backed feature resolves configs.
-                              const baseConfigKey =
-                                getFeatureBaseConfigKey(feature);
-                              const configKey =
-                                baseConfigKey !== null
-                                  ? (getConfigBackingKey(value) ??
-                                    baseConfigKey)
-                                  : null;
-                              if (configKey !== null) {
-                                return (
-                                  <ConfigBackedSummary
-                                    label={null}
-                                    value={value}
-                                    configKey={configKey}
-                                    feature={feature}
-                                    sparse={rule.sparse}
-                                    environment={environment}
-                                  />
-                                );
-                              }
-                              return (
-                                <>
-                                  <ValueDisplay
-                                    value={value}
-                                    type={type}
-                                    showFullscreenButton={true}
-                                    sparse={rule.sparse}
-                                    defaultValue={feature.defaultValue}
-                                    actionsOverlay={{ inline: true }}
-                                  />
-                                  <ValidateValue
-                                    value={value}
-                                    feature={feature}
-                                  />
-                                </>
-                              );
-                            })()
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </ValueDiffProvider>
-          </Box>
-          <Box mt="3" mb="3">
-            {!isBandit && (
-              <ExperimentSplitVisual
-                values={getLatestPhaseVariations(experiment).map(
-                  (variation, j) => {
-                    return {
-                      name: variation.name,
-                      value:
-                        variations.find((v) => v.variationId === variation.id)
-                          ?.value ?? "",
-                      weight: phase.variationWeights?.[j] || 0,
-                    };
-                  },
-                )}
-                coverage={effectiveCoverage}
-                label="Traffic split"
-                unallocated="Not included (skips this rule)"
-                type={type}
-                showValues={false}
-                stackLeft={true}
-                showPercentages={true}
-              />
-            )}
-          </Box>
+                            <TableCell style={{ whiteSpace: "nowrap" }}>
+                              <Flex align="center" gap="2">
+                                <span
+                                  style={{
+                                    color: getVariationColor(j, true),
+                                    borderColor: getVariationColor(j, true),
+                                    fontSize: "14px",
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: 20,
+                                    borderWidth: 1,
+                                    borderStyle: "solid",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {j}
+                                </span>
+                                <Text weight="medium" whiteSpace="nowrap">
+                                  {variation.name}
+                                </Text>
+                              </Flex>
+                            </TableCell>
+                            {!isBandit && (
+                              <TableCell
+                                style={{
+                                  color: "var(--color-text-mid)",
+                                  textAlign: "right",
+                                }}
+                              >
+                                {percentFormatter.format(weight)}
+                              </TableCell>
+                            )}
+                            <TableCell width="100%">
+                              {isMissing ? (
+                                <HelperText status="warning">
+                                  Define missing values
+                                </HelperText>
+                              ) : (
+                                (() => {
+                                  // Config-backed arms render the config's name —
+                                  // never the raw `@config:` directive. Only a
+                                  // config-backed feature resolves configs.
+                                  const baseConfigKey =
+                                    getFeatureBaseConfigKey(feature);
+                                  const configKey =
+                                    baseConfigKey !== null
+                                      ? (getConfigBackingKey(value) ??
+                                        baseConfigKey)
+                                      : null;
+                                  if (configKey !== null) {
+                                    return (
+                                      <ConfigBackedSummary
+                                        label={null}
+                                        value={value}
+                                        configKey={configKey}
+                                        feature={feature}
+                                        sparse={rule.sparse}
+                                        environment={environment}
+                                      />
+                                    );
+                                  }
+                                  return (
+                                    <>
+                                      <ValueDisplay
+                                        value={value}
+                                        type={type}
+                                        showFullscreenButton={true}
+                                        sparse={rule.sparse}
+                                        defaultValue={feature.defaultValue}
+                                        actionsOverlay={{ inline: true }}
+                                      />
+                                      <ValidateValue
+                                        value={value}
+                                        feature={feature}
+                                      />
+                                    </>
+                                  );
+                                })()
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      },
+                    )}
+                  </TableBody>
+                </Table>
+              </ValueDiffProvider>
+            </Box>
+            <Box mt="3" mb="3">
+              {!isBandit && (
+                <ExperimentSplitVisual
+                  values={getLatestPhaseVariations(experiment).map(
+                    (variation, j) => {
+                      return {
+                        name: variation.name,
+                        value:
+                          variations.find((v) => v.variationId === variation.id)
+                            ?.value ?? "",
+                        weight: phase.variationWeights?.[j] || 0,
+                      };
+                    },
+                  )}
+                  coverage={effectiveCoverage}
+                  label="Traffic split"
+                  unallocated="Not included (skips this rule)"
+                  type={type}
+                  showValues={false}
+                  stackLeft={true}
+                  showPercentages={true}
+                />
+              )}
+            </Box>
+          </RuleField>
 
-          <Flex direction="row" gap="2">
-            <Text weight="medium">TRACK</Text>
-            the result using the key
+          <RuleField label="Tracking key" mb="0">
             <PlainEntityBadge label={experiment.trackingKey} />
-          </Flex>
+          </RuleField>
         </>
       )}
     </Box>

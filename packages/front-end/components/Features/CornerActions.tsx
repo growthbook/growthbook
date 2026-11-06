@@ -9,8 +9,7 @@ export type ActionsOverlay = {
   style?: CSSProperties;
   // Hidden until the value is hovered or focused.
   revealOnHover?: boolean;
-  // The value hugs its content and the buttons follow it, at its foot,
-  // rather than sitting over its container's corner.
+  // The value hugs its content rather than spanning its container.
   inline?: boolean;
 };
 
@@ -22,38 +21,26 @@ export type ActionsOverlay = {
 export default function CornerActions({
   overlay,
   actions,
+  oneLine = false,
   children,
 }: {
   overlay?: ActionsOverlay;
   actions?: ReactNode;
+  // A single line, which an inline value keeps clear of its buttons.
+  oneLine?: boolean;
   children: ReactNode;
 }) {
   const reveal = !!overlay?.revealOnHover;
-  if (overlay?.inline) {
-    return (
-      <Flex
-        align="end"
-        gap="2"
-        className={clsx(styles.value, reveal && styles.hoverActions)}
-      >
-        <Box minWidth="0">{children}</Box>
-        {actions ? (
-          <Flex
-            align="center"
-            gap="3"
-            flexShrink="0"
-            className={styles.actions}
-          >
-            {actions}
-          </Flex>
-        ) : null}
-      </Flex>
-    );
-  }
   return (
     <Box
       position="relative"
-      className={clsx(styles.value, reveal && styles.hoverActions)}
+      className={clsx(
+        styles.value,
+        overlay?.inline && styles.inline,
+        overlay?.inline && oneLine && actions && styles.room,
+        overlay?.inline && !oneLine && styles.lines,
+        reveal && styles.hoverActions,
+      )}
     >
       {children}
       {actions ? (
@@ -64,7 +51,9 @@ export default function CornerActions({
           style={{
             position: "absolute",
             bottom: 4,
-            right: 16,
+            // Inline, a long value's buttons clear its scrollbar, which runs
+            // 4-8px in from the edge.
+            right: overlay?.inline ? (oneLine ? 4 : 12) : 16,
             ...overlay?.style,
           }}
         >

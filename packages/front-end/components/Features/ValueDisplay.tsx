@@ -243,6 +243,7 @@ export default function ValueDisplay({
     <>
       <CornerActions
         overlay={actionsOverlay}
+        oneLine={type !== "json"}
         actions={
           isFullscreen ? null : (
             <>

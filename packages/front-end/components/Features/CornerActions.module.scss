@@ -24,3 +24,21 @@
 .showActions .actions {
   opacity: 1;
 }
+
+// Hugs its content.
+.inline {
+  width: fit-content;
+  max-width: 100%;
+}
+
+// A one-line value keeps a strip on its right for its copy button, which
+// would otherwise cover its end.
+.room {
+  padding-right: 36px;
+}
+
+// A long value's lines stop short of its scrollbar, so its buttons, just
+// inside that, rarely meet a line's end.
+.lines :global(.rt-ScrollAreaViewport) > * {
+  padding-right: var(--space-3);
+}

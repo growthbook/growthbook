@@ -1,12 +1,12 @@
 import { ReactNode } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
-import Text from "@/ui/Text";
 import ValueDisplay from "./ValueDisplay";
 import { ActionsOverlay } from "./CornerActions";
 import ConfigBackedSummary from "./ConfigBackedSummary";
+import RuleField from "./RuleField";
 
 export default function ForceSummary({
   value,
@@ -15,7 +15,7 @@ export default function ForceSummary({
   sparse = false,
   isDefault = false,
   environment,
-  label = "SERVE",
+  label = "Serve",
   lineHeight,
   actionsOverlay,
   monochrome,
@@ -72,34 +72,36 @@ export default function ForceSummary({
     );
   }
 
+  const valueBox = (
+    <Box width="100%">
+      <ValueDisplay
+        value={value}
+        type={feature.valueType}
+        showFullscreenButton={true}
+        sparse={sparse}
+        defaultValue={feature.defaultValue}
+        lineHeight={lineHeight}
+        monochrome={monochrome}
+        actionsOverlay={valueOverlay}
+        extraActions={extraActions}
+        fullStyle={{
+          maxHeight: maxHeight ?? 150,
+          overflowY: "auto",
+          maxWidth: "100%",
+        }}
+      />
+    </Box>
+  );
+
   return (
     <>
-      {/* JSON starts on its own line, under the label, as a config does. */}
-      <Flex
-        direction={feature.valueType === "json" ? "column" : "row"}
-        gap="2"
-        width={fullWidth ? "100%" : undefined}
-      >
-        {label !== null && <Text weight="medium">{label}</Text>}
-        <Box width="100%">
-          <ValueDisplay
-            value={value}
-            type={feature.valueType}
-            showFullscreenButton={true}
-            sparse={sparse}
-            defaultValue={feature.defaultValue}
-            lineHeight={lineHeight}
-            monochrome={monochrome}
-            actionsOverlay={valueOverlay}
-            extraActions={extraActions}
-            fullStyle={{
-              maxHeight: maxHeight ?? 150,
-              overflowY: "auto",
-              maxWidth: "100%",
-            }}
-          />
-        </Box>
-      </Flex>
+      {label !== null ? (
+        <RuleField label={label} mb="0">
+          {valueBox}
+        </RuleField>
+      ) : (
+        valueBox
+      )}
       <ValidateValue value={value} feature={feature} />
     </>
   );

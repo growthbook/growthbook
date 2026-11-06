@@ -14,6 +14,7 @@ import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import RolloutRow from "./RolloutRow";
+import RuleField from "./RuleField";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -41,20 +42,20 @@ export default function ExperimentSummary({
 
   return (
     <Box>
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">SPLIT</Text>
-        by
-        <AttributeBadge attributeId={hashAttribute || "id"} />
-        {hasNamespace && (
-          <>
-            in the namespace
-            <LinkButton href={`/namespaces`} size="sm" variant="soft">
-              {allNamespaces?.find((n) => n.name === namespace.name)?.label ||
-                namespace.name}
-            </LinkButton>
-          </>
-        )}
-      </Flex>
+      <RuleField label="Split by">
+        <Flex align="center" gap="2" wrap="wrap">
+          <AttributeBadge attributeId={hashAttribute || "id"} />
+          {hasNamespace && (
+            <>
+              in the namespace
+              <LinkButton href={`/namespaces`} size="sm" variant="soft">
+                {allNamespaces?.find((n) => n.name === namespace.name)?.label ||
+                  namespace.name}
+              </LinkButton>
+            </>
+          )}
+        </Flex>
+      </RuleField>
       <RolloutRow coverage={effectiveCoverage}>
         {hasNamespace && (
           <>
@@ -81,94 +82,98 @@ export default function ExperimentSummary({
           </>
         )}
       </RolloutRow>
-      <Text weight="medium">SERVE</Text>
-      <Box
-        px="3"
-        style={{
-          border: "1px solid var(--gray-a5)",
-          borderRadius: "var(--radius-2)",
-        }}
-      >
-        <Table>
-          <TableBody>
-            {values.map((r, j) => (
-              <TableRow key={j} style={{ color: "var(--color-text-high)" }}>
-                <TableCell style={{ whiteSpace: "nowrap" }}>
-                  <Flex align="center" gap="2">
-                    <span
-                      style={{
-                        color: getVariationColor(j, true),
-                        borderColor: getVariationColor(j, true),
-                        fontSize: "14px",
-                        width: 20,
-                        height: 20,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderStyle: "solid",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {j}
-                    </span>
-                    <Text weight="medium">{r?.name}</Text>
-                  </Flex>
-                </TableCell>
-                <TableCell width="100%">
-                  <ValueDisplay
-                    value={r.value}
-                    type={type}
-                    showFullscreenButton={true}
-                    actionsOverlay={{ inline: true }}
-                  />
-                  <ValidateValue value={r.value} feature={feature} />
-                </TableCell>
-                <TableCell
-                  style={{ color: "var(--color-text-mid)", textAlign: "right" }}
-                >
-                  {percentFormatter.format(r.weight)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Box>
-      <Box mt="3" mb="3">
-        <ExperimentSplitVisual
-          values={values}
-          coverage={effectiveCoverage}
-          label="Traffic split"
-          unallocated="Not included (skips this rule)"
-          type={type}
-          showValues={false}
-          stackLeft={true}
-          showPercentages={true}
-        />
-      </Box>
-      <Flex direction="row" gap="2">
-        <Text weight="medium">TRACK</Text>
-        the result using the key
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>
-              {trackingKey || feature.id}
-            </Text>
-          }
-        />
-        <Box>
-          {experiment ? (
-            <Link
-              href={`/experiment/${experiment.id}#results`}
-              className="btn btn-outline-primary"
-            >
-              View results
-            </Link>
-          ) : null}
+      <RuleField label="Serve">
+        <Box
+          px="3"
+          style={{
+            border: "1px solid var(--gray-a5)",
+            borderRadius: "var(--radius-2)",
+          }}
+        >
+          <Table>
+            <TableBody>
+              {values.map((r, j) => (
+                <TableRow key={j} style={{ color: "var(--color-text-high)" }}>
+                  <TableCell style={{ whiteSpace: "nowrap" }}>
+                    <Flex align="center" gap="2">
+                      <span
+                        style={{
+                          color: getVariationColor(j, true),
+                          borderColor: getVariationColor(j, true),
+                          fontSize: "14px",
+                          width: 20,
+                          height: 20,
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderStyle: "solid",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {j}
+                      </span>
+                      <Text weight="medium">{r?.name}</Text>
+                    </Flex>
+                  </TableCell>
+                  <TableCell width="100%">
+                    <ValueDisplay
+                      value={r.value}
+                      type={type}
+                      showFullscreenButton={true}
+                      actionsOverlay={{ inline: true }}
+                    />
+                    <ValidateValue value={r.value} feature={feature} />
+                  </TableCell>
+                  <TableCell
+                    style={{
+                      color: "var(--color-text-mid)",
+                      textAlign: "right",
+                    }}
+                  >
+                    {percentFormatter.format(r.weight)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </Box>
-      </Flex>
+        <Box mt="3" mb="3">
+          <ExperimentSplitVisual
+            values={values}
+            coverage={effectiveCoverage}
+            label="Traffic split"
+            unallocated="Not included (skips this rule)"
+            type={type}
+            showValues={false}
+            stackLeft={true}
+            showPercentages={true}
+          />
+        </Box>
+      </RuleField>
+      <RuleField label="Tracking key" mb="0">
+        <Flex align="center" gap="2" wrap="wrap">
+          <Badge
+            color="gray"
+            label={
+              <Text style={{ color: "var(--slate-12)" }}>
+                {trackingKey || feature.id}
+              </Text>
+            }
+          />
+          <Box>
+            {experiment ? (
+              <Link
+                href={`/experiment/${experiment.id}#results`}
+                className="btn btn-outline-primary"
+              >
+                View results
+              </Link>
+            ) : null}
+          </Box>
+        </Flex>
+      </RuleField>
     </Box>
   );
 }

@@ -10,15 +10,14 @@ import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
-import Text from "@/ui/Text";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import RuleField from "@/components/Features/RuleField";
+import RolloutRow from "@/components/Features/RolloutRow";
 import VariationLabel from "@/ui/VariationLabel";
 import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
-import { PlainEntityBadge } from "@/components/Features/EntityBadge";
-import { coveragePercentFormatter } from "@/services/utils";
 
 export function isContextualBanditRefRuleSkipped(
   cb: ApiContextualBanditInterface,
@@ -90,105 +89,92 @@ export default function ContextualBanditRefSummary({
         savedGroups: cb.savedGroups,
         prerequisites: cb.prerequisites,
       }) && (
-        <Flex direction="row" gap="2" mb="3">
-          <Text weight="medium">IF</Text>
-          <Box>
-            <ConditionDisplay
-              condition={cb.condition || ""}
-              savedGroups={cb.savedGroups}
-              prerequisites={cb.prerequisites}
-            />
-          </Box>
-        </Flex>
+        <RuleField label="Targeting">
+          <ConditionDisplay
+            condition={cb.condition || ""}
+            savedGroups={cb.savedGroups}
+            prerequisites={cb.prerequisites}
+          />
+        </RuleField>
       )}
 
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">SPLIT</Text>
-        by
+      <RuleField label="Split by">
         <AttributeBadge attributeId={cb.hashAttribute || "id"} />
-      </Flex>
+      </RuleField>
 
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">INCLUDE</Text>
-        <PlainEntityBadge
-          label={coveragePercentFormatter.format(cb.coverage ?? 1)}
-        />
-        of units in the Contextual Bandit
-      </Flex>
+      <RolloutRow coverage={cb.coverage ?? 1} />
 
       {cb.contextualAttributes.length > 0 && (
-        <Flex direction="row" gap="2" mb="3" wrap="wrap" align="center">
-          <Text weight="medium">CONTEXT</Text>
-          {cb.contextualAttributes.map((a) => (
-            <AttributeBadge key={a} attributeId={a} />
-          ))}
-        </Flex>
+        <RuleField label="Context">
+          <Flex gap="2" wrap="wrap" align="center">
+            {cb.contextualAttributes.map((a) => (
+              <AttributeBadge key={a} attributeId={a} />
+            ))}
+          </Flex>
+        </RuleField>
       )}
 
-      <Flex gap="2">
-        <Text weight="medium">SERVE</Text>
-      </Flex>
-
-      <Box
-        mt="3"
-        px="3"
-        style={{
-          border: "1px solid var(--gray-a5)",
-          borderRadius: "var(--radius-2)",
-        }}
-      >
-        <ValueDiffProvider>
-          <Table>
-            <TableBody>
-              {cb.variations.map((v, i) => {
-                const ruleVariation = rule.variations.find(
-                  (rv) => rv.variationId === v.id,
-                );
-                return (
-                  <TableRow
-                    key={v.id}
-                    style={{ color: "var(--color-text-high)" }}
-                  >
-                    <TableCell style={{ whiteSpace: "nowrap" }}>
-                      <VariationLabel number={i} name={v.name || v.key} />
-                    </TableCell>
-                    <TableCell width="100%">
-                      {ruleVariation ? (
-                        (() => {
-                          const defaultConfigKey =
-                            getFeatureBaseConfigKey(feature);
-                          const configKey =
-                            defaultConfigKey !== null
-                              ? (getConfigBackingKey(ruleVariation.value) ??
-                                defaultConfigKey)
-                              : null;
-                          return configKey !== null ? (
-                            <ConfigBackedSummary
-                              label={null}
-                              value={ruleVariation.value}
-                              configKey={configKey}
-                              feature={feature}
-                              sparse={defaultConfigKey !== null}
-                              environment={environment}
-                            />
-                          ) : (
-                            <ValueDisplay
-                              value={ruleVariation.value}
-                              type={type}
-                            />
-                          );
-                        })()
-                      ) : (
-                        <em>not set</em>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </ValueDiffProvider>
-      </Box>
+      <RuleField label="Serve" mb="0">
+        <Box
+          px="3"
+          style={{
+            border: "1px solid var(--gray-a5)",
+            borderRadius: "var(--radius-2)",
+          }}
+        >
+          <ValueDiffProvider>
+            <Table>
+              <TableBody>
+                {cb.variations.map((v, i) => {
+                  const ruleVariation = rule.variations.find(
+                    (rv) => rv.variationId === v.id,
+                  );
+                  return (
+                    <TableRow
+                      key={v.id}
+                      style={{ color: "var(--color-text-high)" }}
+                    >
+                      <TableCell style={{ whiteSpace: "nowrap" }}>
+                        <VariationLabel number={i} name={v.name || v.key} />
+                      </TableCell>
+                      <TableCell width="100%">
+                        {ruleVariation ? (
+                          (() => {
+                            const defaultConfigKey =
+                              getFeatureBaseConfigKey(feature);
+                            const configKey =
+                              defaultConfigKey !== null
+                                ? (getConfigBackingKey(ruleVariation.value) ??
+                                  defaultConfigKey)
+                                : null;
+                            return configKey !== null ? (
+                              <ConfigBackedSummary
+                                label={null}
+                                value={ruleVariation.value}
+                                configKey={configKey}
+                                feature={feature}
+                                sparse={defaultConfigKey !== null}
+                                environment={environment}
+                              />
+                            ) : (
+                              <ValueDisplay
+                                value={ruleVariation.value}
+                                type={type}
+                              />
+                            );
+                          })()
+                        ) : (
+                          <em>not set</em>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ValueDiffProvider>
+        </Box>
+      </RuleField>
     </Box>
   );
 }

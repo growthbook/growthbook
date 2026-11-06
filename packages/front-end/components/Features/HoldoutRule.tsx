@@ -32,6 +32,7 @@ import {
 import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 import HoldoutSummary from "./HoldoutSummary";
+import RuleField from "./RuleField";
 import cornerStyles from "./CornerActions.module.scss";
 import ruleCardStyles from "./RuleCard.module.scss";
 
@@ -223,11 +224,14 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
             </Flex>
           }
         >
-          <RuleEnvScopeBadges
-            activeEnvironmentIds={activeHoldoutEnvIds}
-            environments={environments}
-            currentEnvironment={currentEnvironment}
-          />
+          <RuleField label="Environments">
+            <RuleEnvScopeBadges
+              activeEnvironmentIds={activeHoldoutEnvIds}
+              environments={environments}
+              currentEnvironment={currentEnvironment}
+              my="0"
+            />
+          </RuleField>
           <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
             {isDeleted ? (
               <Callout status="error" size="sm">

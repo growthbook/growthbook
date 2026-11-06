@@ -123,6 +123,7 @@ import {
 import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
+import RuleField from "./RuleField";
 
 function fmtScheduleDate(d: Date | string): string {
   return new Date(d).toLocaleDateString(undefined, {
@@ -1663,13 +1664,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           }
         >
           {willRevertScheduleEnable ? (
-            <Callout status="warning" mt="3" size="sm">
+            <Callout status="warning" mb="3" size="sm">
               This rule is <strong>enabled</strong> in the live feature but{" "}
               <strong>disabled</strong> in this draft. Publishing may revert a
               schedule-driven enable.
             </Callout>
           ) : draftBehindLiveStale ? (
-            <Box mt="3">
+            <Box mb="3">
               <HelperText status="info" size="sm">
                 This draft is behind live — rebase (Review and Publish tab) to
                 compare
@@ -1682,7 +1683,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               ?.approvalNotes && (
               <Callout
                 status="attention"
-                mt="3"
+                mb="3"
                 size="sm"
                 icon={<PiSpinnerGapBold />}
               >
@@ -1695,7 +1696,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             )}
           {attributesWithVersionStringOperatorMismatches &&
             attributesWithVersionStringOperatorMismatches.length > 0 && (
-              <Callout status="warning" mt="3">
+              <Callout status="warning" mb="3">
                 <Flex direction="column" gap="2">
                   <Text>
                     This rule uses string operators on version attributes, which
@@ -1714,47 +1715,51 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               experiment={experimentsMap.get(rule.experimentId)}
             />
           )}
-          <RuleEnvScopeBadges
-            activeEnvironmentIds={
-              rule.allEnvironments === true || rule.environments === undefined
-                ? "all"
-                : rule.environments
-            }
-            environments={environments}
-            currentEnvironment={isAllEnvsView ? undefined : environment}
-          />
-          {rule.allProjects === false && (
-            <RuleProjectScopeBadges
-              projectIds={rule.projects ?? []}
-              deliveryProjectIds={getTargetingProjectIds(feature)}
-              mt="0"
-              mb="3"
-            />
-          )}
-          <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
+          {/* A rule that won't serve is faded, all of its details alike. */}
+          <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
+            <RuleField label="Environments">
+              <RuleEnvScopeBadges
+                activeEnvironmentIds={
+                  rule.allEnvironments === true ||
+                  rule.environments === undefined
+                    ? "all"
+                    : rule.environments
+                }
+                environments={environments}
+                currentEnvironment={isAllEnvsView ? undefined : environment}
+                my="0"
+              />
+            </RuleField>
+            {rule.allProjects === false && (
+              <RuleField label="Projects">
+                <RuleProjectScopeBadges
+                  projectIds={rule.projects ?? []}
+                  deliveryProjectIds={getTargetingProjectIds(feature)}
+                  my="0"
+                />
+              </RuleField>
+            )}
             {rule.type === "safe-rollout" && safeRollout ? (
               <>
                 <DecisionHelpText rule={rule} />
                 {rule.description ? <Box pb="3">{rule.description}</Box> : null}
               </>
             ) : null}
-            <Box mb="3">
-              {hasCondition &&
-              rule.type !== "experiment-ref" &&
-              rule.type !== "contextual-bandit-ref" ? (
-                <TruncatedConditionDisplay
-                  condition={rule.condition || ""}
-                  savedGroups={rule.savedGroups}
-                  prerequisites={rule.prerequisites}
-                  prefix={<Text weight="medium">IF</Text>}
-                />
-              ) : rule.type !== "experiment-ref" &&
-                rule.type !== "contextual-bandit-ref" &&
-                rule.type !== "rollout" &&
-                rule.type !== "safe-rollout" ? (
-                <em>No targeting (all traffic will be included)</em>
-              ) : null}
-            </Box>
+            {/* An experiment or Bandit rule shows its own phase's targeting. */}
+            {rule.type !== "experiment-ref" &&
+            rule.type !== "contextual-bandit-ref" ? (
+              <RuleField label="Targeting">
+                {hasCondition ? (
+                  <TruncatedConditionDisplay
+                    condition={rule.condition || ""}
+                    savedGroups={rule.savedGroups}
+                    prerequisites={rule.prerequisites}
+                  />
+                ) : (
+                  "All traffic"
+                )}
+              </RuleField>
+            ) : null}
             {rule.type === "force" && (
               <ForceSummary
                 value={rule.value}
@@ -1850,54 +1855,61 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rampSchedule && (
               <Box mt="4">
                 {!isSimpleSchedule && (
-                  <Flex gapX="3" gapY="1" align="center" mb="4" wrap="wrap">
-                    <span style={{ display: "inline-block" }}>
-                      <Text weight="medium">RAMP-UP SCHEDULE</Text>
-                    </span>
-                    {!["pending", "ready", "completed", "rolled-back"].includes(
-                      rampSchedule.status,
-                    ) && (
-                      <Text>
-                        Step {getRampStepsCompleted(rampSchedule)} of{" "}
-                        {rampSchedule.steps.length}
-                      </Text>
-                    )}
-                    {(() => {
-                      const remaining = computeRemainingTime(rampSchedule);
-                      if (!remaining) return null;
-                      const { seconds, manualApprovals } = remaining;
-                      if (seconds <= 0 && manualApprovals === 0) return null;
-                      let label: string;
-                      const approvalStr =
-                        manualApprovals > 0
-                          ? `${manualApprovals} manual approval${manualApprovals > 1 ? "s" : ""}`
-                          : "";
-                      if (seconds <= 0) {
-                        label = approvalStr;
-                      } else {
-                        label = formatRemainingDuration(seconds);
-                        if (approvalStr) label += ` + ${approvalStr}`;
-                      }
-                      return <Text color="text-low">({label} remaining)</Text>;
-                    })()}
-                    {rampSchedule.lockdownConfig?.mode === "locked" && (
-                      <Box style={{ flexBasis: "100%" }}>
-                        <HelperText
-                          status="warning"
-                          icon={<PiLockSimple size={15} />}
-                        >
-                          {rampSchedule.status === "running"
-                            ? "Feature locked during ramp-up"
-                            : "Feature will be locked while ramp-up is running"}
-                        </HelperText>
-                      </Box>
-                    )}
-                  </Flex>
+                  <RuleField label="Ramp-up" mb="4">
+                    <Flex gapX="3" gapY="1" align="center" wrap="wrap">
+                      {![
+                        "pending",
+                        "ready",
+                        "completed",
+                        "rolled-back",
+                      ].includes(rampSchedule.status) && (
+                        <Text>
+                          Step {getRampStepsCompleted(rampSchedule)} of{" "}
+                          {rampSchedule.steps.length}
+                        </Text>
+                      )}
+                      {(() => {
+                        const remaining = computeRemainingTime(rampSchedule);
+                        if (!remaining) return null;
+                        const { seconds, manualApprovals } = remaining;
+                        if (seconds <= 0 && manualApprovals === 0) return null;
+                        let label: string;
+                        const approvalStr =
+                          manualApprovals > 0
+                            ? `${manualApprovals} manual approval${manualApprovals > 1 ? "s" : ""}`
+                            : "";
+                        if (seconds <= 0) {
+                          label = approvalStr;
+                        } else {
+                          label = formatRemainingDuration(seconds);
+                          if (approvalStr) label += ` + ${approvalStr}`;
+                        }
+                        return (
+                          <Text color="text-low">({label} remaining)</Text>
+                        );
+                      })()}
+                      {rampSchedule.lockdownConfig?.mode === "locked" && (
+                        <Box style={{ flexBasis: "100%" }}>
+                          <HelperText
+                            status="warning"
+                            icon={<PiLockSimple size={15} />}
+                          >
+                            {rampSchedule.status === "running"
+                              ? "Feature locked during ramp-up"
+                              : "Feature will be locked while ramp-up is running"}
+                          </HelperText>
+                        </Box>
+                      )}
+                    </Flex>
+                  </RuleField>
                 )}
                 {isSimpleSchedule && (
-                  <Text weight="medium" mb={simpleScheduleDone ? "0" : "4"}>
+                  <RuleField
+                    label="Schedule"
+                    mb={simpleScheduleDone ? "0" : "4"}
+                  >
                     {formatSimpleScheduleLabel(rampSchedule)}
-                  </Text>
+                  </RuleField>
                 )}
                 {rampActionError && (
                   <Callout

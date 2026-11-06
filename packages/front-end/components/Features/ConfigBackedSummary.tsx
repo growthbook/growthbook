@@ -17,7 +17,6 @@ import { isEqual } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
-import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ValueDisplay from "./ValueDisplay";
@@ -26,29 +25,25 @@ import {
   ConfigEnvironmentsBadge,
   ConfigOverridesBadge,
 } from "./ConfigValueBadges";
+import RuleField from "./RuleField";
 
-// Shared "SERVE ConfigName" header. The name links to the config detail page;
-// the internal `@config:` directive is never surfaced.
+// The config a value serves. The name links to the config detail page; the
+// internal `@config:` directive is never surfaced.
 function ServeConfigHeader({
   configKey,
   name,
   badges,
-  label,
 }: {
   configKey: string;
   name: string;
   badges: ReactNode;
-  label: string | null;
 }) {
   return (
-    <Flex direction="row" gap="4" align="center">
-      {label !== null && <Text weight="medium">{label}</Text>}
-      <Flex align="center" gap="2" wrap="wrap">
-        <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
-          {name}
-        </Link>
-        {badges}
-      </Flex>
+    <Flex align="center" gap="2" wrap="wrap">
+      <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
+        {name}
+      </Link>
+      {badges}
     </Flex>
   );
 }
@@ -91,7 +86,7 @@ export default function ConfigBackedSummary({
   sparse = false,
   isDefault = false,
   environment,
-  label = "SERVE",
+  label = "Serve",
   lineHeight,
   actionsOverlay,
 }: {
@@ -249,10 +244,9 @@ export default function ConfigBackedSummary({
     maxWidth: "100%",
   };
 
-  return (
+  const content = (
     <>
       <ServeConfigHeader
-        label={label}
         configKey={configKey}
         name={config?.name ?? configKey}
         badges={
@@ -310,5 +304,13 @@ export default function ConfigBackedSummary({
         </Callout>
       )}
     </>
+  );
+
+  return label !== null ? (
+    <RuleField label={label} mb="0">
+      {content}
+    </RuleField>
+  ) : (
+    content
   );
 }
