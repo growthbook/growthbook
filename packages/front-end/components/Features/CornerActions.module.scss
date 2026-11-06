@@ -31,10 +31,17 @@
   max-width: 100%;
 }
 
-// A one-line value keeps a strip on its right for its copy button, which
-// would otherwise cover its end.
+// A one-line value keeps a strip on its right for its buttons, which would
+// otherwise cover its end.
 .room {
   padding-right: 36px;
+
+  &:has(> .actions > :nth-child(2)) {
+    padding-right: 44px;
+  }
+  &:has(> .actions > :nth-child(3)) {
+    padding-right: 68px;
+  }
 }
 
 // A long value's lines stop short of its scrollbar, so its buttons, just
