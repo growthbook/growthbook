@@ -1061,12 +1061,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
               {info.pill}
 
-              {/* Shown when rule-edit OR ramp runtime actions are available.
-                Under a scheduled-publish lock the rule-edit group is hidden but
-                ramp/schedule actions remain. */}
               {canEdit && lockedBySchedule && !rampSchedule ? (
                 <LockedRowMenu />
               ) : null}
+              {/* Shown when rule-edit OR ramp runtime actions are available.
+                Under a scheduled-publish lock the rule-edit group is hidden but
+                ramp/schedule actions remain. */}
               {(canEdit || hasRampRuntimeItems) &&
                 !rampControlsLocked &&
                 (!locked || !!rampSchedule) && (

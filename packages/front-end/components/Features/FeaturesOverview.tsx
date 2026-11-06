@@ -251,7 +251,7 @@ export default function FeaturesOverview({
   } | null>(null);
   // The environment whose switch is saving to the draft.
   const [savingEnv, setSavingEnv] = useState<string | null>(null);
-  // A switch's save the server refused for a reason other than a conflict.
+  // A switch's save the server refused.
   const [envError, setEnvError] = useState<{
     envId: string;
     on: boolean;
