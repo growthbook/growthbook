@@ -154,7 +154,7 @@ export function OptionTooltipDescription({
 }
 
 // Whether a value sits on the first line of the wrapping list it's in.
-function onFirstRow(el: HTMLElement): boolean {
+export function onFirstRow(el: HTMLElement): boolean {
   let item = el;
   while (
     item.parentElement &&
