@@ -121,6 +121,11 @@ const AUTO_COLLAPSE_MAX_WIDTH = "(max-width: 1599px)";
 const SIDEBAR_RESTORE_CLASS = "app-sidebar-restore";
 /** Under the 18px nav icons, so the plan crown stays quiet. */
 const PLAN_CROWN_SIZE = 14;
+/**
+ * 0.2px heavier, as withOpticalWeight does at 18px: 0.2 × 256 / 14 in the
+ * 256-unit grid.
+ */
+const PLAN_CROWN_STROKE = (0.2 * 256) / PLAN_CROWN_SIZE;
 /** Matches .sidebar's width transition (Sidebar.module.scss). */
 const SIDEBAR_WIDTH_TRANSITION_MS = 200;
 /**
@@ -992,7 +997,12 @@ export default function Sidebar() {
                 )}
                 aria-hidden="true"
               >
-                <PiCrownSimple size={PLAN_CROWN_SIZE} />
+                <PiCrownSimple
+                  size={PLAN_CROWN_SIZE}
+                  stroke="currentColor"
+                  strokeWidth={PLAN_CROWN_STROKE}
+                  strokeLinejoin="round"
+                />
               </span>
             </SidebarTooltip>
           ) : null}
