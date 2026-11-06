@@ -11,6 +11,7 @@ type RuleSpec = {
   prerequisites?: string[];
   experimentId?: string;
   enabled?: boolean;
+  environments?: string[];
 };
 
 const feature = (
@@ -21,11 +22,13 @@ const feature = (
     rules = [],
     targetingProjects,
     targetingAllProjects,
+    enabledEnvironments = ["production"],
   }: {
     prerequisites?: string[];
     rules?: RuleSpec[];
     targetingProjects?: string[];
     targetingAllProjects?: boolean;
+    enabledEnvironments?: string[];
   } = {},
 ): FeatureInterface =>
   ({
@@ -38,7 +41,9 @@ const feature = (
       id: `rule-${i}`,
       type: r.experimentId ? "experiment-ref" : "force",
       ...(r.experimentId ? { experimentId: r.experimentId } : {}),
-      allEnvironments: true,
+      ...(r.environments
+        ? { allEnvironments: false, environments: r.environments }
+        : { allEnvironments: true }),
       ...(r.enabled === false ? { enabled: false } : {}),
       ...(r.prerequisites
         ? {
@@ -49,7 +54,9 @@ const feature = (
           }
         : {}),
     })),
-    environmentSettings: { production: { enabled: true } },
+    environmentSettings: Object.fromEntries(
+      enabledEnvironments.map((e) => [e, { enabled: true }]),
+    ),
   }) as unknown as FeatureInterface;
 
 const experimentWithPhasePrereq = (
@@ -248,6 +255,132 @@ describe("featuresWithPrerequisiteClosure", () => {
 
     expect(result.features.map((f) => f.id).sort()).toEqual(["a", "b"]);
     expect([...result.carried]).toEqual(["b"]);
+  });
+});
+
+describe("featuresWithPrerequisiteClosure with an environment", () => {
+  const ids = (fs: FeatureInterface[]) => fs.map((f) => f.id).sort();
+
+  it("does not carry a parent referenced only by another environment's rule", () => {
+    const child = feature("child", "prj_a", {
+      enabledEnvironments: ["production", "development"],
+      rules: [{ prerequisites: ["root"], environments: ["development"] }],
+    });
+    const root = feature("root", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [child],
+      mapOf([child, root]),
+      undefined,
+      [],
+      "production",
+    );
+
+    expect(result.carried.size).toBe(0);
+    expect(ids(result.features)).toEqual(["child"]);
+  });
+
+  it("carries a parent referenced by a rule for the environment", () => {
+    const child = feature("child", "prj_a", {
+      enabledEnvironments: ["production", "development"],
+      rules: [{ prerequisites: ["root"], environments: ["production"] }],
+    });
+    const root = feature("root", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [child],
+      mapOf([child, root]),
+      undefined,
+      [],
+      "production",
+    );
+
+    expect([...result.carried]).toEqual(["root"]);
+  });
+
+  it("carries a parent referenced by an all-environments rule", () => {
+    const child = feature("child", "prj_a", {
+      rules: [{ prerequisites: ["root"] }],
+    });
+    const root = feature("root", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [child],
+      mapOf([child, root]),
+      undefined,
+      [],
+      "production",
+    );
+
+    expect([...result.carried]).toEqual(["root"]);
+  });
+
+  it("does not carry the parents of a feature disabled in the environment", () => {
+    const child = feature("child", "prj_a", {
+      enabledEnvironments: ["development"],
+      prerequisites: ["root"],
+      rules: [{ prerequisites: ["other"] }],
+    });
+    const root = feature("root", "prj_b");
+    const other = feature("other", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [child],
+      mapOf([child, root, other]),
+      undefined,
+      [],
+      "production",
+    );
+
+    expect(result.carried.size).toBe(0);
+  });
+
+  it("carries a top-level prerequisite of a feature enabled in the environment", () => {
+    const child = feature("child", "prj_a", { prerequisites: ["root"] });
+    const root = feature("root", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [child],
+      mapOf([child, root]),
+      undefined,
+      [],
+      "production",
+    );
+
+    expect([...result.carried]).toEqual(["root"]);
+  });
+
+  it("applies the environment to the transitive walk", () => {
+    const a = feature("a", "prj_a", { rules: [{ prerequisites: ["b"] }] });
+    const b = feature("b", "prj_b", {
+      enabledEnvironments: ["production", "development"],
+      rules: [{ prerequisites: ["c"], environments: ["development"] }],
+    });
+    const c = feature("c", "prj_c");
+
+    const result = featuresWithPrerequisiteClosure(
+      [a],
+      mapOf([a, b, c]),
+      undefined,
+      [],
+      "production",
+    );
+
+    expect([...result.carried]).toEqual(["b"]);
+  });
+
+  it("keeps carrying every environment's parents when no environment is given", () => {
+    const child = feature("child", "prj_a", {
+      rules: [{ prerequisites: ["root"], environments: ["development"] }],
+    });
+    const root = feature("root", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [child],
+      mapOf([child, root]),
+    );
+
+    expect([...result.carried]).toEqual(["root"]);
   });
 });
 
