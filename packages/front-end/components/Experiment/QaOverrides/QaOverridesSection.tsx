@@ -7,6 +7,7 @@ import {
 } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { isProductionEnvironment } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -56,7 +57,7 @@ export default function QaOverridesSection({
   const overrides = data?.overrides ?? [];
   const connections = data?.sdkConnections ?? [];
   const variations = getLatestPhaseVariations(experiment);
-  const enabledEnvs = environments.filter((e) => e.qaOverridesEnabled);
+  const enabledEnvs = environments.filter((e) => !isProductionEnvironment(e));
   const canEdit = permissionsUtil.canRunExperiment(
     experiment,
     enabledEnvs.map((e) => e.id),
@@ -131,8 +132,9 @@ export default function QaOverridesSection({
 
       {enabledEnvs.length === 0 ? (
         <Callout status="info">
-          Enable QA overrides on an environment to serve this draft to its SDK
-          Connections. <Link href="/environments">Manage environments</Link>
+          Mark an environment as non-production in Settings → Environments to
+          serve this draft to its SDK Connections.{" "}
+          <Link href="/environments">Manage environments</Link>
         </Callout>
       ) : overrides.length === 0 ? (
         <Text color="text-low">

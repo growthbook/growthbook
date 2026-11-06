@@ -12,6 +12,7 @@ import {
   QaOverrideAdditionalTargeting,
 } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { isProductionEnvironment } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -78,20 +79,20 @@ export default function QaOverrideModal({
   );
 
   const connectionOptions = useMemo(() => {
-    const enabledEnvs = new Set(
-      environments.filter((e) => e.qaOverridesEnabled).map((e) => e.id),
+    const eligibleEnvs = new Set(
+      environments.filter((e) => !isProductionEnvironment(e)).map((e) => e.id),
     );
     return (connectionData?.connections ?? []).map((c) => {
-      const envEnabled = enabledEnvs.has(c.environment);
+      const envEligible = eligibleEnvs.has(c.environment);
       const inProject =
         !c.projects?.length || c.projects.includes(experiment.project || "");
       return {
         value: c.id,
         label: c.name,
         environment: c.environment,
-        isDisabled: !envEnabled || !inProject,
-        reason: !envEnabled
-          ? "QA overrides are off for this environment"
+        isDisabled: !envEligible || !inProject,
+        reason: !envEligible
+          ? "QA overrides aren't available on production"
           : !inProject
             ? "Does not include this experiment's project"
             : "",

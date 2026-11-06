@@ -1,7 +1,11 @@
 import type { Response } from "express";
 import { z } from "zod";
 import { isEqual } from "lodash";
-import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
+import {
+  DEFAULT_ENVIRONMENT_IDS,
+  isProductionEnvironment,
+  withIsProduction,
+} from "shared/util";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { Environment } from "shared/types/organization";
 import {
@@ -130,7 +134,7 @@ export const putEnvironments = async (
   const updatedEnvironments = environments.reduce((acc, environment) => {
     return addEnvironmentToOrganizationEnvironments(
       context,
-      environment,
+      withIsProduction(environment),
       acc,
       false,
     );
@@ -191,8 +195,13 @@ export const putEnvironment = async (
     context.permissions.throwPermissionError();
   }
 
+  const updatedEnv: Environment = {
+    ...envsArr[existingEnvIndex],
+    ...environment,
+    id,
+  };
   const updatedEnvs = [...envsArr];
-  updatedEnvs[existingEnvIndex] = { ...environment, id };
+  updatedEnvs[existingEnvIndex] = updatedEnv;
 
   try {
     await updateOrganization(org.id, {
@@ -203,8 +212,8 @@ export const putEnvironment = async (
     });
 
     if (
-      envsArr[existingEnvIndex].qaOverridesEnabled &&
-      !environment.qaOverridesEnabled
+      !isProductionEnvironment(envsArr[existingEnvIndex]) &&
+      isProductionEnvironment(updatedEnv)
     ) {
       const removed =
         await context.models.experimentQaOverrides.deleteByEnvironment(id, {
@@ -217,7 +226,7 @@ export const putEnvironment = async (
           payloadKeys: [],
           sdkConnections: connections.filter((c) => c.environment === id),
           auditContext: {
-            event: "qa overrides disabled",
+            event: "environment marked production",
             model: "environment",
             id,
           },
@@ -255,15 +264,12 @@ export const putEnvironment = async (
         object: "environment",
         id,
       },
-      details: auditDetailsUpdate(envsArr[existingEnvIndex], {
-        ...environment,
-        id,
-      }),
+      details: auditDetailsUpdate(envsArr[existingEnvIndex], updatedEnv),
     });
 
     res.status(200).json({
       status: 200,
-      environment,
+      environment: updatedEnv,
     });
   } catch (e) {
     res.status(400).json({
@@ -288,7 +294,7 @@ export const postEnvironment = async (
     EventUserForResponseLocals
   >,
 ) => {
-  const { environment } = req.body;
+  const environment = withIsProduction(req.body.environment);
 
   const context = getContextFromReq(req);
   const { org, environments } = context;

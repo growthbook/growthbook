@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { isProductionEnvironment } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -48,8 +49,8 @@ export default function SdkQaOverridesSection({
 
   const overrides = data?.overrides ?? [];
   const experiments = data?.experiments ?? [];
-  const envEnabled = !!environments.find((e) => e.id === connection.environment)
-    ?.qaOverridesEnabled;
+  const environment = environments.find((e) => e.id === connection.environment);
+  const envEligible = !!environment && !isProductionEnvironment(environment);
 
   const canEdit = (experiment: QaOverrideExperiment) =>
     permissionsUtil.canRunExperiment(experiment, [connection.environment]);
@@ -124,11 +125,11 @@ export default function SdkQaOverridesSection({
         )}
       </Flex>
 
-      {!envEnabled ? (
+      {!envEligible ? (
         <Callout status="info">
-          QA overrides are off for the{" "}
-          <Text weight="medium">{connection.environment}</Text> environment.{" "}
-          <Link href="/environments">Manage environments</Link>
+          The <Text weight="medium">{connection.environment}</Text> environment
+          is a production environment. Mark it as non-production in Settings →
+          Environments. <Link href="/environments">Manage environments</Link>
         </Callout>
       ) : overrides.length === 0 ? (
         <Text color="text-low">

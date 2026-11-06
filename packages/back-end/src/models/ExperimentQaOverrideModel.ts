@@ -1,5 +1,8 @@
 import { getLatestPhaseVariations } from "shared/experiments";
-import { experimentSupportsQaOverrides } from "shared/util";
+import {
+  experimentSupportsQaOverrides,
+  isProductionEnvironment,
+} from "shared/util";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { experimentQaOverrideValidator } from "shared/validators";
@@ -173,9 +176,9 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     const env = getEnvironments(this.context.org).find(
       (e) => e.id === connection.environment,
     );
-    if (!env?.qaOverridesEnabled) {
+    if (!env || isProductionEnvironment(env)) {
       throw new Error(
-        `QA overrides are not enabled for the "${connection.environment}" environment`,
+        "QA overrides aren't allowed on production environments.",
       );
     }
     if (

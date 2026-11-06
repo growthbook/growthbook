@@ -22,7 +22,7 @@ export const updateEnvValidator = z.object({
       toggleOnList: z.boolean().optional(),
       defaultState: z.any().optional(),
       projects: z.array(z.string()).optional(),
-      qaOverridesEnabled: z.boolean().optional(),
+      isProduction: z.boolean().optional(),
     })
     .strict(),
 });
@@ -35,7 +35,7 @@ export const environment = z
     defaultState: z.boolean().optional(),
     projects: z.array(z.string()).optional(),
     parent: z.string().optional(),
-    qaOverridesEnabled: z.boolean().optional(),
+    isProduction: z.boolean().optional(),
   })
   .strict();
 
@@ -62,6 +62,7 @@ export const apiEnvironmentValidator = namedSchema(
       defaultState: z.boolean(),
       projects: z.array(z.string()),
       parent: z.string().optional(),
+      isProduction: z.boolean(),
     })
     .strict(),
 );
@@ -90,6 +91,10 @@ const postEnvironmentBody = z
         "An environment that the new environment should inherit feature rules from. Requires an enterprise license",
       )
       .optional(),
+    isProduction: z
+      .boolean()
+      .describe("Whether this is a production environment")
+      .optional(),
   })
   .strict();
 
@@ -105,6 +110,10 @@ const putEnvironmentBody = z
     projects: z
       .array(z.string())
       .describe(ENVIRONMENT_PROJECTS_UPDATE_DESCRIPTION)
+      .optional(),
+    isProduction: z
+      .boolean()
+      .describe("Whether this is a production environment")
       .optional(),
   })
   .strict();

@@ -31,6 +31,7 @@ import {
   getDependentFeatures,
   getSavedGroupsValuesFromGroupMap,
   getQaTrackingKey,
+  isProductionEnvironment,
   getTargetingProjectIds,
   isDefined,
   isQaTrackingKey,
@@ -1713,7 +1714,7 @@ export async function refreshSDKPayloadCache({
   }
 
   const orgEnvironments = getEnvironments(context.org);
-  if (orgEnvironments.some((e) => e.qaOverridesEnabled)) {
+  if (orgEnvironments.some((e) => !isProductionEnvironment(e))) {
     const byConnection = new Map<string, ExperimentQaOverrideInterface[]>();
     const allQaOverrides =
       await context.models.experimentQaOverrides.getAllForPayload();
@@ -2138,7 +2139,7 @@ export function qaOverridesForConnection({
 }): Map<string, ExperimentQaOverrideInterface> | undefined {
   if (!overrides?.length) return undefined;
   const env = environments.find((e) => e.id === environment);
-  if (!env?.qaOverridesEnabled) return undefined;
+  if (!env || isProductionEnvironment(env)) return undefined;
   return new Map(
     overrides
       .filter((o) => o.environment === environment)

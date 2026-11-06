@@ -1,7 +1,11 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
-import React, { useMemo } from "react";
-import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
+import React, { useMemo, useState } from "react";
+import {
+  DEFAULT_ENVIRONMENT_IDS,
+  guessIsProductionEnvironment,
+  isProductionEnvironment,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -35,9 +39,13 @@ export default function EnvironmentModal({
       defaultState: existing.defaultState ?? true,
       projects: existing.projects || [],
       parent: existing.parent,
-      qaOverridesEnabled: existing.qaOverridesEnabled || false,
+      isProduction: isProductionEnvironment({
+        ...existing,
+        id: existing.id ?? "",
+      }),
     },
   });
+  const [isProductionTouched, setIsProductionTouched] = useState(false);
   const { apiCall } = useAuth();
   const environments = useEnvironments();
 
@@ -119,7 +127,7 @@ export default function EnvironmentModal({
                 toggleOnList: value.toggleOnList,
                 defaultState: value.defaultState,
                 projects: value.projects,
-                qaOverridesEnabled: value.qaOverridesEnabled,
+                isProduction: value.isProduction,
               },
             }),
           });
@@ -139,7 +147,7 @@ export default function EnvironmentModal({
             defaultState: value.defaultState,
             projects: value.projects,
             parent: value.parent,
-            qaOverridesEnabled: value.qaOverridesEnabled,
+            isProduction: value.isProduction,
           };
           await apiCall(`/environment`, {
             method: "POST",
@@ -168,6 +176,12 @@ export default function EnvironmentModal({
           }
           onChange={(value) => {
             form.setValue("id", value);
+            if (!isProductionTouched) {
+              form.setValue(
+                "isProduction",
+                guessIsProductionEnvironment(value),
+              );
+            }
             if (!DEFAULT_ENVIRONMENT_IDS.includes(value)) {
               form.setValue("parent", undefined);
             }
@@ -208,6 +222,16 @@ export default function EnvironmentModal({
         {...form.register("description")}
         placeholder=""
         textarea
+      />
+      <Switch
+        id={"isProduction"}
+        label="This is a production environment"
+        value={!!form.watch("isProduction")}
+        onChange={(value) => {
+          setIsProductionTouched(true);
+          form.setValue("isProduction", value);
+        }}
+        mb="3"
       />
       {!existing.id && (
         <div className="mb-3">
@@ -275,14 +299,6 @@ export default function EnvironmentModal({
           form.setValue("toggleOnList", value);
         }}
         mb="3"
-      />
-      <Switch
-        id={"qaOverrides"}
-        label="Allow QA overrides"
-        value={!!form.watch("qaOverridesEnabled")}
-        onChange={(value) => {
-          form.setValue("qaOverridesEnabled", value);
-        }}
       />
     </Modal>
   );
