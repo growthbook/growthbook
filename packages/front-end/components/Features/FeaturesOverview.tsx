@@ -149,6 +149,8 @@ function environmentKillSwitchTooltipBody(
   enabled: boolean,
   liveEnabled: boolean,
   view: false | "draft" | "inactive",
+  // Why the switch is disabled for this user.
+  blocked = false,
 ): JSX.Element {
   const state = (on: boolean, midSentence = false) => (
     <strong
@@ -189,6 +191,11 @@ function environmentKillSwitchTooltipBody(
           live.
         </>
       )}
+      {blocked ? (
+        <Text as="div" mt="2" size="sm" color="text-mid">
+          You don&apos;t have permission to publish this environment.
+        </Text>
+      ) : null}
     </Text>
   );
 }
@@ -232,10 +239,9 @@ export default function FeaturesOverview({
   const permissionsUtil = usePermissionsUtil();
 
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
-    envId?: string;
-    desiredState?: boolean;
+    envId: string;
+    desiredState: boolean;
   } | null>(null);
-  const showKillSwitchManager = killSwitchTarget !== null;
   // The environment whose switch is saving to the draft.
   const [savingEnv, setSavingEnv] = useState<string | null>(null);
   const { apiCall } = useAuth();
@@ -407,6 +413,10 @@ export default function FeaturesOverview({
   // projection, so a draft staging a project move judged the wrong project.
   const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
 
+  // Drafted by anyone who edits drafts; otherwise only published, so only
+  // where this user may publish.
+  const canToggleEnvironment = (envId: string) =>
+    canEditDrafts || permissionsUtil.canPublishFeature(baseFeature, [envId]);
   const liveEnabled = (envId: string) =>
     baseFeature.environmentSettings?.[envId]?.enabled ?? false;
   // A draft that turns environments on or off, before it's published.
@@ -593,15 +603,6 @@ export default function FeaturesOverview({
                   </Link>
                 </PremiumTooltip>
               ) : null}
-              {!isReadOnly && canChangeEnvironments && (
-                <Button
-                  variant="ghost"
-                  size="md"
-                  onClick={() => setKillSwitchTarget({})}
-                >
-                  Change
-                </Button>
-              )}
             </>
           }
         >
@@ -645,6 +646,9 @@ export default function FeaturesOverview({
                                 enabled,
                                 liveEnabled(en.id),
                                 envAndSummaryTooltipNonLiveDisclaimer,
+                                !isReadOnly &&
+                                  canChangeEnvironments &&
+                                  !canToggleEnvironment(en.id),
                               )}
                             >
                               {!isReadOnly && canChangeEnvironments ? (
@@ -653,7 +657,10 @@ export default function FeaturesOverview({
                                   onToggle={(on) =>
                                     toggleEnvironment(en.id, on)
                                   }
-                                  disabled={savingEnv === en.id}
+                                  disabled={
+                                    savingEnv === en.id ||
+                                    !canToggleEnvironment(en.id)
+                                  }
                                   changed={
                                     isDraft && enabled !== liveEnabled(en.id)
                                   }
@@ -781,13 +788,19 @@ export default function FeaturesOverview({
                             enabled,
                             liveEnabled(en.id),
                             envAndSummaryTooltipNonLiveDisclaimer,
+                            !isReadOnly &&
+                              canChangeEnvironments &&
+                              !canToggleEnvironment(en.id),
                           )}
                         >
                           {!isReadOnly && canChangeEnvironments ? (
                             <EnvironmentSwitch
                               enabled={enabled}
                               onToggle={(on) => toggleEnvironment(en.id, on)}
-                              disabled={savingEnv === en.id}
+                              disabled={
+                                savingEnv === en.id ||
+                                !canToggleEnvironment(en.id)
+                              }
                               changed={
                                 isDraft && enabled !== liveEnabled(en.id)
                               }
@@ -929,12 +942,12 @@ export default function FeaturesOverview({
             setVersion={setVersion}
           />
         )}
-        {showKillSwitchManager && (
+        {killSwitchTarget && (
           <KillSwitchModal
             feature={feature}
             baseFeature={baseFeature}
-            environment={killSwitchTarget?.envId}
-            desiredState={killSwitchTarget?.desiredState}
+            environment={killSwitchTarget.envId}
+            desiredState={killSwitchTarget.desiredState}
             currentVersion={currentVersion}
             revisionList={revisionList || []}
             mutate={mutate}
