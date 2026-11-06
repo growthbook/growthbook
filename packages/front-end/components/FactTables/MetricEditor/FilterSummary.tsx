@@ -118,7 +118,11 @@ function RowFilterBadge({
       align="start"
       contentStyle={{ maxWidth: 500, padding: 0 }}
       onOpenAutoFocus={(event) => {
-        if (!openedFromKeyboard.current) event.preventDefault();
+        // Radix skips links and then focuses the dialog, which sits outside
+        // this wrapper. Focus the wrapper so a later Escape still counts as
+        // focus having been inside the preview.
+        event.preventDefault();
+        if (openedFromKeyboard.current) contentRef.current?.focus();
         openedFromKeyboard.current = false;
       }}
       onCloseAutoFocus={(event) => {
@@ -131,9 +135,10 @@ function RowFilterBadge({
       content={
         <div
           ref={contentRef}
+          tabIndex={-1}
           onMouseEnter={openPreview}
           onMouseLeave={scheduleClose}
-          style={{ padding: PREVIEW_PADDING }}
+          style={{ padding: PREVIEW_PADDING, outline: "none" }}
         >
           <RowFilterPopoverContent
             sql={sql}
