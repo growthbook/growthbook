@@ -189,23 +189,7 @@ export default function FeatureDetailsPanel({
             action={pencil("Edit description", () =>
               setEditingDescription(true),
             )}
-            value={
-              feature.description ? (
-                <Box width="100%">
-                  {/* The row edits wherever it's clicked; only its "… expand"
-                      opens the rest. */}
-                  <ExpandableText expandOnClick={false}>
-                    <ExpandableTextBody>
-                      <Text as="div" size="sm" color="text-mid">
-                        <Markdown>{feature.description}</Markdown>
-                      </Text>
-                    </ExpandableTextBody>
-                  </ExpandableText>
-                </Box>
-              ) : (
-                <EmptyValue />
-              )
-            }
+            value={<MarkdownValue markdown={feature.description} />}
           />
           <OwnerField owner={feature.owner} action={fieldAction("owner")} />
           <ProjectField
@@ -357,21 +341,7 @@ export default function FeatureDetailsPanel({
             action={revisionAction("Edit revision description", () =>
               setDescribingRevision(true),
             )}
-            value={
-              revision.comment ? (
-                <Box width="100%">
-                  <ExpandableText expandOnClick={false}>
-                    <ExpandableTextBody>
-                      <Text as="div" size="sm" color="text-mid">
-                        <Markdown>{revision.comment}</Markdown>
-                      </Text>
-                    </ExpandableTextBody>
-                  </ExpandableText>
-                </Box>
-              ) : (
-                <EmptyValue />
-              )
-            }
+            value={<MarkdownValue markdown={revision.comment} />}
           />
           {isDraft &&
           revision.baseVersion !== undefined &&
@@ -468,5 +438,22 @@ function RailPerson({ id }: { id: string }) {
       textSize="sm"
       truncate
     />
+  );
+}
+
+// Markdown cut off after its first lines. The row edits wherever it's
+// clicked, so only its "… expand" opens the rest.
+function MarkdownValue({ markdown }: { markdown?: string }) {
+  if (!markdown) return <EmptyValue />;
+  return (
+    <Box width="100%">
+      <ExpandableText expandOnClick={false}>
+        <ExpandableTextBody>
+          <Text as="div" size="sm" color="text-mid">
+            <Markdown>{markdown}</Markdown>
+          </Text>
+        </ExpandableTextBody>
+      </ExpandableText>
+    </Box>
   );
 }

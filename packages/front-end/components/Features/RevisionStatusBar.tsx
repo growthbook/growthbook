@@ -29,11 +29,13 @@ import {
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
+import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
+import RevisionStatusBadge, {
+  isRampGenerated,
+} from "@/components/Reviews/RevisionStatusBadge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 
 // Room for a normal-sized button with even padding.
@@ -49,10 +51,8 @@ type RevisionStatus =
 function activeDrafts(revisionList: MinimalFeatureRevisionInterface[]) {
   return revisionList.filter(
     (r) =>
-      !(
-        r.createdBy?.type === "system" &&
-        r.createdBy.subtype === "ramp-schedule"
-      ) && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+      !isRampGenerated(r) &&
+      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
   );
 }
 
@@ -155,7 +155,7 @@ export default function RevisionStatusBar({
   let message: ReactNode;
   let actions: ReactNode = null;
   if (isDraft) {
-    const publishActions = (
+    actions = (
       <>
         {canDiscard ? (
           <Link onClick={() => setConfirmDiscard(true)}>Discard</Link>
@@ -198,7 +198,6 @@ export default function RevisionStatusBar({
         </>
       );
     }
-    actions = publishActions;
   } else if (status === "discarded") {
     icon = <PiProhibit />;
     label = "Discarded";
@@ -301,14 +300,10 @@ export default function RevisionStatusBar({
         </Flex>
       </div>
       {confirmDiscard ? (
-        <ModalStandard
+        <DiscardDraftModal
           trackingEventModalType="discard-feature-revision"
-          open={true}
-          header="Discard Draft"
-          cta="Discard"
-          ctaColor="red"
           close={() => setConfirmDiscard(false)}
-          submit={async () => {
+          discard={async () => {
             try {
               await apiCall(
                 `/feature/${baseFeature.id}/${revision.version}/discard`,
@@ -318,10 +313,7 @@ export default function RevisionStatusBar({
               await mutate();
             }
           }}
-        >
-          Are you sure you want to discard this draft? This action cannot be
-          undone.
-        </ModalStandard>
+        />
       ) : null}
     </>
   );

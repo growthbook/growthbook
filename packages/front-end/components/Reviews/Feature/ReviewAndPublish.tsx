@@ -108,6 +108,7 @@ import {
   FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import DiscardDraftModal from "@/components/Reviews/DiscardDraftModal";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import DatePicker from "@/components/DatePicker";
@@ -2468,14 +2469,10 @@ export default function ReviewAndPublish({
   const canDiscardDraft =
     permissionsUtil.canEditFeatureDrafts(feature) || authoredDraft;
   const discardConfirmModal = confirmDiscard ? (
-    <ModalStandard
+    <DiscardDraftModal
       trackingEventModalType="discard-feature-revision"
-      open={true}
-      header="Discard Draft"
-      cta="Discard"
-      ctaColor="red"
       close={() => setConfirmDiscard(false)}
-      submit={async () => {
+      discard={async () => {
         try {
           await apiCall(`/feature/${feature.id}/${revision.version}/discard`, {
             method: "POST",
@@ -2484,9 +2481,7 @@ export default function ReviewAndPublish({
           await mutate();
         }
       }}
-    >
-      Are you sure you want to discard this draft? This action cannot be undone.
-    </ModalStandard>
+    />
   ) : null;
 
   // Only while the draft still sits approved.

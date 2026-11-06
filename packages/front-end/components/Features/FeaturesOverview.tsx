@@ -456,13 +456,9 @@ export default function FeaturesOverview({
       setSavingEnv(null);
     }
   };
-  // An env change can be staged in a draft or published straight out. Offer the
-  // control when either route is open; the modal narrows it to the ones that are.
-  const canChangeEnvironments =
-    canEditDrafts ||
-    envs.some((envId) =>
-      permissionsUtil.canPublishFeature(baseFeature, [envId]),
-    );
+  // Switches show when any environment can change; each one is disabled where
+  // it can't.
+  const canChangeEnvironments = envs.some(canToggleEnvironment);
 
   const invalidPrereqs: {
     key: string;
