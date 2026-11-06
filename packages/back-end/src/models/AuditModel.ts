@@ -84,9 +84,57 @@ const toInterface: ToInterface<AuditInterface> = (doc) => {
 export type AuditHistoryFilters = {
   auditId?: string;
   event?: string;
-  before?: Date;
+  cursor?: string;
   excludeIds?: string[];
 };
+
+// Where a page ended: the instant of its last event, and the events at that
+// instant already returned. Excluding those (rather than everything at or after
+// the instant) means events sharing a timestamp across a page boundary are
+// neither skipped nor repeated, while the query still sorts by the index.
+type AuditCursor = { before: Date; seenIds: string[] };
+
+// Never part of an ISO date, so the first one splits date from ids.
+const CURSOR_SEPARATOR = "_";
+
+export function encodeAuditCursor({ before, seenIds }: AuditCursor): string {
+  return `${before.toISOString()}${CURSOR_SEPARATOR}${seenIds.join(",")}`;
+}
+
+// A bare ISO date (cursors issued before ids were added) still means strictly before it.
+export function parseAuditCursor(
+  cursor: string | undefined,
+): AuditCursor | undefined {
+  if (!cursor) return undefined;
+  const sep = cursor.indexOf(CURSOR_SEPARATOR);
+  const before = new Date(sep === -1 ? cursor : cursor.slice(0, sep));
+  if (isNaN(before.getTime())) {
+    throw new Error("Invalid cursor");
+  }
+  const seenIds =
+    sep === -1
+      ? []
+      : cursor
+          .slice(sep + 1)
+          .split(",")
+          .filter(Boolean);
+  return { before, seenIds };
+}
+
+// Events at the page's last instant, plus those the cursor already named
+// when the whole page sat at that same instant.
+function nextAuditCursor(
+  events: AuditInterface[],
+  current: AuditCursor | undefined,
+): AuditCursor {
+  const before = events[events.length - 1].dateCreated;
+  const sameInstant = (d: Date) => d.getTime() === before.getTime();
+  const carried = current && sameInstant(current.before) ? current.seenIds : [];
+  const seenIds = events
+    .filter((e) => sameInstant(e.dateCreated))
+    .map((e) => e.id);
+  return { before, seenIds: [...carried, ...seenIds] };
+}
 
 // Audits of one entity (or every entity of the type), matched as the entity itself or as its parent.
 function historyQuery(
@@ -94,19 +142,30 @@ function historyQuery(
   side: "entity" | "parent",
   type: EntityType,
   id: string | undefined,
-  { auditId, event, before, excludeIds }: AuditHistoryFilters = {},
+  { auditId, event, cursor, excludeIds }: AuditHistoryFilters = {},
 ): FilterQuery<AuditDocument> {
   const idMatch = {
     ...(id ? { $eq: id } : {}),
     ...(excludeIds?.length ? { $nin: excludeIds } : {}),
   };
+  const page = parseAuditCursor(cursor);
+  const auditIdMatch = {
+    ...(auditId ? { $eq: auditId } : {}),
+    ...(page?.seenIds.length ? { $nin: page.seenIds } : {}),
+  };
   return {
     organization,
     [`${side}.object`]: type,
     ...(Object.keys(idMatch).length ? { [`${side}.id`]: idMatch } : {}),
-    ...(auditId ? { id: { $eq: auditId } } : {}),
+    ...(Object.keys(auditIdMatch).length ? { id: auditIdMatch } : {}),
     ...(event ? { event } : {}),
-    ...(before ? { dateCreated: { $lt: before } } : {}),
+    ...(page
+      ? {
+          dateCreated: page.seenIds.length
+            ? { $lte: page.before }
+            : { $lt: page.before },
+        }
+      : {}),
   };
 }
 
@@ -228,10 +287,11 @@ export async function getAuditHistory(
   limit: number,
   filters: AuditHistoryFilters = {},
 ) {
-  const countFilters = { ...filters, before: undefined };
+  const countFilters = { ...filters, cursor: undefined };
   const query = (side: "entity" | "parent", f: AuditHistoryFilters) =>
     historyQuery(organization, side, type, id, f);
-  const page = { limit, sort: { dateCreated: -1 as const } };
+  // One past the page shows whether another page exists.
+  const page = { limit: limit + 1, sort: { dateCreated: -1 as const } };
 
   const [entityCount, parentCount, entityDocs, parentDocs] = await Promise.all([
     AuditModel.countDocuments(query("entity", countFilters)),
@@ -240,14 +300,19 @@ export async function getAuditHistory(
     AuditModel.find(query("parent", filters), null, page),
   ]);
 
-  const events = [...entityDocs, ...parentDocs]
+  const candidates = [...entityDocs, ...parentDocs]
     .map((doc) => toInterface(doc))
-    .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
-    .slice(0, limit);
+    .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime());
+  const events = candidates.slice(0, limit);
 
   return {
     events,
     total: entityCount + parentCount,
-    nextCursor: events.length ? events[events.length - 1].dateCreated : null,
+    nextCursor:
+      candidates.length > limit
+        ? encodeAuditCursor(
+            nextAuditCursor(events, parseAuditCursor(filters.cursor)),
+          )
+        : null,
   };
 }
