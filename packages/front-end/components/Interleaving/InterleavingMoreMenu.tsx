@@ -100,7 +100,7 @@ export default function InterleavingMoreMenu({
           Edit info
         </DropdownMenuItem>
       )}
-      {canRun && onEditStatus && (
+      {canRun && (!il.archived || il.status === "running") && onEditStatus && (
         <DropdownMenuItem
           onClick={() => {
             setOpen(false);
