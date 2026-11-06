@@ -1,31 +1,17 @@
 import dynamic from "next/dynamic";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
-import {
-  PiPlusCircleBold,
-  PiCaretRightBold,
-  PiCaretDownBold,
-  PiPencil,
-  PiLockSimple,
-  PiProhibit,
-  PiClockFill,
-} from "react-icons/pi";
-import { datetime } from "shared/dates";
+import { PiPlus, PiCaretRightBold, PiCaretDownBold } from "react-icons/pi";
 import {
   filterEnvironmentsByFeature,
   getMalformedPrereqConditionError,
   getReviewSetting,
 } from "shared/util";
-import {
-  isScheduledPublishPending,
-  isScheduledPublishLockActive,
-  isRevisionEditLockedBySchedule,
-} from "shared/enterprise";
-import { BiHide, BiShow } from "react-icons/bi";
+import { isRevisionEditLockedBySchedule } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   ACTIVE_DRAFT_STATUSES,
   SafeRolloutInterface,
@@ -34,10 +20,13 @@ import {
   RampScheduleInterface,
 } from "shared/validators";
 import Button from "@/ui/Button";
+import Switch from "@/ui/Switch";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
+import { useAuth } from "@/services/auth";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import {
@@ -48,7 +37,6 @@ import {
   useFeatureRulesEnv,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
-import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -60,20 +48,13 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Badge from "@/ui/Badge";
-import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
-import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
 import SectionFrame from "@/components/SectionFrame";
-import {
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import FeatureRules from "./FeatureRules";
@@ -86,6 +67,63 @@ export const featureStatusColors = {
   warning: "var(--amber-11)",
   danger: "var(--red-9)",
 } as const;
+
+// A changeable environment's switch, its state named after it. In a grid
+// column the switch centres and its label hangs off to the right.
+function EnvironmentSwitch({
+  enabled,
+  onToggle,
+  disabled = false,
+  changed = false,
+  labelOverhangs = false,
+}: {
+  enabled: boolean;
+  onToggle: (on: boolean) => void;
+  disabled?: boolean;
+  // Differs from live, in a draft: ringed in amber.
+  changed?: boolean;
+  labelOverhangs?: boolean;
+}) {
+  return (
+    <Flex
+      align="center"
+      gap="2"
+      style={labelOverhangs ? { position: "relative" } : undefined}
+    >
+      <span
+        style={{
+          display: "inline-flex",
+          borderRadius: "var(--radius-thumb)",
+          boxShadow: changed ? "0 0 0 2px var(--amber-9)" : undefined,
+        }}
+      >
+        <Switch
+          color="green"
+          size="lg"
+          value={enabled}
+          onChange={onToggle}
+          disabled={disabled}
+        />
+      </span>
+      <span
+        style={{
+          color: enabled
+            ? featureStatusColors.on
+            : featureStatusColors.offMuted,
+          ...(labelOverhangs && {
+            position: "absolute",
+            left: "100%",
+            marginLeft: "var(--space-2)",
+          }),
+        }}
+      >
+        <Text size="sm" weight="medium">
+          {enabled ? "On" : "Off"}
+        </Text>
+      </span>
+    </Flex>
+  );
+}
 
 export function NonLiveRevisionTooltipNote({
   kind,
@@ -106,59 +144,50 @@ const PrerequisiteStatesCols = dynamic(() =>
   import("./PrerequisiteStatusRow").then((mod) => mod.PrerequisiteStatesCols),
 );
 
+// What an environment's state is, and how it compares with live.
 function environmentKillSwitchTooltipBody(
   enabled: boolean,
-  showChangeHint: boolean,
-  nonLiveDisclaimer: false | "draft" | "inactive",
+  liveEnabled: boolean,
+  view: false | "draft" | "inactive",
 ): JSX.Element {
-  const context =
-    nonLiveDisclaimer === "draft"
-      ? "in this draft"
-      : nonLiveDisclaimer === "inactive"
-        ? "in this revision"
-        : "in this environment";
+  const state = (on: boolean, midSentence = false) => (
+    <strong
+      style={{
+        color: on ? featureStatusColors.on : featureStatusColors.offMuted,
+      }}
+    >
+      {midSentence ? (on ? "on" : "off") : on ? "On" : "Off"}
+    </strong>
+  );
+  const where = view === "draft" ? "this draft" : "this revision";
   return (
     <Text as="div" size="sm" color="text-high">
-      {enabled ? (
+      {!view ? (
+        enabled ? (
+          <>{state(true)}: traffic is on in this environment.</>
+        ) : (
+          <>
+            {state(false)}: it evaluates to <code>null</code> in this
+            environment.
+          </>
+        )
+      ) : enabled === liveEnabled ? (
         <>
-          The current feature is{" "}
-          <strong style={{ color: featureStatusColors.on }}>
-            {nonLiveDisclaimer ? "enabled" : "live"}
-          </strong>{" "}
-          {context}.
-          {!nonLiveDisclaimer && (
-            <>
-              {" "}
-              Traffic is{" "}
-              <strong style={{ color: featureStatusColors.on }}>on</strong>.
-            </>
-          )}
+          {state(enabled)} in {where}, the same as live.
+        </>
+      ) : view === "draft" ? (
+        <>
+          {state(enabled)} in this draft.
+          <Callout status="warning" size="sm" mt="2">
+            Changed from live, where it&apos;s {state(liveEnabled, true)}. Takes
+            effect when this draft is published.
+          </Callout>
         </>
       ) : (
         <>
-          The current feature is{" "}
-          <strong style={{ color: featureStatusColors.off }}>
-            {nonLiveDisclaimer ? "disabled" : "not live"}
-          </strong>{" "}
-          {context}.
-          {!nonLiveDisclaimer && (
-            <>
-              {" "}
-              Traffic is{" "}
-              <strong style={{ color: featureStatusColors.off }}>off</strong>.
-              It will evaluate to <code>null</code>.
-            </>
-          )}
+          {state(enabled)} in {where}. It&apos;s {state(liveEnabled, true)}{" "}
+          live.
         </>
-      )}
-      {showChangeHint && (
-        <Text as="div" mt="2" size="sm" color="text-high">
-          Click <strong>Change</strong> to turn traffic on or off for each
-          environment.
-        </Text>
-      )}
-      {nonLiveDisclaimer !== false && (
-        <NonLiveRevisionTooltipNote kind={nonLiveDisclaimer} />
       )}
     </Text>
   );
@@ -177,6 +206,7 @@ export default function FeaturesOverview({
   safeRollouts,
   holdout,
   rampSchedules,
+  stickyTop,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
@@ -190,6 +220,8 @@ export default function FeaturesOverview({
   mutate: () => Promise<unknown>;
   version: number | null;
   setVersion: (v: number) => void;
+  // Where headers stick: under the page's tabs and their status bar.
+  stickyTop: number;
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
@@ -197,7 +229,6 @@ export default function FeaturesOverview({
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
   } | null>(null);
-  const [showDependents, setShowDependents] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
@@ -205,6 +236,9 @@ export default function FeaturesOverview({
     desiredState?: boolean;
   } | null>(null);
   const showKillSwitchManager = killSwitchTarget !== null;
+  // The environment whose switch is saving to the draft.
+  const [savingEnv, setSavingEnv] = useState<string | null>(null);
+  const { apiCall } = useAuth();
 
   const { hasCommercialFeature } = useUser();
 
@@ -217,11 +251,6 @@ export default function FeaturesOverview({
   // config-backed value for the same environment the rules are filtered to.
   // null = "All environments".
   const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
-
-  const { dependents: dependentsData } = useFeatureDependents(feature?.id);
-  const dependentFeatures = dependentsData?.features ?? [];
-  const dependentExperiments = dependentsData?.experiments ?? [];
-  const dependents = dependentFeatures.length + dependentExperiments.length;
 
   const prerequisites = feature?.prerequisites || [];
 
@@ -315,39 +344,6 @@ export default function FeaturesOverview({
     return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
   }, [safeRollouts]);
 
-  const [bannerPinned, setBannerPinned] = useState(false);
-  const [envGridWidth, setEnvGridWidth] = useState(0);
-  const envGridRef = useCallback((el: HTMLDivElement | null) => {
-    if (!el) return;
-    setEnvGridWidth(el.getBoundingClientRect().width);
-    const ro = new ResizeObserver(([entry]) => {
-      setEnvGridWidth(entry.contentRect.width);
-    });
-    ro.observe(el);
-  }, []);
-  // Once the draft banner has scrolled up under the tab bar, a copy follows at
-  // the window's bottom. A ref callback, so it attaches whenever the banner
-  // mounts, as when a draft is created on the page.
-  const bannerObserver = useRef<IntersectionObserver | null>(null);
-  const bannerRef = useCallback((el: HTMLDivElement | null) => {
-    bannerObserver.current?.disconnect();
-    bannerObserver.current = null;
-    if (!el) {
-      setBannerPinned(false);
-      return;
-    }
-    const top = TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX;
-    const observer = new IntersectionObserver(
-      ([entry]) =>
-        setBannerPinned(
-          !entry.isIntersecting && entry.boundingClientRect.top < top,
-        ),
-      { rootMargin: `-${top}px 0px 0px 0px` },
-    );
-    observer.observe(el);
-    bannerObserver.current = observer;
-  }, []);
-
   if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
@@ -362,10 +358,6 @@ export default function FeaturesOverview({
   const baseVersion = revision?.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
   const isLive = revision?.version === feature.version;
-  const isPendingReview =
-    revision?.status === "pending-review" ||
-    revision?.status === "changes-requested";
-
   const isDraft =
     !!revision &&
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
@@ -377,7 +369,6 @@ export default function FeaturesOverview({
   // ramp lockdown). Rebase is still allowed via the publish modal.
   const editLockedBySchedule =
     isDraft && isRevisionEditLockedBySchedule(revision);
-  const scheduledPublishPending = isScheduledPublishPending(revision);
   const isReadOnly =
     isDiscarded ||
     (revision.status === "published" && !isLive) ||
@@ -415,6 +406,46 @@ export default function FeaturesOverview({
   // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
   // projection, so a draft staging a project move judged the wrong project.
   const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
+
+  const liveEnabled = (envId: string) =>
+    baseFeature.environmentSettings?.[envId]?.enabled ?? false;
+  // A draft that turns environments on or off, before it's published.
+  const draftChangesEnvironments =
+    isDraft &&
+    environments.some(
+      (en) =>
+        (feature.environmentSettings?.[en.id]?.enabled ?? false) !==
+        liveEnabled(en.id),
+    );
+
+  // On a draft, a switch saves to it; on live, it asks which draft to use.
+  // A save that's refused (a conflict) falls back to asking.
+  const toggleEnvironment = async (envId: string, on: boolean) => {
+    if (!isDraft || !canEditDrafts) {
+      setKillSwitchTarget({ envId, desiredState: on });
+      return;
+    }
+    setSavingEnv(envId);
+    try {
+      await apiCall(`/feature/${feature.id}/toggle`, {
+        method: "POST",
+        body: JSON.stringify({
+          environments: { [envId]: on },
+          baseline: { [envId]: !on },
+          draftVersion: revision.version,
+        }),
+      });
+      track("Feature Environment Toggle", {
+        environments: { [envId]: on },
+        autoPublish: false,
+      });
+      await mutate();
+    } catch {
+      setKillSwitchTarget({ envId, desiredState: on });
+    } finally {
+      setSavingEnv(null);
+    }
+  };
   // An env change can be staged in a draft or published straight out. Offer the
   // control when either route is open; the modal narrows it to the ones that are.
   const canChangeEnvironments =
@@ -485,177 +516,9 @@ export default function FeaturesOverview({
     tags: feature.tags || [],
   };
 
-  const bannerProps =
-    isDraft || isPendingReview
-      ? scheduledPublishPending
-        ? (() => {
-            // Mirrors a ramp lockdown, naming the target date. Locks
-            // engage only once approved; while in review we say "once
-            // approved" and omit the lock clauses (editing stays open).
-            const lockActive = isScheduledPublishLockActive(revision);
-            const awaitingApproval =
-              revision.status === "pending-review" ||
-              revision.status === "changes-requested";
-            const lockOthersActive =
-              lockActive && !!revision.scheduledPublishLockOthers;
-            const lockClauses = [
-              editLockedBySchedule ? "edits are locked" : null,
-              lockOthersActive ? "publishing other drafts is locked" : null,
-            ].filter((c): c is string => c !== null);
-            return {
-              icon: lockClauses.length ? (
-                <PiLockSimple size={18} />
-              ) : (
-                <PiClockFill size={18} />
-              ),
-              color: "var(--amber-11)",
-              bgColor: "var(--amber-a3)",
-              message: (
-                <>
-                  This <strong>draft</strong> is scheduled to publish on{" "}
-                  <strong>
-                    {datetime(revision.scheduledPublishAt as Date)}
-                  </strong>
-                  {awaitingApproval ? " once approved" : ""}
-                  {lockClauses.length ? ` — ${lockClauses.join(" and ")}` : ""}
-                </>
-              ),
-            };
-          })()
-        : {
-            icon: <PiPencil size={18} />,
-            color: "var(--amber-11)",
-            bgColor: "var(--amber-a3)",
-            message: (
-              <>
-                Viewing a <strong>draft</strong> —{" "}
-                {isPendingReview
-                  ? "changes will not go live until approved and published"
-                  : "changes will not go live until published"}
-              </>
-            ),
-          }
-      : isDiscarded
-        ? {
-            icon: <PiProhibit size={18} />,
-            color: "var(--gray-11)",
-            bgColor: "var(--gray-a3)",
-            message: (
-              <>
-                Viewing a <strong>discarded</strong> revision — this was never
-                published
-              </>
-            ),
-          }
-        : isReadOnly
-          ? {
-              icon: <PiLockSimple size={18} />,
-              color: "var(--gray-11)",
-              bgColor: "var(--gray-a3)",
-              message: (
-                <>
-                  Viewing a previously <strong>published</strong> revision.{" "}
-                  <Link onClick={() => setVersion(feature.version)}>
-                    <strong>Switch to live</strong>
-                  </Link>
-                </>
-              ),
-            }
-          : isLive
-            ? (() => {
-                const activeDrafts = (revisionList ?? []).filter(
-                  (r) =>
-                    !(
-                      r.createdBy?.type === "system" &&
-                      r.createdBy.subtype === "ramp-schedule"
-                    ) &&
-                    (r.status === "draft" ||
-                      r.status === "approved" ||
-                      r.status === "changes-requested" ||
-                      r.status === "pending-review"),
-                );
-                if (activeDrafts.length === 0) return null;
-                return {
-                  icon: <PiPencil size={18} />,
-                  color: "var(--gray-11)",
-                  bgColor: "var(--gray-a3)",
-                  message: (
-                    <>
-                      This feature has{" "}
-                      <strong>
-                        {activeDrafts.length === 1
-                          ? "a draft revision"
-                          : `${activeDrafts.length} draft revisions`}
-                      </strong>
-                      {activeDrafts.length === 1 && (
-                        <>
-                          {". "}
-                          <Link
-                            onClick={() => setVersion(activeDrafts[0].version)}
-                          >
-                            <strong>Switch to draft</strong>
-                          </Link>
-                        </>
-                      )}
-                    </>
-                  ),
-                };
-              })()
-            : null;
-
-  const draftBanner = (pinned: boolean) =>
-    bannerProps ? (
-      <div
-        style={{
-          width: "100%",
-          backgroundColor: "var(--color-background)",
-          borderRadius: "var(--radius-3)",
-          overflow: "hidden",
-          maxWidth: pinned ? 1280 : 1500,
-          margin: "0 auto",
-          boxShadow: pinned ? "var(--shadow-3)" : undefined,
-          pointerEvents: "auto",
-        }}
-      >
-        <Box
-          px="4"
-          py="3"
-          style={{
-            color: bannerProps.color,
-            backgroundColor: bannerProps.bgColor,
-            display: "grid",
-            gridTemplateColumns: "1fr auto 1fr",
-            alignItems: "center",
-            gap: "12px",
-          }}
-        >
-          <span />
-          <Flex
-            align="center"
-            justify="center"
-            gap="2"
-            style={{ gridColumn: 2 }}
-          >
-            <span style={{ display: "flex", flexGrow: 0, flexShrink: 0 }}>
-              {bannerProps.icon}
-            </span>
-            <span style={{ fontSize: "var(--font-size-2)" }}>
-              {bannerProps.message}
-            </span>
-          </Flex>
-          <span />
-        </Box>
-      </div>
-    ) : null;
-
   return (
     <>
       <Box className="contents container-fluid pagecontents">
-        {bannerProps ? (
-          <div ref={bannerRef} style={{ marginBottom: "var(--space-5)" }}>
-            {draftBanner(false)}
-          </div>
-        ) : null}
         {invalidPrereqs.length > 0 && (
           <Callout status="error" mt="2" mb="3">
             <Button
@@ -689,55 +552,67 @@ export default function FeaturesOverview({
         <Box mt="3">
           <CustomMarkdown page={"feature"} variables={variables} />
         </Box>
-        <Frame mb="5" px="6" py="4">
-          <Flex align="center" justify="between" gap="2" mb="2">
-            <Heading as="h4" size="sm" mb="0">
-              Environment Status
-            </Heading>
-            {showFeatureUsage && (
+        <SectionFrame
+          title="Environments"
+          mb="5"
+          footnote={
+            <>
+              Disabled environments evaluate to <code>null</code>
+            </>
+          }
+          titleAddon={
+            showFeatureUsage ? (
               <FeatureUsageSparkline valueType={feature.valueType} />
-            )}
-          </Flex>
-          <div className="mb-4">
-            When disabled, this feature will evaluate to <code>null</code>. The
-            default value and rules will be ignored.
-          </div>
+            ) : null
+          }
+          actions={
+            <>
+              {canEditDrafts && !isReadOnly ? (
+                <PremiumTooltip commercialFeature="prerequisites">
+                  <Link
+                    color="gray"
+                    onClick={() => {
+                      if (!hasPrerequisitesCommercialFeature) return;
+                      setPrerequisiteModal({
+                        i: getPrerequisites(feature).length,
+                      });
+                      track("Viewed prerequisite feature modal", {
+                        source: "add-prerequisite",
+                      });
+                    }}
+                    style={
+                      hasPrerequisitesCommercialFeature
+                        ? undefined
+                        : { opacity: 0.5, cursor: "not-allowed" }
+                    }
+                  >
+                    <Flex align="center" gap="1">
+                      <PiPlus />
+                      Add prerequisite
+                    </Flex>
+                  </Link>
+                </PremiumTooltip>
+              ) : null}
+              {!isReadOnly && canChangeEnvironments && (
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => setKillSwitchTarget({})}
+                >
+                  Change
+                </Button>
+              )}
+            </>
+          }
+        >
           {prerequisites.length > 0 ? (
             /* Grid layout: env icons column-aligned with prereq rows */
             <>
-              {!isReadOnly && canChangeEnvironments && (
-                <Flex
-                  justify="end"
-                  style={{
-                    marginBottom:
-                      envGridWidth > 0 &&
-                      200 + envs.length * 120 < envGridWidth - 80
-                        ? -26 // align to the env grid's labels' baseline
-                        : 8,
-                  }}
-                >
-                  <Button
-                    variant="ghost"
-                    size="md"
-                    onClick={() => setKillSwitchTarget({})}
-                    style={{ position: "relative", zIndex: 1 }}
-                  >
-                    Change
-                  </Button>
-                </Flex>
-              )}
-              <div
-                ref={envGridRef}
-                style={{ overflowX: "auto", marginBottom: "var(--space-2)" }}
-              >
+              <div style={{ overflowX: "auto" }}>
                 <Flex direction="column" style={{ width: "max-content" }}>
-                  {/* Header row: label in 200px area, env names in columns, top-aligned */}
+                  {/* Header row: env names in columns past the 200px label column */}
                   <Flex align="start" pb="1">
-                    <Box style={{ width: 200, flexShrink: 0 }}>
-                      <span className="font-weight-bold">
-                        Enabled Environments
-                      </span>
-                    </Box>
+                    <Box style={{ width: 200, flexShrink: 0 }} />
                     {envs.map((env) => (
                       <Box
                         key={env}
@@ -762,46 +637,28 @@ export default function FeaturesOverview({
                         feature.environmentSettings?.[en.id]?.enabled ?? false;
                       return (
                         <Box key={en.id} style={{ width: 120, flexShrink: 0 }}>
-                          <Flex align="center" justify="center" py="1">
+                          <Flex align="center" justify="center" pt="1">
                             <Tooltip
                               popperClassName="text-left"
                               flipTheme={false}
                               body={environmentKillSwitchTooltipBody(
                                 enabled,
-                                !isReadOnly && canChangeEnvironments,
+                                liveEnabled(en.id),
                                 envAndSummaryTooltipNonLiveDisclaimer,
                               )}
                             >
                               {!isReadOnly && canChangeEnvironments ? (
-                                <IconButton
-                                  variant="ghost"
-                                  radius="full"
-                                  aria-label={
-                                    enabled
-                                      ? "Disable environment"
-                                      : "Enable environment"
+                                <EnvironmentSwitch
+                                  enabled={enabled}
+                                  onToggle={(on) =>
+                                    toggleEnvironment(en.id, on)
                                   }
-                                  onClick={() =>
-                                    setKillSwitchTarget({
-                                      envId: en.id,
-                                      desiredState: !enabled,
-                                    })
+                                  disabled={savingEnv === en.id}
+                                  changed={
+                                    isDraft && enabled !== liveEnabled(en.id)
                                   }
-                                >
-                                  {enabled ? (
-                                    <FaCircleCheck
-                                      size={20}
-                                      style={{ color: featureStatusColors.on }}
-                                    />
-                                  ) : (
-                                    <FaCircleXmark
-                                      size={20}
-                                      style={{
-                                        color: featureStatusColors.offMuted,
-                                      }}
-                                    />
-                                  )}
-                                </IconButton>
+                                  labelOverhangs
+                                />
                               ) : enabled ? (
                                 <FaCircleCheck
                                   size={20}
@@ -823,9 +680,12 @@ export default function FeaturesOverview({
                   </Flex>
 
                   {/* Prerequisites section heading */}
-                  <Flex align="center" mt="1" pb="2">
+                  <Flex align="center" pb="2">
                     <Box style={{ width: 200, flexShrink: 0 }}>
-                      <span className="font-weight-bold">Prerequisites</span>
+                      {/* A row label: regular weight, a step back from the values. */}
+                      <Text weight="regular" color="text-mid">
+                        Prerequisites
+                      </Text>
                     </Box>
                   </Flex>
 
@@ -856,7 +716,9 @@ export default function FeaturesOverview({
                     style={{ borderTop: "2px solid var(--gray-4)" }}
                   >
                     <Box py="2" style={{ width: 200, flexShrink: 0 }}>
-                      <span className="font-weight-bold">Net Status</span>
+                      <Text weight="regular" color="text-mid">
+                        Net Status
+                      </Text>
                     </Box>
                     {envs.length > 0 && (
                       <PrerequisiteStatesCols
@@ -882,59 +744,14 @@ export default function FeaturesOverview({
                   </Flex>
                 </Flex>
               </div>
-              {canEditDrafts && !isReadOnly && (
-                <PremiumTooltip
-                  commercialFeature="prerequisites"
-                  className="d-inline-flex align-items-center mt-2"
-                >
-                  <Link
-                    onClick={() => {
-                      if (!hasPrerequisitesCommercialFeature) return;
-                      setPrerequisiteModal({
-                        i: getPrerequisites(feature).length,
-                      });
-                      track("Viewed prerequisite feature modal", {
-                        source: "add-prerequisite",
-                      });
-                    }}
-                    style={{
-                      opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
-                      cursor: !hasPrerequisitesCommercialFeature
-                        ? "not-allowed"
-                        : "pointer",
-                    }}
-                  >
-                    <Text weight="semibold">
-                      <PiPlusCircleBold className="mr-1" />
-                      Add prerequisite
-                    </Text>
-                  </Link>
-                </PremiumTooltip>
-              )}
             </>
           ) : (
             /* Pill layout: simple env name + icon pairs, no grid needed */
             <Box>
-              <Flex align="center" justify="between" mb="2">
-                <span>
-                  <span className="font-weight-bold">Enabled Environments</span>
-                </span>
-                {!isReadOnly && canChangeEnvironments && (
-                  <Button
-                    variant="ghost"
-                    size="md"
-                    onClick={() => setKillSwitchTarget({})}
-                  >
-                    Change
-                  </Button>
-                )}
-              </Flex>
               <Flex
-                mt="3"
-                mb="4"
                 justify="start"
                 align="center"
-                gapX="4"
+                gapX="6"
                 gapY="3"
                 wrap="wrap"
               >
@@ -949,48 +766,32 @@ export default function FeaturesOverview({
                         direction="row"
                         gap="2"
                         align="center"
-                        mr="2"
                       >
-                        <span className="font-weight-bold">{en.id}:</span>
+                        {/* Labelled as the prerequisites grid labels them. */}
+                        <Text
+                          weight="semibold"
+                          color={enabled ? "text-mid" : "text-low"}
+                        >
+                          <OverflowText maxWidth={120}>{en.id}</OverflowText>
+                        </Text>
                         <Tooltip
                           popperClassName="text-left"
                           flipTheme={false}
                           body={environmentKillSwitchTooltipBody(
                             enabled,
-                            !isReadOnly && canChangeEnvironments,
+                            liveEnabled(en.id),
                             envAndSummaryTooltipNonLiveDisclaimer,
                           )}
                         >
                           {!isReadOnly && canChangeEnvironments ? (
-                            <IconButton
-                              variant="ghost"
-                              radius="full"
-                              aria-label={
-                                enabled
-                                  ? "Disable environment"
-                                  : "Enable environment"
+                            <EnvironmentSwitch
+                              enabled={enabled}
+                              onToggle={(on) => toggleEnvironment(en.id, on)}
+                              disabled={savingEnv === en.id}
+                              changed={
+                                isDraft && enabled !== liveEnabled(en.id)
                               }
-                              onClick={() =>
-                                setKillSwitchTarget({
-                                  envId: en.id,
-                                  desiredState: !enabled,
-                                })
-                              }
-                            >
-                              {enabled ? (
-                                <FaCircleCheck
-                                  size={20}
-                                  style={{ color: featureStatusColors.on }}
-                                />
-                              ) : (
-                                <FaCircleXmark
-                                  size={20}
-                                  style={{
-                                    color: featureStatusColors.offMuted,
-                                  }}
-                                />
-                              )}
-                            </IconButton>
+                            />
                           ) : enabled ? (
                             <FaCircleCheck
                               size={20}
@@ -1019,38 +820,14 @@ export default function FeaturesOverview({
                   </Box>
                 )}
               </Flex>
-              {canEditDrafts && !isReadOnly && (
-                <PremiumTooltip
-                  commercialFeature="prerequisites"
-                  className="d-inline-flex align-items-center mt-2"
-                >
-                  <Link
-                    onClick={() => {
-                      if (!hasPrerequisitesCommercialFeature) return;
-                      setPrerequisiteModal({
-                        i: getPrerequisites(feature).length,
-                      });
-                      track("Viewed prerequisite feature modal", {
-                        source: "add-prerequisite",
-                      });
-                    }}
-                    style={{
-                      opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
-                      cursor: !hasPrerequisitesCommercialFeature
-                        ? "not-allowed"
-                        : "pointer",
-                    }}
-                  >
-                    <Text weight="semibold">
-                      <PiPlusCircleBold className="mr-1" />
-                      Add prerequisite targeting
-                    </Text>
-                  </Link>
-                </PremiumTooltip>
-              )}
             </Box>
           )}
 
+          {draftChangesEnvironments ? (
+            <HelperText status="warning" size="sm" mt="3">
+              Environment changes go live after this draft is published.
+            </HelperText>
+          ) : null}
           {hasConditionalState && (
             <PrerequisiteAlerts
               environments={envs}
@@ -1060,93 +837,7 @@ export default function FeaturesOverview({
               mb="0"
             />
           )}
-        </Frame>
-
-        {dependents > 0 && (
-          <Frame mb="5" px="6" py="4">
-            <Flex mb="2" gap="2" align="center">
-              <Heading size="sm" as="h4" mb="0">
-                Dependents
-              </Heading>
-              <Badge label={dependents + ""} color="gray" />
-            </Flex>
-            {dependents > 0 && (
-              <>
-                <Text as="p" mb="2">
-                  {dependents === 1
-                    ? `Another ${
-                        dependentFeatures.length ? "feature" : "experiment"
-                      } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-                    : `Other ${
-                        dependentFeatures.length
-                          ? dependentExperiments.length
-                            ? "features and experiments"
-                            : "features"
-                          : "experiments"
-                      } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
-                </Text>
-                <hr className="mb-2" />
-                {showDependents ? (
-                  <div className="mt-3">
-                    {dependentFeatures.length > 0 && (
-                      <>
-                        <label>Dependent Features</label>
-                        <ul className="pl-4">
-                          {dependentFeatures.map((fid, i) => (
-                            <li className="my-1" key={i}>
-                              <a
-                                href={`/features/${fid}`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {fid}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                    {dependentExperiments.length > 0 && (
-                      <>
-                        <label>Dependent Experiments</label>
-                        <ul className="pl-4">
-                          {dependentExperiments.map((exp, i) => (
-                            <li className="my-1" key={i}>
-                              <a
-                                href={`/experiment/${exp.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {exp.name}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                    <a
-                      role="button"
-                      className="d-inline-block a link-purple mt-1"
-                      onClick={() => setShowDependents(false)}
-                    >
-                      <BiHide /> Hide details
-                    </a>
-                  </div>
-                ) : (
-                  <>
-                    <a
-                      role="button"
-                      className="d-inline-block a link-purple"
-                      onClick={() => setShowDependents(true)}
-                    >
-                      <BiShow /> Show details
-                    </a>
-                  </>
-                )}
-              </>
-            )}
-          </Frame>
-        )}
+        </SectionFrame>
 
         {revision && (
           <>
@@ -1203,7 +894,7 @@ export default function FeaturesOverview({
                 rulesEnv={rulesEnv}
                 setRulesEnv={setRulesEnv}
                 baseRevision={baseRevision}
-                stickyHeaderTop={TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX}
+                stickyHeaderTop={stickyTop}
               />
             ) : (
               <SectionFrame title="Rules" mt="5">
@@ -1251,24 +942,6 @@ export default function FeaturesOverview({
             close={() => setKillSwitchTarget(null)}
           />
         )}
-        {/* Scrolled out of view, it follows to the window's bottom. */}
-        {bannerProps && bannerPinned ? (
-          <div
-            style={{ position: "sticky", bottom: 0, height: 0, zIndex: 920 }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: "var(--space-4)",
-                pointerEvents: "none",
-              }}
-            >
-              {draftBanner(true)}
-            </div>
-          </div>
-        ) : null}
       </Box>
     </>
   );

@@ -85,7 +85,6 @@ import {
   type RampStartImpact,
 } from "@/components/Features/RuleModal/rampStartImpact";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
@@ -228,28 +227,19 @@ function RampImpactBanner({
   return (
     <ModalWarningBanner
       controls={
-        <>
-          {onRampToNewValue && (
-            <Tooltip
-              content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
-              side="top"
-            >
-              <Button variant="outline" size="md" onClick={onRampToNewValue}>
-                Ramp to new value
-              </Button>
-            </Tooltip>
-          )}
-          <Box style={{ color: "var(--violet-11)" }}>
-            <Checkbox
-              value={acknowledged}
-              setValue={setAcknowledged}
-              label="Acknowledge"
-              weight="medium"
-              align="center"
-            />
-          </Box>
-        </>
+        onRampToNewValue && (
+          <Tooltip
+            content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
+            side="top"
+          >
+            <Button variant="outline" size="md" onClick={onRampToNewValue}>
+              Ramp to new value
+            </Button>
+          </Tooltip>
+        )
       }
+      acknowledged={acknowledged}
+      setAcknowledged={setAcknowledged}
     >
       This ramp-up will override an already-published rule.{" "}
       {impact.kind === "coverage-drop" ? (

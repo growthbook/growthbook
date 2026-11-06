@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Box, BoxProps, Flex } from "@radix-ui/themes";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 
 /**
  * A page section in a card, under a header: its title and actions, then any
@@ -9,22 +10,29 @@ import Heading from "@/ui/Heading";
  */
 export default function SectionFrame({
   title,
+  titleAddon,
   actions,
   tabs,
   stickyTop,
+  footnote,
   className,
   children,
   mt,
+  mb,
 }: {
   title: ReactNode;
+  // Beside the title, before the actions on the right.
+  titleAddon?: ReactNode;
   actions?: ReactNode;
   // Their underline meets the header's rule.
   tabs?: ReactNode;
   // The header sticks this far below the window's top while the card scrolls.
   stickyTop?: number;
+  // A small note at the card's foot, right-aligned under its content.
+  footnote?: ReactNode;
   className?: string;
   children: ReactNode;
-} & Pick<BoxProps, "mt">) {
+} & Pick<BoxProps, "mt" | "mb">) {
   const sticky = stickyTop !== undefined;
   const sentinel = useRef<HTMLDivElement>(null);
   const [stuck, setStuck] = useState(false);
@@ -43,14 +51,12 @@ export default function SectionFrame({
   }, [stickyTop]);
 
   return (
-    <Frame px="0" py="0" mt={mt} className={className}>
+    <Frame px="0" py="0" mt={mt} mb={mb} className={className}>
       {sticky ? <div ref={sentinel} aria-hidden /> : null}
       <Box
         style={{
-          // Stuck, the page tab bar's own pinned shadow in place of the rule.
-          boxShadow: stuck
-            ? "0 1px 2px var(--lift-shadow-near), 0 4px 4px var(--lift-shadow-far)"
-            : "inset 0 -1px 0 0 var(--gray-a5)",
+          // Its rule stays when stuck, as the page's tabs keep theirs.
+          boxShadow: "inset 0 -1px 0 0 var(--gray-a5)",
           ...(sticky && {
             position: "sticky",
             top: stickyTop,
@@ -71,9 +77,12 @@ export default function SectionFrame({
           // Tighter over tabs, which bring their own height.
           pb={tabs ? "1" : "4"}
         >
-          <Heading as="h4" size="md" mb="0">
-            {title}
-          </Heading>
+          <Flex align="center" gap="4" minWidth="0">
+            <Heading as="h4" size="md" mb="0">
+              {title}
+            </Heading>
+            {titleAddon}
+          </Flex>
           {actions ? (
             <Flex align="center" gap="3" flexShrink="0">
               {actions}
@@ -82,9 +91,16 @@ export default function SectionFrame({
         </Flex>
         {tabs ? <Box px="6">{tabs}</Box> : null}
       </Box>
-      <Box px="6" py="5">
+      <Box px="6" pt="5" pb={footnote ? "0" : "5"}>
         {children}
       </Box>
+      {footnote ? (
+        <Box px="6" pt="1" pb="3">
+          <Text as="p" size="sm" color="text-low" align="right" mb="0">
+            {footnote}
+          </Text>
+        </Box>
+      ) : null}
     </Frame>
   );
 }

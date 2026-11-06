@@ -3,7 +3,7 @@ import {
   canStageArchiveDraft,
 } from "shared/permissions";
 import { useRouter } from "next/router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { ReactNode, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
@@ -14,7 +14,6 @@ import {
   REVIEW_REQUESTED_STATUSES,
   HoldoutInterface,
 } from "shared/validators";
-import { FaArrowRight } from "react-icons/fa";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
@@ -38,9 +37,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import NewDraftButton from "@/components/Features/NewDraftButton";
-import EditRevisionTitleModal from "@/components/Reviews/EditRevisionTitleModal";
-import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
-import Button from "@/ui/Button";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import {
   DetailsPanelToggle,
@@ -79,6 +75,7 @@ export default function FeaturesHeader({
   onCompareRevisions,
   detailsOpen,
   setDetailsOpen,
+  statusBar,
 }: {
   feature: FeatureInterface;
   // Live feature doc. `feature` is merged with whichever revision is being
@@ -96,6 +93,8 @@ export default function FeaturesHeader({
   onCompareRevisions?: () => void;
   detailsOpen: boolean;
   setDetailsOpen: (open: boolean) => void;
+  // The viewed revision's state, fixed under the tabs.
+  statusBar?: ReactNode;
 }) {
   const router = useRouter();
   const firstFeature = router?.query && "first" in router.query;
@@ -109,9 +108,6 @@ export default function FeaturesHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
-  const [renameDraft, setRenameDraft] = useState(false);
-  const [describeDraft, setDescribeDraft] =
-    useState<MinimalFeatureRevisionInterface | null>(null);
   const { hasCommercialFeature, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
@@ -236,19 +232,8 @@ export default function FeaturesHeader({
 
   const headerActions = (
     <Flex align="center" gap="4" height="var(--space-6)">
-      {/* The review tab owns the lifecycle; this only leads there. */}
-      {viewingDraft ? (
-        tab !== "review" ? (
-          <Button
-            icon={<FaArrowRight />}
-            iconPosition="right"
-            onClick={() => setTab("review")}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            Review &amp; Publish
-          </Button>
-        ) : null
-      ) : canEditDrafts ? (
+      {/* A draft's way to review is on the status bar under the tabs. */}
+      {viewingDraft ? null : canEditDrafts ? (
         <NewDraftButton
           feature={baseFeature}
           revisionList={revisions}
@@ -287,16 +272,6 @@ export default function FeaturesHeader({
               }}
             >
               Compare revisions
-            </DropdownMenuItem>
-          )}
-          {viewingDraft && canEditDrafts && (
-            <DropdownMenuItem
-              onClick={() => {
-                setRenameDraft(true);
-                setDropdownOpen(false);
-              }}
-            >
-              Rename draft
             </DropdownMenuItem>
           )}
           <DropdownSubMenu
@@ -548,45 +523,14 @@ export default function FeaturesHeader({
                   setVersion={setVersion}
                   context="header"
                   width={REVISION_SELECTOR_WIDTH_PX}
-                  onEditDescription={
-                    canEditDrafts ? setDescribeDraft : undefined
-                  }
                 />
               </Box>
               <DetailsPanelToggle open={detailsOpen} setOpen={setDetailsOpen} />
             </div>
           </div>
+          {statusBar}
         </div>
       </>
-      {renameDraft && viewedRevision && (
-        <EditRevisionTitleModal
-          initialValue={viewedRevision.title ?? ""}
-          version={viewedRevision.version}
-          close={() => setRenameDraft(false)}
-          onSubmit={async (title) => {
-            await apiCall(
-              `/feature/${feature.id}/${viewedRevision.version}/title`,
-              { method: "PUT", body: JSON.stringify({ title }) },
-            );
-            await mutate();
-          }}
-        />
-      )}
-      {describeDraft && (
-        <EditRevisionDescriptionModal
-          initialValue={describeDraft.comment ?? ""}
-          revision={describeDraft}
-          liveVersion={feature.version}
-          close={() => setDescribeDraft(null)}
-          onSubmit={async (comment) => {
-            await apiCall(
-              `/feature/${feature.id}/${describeDraft.version}/comment`,
-              { method: "PUT", body: JSON.stringify({ comment }) },
-            );
-            await mutate();
-          }}
-        />
-      )}
       {auditModal && (
         <CompareFeatureEventsModal
           feature={feature}

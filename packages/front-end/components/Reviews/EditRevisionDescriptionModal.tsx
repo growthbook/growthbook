@@ -1,5 +1,6 @@
 import { useState } from "react";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import RevisionLabel from "@/components/Reviews/RevisionLabel";
@@ -45,13 +46,14 @@ export default function EditRevisionDescriptionModal({
         revision ? (
           <>
             For{" "}
-            <Text as="span" weight="semibold" color="text-high">
+            <Text as="span" size="inherit" weight="semibold" color="text-high">
               <RevisionLabel
                 version={revision.version}
                 title={revision.title}
                 // Untitled, it's already "Revision N".
                 numbered={!!revision.title}
                 minWidth={0}
+                numberSize="inherit"
               />
             </Text>
             {liveVersion !== undefined ? (
@@ -73,14 +75,18 @@ export default function EditRevisionDescriptionModal({
         await onSubmit(value.trim());
       }}
     >
-      <AIRichTextField
-        value={value}
-        onChange={setValue}
-        placeholder={placeholder}
-        collapsibleToolbar
-        autoFocus
-        onUploadingChange={setUploading}
-      />
+      {/* Laid out as a new draft's details are. */}
+      <SetupFieldRow label="Description">
+        <AIRichTextField
+          value={value}
+          onChange={setValue}
+          placeholder={placeholder}
+          height="xs"
+          collapsibleToolbar
+          autoFocus
+          onUploadingChange={setUploading}
+        />
+      </SetupFieldRow>
     </ModalStandard>
   );
 }

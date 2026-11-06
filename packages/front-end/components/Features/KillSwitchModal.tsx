@@ -498,6 +498,8 @@ export default function KillSwitchModal({
   // can't publish. The switch was legitimately theirs to flip; the route isn't.
   const cannotLandSelectedRoute =
     mode === "publish" && !noRouteAvailable && !canAutoPublish;
+  // Opened for one environment's switch, it only asks where the change goes.
+  const singleEnv = environment !== undefined && desiredState !== undefined;
   const modalHeader =
     changedEnvs.length === 1
       ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
@@ -511,7 +513,7 @@ export default function KillSwitchModal({
         close={close}
         open={true}
         cta={mode === "publish" ? "Publish now" : "Save to draft"}
-        size="lg"
+        size={singleEnv ? "md" : "lg"}
         // Without draft rights, publishing is the only route — and an
         // approval-gated change closes it, leaving nothing to submit.
         submit={noRouteAvailable ? undefined : submit}
@@ -524,7 +526,7 @@ export default function KillSwitchModal({
           !targetRevisions.loading
         }
       >
-        <div style={{ minHeight: 300 }}>
+        <div style={singleEnv ? undefined : { minHeight: 300 }}>
           {cannotLandSelectedRoute ? (
             <PermissionBlocker mb="4">
               You don&apos;t have permission to publish every environment you
@@ -553,20 +555,26 @@ export default function KillSwitchModal({
             alertActive={conflict.alertActive}
           />
           {conflict.callouts}
-          <EnvStateGrid
-            liveFeature={liveDoc}
-            visibleEnvs={visibleEnvs}
-            getEffectiveState={getEffectiveState}
-            getSwitchDisplayState={getSwitchDisplayState}
-            onToggle={(envId, val) => {
-              setTouchedEnvs((prev) => new Set([...prev, envId]));
-              setEnvOverrides((prev) => ({ ...prev, [envId]: val }));
-            }}
-            canToggle={canToggleEnv}
-            scrollToEnvId={environment}
-          />
+          {singleEnv ? null : (
+            <EnvStateGrid
+              liveFeature={liveDoc}
+              visibleEnvs={visibleEnvs}
+              getEffectiveState={getEffectiveState}
+              getSwitchDisplayState={getSwitchDisplayState}
+              onToggle={(envId, val) => {
+                setTouchedEnvs((prev) => new Set([...prev, envId]));
+                setEnvOverrides((prev) => ({ ...prev, [envId]: val }));
+              }}
+              canToggle={canToggleEnv}
+              scrollToEnvId={environment}
+            />
+          )}
 
-          <Flex justify="center" style={{ minHeight: 50 }} mt="2">
+          <Flex
+            justify="center"
+            style={singleEnv ? undefined : { minHeight: 50 }}
+            mt="2"
+          >
             {noNetChange &&
               (touchedEnvs.size > 0 || environment !== undefined) && (
                 <Text as="p" color="text-low">

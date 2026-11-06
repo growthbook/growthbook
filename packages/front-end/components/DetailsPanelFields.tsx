@@ -3,7 +3,6 @@ import { PiWarning } from "react-icons/pi";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import ExpandableBlock from "@/components/Experiment/TabbedPage/ExpandableBlock";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import Owner from "@/components/Avatar/Owner";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -167,14 +166,12 @@ export function CustomFieldRows({
   }
 
   return (
-    <ExpandableBlock>
-      <CustomFieldDisplay
-        rows
-        rowAction={action}
-        target={target}
-        canEdit={false}
-        section={section}
-      />
-    </ExpandableBlock>
+    <CustomFieldDisplay
+      rows
+      rowAction={action}
+      target={target}
+      canEdit={false}
+      section={section}
+    />
   );
 }

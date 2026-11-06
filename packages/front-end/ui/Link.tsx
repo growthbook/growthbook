@@ -10,7 +10,8 @@ import styles from "./Link.module.scss";
 
 type RadixProps = Omit<RadixLinkProps, "color" | "href" | "size"> & {
   type?: "submit" | "reset" | "button";
-  color?: RadixLinkProps["color"] | "dark";
+  // "inherit" takes the surrounding text's color, until hovered.
+  color?: RadixLinkProps["color"] | "dark" | "inherit";
   size?: Size<"sm" | "md" | "lg" | "xl">;
   // Mirrors the naming of LinkButton's own `external` prop, but actually
   // bakes in `rel="noopener noreferrer"` too — LinkButton's only sets
@@ -53,6 +54,7 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
     ref: ForwardedRef<HTMLAnchorElement>,
   ) => {
     const isCustomDarkColor = color === "dark";
+    const inheritsColor = color === "inherit";
 
     let childrenWrapper: JSX.Element | null;
     let radixProps = props;
@@ -95,8 +97,9 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
         ref={ref}
         className={clsx(styles.link, className, {
           [styles.darkLink]: isCustomDarkColor,
+          [styles.inheritLink]: inheritsColor,
         })}
-        color={isCustomDarkColor ? undefined : color}
+        color={isCustomDarkColor || inheritsColor ? undefined : color}
         size={size !== undefined ? radixSize(size) : undefined}
         {...radixProps}
         asChild

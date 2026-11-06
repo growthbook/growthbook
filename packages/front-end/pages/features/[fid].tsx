@@ -23,6 +23,14 @@ import Callout from "@/ui/Callout";
 import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
 import FeatureDetailsPanel from "@/components/Features/FeatureDetailsPanel";
+import RevisionStatusBar, {
+  getRevisionStatus,
+  REVISION_STATUS_BAR_HEIGHT_PX,
+} from "@/components/Features/RevisionStatusBar";
+import {
+  TABS_BAR_HEIGHT_PX,
+  TABS_HEADER_HEIGHT_PX,
+} from "@/components/Layout/constants";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const featureTabs = [
@@ -142,10 +150,6 @@ export default function FeaturePage() {
     }
   }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dependents =
-    (dependentsData?.features.length ?? 0) +
-    (dependentsData?.experiments.length ?? 0);
-
   // Open state is remembered per feature; width is a global preference.
   const details = useDetailsPanel({
     openKey: `feature-details-panel-open__${fid}`,
@@ -166,6 +170,19 @@ export default function FeaturePage() {
     revision.status,
   );
   const viewingLive = revision.version === feature.version;
+  // Under the tabs, the status bar pushes down what sticks beneath them.
+  // Only on the overview, where the revision's content is.
+  const showsStatusBar =
+    tab === "overview" &&
+    getRevisionStatus({
+      revision,
+      liveVersion: baseFeature.version,
+      revisionList: data.revisionList || [],
+    }) !== null;
+  const stickyTop =
+    TABS_HEADER_HEIGHT_PX +
+    TABS_BAR_HEIGHT_PX +
+    (showsStatusBar ? REVISION_STATUS_BAR_HEIGHT_PX : 0);
   const isReadOnly =
     revision.status === "discarded" ||
     (revision.status === "published" && !viewingLive);
@@ -205,17 +222,31 @@ export default function FeaturePage() {
           }
           detailsOpen={details.open}
           setDetailsOpen={details.toggle}
+          statusBar={
+            showsStatusBar ? (
+              <RevisionStatusBar
+                baseFeature={baseFeature}
+                revision={revision}
+                revisionList={data.revisionList || []}
+                setTab={setTabAndScroll}
+                setVersion={setVersion}
+                mutate={refreshData}
+              />
+            ) : null
+          }
         />
 
         <DetailsPanelLayout
           details={details}
+          stickyTop={stickyTop}
           panel={
             <FeatureDetailsPanel
               feature={feature}
               baseFeature={baseFeature}
+              revision={revision}
               revisionList={data.revisionList || []}
               holdout={holdout}
-              dependents={dependents}
+              dependents={dependentsData}
               canEdit={
                 permissionsUtil.canEditFeatureDrafts(baseFeature) &&
                 !isReadOnly &&
@@ -243,6 +274,7 @@ export default function FeaturePage() {
                 mutate={refreshData}
                 version={version}
                 setVersion={setVersion}
+                stickyTop={stickyTop}
               />
             )}
 

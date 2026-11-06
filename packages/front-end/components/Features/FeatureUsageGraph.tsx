@@ -119,6 +119,9 @@ const SPARK_LOOKBACK: FeatureUsageLookback = "15minute";
 const OTHER_KEY = "(other)";
 const TOP_N = 3;
 
+// About 20% gray mixed in, so the series read calmer than the raw scale.
+const mute = (color: string) =>
+  `color-mix(in oklch, ${color} 80%, var(--gray-9))`;
 const categoricalColors = [
   "var(--blue-7)",
   "var(--green-9)",
@@ -128,9 +131,9 @@ const categoricalColors = [
   "var(--cyan-9)",
   "var(--lime-10)",
   "var(--orange-9)",
-];
+].map(mute);
 const booleanColors = {
-  true: "rgb(32, 164, 240)",
+  true: mute("rgb(32, 164, 240)"),
   false: "rgb(170, 170, 170)",
 };
 
@@ -171,9 +174,11 @@ export function FeatureUsageProvider({
   const growthbookManagedDatasource = datasources.find(
     (ds) => ds.type === "growthbook_clickhouse",
   );
-  const managedWarehouseUnavailable = growthbookManagedDatasource
-    ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
-    : false;
+  // Dummy data needs no warehouse, so it shows whatever state that's in.
+  const managedWarehouseUnavailable =
+    !useDummyData && growthbookManagedDatasource
+      ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
+      : false;
   const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
 
   const { data, mutate: mutateFeatureUsage } = useApi<{
@@ -1141,13 +1146,14 @@ export function FeatureUsageSparkline({
   const hasData = rawMaxValue > 0;
   const maxValue = rawMaxValue || 1;
 
-  const W = 90;
+  // Short enough that it, with its padding, fits a header row's 32px.
+  const W = 76;
   const BOTTOM_PAD = 2;
-  const H = 28;
+  const H = 20;
   const AXIS_H = 1;
   const CHART_H = H - AXIS_H;
 
-  const xScale = scaleBand({ domain: xDomain, range: [0, W], padding: 0.2 });
+  const xScale = scaleBand({ domain: xDomain, range: [0, W], padding: 0.35 });
   const yScale = scaleLinear<number>({
     domain: [0, maxValue],
     range: [CHART_H, 0],

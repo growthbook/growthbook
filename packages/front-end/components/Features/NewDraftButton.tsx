@@ -1,24 +1,20 @@
 import { useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-// eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the new-draft modal; migrate to @/ui/Modal in a follow-up
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import RevisionLabel, {
-  revisionLabelText,
-} from "@/components/Reviews/RevisionLabel";
+import { QuickEditRow } from "@/components/Experiment/TabbedPage/QuickEditButton";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
+import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
+import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
-import Link from "@/ui/Link";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 
 interface Props {
@@ -29,7 +25,7 @@ interface Props {
 }
 
 // Soft per-feature draft cap (org setting). Purely advisory: a warning dot and
-// tooltip on the button, and a callout in the modal; creating is never blocked.
+// tooltip on the button, and a banner to acknowledge in the modal.
 function useDraftCap(revisionList: MinimalFeatureRevisionInterface[]) {
   const settings = useOrgSettings();
   const activeDraftCount = revisionList.filter((r) =>
@@ -99,197 +95,116 @@ function NewDraftModal({
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
   const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
   const [newDraftNotes, setNewDraftNotes] = useState("");
-  const [showNewDraftNotes, setShowNewDraftNotes] = useState(false);
-  const [creatingDraft, setCreatingDraft] = useState(false);
-  // Creating past the cap requires ticking the checkbox in its callout.
+  // An image still uploading would be dropped from the saved description.
+  const [uploading, setUploading] = useState(false);
+  // Creating past the cap requires acknowledging the banner.
   const [draftCapAcknowledged, setDraftCapAcknowledged] = useState(false);
 
+  const nextVersion = Math.max(0, ...revisionList.map((r) => r.version)) + 1;
+  const live = revisionList.find((r) => r.version === feature.version);
+
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="create-new-draft"
       open={true}
       close={close}
       header="Create New Draft"
+      subheader={
+        <>
+          Based on{" "}
+          <Text as="span" size="inherit" weight="semibold" color="text-high">
+            <RevisionLabel
+              version={feature.version}
+              title={live?.title}
+              // Untitled, it's already "Revision N".
+              numbered={!!live?.title}
+              minWidth={0}
+              numberSize="inherit"
+            />
+          </Text>{" "}
+          <RevisionStatusBadge revision={live} liveVersion={feature.version} />
+        </>
+      }
+      size="lg"
       cta="Create Draft"
-      ctaEnabled={!atDraftCap || draftCapAcknowledged}
-      disabledMessage="Acknowledge the draft cap warning to continue"
-      loading={creatingDraft}
+      ctaEnabled={(!atDraftCap || draftCapAcknowledged) && !uploading}
+      aboveFooterContent={
+        atDraftCap ? (
+          <ModalWarningBanner
+            acknowledged={draftCapAcknowledged}
+            setAcknowledged={setDraftCapAcknowledged}
+          >
+            This feature already has {activeDraftCount} active draft
+            {activeDraftCount === 1 ? "" : "s"}; your organization recommends at
+            most {maxDrafts}.
+          </ModalWarningBanner>
+        ) : undefined
+      }
       submit={async () => {
-        setCreatingDraft(true);
-        try {
-          const res = await apiCall<{ draftVersion: number }>(
-            `/feature/${feature.id}/draft`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                ...(newDraftTitle.trim()
-                  ? { title: newDraftTitle.trim() }
-                  : {}),
-                ...(newDraftNotes.trim()
-                  ? { comment: newDraftNotes.trim() }
-                  : {}),
-              }),
-            },
-          );
-          await mutate();
-          setVersion(res.draftVersion);
-        } finally {
-          setCreatingDraft(false);
-        }
+        const res = await apiCall<{ draftVersion: number }>(
+          `/feature/${feature.id}/draft`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              ...(newDraftTitle.trim() ? { title: newDraftTitle.trim() } : {}),
+              ...(newDraftNotes.trim()
+                ? { comment: newDraftNotes.trim() }
+                : {}),
+            }),
+          },
+        );
+        await mutate();
+        setVersion(res.draftVersion);
       }}
     >
-      <Flex direction="column" gap="2">
-        {atDraftCap && (
-          <Callout status="warning" mb="2">
-            <Flex direction="column" gap="2" align="start">
-              <Text>
-                This feature already has {activeDraftCount} active draft
-                {activeDraftCount === 1 ? "" : "s"} — your organization
-                recommends keeping it to {maxDrafts} per feature.
-              </Text>
-              <Checkbox
-                id="acknowledge-draft-cap"
-                label="Acknowledge and override"
-                weight="regular"
-                value={draftCapAcknowledged}
-                setValue={setDraftCapAcknowledged}
-              />
-            </Flex>
-          </Callout>
-        )}
-        <Text>
-          Creating a <Text weight="semibold">new draft</Text> based on{" "}
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "var(--space-1)",
-              whiteSpace: "nowrap",
-              backgroundColor: "var(--gray-a2)",
-              padding: "1px 4px",
-              margin: "2px",
-              borderRadius: "var(--radius-2)",
+      <SetupFieldRow
+        label="Name"
+        content={editingNewDraftTitle ? "control" : "text"}
+      >
+        {editingNewDraftTitle ? (
+          <TextField
+            autoFocus
+            value={newDraftTitle}
+            placeholder={`Revision ${nextVersion}`}
+            onChange={(e) => setNewDraftTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                setEditingNewDraftTitle(false);
+              } else if (e.key === "Escape") {
+                // Reverts the name rather than closing the modal.
+                e.preventDefault();
+                e.stopPropagation();
+                setNewDraftTitle(newDraftTitleStash);
+                setEditingNewDraftTitle(false);
+              }
             }}
-          >
-            <Text as="span" size="md" weight="semibold" color="text-high">
-              <OverflowText
-                maxWidth={200}
-                title={revisionLabelText(
-                  feature.version,
-                  revisionList.find((r) => r.version === feature.version)
-                    ?.title,
-                )}
-              >
-                <RevisionLabel
-                  version={feature.version}
-                  title={
-                    revisionList.find((r) => r.version === feature.version)
-                      ?.title
-                  }
-                  minWidth={0}
-                />
-              </OverflowText>
-            </Text>
-            <RevisionStatusBadge
-              revision={revisionList.find((r) => r.version === feature.version)}
-              liveVersion={feature.version}
-            />
-          </span>
-        </Text>
-        <Box my="3">
-          <Flex align="center" gap="2">
-            {newDraftTitle.trim() && !editingNewDraftTitle && (
-              <span
-                style={{
-                  display: "inline-block",
-                  fontVariantNumeric: "tabular-nums",
-                  flexShrink: 0,
-                }}
-              >
-                <Text as="span" color="text-mid" size="sm">
-                  {Math.max(0, ...revisionList.map((r) => r.version)) + 1}.
-                </Text>
-              </span>
-            )}
-            {editingNewDraftTitle ? (
-              <Field
-                autoFocus
-                value={newDraftTitle}
-                placeholder={`Revision ${Math.max(0, ...revisionList.map((r) => r.version)) + 1}`}
-                onChange={(e) => setNewDraftTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    setEditingNewDraftTitle(false);
-                  } else if (e.key === "Escape") {
-                    setNewDraftTitle(newDraftTitleStash);
-                    setEditingNewDraftTitle(false);
-                  }
-                }}
-                onBlur={() => setEditingNewDraftTitle(false)}
-                containerStyle={{ maxWidth: 250, marginBottom: 0 }}
-                style={{
-                  border: "none",
-                  borderBottom: "1px solid var(--violet-9)",
-                  borderRadius: 0,
-                  outline: "none",
-                  background: "transparent",
-                  boxShadow: "none",
-                  padding: "0 2px",
-                  height: "auto",
-                }}
-              />
-            ) : (
-              <Text weight="semibold">
-                <RevisionLabel
-                  version={
-                    Math.max(0, ...revisionList.map((r) => r.version)) + 1
-                  }
-                  title={newDraftTitle.trim() || null}
-                  numbered={false}
-                />
-              </Text>
-            )}
-            {!editingNewDraftTitle && (
-              <IconButton
-                type="button"
-                variant="ghost"
-                color="violet"
-                size="2"
-                radius="full"
-                onClick={() => {
-                  setNewDraftTitleStash(newDraftTitle);
-                  setEditingNewDraftTitle(true);
-                }}
-                mx="1"
-              >
-                <PiPencilSimpleFill />
-              </IconButton>
-            )}
-          </Flex>
-        </Box>
-        {showNewDraftNotes ? (
-          <Field
-            label="Description"
-            labelClassName="font-weight-bold"
-            textarea
-            value={newDraftNotes}
-            onChange={(e) => setNewDraftNotes(e.target.value)}
+            onBlur={() => setEditingNewDraftTitle(false)}
           />
         ) : (
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              setShowNewDraftNotes(true);
+          <QuickEditRow
+            label="Rename draft"
+            onEdit={() => {
+              setNewDraftTitleStash(newDraftTitle);
+              setEditingNewDraftTitle(true);
             }}
           >
-            <Flex align="center" gap="1" mb="3">
-              <PiPlus />
-              <Text weight="medium">Add description</Text>
-            </Flex>
-          </Link>
+            <Text color="text-high">
+              {newDraftTitle.trim() || `Revision ${nextVersion}`}
+            </Text>
+          </QuickEditRow>
         )}
-      </Flex>
-    </Modal>
+      </SetupFieldRow>
+      <SetupFieldRow label="Description">
+        <AIRichTextField
+          value={newDraftNotes}
+          onChange={setNewDraftNotes}
+          placeholder="Describe this revision..."
+          height="xs"
+          collapsibleToolbar
+          onUploadingChange={setUploading}
+        />
+      </SetupFieldRow>
+    </ModalStandard>
   );
 }

@@ -25,6 +25,10 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
 import Text from "@/ui/Text";
 import {
+  revealedByQuickEdit,
+  revealsQuickEdit,
+} from "@/components/Experiment/TabbedPage/QuickEditButton";
+import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
@@ -208,8 +212,17 @@ export default function PrerequisiteStatusRow({
   return (
     <>
       {deleteModal}
-      <Flex align="center" style={{ borderTop: "1px solid var(--gray-4)" }}>
-        <Box style={{ width: labelWidth, flexShrink: 0, minWidth: 0 }} py="2">
+      <Flex
+        align="center"
+        className={revealsQuickEdit}
+        style={{ borderTop: "1px solid var(--gray-4)" }}
+      >
+        {/* Indented under the "Prerequisites" label above the rows. */}
+        <Box
+          style={{ width: labelWidth, flexShrink: 0, minWidth: 0 }}
+          py="2"
+          pl="3"
+        >
           <Flex align="center" gap="1">
             <a
               href={`/features/${prerequisite.id}`}
@@ -229,7 +242,10 @@ export default function PrerequisiteStatusRow({
               condition={prerequisite.condition}
               iconOnly
             />
-            <Box style={{ flexShrink: 0 }}>{menu}</Box>
+            {/* Shows when the row is pointed at. */}
+            <Box className={revealedByQuickEdit} style={{ flexShrink: 0 }}>
+              {menu}
+            </Box>
           </Flex>
         </Box>
         {envs.length > 0 && (
