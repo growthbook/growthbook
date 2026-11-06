@@ -10,6 +10,7 @@ import {
   CreateFactMetricProps,
   FactMetricInterface,
   FactTableDefinition,
+  CompoundSettings,
   FunnelSettings,
   UpdateFactMetricProps,
 } from "shared/types/fact-table";
@@ -77,7 +78,19 @@ function buildFormDefaults(
     // and never reads this field) - overlay the real value for this stack,
     // which puts funnelSettings on the form like every other field.
     funnelSettings: existing?.funnelSettings ?? null,
+    compoundSettings: existing?.compoundSettings ?? null,
   };
+}
+
+function validateCompoundComponents(
+  compoundSettings: CompoundSettings | null,
+): void {
+  if (!compoundSettings || compoundSettings.components.length < 2) {
+    throw new Error("Compound metrics require at least 2 components");
+  }
+  if (compoundSettings.components.some((c) => !c.factTableId)) {
+    throw new Error("Every component needs a Fact Table");
+  }
 }
 
 // FunnelStepsInput has no equivalent to these - matches FactMetricModal's
@@ -156,10 +169,14 @@ export default function MetricWorkspace({
   const numeratorTable = form.watch("numerator.factTableId");
   const denominatorTable = form.watch("denominator.factTableId");
   const funnelSteps = form.watch("funnelSettings.steps");
+  const compoundComponents = form.watch("compoundSettings.components");
   const hasFactTables =
     metricType === "funnel"
       ? !!funnelSteps?.length && funnelSteps.every((step) => !!step.factTableId)
-      : !!numeratorTable && (metricType !== "ratio" || !!denominatorTable);
+      : metricType === "compound"
+        ? !!compoundComponents?.length &&
+          compoundComponents.every((c) => !!c.factTableId)
+        : !!numeratorTable && (metricType !== "ratio" || !!denominatorTable);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [actionsRight, setActionsRight] = useState(16);
   const [floating, setFloating] = useState(false);
@@ -311,17 +328,23 @@ export default function MetricWorkspace({
       throw new Error("Enter a percentile greater than 0 and less than 1.");
     }
     const isFunnel = values.metricType === "funnel";
+    const isCompound = values.metricType === "compound";
     if (isFunnel) validateFunnelSteps(values.funnelSettings);
+    if (isCompound) validateCompoundComponents(values.compoundSettings);
 
-    const payload = isFunnel
-      ? {
-          ...values,
-          numerator: null,
-          denominator: null,
-          quantileSettings: null,
-          metricAutoSlices: [],
-        }
-      : { ...values, funnelSettings: null };
+    const payload =
+      isFunnel || isCompound
+        ? {
+            ...values,
+            numerator: null,
+            denominator: null,
+            quantileSettings: null,
+            metricAutoSlices: [],
+            ...(isFunnel
+              ? { compoundSettings: null }
+              : { funnelSettings: null }),
+          }
+        : { ...values, funnelSettings: null, compoundSettings: null };
 
     if (existing) {
       const updatePayload = omit(payload, [
@@ -344,7 +367,11 @@ export default function MetricWorkspace({
       // fact table's projects, falling back to the datasource's.
       const primaryFactTable = isFunnel
         ? getFactTableById(values.funnelSettings?.steps[0]?.factTableId ?? "")
-        : getFactTableById(values.numerator.factTableId);
+        : isCompound
+          ? getFactTableById(
+              values.compoundSettings?.components[0]?.factTableId ?? "",
+            )
+          : getFactTableById(values.numerator.factTableId);
       const datasource = getDatasourceById(values.datasource);
       const createPayload = {
         ...payload,

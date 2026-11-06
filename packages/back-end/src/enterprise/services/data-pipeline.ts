@@ -7,6 +7,7 @@ import {
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isSliceMetric,
 } from "shared/experiments";
@@ -331,6 +332,9 @@ export function getMetricSettingsHashForIncrementalRefresh({
     quantileSettings: factMetric.quantileSettings,
     ...(isFactFunnelMetric(factMetric)
       ? { funnelSettings: factMetric.funnelSettings }
+      : {}),
+    ...(isFactCompoundMetric(factMetric)
+      ? { compoundSettings: factMetric.compoundSettings }
       : {}),
     // Only present for cluster experiments, so non-cluster hashes are unchanged.
     ...(clusterMetricLevel ? { clusterMetricLevel } : {}),

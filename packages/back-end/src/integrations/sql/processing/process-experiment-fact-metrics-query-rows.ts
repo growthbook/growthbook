@@ -9,6 +9,7 @@ import {
 
 import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sql/columns/quantile-bounds-from-query-response";
 import { parseFunnelStepSumColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import { isCompoundComponentUnitsColumn } from "back-end/src/integrations/sql/fact-metrics/compound-columns";
 
 const METRIC_COLUMN_RE = /^(m\d+)_(.+)$/;
 
@@ -27,6 +28,9 @@ export function processExperimentFactMetricsQueryRows(
       // the column alias throughout the code
       const alias = parseFunnelStepSumColumn(key)?.alias;
       if (alias) (funnelStepKeys[alias] ??= []).push(key);
+      if (match && isCompoundComponentUnitsColumn(key)) {
+        (funnelStepKeys[match[1]] ??= []).push(key);
+      }
     });
 
     const metricData: {
@@ -44,7 +48,8 @@ export function processExperimentFactMetricsQueryRows(
         }
       });
 
-      // Funnel metrics emit one sum per step, so their columns aren't in a static list.
+      // Funnel and compound metrics emit one sum per step / component, so their
+      // columns aren't in a static list.
       funnelStepKeys[`m${i}`]?.forEach((key) => {
         metricData[key] = parseFloat(row[key]) || 0;
       });

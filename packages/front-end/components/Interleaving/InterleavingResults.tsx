@@ -93,7 +93,8 @@ export default function InterleavingResults({
       const displayMetric: ExperimentMetricDefinition =
         type === "preference" &&
         isFactMetric(metric) &&
-        metric.metricType !== "funnel"
+        metric.metricType !== "funnel" &&
+        metric.metricType !== "compound"
           ? { ...metric, metricType: "proportion" as const }
           : metric;
       return [

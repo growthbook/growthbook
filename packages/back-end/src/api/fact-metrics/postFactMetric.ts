@@ -37,7 +37,9 @@ export async function getCreateMetricPropsFromBody(
   const primaryFactTableId =
     body.metricType === "funnel"
       ? body.funnelSettings?.steps[0]?.factTableId
-      : body.numerator?.factTableId;
+      : body.metricType === "compound"
+        ? body.compoundSettings?.components[0]?.factTableId
+        : body.numerator?.factTableId;
   if (!primaryFactTableId) {
     throw new Error("Could not determine the Fact Table for this metric");
   }
@@ -51,6 +53,7 @@ export async function getCreateMetricPropsFromBody(
   const {
     quantileSettings,
     funnelSettings,
+    compoundSettings,
     cappingSettings,
     lowerCappingSettings,
     windowSettings,
@@ -70,7 +73,8 @@ export async function getCreateMetricPropsFromBody(
   if (
     body.metricType === "proportion" ||
     body.metricType === "retention" ||
-    body.metricType === "funnel"
+    body.metricType === "funnel" ||
+    body.metricType === "compound"
   ) {
     column = "$$distinctUsers";
   } else if (body.metricType === "dailyParticipation") {
@@ -79,23 +83,24 @@ export async function getCreateMetricPropsFromBody(
     column = body.numerator?.column || "$$distinctUsers";
   }
 
-  const cleanedNumerator =
-    body.metricType === "funnel"
-      ? null
-      : numerator
-        ? FactMetricModel.migrateColumnRef({
-            ...numerator,
-            column,
-            // Clear aggregation for metric types that use special columns
-            aggregation:
-              body.metricType === "proportion" ||
-              body.metricType === "retention" ||
-              body.metricType === "dailyParticipation"
-                ? undefined
-                : numerator.aggregation,
-          })
-        : null;
-  if (body.metricType !== "funnel" && !cleanedNumerator) {
+  const eventListMetric =
+    body.metricType === "funnel" || body.metricType === "compound";
+  const cleanedNumerator = eventListMetric
+    ? null
+    : numerator
+      ? FactMetricModel.migrateColumnRef({
+          ...numerator,
+          column,
+          // Clear aggregation for metric types that use special columns
+          aggregation:
+            body.metricType === "proportion" ||
+            body.metricType === "retention" ||
+            body.metricType === "dailyParticipation"
+              ? undefined
+              : numerator.aggregation,
+        })
+      : null;
+  if (!eventListMetric && !cleanedNumerator) {
     throw new Error("Numerator required for non-funnel metrics");
   }
 
@@ -122,6 +127,7 @@ export async function getCreateMetricPropsFromBody(
     inverse: false,
     quantileSettings: quantileSettings ?? null,
     funnelSettings: funnelSettings ?? null,
+    compoundSettings: compoundSettings ?? null,
     windowSettings: {
       type: DEFAULT_FACT_METRIC_WINDOW,
       delayValue:
@@ -152,7 +158,7 @@ export async function getCreateMetricPropsFromBody(
     ...otherFields,
   };
 
-  if (denominator && body.metricType !== "funnel") {
+  if (denominator && !eventListMetric) {
     data.denominator = FactMetricModel.migrateColumnRef({
       ...denominator,
       column: denominator.column || "$$distinctUsers",

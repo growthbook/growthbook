@@ -11,6 +11,7 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   isFactMetric,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isRatioMetric,
   getRowFilterSQL,
@@ -214,7 +215,11 @@ export default function MetricDrilldownMetricCard({
   type,
 }: MetricDrilldownMetricCardProps) {
   const { getFactTableById } = useDefinitions();
-  if (!isFactMetric(metric) || isFactFunnelMetric(metric)) {
+  if (
+    !isFactMetric(metric) ||
+    isFactFunnelMetric(metric) ||
+    isFactCompoundMetric(metric)
+  ) {
     return null;
   }
 

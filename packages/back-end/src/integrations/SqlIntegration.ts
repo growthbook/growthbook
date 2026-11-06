@@ -12,6 +12,7 @@ import {
   getClusterSubUnit,
   getFactMetricFactTableIds,
   getFactTableTemplateVariables,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isRatioMetric,
   quantileMetricType,
@@ -159,6 +160,10 @@ import {
   funnelStepResolvedTsColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import {
+  compoundComponentColumn,
+  compoundCovariateComponentColumn,
+} from "back-end/src/integrations/sql/fact-metrics/compound-columns";
+import {
   getFunnelResolutionCTEs,
   type FunnelMetricForResolution,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
@@ -269,11 +274,14 @@ function getFunnelPassthroughColumns({
   metricData,
   metricColumnFilter,
   covariatePairs,
+  sourceIndex,
 }: {
   baseIdType: string;
   dimensionCols: { alias: string }[];
   includeVariationAndDimensions: boolean;
   metricData: FactMetricData[];
+  /** Limit compound component columns to this source; all sources if unset. */
+  sourceIndex?: number;
   metricColumnFilter?: (data: FactMetricData) => {
     numerator: boolean;
     denominator: boolean;
@@ -291,6 +299,22 @@ function getFunnelPassthroughColumns({
   cols.push("first_exposure_timestamp");
   for (const data of metricData) {
     if (isFactFunnelMetric(data.metric)) continue;
+    if (isFactCompoundMetric(data.metric)) {
+      const components =
+        sourceIndex === undefined
+          ? data.compoundComponentSourceIndices.map((_, k) => k)
+          : compoundComponentsForSource(data, sourceIndex);
+      const hasCovariate = covariatePairs
+        ? covariatePairs.some((p) => p.data === data)
+        : data.regressionAdjusted;
+      components.forEach((k) => {
+        cols.push(compoundComponentColumn(data.alias, k));
+        if (hasCovariate) {
+          cols.push(compoundCovariateComponentColumn(data.alias, k));
+        }
+      });
+      continue;
+    }
     const filter = metricColumnFilter?.(data);
     const hasNumerator = filter ? filter.numerator : true;
     const hasDenominator = filter ? filter.denominator : data.ratioMetric;
@@ -311,6 +335,16 @@ function getFunnelPassthroughColumns({
     }
   }
   return cols;
+}
+
+/** Compound components (by index) whose events live in source `sourceIndex`. */
+function compoundComponentsForSource(
+  data: FactMetricData,
+  sourceIndex: number,
+): number[] {
+  return data.compoundComponentSourceIndices.flatMap((componentSource, k) =>
+    componentSource === sourceIndex ? [k] : [],
+  );
 }
 
 const MAX_LOG_ERROR_LENGTH = 100;
@@ -2619,6 +2653,29 @@ export default abstract class SqlIntegration
                     })
                     .join("\n");
                 }
+                if (isFactCompoundMetric(data.metric)) {
+                  return data.metric.compoundSettings.components
+                    .flatMap((component, k) => {
+                      if (component.factTableId !== params.factTableId) {
+                        return [];
+                      }
+                      const col = compoundComponentColumn(data.alias, k);
+                      return [
+                        `, ${addCaseWhenTimeFilter(this.getSqlDialect(), {
+                          col: `m.${col}`,
+                          metric: data.metric,
+                          overrideConversionWindows:
+                            data.overrideConversionWindows,
+                          endDate: params.settings.endDate,
+                          metricTimestampColExpr:
+                            castToTimestamp("m.timestamp"),
+                          exposureTimestampColExpr:
+                            "d.first_exposure_timestamp",
+                        })} AS ${col}`,
+                      ];
+                    })
+                    .join("\n");
+                }
                 // For each metric, project only the columns this cache owns.
                 // Cross-FT ratio metrics fan into a numerator-only insert
                 // against the numerator FT and a denominator-only insert
@@ -2706,6 +2763,18 @@ export default abstract class SqlIntegration
                     })
                     .join("\n");
                 }
+                if (isFactCompoundMetric(m.metric)) {
+                  const prefix = encodeMetricIdForColumnName(m.id);
+                  return m.metric.compoundSettings.components
+                    .flatMap((component, k) =>
+                      component.factTableId === params.factTableId
+                        ? [
+                            `, SUM(${compoundComponentColumn(m.alias, k)}) AS ${compoundComponentColumn(prefix, k)}`,
+                          ]
+                        : [],
+                    )
+                    .join("\n");
+                }
                 // Use partial aggregation function since we are
                 // aggregating at the user-date level, not the user level
                 const aggfunction =
@@ -2755,6 +2824,18 @@ export default abstract class SqlIntegration
                         : funnelStepArrayColumn(prefix, stepIndex);
                     return `, ${outCol} AS ${outCol}`;
                   })
+                  .join("\n");
+              }
+              if (isFactCompoundMetric(m.metric)) {
+                const prefix = encodeMetricIdForColumnName(m.id);
+                return m.metric.compoundSettings.components
+                  .flatMap((component, k) =>
+                    component.factTableId === params.factTableId
+                      ? [
+                          `, ${compoundComponentColumn(prefix, k)} AS ${compoundComponentColumn(prefix, k)}`,
+                        ]
+                      : [],
+                  )
                   .join("\n");
               }
               const numeratorCol = includesNumerator(m.metric)
@@ -2928,6 +3009,7 @@ export default abstract class SqlIntegration
         const needsCovariateCache = regressionAdjustedMetrics.some(
           (data) =>
             data.metric.numerator?.factTableId === s.factTable.id ||
+            compoundComponentsForSource(data, s.index).length > 0 ||
             (data.ratioMetric &&
               data.metric.denominator?.factTableId === s.factTable.id),
         );
@@ -3079,9 +3161,19 @@ export default abstract class SqlIntegration
             // A cluster-ratio conversion denominator is computed in
             // __clusterRollup.
             (data.ratioMetric && data.denominatorSourceIndex === i) ||
-            data.funnelStepSourceIndices.includes(i),
+            data.funnelStepSourceIndices.includes(i) ||
+            data.compoundComponentSourceIndices.includes(i),
         )
         .map((data) => {
+          if (isFactCompoundMetric(data.metric)) {
+            const prefix = encodeMetricIdForColumnName(data.metric.id);
+            return compoundComponentsForSource(data, i)
+              .map(
+                (k) =>
+                  `, SUM(umj.${compoundComponentColumn(prefix, k)}) AS ${compoundComponentColumn(prefix, k)}`,
+              )
+              .join("\n");
+          }
           if (isFactFunnelMetric(data.metric)) {
             const prefix = encodeMetricIdForColumnName(data.metric.id);
             const alias = data.alias;
@@ -3289,8 +3381,27 @@ export default abstract class SqlIntegration
               const denominatorHere =
                 data.ratioMetric && data.denominatorSourceIndex === i;
               const funnelStepHere = data.funnelStepSourceIndices.includes(i);
-              if (!numeratorHere && !denominatorHere && !funnelStepHere)
+              const compoundComponentsHere = compoundComponentsForSource(
+                data,
+                i,
+              );
+              if (
+                !numeratorHere &&
+                !denominatorHere &&
+                !funnelStepHere &&
+                !compoundComponentsHere.length
+              )
                 return "";
+
+              if (isFactCompoundMetric(data.metric)) {
+                const prefix = encodeMetricIdForColumnName(data.metric.id);
+                return compoundComponentsHere
+                  .map(
+                    (k) =>
+                      `, ${localAlias}.${compoundComponentColumn(prefix, k)} AS ${compoundComponentColumn(data.alias, k)}`,
+                  )
+                  .join("\n");
+              }
 
               if (isFactFunnelMetric(data.metric)) {
                 const alias = data.alias;
@@ -3384,35 +3495,69 @@ export default abstract class SqlIntegration
               const denominatorHere =
                 data.ratioMetric &&
                 data.metric.denominator?.factTableId === sourceFactTableId;
+              const compoundComponentsHere = compoundComponentsForSource(
+                data,
+                i,
+              );
               return {
                 data,
                 numeratorHere,
                 denominatorHere,
-                hasAnything: numeratorHere || denominatorHere,
+                compoundComponentsHere,
+                hasAnything:
+                  numeratorHere ||
+                  denominatorHere ||
+                  compoundComponentsHere.length > 0,
               };
             })
             .filter((p) => p.hasAnything);
           const covariateColumns = localCovariatePairs
-            .map(({ data, numeratorHere, denominatorHere }) => {
-              const numeratorCol = numeratorHere
-                ? `, c.${data.alias}_covariate_value AS ${data.alias}_covariate_value`
-                : "";
-              const denominatorCol = denominatorHere
-                ? `, c.${data.alias}_covariate_denominator AS ${data.alias}_covariate_denominator`
-                : "";
-              return `${numeratorCol}${denominatorCol}`;
-            })
+            .map(
+              ({
+                data,
+                numeratorHere,
+                denominatorHere,
+                compoundComponentsHere,
+              }) => {
+                const compoundCols = compoundComponentsHere
+                  .map((k) => {
+                    const col = compoundCovariateComponentColumn(data.alias, k);
+                    return `, c.${col} AS ${col}`;
+                  })
+                  .join("");
+                const numeratorCol = numeratorHere
+                  ? `, c.${data.alias}_covariate_value AS ${data.alias}_covariate_value`
+                  : "";
+                const denominatorCol = denominatorHere
+                  ? `, c.${data.alias}_covariate_denominator AS ${data.alias}_covariate_denominator`
+                  : "";
+                return `${compoundCols}${numeratorCol}${denominatorCol}`;
+              },
+            )
             .join("\n");
           const covariateInnerColumns = localCovariatePairs
-            .map(({ data, numeratorHere, denominatorHere }) => {
-              const numeratorCol = numeratorHere
-                ? `, MAX(${encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value`
-                : "";
-              const denominatorCol = denominatorHere
-                ? `, MAX(${encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
-                : "";
-              return `${numeratorCol}${denominatorCol}`;
-            })
+            .map(
+              ({
+                data,
+                numeratorHere,
+                denominatorHere,
+                compoundComponentsHere,
+              }) => {
+                const compoundCols = compoundComponentsHere
+                  .map(
+                    (k) =>
+                      `, MAX(${compoundComponentColumn(encodeMetricIdForColumnName(data.id), k)}) AS ${compoundCovariateComponentColumn(data.alias, k)}`,
+                  )
+                  .join("");
+                const numeratorCol = numeratorHere
+                  ? `, MAX(${encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value`
+                  : "";
+                const denominatorCol = denominatorHere
+                  ? `, MAX(${encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
+                  : "";
+                return `${compoundCols}${numeratorCol}${denominatorCol}`;
+              },
+            )
             .join("\n");
           const covariateJoin =
             covariateTable && localCovariatePairs.length > 0
@@ -3515,6 +3660,7 @@ export default abstract class SqlIntegration
               includeNumerator: p.numeratorHere,
               includeDenominator: !!p.denominatorHere,
             })),
+            sourceIndex: i,
           });
 
           return (
@@ -3547,7 +3693,17 @@ export default abstract class SqlIntegration
         // Collect output columns from sources >0 for the flattened join.
         const sourceColumnsByIndex = new Map<number, string[]>();
         for (const data of metricData) {
-          if (!isFactFunnelMetric(data.metric)) {
+          if (isFactCompoundMetric(data.metric)) {
+            data.compoundComponentSourceIndices.forEach((sourceIdx, k) => {
+              if (sourceIdx === 0) return; // source 0 comes via m.*
+              const existing = sourceColumnsByIndex.get(sourceIdx) ?? [];
+              existing.push(compoundComponentColumn(data.alias, k));
+              if (data.regressionAdjusted) {
+                existing.push(compoundCovariateComponentColumn(data.alias, k));
+              }
+              sourceColumnsByIndex.set(sourceIdx, existing);
+            });
+          } else if (!isFactFunnelMetric(data.metric)) {
             // Non-funnel metrics: value/denominator columns
             const addCol = (sourceIdx: number, col: string) => {
               const existing = sourceColumnsByIndex.get(sourceIdx) ?? [];

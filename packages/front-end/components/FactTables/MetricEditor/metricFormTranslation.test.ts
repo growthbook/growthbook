@@ -1332,6 +1332,106 @@ describe("applyFormType from funnel", () => {
   });
 });
 
+describe("applyFormType with compound", () => {
+  const plan = (value: string) => [
+    { column: "plan", operator: "=" as const, values: [value] },
+  ];
+  const compound: MetricTypeSwitchState = {
+    metricType: "compound",
+    // The form keeps a stale numerator while editing a compound metric.
+    numerator: { factTableId: "stale", column: "$$count", rowFilters: [] },
+    compoundSettings: {
+      components: [
+        { factTableId: "ft1", rowFilters: plan("pro") },
+        { factTableId: "ft2", rowFilters: [] },
+      ],
+    },
+  };
+
+  it("classifies a stored compound metric", () => {
+    expect(
+      formTypeFromStored({ metricType: "compound", numerator: null }),
+    ).toEqual({ representable: true, type: "compound" });
+  });
+
+  it("copies the numerator into the first component", () => {
+    const proportion: MetricTypeSwitchState = {
+      metricType: "proportion",
+      numerator: {
+        factTableId: "ft1",
+        column: "$$distinctUsers",
+        rowFilters: plan("pro"),
+      },
+    };
+    const result = applyFormType(proportion, "compound", factTable, dialect);
+    expect(result.metricType).toBe("compound");
+    expect(result.numerator).toBeNull();
+    expect(result.compoundSettings?.components).toEqual([
+      { factTableId: "ft1", rowFilters: plan("pro") },
+      { factTableId: "ft1", rowFilters: [] },
+    ]);
+  });
+
+  it("keeps later components when the numerator comes back", () => {
+    const result = applyFormType(
+      {
+        ...compound,
+        metricType: "proportion",
+        numerator: {
+          factTableId: "ft1",
+          column: "$$distinctUsers",
+          rowFilters: plan("free"),
+        },
+      },
+      "compound",
+      factTable,
+      dialect,
+    );
+    expect(result.compoundSettings?.components).toEqual([
+      { factTableId: "ft1", rowFilters: plan("free") },
+      { factTableId: "ft2", rowFilters: [] },
+    ]);
+  });
+
+  it("copies the first component back into the numerator", () => {
+    const result = applyFormType(compound, "proportion", factTable, dialect);
+    expect(result.numerator).toMatchObject({
+      factTableId: "ft1",
+      column: "$$distinctUsers",
+      rowFilters: plan("pro"),
+    });
+  });
+
+  it("copies components to funnel steps and back", () => {
+    const funnel = applyFormType(compound, "funnel", factTable, dialect);
+    expect(funnel.metricType).toBe("funnel");
+    expect(funnel.funnelSettings?.steps).toEqual([
+      {
+        name: "Step 1",
+        factTableId: "ft1",
+        rowFilters: plan("pro"),
+        optional: false,
+        conversionWindow: null,
+      },
+      {
+        name: "Step 2",
+        factTableId: "ft2",
+        rowFilters: [],
+        optional: false,
+        conversionWindow: null,
+      },
+    ]);
+
+    const back = applyFormType(
+      { ...funnel, compoundSettings: null },
+      "compound",
+      factTable,
+      dialect,
+    );
+    expect(back.compoundSettings).toEqual(compound.compoundSettings);
+  });
+});
+
 describe("applyFormType lower-tail capping", () => {
   const lower = { type: "absolute" as const, value: 0, ignoreZeros: false };
   const meanState: MetricTypeSwitchState = {
