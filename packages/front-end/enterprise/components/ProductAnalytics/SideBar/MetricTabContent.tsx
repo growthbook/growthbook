@@ -23,7 +23,7 @@ import {
   getMetricValuesUnitState,
   getMixClassConflict,
   getUnitConflict,
-  metricSupportsUnitSelection,
+  getUnitPicker,
   setMetricValuesUnit,
 } from "@/enterprise/components/ProductAnalytics/metricMixing";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -49,14 +49,7 @@ export default function MetricTabContent() {
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
-  const unitState = getMetricValuesUnitState(
-    values,
-    getFactMetricById,
-    getFactTableById,
-  );
-  const hasUnitSelectableMetric = values.some((v) =>
-    metricSupportsUnitSelection(getFactMetricById(v.metricId)),
-  );
+  const unitPicker = getUnitPicker(values, getFactMetricById, getFactTableById);
 
   // Build the base grouped options list for this datasource. All metrics are
   // always shown; compat is enforced per-slot via isOptionDisabled so users
@@ -259,7 +252,7 @@ export default function MetricTabContent() {
           Add metric
         </Flex>
       </Button>
-      {hasUnitSelectableMetric && (
+      {unitPicker && (
         <Flex
           direction="column"
           gap="2"
@@ -273,24 +266,20 @@ export default function MetricTabContent() {
           <Text weight="medium">Identifier type</Text>
           <Select
             aria-label="Identifier type"
-            value={unitState.unit ?? undefined}
-            placeholder={
-              unitState.isMixed
-                ? "Mixed identifier types"
-                : "Select identifier type..."
-            }
-            disabled={!unitState.options.length}
+            value={unitPicker.value ?? undefined}
+            placeholder={unitPicker.placeholder}
+            disabled={unitPicker.disabledReason !== null}
             setValue={handleUnitChange}
           >
-            {unitState.options.map((unit) => (
+            {unitPicker.options.map((unit) => (
               <SelectItem key={unit} value={unit}>
                 {unit}
               </SelectItem>
             ))}
           </Select>
-          {!unitState.options.length && (
+          {unitPicker.disabledReason && (
             <Text size="sm" color="text-low">
-              The Fact Tables of these metrics share no identifier type.
+              {unitPicker.disabledReason}
             </Text>
           )}
         </Flex>

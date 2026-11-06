@@ -135,3 +135,61 @@ export function setMetricValuesUnit(
       : value,
   );
 }
+
+/** What the chart's Identifier type picker shows. */
+export type UnitPicker = {
+  value: string | null;
+  placeholder: string;
+  options: string[];
+  /** Why the picker is disabled, shown beneath it; null when it's enabled. */
+  disabledReason: string | null;
+};
+
+/** The Identifier type picker for a metric chart, or null when no metric's unit can be chosen. */
+export function getUnitPicker(
+  values: MetricValue[],
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
+): UnitPicker | null {
+  const someMetricSupportsUnitSelection = values.some((value) =>
+    metricSupportsUnitSelection(getFactMetricById(value.metricId)),
+  );
+  if (!someMetricSupportsUnitSelection) return null;
+
+  const { unit, isMixed, options } = getMetricValuesUnitState(
+    values,
+    getFactMetricById,
+    getFactTableById,
+  );
+  return {
+    value: unit,
+    placeholder: isMixed
+      ? "Mixed identifier types"
+      : "Select identifier type...",
+    options,
+    disabledReason: options.length
+      ? null
+      : "The Fact Tables of these metrics share no identifier type.",
+  };
+}
+
+/**
+ * The unit a metric card shows as read-only text. Only charts saved with mixed
+ * units show one, since the picker can't display a single value for them.
+ */
+export function getReadOnlyUnit(
+  value: MetricValue,
+  values: MetricValue[],
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
+): string | null {
+  if (!metricSupportsUnitSelection(getFactMetricById(value.metricId))) {
+    return null;
+  }
+  const { isMixed } = getMetricValuesUnitState(
+    values,
+    getFactMetricById,
+    getFactTableById,
+  );
+  return isMixed ? value.unit : null;
+}

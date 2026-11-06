@@ -479,6 +479,20 @@ export function getDefaultValueAxisName(
 }
 
 /**
+ * The value-axis title the chart shows: the custom label when one is set (an
+ * empty one hides the title), otherwise the default.
+ */
+export function getValueAxisName(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  return (
+    config?.chartSettings?.valueAxisLabel?.trim() ??
+    getDefaultValueAxisName(config, getFactMetricById)
+  );
+}
+
+/**
  * Returns the common ShowAs mode when all values in a metric dataset agree on a
  * single mode, otherwise null
  */

@@ -21,7 +21,7 @@ import {
   computeDimensionTotals,
   getExplorationRenderOpts,
   getEffectiveMetricValue,
-  getDefaultValueAxisName,
+  getValueAxisName,
   formatDateByGranularity,
   type ResolvedGranularity,
   type RenderOpts,
@@ -198,16 +198,13 @@ export default function ExplorerChart({
     [submittedExploreState, getFactMetricById],
   );
 
-  const defaultValueAxisName = getDefaultValueAxisName(
-    submittedExploreState,
-    getFactMetricById,
-  );
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
-  const customValueAxisName =
-    submittedExploreState.chartSettings?.valueAxisLabel?.trim();
-  const valueAxisName = customValueAxisName ?? defaultValueAxisName;
+  const valueAxisName = getValueAxisName(
+    submittedExploreState,
+    getFactMetricById,
+  );
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;

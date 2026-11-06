@@ -72,6 +72,7 @@ export {
   getEffectiveMetricValue,
   getExplorationRenderOpts,
   getDefaultValueAxisName,
+  getValueAxisName,
   buildExplorationColumns,
   getExplorationCellValue,
   computeDimensionTotals,

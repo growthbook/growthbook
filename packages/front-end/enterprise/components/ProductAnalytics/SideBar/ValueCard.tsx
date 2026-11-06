@@ -16,10 +16,7 @@ import useFullFactTable from "@/hooks/useFullFactTable";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import {
-  getMetricValuesUnitState,
-  metricSupportsUnitSelection,
-} from "@/enterprise/components/ProductAnalytics/metricMixing";
+import { getReadOnlyUnit } from "@/enterprise/components/ProductAnalytics/metricMixing";
 import Text from "@/ui/Text";
 import {
   factTableToColumnSource,
@@ -137,7 +134,7 @@ export default function ValueCard({
   // Metric explorations pick one unit for the whole chart (MetricTabContent),
   // so their cards only show the unit when an older config mixes them.
   let supportsUnitSelection = false;
-  let showsReadOnlyUnit = false;
+  let readOnlyUnit: string | null = null;
 
   switch (draftExploreState.dataset.type) {
     case "fact_table":
@@ -148,12 +145,12 @@ export default function ValueCard({
       break;
     case "metric": {
       const { values } = draftExploreState.dataset;
-      showsReadOnlyUnit =
-        metricSupportsUnitSelection(
-          getFactMetricById(values[index].metricId),
-        ) &&
-        getMetricValuesUnitState(values, getFactMetricById, getFactTableById)
-          .isMixed;
+      readOnlyUnit = getReadOnlyUnit(
+        values[index],
+        values,
+        getFactMetricById,
+        getFactTableById,
+      );
       break;
     }
     case "population":
@@ -217,11 +214,11 @@ export default function ValueCard({
           )}
         </Flex>
         <Flex align="center" style={{ flexShrink: 0 }}>
-          {showsReadOnlyUnit && (
+          {readOnlyUnit && (
             <Flex align="center" gap="1" mr="2" title="Identifier type">
               <PiUserFill size={12} />
               <Text size="sm" color="text-low">
-                {value.unit}
+                {readOnlyUnit}
               </Text>
             </Flex>
           )}
