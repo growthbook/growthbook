@@ -6,6 +6,7 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import TempMessage from "@/components/TempMessage";
+import useBottomBarClearance from "@/hooks/useBottomBarClearance";
 import styles from "./ExperimentQuality.module.scss";
 
 export default function QualitySaveFooter({
@@ -34,6 +35,7 @@ export default function QualitySaveFooter({
   const [confirmRecheck, setConfirmRecheck] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const barRef = useBottomBarClearance<HTMLDivElement>();
 
   const submit = async (recheck = false) => {
     await save({ recheck });
@@ -72,7 +74,13 @@ export default function QualitySaveFooter({
           </Text>
         </ModalStandard>
       ) : null}
-      <Flex className={styles.footer} align="center" justify="between" gap="4">
+      <Flex
+        ref={barRef}
+        className={styles.footer}
+        align="center"
+        justify="between"
+        gap="4"
+      >
         <Flex align="center" gap="2">
           {dirty ? (
             <>
