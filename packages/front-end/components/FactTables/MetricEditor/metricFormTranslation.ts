@@ -586,7 +586,7 @@ function storedTypeAndNumeratorFor(formType: FormMetricType): {
     case "ratio":
       return {
         metricType: "ratio",
-        numerator: { kind: "shape", shape: "sum" },
+        numerator: { kind: "shape", shape: "count" },
       };
     case "quantile":
       return {
