@@ -143,6 +143,10 @@ html.app-drawer-open body {
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
+  // Dragging the AI Assistant panel's edge, the page follows without easing.
+  html.agent-dock-resizing & {
+    transition: none;
+  }
   &.settings-layout {
     padding-left: var(--settings-layout-left);
   }

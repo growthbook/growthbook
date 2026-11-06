@@ -17,8 +17,9 @@
 }
 
 // No shadow: the page makes room for it (--agent-rail-width, global.scss).
+// Its width is yours to drag (AgentPanelResizeHandle, agentPanelWidth.ts).
 .docked {
-  width: 400px;
+  width: var(--agent-panel-width, 400px);
 
   &.expanded {
     width: calc(100% - var(--sidebar-width, 240px));
@@ -53,6 +54,11 @@
   .prose {
     max-width: 640px;
   }
+}
+
+// Dragging its edge, it follows the pointer without easing.
+:global(html.agent-dock-resizing) .panel {
+  transition: none !important;
 }
 
 // Below 1024px: the whole window.

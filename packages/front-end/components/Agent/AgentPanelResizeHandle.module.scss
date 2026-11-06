@@ -1,0 +1,75 @@
+// 8px wide, centred on the panel's 1px left border. The line shows on hover
+// (after a moment, so passing over it doesn't flash), while dragging and on
+// keyboard focus; violet past the snap point.
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  z-index: 2;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 2px;
+    background: transparent;
+    transition: background-color 150ms ease-out;
+  }
+
+  &:hover::after {
+    background: var(--slate-a8);
+    transition-delay: 150ms;
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible::after,
+  &.dragging::after {
+    background: var(--violet-9);
+    transition-delay: 0s;
+  }
+
+  &.snapping::after {
+    width: 4px;
+    left: 2px;
+    background: var(--violet-10);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      transition: none;
+    }
+  }
+}
+
+// Beside the edge, over the page, while releasing would expand the panel.
+.snapHint {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + var(--space-2));
+  transform: translateY(-50%);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-3);
+  background: var(--violet-9);
+  color: white;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+// While dragging: the cursor everywhere, no text selection, and the panel and
+// the page follow the pointer without easing.
+:global(html.agent-dock-resizing),
+:global(html.agent-dock-resizing *) {
+  cursor: col-resize !important;
+  user-select: none !important;
+}

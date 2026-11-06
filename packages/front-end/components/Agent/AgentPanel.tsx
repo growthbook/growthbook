@@ -87,6 +87,12 @@ import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
 import styles from "./AgentPanel.module.scss";
+import AgentPanelResizeHandle from "./AgentPanelResizeHandle";
+import {
+  PANEL_DEFAULT_WIDTH,
+  panelWidthCss,
+  parseSavedPanelWidth,
+} from "./agentPanelWidth";
 import AiAssistantLimitCallout from "./AiAssistantLimitCallout";
 import { formatResetsIn } from "./aiAssistantLimit";
 import { useAiAssistantLimit } from "./useAiAssistantLimit";
@@ -206,8 +212,6 @@ function preWorkToSteps(
 
 // Past the AI Assistant button's fade back in, however slow the frames.
 const FOCUS_RETURN_MAX_MS = 1000;
-// The page makes room for it (global.scss's .main reads --agent-rail-width).
-const DOCKED_WIDTH = "400px";
 const LIMIT_CALLOUT_ID = "ai-assistant-limit-callout";
 // Before paint in the browser, as a plain effect on the server.
 const useIsomorphicLayoutEffect =
@@ -294,6 +298,40 @@ export default function AgentPanel({
   const [overlay, setOverlay] = useState(false);
   const docked = !overlay;
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Docked, its width is yours to drag (AgentPanelResizeHandle), saved for
+  // you; the browser keeps it within agentPanelWidth.ts's limits.
+  const panelWidthKey = userId ? `gb-agent-panel-width:${userId}` : null;
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
+  useIsomorphicLayoutEffect(() => {
+    if (!panelWidthKey) return;
+    let saved: string | null = null;
+    try {
+      saved = window.localStorage.getItem(panelWidthKey);
+    } catch (e) {
+      // Storage blocked: the default width.
+    }
+    setPanelWidth(parseSavedPanelWidth(saved) ?? PANEL_DEFAULT_WIDTH);
+  }, [panelWidthKey]);
+  const commitPanelWidth = useCallback(
+    (width: number) => {
+      setPanelWidth(width);
+      try {
+        if (panelWidthKey) {
+          window.localStorage.setItem(panelWidthKey, String(width));
+        }
+      } catch (e) {
+        // Storage blocked: the width still holds for this page view.
+      }
+    },
+    [panelWidthKey],
+  );
+  // While dragging, straight onto the page and the panel: no re-render.
+  const previewPanelWidth = useCallback((width: number) => {
+    const css = panelWidthCss(width);
+    document.documentElement.style.setProperty("--agent-rail-width", css);
+    panelRef.current?.style.setProperty("--agent-panel-width", css);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -642,7 +680,7 @@ export default function AgentPanel({
   useIsomorphicLayoutEffect(() => {
     const root = document.documentElement;
     if (dockedShown) {
-      root.style.setProperty("--agent-rail-width", DOCKED_WIDTH);
+      root.style.setProperty("--agent-rail-width", panelWidthCss(panelWidth));
     } else {
       root.style.removeProperty("--agent-rail-width");
     }
@@ -651,7 +689,7 @@ export default function AgentPanel({
       "agent-dock-full-expanded",
       dockedShown && open && expanded,
     );
-  }, [dockedShown, open, expanded]);
+  }, [dockedShown, open, expanded, panelWidth]);
   useEffect(
     () => () => {
       const root = document.documentElement;
@@ -975,6 +1013,7 @@ export default function AgentPanel({
           "--ai-artifact-border": "var(--slate-a4)",
           "--ai-artifact-inner-bg": "var(--color-panel-solid)",
           "--ai-artifact-strip-outline": "inset 0 0 0 1px var(--gray-a3)",
+          "--agent-panel-width": panelWidthCss(panelWidth),
         } as React.CSSProperties),
         zIndex: AGENT_PANEL_Z_INDEX,
         transform: shown ? "translateX(0)" : "translateX(100%)",
@@ -985,6 +1024,15 @@ export default function AgentPanel({
           : "width var(--agent-dock-duration) var(--agent-dock-easing), transform var(--agent-dock-duration) var(--agent-dock-easing)",
       }}
     >
+      {docked && open && !expanded ? (
+        <AgentPanelResizeHandle
+          panelRef={panelRef}
+          width={panelWidth}
+          onPreview={previewPanelWidth}
+          onCommit={commitPanelWidth}
+          onExpand={() => onToggleExpanded?.()}
+        />
+      ) : null}
       {/* The "AI Assistant" title stays for screen readers. */}
       <Flex
         align="center"
