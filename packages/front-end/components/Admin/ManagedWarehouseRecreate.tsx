@@ -203,7 +203,13 @@ export default function ManagedWarehouseRecreates({
       {confirming && (
         <ConfirmDialog
           title="Recreate Derived Tables"
-          content={`Recreate ${tables.join(", ")} for ${targetDescription}? Two orgs run at a time, and pending recreates can be cancelled.`}
+          content={
+            <>
+              Recreate <Text mono>{tables.join(", ")}</Text> for{" "}
+              {targetDescription}? Two orgs run at a time, and pending recreates
+              can be cancelled.
+            </>
+          }
           yesText="Queue recreates"
           onConfirm={async () => {
             setConfirming(false);
