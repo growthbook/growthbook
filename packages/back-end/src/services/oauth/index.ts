@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { isSafeOAuthRedirectUri, OAuthDcrRequest } from "shared/validators";
+import {
+  isSafeOAuthRedirectUri,
+  OAuthDcrRequest,
+  OAuthTokenPermissions,
+} from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   APP_ORIGIN,
@@ -26,6 +30,7 @@ import {
   hashToken,
   OAUTH_ACCESS_TOKEN_PREFIX,
   OAUTH_REFRESH_TOKEN_PREFIX,
+  oauthTokenScope,
   verifyPkceS256,
 } from "back-end/src/util/oauth-token.util";
 
@@ -96,6 +101,8 @@ export interface ConnectedApp {
   clientName: string;
   clientUri?: string;
   scopes: string[];
+  // What the user chose on the consent page. Null for a grant from before it asked.
+  permissions: OAuthTokenPermissions | null;
   firstAuthorizedAt: Date;
   // Last token activity (issuance or refresh bumps the grant), not last consent
   lastUsedAt: Date;
@@ -117,6 +124,7 @@ export async function listConnectedApps(
     clientId: grant.clientId,
     clientName: grant.clientId,
     scopes: grant.scope ? grant.scope.split(/\s+/).filter(Boolean) : [],
+    permissions: grant.permissions ?? null,
     firstAuthorizedAt: grant.dateCreated,
     lastUsedAt: grant.dateUpdated,
   }));
@@ -253,6 +261,7 @@ export async function mintAuthorizationCode(params: {
   scope?: string;
   resource?: string;
   state?: string;
+  permissions: OAuthTokenPermissions | null;
 }): Promise<{ redirectTo: string }> {
   if (params.codeChallengeMethod !== "S256") {
     throw new OAuthError(
@@ -277,6 +286,8 @@ export async function mintAuthorizationCode(params: {
       "User is not a member of this organization",
     );
   }
+  // Checked here, so the grant's tokens skip it when they're minted.
+  await context.models.apiKeys.validateOAuthPermissions(params.permissions);
   const code = randomUrlSafe(32);
   const now = new Date();
   await context.models.oauthAuthCodes.create({
@@ -288,6 +299,7 @@ export async function mintAuthorizationCode(params: {
     codeChallengeMethod: "S256",
     scope: params.scope,
     resource: params.resource,
+    permissions: params.permissions,
     used: false,
     expiresAt: new Date(now.getTime() + AUTH_CODE_TTL_MS),
   });
@@ -345,6 +357,7 @@ export async function exchangeAuthorizationCode(params: {
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
+    permissions: authCode.permissions ?? null,
   });
 
   return issueTokenPair(context, {
@@ -352,6 +365,7 @@ export async function exchangeAuthorizationCode(params: {
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
+    permissions: authCode.permissions ?? null,
   });
 }
 
@@ -426,6 +440,7 @@ export async function exchangeRefreshToken(params: {
     userId: existing.userId,
     scope: existing.scope,
     resource: existing.resource,
+    permissions: grant.permissions ?? null,
   });
 }
 
@@ -474,6 +489,7 @@ interface IssueParams {
   userId: string;
   scope?: string;
   resource?: string;
+  permissions: OAuthTokenPermissions | null;
 }
 
 export interface TokenResponse {
@@ -500,18 +516,18 @@ async function issueTokenPair(
 
   // The context is always user-attributed (issuance requires a member
   // context), so this passes the PAT canCreate rule
-  // (`doc.userId === context.userId`) and gets full validation + audit log.
+  // (`doc.userId === context.userId`) and gets full validation + audit log,
+  // which is also where the permissions from consent are checked.
+  const { permissions } = params;
   await context.models.apiKeys.create({
     key: hashToken(accessToken),
     secret: true,
     userId: params.userId,
-    role: "user",
+    ...oauthTokenScope(permissions),
     description: `OAuth access token (${params.clientId})`,
     environment: "",
     project: "",
     encryptSDK: false,
-    limitAccessByEnvironment: false,
-    environments: [],
     expiresAt: accessExpires,
     oauthClientId: params.clientId,
     scopes: params.scope ? params.scope.split(/\s+/).filter(Boolean) : [],

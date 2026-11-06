@@ -4,7 +4,7 @@ description: Spec for library authors building a GrowthBook SDK in an unsupporte
 sidebarTitle: Build Your Own
 ---
 
-**Latest spec version: 0.7.1 [View Changelog](#changelog)**
+**Latest spec version: 0.12.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -308,6 +308,10 @@ return null;
 
 **Note**: It's important to use the exact hashing algorithms outlined here so all SDKs behave identically.
 
+Hash the string's UTF-16 code units, like JavaScript's `charCodeAt`, not its UTF-8 bytes. Each step XORs in a whole code unit, and characters outside the Basic Multilingual Plane, such as emoji, are two code units. ASCII strings hash the same either way.
+
+Only strings and numbers can be hash values. An empty string, `0`, and any other type count as missing. Format numbers like JavaScript before hashing, so `1.0` hashes as `"1"`.
+
 ### inRange(n: float, range: BucketRange): boolean
 
 Determines if a number `n` is within the provided range.
@@ -440,37 +444,378 @@ The return value will be a JSON-encoded string. If an error occurs, you can thro
 
 In addition to the helper functions above, there are a number of methods related to evaluating targeting conditions.
 
-There is only one public method `evalCondition` and everything else is a private helper function.
+The public methods are `evalCondition`, `pruneCondition`, and `reducePayload`, and everything else is a private helper function.
+
+### Type rules
+
+Conditions never convert between types. When an operator compares the attribute with a condition value, both must have the same type: string, number, boolean, null, array or object. Some operators compare something else: `$size` compares an array's length, and membership operators compare individual items.
+
+- When the types differ, the positive operator returns `false` and its negation returns `true`. For valid, supported conditions, `$ne`, `$nin`, `$not`, `$vne` and `$notInGroup` are the exact opposite of `$eq`, `$in`, the inner condition, `$veq` and `$inGroup`.
+- A missing attribute is `null`. It never counts as `0`, `""`, `false` or a version.
+- `$gt`, `$gte`, `$lt` and `$lte` compare two numbers or two strings. Strings compare as text, so `"10" < "9"` is `true`. Booleans have no order, so these operators return `false` for them.
+- Version operators compare two strings or two numbers.
+- `$regex` and `$regexi` match strings only.
+- `$elemMatch`, `$size`, `$all` and `$alli` return `false` for an attribute that isn't an array.
+- `$in`, `$nin` and saved group lists use strict membership, so `5` is not in `["5"]`.
+- `$exists` and `$type` work on any type.
+
+`cases.json` is the reference for edge cases.
+
+Regular expressions follow JavaScript's `RegExp` without the `u` flag. Native regex engines differ in Unicode case folding and in syntax such as lookbehind, so `cases.json` only covers patterns they all agree on.
+
+Integers and floats are both numbers. In languages where booleans are numbers, such as Python, check for booleans first.
+
+In debug mode, the JS SDK logs each type mismatch with the attribute path, the operator, and both values. This helps customers find attributes sent with the wrong type.
 
 ### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
-This is the main function used to evaluate a condition. It loops through the condition key/value pairs
-and checks each entry:
+This is the main function used to evaluate a condition. Internally, the condition helpers return `true`, `false`, or `null`. `null` means the result depends on an operator or saved group type this SDK doesn't support. A `false` decides an AND, a `true` decides an OR, and negating `null` leaves it `null`. `evalCondition` only passes on `true`, so a condition this SDK can't evaluate fails, even under `$not` or `$nor`.
 
-1. If condition key is `$or`, check if `evalOr(attributes, condition["$or"])` is false. If so, break out of the loop and return false
-2. If condition key is `$nor`, check if `!evalOr(attributes, condition["$nor"])` is false. If so, break out of the loop and return false
-3. If condition key is `$and`, check if `evalAnd(attributes, condition["$and"])` is false. If so, break out of the loop and return false
-4. If condition key is `$not`, check if `!evalCondition(attributes, condition["$not"])` is false. If so, break out of the loop and return false
-5. Otherwise, check if `evalConditionValue(value, getPath(attributes, key))` is false. If so, break out of the loop and return false
+```ts
+function evalCondition(attributes, condition) {
+  return evalConditionResult(attributes, condition) === true;
+}
 
-If none of the entries failed their checks, `evalCondition` returns true
+function evalConditionResult(attributes, condition) {
+  let result = true;
+  for (const [key, value] of Object.entries(condition)) {
+    let r;
+    if (key === "$or") r = evalOr(attributes, value);
+    else if (key === "$nor") r = not(evalOr(attributes, value));
+    else if (key === "$and") r = evalAnd(attributes, value);
+    else if (key === "$not") r = not(evalConditionResult(attributes, value));
+    else if (key === "$savedGroup") r = evalSavedGroup(attributes, value);
+    else r = evalConditionValue(value, getPath(attributes, key));
 
-### private evalOr(attributes: Attributes, conditions: Condition[]): boolean
+    // One failing entry decides it, wherever an unsupported one is
+    if (r === false) return false;
+    if (r === null) result = null;
+  }
+  return result;
+}
 
-`conditions` is an array of Condition objects
+const not = (r) => (r === null ? null : !r);
+```
 
-1. If conditions is empty, return true
-2. Loop through conditions
-   1. If `evalCondition(attributes, conditions[i])` is true, break out of the loop and return true
-3. Return false
+### private evalOr(attributes: Attributes, conditions: Condition[]): boolean|null
 
-### private evalAnd(attributes: Attributes, conditions: Condition[]): boolean
+```ts
+function evalOr(attributes, conditions) {
+  if (!conditions.length) return true;
+  let result = false;
+  for (const condition of conditions) {
+    const r = evalConditionResult(attributes, condition);
+    if (r === true) return true;
+    if (r === null) result = null;
+  }
+  return result;
+}
+```
 
-`conditions` is an array of Condition objects
+### private evalAnd(attributes: Attributes, conditions: Condition[]): boolean|null
 
-1. Loop through conditions
-   1. If `evalCondition(attributes, conditions[i])` is false, break out of the loop and return false
-2. Return true
+```ts
+function evalAnd(attributes, conditions) {
+  let result = true;
+  for (const condition of conditions) {
+    const r = evalConditionResult(attributes, condition);
+    if (r === false) return false;
+    if (r === null) result = null;
+  }
+  return result;
+}
+```
+
+### public pruneCondition(attributes: Attributes, condition: Condition): Condition|boolean
+
+Partially evaluates a condition when only some attributes are known, for example on a server that knows the user's id and nothing else. It returns `true` or `false` once the result no longer depends on unknown attributes, and otherwise the condition with every decided part removed. For any full set of attributes that agrees with the known ones, `evalCondition` must return the same result for the pruned condition as for the original.
+
+If evaluating it throws, for example on a malformed condition such as `{"$not": null}`, return the whole condition as written so the client decides. Only catch at this top level: the client fails the whole condition when any part throws, so no other part can be decided.
+
+```ts
+function pruneCondition(attributes, condition) {
+  const out = {};
+  for (const [key, value] of Object.entries(condition)) {
+    // true or false once decided, null to keep the entry as written, or what
+    // is left of a list or condition that is only partly decided
+    let result;
+    if (key === "$or" || key === "$nor") result = pruneList(attributes, value, true);
+    else if (key === "$and") result = pruneList(attributes, value, false);
+    else if (key === "$not") result = pruneCondition(attributes, value);
+    else if (key === "$savedGroup") result = pruneSavedGroup(attributes, value);
+    else if (!isKnown(attributes, key)) result = null;
+    // null when it uses an operator this SDK doesn't support, which the
+    // client's SDK may
+    else result = evalConditionValue(value, getPath(attributes, key));
+
+    // $not and $nor pass when what they hold fails
+    if ((key === "$not" || key === "$nor") && typeof result === "boolean") {
+      result = !result;
+    }
+
+    // One failing entry fails the whole condition, and a passing one is dropped
+    if (result === false) return false;
+    if (result === null) out[key] = value;
+    else if (result !== true) out[key] = result;
+  }
+  return Object.keys(out).length ? out : true;
+}
+
+// Present, even with a null value. A nested path such as `father.age` is
+// unknown, since the server may only have part of the object.
+function isKnown(attributes, key) {
+  return !key.includes(".") && key in attributes;
+}
+
+```
+
+### private pruneList(attributes: Attributes, conditions: Condition[], or: boolean): Condition[]|boolean
+
+```ts
+// `or` is true for an $or or $nor list, and false for an $and list
+function pruneList(attributes, conditions, or) {
+  const out = [];
+  for (const condition of conditions) {
+    const result = pruneCondition(attributes, condition);
+    // One passing condition decides an $or, and one failing condition an $and
+    if (or && result === true) return true;
+    if (!or && result === false) return false;
+    if (typeof result !== "boolean") out.push(result);
+  }
+  if (out.length) return out;
+  // Every condition failed an $or, or passed an $and. Like evalOr, an empty
+  // $or passes.
+  return or ? conditions.length === 0 : true;
+}
+```
+
+### private pruneSavedGroup(attributes: Attributes, reference): boolean|null
+
+Resolves a `$savedGroup` reference like `evalCondition` does, but returns `null` while the result depends on unknown attributes. An undecided reference stays as written: never inline the group.
+
+```ts
+function pruneSavedGroup(attributes, { id, attributeKey }) {
+  const entry = savedGroups[id];
+  // A missing, malformed, or cyclic reference fails, as in evalCondition
+  if (entry.type === "list") {
+    const key = attributeKey ?? entry.attributeKey;
+    return isKnown(attributes, key) ? isIn(entry.values, getPath(attributes, key)) : null;
+  }
+  if (entry.type === "condition") {
+    const result = pruneCondition(attributes, entry.condition);
+    return typeof result === "boolean" ? result : null;
+  }
+  // A type this SDK doesn't support. The client's SDK may.
+  return null;
+}
+```
+
+### public reducePayload(payload, attributes, options): Payload
+
+Shrinks a payload for one user whose attributes are only partly known, for example on a server that bootstraps a browser. For that user, the client evaluates the result the same as the full payload. In the JavaScript SDK it is a method of `GrowthBookClient`, which takes a user context, and of the user-scoped instance. The attributes are merged the same way as for evaluation: global attributes, then the user's attributes, then attribute overrides.
+
+`options` can have `include` and `exclude` filters, and `prerequisites`. A filter can have `projects`, `tags`, and `customFields` (field id -> values), and each is an array where any one value is enough. Filters read the `metadata` that SDK Connections can include for features, rules, and auto experiments. A feature in every project has `allProjects: true` instead of a `projects` list, and one in no project has neither. `prerequisites` is `"keep"` (the default) or `"filter"`.
+
+```ts
+function reducePayload(
+  payload,
+  attributes,
+  { include = {}, exclude = {}, prerequisites = "keep" } = {},
+) {
+  // Only an array counts, as with $in, and any one of its values is enough
+  const has = (actual, want) => Array.isArray(want) && isIn(want, actual);
+  // A feature or experiment has to list one of the projects, or be in all of
+  // them. One without projects is in none, like one without tags.
+  const inProjects = (meta = {}) =>
+    !include.projects || meta.allProjects || has(meta.projects, include.projects);
+  // A rule without projects applies wherever its feature is delivered
+  const ruleInProjects = (meta = {}) =>
+    !include.projects || !meta.projects || has(meta.projects, include.projects);
+  // Kept when it matches every include filter and no exclude filter. Only
+  // listed projects are excluded, so one in all projects stays.
+  const matches = (meta = {}) => {
+    const field = (name) => meta.customFields?.[name];
+    const inFields = include.customFields ?? {};
+    const outFields = exclude.customFields ?? {};
+    return (
+      inProjects(meta) &&
+      (!include.tags || has(meta.tags, include.tags)) &&
+      Object.keys(inFields).every((name) => has(field(name), inFields[name])) &&
+      !has(meta.projects, exclude.projects) &&
+      !has(meta.tags, exclude.tags) &&
+      !Object.keys(outFields).some((name) => has(field(name), outFields[name]))
+    );
+  };
+
+  // Reduces a rule or an auto experiment
+  const prune = (item, isRule) => {
+    const result = item.condition ? pruneCondition(attributes, item.condition) : null;
+    item = { ...item };
+    if (result === true) delete item.condition;
+    else if (result === false) {
+      // Kept, since sticky bucketing and forced variations skip an
+      // experiment's condition, and a rule's parentConditions are checked
+      // before it
+      item.condition = { $not: {} };
+      // A force rule that never passes never returns its value. An auto
+      // experiment's forced variation still applies to a sticky bucketed user.
+      if (isRule && "force" in item) item.force = null;
+    } else if (result) item.condition = result;
+    return item;
+  };
+
+  // Adds a feature, then the prerequisites the client evaluates for it, even
+  // when the filters drop them. With "filter", only the filters decide, except
+  // for holdouts, which aren't app features and are always kept.
+  const features = {};
+  const addParents = (item) => {
+    for (const parent of item.parentConditions ?? []) {
+      if (prerequisites !== "filter" || parent.id.startsWith("$holdout:")) {
+        add(parent.id);
+      }
+    }
+  };
+  const add = (id) => {
+    const feature = payload.features[id];
+    if (!feature || features[id]) return;
+    // Rules scoped to other projects aren't served. A prerequisite from
+    // another project keeps all of its rules.
+    const scoped = inProjects(feature.metadata);
+    const rules = feature.rules
+      ?.filter((rule) => !scoped || ruleInProjects(rule.metadata))
+      .map((rule) => prune(rule, true));
+    // Stored before its parents are added, so a prerequisite cycle ends
+    features[id] = rules ? { ...feature, rules } : feature;
+    rules?.forEach(addParents);
+  };
+
+  for (const [id, feature] of Object.entries(payload.features)) {
+    if (matches(feature.metadata)) add(id);
+  }
+  const experiments = payload.experiments
+    .filter((e) => matches(e.metadata))
+    .map((e) => prune(e, false));
+  experiments.forEach(addParents);
+
+  // The contextual bandits that kept rules and experiments use. A context
+  // whose condition never passes can't be the first that does, so it goes.
+  const contextualBandits = {};
+  const rules = Object.values(features).flatMap((f) => f.rules ?? []);
+  for (const { contextualBanditRef: ref } of [...rules, ...experiments]) {
+    if (!ref || !(ref in (payload.contextualBandits ?? {})) || ref in contextualBandits) continue;
+    const bandit = payload.contextualBandits[ref];
+    // Evaluation tolerates a definition that isn't an object, so it stays
+    if (!bandit || typeof bandit !== "object" || Array.isArray(bandit)) {
+      contextualBandits[ref] = bandit;
+      continue;
+    }
+    contextualBandits[ref] = {
+      ...bandit,
+      contexts: (bandit.contexts ?? []).flatMap((context) => {
+        const result = pruneCondition(attributes, context.condition ?? {});
+        if (result === false) return [];
+        return [{ ...context, condition: result === true ? {} : result }];
+      }),
+    };
+  }
+
+  const allGroups = payload.savedGroups ?? {};
+  const reduced = [features, experiments, contextualBandits];
+  // A list's values are attribute values, never references to other groups
+  const canReference = (entry) =>
+    entry && typeof entry === "object" && !Array.isArray(entry) && entry.type !== "list";
+
+  // Groups that keep their condition as written: those evaluated against
+  // something other than the user (each item in $elemMatch, or the parent's
+  // value in a prerequisite), and every group those reference, directly or not
+  const asWritten = new Set();
+  const seen = new Set();
+  const mark = (value, user) => {
+    if (typeof value === "string") {
+      if (!(value in allGroups) || asWritten.has(value)) return;
+      if (user && seen.has(value)) return;
+      (user ? seen : asWritten).add(value);
+      if (canReference(allGroups[value])) mark(allGroups[value], user);
+    } else if (value && typeof value === "object") {
+      for (const [key, v] of Object.entries(value)) {
+        mark(v, user && key !== "$elemMatch" && key !== "parentConditions");
+      }
+    }
+  };
+
+  // A group on a reference cycle of any length, including one that references
+  // itself, also keeps its condition as written: its result depends on which
+  // group evaluation entered the cycle from. Tarjan's algorithm finds them in
+  // one pass over the ids each group's contents mention, rather than walking
+  // the references again for every group.
+  const refsOf = (id) => {
+    const ids = new Set();
+    const collect = (value) => {
+      if (typeof value === "string") {
+        if (value in allGroups) ids.add(value);
+      } else if (value && typeof value === "object") {
+        Object.values(value).forEach(collect);
+      }
+    };
+    if (canReference(allGroups[id])) collect(allGroups[id]);
+    return ids;
+  };
+  const onCycle = new Set();
+  const order = new Map();
+  const stack = [];
+  const visit = (id) => {
+    const own = order.size;
+    order.set(id, own);
+    stack.push(id);
+    let low = own;
+    for (const next of refsOf(id)) {
+      if (next === id) onCycle.add(id);
+      if (!order.has(next)) low = Math.min(low, visit(next));
+      else if (stack.includes(next)) low = Math.min(low, order.get(next));
+    }
+    if (low === own) {
+      const component = stack.splice(stack.indexOf(id));
+      if (component.length > 1) component.forEach((g) => onCycle.add(g));
+    }
+    return low;
+  };
+  for (const id of Object.keys(allGroups)) if (!order.has(id)) visit(id);
+
+  // Keep each saved group whose id appears as a string anywhere. This also
+  // keeps groups that an operator this SDK doesn't support refers to.
+  const savedGroups = {};
+  const keep = (value) => {
+    if (typeof value === "string") {
+      const entry = allGroups[value];
+      if (!entry || savedGroups[value]) return;
+      // Other condition groups are reduced, with their own id counted as visited
+      const result =
+        entry.type === "condition" && !asWritten.has(value) && !onCycle.has(value)
+          ? pruneCondition(attributes, entry.condition)
+          : null;
+      savedGroups[value] =
+        result && typeof result === "object" ? { ...entry, condition: result } : entry;
+      if (canReference(entry)) keep(savedGroups[value]);
+    } else if (value && typeof value === "object") {
+      Object.values(value).forEach(keep);
+    }
+  };
+  // Nothing to find without saved groups, so the payload isn't walked
+  if (Object.keys(allGroups).length) {
+    mark(reduced, true);
+    keep(reduced);
+  }
+
+  return {
+    ...payload,
+    features,
+    experiments,
+    savedGroups,
+    // Left out, not set to undefined, when the payload has none
+    ...(payload.contextualBandits ? { contextualBandits } : {}),
+  };
+}
+```
 
 ### private isOperatorObject(obj): boolean
 
@@ -481,7 +826,7 @@ This accepts a parsed JSON object as input and returns `true` if every key in th
 - `{"foo": "bar"}` -> `false`
 - `{"$gt": 1, "foo": "bar"}` -> `false`
 
-If the object is empty and has no keys, this should also return true.
+If the object is empty and has no keys, this should also return true, so a condition value of `{}` always passes. An array is never an operator object.
 
 ### private getType(attributeValue): string
 
@@ -512,7 +857,7 @@ The value `unknown` is there just in case you can't figure out the data type for
 
 ### private getPath(attributes: Attributes, path: string): any
 
-Given attributes and a dot-separated path string, return the value at that path (or `null`/`undefined` if the path doesn't exist)
+Given attributes and a dot-separated path string, return the value at that path (or `null`/`undefined` if the path doesn't exist). Only read an object's own keys, so a missing attribute named like a built-in property, such as `constructor` or `toString`, is missing.
 
 Given the input:
 
@@ -531,24 +876,49 @@ It should return:
 - `getPath(input, "job.title")` -> `"developer"`
 - `getPath(input, "job.company")` -> `null` or `undefined`
 
-### private evalConditionValue(conditionValue, attributeValue): boolean
+### private evalConditionValue(conditionValue, attributeValue): boolean|null
 
-1. If `conditionValue` is an object and `isOperatorObject(conditionValue)` is true
-   1. Loop over each key/value pair
-      1. If `evalOperatorCondition(key, attributeValue, value)` is false, return false
-   2. Return true
-2. Else, do a deep comparison between `attributeValue` and `conditionValue`. Return true if equal, false if not.
+```ts
+function evalConditionValue(conditionValue, attributeValue) {
+  if (isObject(conditionValue) && isOperatorObject(conditionValue)) {
+    // Every operator has to pass, like evalAnd
+    let result = true;
+    for (const [operator, value] of Object.entries(conditionValue)) {
+      const r = evalOperatorCondition(operator, attributeValue, value);
+      if (r === false) return false;
+      if (r === null) result = null;
+    }
+    return result;
+  }
+  return deepEqual(attributeValue, conditionValue);
+}
+```
 
-### private elemMatch(conditionValue, attributeValue): boolean
+### private elemMatch(conditionValue, attributeValue): boolean|null
 
-This checks if `attributeValue` is an array, and if so at least one of the array items must match the condition
+At least one item of `attributeValue` must match the condition, like `evalOr`.
 
-1. If `attributeValue` is not an array, return false
-2. Loop through items in `attributeValue`
-   1. If `isOperatorObject(conditionValue)`
-      1. If `evalConditionValue(conditionValue, item)`, break out of loop and return true
-   2. Else if `evalCondition(item, conditionValue)`, break out of loop and return true
-3. Return false
+```ts
+function elemMatch(conditionValue, attributeValue) {
+  if (!Array.isArray(attributeValue)) return false;
+  // Operators test each item itself. A condition, including one that only
+  // uses $or, $and, $nor, or $savedGroup, tests each item's fields.
+  const operators =
+    isOperatorObject(conditionValue) &&
+    !Object.keys(conditionValue).some((key) =>
+      ["$or", "$and", "$nor", "$savedGroup"].includes(key),
+    );
+  let result = false;
+  for (const item of attributeValue) {
+    const r = operators
+      ? evalConditionValue(conditionValue, item)
+      : evalConditionResult(item, conditionValue);
+    if (r === true) return true;
+    if (r === null) result = null;
+  }
+  return result;
+}
+```
 
 ### private paddedVersionString(input): string {#private-paddedversionstring-input-string}
 
@@ -620,6 +990,8 @@ There are basic comparison operators in the form `attributeValue {op} conditionV
 - `$gte` &gt;=
 - `$regex` ~ (regex match)
 
+These follow the [type rules](#type-rules). For example, `$lt` returns `false` unless both values are numbers or both are strings.
+
 There are 3 operators where conditionValue is an array. All of these should return `false` if `conditionValue` is not an array for whatever reason.
 
 - `$in`
@@ -628,9 +1000,7 @@ There are 3 operators where conditionValue is an array. All of these should retu
   1. Return `not isIn(conditionValue, attributeValue)`
 - `$all`
   1. If attributeValue is not an array, return `false`
-  2. Loop through conditionValue array
-     1. If none of the elements in the attributeValue array pass `evalConditionValue(conditionValue[i], attributeValue[j])`, return false
-  3. Return true
+  2. Every item of the conditionValue array has to match some element of attributeValue: combine `evalConditionValue(conditionValue[i], attributeValue[j])` across elements like `evalOr`, and across items like `evalAnd`
 
 There are 2 operators where attributeValue is an array:
 
@@ -649,11 +1019,13 @@ There are 3 other operators:
 - `$type`
   1. Return `getType(attributeValue) == conditionValue`
 - `$not`
-  1. Return `!evalConditionValue(conditionValue, attributeValue)`
+  1. Return `not(evalConditionValue(conditionValue, attributeValue))`, which leaves `null` as `null`
 
-There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details.
+For `$inGroup` and `$notInGroup`, a saved group of a type this SDK doesn't support returns `null`.
 
-If operator doesn't match any of these, return false and potentially log the error for debug purposes.
+There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details. If the two values aren't both strings or both numbers, `$vne` returns `true` and the others return `false`.
+
+If operator doesn't match any of these, return `null` and potentially log the error for debug purposes.
 
 ## GrowthBook Class
 
@@ -736,7 +1108,7 @@ Determines if the user is part of a gradual feature rollout.
     return inRange(n, range)
    }
    else if (coverage !== null) {
-    return n <= coverage
+    return n < coverage
    }
 
    return true
@@ -1122,6 +1494,16 @@ The cases.json file is an object. The keys are the function being tested, and th
   - attributes
   - expected return value (boolean)
   - definitions for Saved Groups referenced in the test case (object of keys: ID of group -> values: array of members, or a typed entry in the `savedGroupReferencesV2` cases)
+- **pruneCondition**: for SDKs that have `pruneCondition`, which also needs `$savedGroup` support. Skip the key if yours does not yet
+  - name of the test case (string)
+  - condition
+  - known attributes
+  - expected return value (boolean, or the pruned condition)
+  - definitions for Saved Groups referenced in the test case, if any (array of members, or a typed entry)
+- **reducePayload**: for SDKs that have `reducePayload`, which builds on `pruneCondition`. Skip the key if yours does not yet
+  - name of the test case (string)
+  - input object with `payload`, plus `globalAttributes`, `attributes`, `include`, `exclude`, and `prerequisites` when the case uses them
+  - expected reduced payload
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1271,3 +1653,32 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - `$inGroup` and `$notInGroup` also read typed `list` entries
   - Saved Groups are passed into prerequisite conditions (`parentConditions`)
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
+- **v0.10.1** 2026-10-22
+  - Add a `feature` test case for a prerequisite (`parentConditions`) with a malformed condition (`{"$not": null}`). It never matches, so the rule is skipped instead of throwing
+- **v0.11.0** 2026-10-22
+  - Condition helpers return `null` when the result depends on an operator or saved group type the SDK doesn't support, including through `$inGroup` and `$notInGroup`. `evalCondition` treats it as failing, so such a condition now fails under `$not` and `$nor` too, where it used to pass
+  - `$elemMatch` treats a value that uses `$or`, `$and`, `$nor`, or `$savedGroup` as a condition on each item's fields, rather than as operators
+  - `getPath` only reads an object's own keys, so a missing attribute named like a built-in property, such as `constructor`, is missing
+  - A condition value of `{}` always passes, as `isOperatorObject` already described
+  - New `evalCondition` and `savedGroupReferencesV2.evalCondition` cases for these
+- **v0.11.0** 2026-10-15
+  - New public `pruneCondition` method that partially evaluates a condition when only some attributes are known. It returns `true`, `false`, or the condition with every decided branch removed
+  - New public `reducePayload` method that shrinks a payload for one user: it includes or excludes features and auto experiments by project, tag, or custom field, reduces their conditions with `pruneCondition`, and drops the saved groups and contextual bandits nothing references any more
+  - New `pruneCondition` and `reducePayload` keys in the test cases
+- **v0.11.1** 2026-10-26
+  - `isIncludedInRollout` checks `n < coverage` instead of `n <= coverage`, so a rollout includes exactly the share of hash buckets its coverage says. Before, a coverage of k/10000 included k+1 buckets
+  - Add `feature` test cases where the hash equals the coverage exactly
+- **v0.11.2** 2026-10-26
+  - New `run` test cases for users whose hash lands exactly on a bucket range end, across equal and uneven weights and hash versions 1 and 2. Compute each range end as `start + coverage * weight` by rounding the product to a double first, then the sum. An SDK that fuses the two into one multiply-add (for example, Go on arm64) rounds once, gets a slightly different end, and fails these cases
+  - New `hash` test cases that pin these users' hashes to the range ends
+- **v0.11.3** 2026-10-26
+  - `reducePayload` keeps a condition saved group as written when `$elemMatch` or a prerequisite (`parentConditions`) references it, since those evaluate it against each item or the parent's value rather than the user, and keeps condition groups on a reference cycle as written
+  - `reducePayload` keeps an auto experiment's `force` when its condition never passes, since a sticky bucket skips the condition. Only a force rule's value is cleared
+  - `reducePayload` keeps a contextual bandit definition that isn't an object as it is, instead of throwing
+  - A list saved group's values are attribute values, so `reducePayload` never treats them as references to other groups
+  - `reducePayload` leaves out `contextualBandits` when the payload has none, instead of returning it as undefined
+  - New `reducePayload` test cases for these, including groups referenced through another group, longer cycles and a group that references itself
+- **v0.12.0** 2026-10-29
+  - `hash` uses UTF-16 code units, like JavaScript's `charCodeAt`, instead of UTF-8 bytes. This changes bucketing only for values and seeds with non-ASCII characters
+  - Only strings and numbers can be hash values. `true`, arrays and objects count as missing, like `""`, `0`, `false` and `null`. Numbers are formatted like JavaScript, so `1.0` hashes as `"1"`
+  - New `hash` and `run` test cases for these, plus `evalCondition` cases for missing attributes under `$nin`, `$eq null` and `$type`, a path through an array index and an empty `$nor`, and `feature` cases for the values `"off"` and `[]` and an experiment rule with neither its hash attribute nor its fallback attribute set

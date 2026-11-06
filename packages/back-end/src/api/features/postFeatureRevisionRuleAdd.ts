@@ -133,6 +133,9 @@ export function buildRuleFromInput(
       value: input.value,
       coverage: input.coverage ?? 1,
       hashAttribute: input.hashAttribute,
+      ...(input.fallbackAttribute && {
+        fallbackAttribute: input.fallbackAttribute,
+      }),
       ...(input.seed !== undefined && { seed: input.seed }),
       hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
       ...(input.sparse !== undefined && { sparse: input.sparse }),

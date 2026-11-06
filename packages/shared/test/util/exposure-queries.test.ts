@@ -1,6 +1,8 @@
 import {
+  assignServerIdsToAddedExposureQueries,
   getChangedExposureQueries,
   getDataSourceSaveChanges,
+  getSavedQueriesSharingId,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
@@ -17,6 +19,8 @@ import {
   getPastExperimentQueryName,
   withKeptIdentifierType,
   resolveAssignmentQuerySelectionChange,
+  findColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -883,6 +887,97 @@ describe("getChangedExposureQueries", () => {
       { previous: b, next: null },
     ]);
   });
+
+  it("lists a query reusing a saved id as added", () => {
+    const reused = { id: "eq_a", query: "SELECT 3" };
+    expect(getChangedExposureQueries([a, b], [a, b, reused])).toEqual([
+      { previous: null, next: reused },
+    ]);
+  });
+
+  it("pairs repeated ids in order", () => {
+    const a2 = { id: "eq_a", query: "SELECT 3" };
+    expect(getChangedExposureQueries([a, a2], [a, a2])).toEqual([]);
+    expect(getChangedExposureQueries([a, a2], [a2])).toEqual([
+      { previous: a, next: a2 },
+      { previous: a2, next: null },
+    ]);
+    expect(getChangedExposureQueries([a, a2], [a])).toEqual([
+      { previous: a2, next: null },
+    ]);
+  });
+});
+
+describe("assignServerIdsToAddedExposureQueries", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const b = { id: "eq_b", query: "SELECT 2" };
+  const newId = () => {
+    let n = 0;
+    return () => `exq_${++n}`;
+  };
+
+  it("gives a restricted member's added queries new ids", () => {
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a],
+        [a, { id: "eq_mine", query: "SELECT 3" }, { query: "SELECT 4" }],
+        false,
+        newId(),
+      ),
+    ).toEqual([
+      a,
+      { id: "exq_1", query: "SELECT 3" },
+      { id: "exq_2", query: "SELECT 4" },
+    ]);
+  });
+
+  it("keeps the ids a full editor sends", () => {
+    const next = [a, { id: "eq_mine", query: "SELECT 3" }];
+    expect(
+      assignServerIdsToAddedExposureQueries([a], next, true, newId()),
+    ).toBe(next);
+  });
+
+  it("keeps saved queries' ids, edited or not", () => {
+    const edited = { ...b, query: "SELECT 5" };
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a, b],
+        [a, edited],
+        false,
+        newId(),
+      ),
+    ).toEqual([a, edited]);
+  });
+
+  it("gives an addition repeating a saved id a new id", () => {
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a],
+        [a, { id: "eq_a", query: "SELECT 3" }],
+        false,
+        newId(),
+      ),
+    ).toEqual([a, { id: "exq_1", query: "SELECT 3" }]);
+  });
+});
+
+describe("getSavedQueriesSharingId", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const a2 = { id: "eq_a", query: "SELECT 2" };
+  const b = { id: "eq_b", query: "SELECT 3" };
+
+  it("returns every saved query with the id", () => {
+    expect(getSavedQueriesSharingId([a, b, a2], "eq_a")).toEqual([a, a2]);
+    expect(getSavedQueriesSharingId([a, b, a2], "eq_c")).toEqual([]);
+  });
+
+  it("returns nothing for a missing id", () => {
+    expect(getSavedQueriesSharingId([a, { query: "SELECT 4" }], "")).toEqual(
+      [],
+    );
+    expect(getSavedQueriesSharingId([a], undefined)).toEqual([]);
+  });
 });
 
 describe("getDataSourceSaveChanges", () => {
@@ -928,5 +1023,69 @@ describe("getDataSourceSaveChanges", () => {
         },
       }).changesOtherFields,
     ).toBe(true);
+  });
+});
+
+describe("findColumnsNeedingQuotes", () => {
+  it("rejects capitals only where unquoted names fold to lowercase", () => {
+    const query = { columnMapping: { userIdColumns: { user_id: "userId" } } };
+    expect(findColumnsNeedingQuotes(query, "lower")).toEqual(["userId"]);
+    // Snowflake's driver lowercases every name, so case says nothing there
+    expect(findColumnsNeedingQuotes(query, "upper")).toEqual([]);
+    expect(findColumnsNeedingQuotes(query, undefined)).toEqual([]);
+    expect(
+      findColumnsNeedingQuotes(
+        { columnMapping: { timestampColumn: "created_at" } },
+        "lower",
+      ),
+    ).toEqual([]);
+  });
+
+  it("rejects names that need quoting on every warehouse", () => {
+    expect(
+      findColumnsNeedingQuotes(
+        { columnMapping: { experimentNameColumn: "exp name" } },
+        undefined,
+      ),
+    ).toEqual(["exp name"]);
+  });
+
+  it("returns every offending column once", () => {
+    expect(
+      findColumnsNeedingQuotes(
+        {
+          columnMapping: {
+            experimentIdColumn: "experimentId",
+            variationNameColumn: "Variation Name",
+            timestampColumn: "timestamp",
+            userIdColumns: { user_id: "userId", anonymous_id: "userId" },
+          },
+        },
+        "lower",
+      ),
+    ).toEqual(["experimentId", "Variation Name", "userId"]);
+  });
+});
+
+describe("getColumnsNeedingQuotesMessage", () => {
+  it("names one column with the matching fix", () => {
+    expect(getColumnsNeedingQuotesMessage(["userId"])).toBe(
+      'Column "userId" can\'t be mapped because of its capital letters. In SQL mode, quote it and alias it to a lowercase name, like "userId" AS user_id.',
+    );
+    expect(getColumnsNeedingQuotesMessage(["exp name"])).toBe(
+      'Column "exp name" can\'t be mapped because of its special characters. In SQL mode, quote it and alias it to a lowercase name with only letters, numbers and underscores, like "exp name" AS exp_name.',
+    );
+  });
+
+  it("lists every column and covers both reasons", () => {
+    expect(
+      getColumnsNeedingQuotesMessage([
+        "userId",
+        "experimentId",
+        "Variation Name",
+      ]),
+    ).toBe(
+      'Columns "userId", "experimentId" and "Variation Name" can\'t be mapped because of their capital letters or special characters. In SQL mode, quote each one and alias them to lowercase names with only letters, numbers and underscores, like "userId" AS user_id.',
+    );
   });
 });

@@ -3,7 +3,10 @@ import { routeConfirmation } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getUserById } from "back-end/src/models/UserModel";
-import { toApiConfirmation } from "back-end/src/services/confirmations";
+import {
+  overridesIn,
+  toApiConfirmation,
+} from "back-end/src/services/confirmations";
 import {
   canDecide,
   decideConfirmation,
@@ -60,6 +63,15 @@ export const getConfirmation = async (
     notices: c.notices,
     lastAttemptAt: c.lastAttemptAt,
     request: { method: c.method, path: c.path, query: c.query, body: c.body },
+    overrides: [
+      ...new Set([
+        ...overridesIn(c),
+        ...c.actions
+          .map(({ action }) => action)
+          .filter((action) => action.startsWith("override.")),
+      ]),
+    ],
+    sentOverrides: overridesIn(c),
     requester: {
       personal: !!c.userId && !c.assumedRole,
       person: person ? person.name || person.email : null,

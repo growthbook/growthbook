@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Field from "@/components/Forms/Field";
 import SelectOwner from "@/components/Owner/SelectOwner";
 
@@ -31,7 +32,7 @@ export default function ContextualBanditOverviewModal({
       header="Edit Overview"
       close={close}
       cta="Save"
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
           params: { id: cb.id },
           body: {

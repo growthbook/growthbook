@@ -1,5 +1,6 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { Fragment, ReactNode, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
@@ -9,6 +10,7 @@ import {
   getDroppedContextualAttributes,
   getEffectiveContextualAttributes,
 } from "shared/validators";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -48,11 +50,18 @@ import {
 } from "@/ui/DropdownMenu";
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
+import ContextualBanditHealthTab from "@/components/ContextualBandit/ContextualBanditHealthTab";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
-import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
+import ContextualBanditLinkedChanges from "@/components/ContextualBandit/ContextualBanditLinkedChanges";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
 import CompareContextualBanditEventsModal from "@/components/ContextualBandit/CompareContextualBanditEventsModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
+import {
+  useContextualBanditHealthIssues,
+  useContextualBanditStatusHealth,
+} from "@/hooks/useContextualBandits";
+import Avatar from "@/ui/Avatar";
+import { coveragePercentFormatter } from "@/services/utils";
 
 function OverviewSection({
   title,
@@ -94,6 +103,9 @@ export default function ContextualBanditDetailPage({
   cb,
   mutate,
   canRun = false,
+  canStop = false,
+  canArchive = false,
+  canDelete = false,
   editOverview,
   editAnalysisMetrics,
   editVariations,
@@ -103,13 +115,22 @@ export default function ContextualBanditDetailPage({
   editDescription,
   duplicate,
   linkedFeatures = [],
-  linkedFeaturesMutate,
   setFeatureModal,
-  canAddFeature = false,
+  visualChangesets = [],
+  visualChangesetsLoading = false,
+  visualChangesetsError,
+  setVisualChangesetModal,
+  canAddLinkedChanges = false,
+  canEditVisualChangesets = false,
+  canRemoveVisualChangesets = false,
+  linkedChangesMutate,
 }: {
   cb: ApiContextualBanditInterface;
   mutate: () => void;
   canRun?: boolean;
+  canStop?: boolean;
+  canArchive?: boolean;
+  canDelete?: boolean;
   editOverview?: () => void;
   editAnalysisMetrics?: () => void;
   editVariations?: () => void;
@@ -119,9 +140,15 @@ export default function ContextualBanditDetailPage({
   editDescription?: () => void;
   duplicate?: () => void;
   linkedFeatures?: LinkedFeatureInfo[];
-  linkedFeaturesMutate?: () => void;
   setFeatureModal?: (open: boolean) => void;
-  canAddFeature?: boolean;
+  visualChangesets?: VisualChangesetInterface[];
+  visualChangesetsLoading?: boolean;
+  visualChangesetsError?: Error;
+  setVisualChangesetModal?: (open: boolean) => void;
+  canAddLinkedChanges?: boolean;
+  canEditVisualChangesets?: boolean;
+  canRemoveVisualChangesets?: boolean;
+  linkedChangesMutate: () => void;
 }) {
   const { getDatasourceById, getExperimentMetricById, projects } =
     useDefinitions();
@@ -130,9 +157,15 @@ export default function ContextualBanditDetailPage({
     cb.datasource,
   );
   const [confirmStop, setConfirmStop] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const router = useRouter();
   const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+
+  const healthIssues = useContextualBanditHealthIssues(cb);
+  const statusHealth = useContextualBanditStatusHealth(cb);
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const datasourceName = datasource?.name ?? cb.datasource;
@@ -145,7 +178,7 @@ export default function ContextualBanditDetailPage({
 
   const showResultsTab = cb.status !== "draft";
 
-  const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
+  const coveragePct = coveragePercentFormatter.format(cb.coverage ?? 1);
 
   const formatConversionWindow = (value: number, unit: string): string =>
     `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
@@ -245,6 +278,23 @@ export default function ContextualBanditDetailPage({
   const pendingVariations = cb.variations
     .map((v, index) => ({ ...v, index }))
     .filter((v) => v.status === "pending");
+  const pendingEach = pendingVariations.length === 1 ? "it" : "each of them";
+  const pendingReasons = [
+    linkedFeatures.length > 0
+      ? "a linked Feature Flag rule to be published"
+      : null,
+    visualChangesetsError
+      ? null
+      : visualChangesetsLoading
+        ? "this Contextual Bandit's AI Visual Editor changes to load"
+        : visualChangesets.length > 1
+          ? `an AI Visual Editor change to be saved for ${pendingEach} on every page`
+          : visualChangesets.length > 0
+            ? `an AI Visual Editor change to be saved for ${pendingEach}`
+            : null,
+  ]
+    .filter(Boolean)
+    .join(" and ");
 
   const numVariations = cb.variations.length;
   const variationCols = numVariations > 4 ? 4 : Math.max(numVariations, 1);
@@ -284,6 +334,19 @@ export default function ContextualBanditDetailPage({
     });
     mutate();
   };
+  const setArchived = async (archived: boolean) => {
+    await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+      params: { id: cb.id },
+      body: { archived },
+    });
+    mutate();
+  };
+  const deleteContextualBandit = async () => {
+    await restApiCall(contextualBanditEndpoints.deleteContextualBandit, {
+      params: { id: cb.id },
+    });
+    await router.push("/contextual-bandits");
+  };
 
   const renderMetricList = (ids: string[]): ReactNode =>
     ids.length ? (
@@ -313,7 +376,10 @@ export default function ContextualBanditDetailPage({
           </Heading>
           <Box style={{ userSelect: "none" }}>
             <ExperimentStatusIndicator
-              experimentData={contextualBanditStatusIndicatorData(cb)}
+              experimentData={contextualBanditStatusIndicatorData(
+                cb,
+                statusHealth,
+              )}
             />
           </Box>
         </Flex>
@@ -324,7 +390,7 @@ export default function ContextualBanditDetailPage({
               Start Contextual Bandit
             </Button>
           ) : null}
-          {canRun && cb.status === "running" ? (
+          {canStop && cb.status === "running" ? (
             <Button
               variant="outline"
               color="red"
@@ -384,6 +450,38 @@ export default function ContextualBanditDetailPage({
                 >
                   Duplicate
                 </DropdownMenuItem>
+              </DropdownMenuGroup>
+            ) : null}
+            {canArchive || canDelete ? <DropdownMenuSeparator /> : null}
+            {canArchive || canDelete ? (
+              <DropdownMenuGroup>
+                {canArchive ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setConfirmArchive(true);
+                    }}
+                  >
+                    {cb.archived ? "Unarchive" : "Archive"}
+                  </DropdownMenuItem>
+                ) : null}
+                {canDelete ? (
+                  <DropdownMenuItem
+                    color="red"
+                    disabled={cb.status === "running"}
+                    tooltip={
+                      cb.status === "running"
+                        ? "Stop this Contextual Bandit before deleting it"
+                        : undefined
+                    }
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setConfirmDelete(true);
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
             ) : null}
           </DropdownMenu>
@@ -477,7 +575,17 @@ export default function ContextualBanditDetailPage({
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {showResultsTab ? (
-            <TabsTrigger value="results">Results</TabsTrigger>
+            <>
+              <TabsTrigger value="results">Results</TabsTrigger>
+              <TabsTrigger value="health">
+                Health
+                {healthIssues.length > 0 ? (
+                  <Avatar size="sm" ml="2" color="red">
+                    {healthIssues.length}
+                  </Avatar>
+                ) : null}
+              </TabsTrigger>
+            </>
           ) : null}
         </TabsList>
 
@@ -536,13 +644,27 @@ export default function ContextualBanditDetailPage({
                         </Box>
                       ))}
                       <Text>
-                        {pendingVariations.length === 1 ? "is" : "are"} waiting
-                        on a linked Feature Flag rule to be published and will
-                        not receive any traffic until then.{" "}
-                        {pendingVariations.length === 1
-                          ? "It activates"
-                          : "They activate"}{" "}
-                        automatically when the Feature Flag revision publishes.
+                        {pendingVariations.length === 1 ? "is" : "are"}{" "}
+                        {pendingReasons
+                          ? `waiting on ${pendingReasons} and will not receive any traffic until then. `
+                          : "not receiving any traffic yet. "}
+                        {visualChangesetsError ? (
+                          <>
+                            Couldn&apos;t load this Contextual Bandit&apos;s
+                            visual changes ({visualChangesetsError.message}).
+                            Reload the page and try again.
+                          </>
+                        ) : (
+                          <>
+                            {pendingVariations.length === 1
+                              ? "It activates"
+                              : "They activate"}{" "}
+                            automatically once{" "}
+                            {pendingReasons
+                              ? "that happens."
+                              : "a linked change is ready."}
+                          </>
+                        )}
                       </Text>
                     </Flex>
                   </Callout>
@@ -574,12 +696,18 @@ export default function ContextualBanditDetailPage({
               </Box>
             </Frame>
 
-            <ContextualBanditLinkedFeatures
+            <ContextualBanditLinkedChanges
               cb={cb}
               linkedFeatures={linkedFeatures}
-              canAddFeature={canAddFeature}
+              visualChangesets={visualChangesets}
+              visualChangesetsLoading={visualChangesetsLoading}
+              visualChangesetsError={visualChangesetsError}
+              canAdd={canAddLinkedChanges}
+              canEditVisualChangesets={canEditVisualChangesets}
+              canRemoveVisualChangesets={canRemoveVisualChangesets}
               setFeatureModal={setFeatureModal}
-              mutate={linkedFeaturesMutate}
+              setVisualChangesetModal={setVisualChangesetModal}
+              mutate={linkedChangesMutate}
             />
 
             <OverviewSection
@@ -588,7 +716,7 @@ export default function ContextualBanditDetailPage({
             >
               <Grid columns="3" gap="4">
                 <DetailSectionColumn label="Traffic">
-                  {coveragePct}% included
+                  {coveragePct} included
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Assignment Attribute">
                   <Flex align="center" gap="1" wrap="wrap">
@@ -738,12 +866,23 @@ export default function ContextualBanditDetailPage({
             </Box>
           </TabsContent>
         ) : null}
+
+        {showResultsTab ? (
+          <TabsContent value="health">
+            <Box pt="4">
+              <ContextualBanditHealthTab cb={cb} />
+            </Box>
+          </TabsContent>
+        ) : null}
       </Tabs>
 
       {showStart && cb.status === "draft" ? (
         <StartContextualBanditModal
           cb={cb}
           linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          visualChangesetsLoading={visualChangesetsLoading}
+          visualChangesetsError={visualChangesetsError}
           startContextualBandit={start}
           close={() => setShowStart(false)}
         />
@@ -766,6 +905,62 @@ export default function ContextualBanditDetailPage({
             setConfirmStop(false);
           }}
           onCancel={() => setConfirmStop(false)}
+        />
+      ) : null}
+      {confirmArchive ? (
+        <ConfirmDialog
+          title={
+            cb.archived
+              ? "Unarchive this Contextual Bandit?"
+              : "Archive this Contextual Bandit?"
+          }
+          content={
+            <>
+              <Text as="p">
+                {cb.archived
+                  ? "It will show up in the main list again and can be edited."
+                  : "It will move to the Archived tab and can't be edited until it is unarchived."}
+              </Text>
+              {cb.status === "running" ? (
+                <Callout status="warning">
+                  {cb.archived
+                    ? "This Contextual Bandit is still running and will resume serving to its linked Feature Flags."
+                    : "This will immediately stop all linked Feature Flags from serving this Contextual Bandit."}
+                </Callout>
+              ) : null}
+            </>
+          }
+          yesText={cb.archived ? "Unarchive" : "Archive"}
+          color={cb.archived ? "violet" : "red"}
+          onConfirm={async () => {
+            await setArchived(!cb.archived);
+            setConfirmArchive(false);
+          }}
+          onCancel={() => setConfirmArchive(false)}
+        />
+      ) : null}
+      {confirmDelete ? (
+        <ConfirmDialog
+          title="Delete this Contextual Bandit?"
+          content={
+            <>
+              <Text as="p">
+                Its results history will be deleted. This can&apos;t be undone.
+              </Text>
+              {linkedFeatures.length > 0 ? (
+                <Callout status="warning">
+                  {linkedFeatures.length} linked Feature Flag
+                  {linkedFeatures.length === 1 ? "" : "s"} will keep a rule
+                  pointing to this Contextual Bandit. Remove the rule from each
+                  flag if it is no longer needed.
+                </Callout>
+              ) : null}
+            </>
+          }
+          yesText="Delete"
+          color="red"
+          onConfirm={deleteContextualBandit}
+          onCancel={() => setConfirmDelete(false)}
         />
       ) : null}
     </Box>

@@ -280,7 +280,7 @@ export default function UpgradeModal({
   };
 
   const bullets: Partial<Record<CommercialFeature, string>> = {
-    "share-product-analytics-dashboards":
+    "product-analytics-dashboards":
       "Create product analytics dashboards and control who can view and edit them.",
     "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
@@ -318,6 +318,8 @@ export default function UpgradeModal({
       "Define quantile metrics such as P99 latency or Median revenue",
     "retention-metrics":
       "Define retention metrics that measure return activity",
+    "funnel-metrics":
+      "Define funnel metrics that measure steps completed in order",
     "metric-populations": "Analyze metrics for different sub-populations",
     "multi-armed-bandits": "Run adaptive experiments with Bandits",
     "contextual-bandits":
@@ -335,6 +337,8 @@ export default function UpgradeModal({
     "audit-logging": "Easily export historical audit logs",
     "unlimited-managed-warehouse-usage":
       "Access to all your tracked events in the Managed Warehouse",
+    "unlimited-event-forwarder-usage":
+      "Forward unlimited events to your warehouse",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
     holdouts: "Measure aggregate impact with Holdouts",

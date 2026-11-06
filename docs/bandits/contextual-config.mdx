@@ -45,7 +45,7 @@ pip install --upgrade growthbook
 go get github.com/growthbook/growthbook-golang@latest
 ```
 
-Kotlin (Android) and Swift (iOS) are added through Gradle and Swift Package Manager (or CocoaPods) rather than a shell command — see the [Kotlin](/lib/kotlin) and [Swift](/lib/swift) SDK docs for the dependency snippets, and pin at least the version in the table above.
+Kotlin (Android) and Swift (iOS) are added through Gradle and Swift Package Manager rather than a shell command — see the [Kotlin](/lib/kotlin) and [Swift](/lib/swift) SDK docs for the dependency snippets, and pin at least the version in the table above.
 
 Note: for JS-based SDKs, 1.7 is a backwards-compatible release. Kotlin 8.0.0, by contrast, is a major release: it adds contextual bandit support alongside breaking changes (SDK-owned model types such as `GBContext` and `GBOptions` can no longer be constructed by application code — build a context through `GBSDKBuilder`), so read its [changelog](https://github.com/growthbook/growthbook-kotlin/blob/main/CHANGELOG.md) before upgrading.
 

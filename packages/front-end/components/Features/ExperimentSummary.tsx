@@ -9,6 +9,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Badge from "@/ui/Badge";
 import LinkButton from "@/ui/LinkButton";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import { coveragePercentFormatter } from "@/services/utils";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -59,7 +60,7 @@ export default function ExperimentSummary({
           color="gray"
           label={
             <Text style={{ color: "var(--slate-12)" }}>
-              {percentFormatter.format(effectiveCoverage)}
+              {coveragePercentFormatter.format(effectiveCoverage)}
             </Text>
           }
         />
@@ -80,7 +81,7 @@ export default function ExperimentSummary({
               color="gray"
               label={
                 <Text style={{ color: "var(--slate-12)" }}>
-                  {percentFormatter.format(coverage ?? 1)}
+                  {coveragePercentFormatter.format(coverage ?? 1)}
                 </Text>
               }
             />
@@ -141,7 +142,7 @@ export default function ExperimentSummary({
           </TableBody>
         </Table>
       </Box>
-      <Box mt="3">
+      <Box mt="3" mb="3">
         <ExperimentSplitVisual
           values={values}
           coverage={effectiveCoverage}

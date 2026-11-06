@@ -5,6 +5,7 @@ import {
   FEATURE_KEY_DESCRIPTION,
   RULE_DESCRIPTION,
   TAGS_DESCRIPTION,
+  FALLBACK_ATTRIBUTE_DESCRIPTION,
 } from "./api-field-descriptions";
 import { apiEventUser, REQUIRES_PERSON_NOTE } from "./event-user";
 import {
@@ -13,6 +14,7 @@ import {
   booleanQueryField,
   paginationQueryFields,
   publishOverrideBodyFields,
+  allowUnscopedRulesBodyField,
   schemaValidationQueryFields,
   skipPaginationQueryField,
   publishBypassedGatesField,
@@ -605,6 +607,10 @@ const v2RuleRolloutBase = z
     sparse: v2SparseRuleField,
     coverage: z.number(),
     hashAttribute: z.string(),
+    fallbackAttribute: z
+      .string()
+      .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
+      .optional(),
     seed: z
       .string()
       .describe("Optional seed for the hash function; defaults to the rule id")
@@ -764,6 +770,7 @@ export const postFeatureBodyV2 = z
       )
       .optional(),
     ...publishOverrideBodyFields,
+    allowUnscopedRules: allowUnscopedRulesBodyField,
   })
   .strict();
 
@@ -841,6 +848,7 @@ export const updateFeatureBodyV2 = z
       )
       .optional(),
     ...publishOverrideBodyFields,
+    allowUnscopedRules: allowUnscopedRulesBodyField,
   })
   .strict();
 
@@ -913,6 +921,7 @@ export const postFeatureV2Validator = {
   method: "post" as const,
   path: "/features",
   version: "v2" as const,
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const getFeatureV2Validator = {
@@ -959,6 +968,7 @@ export const updateFeatureV2Validator = {
   method: "post" as const,
   path: "/features/:id",
   version: "v2" as const,
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const deleteFeatureV2Validator = {

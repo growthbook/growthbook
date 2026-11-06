@@ -20,6 +20,20 @@ Install with a package manager
 npm install --save @growthbook/growthbook-react
 ```
 
+### Expo
+
+The SDK is pure JavaScript with no native modules, so it works in Expo Go and in development builds without a config plugin or prebuild step. Install it the same way:
+
+```bash
+npx expo install @growthbook/growthbook-react
+```
+
+Core features (flags, experiments, tracking, and forced variations) work without any extra setup. These optional features need a polyfill, as in any React Native app:
+
+- [Streaming updates](#streaming-updates) need an `EventSource` polyfill.
+- A [persistent cache](#configuring-local-storage) needs a `localStorage` polyfill.
+- [Encrypted payloads](#encrypted-payloads) need a `SubtleCrypto` polyfill.
+
 ## Quick Usage
 
 ### Step 1: Configure your app
@@ -137,7 +151,7 @@ In order for the GrowthBook SDK to work, it needs to have feature definitions fr
 
 ### Built-in Fetching and Caching
 
-If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey`.
+If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey` (this needs a polyfill; see [Encrypted Payloads](#encrypted-payloads)).
 
 ```ts
 const gb = new GrowthBook({
@@ -155,6 +169,23 @@ await gb.init({
 Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `init` without awaiting the result.
 
 If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
+
+#### Encrypted Payloads
+
+Decrypting an encrypted payload requires the Web Crypto `SubtleCrypto` API. Hermes, the default JavaScript engine for React Native and Expo, does not provide it. Without it, decryption fails with `No SubtleCrypto implementation found` and the SDK keeps any features it already loaded. If none were loaded, features evaluate to `null`, so `getFeatureValue` returns the fallback passed in code, not the default value set in GrowthBook.
+
+To use encryption, pass a `SubtleCrypto` implementation that supports AES-CBC to `setPolyfills` before calling `init`:
+
+```ts
+import { setPolyfills } from "@growthbook/growthbook";
+
+setPolyfills({
+  // Any implementation of the Web Crypto SubtleCrypto interface
+  SubtleCrypto: mySubtleCrypto,
+});
+```
+
+Libraries that include native code, such as most crypto libraries, require an Expo development build and do not run in Expo Go.
 
 #### Error Handling
 

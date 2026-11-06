@@ -7,6 +7,10 @@ import {
   EppoAllocation,
   EppoData,
   EppoExperiment,
+  fetchEppoData,
+  importableFlags,
+  matchItems,
+  buildImportData,
   EppoFlag,
   EppoMetric,
   getCappingSettings,
@@ -389,6 +393,69 @@ describe("transformFlag", () => {
     );
     expect(rules.map((r) => r.id)).toEqual(["fr_eppo_1", "fr_eppo_2"]);
     expect(rules[0]).toMatchObject({ type: "force", value: "false" });
+  });
+
+  // A date filter can leave out an experiment an earlier run imported; the
+  // flag keeps pointing at it rather than falling back to an inline rule
+  it("keeps links to experiments this fetch left out", () => {
+    const flag = mkFlag([
+      mkAllocation({
+        id: 2,
+        type: "EXPERIMENT",
+        variation_weight: [
+          { variation_id: 1, weight: 1 },
+          { variation_id: 2, weight: 1 },
+        ],
+        experiment: { id: 77, name: "Older test", status: "RUNNING" },
+      }),
+    ]);
+    const eppo = { ...EPPO, flags: [flag], experiments: [] };
+    const existing: ExistingIds = {
+      environments: new Set(["production", "test"]),
+      tags: new Set(),
+      imported: {
+        audiences: new Map(),
+        factSources: new Map(),
+        metrics: new Map(),
+        experiments: new Map([[77, "exp_older"]]),
+        flags: new Map(),
+      },
+      savedGroups: new Map(),
+      features: new Set(),
+      factTables: new Map(),
+      factMetrics: new Map(),
+      experiments: new Map(),
+      experimentRefs: new Map([
+        [
+          "exp_older",
+          {
+            status: "running",
+            variations: [
+              { id: "var_a", key: "off" },
+              { id: "var_b", key: "on" },
+            ],
+            phase: {
+              condition: "",
+              savedGroups: [],
+              coverage: 1,
+              variationWeights: [0.5, 0.5],
+            },
+          },
+        ],
+      ]),
+      factTableColumns: new Map(),
+    };
+    const data = buildImportData(
+      eppo,
+      existing,
+      matchItems(eppo, existing),
+      "",
+      DATASOURCE,
+      () => true,
+    );
+    expect(
+      (data.flags[0].preview as { rules: { type: string }[] }).rules[0],
+    ).toMatchObject({ type: "experiment-ref", experimentId: "exp_older" });
   });
 
   it("links experiment allocations to imported experiments", () => {
@@ -1699,5 +1766,56 @@ describe("runEppoImport", () => {
       url: "/auto-runs/arun_1",
       body: { outcome: "failed" },
     });
+  });
+});
+
+describe("fetchEppoData", () => {
+  const fetchWith = async (since: Date | null) => {
+    const seen: string[] = [];
+    const apiCall = <T>(url: string, options?: RequestInit) => {
+      const body = JSON.parse(String(options?.body ?? "{}"));
+      seen.push(body.endpoint);
+      const flags = body.endpoint.startsWith("feature-flags")
+        ? [
+            {
+              ...mkFlag([]),
+              id: 1,
+              key: "old",
+              created_at: "2025-01-01T00:00:00Z",
+            },
+            {
+              ...mkFlag([]),
+              id: 2,
+              key: "new",
+              created_at: "2026-06-01T00:00:00Z",
+            },
+            { ...mkFlag([]), id: 3, key: "undated" },
+          ]
+        : [];
+      return Promise.resolve(flags as unknown as T);
+    };
+    const data = await fetchEppoData("key", apiCall, { createdSince: since });
+    return {
+      seen,
+      allFlags: data.flags.map((f) => f.key),
+      offered: importableFlags(data).map((f) => f.key),
+    };
+  };
+
+  it("fetches everything unless a start date is given", async () => {
+    const all = await fetchWith(null);
+    expect(all.seen).toContain("experiments?limit=250&offset=0");
+    expect(all.offered).toEqual(["old", "new", "undated"]);
+  });
+
+  // Every flag stays in the data so experiment targeting can still read its
+  // allocations; the cutoff only limits which flags are offered for import
+  it("filters experiments server-side and offers only flags created since", async () => {
+    const since = await fetchWith(new Date("2026-04-01T00:00:00Z"));
+    expect(since.seen).toContain(
+      "experiments?created_since=2026-04-01T00%3A00%3A00.000Z&limit=250&offset=0",
+    );
+    expect(since.allFlags).toEqual(["old", "new", "undated"]);
+    expect(since.offered).toEqual(["new", "undated"]);
   });
 });

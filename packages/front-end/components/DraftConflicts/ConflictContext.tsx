@@ -122,8 +122,8 @@ function ConflictButtons({ chunk }: { chunk: ContestedChunk }) {
   };
   return (
     <Flex gap="2" align="center">
-      {choice("mine", "Keep mine")}
       {choice("theirs", "Use theirs")}
+      {choice("mine", "Keep mine")}
     </Flex>
   );
 }

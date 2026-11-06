@@ -1,5 +1,5 @@
 import { isEqual, omit, uniqWith } from "lodash";
-import { isString } from "shared/util";
+import { getSnapshotCutoffDate, isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -211,6 +211,7 @@ export async function updateExperimentDashboards({
       useCache: true,
       type: "exploratory",
       triggeredBy: "update-dashboards",
+      cutoff: getSnapshotCutoffDate(mainSnapshot.settings),
     });
     await queryRunner.waitForResults();
   }

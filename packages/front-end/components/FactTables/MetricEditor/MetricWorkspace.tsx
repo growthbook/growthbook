@@ -35,6 +35,7 @@ import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateF
 import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
 
 import styles from "./MetricWorkspace.module.scss";
+import { createNavigationCancellation } from "./navigationCancellation";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
@@ -125,7 +126,7 @@ export default function MetricWorkspace({
   isEditing: boolean;
   setIsEditing?: (value: boolean) => void;
   mutate: () => Promise<unknown>;
-  onSaved?: (metric: FactMetricInterface) => void;
+  onSaved?: (metric: FactMetricInterface) => void | Promise<unknown>;
   onCancel?: () => void;
   actionsContainer: HTMLDivElement | null;
   // Tracking source, matching what FactMetricModal reports for the same
@@ -191,13 +192,22 @@ export default function MetricWorkspace({
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
   }, [error]);
-  // Same event as the old modal, so both arms of the new-metric-creation-flow
-  // experiment report views identically.
+  const existingId = existing?.id;
+  const existingType = existing?.metricType;
+  // The page still emits the "... Fact Metric Modal" events because analytics
+  // depends on those event names.
   useEffect(() => {
-    if (!existing)
+    if (!isEditing) return;
+    if (existingId) {
+      track("Viewed Edit Fact Metric Modal", {
+        type: existingType,
+        source,
+        flow: "page",
+      });
+    } else {
       track("Viewed Create Fact Metric Modal", { source, flow: "page" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }
+  }, [existingId, existingType, isEditing, source]);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
   // for the overwhelmingly common case (a fresh create, or an ordinary
@@ -245,24 +255,26 @@ export default function MetricWorkspace({
     if (!isEditing) return;
     leaving.current = false;
     baseline.current = snapshot();
+    const cancellation = createNavigationCancellation();
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty()) e.preventDefault();
     };
-    const onRouteChangeStart = (url: string) => {
+    const onRouteChangeStart = (url: string, options: { shallow: boolean }) => {
       if (!isDirty()) return;
       setConfirmLeave(() => () => {
         leaving.current = true;
         router.push(url);
       });
-      router.events.emit("routeChangeError");
+      router.events.emit("routeChangeError", cancellation.error, url, options);
       // Next's pages router only cancels a route change when a handler throws.
-      throw new Error("Navigation cancelled to keep unsaved metric changes");
+      throw cancellation.error;
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     router.events.on("routeChangeStart", onRouteChangeStart);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       router.events.off("routeChangeStart", onRouteChangeStart);
+      cancellation.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, router.events]);
@@ -352,7 +364,11 @@ export default function MetricWorkspace({
       // Await so the metric page can find the new metric on arrival.
       await mutate();
       leaving.current = true;
-      onSaved?.(res.factMetric);
+      try {
+        await onSaved?.(res.factMetric);
+      } finally {
+        leaving.current = false;
+      }
     }
   }
 

@@ -4,6 +4,8 @@ import {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
+  ContextualBanditSrmLatestPeriod,
+  ContextualBanditAnalysisSummary,
   queryHasContextualBanditSrmColumns,
 } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
@@ -14,9 +16,13 @@ import {
 } from "shared/experiments";
 import {
   ContextualBanditSrmQueryResponseRows,
+  ExperimentAggregateUnitsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
 } from "shared/types/integrations";
-import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import type {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotTraffic,
+} from "shared/types/experiment-snapshot";
 import {
   buildSnapshotSettingsForCb,
   getContextualBanditSettingsForStatsEngine,
@@ -24,6 +30,7 @@ import {
 } from "back-end/src/enterprise/services/contextualBandits";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { getIntegrationIdentifierQuote } from "back-end/src/services/datasource";
 import { hasUsableContextualBanditTargeting } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -32,6 +39,7 @@ import {
 } from "back-end/src/enterprise/services/contextualBanditStats";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
 import { chi2pvalue } from "back-end/src/util/stats";
+import { analyzeExperimentTraffic } from "back-end/src/services/stats";
 
 /** Orchestrator-to-runner params; `variationNames` is separate because frozen settings only persist IDs/weights. */
 export type ContextualBanditResultsQueryParams = {
@@ -39,16 +47,22 @@ export type ContextualBanditResultsQueryParams = {
   variationNames: string[];
 };
 
-/** SRM stored on the CB snapshot: SQL chi-square statistic, its derived p-value, and the SQL-computed dof. */
+/** Raw observed vs expected units for one leaf, indexed by variation, for a single bandit period. */
+export type ContextualBanditSrmLeafBreakdown =
+  ContextualBanditSrmLatestPeriod["leaves"][number];
+
 export type ContextualBanditSrmResult = {
   statistic: number;
   pValue: number;
   degreesOfFreedom: number;
+  latestPeriod?: ContextualBanditSrmLatestPeriod;
 };
 
 /** The successful output of one CB run. Returned from `runAnalysis`. */
 export type ContextualBanditQueryRunResult = ContextualBanditResult & {
   srm?: ContextualBanditSrmResult;
+  multipleExposures?: number;
+  traffic?: ExperimentSnapshotTraffic;
 };
 
 /** Name of the decision-metric sub-query; shared by `startQueries` and `runAnalysis`. */
@@ -56,6 +70,9 @@ export const CONTEXTUAL_BANDIT_ROWS_QUERY_NAME = "contextual-bandit-rows";
 
 /** Name of the optional SQL SRM sub-query; shared by `startQueries` and `runAnalysis`. */
 export const CONTEXTUAL_BANDIT_SRM_QUERY_NAME = "contextual-bandit-srm";
+
+/** Name of the traffic/health sub-query; shared by `startQueries` and `runAnalysis`. */
+export const CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME = "contextual-bandit-traffic";
 
 export class ContextualBanditResultsQueryRunner extends QueryRunner<
   ContextualBanditSnapshotInterface,
@@ -161,8 +178,35 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       }),
     ];
 
+    const trafficSql = this.integration.getExperimentAggregateUnitsQuery({
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      settings: expSnapshotSettings,
+      unitsSettings: cbUnitsSettings,
+      factTableMap,
+      useUnitsTable: false,
+    });
+    queries.push(
+      await this.startQuery({
+        name: CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
+        query: trafficSql,
+        dependencies: [],
+        run: async (query, setExternalId, queryMetadata) => {
+          const res = await this.integration.runExperimentAggregateUnitsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          );
+          return { rows: res.rows };
+        },
+        queryType: "experimentTraffic",
+      }),
+    );
+
     const canComputeSrm = queryHasContextualBanditSrmColumns(
       cbUnitsSettings.exposureQuery.query,
+      getIntegrationIdentifierQuote(this.integration),
     );
     if (!canComputeSrm) {
       logger.info(
@@ -224,6 +268,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       []) as ExperimentMetricQueryResponseRows;
 
     const srm = this.extractSrmResult(queryMap);
+    const multipleExposures = this.extractMultipleExposures(queryMap);
 
     const cb = await this.loadCbDoc();
 
@@ -253,6 +298,19 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     const expSnapshotSettings = buildSnapshotSettingsForCb(
       this.snapshotSettings,
     );
+
+    // Traffic rows are tagged with the variation key (emitted by the assignment query),
+    // not the internal variation id, so analyzeExperimentTraffic must be
+    // keyed by key. Resolve each frozen variation's key by id (via `keyById`),
+    // not by position.
+    const traffic = this.extractTraffic(
+      queryMap,
+      this.snapshotSettings.variations.map((v) => ({
+        id: keyById.get(v.id) ?? v.id,
+        weight: v.weight,
+      })),
+    );
+
     const decisionMetricId = this.snapshotSettings.decisionMetric;
     if (!decisionMetricId) {
       throw new Error(
@@ -297,31 +355,115 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       phaseLengthDays: windowLengthDays,
     });
 
-    return { ...analysis, srm };
+    return { ...analysis, srm, multipleExposures, traffic };
+  }
+
+  private extractTraffic(
+    queryMap: QueryMap,
+    variations: { id: string; weight: number }[],
+  ): ExperimentSnapshotTraffic | undefined {
+    const trafficDoc = queryMap.get(CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME);
+    if (!trafficDoc) {
+      return undefined;
+    }
+    const rows = (trafficDoc.result ??
+      trafficDoc.rawResult ??
+      []) as ExperimentAggregateUnitsQueryResponseRows;
+    return analyzeExperimentTraffic({
+      rows,
+      error: trafficDoc.error,
+      variations,
+    });
+  }
+
+  private getSrmRows(
+    queryMap: QueryMap,
+  ): ContextualBanditSrmQueryResponseRows | undefined {
+    const srmDoc = queryMap.get(CONTEXTUAL_BANDIT_SRM_QUERY_NAME);
+    if (!srmDoc) {
+      return undefined;
+    }
+    return (srmDoc.result ??
+      srmDoc.rawResult ??
+      []) as ContextualBanditSrmQueryResponseRows;
+  }
+
+  // Kept separate from the SRM result so the count survives runs with too
+  // little data for a p-value.
+  private extractMultipleExposures(queryMap: QueryMap): number | undefined {
+    const summary = this.getSrmRows(queryMap)?.find(
+      (r) => r.row_type === "summary",
+    );
+    if (!summary) {
+      return undefined;
+    }
+    return Math.max(0, Number(summary.multiple_exposures) || 0);
   }
 
   private extractSrmResult(
     queryMap: QueryMap,
   ): ContextualBanditSrmResult | undefined {
-    const srmDoc = queryMap.get(CONTEXTUAL_BANDIT_SRM_QUERY_NAME);
-    if (!srmDoc) {
+    const srmRows = this.getSrmRows(queryMap);
+    const summary = srmRows?.find((r) => r.row_type === "summary");
+    if (!srmRows || !summary) {
       return undefined;
     }
-    const srmRows = (srmDoc.result ??
-      srmDoc.rawResult ??
-      []) as ContextualBanditSrmQueryResponseRows;
-    const first = srmRows[0];
-    if (!first) {
-      return undefined;
-    }
-    const degreesOfFreedom = first.degrees_of_freedom;
+    const degreesOfFreedom = summary.degrees_of_freedom;
     if (!(degreesOfFreedom > 0)) {
       return undefined;
     }
     return {
-      statistic: first.statistic,
-      pValue: chi2pvalue(first.statistic, degreesOfFreedom),
+      statistic: summary.statistic,
+      pValue: chi2pvalue(summary.statistic, degreesOfFreedom),
       degreesOfFreedom,
+      ...this.extractSrmLatestPeriod(srmRows),
+    };
+  }
+
+  private extractSrmLatestPeriod(
+    srmRows: ContextualBanditSrmQueryResponseRows,
+  ): Pick<ContextualBanditSrmResult, "latestPeriod"> {
+    const numVariations =
+      this.snapshotSettings?.variations.length ?? this.variationNames.length;
+    const cellRows = srmRows.filter((r) => r.row_type === "cell");
+    if (!cellRows.length) {
+      return {};
+    }
+
+    const byLeaf = new Map<string, ContextualBanditSrmLeafBreakdown>();
+    let banditVersion = "";
+    for (const r of cellRows) {
+      banditVersion = r.bandit_version || banditVersion;
+      const variationIndex = Number(r.variation);
+      if (
+        !Number.isInteger(variationIndex) ||
+        variationIndex < 0 ||
+        variationIndex >= numVariations
+      ) {
+        continue;
+      }
+      let leaf = byLeaf.get(r.leaf_id);
+      if (!leaf) {
+        leaf = {
+          leafId: r.leaf_id,
+          observed: new Array(numVariations).fill(0),
+          expected: new Array(numVariations).fill(0),
+        };
+        byLeaf.set(r.leaf_id, leaf);
+      }
+      leaf.observed[variationIndex] = r.observed;
+      leaf.expected[variationIndex] = r.expected;
+    }
+
+    if (!byLeaf.size) {
+      return {};
+    }
+
+    return {
+      latestPeriod: {
+        banditVersion,
+        leaves: Array.from(byLeaf.values()),
+      },
     };
   }
 
@@ -351,19 +493,43 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     result?: ContextualBanditQueryRunResult;
     error?: string;
   }): Promise<ContextualBanditSnapshotInterface> {
+    const decisionQuerySucceeded =
+      queries.find((q) => q.name === CONTEXTUAL_BANDIT_ROWS_QUERY_NAME)
+        ?.status === "succeeded";
+    const partialRunLostDecisionMetric =
+      status === "partially-succeeded" && !decisionQuerySucceeded;
+    const effectiveStatus: QueryStatus = partialRunLostDecisionMetric
+      ? "failed"
+      : status;
+    const resolvedError =
+      error ??
+      (partialRunLostDecisionMetric
+        ? "Contextual bandit decision-metric query failed; results were not published."
+        : undefined);
+
     const updates: UpdateProps<ContextualBanditSnapshotInterface> = {
       queries,
       ...(runStarted ? { runStarted } : {}),
-      ...(error !== undefined ? { error } : {}),
+      ...(resolvedError !== undefined ? { error: resolvedError } : {}),
       status:
-        status === "running"
+        effectiveStatus === "running"
           ? "running"
-          : status === "failed"
+          : effectiveStatus === "failed"
             ? "error"
             : "success",
     };
 
-    if (status === "succeeded" && result) {
+    // The lightweight health summary written to the CB doc after the snapshot is
+    // linked to its event. Deferred until after the snapshot update so the
+    // durable `contextualBanditEventId` link is persisted first.
+    let pendingAnalysisSummary: ContextualBanditAnalysisSummary | undefined;
+
+    // A `partially-succeeded` status here means the weights were updated but a health query failed.
+    if (
+      (effectiveStatus === "succeeded" ||
+        effectiveStatus === "partially-succeeded") &&
+      result
+    ) {
       const latest = await this.getLatestModel();
       if (!latest.contextualBanditEventId) {
         const cbe = await persistContextualBanditEvent(
@@ -376,13 +542,61 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         if (result.srm) {
           updates.srm = result.srm;
         }
+        if (result.multipleExposures !== undefined) {
+          updates.multipleExposures = result.multipleExposures;
+        }
+        if (result.traffic) {
+          updates.traffic = result.traffic;
+        }
+      }
+
+      // Similar to experiment `analysisSummary` pattern, persist a lightweight health
+      // summary on the CB doc so list views can render the shared status without loading
+      // the full snapshot. Skipped when the traffic query failed so a flaky run
+      // keeps the previous run's summary instead of overwriting it with zeros.
+      const traffic = result.traffic;
+      const variationIds = this.snapshotSettings?.variations.map((v) => v.id);
+      if (traffic && !traffic.error) {
+        pendingAnalysisSummary = {
+          snapshotId: this.model.id,
+          health: {
+            srm: result.srm?.pValue ?? null,
+            totalUsers: traffic.overall.variationUnits.reduce(
+              (sum, n) => sum + n,
+              0,
+            ),
+            multipleExposures: result.multipleExposures ?? 0,
+            variationIds,
+          },
+        };
+      } else if (traffic?.error === "NO_ROWS_IN_UNIT_QUERY") {
+        // No units means no balance or multiple-exposure signal, regardless of
+        // what the separately-filtered SRM query returned.
+        pendingAnalysisSummary = {
+          snapshotId: this.model.id,
+          health: {
+            srm: null,
+            totalUsers: 0,
+            multipleExposures: 0,
+            variationIds,
+          },
+        };
       }
     }
 
+    // Persist the snapshot (including `contextualBanditEventId`) before writing the
+    // health summary.
     await this.context.models.contextualBanditSnapshots.updateById(
       this.model.id,
       updates,
     );
+
+    if (pendingAnalysisSummary) {
+      await this.context.models.contextualBandits.patchAnalysisSummary(
+        this.model.contextualBandit,
+        pendingAnalysisSummary,
+      );
+    }
 
     return {
       ...this.model,

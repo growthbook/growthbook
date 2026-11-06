@@ -62,6 +62,10 @@ import {
   getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
+import {
+  isMissingRemoteGroupIds,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
+} from "./remoteSavedGroups";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -475,6 +479,17 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
+  /** The user's remote saved groups, for example from your back end's resolver. */
+  public async setRemoteGroupIds(remoteGroupIds: string[]) {
+    this._options.remoteGroupIds = remoteGroupIds;
+    if (this._options.remoteEval) {
+      await this._refreshForRemoteEval();
+      return;
+    }
+    this._render();
+    this._updateAllAutoExperiments();
+  }
+
   public async setForcedVariations(vars: Record<string, number>) {
     this._options.forcedVariations = vars || {};
     if (this._options.remoteEval) {
@@ -503,8 +518,15 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes() {
-    return { ...this._options.attributes, ...this._options.attributeOverrides };
+  public getAttributes(): Attributes {
+    // Remote evaluation sends these, so it includes remote group IDs.
+    return {
+      ...this._options.attributes,
+      ...this._options.attributeOverrides,
+      ...(this._options.remoteGroupIds && {
+        [REMOTE_GROUP_IDS_ATTRIBUTE]: this._options.remoteGroupIds,
+      }),
+    };
   }
 
   public getForcedVariations() {
@@ -567,6 +589,26 @@ export class GrowthBook<
   public _subscribeCustomEvents(cb: CustomEventSubCallback): () => void {
     this._customEventSubs.add(cb);
     return () => this._customEventSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // The two gates runExperiment applies (core.ts): `enabled: false` turns
+  // experiments off, qaMode keeps QA users out of them and out of tracking.
+  // A forced feature rule never reaches runExperiment, so a plugin that assigns
+  // and tracks on its own has to apply them itself.
+  public _experimentsDisabled(): boolean {
+    return this._options.enabled === false || !!this._options.qaMode;
+  }
+
+  // Internal — first-party plugin use only.
+  // Whether logEvent would reach anything. Without it logEvent logs an error of
+  // its own, which a plugin logging per impression would repeat endlessly.
+  public _hasEventConsumer(): boolean {
+    return (
+      !!this._options.eventLogger ||
+      this._customEventSubs.size > 0 ||
+      !!this._options.enableDevMode
+    );
   }
 
   private async _refreshForRemoteEval() {
@@ -676,9 +718,22 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
+  private _warnedMissingRemoteGroupIds = false;
+
   private _getEvalContext(): EvalContext {
+    const user = this._getUserContext();
+    if (
+      !this._warnedMissingRemoteGroupIds &&
+      isMissingRemoteGroupIds(user, this._options.savedGroups)
+    ) {
+      this._warnedMissingRemoteGroupIds = true;
+      this.log(
+        "The payload has remote saved groups, but the user has no remote group IDs. Rules using them won't match. See setRemoteGroupIds.",
+        {},
+      );
+    }
     return {
-      user: this._getUserContext(),
+      user,
       global: this._getGlobalContext(),
       stack: {
         evaluatedFeatures: new Set(),
@@ -694,6 +749,7 @@ export class GrowthBook<
             ...this._options.attributes,
           }
         : this._options.attributes,
+      remoteGroupIds: this._options.remoteGroupIds,
       enableDevMode: this._options.enableDevMode,
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
@@ -716,6 +772,7 @@ export class GrowthBook<
       features: this._options.features,
       experiments: this._options.experiments,
       log: this.log,
+      debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
@@ -1060,7 +1117,7 @@ export class GrowthBook<
       } catch (e) {
         console.error(e);
       }
-    } else {
+    } else if (!this._options.enableDevMode && !this._customEventSubs.size) {
       console.error("No event logger configured");
     }
   }

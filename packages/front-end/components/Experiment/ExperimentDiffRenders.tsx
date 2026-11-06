@@ -11,7 +11,7 @@ import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
 import { getValidDate } from "shared/dates";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { formatTrafficSplit } from "@/services/utils";
+import { coveragePercentFormatter, formatTrafficSplit } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricName from "@/components/Metrics/MetricName";
 import Badge from "@/ui/Badge";
@@ -67,13 +67,6 @@ function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
   const group = isGroup ? getMetricGroupById(id) : null;
   const exists = isGroup ? !!group : !!getExperimentMetricById(id);
 
-  const groupMetrics = group
-    ? group.metrics.map((mid) => ({
-        metric: getExperimentMetricById(mid) ?? null,
-        joinable: true,
-      }))
-    : undefined;
-
   return (
     <span className="d-inline-flex align-items-center" style={{ gap: 3 }}>
       {sign}{" "}
@@ -87,7 +80,6 @@ function MetricBadgeLabel({ id, sign }: { id: string; sign: "+" | "−" }) {
             isGroup={isGroup}
             showGroupIcon
             disableTooltip={false}
-            metrics={groupMetrics}
             officialBadgeLeftGap={false}
           />
         </Link>
@@ -272,7 +264,9 @@ export function renderUserTargetingPhases(
     if (coverageChanged || weightsChanged) {
       const fmtTraffic = (p: PhaseTargeting) => {
         const cov =
-          p.coverage !== undefined ? percentFormatter.format(p.coverage) : "—";
+          p.coverage !== undefined
+            ? coveragePercentFormatter.format(p.coverage)
+            : "—";
         const split = p.variationWeights?.length
           ? `, ${formatTrafficSplit(p.variationWeights, 0)} split`
           : "";

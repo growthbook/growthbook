@@ -88,6 +88,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   dateCreated: Date,
   sourceSnapshotId: String,
   sourceSnapshotDateCreated: Date,
+  sourceSnapshotEndDate: Date,
   runStarted: Date,
   manual: Boolean,
   query: String,
@@ -144,6 +145,8 @@ const experimentSnapshotSchema = new mongoose.Schema({
                 mean: Number,
                 count: Number,
                 stddev: Number,
+                // Cluster experiments only: distinct sub-units behind the clusters
+                sub_count: Number,
               },
               expected: Number,
               risk: [Number],
@@ -175,6 +178,52 @@ const experimentSnapshotSchema = new mongoose.Schema({
       },
       error: String,
       multipleExposures: Number,
+    },
+    // Subdocuments: absent nested paths load as phantom objects that fail re-insert.
+    clusterTraffic: new mongoose.Schema(
+      {
+        overall: experimentSnapshotTrafficObject,
+        dimension: {
+          type: Map,
+          of: [experimentSnapshotTrafficObject],
+        },
+        error: String,
+        multipleExposures: Number,
+      },
+      { _id: false },
+    ),
+    clusterUnits: new mongoose.Schema(
+      {
+        clusters: [
+          {
+            _id: false,
+            id: String,
+            variation: Number,
+            units: Number,
+            pct: Number,
+          },
+        ],
+        error: String,
+      },
+      { _id: false },
+    ),
+    clusterAssignment: {
+      _id: false,
+      totalClusters: Number,
+      mixedClusters: Number,
+      error: String,
+    },
+    clusterSubUnitMapping: {
+      _id: false,
+      totalUnits: Number,
+      multiClusterUnits: Number,
+      error: String,
+    },
+    subUnitMultipleExposures: {
+      _id: false,
+      totalSubUnits: Number,
+      multipleExposedSubUnits: Number,
+      error: String,
     },
     power: {
       _id: false,
@@ -963,6 +1012,7 @@ export async function findSnapshotById(
   context: Context,
   id: string,
 ): Promise<ExperimentSnapshotInterface | null> {
+  if (id && typeof id !== "string") return null;
   const doc = await ExperimentSnapshotModel.findOne({
     organization: context.org.id,
     id,
@@ -1136,6 +1186,28 @@ export async function findLatestSuccessfulReportSnapshotId(
   return doc?.id ?? null;
 }
 
+/** Analysis end date of a phase's newest successful Overall snapshot, read without its analyses. */
+export async function findLatestSuccessfulSnapshotEndDate(
+  context: Context,
+  { experiment, phase }: { experiment: string; phase: number },
+): Promise<Date | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization: context.org.id,
+      experiment,
+      phase,
+      dimension: null,
+      type: "standard",
+      status: "success",
+    },
+    { "settings.endDate": 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ settings?: { endDate?: Date | string } }>()
+    .exec();
+  return doc?.settings?.endDate ? new Date(doc.settings.endDate) : null;
+}
+
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
@@ -1156,6 +1228,15 @@ export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   return docs.map((doc) => toInterface(doc));
 }
 
+// Defense in depth for values that reach a Mongo filter: anything that is not
+// a plain string (e.g. a `{ $ne: "x" }` object parsed from a query string) is
+// treated as not provided rather than being interpreted as a query operator.
+function stringOrUndefined<T extends string>(
+  value: T | undefined,
+): T | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 export async function getLatestSuccessfulSnapshot({
   context,
   experiment,
@@ -1174,6 +1255,8 @@ export async function getLatestSuccessfulSnapshot({
   // Load only these metrics' analysis chunks; omit for the full snapshot.
   metricIds?: string[];
 }): Promise<ExperimentSnapshotInterface | null> {
+  dimension = stringOrUndefined(dimension);
+  type = stringOrUndefined(type);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
     experiment,
@@ -1280,6 +1363,8 @@ export async function getLatestSnapshotStatus({
   dimension?: string;
   type?: SnapshotType;
 }): Promise<SnapshotStatusSummary | null> {
+  dimension = stringOrUndefined(dimension);
+  type = stringOrUndefined(type);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
     experiment,
@@ -1348,6 +1433,7 @@ export async function getLatestSnapshotMultipleExperiments(
   withResults: boolean = true,
   hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
+  dimension = stringOrUndefined(dimension);
   const experimentPhasesToGet = new Map(experimentPhaseMap);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,

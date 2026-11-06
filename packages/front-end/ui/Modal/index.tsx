@@ -1,4 +1,12 @@
-import { Box, Flex, Dialog, ScrollArea, Separator } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  IconButton,
+  Dialog,
+  ScrollArea,
+  Separator,
+} from "@radix-ui/themes";
+import { PiX } from "react-icons/pi";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import {
   createContext,
@@ -9,6 +17,7 @@ import {
   useMemo,
   useRef,
   useState,
+  ComponentProps,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
@@ -16,7 +25,15 @@ import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = SharedSize<"md" | "lg"> | "xl" | "fill";
+// "max" and "fill" are not steps on the t-shirt scale; both fill the viewport
+// ("fill" with no chrome at all).
+export type Size = SharedSize<"md" | "lg" | "xl"> | "max" | "fill";
+
+// "gutter" leaves the content box unpadded so Modal.Body's scrollbar sits at
+// the edge, and each section pads itself. "even" pads the content box on all
+// four sides.
+export type Padding = "gutter" | "even";
+const EVEN_PADDING = "20px";
 
 // Modal does not use the shared Radix map. Radix Dialog's size drives padding
 // and border radius rather than a step on the control scale, its own default is
@@ -28,6 +45,7 @@ function getRadixSize(size: Size): Responsive<"3" | "4"> {
       return "3";
     case "lg":
     case "xl":
+    case "max":
     case "fill":
       return "4";
   }
@@ -41,6 +59,8 @@ function getMaxWidth(size: Size) {
       return "800px";
     case "xl":
       return "1100px";
+    case "max":
+      return "95vw";
     case "fill":
       return "calc(100vw - 32px)";
   }
@@ -56,6 +76,7 @@ function getMaxWidth(size: Size) {
 // ---------------------------------------------------------------------------
 
 type ModalContextValue = {
+  padding: Padding;
   error: string | null;
   errorDetails: string | null;
   setError: (error: string | null, details?: string | null) => void;
@@ -102,8 +123,13 @@ type RootProps = TrackingEventModalProps & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   size?: Size;
+  padding?: Padding;
   dismissible?: boolean;
+  /** Radix's corner close, for a composition with no other way out. */
+  showCloseButton?: boolean;
   hasDescription?: boolean;
+  /** For a modal that places focus itself: call `e.preventDefault()`. */
+  onOpenAutoFocus?: ComponentProps<typeof Dialog.Content>["onOpenAutoFocus"];
   children: ReactNode;
 };
 
@@ -111,8 +137,11 @@ function Root({
   open,
   onOpenChange,
   size = "md",
+  padding = "gutter",
   dismissible = false,
+  showCloseButton = false,
   hasDescription = true,
+  onOpenAutoFocus,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
@@ -177,6 +206,7 @@ function Root({
 
   const ctx = useMemo<ModalContextValue>(
     () => ({
+      padding,
       error,
       errorDetails,
       setError,
@@ -187,6 +217,7 @@ function Root({
       setLoading,
     }),
     [
+      padding,
       error,
       errorDetails,
       setError,
@@ -204,10 +235,23 @@ function Root({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content
         ref={contentRef}
+        // Radix's scrolling wrapper is padded; at this height that overflows
+        // the viewport, so global-radix-overrides drops it.
+        className={size === "max" ? "rt-DialogContent--max" : undefined}
         size={getRadixSize(size)}
+        width={size === "max" ? "95vw" : undefined}
         maxWidth={getMaxWidth(size)}
-        maxHeight={size === "fill" ? "calc(100vh - 32px)" : "85vh"}
+        // Claim the height too, so the body sizes against the viewport.
+        height={size === "max" ? "95vh" : undefined}
+        maxHeight={
+          size === "max"
+            ? "95vh"
+            : size === "fill"
+              ? "calc(100vh - 32px)"
+              : "85vh"
+        }
         {...ariaDescribedBy}
+        onOpenAutoFocus={onOpenAutoFocus}
         onEscapeKeyDown={(e) => {
           // A submit in flight keeps the dialog up even when it is otherwise dismissible.
           if (!dismissible || loading) e.preventDefault();
@@ -219,8 +263,8 @@ function Root({
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          // Header, body and footer each carry their own padding.
-          padding: 0,
+          // In gutter mode, header, body and footer each carry their own padding.
+          padding: padding === "even" ? EVEN_PADDING : 0,
           ...(size === "fill"
             ? {
                 width: "calc(100vw - 32px)",
@@ -229,6 +273,24 @@ function Root({
             : {}),
         }}
       >
+        {showCloseButton ? (
+          <Box position="absolute" top="2" right="2" style={{ zIndex: 1 }}>
+            <Dialog.Close>
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+                aria-label="Close"
+                // Driven explicitly, like the footer's Cancel.
+                onClick={() => onOpenChange(false)}
+              >
+                <PiX size={20} />
+              </IconButton>
+            </Dialog.Close>
+          </Box>
+        ) : null}
         <ModalContext.Provider value={ctx}>{children}</ModalContext.Provider>
       </Dialog.Content>
     </Dialog.Root>
@@ -306,21 +368,38 @@ function Body({ children }: { children: ReactNode }) {
 function Footer({
   children,
   justify = "end",
+  align,
 }: {
   children: ReactNode;
   justify?: "start" | "center" | "end" | "between";
+  /** Cross-axis alignment, for footers holding more than a row of buttons. */
+  align?: "start" | "center" | "end" | "baseline" | "stretch";
 }) {
+  // Even mode pads the content box, so the footer bleeds back out to its edges.
+  const { padding } = useModalContext();
+  const evenlyPadded = padding === "even";
   return (
-    <Box flexShrink="0">
+    <Box
+      flexShrink="0"
+      style={
+        evenlyPadded
+          ? {
+              margin: `var(--space-5) -${EVEN_PADDING} -${EVEN_PADDING}`,
+            }
+          : undefined
+      }
+    >
       <Separator size="4" />
       <Flex
         gap="3"
         justify={justify}
+        align={align}
         // The left inset is short by a ghost button's padding, so a ghost
         // action on the left lines up with the content.
         style={{
-          padding:
-            "20px var(--space-7) 20px calc(var(--space-7) - var(--space-3))",
+          padding: evenlyPadded
+            ? EVEN_PADDING
+            : "20px var(--space-7) 20px calc(var(--space-7) - var(--space-3))",
         }}
       >
         {children}

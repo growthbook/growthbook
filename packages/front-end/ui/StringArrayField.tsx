@@ -6,11 +6,12 @@ import {
   ClearIndicatorProps,
 } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
-import { PiCopy, PiRepeatBold, PiXBold } from "react-icons/pi";
+import { PiRepeatBold, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import Field, { FieldProps } from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
 import { Size } from "@/ui/sizes";
+import { CopyIcon } from "@/ui/ActionIcons";
 
 export type StringArrayFieldSize = Size<"md" | "lg">;
 
@@ -145,7 +146,7 @@ function CopyButton({ value }: { value: string[] }) {
         className="gb-select__copy-button"
         onClick={handleCopy}
       >
-        <PiCopy />
+        <CopyIcon />
       </button>
     </Tooltip>
   );

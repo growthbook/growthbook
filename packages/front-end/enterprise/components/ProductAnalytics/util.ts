@@ -8,6 +8,7 @@ import type {
   FactTableValue,
   DataSourceValue,
   SqlValue,
+  PopulationValue,
   ProductAnalyticsValue,
   DatasetType,
   ExplorationDataset,
@@ -60,6 +61,7 @@ import {
   getColumnInfo,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
+import { renumberStepNames } from "@/components/FactTables/funnelStepUpdates";
 export {
   getAvailableDimensionColumns,
   getRelevantFactTableIds,
@@ -488,6 +490,14 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         valueColumn: null,
         unit: null,
       } as SqlValue;
+    case "population":
+      return {
+        ...base,
+        name: generateUniqueValueName("Population", []),
+        type: "population",
+        unit: null,
+        source: { type: "factTable", factTableId: "" },
+      } as PopulationValue;
     case "funnel":
       // The funnel sidebar manages steps directly; nothing in the codebase
       // should ask for a "value" on a funnel dataset.
@@ -526,6 +536,19 @@ export function withDefaultSqlRawTable(
     chartType: "rawTable",
     dimensions: [],
   } as ExplorerDraftConfig;
+}
+
+/**
+ * Run after inserting, moving, or deleting funnel steps:
+ * - renumbers default names
+ * - clears optional/conversion window on whichever step lands first
+ */
+export function normalizeFunnelStepOrder(steps: FunnelStep[]): FunnelStep[] {
+  return renumberStepNames(steps).map((step, i) =>
+    i === 0 && (step.optional || step.conversionWindow)
+      ? { ...step, optional: false, conversionWindow: null }
+      : step,
+  );
 }
 
 /** Builds an empty funnel step. `factTableId` is optional so the "Add step"

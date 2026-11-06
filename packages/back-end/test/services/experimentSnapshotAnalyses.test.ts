@@ -715,7 +715,7 @@ describe("createSnapshotAnalysesBatched", () => {
     ]);
   });
 
-  it("rewrites parent unit-dimension queries to bare metric keys", async () => {
+  it("forwards the raw query map to analyzeExperimentResults for per-dimension routing", async () => {
     const parentQuery = { id: "qry_parent" };
     const unitQuery = { id: "qry_unit_country" };
     (getQueryMap as jest.Mock).mockResolvedValue(
@@ -750,10 +750,16 @@ describe("createSnapshotAnalysesBatched", () => {
       },
     );
 
+    // getQueryMapForAnalysis no longer pre-routes; the raw map is handed to
+    // analyzeExperimentResults, which owns the per-dimension selection.
     const queryData = (analyzeExperimentResults as jest.Mock).mock.calls[0][0]
       .queryData as Map<string, unknown>;
-    expect(Array.from(queryData.keys())).toEqual(["met_1"]);
-    expect(queryData.get("met_1")).toBe(unitQuery);
+    expect(Array.from(queryData.keys())).toEqual([
+      "met_1",
+      "unitdim:dim_country:met_1",
+    ]);
+    expect(queryData.get("met_1")).toBe(parentQuery);
+    expect(queryData.get("unitdim:dim_country:met_1")).toBe(unitQuery);
     expect(analyses[0]).toEqual(
       expect.objectContaining({
         settings: analysisSettingsList[0],
@@ -769,7 +775,7 @@ describe("createSnapshotAnalysis", () => {
     jest.clearAllMocks();
   });
 
-  it("rewrites parent unit-dimension queries to bare metric keys for lazy analyses", async () => {
+  it("forwards the raw query map to analyzeExperimentResults for lazy analyses", async () => {
     const parentQuery = { id: "qry_parent" };
     const unitQuery = { id: "qry_unit_country" };
     (getQueryMap as jest.Mock).mockResolvedValue(
@@ -797,9 +803,15 @@ describe("createSnapshotAnalysis", () => {
       }),
     });
 
+    // getQueryMapForAnalysis no longer pre-routes; the raw map is handed to
+    // analyzeExperimentResults, which owns the per-dimension selection.
     const queryData = (analyzeExperimentResults as jest.Mock).mock.calls[0][0]
       .queryData as Map<string, unknown>;
-    expect(Array.from(queryData.keys())).toEqual(["met_1"]);
-    expect(queryData.get("met_1")).toBe(unitQuery);
+    expect(Array.from(queryData.keys())).toEqual([
+      "met_1",
+      "unitdim:dim_country:met_1",
+    ]);
+    expect(queryData.get("met_1")).toBe(parentQuery);
+    expect(queryData.get("unitdim:dim_country:met_1")).toBe(unitQuery);
   });
 });

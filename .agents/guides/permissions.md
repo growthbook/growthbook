@@ -250,7 +250,7 @@ context.permissions.throwPermissionError("Custom error message");
 
 ### The Acting User vs the Credential
 
-An org API key can name a member with `X-GrowthBook-Requested-By`. A key is its own identity until it assumes that member's role, then it is that member. A key set to keep its own role stays itself; the name is only logged.
+An org API key can name a member with `X-GrowthBook-Requested-By`. A User key (`actAs: "user"`) must send the header, assumes that member's role and then is that member. A System key (`actAs: "system"`, the default) stays its own identity; the name is only logged. Check it with `actsAsUser`. The retired `requesterHeader` and `requesterPermissions` fields are converted and dropped in `migrateApiKey`.
 
 - `context.actingPerson` (and `actingUserId`, `actingUserName`) is the signed-in user, a personal token's owner, or the member whose role an org key assumes. Use it for owners, `mine` and anything that needs a person; `context.userId` stays empty for org keys.
 - `context.actorId` is who the request acts as: the person, else the key's own ID. Use it for authorship, contributors, review verdicts and author rights (acting on your own draft without draft permission, editing your own comments, retracting your own verdict).

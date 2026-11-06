@@ -5,13 +5,19 @@ import {
   ProductAnalyticsExploration,
   ExplorationCacheQuery,
   factMetricValidator,
+  PopulationStep,
 } from "shared/validators";
+import {
+  getPopulationFactTableIds,
+  getPopulationRuleViolations,
+} from "shared/populations";
 import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
+  getMetricPopulationViolations,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -173,6 +179,7 @@ export async function runProductAnalyticsExploration(
         "A draft preview must contain only fact__preview",
       );
     }
+
     const factMetrics = await context.models.factMetrics.getByIds(
       dataset.values
         .filter((value) => !value.draftMetric)
@@ -214,6 +221,20 @@ export async function runProductAnalyticsExploration(
       Array.from(factTableIds),
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+
+    if (dataset.population) {
+      const populationViolations = getMetricPopulationViolations({
+        population: dataset.population,
+        values: dataset.values,
+        dimensions: config.dimensions,
+        datasource: datasource.id,
+        metricMap,
+        factTableMap,
+      });
+      if (populationViolations.length) {
+        throw new BadRequestError(populationViolations.join(" "));
+      }
+    }
 
     for (const value of dataset.values) {
       if (!value.draftMetric) continue;
@@ -374,6 +395,38 @@ export async function runProductAnalyticsExploration(
         `Journey unit "${dataset.unit}" is not a userIdType on the Fact Table`,
       );
     }
+  } else if (dataset.type === "population") {
+    if (!dataset.values.length) {
+      throw new BadRequestError("No populations provided");
+    }
+    if (config.dimensions.some((d) => d.dimensionType !== "date")) {
+      throw new BadRequestError(
+        "Population previews can only be grouped by date",
+      );
+    }
+    const steps: PopulationStep[] = dataset.values.map((value) => ({
+      source: value.source,
+      rowFilters: value.rowFilters,
+      aggregateFilter: value.aggregateFilter,
+      aggregateFilterColumn: value.aggregateFilterColumn,
+    }));
+    const factTables = await getFactTablesByIds(
+      context,
+      getPopulationFactTableIds(steps),
+    );
+    factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+    const violations = dataset.values.flatMap((value, i) => {
+      if (!value.unit) return [`${value.name}: Population unit is required.`];
+      return getPopulationRuleViolations({
+        datasource: datasource.id,
+        userIdTypes: [value.unit],
+        steps: [steps[i]],
+        factTables,
+      }).map((violation) => `${value.name}: ${violation}`);
+    });
+    if (violations.length) {
+      throw new BadRequestError(violations.join(" "));
+    }
   } else {
     throw new BadRequestError("Invalid dataset type");
   }
@@ -449,17 +502,22 @@ export async function runProductAnalyticsExploration(
   return withRequestedDisplayConfig(queryRunner.model, config);
 }
 
-const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
-  {
-    metric: "metrics",
-    fact_table: "fact-table",
-    data_source: "data-source",
-    sql: "sql",
-    funnel: "funnel",
-    journey: "journey",
-  };
+const DATASET_TYPE_PATH: Record<
+  Exclude<ExplorationConfig["dataset"]["type"], "population">,
+  string
+> = {
+  metric: "metrics",
+  fact_table: "fact-table",
+  data_source: "data-source",
+  sql: "sql",
+  funnel: "funnel",
+  journey: "journey",
+};
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {
+  if (config.dataset.type === "population") {
+    throw new Error("Population previews have no explorer page");
+  }
   const baseUrl = `${APP_ORIGIN}/product-analytics/explore/${DATASET_TYPE_PATH[config.dataset.type]}`;
   return `${baseUrl}?config=${encodeURIComponent(encodeExplorationConfig(config))}`;
 }

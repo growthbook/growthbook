@@ -13,6 +13,11 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { BadRequestError } from "back-end/src/util/errors";
+import {
+  assertValidRemoteSavedGroupWrite,
+  deleteRemoteSavedGroupUploads,
+} from "back-end/src/services/remoteSavedGroups";
 import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   captureEventBuffer,
@@ -155,6 +160,18 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     if (!this.context.bulkPublishApplying && !writeOptions?.isCompensation) {
       await assertSavedGroupProjectScope(this.context, doc, previousDoc);
     }
+    if (doc.type === "remote") {
+      await assertValidRemoteSavedGroupWrite(
+        this.context,
+        doc,
+        previousDoc,
+        !!writeOptions?.isCompensation,
+      );
+    } else if (doc.currentUploadVersion !== undefined) {
+      throw new BadRequestError(
+        "Only remote Saved Groups can have a currentUploadVersion",
+      );
+    }
     if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(
@@ -219,6 +236,17 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
   }
 
   protected async afterDelete(doc: SavedGroupInterface) {
+    if (doc.type === "remote") {
+      // The group is already gone, so a failure here can't be retried through
+      // it; the rest of the delete still runs, and the upload cleanup job
+      // removes what's left.
+      await deleteRemoteSavedGroupUploads(this.context, doc.id).catch((err) =>
+        this.context.logger.error(
+          err,
+          "Could not delete a remote Saved Group's uploads",
+        ),
+      );
+    }
     await logSavedGroupDeletedEvent(this.context, this.toApiInterface(doc));
   }
 
@@ -373,6 +401,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       projects: savedGroup.projects || [],
       archived: !!savedGroup.archived,
       useEmptyListGroup: savedGroup.useEmptyListGroup,
+      currentUploadVersion: savedGroup.currentUploadVersion,
     };
   }
   /**

@@ -170,6 +170,9 @@ export function getRelevantFactTableIds(
       if (initialStepFactTableId) ids.add(initialStepFactTableId);
       break;
     }
+    case "population":
+      dataset.values.forEach((v) => ids.add(v.source.factTableId));
+      break;
     case "data_source":
     case "sql":
       break;
@@ -252,6 +255,19 @@ export function getAvailableDimensionColumns(
         ? getFactTableById(initialStep.factTableId)
         : null;
       return ft ? getFactTableDimensionColumns(ft) : [];
+    }
+    case "population": {
+      if (!dataset.values.length) return [];
+      const factTables = dataset.values.map((v) =>
+        getFactTableById(v.source.factTableId),
+      );
+      if (factTables.some((ft) => !ft)) return [];
+      const [first, ...rest] = factTables as DimensionFactTable[];
+      // Every value's fact table has to resolve the column, or that value
+      // couldn't be broken down by it.
+      return getFactTableDimensionColumns(first).filter((c) =>
+        rest.every((ft) => factTableHasResolvableColumn(ft, c.column)),
+      );
     }
     default: {
       const _exhaustive: never = dataset;

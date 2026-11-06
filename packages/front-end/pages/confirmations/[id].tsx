@@ -5,9 +5,11 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiTimer } from "react-icons/pi";
 import type {
   ApiConfirmation,
+  ConfirmAction,
   ConfirmationLink,
   ConfirmationNotice,
 } from "shared/validators";
+import { capitalizeFirstCharacter } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -21,6 +23,13 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { RequestLine } from "@/components/Agent/ConfirmActionCard";
 import RequestDetails from "@/components/Confirmations/RequestDetails";
+import { verbOf } from "@/components/Settings/confirmRulesUtils";
+import {
+  isPolicySkip,
+  skipSeverity,
+  skipsOf,
+  type Skip,
+} from "@/components/Confirmations/skips";
 
 type ConfirmationResponse = {
   confirmation: ApiConfirmation;
@@ -33,6 +42,8 @@ type ConfirmationResponse = {
     query: Record<string, unknown>;
     body: unknown;
   };
+  overrides: ConfirmAction[];
+  sentOverrides: ConfirmAction[];
   requester: {
     personal: boolean;
     person: string | null;
@@ -77,13 +88,6 @@ function SectionHeader({ children }: { children: ReactNode }) {
   );
 }
 
-// Bypassed by the caller's authority or an org setting, not a flag it sent.
-const POLICY_VIAS = new Set<ConfirmationNotice["via"]>([
-  "bypassApprovalPermission",
-  "restApiBypassesReviews",
-  "revertsBypassApproval",
-]);
-
 function bypassReason(
   via: ConfirmationNotice["via"],
   requester: ConfirmationResponse["requester"],
@@ -107,35 +111,64 @@ function bypassReason(
       return "Confirming skips schema validation.";
     case "skipHooks":
       return "Confirming skips the custom validation hooks.";
+    case "skipChecklist":
+      return "Confirming skips the experiment's incomplete checklist items.";
     case null:
       return null;
   }
 }
 
-function NoticeCallout({
-  notice,
+function SkipCallout({
+  skip,
   status,
-  reason,
+  requester,
 }: {
-  notice: ConfirmationNotice;
+  skip: Skip;
   status: Status;
-  reason: ReactNode;
+  requester: ConfirmationResponse["requester"];
 }) {
+  const messages = skip.notices.flatMap((notice) => notice.messages);
+  const reasons = [
+    ...new Set(
+      [...skip.notices.map((notice) => notice.via), skip.policy].map((via) =>
+        bypassReason(via, requester),
+      ),
+    ),
+  ].filter(Boolean);
+  const lines = (items: string[]) =>
+    items.map((message, i) => (
+      <Box key={i} mt={i ? "1" : undefined} style={{ whiteSpace: "pre-wrap" }}>
+        <Text size="inherit">{message}</Text>
+      </Box>
+    ));
   return (
     <Callout status={status} size="sm">
       <Text as="div" size="inherit" weight="semibold">
-        {notice.messages[0]}
+        {skip.action
+          ? capitalizeFirstCharacter(verbOf(skip.action))
+          : messages[0]}
       </Text>
-      {notice.messages.slice(1).map((message, i) => (
-        <Box key={i} mt="1" style={{ whiteSpace: "pre-wrap" }}>
-          <Text size="inherit">{message}</Text>
-        </Box>
-      ))}
-      {reason ? (
-        <Box mt="1">
+      {skip.action ? (
+        messages.length ? (
+          <Box
+            mt="2"
+            pl="3"
+            style={{ borderLeft: "2px solid var(--accent-a6)" }}
+          >
+            <Text as="div" size="sm" weight="medium" mb="1">
+              Server message
+            </Text>
+            {lines(messages)}
+          </Box>
+        ) : null
+      ) : messages.length > 1 ? (
+        <Box mt="1">{lines(messages.slice(1))}</Box>
+      ) : null}
+      {reasons.map((reason) => (
+        <Box key={reason} mt="2">
           <Text size="sm">{reason}</Text>
         </Box>
-      ) : null}
+      ))}
     </Callout>
   );
 }
@@ -226,6 +259,8 @@ export default function ConfirmationPage() {
     notices,
     lastAttemptAt,
     request,
+    overrides,
+    sentOverrides,
     requester,
     canDecide,
   } = data;
@@ -242,8 +277,9 @@ export default function ConfirmationPage() {
   const environments = [
     ...new Set(confirmation.actions.flatMap((a) => a.environments)),
   ];
-  const checks = notices.filter((n) => !POLICY_VIAS.has(n.via));
-  const policies = notices.filter((n) => POLICY_VIAS.has(n.via));
+  const skips = skipsOf(overrides, sentOverrides, notices);
+  const checks = skips.filter((skip) => !isPolicySkip(skip));
+  const policies = skips.filter(isPolicySkip);
   // A confirmed request can still fail when it runs, e.g. a check it now fails.
   const failure =
     confirmation.status === "completed" &&
@@ -341,12 +377,12 @@ export default function ConfirmationPage() {
               </Text>
             ) : null}
             <Flex direction="column" gap="2">
-              {checks.map((notice, i) => (
-                <NoticeCallout
+              {checks.map((skip, i) => (
+                <SkipCallout
                   key={i}
-                  notice={notice}
-                  status={notice.severity}
-                  reason={bypassReason(notice.via, requester)}
+                  skip={skip}
+                  status={skipSeverity(skip)}
+                  requester={requester}
                 />
               ))}
             </Flex>
@@ -356,12 +392,12 @@ export default function ConfirmationPage() {
           <Box mt="5">
             <SectionHeader>Policies this bypasses</SectionHeader>
             <Flex direction="column" gap="2">
-              {policies.map((notice, i) => (
-                <NoticeCallout
+              {policies.map((skip, i) => (
+                <SkipCallout
                   key={i}
-                  notice={notice}
+                  skip={skip}
                   status="info"
-                  reason={bypassReason(notice.via, requester)}
+                  requester={requester}
                 />
               ))}
             </Flex>

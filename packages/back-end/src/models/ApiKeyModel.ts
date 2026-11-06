@@ -2,7 +2,11 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema, ConfirmRule } from "shared/validators";
+import {
+  apiKeySchema,
+  ConfirmRule,
+  OAuthTokenPermissions,
+} from "shared/validators";
 import {
   apiKeyToggleRequiresAdmin,
   canManageApiKeySecret,
@@ -173,8 +177,7 @@ export class ApiKeyModel extends BaseClass {
       environments: doc.environments,
       additionalRoles: doc.additionalRoles,
       projectRoles: doc.projectRoles,
-      requesterHeader: doc.requesterHeader,
-      requesterPermissions: doc.requesterPermissions,
+      actAs: doc.actAs,
       disabled: doc.disabled,
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
@@ -188,6 +191,12 @@ export class ApiKeyModel extends BaseClass {
     doc: ApiKeyInterface,
     previousDoc?: ApiKeyInterface,
   ) {
+    // An OAuth token carries its grant's permissions, which consent checked
+    // (validateOAuthPermissions). Like a stored key's, they aren't re-checked,
+    // so a refresh still works after a downgrade or once a role or environment
+    // they name is gone.
+    const consented = !!doc.oauthClientId;
+    if (!consented) this.assertPlanAllowsConfirmations(doc, previousDoc);
     const maxDays = this.maxLifetimeDaysFor(doc);
     if (
       doc.secret &&
@@ -224,7 +233,7 @@ export class ApiKeyModel extends BaseClass {
       }
     }
     if (doc.userId) {
-      if (doc.requesterHeader || doc.requesterPermissions) {
+      if (doc.actAs) {
         this.context.throwBadRequestError(
           "PATs already act as a user and cannot take X-GrowthBook-Requested-By.",
         );
@@ -240,16 +249,7 @@ export class ApiKeyModel extends BaseClass {
         );
       }
       if (!doc.scoped) {
-        // Unscoped PATs inherit permissions from their user — scoping fields must not be set
-        if (
-          doc.limitAccessByEnvironment ||
-          doc.projectRoles?.length ||
-          doc.additionalRoles?.length
-        ) {
-          this.context.throwBadRequestError(
-            "Restricting a personal access token requires a scoped role.",
-          );
-        }
+        this.assertUnscopedTokenUnrestricted(doc);
         return;
       }
       if (!doc.role) {
@@ -260,8 +260,9 @@ export class ApiKeyModel extends BaseClass {
     }
     // Only a write that changes the scope is checked, so a key stays disableable after its plan, roles or environments lapse.
     if (
-      previousDoc &&
-      isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS))
+      consented ||
+      (previousDoc &&
+        isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS)))
     ) {
       return;
     }
@@ -269,11 +270,70 @@ export class ApiKeyModel extends BaseClass {
     await this.validateScope(doc, previousDoc);
   }
 
+  // Everything a new token's permissions are checked against, run once on the
+  // OAuth consent page so a bad choice fails there and its tokens skip it.
+  public async validateOAuthPermissions(
+    permissions: OAuthTokenPermissions | null,
+  ) {
+    if (!permissions) return;
+    this.assertPlanAllowsConfirmations(permissions);
+    const { scopedRole, ...scope } = permissions;
+    if (!scopedRole) {
+      this.assertUnscopedTokenUnrestricted(scope);
+      return;
+    }
+    const doc = {
+      ...scope,
+      role: scopedRole,
+      limitAccessByEnvironment: scope.limitAccessByEnvironment ?? false,
+      environments: scope.environments ?? [],
+    };
+    this.assertPlanAllowsScope(doc);
+    await this.validateScope(doc);
+  }
+
+  // An unscoped token acts as its user, so it can't carry restrictions.
+  private assertUnscopedTokenUnrestricted(doc: {
+    limitAccessByEnvironment?: boolean;
+    projectRoles?: unknown[];
+    additionalRoles?: unknown[];
+  }) {
+    if (
+      doc.limitAccessByEnvironment ||
+      doc.projectRoles?.length ||
+      doc.additionalRoles?.length
+    ) {
+      this.context.throwBadRequestError(
+        "Restricting a personal access token requires a scoped role.",
+      );
+    }
+  }
+
+  // Only turning confirmations on is gated, so a key keeps and can still edit
+  // its confirmations after a downgrade, and can always drop them.
+  private assertPlanAllowsConfirmations(
+    doc: Pick<ApiKeyInterface, "confirmRules">,
+    previousDoc?: Pick<ApiKeyInterface, "confirmRules">,
+  ) {
+    if (
+      doc.confirmRules &&
+      !previousDoc?.confirmRules &&
+      !this.context.hasPremiumFeature("human-in-the-loop")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support Human-in-the-Loop confirmations.",
+      );
+    }
+  }
+
   // Commercial gates, for org keys and scoped PATs alike. Only a role change is
   // gated so existing keys keep working.
   private assertPlanAllowsScope(
-    doc: ApiKeyInterface,
-    previousDoc?: ApiKeyInterface,
+    doc: Pick<
+      ApiKeyInterface,
+      "role" | "limitAccessByEnvironment" | "additionalRoles" | "projectRoles"
+    >,
+    previousDoc?: Pick<ApiKeyInterface, "role">,
   ) {
     if (
       doc.role &&
@@ -306,8 +366,11 @@ export class ApiKeyModel extends BaseClass {
 
   // Role, environments and project rules, for org keys and scoped PATs alike
   private async validateScope(
-    doc: ApiKeyInterface,
-    previousDoc?: ApiKeyInterface,
+    doc: Pick<
+      ApiKeyInterface,
+      "role" | "environments" | "additionalRoles" | "projectRoles"
+    >,
+    previousDoc?: Pick<ApiKeyInterface, "projectRoles">,
   ) {
     this.validateRole(doc.role);
     this.validateEnvironments(doc.environments);
@@ -410,8 +473,7 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
-    requesterHeader,
-    requesterPermissions,
+    actAs,
     expiresAt,
     confirmRules,
   }: {
@@ -421,8 +483,7 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requesterHeader?: ApiKeyInterface["requesterHeader"];
-    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
+    actAs?: ApiKeyInterface["actAs"];
     expiresAt?: Date | null;
     confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
@@ -437,8 +498,7 @@ export class ApiKeyModel extends BaseClass {
       environments,
       additionalRoles,
       projectRoles,
-      requesterHeader,
-      requesterPermissions,
+      actAs,
       expiresAt,
       confirmRules,
     });
@@ -552,8 +612,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       description,
-      requesterHeader,
-      requesterPermissions,
+      actAs,
       expiresAt,
       confirmRules,
     }: {
@@ -564,8 +623,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
-      requesterHeader?: ApiKeyInterface["requesterHeader"];
-      requesterPermissions?: ApiKeyInterface["requesterPermissions"];
+      actAs?: ApiKeyInterface["actAs"];
       // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
       expiresAt?: Date | null;
       confirmRules?: ConfirmRule[] | null;
@@ -623,8 +681,7 @@ export class ApiKeyModel extends BaseClass {
         additionalRoles,
         projectRoles,
       }),
-      ...(requesterHeader !== undefined && { requesterHeader }),
-      ...(requesterPermissions !== undefined && { requesterPermissions }),
+      ...(actAs !== undefined && { actAs }),
       ...(confirmRules !== undefined && { confirmRules }),
     };
     if (
@@ -1022,8 +1079,7 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
-    requesterHeader,
-    requesterPermissions,
+    actAs,
     expiresAt,
     confirmRules,
   }: {
@@ -1039,8 +1095,7 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requesterHeader?: ApiKeyInterface["requesterHeader"];
-    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
+    actAs?: ApiKeyInterface["actAs"];
     expiresAt?: Date | null;
     confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
@@ -1072,8 +1127,7 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
-      ...(requesterHeader !== undefined && { requesterHeader }),
-      ...(requesterPermissions !== undefined && { requesterPermissions }),
+      ...(actAs !== undefined && { actAs }),
       expiresAt,
       ...(confirmRules ? { confirmRules } : {}),
     });

@@ -1,5 +1,7 @@
+import { FactMetricInterface } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
+  duplicateFactMetric,
   CreateFactMetricFormProps,
   formatDurationMilliseconds,
   formatDurationSeconds,
@@ -50,8 +52,6 @@ function formValues(
     regressionAdjustmentOverride: false,
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 14,
-    winRisk: 0.0025,
-    loseRisk: 0.0125,
     minPercentChange: 0.5,
     maxPercentChange: 50,
     minSampleSize: 150,
@@ -444,4 +444,29 @@ describe("getDefaultFactMetricProps datasource", () => {
         .datasource,
     ).toBe("ds_default");
   });
+});
+
+describe("duplicateFactMetric", () => {
+  it.each([
+    ["admin", true, "admin"],
+    ["admin", false, ""],
+    ["api", true, ""],
+    ["config", true, ""],
+    ["", true, ""],
+  ] as const)(
+    "normalizes managedBy=%s with official permission=%s",
+    (managedBy, canCreateOfficial, expected) => {
+      const metric = {
+        name: "Revenue",
+        managedBy,
+        numerator: { factTableId: "ft_1", column: "amount" },
+      } as FactMetricInterface;
+      const duplicate = duplicateFactMetric(metric, canCreateOfficial);
+      expect(duplicate.name).toBe("Revenue (copy)");
+      expect(duplicate.managedBy).toBe(expected);
+      expect(duplicate.numerator).toEqual(metric.numerator);
+      expect(metric.name).toBe("Revenue");
+      expect(metric.managedBy).toBe(managedBy);
+    },
+  );
 });

@@ -6,10 +6,8 @@ import {
   EventUserRequestedBy,
 } from "shared/types/events/event-types";
 import { ApiKeyInterface } from "shared/types/apikey";
-import {
-  assumesRequesterRole,
-  requesterHeaderPolicy,
-} from "shared/permissions";
+import omit from "lodash/omit";
+import { actsAsUser } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import {
   APP_ORIGIN,
@@ -87,13 +85,21 @@ export function generateSigningKey(prefix: string = "", bytes = 32): string {
 }
 
 export function migrateApiKey(legacyDoc: unknown) {
-  const obj = legacyDoc as ApiKeyInterface;
+  // `actAs` replaced requesterHeader (where "required" acted as the member)
+  // and requesterPermissions, both dropped here once read.
+  const { requesterHeader } = legacyDoc as { requesterHeader?: string };
+  const obj = omit(legacyDoc as ApiKeyInterface, [
+    "requesterHeader",
+    "requesterPermissions",
+  ]) as ApiKeyInterface;
   return {
     ...obj,
     role: roleForApiKey(obj) || undefined,
     dateUpdated: obj.dateUpdated ?? obj.dateCreated,
     limitAccessByEnvironment: obj.limitAccessByEnvironment ?? false,
     environments: obj.environments ?? [],
+    ...(!obj.actAs &&
+      requesterHeader === "required" && { actAs: "user" as const }),
   };
 }
 
@@ -219,7 +225,7 @@ export function apiKeyEventUser({
   requester,
 }: {
   apiKeyId: string;
-  key: Pick<ApiKeyInterface, "description" | "requesterPermissions">;
+  key: Pick<ApiKeyInterface, "description" | "actAs">;
   owner: { id: string; name?: string; email: string } | null;
   requester: EventUserRequestedBy | null;
 }): EventUserApiKey {
@@ -238,32 +244,29 @@ export function apiKeyEventUser({
     name: key.description || "",
     ...(requester && {
       requestedBy: requester,
-      ...(assumesRequesterRole(key) && { assumedRole: true }),
+      ...(actsAsUser(key) && { assumedRole: true }),
     }),
   };
 }
 
 // Applies a credential's rules to X-GrowthBook-Requested-By: personal and OAuth
-// tokens already act as their user, and an org key may require or reject it.
+// tokens already act as their user, and a User key requires it.
 export async function resolveRequestedByFor(
   value: string | string[] | undefined,
-  orgKey: Pick<ApiKeyInterface, "requesterHeader"> | null,
+  orgKey: Pick<ApiKeyInterface, "actAs"> | null,
   organization: Pick<OrganizationInterface, "members">,
   lookup: MemberLookup,
 ): Promise<EventUserRequestedBy | null> {
-  const policy = orgKey ? requesterHeaderPolicy(orgKey) : null;
-  if (!policy || policy === "rejected") {
+  if (!orgKey) {
     if (headerValue(value)) {
       throw new BadRequestError(
-        policy
-          ? "This API key doesn't accept X-GrowthBook-Requested-By."
-          : "X-GrowthBook-Requested-By is only for organization API keys. Personal access and OAuth tokens already act as their user.",
+        "X-GrowthBook-Requested-By is only for organization API keys. Personal access and OAuth tokens already act as their user.",
       );
     }
     return null;
   }
   const requestedBy = await resolveRequestedBy(value, organization, lookup);
-  if (!requestedBy && policy === "required") {
+  if (!requestedBy && actsAsUser(orgKey)) {
     throw new BadRequestError(
       "This API key requires an X-GrowthBook-Requested-By header naming an organization member",
     );

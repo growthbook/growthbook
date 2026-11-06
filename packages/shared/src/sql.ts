@@ -120,6 +120,22 @@ export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
   return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
+// Quotes a column the user named in their own SQL. Quoting is exact-match, so
+// the name must first be folded the way the warehouse folded their unquoted
+// alias: Snowflake's `AS user_id` becomes USER_ID, which `"user_id"` misses.
+export function quoteColumnIdentifier(
+  name: string,
+  dialect: Pick<SqlDialect, "identifierQuote" | "unquotedIdentifierFold">,
+): string {
+  const folded =
+    dialect.unquotedIdentifierFold === "upper"
+      ? name.toUpperCase()
+      : dialect.unquotedIdentifierFold === "lower"
+        ? name.toLowerCase()
+        : name;
+  return quoteIdentifier(folded, dialect.identifierQuote);
+}
+
 export const SQL_ROW_LIMIT = 1000;
 export const ASK_ROW_LIMIT = 500;
 
@@ -158,9 +174,50 @@ export function format(
  * Drop a terminating semicolon even when a trailing comment follows it, e.g.
  * `SELECT 1;\n-- note`. `/;\s*$/` misses that case and the leftover `;` then
  * fails multi-statement checks after the query is wrapped in a subquery.
+ *
+ * Implemented as a single linear scan rather than a regex: the equivalent
+ * `/;(\s|--[^\n]*|\/\*[\s\S]*?\*\/)*$/` backtracks exponentially on input
+ * like `";" + "/**\/".repeat(n) + "x"`, and this runs on user-supplied SQL.
+ *
+ * Everything from the last `;` that is followed only by whitespace, `--` line
+ * comments and terminated block comments is removed.
  */
 export function stripTrailingSemicolon(sql: string): string {
-  return sql.replace(/;(\s|--[^\n]*|\/\*[\s\S]*?\*\/)*$/, "").trim();
+  // Index of the most recent `;` that has only trivia after it so far.
+  let cut = -1;
+  // Once a `/*` has no closing `*/` anywhere after it, no later one can either.
+  let noMoreBlockCommentEnds = false;
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i];
+    if (ch === ";") {
+      cut = i;
+      i++;
+    } else if (cut === -1) {
+      // Not (yet) in a trailing run, so nothing here can be trivia.
+      i++;
+    } else if (/\s/.test(ch)) {
+      i++;
+    } else if (ch === "-" && sql[i + 1] === "-") {
+      const newline = sql.indexOf("\n", i + 2);
+      i = newline === -1 ? sql.length : newline + 1;
+    } else if (ch === "/" && sql[i + 1] === "*" && !noMoreBlockCommentEnds) {
+      const end = sql.indexOf("*/", i + 2);
+      if (end === -1) {
+        // Unterminated comment: the run is broken, but a later `;` inside the
+        // comment text can still start a new one.
+        noMoreBlockCommentEnds = true;
+        cut = -1;
+        i++;
+      } else {
+        i = end + 2;
+      }
+    } else {
+      cut = -1;
+      i++;
+    }
+  }
+  return (cut === -1 ? sql : sql.slice(0, cut)).trim();
 }
 
 // Any template variable built on startDate, e.g. {{startDate}} or

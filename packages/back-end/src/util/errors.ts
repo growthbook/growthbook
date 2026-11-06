@@ -3,6 +3,9 @@ import {
   ApiErrorDetails,
   apiErrorRegistry,
 } from "shared/validators";
+import { experimentFieldLabels } from "shared/experiments";
+import { capitalizeFirstCharacter } from "shared/util";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 
 export abstract class ApiError<C extends ApiErrorCode> extends Error {
   readonly code: C;
@@ -22,6 +25,7 @@ export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
   constructor(
     message: string,
     remainingChecklistItems: ApiErrorDetails<"checklist_incomplete">["remainingChecklistItems"],
+    readonly gates: PublishGate[],
   ) {
     super("checklist_incomplete", message, { remainingChecklistItems });
     this.name = "ChecklistIncompleteError";
@@ -69,6 +73,42 @@ export class InvalidTrackingKeyError extends ApiError<"invalid_tracking_key"> {
   constructor(message: string, pattern: string, example: string) {
     super("invalid_tracking_key", message, { pattern, example });
     this.name = "InvalidTrackingKeyError";
+  }
+}
+
+// "A", "A and B", "A, B, and C", as Intl.ListFormat joins them.
+const joinList = (names: string[]) =>
+  names.length < 3
+    ? names.join(" and ")
+    : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+
+export class ChangesConflictError extends ApiError<"changes_conflict"> {
+  constructor(details: ApiErrorDetails<"changes_conflict">) {
+    const names = [
+      ...experimentFieldLabels(details.fields),
+      ...details.featureIds.map((id) => `Feature Flag ${id}`),
+      ...details.urlRedirectIds.map((id) => `URL Redirect ${id}`),
+      ...details.visualChangesetIds.map(
+        (id) => `AI Visual Editor change ${id}`,
+      ),
+    ];
+    super(
+      "changes_conflict",
+      `${capitalizeFirstCharacter(joinList(names))} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
+      details,
+    );
+    this.name = "ChangesConflictError";
+  }
+}
+
+export class UnscopedRuleError extends ApiError<"unscoped_rule"> {
+  constructor(count: number, ruleIds: string[]) {
+    super(
+      "unscoped_rule",
+      `${count === 1 ? "This rule applies" : `${count} rules apply`} to All Environments and All Projects. Your organization requires rules to target specific environments or Projects.`,
+      { ruleIds },
+    );
+    this.name = "UnscopedRuleError";
   }
 }
 
@@ -176,6 +216,14 @@ export class ConflictError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ConflictError";
+  }
+}
+
+// The org's soft cap on drafts per feature; `overrideDraftLimit` gets past it.
+export class DraftLimitError extends ConflictError {
+  constructor(message: string) {
+    super(message);
+    this.name = "DraftLimitError";
   }
 }
 

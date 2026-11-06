@@ -4,7 +4,10 @@ import {
 } from "shared/types/saved-group";
 import { isEmpty } from "lodash";
 import { Text } from "@radix-ui/themes";
-import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
+import {
+  totalSavedGroupReferences,
+  useSavedGroupReferences,
+} from "@/hooks/useSavedGroupReferences";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
@@ -27,12 +30,14 @@ export default function SavedGroupDeleteModal({
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
   const referencingBandits = references?.contextualBandits ?? [];
+  const referencingInterleavings = references?.interleavings ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
 
   const hasReferences =
     !isEmpty(referencingFeatures) ||
     !isEmpty(referencingExperiments) ||
     !isEmpty(referencingBandits) ||
+    !isEmpty(referencingInterleavings) ||
     !isEmpty(referencingSavedGroups);
 
   const canDelete = !loading && !hasReferences;
@@ -68,18 +73,14 @@ export default function SavedGroupDeleteModal({
             <Text as="p" mb="0">
               Before you can delete this group, you will need to remove any
               references to it. Check the following item
-              {referencingFeatures.length +
-                referencingExperiments.length +
-                referencingBandits.length +
-                referencingSavedGroups.length >
-                1 && "s"}{" "}
-              below:
+              {totalSavedGroupReferences(references) > 1 && "s"} below:
             </Text>
           </Callout>
           <SavedGroupReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
             contextualBandits={referencingBandits}
+            interleavings={referencingInterleavings}
             savedGroups={referencingSavedGroups}
           />
         </>

@@ -16,6 +16,7 @@ import {
   getColumnExpression,
   expandVirtualColumnsInSql,
   sqlReferencesColumn,
+  sqlReferencesColumnAllowingQualified,
   validateVirtualColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
@@ -33,8 +34,15 @@ import {
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   isAutoSnapshotScheduled,
+  getClusterMetricAnalysisLevel,
+  getClusterExperimentMetricEligibility,
   ExperimentMetricInterface,
   withScheduledBy,
+  areVariationWeightsValid,
+  getMetricSampleSize,
+  getMetricResultStatus,
+  hasEnoughData,
+  getDefaultRegressionAdjustmentDays,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -2664,6 +2672,68 @@ describe("Virtual Columns", () => {
     });
   });
 
+  describe("sqlReferencesColumnAllowingQualified", () => {
+    it("detects a bare identifier reference", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified("margin_vc / price", "margin_vc"),
+      ).toBe(true);
+    });
+
+    it("detects a table-qualified reference", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "SELECT e.bandit_version FROM exposures e",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects a qualified reference with whitespace around the dot", () => {
+      expect(sqlReferencesColumnAllowingQualified("e . price", "price")).toBe(
+        true,
+      );
+      expect(sqlReferencesColumnAllowingQualified("e.\n  price", "price")).toBe(
+        true,
+      );
+      expect(sqlReferencesColumnAllowingQualified('e . "price"', "price")).toBe(
+        true,
+      );
+      expect(
+        sqlReferencesColumnAllowingQualified("`e` . `price`", "price", "`"),
+      ).toBe(true);
+    });
+
+    it("does not match a name inside a string literal", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "status = 'bandit_version'",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("does not match a partial identifier", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified("e.gross_margin_vc", "margin_vc"),
+      ).toBe(false);
+    });
+
+    it("does not match a name inside a comment", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "e.price -- e.margin_vc\n",
+          "margin_vc",
+        ),
+      ).toBe(false);
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "e.price /* e.margin_vc */",
+          "margin_vc",
+        ),
+      ).toBe(false);
+    });
+  });
+
   describe("validateVirtualColumnExpression", () => {
     const ok = (sql: string, quote?: "`" | '"') =>
       validateVirtualColumnExpression(sql, quote);
@@ -3037,6 +3107,244 @@ describe("isAutoSnapshotScheduled", () => {
   });
 });
 
+describe("getClusterExperimentMetricEligibility", () => {
+  const factMetric = (
+    metricType: string,
+    factTableId = "ft_subunit",
+    aggregation: string | undefined = "sum",
+  ) =>
+    ({
+      metricType,
+      numerator: { factTableId, column: "value", aggregation },
+      denominator:
+        metricType === "ratio"
+          ? { factTableId, column: "value", aggregation }
+          : null,
+    }) as unknown as ExperimentMetricInterface;
+
+  // Fact tables: one exposes the sub-unit id (user_id), one only the cluster id.
+  const factTables: Record<string, { userIdTypes: string[] }> = {
+    ft_subunit: { userIdTypes: ["user_id", "region_id"] },
+    ft_cluster_only: { userIdTypes: ["region_id"] },
+    ft_anon: { userIdTypes: ["anonymous_id"] },
+  };
+  const getFactTable = (id: string) => factTables[id];
+
+  it("rejects non-fact, quantile, and unsupported-type metrics", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        {
+          type: "binomial",
+        } as unknown as ExperimentMetricInterface,
+        { clusterSubUnitIdentifier: "user_id", getFactTable },
+      ).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("quantile"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("funnel"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }).allowed,
+    ).toBe(false);
+  });
+
+  it("allows metrics whose fact table exposes the sub-unit identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("mean", "ft_subunit"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }),
+    ).toEqual({ allowed: true, level: "subunit" });
+  });
+
+  it("allows metrics whose fact table only has the cluster identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_cluster_only"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "cluster" });
+  });
+
+  it("allows max and hll merge aggregations at the sub-unit grain", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "max"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "subunit" });
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "hll merge"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "subunit" });
+    // A max metric whose fact table reaches neither identifier is still
+    // rejected, now with the generic identifier message (not an aggregation
+    // message, since max is no longer special-cased).
+    const result = getClusterExperimentMetricEligibility(
+      factMetric("mean", "ft_anon", "max"),
+      {
+        clusterIdentifier: "region_id",
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      },
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toContain("user_id");
+      expect(result.reason).toContain("region_id");
+    }
+  });
+
+  it("rejects metrics whose fact table has neither identifier", () => {
+    const result = getClusterExperimentMetricEligibility(
+      factMetric("mean", "ft_anon"),
+      {
+        clusterIdentifier: "region_id",
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      },
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toContain("user_id");
+      expect(result.reason).toContain("region_id");
+    }
+  });
+
+  it("allows a fact table that reaches the sub-unit via an identity join", () => {
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("mean", "ft_anon"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+        datasourceSettings: {
+          queries: {
+            identityJoins: [{ ids: ["user_id", "anonymous_id"] }],
+          },
+        } as never,
+      }),
+    ).toEqual({ allowed: true, level: "subunit" });
+  });
+
+  it("keeps a cluster-grained fact table at the cluster level despite a cluster↔sub-unit identity join", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_cluster_only"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+          datasourceSettings: {
+            queries: {
+              identityJoins: [{ ids: ["region_id", "user_id"] }],
+            },
+          } as never,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "cluster" });
+  });
+});
+
+describe("getClusterMetricAnalysisLevel", () => {
+  const factTables: Record<string, { userIdTypes: string[] }> = {
+    ft_both: { userIdTypes: ["user_id", "region_id"] },
+    ft_user_only: { userIdTypes: ["user_id"] },
+    ft_region_only: { userIdTypes: ["region_id"] },
+  };
+  const options = {
+    clusterIdentifier: "region_id",
+    clusterSubUnitIdentifier: "user_id",
+    getFactTable: (id: string) => factTables[id],
+  };
+  const ratio = (numerator: string, denominator: string) =>
+    ({
+      metricType: "ratio",
+      numerator: { factTableId: numerator, column: "value" },
+      denominator: { factTableId: denominator, column: "value" },
+    }) as unknown as FactMetricInterface;
+
+  it("prefers the sub-unit when the metric is joinable at both levels", () => {
+    expect(
+      getClusterMetricAnalysisLevel(ratio("ft_both", "ft_both"), options),
+    ).toBe("subunit");
+  });
+
+  it("falls back to the cluster when a fact table lacks the sub-unit", () => {
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_region_only", "ft_region_only"),
+        options,
+      ),
+    ).toBe("cluster");
+    // Mixed ratio: the numerator reaches user_id, the denominator only region_id.
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_both", "ft_region_only"),
+        options,
+      ),
+    ).toBe("cluster");
+  });
+
+  it("routes max and hll merge like summable aggregations", () => {
+    const meanWithAggregation = (factTableId: string, aggregation: string) =>
+      ({
+        metricType: "mean",
+        numerator: { factTableId, column: "value", aggregation },
+        denominator: null,
+      }) as unknown as FactMetricInterface;
+    // max/hll merge reduce to a per-sub-unit scalar, so they roll up at the
+    // sub-unit grain whenever the sub-unit id is reachable, and only fall back
+    // to the cluster grain when it isn't.
+    for (const aggregation of ["max", "hll merge"]) {
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_both", aggregation),
+          options,
+        ),
+      ).toBe("subunit");
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_user_only", aggregation),
+          options,
+        ),
+      ).toBe("subunit");
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_region_only", aggregation),
+          options,
+        ),
+      ).toBe("cluster");
+    }
+  });
+
+  it("returns null when no single identifier reaches every fact table", () => {
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_user_only", "ft_region_only"),
+        options,
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("withScheduledBy", () => {
   const staged = { type: "start" as const, date: new Date(0) };
   it.each([
@@ -3082,5 +3390,133 @@ describe("getFactTableIdsForMetrics", () => {
         funnel(["ft_b", "ft_c", "ft_d"]),
       ]),
     ).toEqual(["ft_a", "ft_b", "ft_c", "ft_d"]);
+  });
+});
+
+describe("areVariationWeightsValid", () => {
+  it.each([
+    [[0.5, 0.5]],
+    [[1, 0]],
+    [[1]],
+    [[0.333, 0.333, 0.334]],
+    [[0.5, 0.505]],
+  ])("accepts %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(true);
+  });
+
+  it.each([
+    [[0.33, 0.4, 0.3]],
+    [[0.2, 0.2]],
+    [[50, 50]],
+    [[2, -1]],
+    [[1.5, -0.5]],
+    [[]],
+  ])("rejects %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(false);
+  });
+});
+
+describe("sample size source", () => {
+  // Only quantileMetricType is consulted, so a plain mean metric is enough.
+  const metric = {
+    id: "m",
+    metricType: "mean",
+  } as unknown as ExperimentMetricInterface;
+  const defaults = { minimumSampleSize: 150 };
+
+  it("sizes by metric value by default", () => {
+    const baseline = { value: 40, cr: 0.4, users: 100, denominator: 200 };
+    const stats = { value: 60, cr: 0.6, users: 100, denominator: 200 };
+    expect(getMetricSampleSize(baseline, stats, metric)).toEqual({
+      baselineValue: 40,
+      variationValue: 60,
+    });
+  });
+
+  it("sizes by denominator when asked", () => {
+    const baseline = { value: 40, cr: 0.4, users: 100, denominator: 200 };
+    const stats = { value: 60, cr: 0.6, users: 100, denominator: 200 };
+    expect(getMetricSampleSize(baseline, stats, metric, "denominator")).toEqual(
+      { baselineValue: 200, variationValue: 200 },
+    );
+  });
+
+  it("stops a unanimous split reading as no data", () => {
+    // A preference row: 200 non-tied users, all preferring one ranker.
+    const baseline = { value: 0, cr: 0, users: 300, denominator: 200 };
+    const stats = { value: 200, cr: 1, users: 300, denominator: 200 };
+
+    expect(hasEnoughData(baseline, stats, metric, defaults)).toBe(false);
+    expect(
+      hasEnoughData(baseline, stats, metric, defaults, "denominator"),
+    ).toBe(true);
+  });
+
+  it("lets a unanimous row reach a won/lost status", () => {
+    // 200 non-tied users all preferring treatment: 0 wins for control is a
+    // real result, so the row must not be treated as empty.
+    const baseline = { value: 0, cr: 0, users: 300, denominator: 200 };
+    const stats = {
+      value: 200,
+      cr: 1,
+      users: 300,
+      denominator: 200,
+      expected: 1,
+      pValue: 0.0000001,
+    };
+    const args = {
+      metric,
+      metricDefaults: defaults,
+      baseline,
+      stats,
+      ciLower: 0.05,
+      ciUpper: 0.95,
+      pValueThreshold: 0.05,
+      statsEngine: "frequentist" as const,
+      differenceType: "absolute" as const,
+    };
+
+    expect(getMetricResultStatus(args).resultsStatus).toBe("");
+    expect(
+      getMetricResultStatus({ ...args, sampleSizeFrom: "denominator" })
+        .resultsStatus,
+    ).toBe("won");
+  });
+
+  it("still applies the minimum to the non-tied user count", () => {
+    // 65 non-tied users is below the 150 minimum, win counts notwithstanding.
+    const baseline = { value: 5, cr: 0.08, users: 300, denominator: 65 };
+    const stats = { value: 60, cr: 0.92, users: 300, denominator: 65 };
+    expect(
+      hasEnoughData(baseline, stats, metric, defaults, "denominator"),
+    ).toBe(false);
+  });
+});
+
+describe("getDefaultRegressionAdjustmentDays", () => {
+  const metric = { regressionAdjustmentOverride: false };
+
+  it("uses the organization's lookback only while CUPED is on there", () => {
+    expect(
+      getDefaultRegressionAdjustmentDays(metric, {
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 7,
+      }),
+    ).toBe(7);
+    expect(
+      getDefaultRegressionAdjustmentDays(metric, {
+        regressionAdjustmentEnabled: false,
+        regressionAdjustmentDays: 7,
+      }),
+    ).toBe(14);
+  });
+
+  it("prefers a metric's own lookback", () => {
+    expect(
+      getDefaultRegressionAdjustmentDays(
+        { regressionAdjustmentOverride: true, regressionAdjustmentDays: 21 },
+        { regressionAdjustmentEnabled: true, regressionAdjustmentDays: 7 },
+      ),
+    ).toBe(21);
   });
 });

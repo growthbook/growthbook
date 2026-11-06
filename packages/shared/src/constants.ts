@@ -90,6 +90,7 @@ export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
+export const MAX_CLUSTER_SUBUNIT_DIMENSIONS = MAX_PRECOMPUTED_UNIT_DIMENSIONS;
 
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
@@ -124,6 +125,9 @@ export const USAGE_INTENTS = {
 // Health
 export const DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD = 10;
 export const DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD = 0.01;
+export const DEFAULT_CLUSTER_ISSUE_THRESHOLD = 0.01;
+export const DEFAULT_MIN_CLUSTERS_PER_VARIATION = 20;
+export const DEFAULT_MAX_CLUSTER_SHARE = 0.2;
 
 export const DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION = 8;
 export const DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION = 5;
@@ -225,6 +229,20 @@ export const attributeDataTypes = [
   "secureString[]",
 ] as const;
 
+/**
+ * Attributes GrowthBook's SDKs set themselves start with this prefix, so they
+ * don't collide with customer attributes. Check names with
+ * `isInternalAttributeName`.
+ */
+export const INTERNAL_ATTRIBUTE_PREFIX = "__gb_";
+
+export function isInternalAttributeName(name: string): boolean {
+  return name.startsWith(INTERNAL_ATTRIBUTE_PREFIX);
+}
+
+/** The attribute SDKs set to the user's remote saved group IDs. */
+export const REMOTE_GROUP_IDS_ATTRIBUTE = `${INTERNAL_ATTRIBUTE_PREFIX}remoteGroupIds`;
+
 // Runtime allow-list for discussion parents. Kept here (rather than only as a
 // type) so request handlers can validate an incoming parentType.
 export const DISCUSSION_PARENT_TYPES = [
@@ -313,7 +331,7 @@ export const entityEvents = {
   oauthGrant: ["create", "update", "delete"],
   oauthRefreshToken: ["create", "update", "delete"],
   installation: ["update"],
-  savedGroup: ["created", "deleted", "updated"],
+  savedGroup: ["created", "deleted", "updated", "uploaded", "uploadDeleted"],
   constant: ["created", "updated", "deleted"],
   config: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
@@ -348,7 +366,13 @@ export const entityEvents = {
   learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
   interleaving: ["create", "update", "delete", "start", "stop"],
-  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
+  eventForwarderConfig: [
+    "create",
+    "update",
+    "delete",
+    "teardownFailure",
+    "migrate",
+  ],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

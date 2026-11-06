@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
 import { baseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
 
@@ -44,6 +45,51 @@ export type ContextualBanditSnapshotSettings = z.infer<
   typeof contextualBanditSnapshotSettingsValidator
 >;
 
+const trafficDimensionValidator = z.object({
+  name: z.string(),
+  srm: z.number(),
+  variationUnits: z.array(z.number()),
+});
+
+/** Health traffic shape, matching `ExperimentSnapshotTraffic` for reuse of the experiment health UI. */
+export const contextualBanditTrafficValidator = z.object({
+  overall: trafficDimensionValidator,
+  dimension: z.record(z.string(), z.array(trafficDimensionValidator)),
+  error: z.string().optional(),
+});
+
+// Compile-time guard: keep this validator's inferred type in lockstep with the
+// experiment health UI's `ExperimentSnapshotTraffic`.
+type AssertExtends<T extends U, U> = T;
+export type ContextualBanditTrafficTypeCheck = [
+  AssertExtends<
+    z.infer<typeof contextualBanditTrafficValidator>,
+    ExperimentSnapshotTraffic
+  >,
+  AssertExtends<
+    ExperimentSnapshotTraffic,
+    z.infer<typeof contextualBanditTrafficValidator>
+  >,
+];
+
+/**
+ * Observed vs. expected units per leaf & variation for a single bandit period.
+ */
+export const contextualBanditSrmLatestPeriodValidator = z.object({
+  banditVersion: z.string(),
+  leaves: z.array(
+    z.object({
+      leafId: z.string(),
+      observed: z.array(z.number()),
+      expected: z.array(z.number()),
+    }),
+  ),
+});
+
+export type ContextualBanditSrmLatestPeriod = z.infer<
+  typeof contextualBanditSrmLatestPeriodValidator
+>;
+
 export const contextualBanditSnapshotValidator = baseSchema
   .extend({
     contextualBandit: z.string(),
@@ -61,8 +107,12 @@ export const contextualBanditSnapshotValidator = baseSchema
         statistic: z.number(),
         pValue: z.number(),
         degreesOfFreedom: z.number().int().nonnegative(),
+        latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
       })
       .optional(),
+    // Set whenever the SRM query ran, even when too little data for a p-value.
+    multipleExposures: z.number().int().nonnegative().optional(),
+    traffic: contextualBanditTrafficValidator.optional(),
   })
   .strict();
 

@@ -169,6 +169,14 @@ export function assertConditionGroup(savedGroup: SavedGroupInterface): void {
   }
 }
 
+export function assertRemoteGroup(savedGroup: SavedGroupInterface): void {
+  if (savedGroup.type !== "remote") {
+    throw new BadRequestError(
+      "This action is only valid for remote saved groups",
+    );
+  }
+}
+
 /**
  * Validates the saved group's `attributeKey` against the org's attribute
  * schema. The internal controller does the same thing inline; centralising

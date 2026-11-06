@@ -8,6 +8,9 @@ import {
 } from "shared/validators";
 import {
   CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+  CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
+  CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
+  ContextualBanditQueryRunResult,
   ContextualBanditResultsQueryRunner,
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
@@ -175,6 +178,10 @@ function makeIntegration(): SourceIntegrationInterface {
       .fn()
       .mockReturnValue("-- contextual-bandit metric SQL"),
     runExperimentFactMetricsQuery: jest.fn().mockResolvedValue({ rows: [] }),
+    getExperimentAggregateUnitsQuery: jest
+      .fn()
+      .mockReturnValue("-- contextual-bandit traffic SQL"),
+    runExperimentAggregateUnitsQuery: jest.fn().mockResolvedValue({ rows: [] }),
   } as unknown as SourceIntegrationInterface;
 }
 
@@ -191,6 +198,7 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
       contextualBandits: {
         getById: jest.fn().mockResolvedValue(cb),
         setLeafWeights: jest.fn().mockResolvedValue(cb),
+        patchAnalysisSummary: jest.fn().mockResolvedValue(undefined),
       },
       contextualBanditEvents: {
         getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
@@ -225,6 +233,34 @@ function newRunner(
   );
 }
 
+// Typed view over the runner's private priming fields and the inherited
+// `startQuery` seam, so tests can set them up without `any` casts or lint
+// suppressions (both are forbidden by the repo guide).
+type RunnerTestInternals = {
+  snapshotSettings?: ContextualBanditSnapshotSettings;
+  variationNames: string[];
+  startQuery: (q: {
+    name: string;
+    query: string;
+  }) => Promise<{ name: string; query: string }>;
+};
+
+function runnerInternals(
+  runner: ContextualBanditResultsQueryRunner,
+): RunnerTestInternals {
+  return runner as unknown as RunnerTestInternals;
+}
+
+function primeRunner(
+  runner: ContextualBanditResultsQueryRunner,
+  snapshotSettings: ContextualBanditSnapshotSettings = makeSnapshotSettings(),
+  variationNames: string[] = ["Control", "Treatment"],
+): void {
+  const internals = runnerInternals(runner);
+  internals.snapshotSettings = snapshotSettings;
+  internals.variationNames = variationNames;
+}
+
 describe("ContextualBanditResultsQueryRunner", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -236,10 +272,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const runner = newRunner(context);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).snapshotSettings = makeSnapshotSettings();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).variationNames = ["Control", "Treatment"];
+      primeRunner(runner);
 
       const rows: ExperimentMetricQueryResponseRows = [
         {
@@ -284,7 +317,9 @@ describe("ContextualBanditResultsQueryRunner", () => {
 
       const result = await runner.runAnalysis(queryMap);
 
-      expect(result).toEqual(fitted);
+      expect(result).toMatchObject(fitted);
+      expect(result.srm).toBeUndefined();
+      expect(result.traffic).toBeUndefined();
       expect(runContextualStatsEngineMock).toHaveBeenCalledTimes(1);
 
       const [statsSettings, forwardedRows, runParams] =
@@ -300,6 +335,281 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(forwardedRows).toEqual(rows);
     });
 
+    it("parses traffic keyed by variation key (does not drop rows)", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      primeRunner(runner);
+
+      const rows: ExperimentMetricQueryResponseRows = [
+        {
+          variation: "0",
+          users: 100,
+          count: 100,
+          main_sum: 5,
+          main_sum_squares: 0.5,
+        },
+        {
+          variation: "1",
+          users: 100,
+          count: 100,
+          main_sum: 6,
+          main_sum_squares: 0.6,
+        },
+      ];
+      const trafficRows = [
+        {
+          variation: "0",
+          units: 60,
+          dimension_value: "2026-05-14",
+          dimension_name: "dim_exposure_date",
+        },
+        {
+          variation: "1",
+          units: 40,
+          dimension_value: "2026-05-14",
+          dimension_name: "dim_exposure_date",
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+        [
+          CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
+          { result: trafficRows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: [],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      expect(result.traffic).toBeDefined();
+      const byDate = result.traffic?.dimension?.dim_exposure_date;
+      expect(byDate).toHaveLength(1);
+      // Rows must be mapped to the right variation index, not dropped.
+      expect(byDate?.[0]?.variationUnits).toEqual([60, 40]);
+      expect(result.traffic?.overall.variationUnits).toEqual([60, 40]);
+    });
+
+    it("maps traffic by frozen variation id, not position, when a pending arm shifts the live list", async () => {
+      // Frozen active arms at snapshot time: v0, v2 (a pending arm v1 was later
+      // added between them in the live doc). Resolving the warehouse key by
+      // position would read v1's key ("1") for the second frozen arm, so v2's
+      // traffic (tagged with key "2") would not match and silently drop.
+      const cb = makeCb({
+        variations: [
+          { id: "v0", key: "0", name: "Control", screenshots: [] },
+          {
+            id: "v1",
+            key: "1",
+            name: "Pending",
+            status: "pending",
+            screenshots: [],
+          },
+          { id: "v2", key: "2", name: "Treatment", screenshots: [] },
+        ],
+      } as Partial<ContextualBanditInterface>);
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      const snapshotSettings = makeSnapshotSettings({
+        variations: [
+          { id: "v0", weight: 0.5 },
+          { id: "v2", weight: 0.5 },
+        ],
+      });
+      primeRunner(runner, snapshotSettings);
+
+      const rows: ExperimentMetricQueryResponseRows = [
+        { variation: "0", users: 100, count: 100, main_sum: 5 },
+        { variation: "2", users: 100, count: 100, main_sum: 6 },
+      ];
+      // Traffic rows are tagged with the variation key, not the id.
+      const trafficRows = [
+        {
+          variation: "0",
+          units: 60,
+          dimension_value: "2026-05-14",
+          dimension_name: "dim_exposure_date",
+        },
+        {
+          variation: "2",
+          units: 40,
+          dimension_value: "2026-05-14",
+          dimension_name: "dim_exposure_date",
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+        [
+          CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
+          { result: trafficRows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: [],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      // Both frozen arms keep their traffic; v2 is not mislabeled as the pending arm.
+      expect(result.traffic?.overall.variationUnits).toEqual([60, 40]);
+    });
+
+    it("extracts the SRM summary plus the latest-period per-leaf breakdown", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      primeRunner(runner);
+
+      const rows: ExperimentMetricQueryResponseRows = [
+        { variation: "0", users: 100, count: 100, main_sum: 5 },
+        { variation: "1", users: 100, count: 100, main_sum: 6 },
+      ];
+
+      // One summary row (overall statistic/dof, across all periods) plus cell
+      // rows for the most recent period only. The empty-variation/leaf values on
+      // the summary row must be ignored; the numeric-string variation on cell
+      // rows maps onto the variation index.
+      const srmRows = [
+        {
+          row_type: "summary",
+          statistic: 3.5,
+          degrees_of_freedom: 2,
+          bandit_version: "",
+          leaf_id: "",
+          variation: "",
+          observed: 0,
+          expected: 0,
+          multiple_exposures: 7,
+        },
+        {
+          row_type: "cell",
+          statistic: 0,
+          degrees_of_freedom: 0,
+          bandit_version: "v3",
+          leaf_id: "US",
+          variation: "0",
+          observed: 55,
+          expected: 50,
+        },
+        {
+          row_type: "cell",
+          statistic: 0,
+          degrees_of_freedom: 0,
+          bandit_version: "v3",
+          leaf_id: "US",
+          variation: "1",
+          observed: 45,
+          expected: 50,
+        },
+        {
+          row_type: "cell",
+          statistic: 0,
+          degrees_of_freedom: 0,
+          bandit_version: "v3",
+          leaf_id: "CA",
+          variation: "0",
+          observed: 10,
+          expected: 12,
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+        [
+          CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
+          { result: srmRows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: [],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      expect(result.srm?.statistic).toBe(3.5);
+      expect(result.srm?.degreesOfFreedom).toBe(2);
+      expect(result.srm?.pValue).toBeGreaterThan(0);
+      // The multiple-exposure count on the summary row is surfaced for the
+      // Multiple Exposures health check.
+      expect(result.multipleExposures).toBe(7);
+      expect(result.srm?.latestPeriod?.banditVersion).toBe("v3");
+      // All leaves for the period, each with per-variation arrays. Unobserved
+      // cells default to 0 (CA variation 1 was not emitted).
+      expect(result.srm?.latestPeriod?.leaves).toEqual([
+        { leafId: "US", observed: [55, 45], expected: [50, 50] },
+        { leafId: "CA", observed: [10, 0], expected: [12, 0] },
+      ]);
+    });
+
+    it("keeps the multiple-exposure count when there is too little data for a p-value", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      primeRunner(runner);
+
+      const rows: ExperimentMetricQueryResponseRows = [
+        { variation: "0", users: 100, count: 100, main_sum: 5 },
+        { variation: "1", users: 100, count: 100, main_sum: 6 },
+      ];
+      const srmRows = [
+        {
+          row_type: "summary",
+          statistic: 0,
+          degrees_of_freedom: 0,
+          bandit_version: "",
+          leaf_id: "",
+          variation: "",
+          observed: 0,
+          expected: 0,
+          multiple_exposures: 12,
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+        [
+          CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
+          { result: srmRows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: [],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      expect(result.srm).toBeUndefined();
+      expect(result.multipleExposures).toBe(12);
+    });
+
     it("rejects when snapshotSettings have not been initialised", async () => {
       const runner = newRunner(makeContext(makeCb()));
       const queryMap: QueryMap = new Map();
@@ -310,8 +620,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
 
     it("rejects when the rows sub-query is missing from the queryMap", async () => {
       const runner = newRunner(makeContext(makeCb()));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).snapshotSettings = makeSnapshotSettings();
+      runnerInternals(runner).snapshotSettings = makeSnapshotSettings();
       const queryMap: QueryMap = new Map();
       await expect(runner.runAnalysis(queryMap)).rejects.toThrow(
         /contextual-bandit-rows/,
@@ -388,7 +697,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
         makeCbsModel({ contextualBanditEventId: "cbe_existing" }),
       );
 
-      const result: ContextualBanditResult = {
+      const result: ContextualBanditQueryRunResult = {
         attributes: ["country"],
         responses: [
           {
@@ -397,6 +706,10 @@ describe("ContextualBanditResultsQueryRunner", () => {
             updateMessage: "ok",
           },
         ],
+        traffic: {
+          overall: { name: "All", srm: 1, variationUnits: [40, 60] },
+          dimension: {},
+        },
       };
 
       const updated = await runner.updateModel({
@@ -414,6 +727,139 @@ describe("ContextualBanditResultsQueryRunner", () => {
         expect.objectContaining({ status: "success" }),
       );
       expect(updated.contextualBanditEventId).toBeUndefined();
+      // Even though the event link already exists (so the event is not
+      // re-persisted), the health summary is still rebuilt and re-patched so a
+      // retry repairs a summary write that failed on a previous attempt.
+      expect(
+        context.models.contextualBandits.patchAnalysisSummary,
+      ).toHaveBeenCalledWith(
+        cb.id,
+        expect.objectContaining({
+          snapshotId: "cbs_1",
+          health: expect.objectContaining({ totalUsers: 100 }),
+        }),
+      );
+    });
+
+    it("does not overwrite the health summary when the traffic query failed", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+      persistContextualBanditEventMock.mockResolvedValue({
+        id: "cbe_43",
+        contextualBandit: cb.id,
+        snapshotId: "cbs_1",
+        attributes: ["country"],
+        responses: [],
+        weightsWereUpdated: true,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      });
+
+      const result: ContextualBanditQueryRunResult = {
+        attributes: ["country"],
+        responses: [
+          {
+            context: { country: "US" },
+            updatedWeights: [0.4, 0.6],
+            updateMessage: "ok",
+          },
+        ],
+        traffic: {
+          overall: { name: "All", srm: 1, variationUnits: [0, 0] },
+          dimension: {},
+          error: "Traffic query timed out",
+        },
+      };
+
+      await runner.updateModel({
+        status: "partially-succeeded",
+        queries: [
+          {
+            name: "contextual-bandit-rows",
+            query: "q_rows",
+            status: "succeeded",
+          },
+          {
+            name: "contextual-bandit-traffic",
+            query: "q_traffic",
+            status: "failed",
+          },
+        ],
+        runStarted: new Date(),
+        result,
+      });
+
+      // Decision results still publish and the failed traffic is stored on the
+      // snapshot for the Health tab to explain...
+      expect(persistContextualBanditEventMock).toHaveBeenCalledTimes(1);
+      expect(
+        context.models.contextualBanditSnapshots.updateById,
+      ).toHaveBeenCalledWith(
+        "cbs_1",
+        expect.objectContaining({
+          status: "success",
+          traffic: expect.objectContaining({
+            error: "Traffic query timed out",
+          }),
+        }),
+      );
+      // ...but the list-page summary keeps the previous run's numbers rather
+      // than being zeroed out by one flaky query.
+      expect(
+        context.models.contextualBandits.patchAnalysisSummary,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("zeroes the health summary on NO_ROWS_IN_UNIT_QUERY even if the SRM query returned data", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+      persistContextualBanditEventMock.mockResolvedValue({
+        id: "cbe_44",
+        contextualBandit: cb.id,
+        snapshotId: "cbs_1",
+        attributes: ["country"],
+        responses: [],
+        weightsWereUpdated: true,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      });
+
+      const result: ContextualBanditQueryRunResult = {
+        attributes: ["country"],
+        responses: [],
+        // The SRM query is filtered differently from the traffic query, so it
+        // can disagree with it; the summary must not report a balance problem
+        // or exposures for zero users.
+        srm: { statistic: 12, pValue: 0.001, degreesOfFreedom: 1 },
+        multipleExposures: 7,
+        traffic: {
+          overall: { name: "All", srm: 1, variationUnits: [0, 0] },
+          dimension: {},
+          error: "NO_ROWS_IN_UNIT_QUERY",
+        },
+      };
+
+      await runner.updateModel({
+        status: "succeeded",
+        queries: [],
+        runStarted: new Date(),
+        result,
+      });
+
+      expect(
+        context.models.contextualBandits.patchAnalysisSummary,
+      ).toHaveBeenCalledWith(
+        cb.id,
+        expect.objectContaining({
+          health: expect.objectContaining({
+            srm: null,
+            totalUsers: 0,
+            multipleExposures: 0,
+          }),
+        }),
+      );
     });
 
     it("on `failed`, stamps `status: error` + error message and does NOT persist a CBE", async () => {
@@ -449,8 +895,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const integration = makeIntegration();
       const runner = newRunner(context, makeCbsModel(), integration);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).startQuery = jest
+      runnerInternals(runner).startQuery = jest
         .fn()
         .mockImplementation(async (q: { name: string; query: string }) => ({
           name: q.name,
@@ -474,8 +919,12 @@ describe("ContextualBanditResultsQueryRunner", () => {
       ).toEqual(["country"]);
       expect(callArgs.metrics[0].id).toBe("fact__g1");
       expect(callArgs.unitsSource).toBe("exposureQuery");
-      expect(queries).toHaveLength(1);
+      expect(
+        integration.getExperimentAggregateUnitsQuery,
+      ).toHaveBeenCalledTimes(1);
+      expect(queries).toHaveLength(2);
       expect(queries[0].name).toBe(CONTEXTUAL_BANDIT_ROWS_QUERY_NAME);
+      expect(queries[1].name).toBe(CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME);
     });
   });
 });

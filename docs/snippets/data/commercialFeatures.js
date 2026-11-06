@@ -29,6 +29,10 @@ export default {
     plan: "pro",
     displayName: "Cloud Proxy",
   },
+  "cluster-experiments": {
+    plan: "pro",
+    displayName: "Cluster Experiments",
+  },
   "code-references": {
     plan: "pro",
     displayName: "Code References",
@@ -104,6 +108,10 @@ export default {
   holdouts: {
     plan: "enterprise",
     displayName: "Holdouts",
+  },
+  "human-in-the-loop": {
+    plan: "enterprise",
+    displayName: "Human In The Loop",
   },
   "incremental-refresh": {
     plan: "enterprise",
@@ -273,10 +281,6 @@ export default {
     plan: "pro",
     displayName: "Sequential Testing",
   },
-  "share-product-analytics-dashboards": {
-    plan: "enterprise",
-    displayName: "Share Product Analytics Dashboards",
-  },
   simulate: {
     plan: "pro",
     displayName: "Simulate",
@@ -296,6 +300,10 @@ export default {
   templates: {
     plan: "enterprise",
     displayName: "Templates",
+  },
+  "unlimited-event-forwarder-usage": {
+    plan: "pro",
+    displayName: "Unlimited Event Forwarder Usage",
   },
   "unlimited-managed-warehouse-usage": {
     plan: "pro",

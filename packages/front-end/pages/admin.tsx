@@ -1,680 +1,585 @@
-import { FC, useCallback, useEffect, useState } from "react";
-import {
-  ExpandedMember,
-  OrganizationInterface,
-} from "shared/types/organization";
-import clsx from "clsx";
-import { Box, useThemeContext } from "@radix-ui/themes";
-import {
-  FaAngleDown,
-  FaAngleRight,
-  FaPencilAlt,
-  FaPlus,
-  FaSearch,
-  FaSpinner,
-} from "react-icons/fa";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import { OrganizationInterface } from "shared/types/organization";
+import { Box, Flex } from "@radix-ui/themes";
+import { useRouter } from "next/router";
+import { PiCaretRight, PiMagnifyingGlass } from "react-icons/pi";
 import { date } from "shared/dates";
-import stringify from "json-stringify-pretty-compact";
-import Collapsible from "react-collapsible";
-import { LicenseInterface } from "shared/enterprise";
-import { DataSourceInterface } from "shared/types/datasource";
-import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { useForm } from "react-hook-form";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
-import Field from "@/components/Forms/Field";
-import Pagination from "@/components/Pagination";
+import { hasSuperAdminPermission } from "shared/permissions";
+import { AdminOrgSummary } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
-import Code from "@/components/SyntaxHighlighting/Code";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
-import EditOrganization from "@/components/Admin/EditOrganization";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import PageHead from "@/components/Layout/PageHead";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
+import { AdminMember, formatSuperAdmin } from "@/components/Admin/EditMember";
+import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
-import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import Modal from "@/components/Modal";
-import Switch from "@/ui/Switch";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
-import SelectField from "@/components/Forms/SelectField";
-import StringArrayField from "@/ui/StringArrayField";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import {
-  DEFAULT_DATA_REGION,
-  DataRegion,
-  useDataRegionOptions,
-} from "@/services/dataRegions";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
+import Pagination from "@/ui/Pagination";
+import { Select, SelectItem } from "@/ui/Select";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
+import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 
-interface memberOrgProps {
-  id: string;
-  name: string;
-  members: number;
-  role: string;
-}
 const numberFormatter = new Intl.NumberFormat();
 
-function OrganizationRow({
-  organization,
-  current,
-  switchTo,
-  showExternalId,
-  showVerifiedDomain,
-  onEdit,
-  ssoInfo,
-  datasources,
-}: {
-  organization: OrganizationInterface;
-  switchTo: (organization: OrganizationInterface) => void;
-  current: boolean;
-  showExternalId: boolean;
-  showVerifiedDomain: boolean;
-  onEdit: () => void;
-  ssoInfo: SSOConnectionInterface | undefined;
-  datasources: DataSourceInterface[];
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
-  const [orgMembers, setOrgMembers] = useState<Map<
-    string,
-    ExpandedMember
-  > | null>(null);
-  const { settings, members, ...otherAttributes } = organization;
-  const [license, setLicense] = useState<LicenseInterface | null>(null);
-  const [licenseLoading, setLicenseLoading] = useState(false);
-  const { apiCall } = useAuth();
-  const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
-  const [clickhouseRegion, setClickhouseRegion] =
-    useState<DataRegion>(DEFAULT_DATA_REGION);
-  const dataRegionOptions = useDataRegionOptions();
-  const [managedWarehouseId, setManagedWarehouseId] = useState(
-    datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
-  );
-  const [editSSOOpen, setEditSSOOpen] = useState(false);
+// For names, emails and IDs, which have few spaces to wrap at
+const WRAP = { overflowWrap: "anywhere" } as const;
 
-  useEffect(() => {
-    if (isCloud() && expanded && !license) {
-      const fetchLicense = async () => {
-        setLicenseLoading(true);
-        const res = await apiCall<{
-          status: number;
-          licenseData: LicenseInterface;
-        }>(`/license`, {
-          method: "GET",
-          headers: { "X-Organization": organization.id },
-        });
+const MEMBER_RANGES: Record<
+  string,
+  { min?: number; max?: number; label: string }
+> = {
+  "1-3": { min: 1, max: 3, label: "1–3 members" },
+  "4-10": { min: 4, max: 10, label: "4–10 members" },
+  "11-30": { min: 11, max: 30, label: "11–30 members" },
+  "31+": { min: 31, label: "31+ members" },
+};
 
-        setLicenseLoading(false);
-        if (res.status !== 200) {
-          throw new Error("There was an error fetching the license");
-        }
+type FilterOptions = [value: string, label: string][];
 
-        setLicense(res.licenseData);
-      };
-
-      fetchLicense();
-    }
-  }, [expanded, apiCall, license, organization]);
-
-  useEffect(() => {
-    if (expanded && !orgMembers) {
-      const fetchOrgMembers = async () => {
-        const res = await apiCall<{
-          members: ExpandedMember[];
-        }>(`/admin/organization/${organization.id}/members`);
-
-        const memberMap = new Map();
-        if (res.members.length > 0) {
-          res.members.forEach((member) => {
-            memberMap.set(member.id, member);
-          });
-        }
-        setOrgMembers(memberMap);
-      };
-
-      fetchOrgMembers();
-    }
-  }, [expanded, apiCall, orgMembers, organization]);
-
-  const createClickhouseDatasource = async () => {
-    const { id } = await apiCall<{ id: string }>(
-      `/datasources/managed-warehouse`,
-      {
-        method: "POST",
-        headers: { "X-Organization": organization.id },
-        body: JSON.stringify({ region: clickhouseRegion }),
-      },
-    );
-    setClickhouseModalOpen(false);
-    setManagedWarehouseId(id);
+// What each org filter offers besides "all"; URL values outside these are ignored
+function getOrgFilterOptions() {
+  const cloud = isCloud();
+  const cloudStatuses: FilterOptions = [
+    ["trialing", "Trial"],
+    ["past_due", "Past due"],
+    ["canceled", "Canceled"],
+  ];
+  const options: Partial<Record<keyof OrgFilters, FilterOptions>> = {
+    plan: cloud
+      ? [
+          ["starter", "Starter"],
+          ["pro", "Pro"],
+          ["enterprise", "Enterprise"],
+        ]
+      : [],
+    status: [
+      ...(cloud ? cloudStatuses : []),
+      ["suspended", "Suspended"],
+      ["disabled", "Disabled"],
+      ["has_banner", "Has banner"],
+    ],
+    members: Object.entries(MEMBER_RANGES).map(([value, r]) => [
+      value,
+      r.label,
+    ]),
+    createdDays: [
+      ["7", "Created in the last 7 days"],
+      ["30", "Created in the last 30 days"],
+      ["90", "Created in the last 90 days"],
+      ["365", "Created in the last year"],
+    ],
+    loginMethod: cloud
+      ? [
+          ["sso", "SSO"],
+          ["sso_required", "SSO required"],
+          ["none", "No SSO"],
+        ]
+      : [],
   };
+  return options;
+}
+
+function optionItems(options: FilterOptions = []) {
+  return options.map(([value, label]) => (
+    <SelectItem key={value} value={value}>
+      {label}
+    </SelectItem>
+  ));
+}
+
+type OrgFilters = {
+  page: number;
+  search: string;
+  plan: string;
+  status: string;
+  members: string;
+  createdDays: string;
+  loginMethod: string;
+};
+const DEFAULT_ORG_FILTERS: OrgFilters = {
+  page: 1,
+  search: "",
+  plan: "all",
+  status: "all",
+  members: "all",
+  createdDays: "all",
+  loginMethod: "all",
+};
+
+type MemberFilters = { page: number; search: string; superAdminsOnly: boolean };
+const DEFAULT_MEMBER_FILTERS: MemberFilters = {
+  page: 1,
+  search: "",
+  superAdminsOnly: false,
+};
+
+// Kept in the URL so filters survive opening an organization and going back
+function useQueryFilters<T extends Record<string, string | number | boolean>>(
+  defaults: T,
+  prefix = "",
+  options: Partial<Record<keyof T, FilterOptions>> = {},
+): [T, Dispatch<SetStateAction<T>>] {
+  const router = useRouter();
+  const filters = { ...defaults };
+  for (const key of Object.keys(defaults) as (keyof T & string)[]) {
+    const raw = router.query[prefix + key];
+    if (typeof raw !== "string") continue;
+    // A stale or hand-edited link can't set a value no control offers
+    const allowed = options[key];
+    if (allowed && !allowed.some(([value]) => value === raw)) continue;
+    const fallback = defaults[key];
+    filters[key] = (
+      typeof fallback === "number"
+        ? parseInt(raw) > 0
+          ? parseInt(raw)
+          : fallback
+        : typeof fallback === "boolean"
+          ? raw === "1"
+          : raw
+    ) as T[keyof T & string];
+  }
+
+  const setFilters: Dispatch<SetStateAction<T>> = (action) => {
+    const next = typeof action === "function" ? action(filters) : action;
+    if (next === filters) return;
+    const query = { ...router.query };
+    for (const key of Object.keys(defaults)) {
+      delete query[prefix + key];
+      if (next[key] !== defaults[key]) {
+        query[prefix + key] = next[key] === true ? "1" : String(next[key]);
+      }
+    }
+    router.replace(
+      { pathname: router.pathname, query, hash: window.location.hash },
+      undefined,
+      { shallow: true },
+    );
+  };
+  return [filters, setFilters];
+}
+
+// Searches as you type; the delay keeps each keystroke from hitting the API
+function useDebouncedSearch<T extends { search: string; page: number }>(
+  search: string,
+  setFilters: Dispatch<SetStateAction<T>>,
+) {
+  const [input, setInput] = useState(search);
+  // The last search this input wrote, to tell it apart from URL changes made
+  // elsewhere, like the Admin nav link clearing the search
+  const written = useRef(search);
+  useEffect(() => {
+    if (search !== written.current) {
+      written.current = search;
+      setInput(search);
+    }
+  }, [search]);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const next = input.trim();
+      written.current = next;
+      setFilters((f) =>
+        f.search === next ? f : { ...f, search: next, page: 1 },
+      );
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [input, setFilters]);
+  return [input, setInput] as const;
+}
+
+function OrganizationList({
+  filters,
+  setFilters,
+}: {
+  filters: OrgFilters;
+  setFilters: Dispatch<SetStateAction<OrgFilters>>;
+}) {
+  const router = useRouter();
+  const { superAdmin } = useUser();
+  const { page, search, plan, status, members, createdDays, loginMethod } =
+    filters;
+  const [searchInput, setSearchInput] = useDebouncedSearch(search, setFilters);
+  const [orgModalOpen, setOrgModalOpen] = useState(false);
+  const options = getOrgFilterOptions();
+
+  const params = new URLSearchParams({ page: String(page), search });
+  if (plan !== "all") params.set("plan", plan);
+  if (status !== "all") params.set("status", status);
+  if (loginMethod !== "all") params.set("loginMethod", loginMethod);
+  const range = MEMBER_RANGES[members];
+  if (range?.min !== undefined) params.set("minMembers", String(range.min));
+  if (range?.max !== undefined) params.set("maxMembers", String(range.max));
+  if (createdDays !== "all") {
+    // Midnight keeps the URL, and so the cache key, stable all day
+    const createdAfter = new Date();
+    createdAfter.setHours(0, 0, 0, 0);
+    createdAfter.setDate(createdAfter.getDate() - Number(createdDays));
+    params.set("createdAfter", createdAfter.toISOString());
+  }
+
+  const { data, error, mutate } = useApi<{
+    organizations: OrganizationInterface[];
+    summaries: Record<string, AdminOrgSummary>;
+    total: number;
+  }>(`/admin/organizations?${params.toString()}`);
+
+  // Every filter change starts back on the first page
+  const filterSetter =
+    (key: keyof Omit<OrgFilters, "page">) => (value: string) =>
+      setFilters({ ...filters, [key]: value, page: 1 });
 
   return (
     <>
-      {editOrgModalOpen && (
-        <EditOrganization
-          id={organization.id}
-          disablable={!current}
-          currentOrg={organization}
-          onEdit={onEdit}
-          close={() => setEditOrgModalOpen(false)}
+      {orgModalOpen && (
+        <CreateOrganization
+          showExternalId={!isCloud()}
+          onCreate={() => mutate()}
+          close={() => setOrgModalOpen(false)}
         />
       )}
-      {clickhouseModalOpen && (
-        <Modal
-          open={true}
-          header="Create Clickhouse Data Source"
-          close={() => setClickhouseModalOpen(false)}
-          submit={createClickhouseDatasource}
-          cta="Yes"
-          trackingEventModalType=""
+      <Flex align="center" justify="between" mb="3">
+        <Heading as="h2" size="lg" mb="0">
+          Organizations
+        </Heading>
+        {hasSuperAdminPermission(superAdmin, "create") && (
+          <Button onClick={() => setOrgModalOpen(true)}>
+            New organization
+          </Button>
+        )}
+      </Flex>
+      <Flex gap="2" wrap="wrap" align="center" mb="3">
+        <Box flexGrow="0" flexShrink="1" flexBasis="360px" minWidth="240px">
+          <TextField
+            type="search"
+            aria-label="Search organizations"
+            placeholder="Name, ID, domain, or owner email"
+            prepend={<PiMagnifyingGlass aria-hidden />}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </Box>
+        {isCloud() && (
+          <Select
+            aria-label="Plan"
+            value={plan}
+            setValue={filterSetter("plan")}
+          >
+            <SelectItem value="all">All plans</SelectItem>
+            {optionItems(options.plan)}
+          </Select>
+        )}
+        <Select
+          aria-label="Status"
+          value={status}
+          setValue={filterSetter("status")}
         >
-          Are you sure you want to create a Managed Warehouse data source for
-          this organization?
-          <Box mt="3">
-            <SelectField
-              size="small"
-              legacyLabelFormatting={false}
-              label="Data region"
-              value={clickhouseRegion}
-              onChange={(value) => setClickhouseRegion(value as DataRegion)}
-              options={dataRegionOptions}
-              helpText="Where this org's event data is stored. This cannot be changed later."
+          <SelectItem value="all">All statuses</SelectItem>
+          {optionItems(options.status)}
+        </Select>
+        <Select
+          aria-label="Members"
+          value={members}
+          setValue={filterSetter("members")}
+        >
+          <SelectItem value="all">Any number of members</SelectItem>
+          {optionItems(options.members)}
+        </Select>
+        <Select
+          aria-label="Created"
+          value={createdDays}
+          setValue={filterSetter("createdDays")}
+        >
+          <SelectItem value="all">Created any time</SelectItem>
+          {optionItems(options.createdDays)}
+        </Select>
+        {isCloud() && (
+          <Select
+            aria-label="Login method"
+            value={loginMethod}
+            setValue={filterSetter("loginMethod")}
+          >
+            <SelectItem value="all">Any login method</SelectItem>
+            {optionItems(options.loginMethod)}
+          </Select>
+        )}
+        {data && (
+          <Text color="text-mid" ml="auto">
+            {numberFormatter.format(data.total)} organization
+            {data.total === 1 ? "" : "s"}
+          </Text>
+        )}
+      </Flex>
+      {error && (
+        <Callout status="error" mb="3">
+          {error.message}
+        </Callout>
+      )}
+      <Box position="relative">
+        {!data && !error && <LoadingOverlay />}
+        <Table variant="list" stickyHeader>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Name</TableColumnHeader>
+              <TableColumnHeader>ID</TableColumnHeader>
+              {isCloud() && <TableColumnHeader>Plan</TableColumnHeader>}
+              <TableColumnHeader>Status</TableColumnHeader>
+              <TableColumnHeader>Members</TableColumnHeader>
+              <TableColumnHeader>Created</TableColumnHeader>
+              <TableColumnHeader>Owner</TableColumnHeader>
+              {!isCloud() && <TableColumnHeader>External ID</TableColumnHeader>}
+              <TableColumnHeader />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data?.organizations.map((o) => {
+              const summary = data.summaries[o.id];
+              return (
+                <TableRow
+                  key={o.id}
+                  onClick={(e) => {
+                    // The caret link handles its own clicks, including Cmd/Ctrl-click
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    router.push(`/admin/org/${o.id}`);
+                  }}
+                  style={{ cursor: "pointer" }}
+                >
+                  <TableCell maxWidth="280px" style={WRAP}>
+                    <Text weight="semibold">{o.name}</Text>
+                  </TableCell>
+                  <TableCell style={WRAP}>
+                    <code>{o.id}</code>
+                  </TableCell>
+                  {isCloud() && (
+                    <TableCell>
+                      <PlanBadge plan={summary.plan} legacy={o.enterprise} />
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <StatusBadge status={summary.status} />
+                  </TableCell>
+                  <TableCell>
+                    {o.members.length}
+                    {summary.seats ? ` / ${summary.seats}` : ""}
+                  </TableCell>
+                  <TableCell>{date(o.dateCreated)}</TableCell>
+                  <TableCell maxWidth="280px" style={WRAP}>
+                    {o.ownerEmail}
+                  </TableCell>
+                  {!isCloud() && (
+                    <TableCell style={WRAP}>{o.externalId}</TableCell>
+                  )}
+                  <TableCell style={{ textAlign: "right" }}>
+                    <Link
+                      href={`/admin/org/${o.id}`}
+                      color="gray"
+                      aria-label={`Open ${o.name}`}
+                    >
+                      <PiCaretRight />
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {data?.organizations.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8}>
+                  <Text color="text-mid">No organizations found</Text>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Box>
+      {data && data.total > 50 && (
+        <Pagination
+          currentPage={page}
+          numItemsTotal={data.total}
+          perPage={50}
+          onPageChange={(p) => setFilters({ ...filters, page: p })}
+        />
+      )}
+      {!isCloud() &&
+        isMultiOrg() &&
+        hasSuperAdminPermission(superAdmin, "users") && (
+          <Box mt="4">
+            <OrphanedUsersList
+              mutateUsers={() => mutate()}
+              numUsersInAccount={0}
+              enableAdd={false}
             />
           </Box>
-        </Modal>
-      )}
-      {editSSOOpen && (
-        <EditSSOModal
-          close={() => setEditSSOOpen(false)}
-          organizationId={organization.id}
-          organizationName={organization.name}
-          currentSSO={ssoInfo}
-          enforced={
-            !!organization.restrictLoginMethod &&
-            organization.restrictLoginMethod === ssoInfo?.id
-          }
-          onSave={onEdit}
-        />
-      )}
-      <tr
-        className={clsx({
-          "table-warning": current,
-          "table-danger": organization.disabled,
-          "table-secondary": organization.suspended && !organization.disabled,
-        })}
-      >
-        <td>
-          <a
-            className={clsx("mb-1 h5")}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              switchTo(organization);
-            }}
-          >
-            {organization.name}
-          </a>
-        </td>
-        <td>{organization.ownerEmail}</td>
-        <td>{date(organization.dateCreated)}</td>
-        <td>
-          <small>{organization.id}</small>
-        </td>
-        {showVerifiedDomain && (
-          <td>
-            <small>{organization.verifiedDomain}</small>
-          </td>
         )}
-        {showExternalId && (
-          <td>
-            <small>{organization.externalId}</small>
-          </td>
-        )}
-        <td>{organization.members.length ?? 0}</td>
-        <td className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditOrgModalOpen(true);
-            }}
-            style={{ lineHeight: "40px" }}
-          >
-            <FaPencilAlt />
-          </a>
-        </td>
-        <td style={{ width: 40 }} className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
-            style={{ fontSize: "1.2em", lineHeight: "40px" }}
-          >
-            {expanded ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
-        </td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan={8} className="bg-light">
-            <h3>Summary</h3>
-            <div className="appbox mb-3 p-3">
-              <div className="row">
-                <div className="col-2 text-right">Name:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.name}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">ID:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.id}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Verified Domain:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.verifiedDomain}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Auto Approve Members:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.autoApproveMembers ? "on" : "off"}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">SSO Enabled:</div>
-                <div className="col-auto font-weight-bold">
-                  {ssoInfo
-                    ? `yes (${
-                        ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains?.join(", ")})${
-                        ssoInfo.disabled ? " — DISABLED" : ""
-                      }`
-                    : "no"}
-                </div>
-                {isCloud() && (
-                  <div className="col-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditSSOOpen(true);
-                      }}
-                    >
-                      Edit
-                    </a>
-                  </div>
-                )}
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Restrict Login Method:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.restrictLoginMethod || "no"}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Num Members:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.members.length}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Num Invited:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.invites.length}
-                </div>
-              </div>
-              {isCloud() && (
-                <>
-                  <div className="row">
-                    <div className="col-2 text-right">Enterprise (legacy):</div>
-                    <div className="col-auto font-weight-bold">
-                      {organization?.enterprise ? "yes" : "no"}
-                    </div>
-                  </div>
-                  <div className="row">
-                    <div className="col-2 text-right">License Key:</div>
-                    <div className="col-auto font-weight-bold">
-                      {organization?.licenseKey ? organization.licenseKey : "-"}
-                    </div>
-                  </div>
-                  {((license || licenseLoading) && (
-                    <div className="row">
-                      <div className="col-2 text-right">Seats</div>
-                      <div className="col-auto font-weight-bold">
-                        {licenseLoading && <LoadingSpinner />}
-                        {license && license.seats}
-                      </div>
-                    </div>
-                  )) || // Only show free seats if they are on a free plan, ie. there is no license, no subscription, nor are they on a legacy enterprise
-                    (!organization?.enterprise && (
-                      <div className="row">
-                        <div className="col-2 text-right">Free Seats:</div>
-                        <div className="col-auto font-weight-bold">
-                          {organization?.freeSeats ?? 3}
-                        </div>
-                      </div>
-                    ))}
-                  <div className="row">
-                    <div className="col-2 text-right">Managed Warehouse</div>
-                    <div className="col-auto">
-                      {managedWarehouseId ? (
-                        <ConfirmButton
-                          isDestructive
-                          onClick={async () => {
-                            await apiCall(
-                              `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,
-                              {
-                                method: "POST",
-                                headers: { "X-Organization": organization.id },
-                              },
-                            );
-                          }}
-                          confirmationText={
-                            <span>
-                              Are you sure? This may take several minutes and
-                              all queries during this time will fail.
-                            </span>
-                          }
-                          modalHeader="Drop and Recreate Managed Warehouse"
-                        >
-                          <a href="#" className="text-danger">
-                            Drop and Recreate Database
-                          </a>
-                        </ConfirmButton>
-                      ) : (
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setClickhouseModalOpen(true);
-                          }}
-                        >
-                          Create Database
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="mb-3">
-              <Collapsible
-                trigger={
-                  <h3>
-                    Other Attributes <FaAngleRight className="chevron" />
-                  </h3>
-                }
-                transitionTime={150}
-              >
-                <Code language="json" code={stringify(otherAttributes)} />
-              </Collapsible>
-            </div>
-            <div className="mb-3">
-              <Collapsible
-                trigger={
-                  <h3>
-                    Settings <FaAngleRight className="chevron" />
-                  </h3>
-                }
-                transitionTime={150}
-              >
-                <Code language="json" code={stringify(settings)} />
-              </Collapsible>
-            </div>
-            <Collapsible
-              trigger={
-                <h3>
-                  Members <FaAngleRight className="chevron" />
-                </h3>
-              }
-              transitionTime={150}
-            >
-              <Code
-                language="json"
-                code={stringify(
-                  members.map((m) => {
-                    const mInfo = orgMembers?.get(m.id) ?? null;
-                    return {
-                      name: mInfo?.name ?? "-",
-                      email: mInfo?.email ?? "-",
-                      ...m,
-                    };
-                  }),
-                )}
-              />
-            </Collapsible>
-            {isCloud() && (
-              <div className="mt-3">
-                <Collapsible
-                  trigger={
-                    <h3>
-                      License <FaAngleRight className="chevron" />
-                    </h3>
-                  }
-                  transitionTime={150}
-                >
-                  {licenseLoading && <FaSpinner />}
-                  {(license && (
-                    <Code language="json" code={stringify(license)} />
-                  )) ||
-                    "No license found for this organization."}
-                </Collapsible>
-              </div>
-            )}
-          </td>
-        </tr>
-      )}
     </>
   );
 }
 
-function MemberRow({
-  member,
-  current,
-  memberOrgs,
-  onEdit,
+function MemberList({
+  filters,
+  setFilters,
 }: {
-  member: ExpandedMember;
-  current: boolean;
-  memberOrgs: memberOrgProps[];
-  onEdit: () => void;
+  filters: MemberFilters;
+  setFilters: Dispatch<SetStateAction<MemberFilters>>;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [editMemberModalOpen, setEditMemberModalOpen] = useState(false);
+  const router = useRouter();
+  const { page, search, superAdminsOnly } = filters;
+  const [searchInput, setSearchInput] = useDebouncedSearch(search, setFilters);
+
+  const params = new URLSearchParams({ page: String(page), search });
+  if (superAdminsOnly) params.set("superAdmins", "1");
+
+  const { data, error } = useApi<{
+    members: AdminMember[];
+    total: number;
+  }>(`/admin/members?${params.toString()}`);
 
   return (
     <>
-      {editMemberModalOpen && (
-        <EditMember
-          member={member}
-          onEdit={onEdit}
-          close={() => setEditMemberModalOpen(false)}
+      <Flex gap="4" wrap="wrap" align="center" mb="3">
+        <Box flexGrow="0" flexShrink="1" flexBasis="360px" minWidth="240px">
+          <TextField
+            type="search"
+            aria-label="Search members"
+            placeholder="Name, email, or user ID"
+            prepend={<PiMagnifyingGlass aria-hidden />}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </Box>
+        <Checkbox
+          id="super-admins-only"
+          label="Super admins only"
+          value={superAdminsOnly}
+          setValue={(v) =>
+            setFilters({ ...filters, superAdminsOnly: v, page: 1 })
+          }
         />
+        {data && (
+          <Text color="text-mid" ml="auto">
+            {numberFormatter.format(data.total)} member
+            {data.total === 1 ? "" : "s"}
+          </Text>
+        )}
+      </Flex>
+      {error && (
+        <Callout status="error" mb="3">
+          {error.message}
+        </Callout>
       )}
-      <tr
-        className={clsx({
-          "table-warning": current,
-        })}
-      >
-        <td>{member.name}</td>
-        <td>{member.email}</td>
-        <td>{member.id}</td>
-        <td>{member.dateCreated ? date(member.dateCreated) : "-"}</td>
-        <td>{member.verified ? "Yes" : "No"}</td>
-        <td>
-          {memberOrgs.length ? memberOrgs.map((mo) => mo.name).join(", ") : "-"}
-        </td>
-        <td className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditMemberModalOpen(true);
-            }}
-            style={{ lineHeight: "40px" }}
-          >
-            <FaPencilAlt />
-          </a>
-        </td>
-        <td style={{ width: 40 }} className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
-            style={{ fontSize: "1.2em", lineHeight: "40px" }}
-          >
-            {expanded ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
-        </td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan={8} className="bg-light">
-            <div className="mb-3">
-              <h4>Organization Info</h4>
-              <div className="row">
-                {memberOrgs.length === 0 && (
-                  <div className="col">No organizations found</div>
-                )}
-                {memberOrgs.map((o) => (
-                  <div className="mb-2 col-3" key={o.id + member.id}>
-                    <div className="appbox mx-2 mb-0 p-3">
-                      <div>
-                        <span className="font-weight-bold">Name:</span> {o.name}
-                      </div>
-                      <div>
-                        <span className="font-weight-bold">Org Id:</span> {o.id}
-                      </div>
-                      <div>
-                        <span className="font-weight-bold">Members:</span>{" "}
-                        {o.members}
-                      </div>
-                      <div>
-                        <span className="font-weight-bold">Role:</span> {o.role}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </td>
-        </tr>
+      <Box position="relative">
+        {!data && !error && <LoadingOverlay />}
+        <Table variant="list" stickyHeader>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Name</TableColumnHeader>
+              <TableColumnHeader>Email</TableColumnHeader>
+              <TableColumnHeader>Created</TableColumnHeader>
+              <TableColumnHeader>Verified</TableColumnHeader>
+              <TableColumnHeader>Super admin</TableColumnHeader>
+              <TableColumnHeader />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data?.members.map((m) => (
+              <TableRow
+                key={m.id}
+                onClick={(e) => {
+                  // The caret link handles its own clicks, including Cmd/Ctrl-click
+                  if ((e.target as HTMLElement).closest("a")) return;
+                  router.push(`/admin/user/${m.id}`);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <TableCell maxWidth="200px" style={WRAP}>
+                  {m.name}
+                </TableCell>
+                <TableCell maxWidth="300px" style={WRAP}>
+                  {m.email}
+                </TableCell>
+                <TableCell>
+                  {m.dateCreated ? date(m.dateCreated) : "-"}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    label={m.verified ? "Verified" : "Unverified"}
+                    color={m.verified ? "green" : "amber"}
+                  />
+                </TableCell>
+                <TableCell maxWidth="200px" style={WRAP}>
+                  {formatSuperAdmin(m.superAdmin)}
+                </TableCell>
+                <TableCell style={{ textAlign: "right" }}>
+                  <Link
+                    href={`/admin/user/${m.id}`}
+                    color="gray"
+                    aria-label={`Open ${m.name || m.email}`}
+                  >
+                    <PiCaretRight />
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))}
+            {data?.members.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <Text color="text-mid">No members found</Text>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Box>
+      {data && data.total > 50 && (
+        <Pagination
+          currentPage={page}
+          numItemsTotal={data.total}
+          perPage={50}
+          onPageChange={(p) => setFilters({ ...filters, page: p })}
+        />
       )}
     </>
   );
 }
 
-const Admin: FC = () => {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-
-  const [memberPage, setMemberPage] = useState(1);
-  const [memberSearch, setMemberSearch] = useState("");
-
-  const { orgId, setOrgId, setSpecialOrg, apiCall } = useAuth();
-
+export default function Admin() {
+  const router = useRouter();
   const { license, superAdmin } = useUser();
-  const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
-  const [ssoConnections, setSsoConnections] = useState<
-    SSOConnectionInterface[]
-  >([]);
-  const [datasources, setDatasources] = useState<DataSourceInterface[]>([]);
-  const [total, setTotal] = useState(0);
-  const [members, setMembers] = useState<ExpandedMember[]>([]);
-  const [memberOrgs, setMemberOrgs] = useState<{
-    string?: memberOrgProps[];
-  }>({});
-  const [totalMembers, setTotalMembers] = useState(0);
-  const [error, setError] = useState("");
-  const [memberError, setMemberError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [memberLoading, setMemberLoading] = useState(false);
-
-  const loadOrgs = useCallback(
-    async (page: number, search: string) => {
-      setLoading(true);
-      const params = new URLSearchParams();
-
-      params.append("page", page + "");
-      params.append("search", search);
-
-      try {
-        const res = await apiCall<{
-          organizations: OrganizationInterface[];
-          ssoConnections: SSOConnectionInterface[];
-          datasources: DataSourceInterface[];
-          total: number;
-        }>(`/admin/organizations?${params.toString()}`);
-        setOrgs(res.organizations);
-        setTotal(res.total);
-        setSsoConnections(res.ssoConnections);
-        setDatasources(res.datasources);
-        setError("");
-      } catch (e) {
-        setError(e.message);
-      }
-
-      setLoading(false);
-    },
-    [apiCall],
+  const [orgFilters, setOrgFilters] = useQueryFilters(
+    DEFAULT_ORG_FILTERS,
+    "",
+    getOrgFilterOptions(),
   );
-
-  const loadMembers = useCallback(
-    async (page: number, search: string) => {
-      setMemberLoading(true);
-      const params = new URLSearchParams();
-
-      params.append("page", page + "");
-      params.append("search", search);
-
-      try {
-        const res = await apiCall<{
-          members: ExpandedMember[];
-          total: number;
-          memberOrgs: { string: memberOrgProps[] };
-        }>(`/admin/members?${params.toString()}`);
-        setMembers(res.members);
-        setMemberOrgs(res.memberOrgs);
-        setTotalMembers(res.total);
-        setMemberError("");
-      } catch (e) {
-        setError(e.message);
-      }
-
-      setMemberLoading(false);
-    },
-    [apiCall],
+  const [memberFilters, setMemberFilters] = useQueryFilters(
+    DEFAULT_MEMBER_FILTERS,
+    "members.",
   );
+  const canView = hasSuperAdminPermission(superAdmin, "view");
 
-  useEffect(() => {
-    if (!superAdmin) return;
-
-    loadOrgs(page, search);
-    loadMembers(memberPage, memberSearch);
-    // eslint-disable-next-line
-  }, [superAdmin]);
-
-  const [orgModalOpen, setOrgModalOpen] = useState(false);
-
-  if (!superAdmin) {
+  // The search inputs read their starting value once, so wait for the query
+  if (!router.isReady) {
+    return <LoadingOverlay />;
+  }
+  if (!canView) {
     return (
       <Callout status="error">Only super admins can view this page</Callout>
     );
   }
-  if (!isCloud() && license?.plan != "enterprise") {
+  if (!isCloud() && license?.plan !== "enterprise") {
     return (
       <Callout status="error">
         You must be on an enterprise license to view this page
@@ -683,639 +588,36 @@ const Admin: FC = () => {
   }
 
   return (
-    <div className="container-fluid p-3 pagecontents">
-      {orgModalOpen && (
-        <CreateOrganization
-          showExternalId={!isCloud()}
-          onCreate={() => {
-            loadOrgs(page, search);
-          }}
-          close={() => setOrgModalOpen(false)}
-        />
-      )}
-      <h1>GrowthBook Admin</h1>
-      {!isCloud() && (
-        <>
-          <div className="appbox p-3">
-            <ShowLicenseInfo showInput={false} />{" "}
-          </div>
-          <div className="divider border-bottom mb-3 mt-3" />
-        </>
-      )}
-      <Tabs defaultValue="organizations" persistInURL={true}>
-        <Box mb="3">
+    <Box className="pagecontents" p="3">
+      <PageHead breadcrumb={[{ display: "Admin" }]} />
+      <Heading as="h1" size="xl" mb="4">
+        GrowthBook Admin
+      </Heading>
+      <Tabs
+        defaultValue={isCloud() ? "organizations" : "license"}
+        persistInURL={true}
+      >
+        <Box mb="4">
           <TabsList>
+            {!isCloud() && <TabsTrigger value="license">License</TabsTrigger>}
             <TabsTrigger value="organizations">Organizations</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
           </TabsList>
         </Box>
-
+        {!isCloud() && (
+          <TabsContent value="license">
+            <Frame>
+              <ShowLicenseInfo showInput={false} />
+            </Frame>
+          </TabsContent>
+        )}
         <TabsContent value="organizations">
-          <button
-            className="btn btn-primary float-right"
-            onClick={(e) => {
-              e.preventDefault();
-              setOrgModalOpen(true);
-            }}
-          >
-            <FaPlus /> New Organization
-          </button>
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
-              <form
-                className="d-flex form form-inline"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setPage(1);
-                  loadOrgs(1, search);
-                }}
-              >
-                <Field
-                  size="legacy"
-                  label="Search:"
-                  labelClassName="mr-2"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  type="search"
-                />
-                <div>
-                  <button type="submit" className="btn btn-primary ml-2">
-                    <FaSearch />
-                  </button>
-                </div>
-              </form>
-            </div>
-            <div className="col-auto">
-              <span className="text-muted">
-                {numberFormatter.format(total)} matching organization
-                {total === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
-          {error && <Callout status="error">{error}</Callout>}
-          <div className="position-relative">
-            {loading && <LoadingOverlay />}
-            <table className="table appbox" style={{ tableLayout: "fixed" }}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th style={{ width: "260px" }}>Owner</th>
-                  <th>Created</th>
-                  <th>Id</th>
-                  {isCloud() && <th>Verified Domain</th>}
-                  {!isCloud() && <th>External Id</th>}
-                  <th style={{ width: "120px" }}>Members</th>
-                  <th style={{ width: "14px" }}></th>
-                  <th style={{ width: "40px" }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {orgs.map((o) => (
-                  <OrganizationRow
-                    organization={o}
-                    ssoInfo={ssoConnections.find(
-                      (sso) => sso.organization === o.id,
-                    )}
-                    datasources={datasources.filter(
-                      (ds) => ds.organization === o.id,
-                    )}
-                    showExternalId={!isCloud()}
-                    showVerifiedDomain={isCloud()}
-                    key={o.id}
-                    current={o.id === orgId}
-                    onEdit={() => {
-                      loadOrgs(page, search);
-                    }}
-                    switchTo={(org) => {
-                      if (setOrgId) {
-                        setOrgId(org.id);
-                      }
-                      try {
-                        localStorage.setItem(
-                          "gb-last-picked-org",
-                          `"${org.id}"`,
-                        );
-                      } catch (e) {
-                        console.warn("Cannot set gb-last-picked-org");
-                      }
-                      if (setSpecialOrg) {
-                        setSpecialOrg(org);
-                      }
-                    }}
-                  />
-                ))}
-              </tbody>
-            </table>
-            <Pagination
-              currentPage={page}
-              numItemsTotal={total}
-              perPage={50}
-              onPageChange={(page) => {
-                setPage(page);
-                loadOrgs(page, search);
-              }}
-            />
-          </div>
-          {!isCloud() && isMultiOrg() && (
-            <div className="divider border-top mt-3">
-              <OrphanedUsersList
-                mutateUsers={() => {
-                  loadOrgs(page, search);
-                }}
-                numUsersInAccount={0}
-                enableAdd={false}
-              />
-            </div>
-          )}
+          <OrganizationList filters={orgFilters} setFilters={setOrgFilters} />
         </TabsContent>
-
         <TabsContent value="members">
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
-              <form
-                className="d-flex form form-inline"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setMemberPage(1);
-                  loadMembers(1, memberSearch);
-                }}
-              >
-                <Field
-                  size="legacy"
-                  label="Search:"
-                  labelClassName="mr-2"
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  type="search"
-                />
-                <div>
-                  <button type="submit" className="btn btn-primary ml-2">
-                    <FaSearch />
-                  </button>
-                </div>
-              </form>
-            </div>
-            <div className="col-auto">
-              <span className="text-muted">
-                {numberFormatter.format(totalMembers)}{" "}
-                {memberSearch ? "matching" : ""} member
-                {totalMembers === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
-          {memberError && <Callout status="error">{memberError}</Callout>}
-          <div className="position-relative">
-            {memberLoading && <LoadingOverlay />}
-            <table className="table appbox" style={{ tableLayout: "fixed" }}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>email</th>
-                  <th>Id</th>
-                  <th>Created</th>
-                  <th title="Verified Email">Verified</th>
-                  <th>Orgs</th>
-                  <th style={{ width: 40 }}></th>
-                  <th style={{ width: 40 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((m) => (
-                  <MemberRow
-                    member={m}
-                    memberOrgs={memberOrgs[m.id] ?? []}
-                    key={m.id}
-                    current={m.id === orgId}
-                    onEdit={() => {
-                      loadMembers(memberPage, memberSearch);
-                    }}
-                  />
-                ))}
-              </tbody>
-            </table>
-            <Pagination
-              currentPage={memberPage}
-              numItemsTotal={totalMembers}
-              perPage={50}
-              onPageChange={(page) => {
-                setMemberPage(page);
-                loadMembers(memberPage, memberSearch);
-              }}
-            />
-          </div>
+          <MemberList filters={memberFilters} setFilters={setMemberFilters} />
         </TabsContent>
       </Tabs>
-    </div>
-  );
-};
-
-const EditMember: FC<{
-  onEdit: () => void;
-  close?: () => void;
-  member: ExpandedMember;
-}> = ({ onEdit, close, member }) => {
-  const [verified, setVerified] = useState(member.verified);
-  const [name, setName] = useState(member.name);
-  const [email, setEmail] = useState(member.email);
-
-  const { apiCall } = useAuth();
-
-  const handleSubmit = async () => {
-    await apiCall<{
-      status: number;
-      message?: string;
-    }>("/admin/member", {
-      method: "PUT",
-      body: JSON.stringify({
-        userId: member.id,
-        verified: verified,
-        email: email,
-        name: name,
-      }),
-    });
-    onEdit();
-  };
-
-  return (
-    <Modal
-      trackingEventModalType=""
-      submit={handleSubmit}
-      open={true}
-      header={"Edit Member"}
-      cta={"Update"}
-      close={close}
-      inline={!close}
-    >
-      <div className="form-group">
-        Name
-        <input
-          type="text"
-          className="form-control"
-          value={name}
-          required
-          minLength={3}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <div className="mt-3">
-          Email
-          <input
-            type="email"
-            className="form-control"
-            value={email}
-            required
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="mt-4">
-          <Switch
-            label="Verified Email"
-            id="verified"
-            value={verified}
-            onChange={(e) => setVerified(e)}
-          />
-        </div>
-      </div>
-    </Modal>
-  );
-};
-
-function generateSSOConnection(
-  data: SSOConnectionInterface,
-): SSOConnectionInterface {
-  const res: SSOConnectionInterface = {
-    ...data,
-  };
-
-  // Generate additionalScope, extraQueryParams, metadata based on idP type
-  // Note: no `logout_endpoint` on purpose. Setting it redirects "Log out" to the
-  // IdP's logout URL, which ends the user's IdP session too (and leaves them on
-  // the IdP). Logging out of GrowthBook should only log them out of GrowthBook.
-  if (data.idpType === "okta") {
-    if (data.baseURL) {
-      // Remove trailing slash
-      const baseURL = data.baseURL.replace(/\/+$/, "");
-
-      res.additionalScope = "offline_access";
-      res.extraQueryParams = undefined;
-      res.metadata = {
-        issuer: `${baseURL}`,
-        authorization_endpoint: `${baseURL}/oauth2/v1/authorize`,
-        id_token_signing_alg_values_supported: ["RS256"],
-        jwks_uri: `${baseURL}/oauth2/v1/keys`,
-        token_endpoint: `${baseURL}/oauth2/v1/token`,
-        code_challenge_methods_supported: ["S256"],
-      };
-    }
-  } else if (data.idpType === "google") {
-    res.extraQueryParams = {
-      access_type: "offline",
-      prompt: "consent",
-    };
-    res.additionalScope = "";
-    res.metadata = {
-      issuer: "https://accounts.google.com",
-      authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-      token_endpoint: "https://oauth2.googleapis.com/token",
-      jwks_uri: "https://www.googleapis.com/oauth2/v3/certs",
-      id_token_signing_alg_values_supported: ["RS256"],
-      code_challenge_methods_supported: ["S256"],
-    };
-  } else if (data.idpType === "auth0") {
-    if (data.tenantId) {
-      res.additionalScope = "offline_access";
-      res.extraQueryParams = undefined;
-      res.metadata = {
-        issuer: `https://${data.tenantId}.auth0.com/`,
-        authorization_endpoint: `https://${data.tenantId}.auth0.com/authorize`,
-        id_token_signing_alg_values_supported: ["HS256", "RS256"],
-        jwks_uri: `https://${data.tenantId}.auth0.com/.well-known/jwks.json`,
-        token_endpoint: `https://${data.tenantId}.auth0.com/oauth/token`,
-        code_challenge_methods_supported: ["S256", "plain"],
-        audience: data.audience || "",
-      };
-    }
-  } else if (data.idpType === "azure") {
-    if (data.tenantId) {
-      res.additionalScope = "offline_access";
-      res.extraQueryParams = undefined;
-      res.metadata = {
-        token_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/token`,
-        jwks_uri: `https://login.microsoftonline.com/${data.tenantId}/discovery/v2.0/keys`,
-        id_token_signing_alg_values_supported: ["RS256"],
-        code_challenge_methods_supported: ["S256"],
-        issuer: `https://login.microsoftonline.com/${data.tenantId}/v2.0`,
-        authorization_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/authorize`,
-      };
-    }
-  } else if (data.idpType === "onelogin") {
-    if (data.baseURL) {
-      // Remove trailing slash
-      const baseURL = data.baseURL.replace(/\/+$/, "");
-      res.additionalScope = "";
-      res.extraQueryParams = undefined;
-      res.metadata = {
-        issuer: `${baseURL}/oidc/2`,
-        authorization_endpoint: `${baseURL}/oidc/2/auth`,
-        token_endpoint: `${baseURL}/oidc/2/token`,
-        id_token_signing_alg_values_supported: ["RS256", "HS256", "PS256"],
-        jwks_uri: `${baseURL}/oidc/2/certs`,
-        code_challenge_methods_supported: ["S256"],
-      };
-    }
-  } else if (data.idpType === "jumpcloud") {
-    res.additionalScope = "offline_access";
-    res.extraQueryParams = undefined;
-    res.metadata = {
-      token_endpoint: "https://oauth.id.jumpcloud.com/oauth2/token",
-      jwks_uri: "https://oauth.id.jumpcloud.com/.well-known/jwks.json",
-      id_token_signing_alg_values_supported: ["RS256"],
-      code_challenge_methods_supported: ["S256"],
-      issuer: "https://oauth.id.jumpcloud.com/",
-      authorization_endpoint: "https://oauth.id.jumpcloud.com/oauth2/auth",
-      audience: "",
-    };
-  }
-
-  return res;
-}
-
-function jsonSafeParse(str: string) {
-  if (!str) return null;
-  try {
-    return JSON.parse(str);
-  } catch (e) {
-    return null;
-  }
-}
-
-function EditSSOModal({
-  close,
-  organizationId,
-  organizationName,
-  currentSSO,
-  enforced,
-  onSave,
-}: {
-  close: () => void;
-  organizationId: string;
-  organizationName: string;
-  currentSSO?: SSOConnectionInterface;
-  enforced?: boolean;
-  onSave?: () => void;
-}) {
-  const { apiCall } = useAuth();
-
-  const [enforceSSO, setEnforceSSO] = useState<boolean>(enforced || false);
-
-  const form = useForm<
-    Omit<SSOConnectionInterface, "metadata"> & {
-      metadata: string;
-    }
-  >({
-    defaultValues: {
-      id: currentSSO?.id || "",
-      organization: organizationId,
-      clientId: currentSSO?.clientId || "",
-      clientSecret: currentSSO?.clientSecret || "",
-      additionalScope: currentSSO?.additionalScope || "",
-      metadata: currentSSO?.metadata ? JSON.stringify(currentSSO.metadata) : "",
-      emailDomains: currentSSO?.emailDomains || [],
-      idpType: currentSSO?.idpType,
-      extraQueryParams: currentSSO?.extraQueryParams || undefined,
-      baseURL: currentSSO?.baseURL || "",
-      tenantId: currentSSO?.tenantId || "",
-      audience: currentSSO?.audience || "",
-    },
-  });
-
-  const currentValue = {
-    id: form.watch("id"),
-    organization: form.watch("organization"),
-    clientId: form.watch("clientId"),
-    clientSecret: form.watch("clientSecret"),
-    additionalScope: form.watch("additionalScope"),
-    metadata: jsonSafeParse(form.watch("metadata")) || {},
-    emailDomains: form.watch("emailDomains"),
-    idpType: form.watch("idpType"),
-    extraQueryParams: form.watch("extraQueryParams"),
-    baseURL: form.watch("baseURL"),
-    tenantId: form.watch("tenantId"),
-    audience: form.watch("audience"),
-  };
-
-  const { appearance } = useThemeContext();
-
-  if (!isCloud()) {
-    return null;
-  }
-
-  return (
-    <Modal
-      trackingEventModalType=""
-      submit={form.handleSubmit(async (data) => {
-        const payload = generateSSOConnection({
-          ...data,
-          metadata: jsonSafeParse(data.metadata) || {},
-        });
-
-        await apiCall(`/admin/sso-connection`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...payload,
-            enforceSSO: enforceSSO,
-          }),
-          headers: { "X-Organization": organizationId },
-        });
-
-        onSave && onSave();
-      })}
-      open={true}
-      header={currentSSO ? "Edit SSO Connection" : "Create SSO Connection"}
-      cta={currentSSO ? "Save Changes" : "Create Connection"}
-      close={close}
-      size="max"
-    >
-      <h3>Organization: {organizationName}</h3>
-
-      <SelectField
-        size="legacy"
-        label="Identity Provider Type"
-        value={currentValue.idpType || ""}
-        onChange={(idpType) =>
-          form.setValue("idpType", idpType as SSOConnectionInterface["idpType"])
-        }
-        options={[
-          { label: "Okta", value: "okta" },
-          { label: "Azure/Entra", value: "azure" },
-          { label: "Google", value: "google" },
-          { label: "OneLogin", value: "onelogin" },
-          { label: "JumpCloud", value: "jumpcloud" },
-          { label: "Auth0", value: "auth0" },
-          { label: "Other OIDC", value: "oidc" },
-        ]}
-        initialOption="Select One..."
-        required
-      />
-
-      <Field
-        size="legacy"
-        label="SSO Id"
-        {...form.register("id")}
-        pattern="^[a-zA-Z0-9_]+$"
-        required
-        disabled={!!currentSSO}
-        helpText="A short id to identify this organization. Examples: 'acme', 'dunder_mifflin', 'initech'"
-      />
-
-      <Field
-        size="legacy"
-        label="Client ID"
-        {...form.register("clientId")}
-        required
-      />
-
-      <Field
-        size="legacy"
-        label="Client Secret"
-        type="text"
-        {...form.register("clientSecret")}
-        placeholder={currentSSO ? "(unchanged)" : ""}
-        required={!currentSSO}
-      />
-
-      <StringArrayField
-        legacyHeight
-        label="Email Domains"
-        value={form.watch("emailDomains") || []}
-        onChange={(emailDomains) => form.setValue("emailDomains", emailDomains)}
-        required
-      />
-
-      {currentValue.idpType === "okta" ||
-      currentValue.idpType === "onelogin" ? (
-        <Field
-          size="legacy"
-          label="Base URL"
-          {...form.register("baseURL")}
-          type="url"
-          required
-        />
-      ) : null}
-      {currentValue.idpType === "azure" || currentValue.idpType === "auth0" ? (
-        <Field
-          size="legacy"
-          label="Tenant ID"
-          {...form.register("tenantId")}
-          required
-        />
-      ) : null}
-      {currentValue.idpType === "auth0" ? (
-        <Field size="legacy" label="Audience" {...form.register("audience")} />
-      ) : null}
-
-      <Checkbox
-        label="Enforce SSO Login"
-        id="enforce-sso"
-        value={enforceSSO}
-        setValue={(v) => setEnforceSSO(v)}
-      />
-
-      {currentValue.idpType === "oidc" ? (
-        <>
-          <Field
-            size="legacy"
-            label="Additional Scope"
-            {...form.register("additionalScope")}
-          />
-          <Field
-            size="legacy"
-            label="Metadata (JSON)"
-            textarea
-            {...form.register("metadata")}
-            required
-          />
-        </>
-      ) : currentSSO?.metadata ? (
-        <>
-          <h3 className="mt-3">Changes</h3>
-          <ReactDiffViewer
-            oldValue={sortObj(currentSSO)}
-            newValue={sortObj(generateSSOConnection(currentValue))}
-            compareMethod={DiffMethod.LINES}
-            useDarkTheme={appearance === "dark"}
-            styles={{
-              contentText: {
-                wordBreak: "break-all",
-              },
-            }}
-          />
-        </>
-      ) : (
-        <Code
-          language="json"
-          code={stringify(
-            generateSSOConnection({
-              ...form.getValues(),
-              metadata: { issuer: "" },
-            }),
-          )}
-          filename={"Preview"}
-        />
-      )}
-    </Modal>
+    </Box>
   );
 }
-
-function sortObj(obj: unknown): string {
-  return JSON.stringify(
-    Object.fromEntries(
-      Object.entries(obj as { [key: string]: unknown })
-        .filter(([k]) => k !== "_id" && k !== "__v" && k !== "dateCreated")
-        .sort((a, b) => a[0].localeCompare(b[0])),
-    ),
-    null,
-    2,
-  );
-}
-
-export default Admin;

@@ -7,8 +7,9 @@ import {
   funnelStepValidator,
   factMetricValidator,
 } from "./fact-table";
+import { populationStepValidator } from "./population";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 
 const baseValueValidator = z.object({
   name: z.string(),
@@ -23,6 +24,29 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
   dateUpdated: true,
 });
 
+export const explorationPopulationValidator = componentSchema(
+  "ExplorationPopulation",
+  populationStepValidator
+    .extend({
+      rowFilters: z
+        .array(rowFilterValidator)
+        .optional()
+        .transform((filters) => filters ?? [])
+        // Re-declares the array after the transform so the OpenAPI spec still documents it
+        .pipe(z.array(rowFilterValidator))
+        .meta({ default: [] }),
+      unit: z
+        .string()
+        .describe(
+          "Identifier type that defines population membership. Every metric's unit must match it.",
+        ),
+    })
+    .strict(),
+);
+export type ExplorationPopulation = z.infer<
+  typeof explorationPopulationValidator
+>;
+
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
   metricId: z.string(),
@@ -33,7 +57,8 @@ const metricValueValidator = baseValueValidator.extend({
 // run in place of a saved one. Kept out of the public validators so the REST
 // API, OpenAPI spec, and AI agent never accept or document user-authored drafts.
 const internalMetricValueValidator = metricValueValidator.extend({
-  draftMetric: draftExplorationMetricValidator.optional(),
+  // Stripped, not strict: a stale page may still send a retired field.
+  draftMetric: draftExplorationMetricValidator.strip().optional(),
 });
 export type MetricValue = z.infer<typeof internalMetricValueValidator>;
 
@@ -43,12 +68,18 @@ export type DatasetType =
   | "data_source"
   | "funnel"
   | "journey"
+  | "population"
   | "sql";
 
 const metricDatasetValidator = z
   .object({
     type: z.literal("metric"),
     values: z.array(metricValueValidator),
+    population: explorationPopulationValidator
+      .optional()
+      .describe(
+        "**Beta** — this field is new and may change in backwards-incompatible ways. A population applied to every metric in the request. Only proportion metrics on the population's Fact Table are supported; the request is rejected if any metric is incompatible.",
+      ),
   })
   .strict();
 const internalMetricDatasetValidator = metricDatasetValidator.extend({
@@ -218,6 +249,23 @@ const journeyDatasetValidator = z
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
+// Populations: one single-step population definition per value.
+const populationValueValidator = populationStepValidator.extend({
+  name: z.string(),
+  type: z.literal("population"),
+  unit: z.string().nullable(),
+});
+export type PopulationValue = z.infer<typeof populationValueValidator>;
+
+// Internal only until the Explorer supports populations.
+const populationDatasetValidator = z
+  .object({
+    type: z.literal("population"),
+    values: z.array(populationValueValidator),
+  })
+  .strict();
+export type PopulationDataset = z.infer<typeof populationDatasetValidator>;
+
 /**
  * The literal values a discriminated union accepts, as an error message.
  * Zod reports an unrecognized discriminator as "Invalid input" and names no
@@ -251,6 +299,7 @@ const _valueValidator = z.discriminatedUnion("type", [
   factTableValueValidator,
   dataSourceValueValidator,
   sqlValueValidator,
+  populationValueValidator,
 ]);
 export type ProductAnalyticsValue = z.infer<typeof _valueValidator>;
 
@@ -424,6 +473,12 @@ export const journeyExplorationConfigValidator =
     dataset: journeyDatasetValidator,
   });
 
+export const populationExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("population"),
+    dataset: populationDatasetValidator,
+  });
+
 const configOptions = [
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
@@ -431,6 +486,13 @@ const configOptions = [
   sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
   journeyExplorationConfigValidator,
+] as const;
+
+// Population previews are stored like any other run but never exposed by the
+// REST API, so they're accepted here and not in `configOptions`.
+const storedConfigOptions = [
+  ...configOptions,
+  populationExplorationConfigValidator,
 ] as const;
 
 // For SQL datasets, we need to know the column types
@@ -492,6 +554,12 @@ export const productAnalyticsResultRowValidator = z.object({
       }),
     )
     .optional(),
+  populationCount: z
+    .number()
+    .optional()
+    .describe(
+      "**Beta** — this field is new and may change in backwards-incompatible ways. Number of units in the dataset's population for this row. Only present when the request has a population; each value's numerator and denominator keep their usual meaning, limited to population members.",
+    ),
   steps: z.array(productAnalyticsFunnelStepResultValidator).optional(),
   journey: productAnalyticsJourneyRowValidator.optional(),
 });
@@ -509,8 +577,8 @@ export const productAnalyticsExplorationValidator = z.object({
   datasource: z.string(),
   configHash: z.string(),
   valueHashes: z.array(z.string()),
-  config: z.discriminatedUnion("type", configOptions, {
-    error: mustBeOneOf(configOptions, "type"),
+  config: z.discriminatedUnion("type", storedConfigOptions, {
+    error: mustBeOneOf(storedConfigOptions, "type"),
   }),
   result: productAnalyticsResultValidator,
   dateStart: z.string(),
@@ -553,6 +621,7 @@ const internalConfigOptions = [
   sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
   journeyExplorationConfigValidator,
+  populationExplorationConfigValidator,
 ] as const;
 export const internalExplorationConfigValidator = z.discriminatedUnion(
   "type",
@@ -582,6 +651,9 @@ export type FunnelExplorationConfig = z.infer<
 export type JourneyExplorationConfig = z.infer<
   typeof journeyExplorationConfigValidator
 >;
+export type PopulationExplorationConfig = z.infer<
+  typeof populationExplorationConfigValidator
+>;
 
 export type MetricDataset = z.infer<typeof internalMetricDatasetValidator>;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
@@ -598,7 +670,8 @@ export type ValuesDataset =
   | MetricDataset
   | FactTableDataset
   | DataSourceDataset
-  | SqlDataset;
+  | SqlDataset
+  | PopulationDataset;
 
 export function datasetHasValues(
   dataset: ExplorationDataset,
@@ -618,6 +691,7 @@ export function datasetHasValues(
     case "fact_table":
     case "data_source":
     case "sql":
+    case "population":
       return true;
     default: {
       const exhaustive: never = dataset;

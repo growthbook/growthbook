@@ -1,10 +1,14 @@
 import { Flex, TextField as RadixTextField } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, ReactNode, useId } from "react";
+import { forwardRef, ReactNode, Ref, useId } from "react";
 import clsx from "clsx";
+import TextareaAutosize, {
+  TextareaAutosizeProps,
+} from "react-textarea-autosize";
 import { radixSize, Size } from "@/ui/sizes";
 import HelperText from "./HelperText";
 import Text, { TextSizes, TextWeights } from "./Text";
+import styles from "./TextField.module.scss";
 
 export type TextFieldSize = Size<"sm" | "md" | "lg">;
 
@@ -40,87 +44,115 @@ export type TextFieldProps = {
   containerClassName?: string;
   inputClassName?: string;
   type?: TextFieldType;
+  multiline?: boolean;
 } & Omit<
   React.ComponentPropsWithoutRef<typeof RadixTextField.Root>,
   "size" | "type"
 > &
   MarginProps;
 
-export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
-  function TextField(
-    {
-      label,
-      labelSize,
-      labelWeight = "semibold",
-      markRequired,
-      error,
-      errorLevel = "error",
-      helpText,
-      size = "md",
-      variant = "surface",
-      type = "text",
-      prepend,
-      append,
-      containerClassName,
-      inputClassName,
-      className,
-      id,
-      m,
-      mx,
-      my,
-      mt,
-      mr,
-      mb,
-      ml,
-      ...inputProps
-    },
-    ref,
-  ) {
-    const generatedId = useId();
-    const inputId = id ?? generatedId;
+export const TextField = forwardRef<
+  HTMLInputElement | HTMLTextAreaElement,
+  TextFieldProps
+>(function TextField(
+  {
+    label,
+    labelSize,
+    labelWeight = "semibold",
+    markRequired,
+    error,
+    errorLevel = "error",
+    helpText,
+    size = "md",
+    variant = "surface",
+    type = "text",
+    prepend,
+    append,
+    containerClassName,
+    inputClassName,
+    multiline = false,
+    className,
+    id,
+    m,
+    mx,
+    my,
+    mt,
+    mr,
+    mb,
+    ml,
+    ...inputProps
+  },
+  ref,
+) {
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
 
-    const statusClass =
-      error && errorLevel === "warning"
-        ? "warning"
-        : error
-          ? "error"
-          : undefined;
+  const statusClass =
+    error && errorLevel === "warning" ? "warning" : error ? "error" : undefined;
 
-    return (
-      <Flex
-        direction="column"
-        className={clsx(`gb-text-field--${size}`, containerClassName)}
-        m={m}
-        mx={mx}
-        my={my}
-        mt={mt}
-        mr={mr}
-        mb={mb}
-        ml={ml}
-      >
-        {typeof label === "string" ? (
-          <Text
-            as="label"
-            htmlFor={inputId}
-            size={labelSize ?? "md"}
-            weight={labelWeight}
-          >
-            {label}
-            {markRequired ? (
-              <span
-                style={{ color: "var(--red-11)", marginLeft: "var(--space-1)" }}
-              >
-                *
-              </span>
-            ) : null}
-          </Text>
-        ) : label !== undefined ? (
-          label
-        ) : null}
+  return (
+    <Flex
+      direction="column"
+      className={clsx(`gb-text-field--${size}`, containerClassName)}
+      m={m}
+      mx={mx}
+      my={my}
+      mt={mt}
+      mr={mr}
+      mb={mb}
+      ml={ml}
+    >
+      {typeof label === "string" ? (
+        <Text
+          as="label"
+          htmlFor={inputId}
+          size={labelSize ?? "md"}
+          weight={labelWeight}
+        >
+          {label}
+          {markRequired ? (
+            <span
+              style={{ color: "var(--red-11)", marginLeft: "var(--space-1)" }}
+            >
+              *
+            </span>
+          ) : null}
+        </Text>
+      ) : label !== undefined ? (
+        label
+      ) : null}
+      {multiline ? (
+        <div
+          className={clsx(
+            "rt-TextFieldRoot",
+            `rt-r-size-${radixSize(size)}`,
+            `rt-variant-${variant}`,
+            styles.multiline,
+            className,
+            inputClassName,
+            statusClass,
+          )}
+        >
+          {prepend ? <div className="rt-TextFieldSlot">{prepend}</div> : null}
+          <TextareaAutosize
+            {...(inputProps as unknown as TextareaAutosizeProps)}
+            ref={ref as Ref<HTMLTextAreaElement>}
+            id={inputId}
+            className="rt-reset rt-TextFieldInput"
+            minRows={1}
+            maxRows={6}
+          />
+          {append ? (
+            <div className="rt-TextFieldSlot" data-side="right">
+              {append}
+            </div>
+          ) : null}
+        </div>
+      ) : (
         <RadixTextField.Root
           {...inputProps}
           id={inputId}
-          ref={ref}
+          ref={ref as Ref<HTMLInputElement>}
           type={type}
           size={radixSize(size)}
           variant={variant}
@@ -133,19 +165,19 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             <RadixTextField.Slot side="right">{append}</RadixTextField.Slot>
           ) : null}
         </RadixTextField.Root>
-        {error ? (
-          <HelperText status={errorLevel} mt="1">
-            {error}
-          </HelperText>
-        ) : helpText ? (
-          <Text as="div" size="sm" color="text-mid" mt="1">
-            {helpText}
-          </Text>
-        ) : null}
-      </Flex>
-    );
-  },
-);
+      )}
+      {error ? (
+        <HelperText status={errorLevel} mt="1">
+          {error}
+        </HelperText>
+      ) : helpText ? (
+        <Text as="div" size="sm" color="text-mid" mt="1">
+          {helpText}
+        </Text>
+      ) : null}
+    </Flex>
+  );
+});
 
 export const TextFieldSlot = RadixTextField.Slot;
 

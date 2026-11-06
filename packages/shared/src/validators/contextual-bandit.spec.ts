@@ -4,6 +4,10 @@ import {
   apiContextualBanditCancelReturn,
   apiContextualBanditCancelValidator,
   apiContextualBanditLifecycleReturn,
+  apiContextualBanditListVisualChangesetsReturn,
+  apiContextualBanditListVisualChangesetsValidator,
+  apiContextualBanditPostVisualChangesetsReturn,
+  apiContextualBanditPostVisualChangesetsValidator,
   apiContextualBanditRefreshReturn,
   apiContextualBanditRefreshValidator,
   apiContextualBanditStartValidator,
@@ -76,6 +80,25 @@ export const cancelContextualBanditEndpoint = {
   summary: "Cancel a running Contextual Bandit snapshot refresh",
 };
 
+export const postContextualBanditVisualChangesetsEndpoint = {
+  pathFragment: "/:id/visual-changesets",
+  verb: "post" as const,
+  confirmation: ["experiment.visualEditor"] as const,
+  operationId: "postContextualBanditVisualChangesets",
+  validator: apiContextualBanditPostVisualChangesetsValidator,
+  zodReturnObject: apiContextualBanditPostVisualChangesetsReturn,
+  summary: "Create a visual changeset for a Contextual Bandit",
+};
+
+export const listContextualBanditVisualChangesetsEndpoint = {
+  pathFragment: "/:id/visual-changesets",
+  verb: "get" as const,
+  operationId: "listContextualBanditVisualChangesets",
+  validator: apiContextualBanditListVisualChangesetsValidator,
+  zodReturnObject: apiContextualBanditListVisualChangesetsReturn,
+  summary: "List visual changesets for a Contextual Bandit",
+};
+
 export const contextualBanditApiSpec = {
   modelSingular: "contextualBandit",
   modelPlural: "contextualBandits",
@@ -85,7 +108,7 @@ export const contextualBanditApiSpec = {
     createBody: apiCreateContextualBanditBody,
     updateBody: apiUpdateContextualBanditBody,
   },
-  crudActions: ["get", "create", "list", "update"],
+  crudActions: ["get", "create", "list", "update", "delete"],
   crudValidatorOverrides: {
     list: apiListContextualBanditsValidator,
   },
@@ -100,6 +123,7 @@ export const contextualBanditApiSpec = {
       "experiment.phases",
       "experiment.other",
     ],
+    delete: ["experiment.other"],
   },
   confirmationInHandler: { update: true },
   customEndpoints: [
@@ -108,6 +132,8 @@ export const contextualBanditApiSpec = {
     refreshContextualBanditEndpoint,
     updateVariationsContextualBanditEndpoint,
     cancelContextualBanditEndpoint,
+    postContextualBanditVisualChangesetsEndpoint,
+    listContextualBanditVisualChangesetsEndpoint,
   ],
   navAfterTag: "experiments",
 } as const satisfies OpenApiModelSpec;

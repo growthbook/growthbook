@@ -17,6 +17,7 @@ import {
   getLiveRevision,
   getRevisionNumber,
   isSavedGroupRevisionMetadataOnly,
+  isSavedGroupRevisionArchiveOnly,
   getApprovalFlowRules,
   getApprovalFlowSettings,
 } from "shared/enterprise";
@@ -49,6 +50,8 @@ import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import RemoteSavedGroupUploads from "@/components/SavedGroups/RemoteSavedGroupUploads";
+import RemoteSavedGroupSetupCallout from "@/components/SavedGroups/RemoteSavedGroupSetupCallout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
@@ -63,6 +66,7 @@ import {
 } from "@/components/SavedGroups/SavedGroupDiffRenders";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Button from "@/ui/Button";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupReferences from "@/components/SavedGroups/SavedGroupReferences";
@@ -88,7 +92,10 @@ import Table, {
 import SavedGroupRevisionDropdown from "@/components/SavedGroups/SavedGroupRevisionDropdown";
 import CompareSavedGroupRevisionsModal from "@/components/SavedGroups/CompareSavedGroupRevisionsModal";
 import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
-import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
+import {
+  totalSavedGroupReferences,
+  useSavedGroupReferences,
+} from "@/hooks/useSavedGroupReferences";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -107,6 +114,8 @@ const NUM_PER_PAGE = 10;
 
 const savedGroupTabs = ["overview", "review"] as const;
 type SavedGroupTab = (typeof savedGroupTabs)[number];
+
+const REMOTE_LOCKED_REASON = "Changing Remote Groups needs an Enterprise plan.";
 
 export default function EditSavedGroupPage() {
   const router = useRouter();
@@ -128,6 +137,7 @@ export default function EditSavedGroupPage() {
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
   const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
+  const [upgradeModal, setUpgradeModal] = useState(false);
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
@@ -160,12 +170,9 @@ export default function EditSavedGroupPage() {
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
   const referencingBandits = references?.contextualBandits ?? [];
+  const referencingInterleavings = references?.interleavings ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
-  const totalReferences =
-    referencingFeatures.length +
-    referencingExperiments.length +
-    referencingBandits.length +
-    referencingSavedGroups.length;
+  const totalReferences = totalSavedGroupReferences(references);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
@@ -335,16 +342,21 @@ export default function EditSavedGroupPage() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
-  const { user } = useUser();
+  const { user, hasCommercialFeature } = useUser();
+  // Without Enterprise, a Remote Group keeps working but can't be changed
+  const remoteLocked =
+    savedGroup?.type === "remote" &&
+    !hasCommercialFeature("large-saved-groups");
   const permissionsUtil = usePermissionsUtil();
-  const canDraft = savedGroup
-    ? permissionsUtil.canRevisionAction(
-        "saved-group",
-        "draft",
-        savedGroup,
-        NO_ENVIRONMENT_BINDING,
-      )
-    : false;
+  const canDraft =
+    savedGroup && !remoteLocked
+      ? permissionsUtil.canRevisionAction(
+          "saved-group",
+          "draft",
+          savedGroup,
+          NO_ENVIRONMENT_BINDING,
+        )
+      : false;
   // Reverting is its own authority — a revert-only role holds no draft or
   // publish rights, and revert alone is enough to both propose and land one.
   const canRevertEntity = savedGroup
@@ -398,6 +410,10 @@ export default function EditSavedGroupPage() {
     useState<null | Partial<SavedGroupInterface>>(null);
   const [editConditionModal, setEditConditionModal] =
     useState<null | Partial<SavedGroupInterface>>(null);
+  const [useUploadModal, setUseUploadModal] = useState<null | {
+    version: number;
+    current: Partial<SavedGroupInterface>;
+  }>(null);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -456,6 +472,16 @@ export default function EditSavedGroupPage() {
               {
                 event: "savedGroup.deleted",
                 getLabel: () => "Deleted",
+                alwaysVisible: true,
+              },
+              {
+                event: "savedGroup.uploaded",
+                getLabel: () => "Uploaded IDs",
+                alwaysVisible: true,
+              },
+              {
+                event: "savedGroup.uploadDeleted",
+                getLabel: () => "Deleted an upload",
                 alwaysVisible: true,
               },
             ],
@@ -805,6 +831,28 @@ export default function EditSavedGroupPage() {
           }}
         />
       )}
+      {useUploadModal && (
+        <SavedGroupForm
+          close={() => {
+            setUseUploadModal(null);
+            mutate();
+          }}
+          current={useUploadModal.current}
+          type={savedGroup.type}
+          approvalFlowRequired={approvalRequired}
+          metadataReviewRequired={metadataReviewRequired}
+          onRevisionCreated={onRevisionCreated}
+          openRevisions={openRevisions}
+          allRevisions={allRevisions}
+          selectedRevision={selectedRevision}
+          onSelectRevision={selectFlow}
+          liveVersion={savedGroup}
+          useUploadVersion={useUploadModal.version}
+          mutate={async () => {
+            await Promise.all([mutateRevisions(), mutate()]);
+          }}
+        />
+      )}
       {showArchiveModal && displayedSavedGroup && (
         <SavedGroupArchiveModal
           // LIVE state, like the feature page does: the endpoint flips against
@@ -847,12 +895,14 @@ export default function EditSavedGroupPage() {
         >
           <Text as="p" mb="3">
             This Saved Group is referenced by the following Feature Flags,
-            Experiments, and Saved Groups.
+            Experiments, Contextual Bandits, Interleaving Experiments, and Saved
+            Groups.
           </Text>
           <SavedGroupReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
             contextualBandits={referencingBandits}
+            interleavings={referencingInterleavings}
             savedGroups={referencingSavedGroups}
           />
         </Modal>
@@ -1115,13 +1165,15 @@ export default function EditSavedGroupPage() {
                     !!(metadataReviewRequired && (isMerged || isDiscarded))
                   }
                   tooltip={
-                    !canDraft
-                      ? "You don't have permission to edit this Saved Group."
-                      : metadataReviewRequired && isMerged
-                        ? "You cannot edit a merged revision."
-                        : metadataReviewRequired && isDiscarded
-                          ? "You cannot edit a discarded revision."
-                          : undefined
+                    remoteLocked
+                      ? REMOTE_LOCKED_REASON
+                      : !canDraft
+                        ? "You don't have permission to edit this Saved Group."
+                        : metadataReviewRequired && isMerged
+                          ? "You cannot edit a published revision."
+                          : metadataReviewRequired && isDiscarded
+                            ? "You cannot edit a discarded revision."
+                            : undefined
                   }
                   onClick={() => {
                     setDropdownOpen(false);
@@ -1294,6 +1346,19 @@ export default function EditSavedGroupPage() {
               setRevisionToRevert(rev);
               setConfirmRevert(true);
             }}
+            publishBlockedReason={
+              // Archiving still works without Enterprise, for cleanup, so an
+              // archive-only draft can be published (the back end allows it)
+              remoteLocked &&
+              !isSavedGroupRevisionArchiveOnly(
+                (selectedRevision ?? displayRevision)?.target.proposedChanges,
+              )
+                ? REMOTE_LOCKED_REASON
+                : undefined
+            }
+            revertBlockedReason={
+              remoteLocked ? REMOTE_LOCKED_REASON : undefined
+            }
             onCompareRevisions={
               allRevisions.length >= 2
                 ? () => setCompareRevisionsModalOpen(true)
@@ -1308,7 +1373,7 @@ export default function EditSavedGroupPage() {
           <>
             <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
               <Flex gap="4" align="center" wrap="wrap">
-                {savedGroup.type === "list" && (
+                {savedGroup.type !== "condition" && (
                   <Box>
                     <Text weight="medium">Attribute Key: </Text>
                     {savedGroup.attributeKey}
@@ -1391,11 +1456,74 @@ export default function EditSavedGroupPage() {
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={() => setEditDescriptionModal(true)}
             />
-            <LargeSavedGroupPerformanceWarning
-              {...largeSavedGroupSupport}
-              type={savedGroup.type === "condition" ? "condition" : "list"}
-            />
-            {savedGroup.type === "condition" ? (
+            {upgradeModal && (
+              <UpgradeModal
+                close={() => setUpgradeModal(false)}
+                source="remote-saved-groups"
+                commercialFeature="large-saved-groups"
+              />
+            )}
+            {remoteLocked && (
+              <Callout status="warning" mb="4">
+                Changing Remote Groups needs an Enterprise plan. Feature Flags
+                and experiments that use this group keep working, and you can
+                still archive or unarchive it, but you can&apos;t upload IDs,
+                change its version, publish other drafts or roll back.{" "}
+                <Link onClick={() => setUpgradeModal(true)}>Upgrade</Link>
+              </Callout>
+            )}
+            {savedGroup.type === "remote" ? (
+              <RemoteSavedGroupSetupCallout />
+            ) : (
+              <LargeSavedGroupPerformanceWarning
+                {...largeSavedGroupSupport}
+                type={savedGroup.type === "condition" ? "condition" : "list"}
+              />
+            )}
+            {savedGroup.type === "remote" ? (
+              <RemoteSavedGroupUploads
+                savedGroup={savedGroup}
+                canUpload={permissionsUtil.canRevisionAction(
+                  "saved-group",
+                  "publish",
+                  savedGroup,
+                  NO_ENVIRONMENT_BINDING,
+                )}
+                planLockedReason={remoteLocked ? REMOTE_LOCKED_REASON : null}
+                viewing={isLive ? "live" : isDraft ? "draft" : "other"}
+                viewedVersion={displayedSavedGroup?.currentUploadVersion}
+                useVersionDisabledReason={
+                  remoteLocked
+                    ? REMOTE_LOCKED_REASON
+                    : isMerged
+                      ? "You cannot edit a published revision."
+                      : isDiscarded
+                        ? "You cannot edit a discarded revision."
+                        : !canDraft
+                          ? "You don't have permission to edit drafts for this Saved Group."
+                          : null
+                }
+                onUseVersion={(version) => {
+                  // Like editing the condition: work in the user's open draft.
+                  // The dialog starts from the revision it saves into, so its
+                  // conflict check compares against that, not live.
+                  const target = selectedRevision ?? userOpenRevision ?? null;
+                  if (!selectedRevision && userOpenRevision) {
+                    selectFlow(userOpenRevision);
+                  }
+                  setUseUploadModal({
+                    version,
+                    current: target
+                      ? applyTopLevelPatchOps(
+                          (target.target.snapshot as SavedGroupInterface) ||
+                            savedGroup,
+                          target.target.proposedChanges,
+                        )
+                      : savedGroup,
+                  });
+                }}
+              />
+            ) : savedGroup.type === "condition" ? (
               <>
                 <Heading size="md" as="h2" mb="3">
                   Condition
@@ -1409,7 +1537,7 @@ export default function EditSavedGroupPage() {
                     <Tooltip
                       body={
                         isMerged
-                          ? "You cannot edit a merged revision."
+                          ? "You cannot edit a published revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
                             : !canDraft
@@ -1470,7 +1598,7 @@ export default function EditSavedGroupPage() {
                       <Tooltip
                         body={
                           isMerged
-                            ? "You cannot edit a merged revision."
+                            ? "You cannot edit a published revision."
                             : isDiscarded
                               ? "You cannot edit a discarded revision."
                               : !canDraft
@@ -1505,7 +1633,7 @@ export default function EditSavedGroupPage() {
                     <Tooltip
                       body={
                         isMerged
-                          ? "You cannot edit a merged revision."
+                          ? "You cannot edit a published revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
                             : !canDraft
@@ -1544,7 +1672,7 @@ export default function EditSavedGroupPage() {
                     <Tooltip
                       body={
                         isMerged
-                          ? "You cannot edit a merged revision."
+                          ? "You cannot edit a published revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
                             : !canDraft
