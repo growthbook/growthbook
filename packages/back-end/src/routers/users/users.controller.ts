@@ -12,7 +12,7 @@ import {
   NpsResponseBody,
   npsResponseBodyValidator,
 } from "shared/validators";
-import { KnownBlock } from "@slack/types";
+import type { KnownBlock } from "@slack/types";
 import { IS_CLOUD, NPS_SLACK_WEBHOOK } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { sendSlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";

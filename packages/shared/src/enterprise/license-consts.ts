@@ -90,6 +90,7 @@ export type CommercialFeature =
   | "releases"
   | "contextual-bandits"
   | "interleaving"
+  | "cluster-experiments"
   | "human-in-the-loop"
   | "experiment-quality-score";
 
@@ -249,6 +250,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
+  "cluster-experiments",
 ];
 
 const commercialFeaturesProSso: CommercialFeature[] = [

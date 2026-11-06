@@ -2,6 +2,9 @@ import { SignedUploadUrlResponse, UploadResponse } from "shared/types/upload";
 import { ApiCallType } from "./auth";
 import { getApiHost, getUploadMethod } from "./env";
 
+// The image types the upload endpoints accept.
+export const UPLOAD_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif"];
+
 export async function uploadFile(
   apiCall: ApiCallType<UploadResponse | SignedUploadUrlResponse>,
   file: File,

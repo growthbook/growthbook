@@ -121,6 +121,8 @@ const FIELD_LABELS: Record<keyof ExperimentChangesFields, string> = {
   datasource: "Data Source",
   exposureQueryId: "assignment query",
   exposureQueryIdentifierType: "identifier type",
+  isClusterExperiment: "cluster experiment",
+  clusterSubUnitIdentifier: "subunit identifier type",
   goalMetrics: "goal metrics",
   secondaryMetrics: "secondary metrics",
   guardrailMetrics: "guardrail metrics",

@@ -2,13 +2,12 @@
 title: Remote Groups
 description: Target large lists of IDs with Saved Groups whose IDs are stored outside the SDK payload.
 sidebarTitle: Remote Groups
-noindex: true
 ---
 
 Remote Groups are Saved Groups for large lists of IDs, such as millions of user or account IDs. The IDs are stored and looked up outside the SDK payload, so the payload stays small no matter how big the group is.
 
 <Note>
-Remote Groups are an Enterprise feature and are in beta. On GrowthBook Cloud they're only available to some organizations. Contact us if you'd like to try them.
+Remote Groups are an Enterprise feature.
 </Note>
 
 ## How It Works
@@ -22,20 +21,13 @@ A Remote Group has a name and an attribute, like an [ID List](/features/targetin
 
 Rules that use a Remote Group match no one until the user's groups have been looked up. If the lookup fails or times out, the user is treated as being in no Remote Groups, including for "not in group" rules.
 
-<Warning>
-**Make sure a group is loaded before rules use it**
-
-A lookup can't tell a group that hasn't been loaded yet from a user who isn't in it. Until a group's IDs are loaded, a "not in group" rule can match everyone. Before publishing rules that use a new group, check that its version shows as loaded in the **Data stores** column on the group's page. The GrowthBook Proxy handles this for you; see below.
-
-</Warning>
-
 ## Creating a Remote Group
 
 Go to **SDK Configuration** → **Saved Groups**, open the **Remote Groups** tab, and click **Add Remote Group**. Choose a name and the attribute the IDs belong to. The attribute must be a `string` or `number`; `secureString` attributes aren't supported, because the lookup needs the raw value.
 
 After you create the group, it opens on its own page, where you can upload IDs.
 
-Uploading is optional. If your IDs already live in your own database or cache, skip the upload and [write your own resolver](#using-your-own-storage).
+Uploading is optional. If your IDs already live in your own database or cache, skip the upload and [write your own resolver](/features/remote-saved-groups-custom#your-own-resolver).
 
 ## Uploading IDs
 
@@ -77,88 +69,10 @@ In the SDK payload, this is a separate group with the ID `<group id>:<attribute>
 
 ## Looking Up a User's Groups
 
-Rules check Remote Groups against the user's list of group IDs, in the internal `__gb_remoteGroupIds` attribute. Set that list in one of these ways.
+Rules check Remote Groups against the user's list of group IDs, in the internal `__gb_remoteGroupIds` attribute. Set that list in one of these ways:
 
-### GrowthBook Proxy with Remote Evaluation
-
-With [remote evaluation](/self-host/remote-evaluation), the Proxy loads uploaded IDs into Redis and looks up each user's groups before evaluating. Your app doesn't need to do anything. IDs sent by the client are ignored, so users can't add themselves to a group. Rules that use a group the Proxy's Redis hasn't loaded yet don't match anyone, so a "not in group" rule never matches everyone while a group is loading.
-
-See [Loading IDs into Redis](#loading-ids-into-redis) for the Proxy settings.
-
-### JavaScript SDK
-
-The JavaScript SDK (version 2.0.0 or later) can look up a user's groups with a resolver. On the SDK Connection, set **Pass Saved Groups by reference** to **All Saved Groups**, so the payload lists the Remote Groups and their attributes.
-
-For a Node.js server with `GrowthBookClient`, add the user's groups to the user context before evaluating:
-
-```ts
-import { GrowthBookClient, redisResolver } from "@growthbook/growthbook";
-import { createClient } from "redis";
-
-const redis = await createClient({ url: process.env.REDIS_URL }).connect();
-const resolver = redisResolver(redis);
-
-const gb = new GrowthBookClient({ clientKey: "sdk-abc123" });
-await gb.init();
-
-// For each request
-const userContext = await gb.addRemoteSavedGroups(
-  { attributes: { id: "123", parent_account_id: "acct_9" } },
-  resolver,
-);
-const scoped = gb.createScopedInstance(userContext);
-scoped.isOn("my-feature");
-```
-
-`redisResolver` reads the Redis keys the GrowthBook loader writes. If the lookup fails, `addRemoteSavedGroups` returns the user context unchanged, so rules using Remote Groups don't match. Unlike the Proxy, `redisResolver` doesn't check whether a group has been loaded, so make sure it has before using it in "not in group" rules.
-
-If you look up groups some other way, pass them directly with the `remoteGroupIds` option, or with `growthbook.setRemoteGroupIds([...])` on a `GrowthBook` instance.
-
-### Using Your Own Storage
-
-A resolver is a function that takes the user's attributes and the Remote Groups in the payload, and returns the IDs of the groups the user is in:
-
-```ts
-import type { SavedGroupResolver } from "@growthbook/growthbook";
-
-const resolver: SavedGroupResolver = async ({ attributes, groups }) => {
-  // groups: [{ id: "grp_abc123", attributeKey: "account_id" }, ...]
-  return lookUpGroups(attributes, groups); // e.g. ["grp_abc123"]
-};
-```
-
-Groups on another attribute also have a `valuesFrom` field: the ID of the group whose IDs to check that attribute's value against.
-
-### Other SDKs and Older Versions
-
-SDKs without Remote Group support still work, as long as you set the `__gb_remoteGroupIds` attribute yourself: an array of the IDs of the groups the user is in. Rules check that attribute directly. Include the `<group id>:<attribute>` IDs for groups used on other attributes that the user matches. Leave the attribute unset until you've looked the groups up, so rules don't match too early.
-
-## Loading IDs into Redis
-
-The GrowthBook Proxy's loader polls GrowthBook for each Remote Group's version, downloads new versions, and loads them into Redis. Replicas that share a Redis take turns. Run it inside the Proxy, or on its own with `REMOTE_SAVED_GROUPS_LOADER_ONLY=true`, for example next to the Redis your servers use.
-
-| Setting                                       | Default                                               | Description                                                                           |
-| --------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `ENABLE_REMOTE_SAVED_GROUPS`                  | `false`                                               | Turn on Remote Groups (lookups and the loader)                                        |
-| `REMOTE_SAVED_GROUPS_CONNECTION_URL`          | `CACHE_CONNECTION_URL` when `CACHE_ENGINE` is `redis` | The Redis connection URL                                                              |
-| `REMOTE_SAVED_GROUPS_USE_CLUSTER`             | `false`                                               | Use Redis Cluster                                                                     |
-| `REMOTE_SAVED_GROUPS_CLUSTER_ROOT_NODES_JSON` |                                                       | Redis Cluster root nodes, as JSON                                                     |
-| `REMOTE_SAVED_GROUPS_STORE_ID`                |                                                       | Required for the loader. Identifies this Redis in GrowthBook, such as `redis-us-east` |
-| `REMOTE_SAVED_GROUPS_TIMEOUT_MS`              | `1000`                                                | How long a lookup can take before the user is treated as in no Remote Groups          |
-| `REMOTE_SAVED_GROUPS_LOADER`                  | `true`                                                | Run the loader on this instance                                                       |
-| `REMOTE_SAVED_GROUPS_POLL_INTERVAL_MS`        | `300000`                                              | How often the loader checks for new versions                                          |
-| `REMOTE_SAVED_GROUPS_LOADER_ONLY`             | `false`                                               | Only run the loader, with no proxying or evaluation                                   |
-
-The loader uses the Proxy's `SECRET_API_KEY` to read Remote Groups. To report what it loaded, the key also needs permission to publish Saved Groups; with a read-only key, it still loads but doesn't report.
-
-**Store ID:** use one ID per Redis. Replicas sharing a Redis, or one Redis Cluster, use the same ID, and each separate Redis gets a different one. Each Redis shows up under its ID in a version's details.
-
-**Redis requirements:**
-
-- Redis 6.2 or later. Redis Cluster is supported.
-- Loaded IDs have no expiry, so use an eviction policy that keeps them, such as `noeviction` or a `volatile-*` policy, or a Redis just for Remote Groups. If Redis evicts them, users silently drop out of their groups.
-
-After you publish a new version, the loader picks it up on its next poll. Changes to rules reach the Proxy like any other feature change.
+- **[With the GrowthBook Proxy](/features/remote-saved-groups-proxy):** with remote evaluation, the Proxy (version 1.6.0 or later) loads uploaded IDs into Redis and looks up each user's groups before evaluating. Your app doesn't need to do anything.
+- **[Custom lookups and storage](/features/remote-saved-groups-custom):** look up groups yourself, with the JavaScript SDK's resolver, your own resolver and storage, or by setting the attribute in any SDK.
 
 ## Using the REST API
 
@@ -201,13 +115,4 @@ If your organization requires approvals, request a review instead of publishing.
 
 To delete an old upload, use `DELETE /api/v1/saved-groups/{id}/uploads/{version}`. The version the group uses, or one an open draft uses, can't be deleted.
 
-### Writing Your Own Loader
-
-To load IDs into your own store:
-
-1. Poll `GET /api/v1/saved-groups?type=remote&limit=100`. The response is paginated: while `hasMore` is true, fetch the next page by passing `nextOffset` as `offset`. Each group's `currentUpload` has the `version` it uses, or is `null` when it uses none. Archived groups are included. Only after every page succeeds, remove the IDs of groups missing from the complete list.
-2. Download a version with `GET /api/v1/saved-groups/{id}/uploads/{version}/file`. It redirects to a short-lived download URL; follow the redirect without the `Authorization` header.
-3. Load the IDs. Remove duplicates, and when `currentUpload.numeric` is true, store numbers in their shortest form (`String(Number(id))`).
-4. Optionally report the result with `POST /api/v1/saved-groups/{id}/uploads/{version}/loads`, so it shows in GrowthBook.
-
-The version a group uses can move back to an earlier one. Load whichever version `currentUpload` names.
+To load uploaded IDs into your own store, see [With Your Own Loader](/features/remote-saved-groups-custom#with-your-own-loader).

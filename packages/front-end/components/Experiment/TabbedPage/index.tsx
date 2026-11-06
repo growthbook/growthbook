@@ -849,6 +849,7 @@ function TabbedPageContents({
                   viewHealth={
                     healthTabAvailable ? () => setTabAndScroll("health") : null
                   }
+                  isClusterExperiment={!!experiment.isClusterExperiment}
                   {...bannerMargin}
                 />
               ) : null}
