@@ -50,19 +50,13 @@
   }
 }
 
-// Beside the edge, over the page, while releasing would expand the panel.
-.snapHint {
+// Where the "Release to expand" tooltip points from: the edge's middle.
+.snapAnchor {
   position: absolute;
   top: 50%;
-  right: calc(100% + var(--space-2));
-  transform: translateY(-50%);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-3);
-  background: var(--violet-9);
-  color: white;
-  font-size: var(--font-size-1);
-  font-weight: var(--font-weight-medium);
-  white-space: nowrap;
+  left: 0;
+  width: 100%;
+  height: 1px;
   pointer-events: none;
 }
 

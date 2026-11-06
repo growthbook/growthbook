@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import clsx from "clsx";
+import Tooltip from "@/ui/Tooltip";
 import {
   PANEL_DEFAULT_WIDTH,
   PANEL_MIN_WIDTH,
@@ -220,11 +221,10 @@ export default function AgentPanelResizeHandle({
       onKeyDown={onKeyDown}
       onFocus={() => setMax(currentMax())}
     >
-      {snapping ? (
-        <span className={styles.snapHint} aria-hidden="true">
-          Release to expand
-        </span>
-      ) : null}
+      {/* Shown only once the drag is armed to expand; hovering never opens it. */}
+      <Tooltip content="Release to expand" side="left" open={snapping}>
+        <span className={styles.snapAnchor} aria-hidden="true" />
+      </Tooltip>
     </div>
   );
 }
