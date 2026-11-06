@@ -104,9 +104,24 @@ export const helpers: Helpers = {
   },
 };
 
+// Node 25+ logs an ExperimentalWarning on any localStorage access unless --localstorage-file is set
+function isNodeWithoutLocalStorageFile(): boolean {
+  if (typeof window !== "undefined" || typeof process === "undefined") {
+    return false;
+  }
+  if (!process.versions?.node) return false;
+  return ![...(process.execArgv || []), process.env?.NODE_OPTIONS || ""].some(
+    (arg) => arg.includes("--localstorage-file"),
+  );
+}
+
 try {
-  if (globalThis.localStorage) {
-    polyfills.localStorage = globalThis.localStorage;
+  // In that case only adopt app-supplied storage (a data property), never Node's native getter
+  const localStorage = isNodeWithoutLocalStorageFile()
+    ? Object.getOwnPropertyDescriptor(globalThis, "localStorage")?.value
+    : globalThis.localStorage;
+  if (localStorage) {
+    polyfills.localStorage = localStorage;
   }
 } catch (e) {
   // Ignore localStorage errors
