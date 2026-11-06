@@ -1669,6 +1669,8 @@ export function getFeatureDefinition({
           }
         } else if (r.type === "rollout") {
           const monitorInfo = rampMonitoredRuleMap?.get(r.id);
+          // Unset coverage means 100%; a null would reach SDKs and serve no one.
+          const coverage = r.coverage ?? 1;
 
           // Monitored rollout rules need hashAttribute + seed to emit experiment-mode
           // payload (tracking key, stable bucketing). Fall back to feature.id (matches
@@ -1679,7 +1681,7 @@ export function getFeatureDefinition({
             const monitoredSeed = r.seed || feature.id;
             // Reuse rollout bucketing so monitored steps do not cause variation hopping.
             const clampedCoverage =
-              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+              coverage > 1 ? 1 : coverage < 0 ? 0 : coverage;
 
             const defaultValue = revision
               ? (revision.defaultValue ?? feature.defaultValue)
@@ -1742,7 +1744,7 @@ export function getFeatureDefinition({
             }
             rule.force = valueForSDK(r.value, r.sparse || !!defaultConfigKey);
             const clampedCoverage =
-              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+              coverage > 1 ? 1 : coverage < 0 ? 0 : coverage;
             if (clampedCoverage < 1) {
               rule.coverage = clampedCoverage;
               if (r.hashAttribute) {
@@ -2019,4 +2021,16 @@ export function toFeatureMetaInfo(
     revision: f.revision as FeatureMetaInfo["revision"],
     ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
   };
+}
+
+// Keyed by `${featureId}:${version}`; the first revision for a key wins.
+export function indexRevisions<
+  T extends Pick<FeatureRevisionInterface, "featureId" | "version">,
+>(revisions: T[] | null | undefined): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const r of revisions ?? []) {
+    const key = `${r.featureId}:${r.version}`;
+    if (!map.has(key)) map.set(key, r);
+  }
+  return map;
 }
