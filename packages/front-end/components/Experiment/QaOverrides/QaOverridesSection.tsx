@@ -20,7 +20,6 @@ import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import Table, {
   TableBody,
   TableCell,
@@ -30,8 +29,7 @@ import Table, {
 } from "@/ui/Table";
 import QaOverrideModal from "./QaOverrideModal";
 import {
-  experimentTargetingLabel,
-  QaOverrideAdditionalTargeting,
+  QaOverrideFiltersSummary,
   QaOverrideSetBy,
   QaOverrideVariation,
 } from "./QaOverrideSummary";
@@ -55,15 +53,14 @@ export default function QaOverridesSection({
   const [confirmStopAll, setConfirmStopAll] = useState(false);
 
   const overrides = data?.overrides ?? [];
-  const connections = data?.sdkConnections ?? [];
   const variations = getLatestPhaseVariations(experiment);
-  const enabledEnvs = environments.filter((e) => !isProductionEnvironment(e));
+  const eligibleEnvs = environments.filter((e) => !isProductionEnvironment(e));
   const canEdit = permissionsUtil.canRunExperiment(
     experiment,
-    enabledEnvs.map((e) => e.id),
+    eligibleEnvs.map((e) => e.id),
   );
 
-  const stopOverride = async (override: ExperimentQaOverrideInterface) => {
+  const deleteOverride = async (override: ExperimentQaOverrideInterface) => {
     await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
     await mutate();
   };
@@ -84,9 +81,9 @@ export default function QaOverridesSection({
       )}
       {confirmStopAll && (
         <ConfirmDialog
-          title="Stop all QA overrides?"
-          content="This draft will stop being served to every SDK Connection listed here."
-          yesText="Stop all"
+          title="Remove all QA overrides?"
+          content="This draft will stop being served to every environment listed here."
+          yesText="Remove all"
           color="red"
           onCancel={() => setConfirmStopAll(false)}
           onConfirm={async () => {
@@ -104,19 +101,19 @@ export default function QaOverridesSection({
             QA Overrides
           </Heading>
           <Text color="text-mid">
-            While in draft, only the SDK Connections below will be able to see
-            this experiment.
+            Serve this draft to a non-production environment before it starts.
+            When several overrides match a request, the first one wins.
           </Text>
         </Box>
-        {canEdit && enabledEnvs.length > 0 && (
+        {canEdit && eligibleEnvs.length > 0 && (
           <Flex align="center" gap="3" flexShrink="0">
-            {overrides.length > 0 && (
+            {overrides.length > 1 && (
               <Button
                 variant="ghost"
                 color="red"
                 onClick={() => setConfirmStopAll(true)}
               >
-                Stop all
+                Remove all
               </Button>
             )}
             <Button
@@ -130,93 +127,66 @@ export default function QaOverridesSection({
         )}
       </Flex>
 
-      {enabledEnvs.length === 0 ? (
+      {eligibleEnvs.length === 0 ? (
         <Callout status="info">
-          Mark an environment as non-production in Settings → Environments to
-          serve this draft to its SDK Connections.{" "}
-          <Link href="/environments">Manage environments</Link>
+          Every environment is marked as production. Turn off &quot;This is a
+          production environment&quot; on one in Settings → Environments to use
+          QA overrides. <Link href="/environments">Manage environments</Link>
         </Callout>
       ) : overrides.length === 0 ? (
         <Text color="text-low">
-          No QA overrides yet. Add one to serve this draft to a specific SDK
-          Connection.
+          No QA overrides yet. Add one to serve this draft to an environment.
         </Text>
       ) : (
         <Table variant="ghost">
           <TableHeader>
             <TableRow>
-              <TableColumnHeader>Connection</TableColumnHeader>
+              <TableColumnHeader>Environment</TableColumnHeader>
+              <TableColumnHeader>Filters</TableColumnHeader>
               <TableColumnHeader>Variation</TableColumnHeader>
-              <TableColumnHeader>Additional targeting</TableColumnHeader>
-              <TableColumnHeader>Experiment targeting</TableColumnHeader>
               <TableColumnHeader>Set by</TableColumnHeader>
               <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {overrides.map((override) => {
-              const connection = connections.find(
-                (c) => c.id === override.sdkConnection,
-              );
-              return (
-                <TableRow key={override.id}>
-                  <TableCell>
-                    <Flex direction="column" gap="1">
-                      <Flex align="center" gap="2">
-                        <Link href={`/sdks/${override.sdkConnection}`}>
-                          {connection?.name ?? override.sdkConnection}
-                        </Link>
-                        <Badge label={override.environment} color="gray" />
-                      </Flex>
-                      {connection?.key && (
-                        <Text size="sm" color="text-low">
-                          <TruncateMiddleWithTooltip
-                            text={connection.key}
-                            maxChars={28}
-                          />
-                        </Text>
-                      )}
+            {overrides.map((override) => (
+              <TableRow key={override.id}>
+                <TableCell>
+                  <Badge label={override.environment} color="gray" />
+                </TableCell>
+                <TableCell>
+                  <QaOverrideFiltersSummary override={override} />
+                </TableCell>
+                <TableCell>
+                  <QaOverrideVariation
+                    override={override}
+                    variations={variations}
+                  />
+                </TableCell>
+                <TableCell>
+                  <QaOverrideSetBy override={override} />
+                </TableCell>
+                <TableCell>
+                  {canEdit && (
+                    <Flex gap="4" justify="end">
+                      <Button
+                        variant="ghost"
+                        onClick={() => setModal({ mode: "edit", override })}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        color="red"
+                        onClick={() => deleteOverride(override)}
+                      >
+                        Remove
+                      </Button>
                     </Flex>
-                  </TableCell>
-                  <TableCell>
-                    <QaOverrideVariation
-                      override={override}
-                      variations={variations}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <QaOverrideAdditionalTargeting override={override} />
-                  </TableCell>
-                  <TableCell>
-                    <Text color="text-mid">
-                      {experimentTargetingLabel(override)}
-                    </Text>
-                  </TableCell>
-                  <TableCell>
-                    <QaOverrideSetBy override={override} />
-                  </TableCell>
-                  <TableCell>
-                    {canEdit && (
-                      <Flex gap="4" justify="end">
-                        <Button
-                          variant="ghost"
-                          onClick={() => setModal({ mode: "edit", override })}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          color="red"
-                          onClick={() => stopOverride(override)}
-                        >
-                          Stop
-                        </Button>
-                      </Flex>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       )}

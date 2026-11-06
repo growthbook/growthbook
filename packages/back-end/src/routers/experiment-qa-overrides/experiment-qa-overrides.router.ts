@@ -1,7 +1,8 @@
 import express from "express";
 import { z } from "zod";
 import {
-  createExperimentQaOverridesBodyValidator,
+  createExperimentQaOverrideBodyValidator,
+  reorderExperimentQaOverridesBodyValidator,
   updateExperimentQaOverrideBodyValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -23,9 +24,17 @@ router.post(
   "/experiment/:id",
   validateRequestMiddleware({
     params: idParams,
-    body: createExperimentQaOverridesBodyValidator,
+    body: createExperimentQaOverrideBodyValidator,
   }),
-  controller.postExperimentQaOverrides,
+  controller.postExperimentQaOverride,
+);
+router.put(
+  "/experiment/:id/order",
+  validateRequestMiddleware({
+    params: idParams,
+    body: reorderExperimentQaOverridesBodyValidator,
+  }),
+  controller.putExperimentQaOverridesOrder,
 );
 router.delete(
   "/experiment/:id",
@@ -37,11 +46,6 @@ router.get(
   "/sdk-connection/:id",
   validateRequestMiddleware({ params: idParams }),
   controller.getSdkConnectionQaOverrides,
-);
-router.delete(
-  "/sdk-connection/:id",
-  validateRequestMiddleware({ params: idParams }),
-  controller.deleteSdkConnectionQaOverrides,
 );
 
 router.put(

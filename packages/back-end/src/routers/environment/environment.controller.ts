@@ -36,6 +36,18 @@ import {
   cleanupDeletedEnvironment,
 } from "back-end/src/services/environments";
 
+// QA overrides only serve non-production environments, so flipping one to
+// production clears them (the model refreshes the environment's payloads).
+async function clearQaOverridesIfNowProduction(
+  context: ReturnType<typeof getContextFromReq>,
+  previous: Environment,
+  updated: Environment,
+) {
+  if (!isProductionEnvironment(previous) && isProductionEnvironment(updated)) {
+    await context.models.experimentQaOverrides.deleteByEnvironment(updated.id);
+  }
+}
+
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
 type UpdateEnvironmentProps = z.infer<typeof updateEnvValidator>;
@@ -148,6 +160,13 @@ export const putEnvironments = async (
       },
     });
 
+    for (const updated of updatedEnvironments) {
+      const previous = existingEnvs.find((e) => e.id === updated.id);
+      if (previous) {
+        await clearQaOverridesIfNowProduction(context, previous, updated);
+      }
+    }
+
     await req.audit({
       event: "environment.update",
       entity: {
@@ -211,28 +230,11 @@ export const putEnvironment = async (
       },
     });
 
-    if (
-      !isProductionEnvironment(envsArr[existingEnvIndex]) &&
-      isProductionEnvironment(updatedEnv)
-    ) {
-      const removed =
-        await context.models.experimentQaOverrides.deleteByEnvironment(id, {
-          skipSDKRefresh: true,
-        });
-      if (removed.length) {
-        const connections = await findSDKConnectionsByOrganization(context);
-        queueSDKPayloadRefresh({
-          context,
-          payloadKeys: [],
-          sdkConnections: connections.filter((c) => c.environment === id),
-          auditContext: {
-            event: "environment marked production",
-            model: "environment",
-            id,
-          },
-        });
-      }
-    }
+    await clearQaOverridesIfNowProduction(
+      context,
+      envsArr[existingEnvIndex],
+      updatedEnv,
+    );
 
     if (environment.projects) {
       const existingProjects = envsArr[existingEnvIndex].projects || [];

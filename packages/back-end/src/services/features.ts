@@ -36,6 +36,8 @@ import {
   isDefined,
   isQaTrackingKey,
   namespacesToMap,
+  qaOverrideAppliesToConnection,
+  sortQaOverrides,
   recursiveWalk,
   ruleAppliesToEnv,
   TargetingScopedEntity,
@@ -302,7 +304,7 @@ export function generateFeaturesPayload({
   includeExperimentNames?: boolean;
   cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
-  qaOverrides?: Map<string, ExperimentQaOverrideInterface>;
+  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   payloadProjects?: string[];
   // Carried by prerequisite closure: built against their own delivery scope,
@@ -620,7 +622,7 @@ export function generateAutoExperimentsPayload({
   organization?: OrganizationInterface;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeExperimentNames?: boolean;
-  qaOverrides?: Map<string, ExperimentQaOverrideInterface>;
+  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
 }): AutoExperimentWithMetadata[] {
   const savedGroupStrategy =
     providedSavedGroupStrategy ??
@@ -662,7 +664,8 @@ export function generateAutoExperimentsPayload({
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
       const qaOverride =
-        e.status === "draft" ? qaOverrides?.get(e.id) : undefined;
+        e.status === "draft" ? qaOverrides?.get(e.id)?.[0] : undefined;
+      const qaForced = qaOverride?.assignment.type === "forced";
       const trackingKey = qaOverride
         ? getQaTrackingKey(e.trackingKey)
         : e.trackingKey;
@@ -684,14 +687,14 @@ export function generateAutoExperimentsPayload({
         savedGroups: phase?.savedGroups,
       });
       const condition = qaOverride
-        ? qaOverrideCondition({ override: qaOverride, experimentCondition })
+        ? qaOverrideCondition({
+            override: qaOverride,
+            experimentCondition,
+            savedGroupStrategy,
+          })
         : experimentCondition;
 
-      const prerequisites = (
-        qaOverride && !qaOverride.applyExperimentTargeting
-          ? []
-          : (phase?.prerequisites ?? [])
-      )
+      const prerequisites = (qaForced ? [] : (phase?.prerequisites ?? []))
         ?.map((p) => {
           const condition = mergeConditionAndSavedGroups({
             savedGroupStrategy,
@@ -773,10 +776,7 @@ export function generateAutoExperimentsPayload({
           ? variations.indexOf(forcedVariation)
           : undefined,
         condition,
-        coverage:
-          qaOverride && !qaOverride.applyExperimentCoverage
-            ? 1
-            : phase.coverage,
+        coverage: qaForced ? 1 : phase.coverage,
       };
 
       // Handle namespace
@@ -1715,16 +1715,16 @@ export async function refreshSDKPayloadCache({
 
   const orgEnvironments = getEnvironments(context.org);
   if (orgEnvironments.some((e) => !isProductionEnvironment(e))) {
-    const byConnection = new Map<string, ExperimentQaOverrideInterface[]>();
+    const byEnvironment = new Map<string, ExperimentQaOverrideInterface[]>();
     const allQaOverrides =
       await context.models.experimentQaOverrides.getAllForPayload();
     allQaOverrides.forEach((o) => {
-      byConnection.set(o.sdkConnection, [
-        ...(byConnection.get(o.sdkConnection) ?? []),
+      byEnvironment.set(o.environment, [
+        ...(byEnvironment.get(o.environment) ?? []),
         o,
       ]);
     });
-    rawData.qaOverridesByConnection = byConnection;
+    rawData.qaOverridesByEnvironment = byEnvironment;
   }
 
   const payloadSizeLimitBytes = await getSdkPayloadSizeLimitBytes();
@@ -1775,8 +1775,8 @@ export async function refreshSDKPayloadCache({
             includeExperimentScheduleInMetadata:
               connection.includeExperimentScheduleInMetadata,
             qaOverrides: qaOverridesForConnection({
-              overrides: rawData.qaOverridesByConnection?.get(connection.id),
-              environment: env,
+              overrides: rawData.qaOverridesByEnvironment?.get(env),
+              connection,
               environments: orgEnvironments,
             }),
           },
@@ -2101,7 +2101,7 @@ export type SDKPayloadRawData = {
   // Hoisted for the same reason as `constantMap`: prerequisite closure needs it
   // per connection. Built in buildSDKPayloadForConnection when omitted.
   featuresMap?: Map<string, FeatureInterface>;
-  qaOverridesByConnection?: Map<string, ExperimentQaOverrideInterface[]>;
+  qaOverridesByEnvironment?: Map<string, ExperimentQaOverrideInterface[]>;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -2125,26 +2125,34 @@ export type ConnectionPayloadOptions = {
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
   includeExperimentScheduleInMetadata?: boolean;
-  qaOverrides?: Map<string, ExperimentQaOverrideInterface>;
+  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
 };
 
+// The overrides a connection serves, by experiment, in priority order. The
+// production check here is a second safeguard: an override saved before its
+// environment was switched to production must never be served.
 export function qaOverridesForConnection({
   overrides,
-  environment,
+  connection,
   environments,
 }: {
   overrides: ExperimentQaOverrideInterface[] | undefined;
-  environment: string;
+  connection: Pick<SDKConnectionInterface, "id" | "environment" | "projects">;
   environments: Environment[];
-}): Map<string, ExperimentQaOverrideInterface> | undefined {
+}): Map<string, ExperimentQaOverrideInterface[]> | undefined {
   if (!overrides?.length) return undefined;
-  const env = environments.find((e) => e.id === environment);
+  const env = environments.find((e) => e.id === connection.environment);
   if (!env || isProductionEnvironment(env)) return undefined;
-  return new Map(
-    overrides
-      .filter((o) => o.environment === environment)
-      .map((o) => [o.experiment, o]),
-  );
+  const byExperiment = new Map<string, ExperimentQaOverrideInterface[]>();
+  sortQaOverrides(overrides)
+    .filter((o) => qaOverrideAppliesToConnection(o, connection))
+    .forEach((o) => {
+      byExperiment.set(o.experiment, [
+        ...(byExperiment.get(o.experiment) ?? []),
+        o,
+      ]);
+    });
+  return byExperiment.size ? byExperiment : undefined;
 }
 
 // Full input for building one connection's SDK payload
@@ -2571,10 +2579,14 @@ export async function getFeatureDefinitions(
   const qaOverrides = args.sdkConnectionId
     ? qaOverridesForConnection({
         overrides:
-          await context.models.experimentQaOverrides.findBySdkConnectionForPayload(
-            args.sdkConnectionId,
+          await context.models.experimentQaOverrides.findByEnvironment(
+            environment,
           ),
-        environment,
+        connection: {
+          id: args.sdkConnectionId,
+          environment,
+          projects: projects ?? [],
+        },
         environments: getEnvironments(context.org),
       })
     : undefined;

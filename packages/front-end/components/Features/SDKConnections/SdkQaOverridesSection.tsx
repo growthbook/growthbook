@@ -17,7 +17,6 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import ConfirmDialog from "@/ui/ConfirmDialog";
 import Table, {
   TableBody,
   TableCell,
@@ -27,7 +26,7 @@ import Table, {
 } from "@/ui/Table";
 import QaOverrideModal from "@/components/Experiment/QaOverrides/QaOverrideModal";
 import {
-  qaOverrideIncludedLabel,
+  QaOverrideFiltersSummary,
   QaOverrideSetBy,
   QaOverrideVariation,
 } from "@/components/Experiment/QaOverrides/QaOverrideSummary";
@@ -45,7 +44,6 @@ export default function SdkQaOverridesSection({
     override: ExperimentQaOverrideInterface;
     experiment: QaOverrideExperiment;
   } | null>(null);
-  const [confirmStopAll, setConfirmStopAll] = useState(false);
 
   const overrides = data?.overrides ?? [];
   const experiments = data?.experiments ?? [];
@@ -55,7 +53,7 @@ export default function SdkQaOverridesSection({
   const canEdit = (experiment: QaOverrideExperiment) =>
     permissionsUtil.canRunExperiment(experiment, [connection.environment]);
 
-  const stopOverride = async (override: ExperimentQaOverrideInterface) => {
+  const deleteOverride = async (override: ExperimentQaOverrideInterface) => {
     await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
     await mutate();
   };
@@ -66,27 +64,10 @@ export default function SdkQaOverridesSection({
         <QaOverrideModal
           experiment={editing.experiment}
           existing={editing.override}
-          lockedConnection={connection}
           close={() => setEditing(null)}
           onSaved={async () => {
             await mutate();
             setEditing(null);
-          }}
-        />
-      )}
-      {confirmStopAll && (
-        <ConfirmDialog
-          title="Stop all QA overrides?"
-          content="This connection will stop receiving every draft experiment listed here."
-          yesText="Stop all"
-          color="red"
-          onCancel={() => setConfirmStopAll(false)}
-          onConfirm={async () => {
-            await apiCall(`/qa-overrides/sdk-connection/${connection.id}`, {
-              method: "DELETE",
-            });
-            await mutate();
-            setConfirmStopAll(false);
           }}
         />
       )}
@@ -106,30 +87,19 @@ export default function SdkQaOverridesSection({
             )}
           </Flex>
           <Text color="text-mid">
-            Requests with this client key get the{" "}
-            <Text weight="medium">{connection.environment}</Text>{" "}
-            environment&apos;s live config plus the draft experiments below.
-            Each one clears itself when its experiment starts.
+            Draft experiments served to the{" "}
+            <Text weight="medium">{connection.environment}</Text> environment
+            that reach this connection. Each one is removed when its experiment
+            starts.
           </Text>
         </Box>
-        {overrides.length > 0 && (
-          <Flex align="center" flexShrink="0">
-            <Button
-              variant="ghost"
-              color="red"
-              onClick={() => setConfirmStopAll(true)}
-            >
-              Stop all
-            </Button>
-          </Flex>
-        )}
       </Flex>
 
       {!envEligible ? (
         <Callout status="info">
-          The <Text weight="medium">{connection.environment}</Text> environment
-          is a production environment. Mark it as non-production in Settings →
-          Environments. <Link href="/environments">Manage environments</Link>
+          <Text weight="medium">{connection.environment}</Text> is a production
+          environment, so QA overrides aren&apos;t available on this connection.{" "}
+          <Link href="/environments">Manage environments</Link>
         </Callout>
       ) : overrides.length === 0 ? (
         <Text color="text-low">
@@ -140,8 +110,8 @@ export default function SdkQaOverridesSection({
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Experiment</TableColumnHeader>
+              <TableColumnHeader>Filters</TableColumnHeader>
               <TableColumnHeader>Variation</TableColumnHeader>
-              <TableColumnHeader>Included</TableColumnHeader>
               <TableColumnHeader>Set by</TableColumnHeader>
               <TableColumnHeader />
             </TableRow>
@@ -151,18 +121,15 @@ export default function SdkQaOverridesSection({
               const experiment = experiments.find(
                 (e) => e.id === override.experiment,
               );
-              const phase = experiment?.phases[experiment.phases.length - 1];
               return (
                 <TableRow key={override.id}>
                   <TableCell>
-                    <Flex direction="column" gap="1">
-                      <Link href={`/experiment/${override.experiment}`}>
-                        {experiment?.name ?? override.experiment}
-                      </Link>
-                      <Text size="sm" color="text-low">
-                        Draft · hidden from other connections
-                      </Text>
-                    </Flex>
+                    <Link href={`/experiment/${override.experiment}`}>
+                      {experiment?.name ?? override.experiment}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <QaOverrideFiltersSummary override={override} />
                   </TableCell>
                   <TableCell>
                     <QaOverrideVariation
@@ -171,11 +138,6 @@ export default function SdkQaOverridesSection({
                         experiment ? getLatestPhaseVariations(experiment) : []
                       }
                     />
-                  </TableCell>
-                  <TableCell>
-                    <Text color="text-mid">
-                      {qaOverrideIncludedLabel(override, phase)}
-                    </Text>
                   </TableCell>
                   <TableCell>
                     <QaOverrideSetBy override={override} />
@@ -192,9 +154,9 @@ export default function SdkQaOverridesSection({
                         <Button
                           variant="ghost"
                           color="red"
-                          onClick={() => stopOverride(override)}
+                          onClick={() => deleteOverride(override)}
                         >
-                          Stop
+                          Remove
                         </Button>
                       </Flex>
                     )}

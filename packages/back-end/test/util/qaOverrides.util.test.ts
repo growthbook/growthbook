@@ -1,6 +1,8 @@
 import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { FeatureDefinitionRule } from "shared/types/sdk";
+import { SavedGroupPayloadStrategy } from "shared/sdk-versioning/saved-groups/types";
+import { qaOverrideAppliesToConnection } from "shared/util";
 import {
   applyQaOverrideToRule,
   qaOverrideCondition,
@@ -23,43 +25,54 @@ const phase = {
   condition: '{"country":"US"}',
 } as unknown as ExperimentPhase;
 
-const baseOverride: ExperimentQaOverrideInterface = {
+// Inline strategy: saved groups become `$inGroup` references, nothing is rewritten.
+const savedGroupStrategy = {
+  format: "referencesV1",
+  groupMap: new Map([
+    ["grp_qa", { type: "list", attributeKey: "id", hasValues: true }],
+  ]),
+  createCondition: ({ groupId, include }) =>
+    include ? { id: { $inGroup: groupId } } : { id: { $notInGroup: groupId } },
+  createSavedGroupsOperatorHandler: () => () => undefined,
+  finalizeCondition: () => undefined,
+} as unknown as SavedGroupPayloadStrategy;
+
+const forcedOverride: ExperimentQaOverrideInterface = {
   id: "eqo_1",
   organization: "org",
   dateCreated: new Date(),
   dateUpdated: new Date(),
   experiment: "exp_1",
-  sdkConnection: "sdk_1",
   environment: "dev",
+  order: 0,
+  filters: {},
   assignment: { type: "forced", variationId: "v1" },
-  applyExperimentTargeting: false,
-  applyExperimentCoverage: false,
-  additionalTargeting: null,
   createdBy: "u_1",
+};
+const randomOverride: ExperimentQaOverrideInterface = {
+  ...forcedOverride,
+  id: "eqo_2",
+  assignment: { type: "random" },
 };
 
 describe("qaOverrideWeights", () => {
   it("forces one variation with one-hot weights", () => {
-    expect(qaOverrideWeights(baseOverride, experiment, phase)).toEqual([
+    expect(qaOverrideWeights(forcedOverride, experiment, phase)).toEqual([
       0, 1, 0,
     ]);
   });
 
   it("keeps the phase weights for random assignment", () => {
-    expect(
-      qaOverrideWeights(
-        { ...baseOverride, assignment: { type: "random" } },
-        experiment,
-        phase,
-      ),
-    ).toEqual([0.34, 0.33, 0.33]);
+    expect(qaOverrideWeights(randomOverride, experiment, phase)).toEqual([
+      0.34, 0.33, 0.33,
+    ]);
   });
 
   it("falls back to the phase weights when the variation is missing", () => {
     expect(
       qaOverrideWeights(
         {
-          ...baseOverride,
+          ...forcedOverride,
           assignment: { type: "forced", variationId: "nope" },
         },
         experiment,
@@ -72,34 +85,48 @@ describe("qaOverrideWeights", () => {
 describe("qaOverrideCondition", () => {
   const experimentCondition = { country: "US" };
 
-  it("drops the experiment condition unless applyExperimentTargeting", () => {
-    expect(
-      qaOverrideCondition({ override: baseOverride, experimentCondition }),
-    ).toBeUndefined();
+  it("ignores the experiment condition when forcing a variation", () => {
     expect(
       qaOverrideCondition({
-        override: { ...baseOverride, applyExperimentTargeting: true },
+        override: forcedOverride,
         experimentCondition,
+        savedGroupStrategy,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("keeps the experiment condition for random assignment", () => {
+    expect(
+      qaOverrideCondition({
+        override: randomOverride,
+        experimentCondition,
+        savedGroupStrategy,
       }),
     ).toEqual(experimentCondition);
   });
 
-  it("compiles additional targeting to $in and ANDs it with the experiment condition", () => {
-    const override: ExperimentQaOverrideInterface = {
-      ...baseOverride,
-      additionalTargeting: { attribute: "email", values: ["a@x.com"] },
+  it("compiles the filters and ANDs them with the experiment condition only for random assignment", () => {
+    const filters = {
+      condition: '{"email":{"$in":["a@x.com"]}}',
+      savedGroups: [{ match: "all" as const, ids: ["grp_qa"] }],
     };
-    expect(qaOverrideCondition({ override, experimentCondition })).toEqual({
-      email: { $in: ["a@x.com"] },
-    });
+    const compiled = {
+      $and: [{ email: { $in: ["a@x.com"] } }, { id: { $inGroup: "grp_qa" } }],
+    };
     expect(
       qaOverrideCondition({
-        override: { ...override, applyExperimentTargeting: true },
+        override: { ...forcedOverride, filters },
         experimentCondition,
+        savedGroupStrategy,
       }),
-    ).toEqual({
-      $and: [experimentCondition, { email: { $in: ["a@x.com"] } }],
-    });
+    ).toEqual(compiled);
+    expect(
+      qaOverrideCondition({
+        override: { ...randomOverride, filters },
+        experimentCondition,
+        savedGroupStrategy,
+      }),
+    ).toEqual({ $and: [experimentCondition, compiled] });
   });
 });
 
@@ -111,34 +138,82 @@ describe("applyQaOverrideToRule", () => {
     variations: ["a", "b", "c"],
     condition: { country: "US" },
     parentConditions: [{ id: "parent", condition: { value: true } }],
+    namespace: ["ns", 0, 0.5],
     seed: "phase-seed",
   });
 
-  it("rewrites the rule onto the QA tracking key with forced weights", () => {
+  it("forcing a variation strips targeting, coverage, prerequisites and namespace", () => {
     const rule = applyQaOverrideToRule(
       buildRule(),
       experiment,
       phase,
-      baseOverride,
+      forcedOverride,
+      savedGroupStrategy,
     );
     expect(rule.key).toBe("checkout__qa");
-    expect(rule.seed).toBe("checkout__qa");
     expect(rule.weights).toEqual([0, 1, 0]);
     expect(rule.coverage).toBe(1);
     expect(rule.disableStickyBucketing).toBe(true);
     expect(rule.condition).toBeUndefined();
     expect(rule.parentConditions).toBeUndefined();
+    expect(rule.namespace).toBeUndefined();
     expect(rule.variations).toEqual(["a", "b", "c"]);
   });
 
-  it("keeps coverage, condition and prerequisites when asked to", () => {
-    const rule = applyQaOverrideToRule(buildRule(), experiment, phase, {
-      ...baseOverride,
-      applyExperimentTargeting: true,
-      applyExperimentCoverage: true,
-    });
+  it("random assignment keeps the experiment as configured", () => {
+    const rule = applyQaOverrideToRule(
+      buildRule(),
+      experiment,
+      phase,
+      randomOverride,
+      savedGroupStrategy,
+    );
+    expect(rule.key).toBe("checkout__qa");
+    expect(rule.weights).toEqual([0.34, 0.33, 0.33]);
     expect(rule.coverage).toBe(0.5);
     expect(rule.condition).toEqual({ country: "US" });
     expect(rule.parentConditions).toHaveLength(1);
+    expect(rule.namespace).toEqual(["ns", 0, 0.5]);
+  });
+});
+
+describe("qaOverrideAppliesToConnection", () => {
+  const connection = { id: "sdk_1", environment: "dev", projects: ["p1"] };
+
+  it("requires the same environment", () => {
+    expect(qaOverrideAppliesToConnection(forcedOverride, connection)).toBe(
+      true,
+    );
+    expect(
+      qaOverrideAppliesToConnection(forcedOverride, {
+        ...connection,
+        environment: "staging",
+      }),
+    ).toBe(false);
+  });
+
+  it("honors the connection filter", () => {
+    const override = {
+      ...forcedOverride,
+      filters: { sdkConnections: ["sdk_2"] },
+    };
+    expect(qaOverrideAppliesToConnection(override, connection)).toBe(false);
+    expect(
+      qaOverrideAppliesToConnection(override, { ...connection, id: "sdk_2" }),
+    ).toBe(true);
+  });
+
+  it("honors the project filter, treating an unscoped connection as matching", () => {
+    const override = { ...forcedOverride, filters: { projects: ["p2"] } };
+    expect(qaOverrideAppliesToConnection(override, connection)).toBe(false);
+    expect(
+      qaOverrideAppliesToConnection(override, { ...connection, projects: [] }),
+    ).toBe(true);
+    expect(
+      qaOverrideAppliesToConnection(override, {
+        ...connection,
+        projects: ["p1", "p2"],
+      }),
+    ).toBe(true);
   });
 });

@@ -521,21 +521,14 @@ export async function editSDKConnection(
     dateUpdated: new Date(),
   };
 
+  // QA override filters name connections by id; one that leaves the
+  // environment can no longer be served the override.
   if (
     otherChanges.environment !== undefined &&
     otherChanges.environment !== connection.environment
   ) {
-    await context.models.experimentQaOverrides.deleteBySdkConnection(
+    await context.models.experimentQaOverrides.removeSdkConnectionFromFilters(
       connection.id,
-      { skipSDKRefresh: true },
-    );
-  } else if (
-    Array.isArray(otherChanges.projects) &&
-    !isEqual(otherChanges.projects, connection.projects)
-  ) {
-    await context.models.experimentQaOverrides.deleteOutOfScopeForSdkConnection(
-      connection.id,
-      otherChanges.projects,
       { skipSDKRefresh: true },
     );
   }
@@ -598,7 +591,7 @@ export async function deleteSDKConnectionModel(
     organization: context.org.id,
     id: sdkConnection.id,
   });
-  await context.models.experimentQaOverrides.deleteBySdkConnection(
+  await context.models.experimentQaOverrides.removeSdkConnectionFromFilters(
     sdkConnection.id,
     { skipSDKRefresh: true },
   );

@@ -1,9 +1,15 @@
 import { z } from "zod";
+import { savedGroupTargeting } from "./shared";
 
-export const qaOverrideAdditionalTargetingValidator = z
+// Narrows which requests in the environment receive the override. Every field
+// is optional; an omitted or empty filter matches everything.
+export const qaOverrideFiltersValidator = z
   .object({
-    attribute: z.string().min(1),
-    values: z.array(z.string().min(1)).min(1),
+    // JSON-encoded targeting condition, same format as feature rules.
+    condition: z.string().optional(),
+    savedGroups: z.array(savedGroupTargeting).optional(),
+    sdkConnections: z.array(z.string()).optional(),
+    projects: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -12,8 +18,9 @@ export const qaOverrideBaseValidator = z.object({
   organization: z.string(),
   dateCreated: z.date(),
   dateUpdated: z.date(),
-  sdkConnection: z.string(),
   environment: z.string(),
-  additionalTargeting: qaOverrideAdditionalTargetingValidator.nullable(),
+  // Position among the overrides of the same target; the first match wins.
+  order: z.number().int().min(0),
+  filters: qaOverrideFiltersValidator,
   createdBy: z.string(),
 });

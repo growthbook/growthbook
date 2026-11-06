@@ -1,8 +1,9 @@
 import type { Response } from "express";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
-  CreateExperimentQaOverridesBody,
+  CreateExperimentQaOverrideBody,
   ExperimentQaOverrideInterface,
+  ReorderExperimentQaOverridesBody,
   UpdateExperimentQaOverrideBody,
 } from "shared/types/experiment-qa-override";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -16,7 +17,6 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 type QaOverrideSdkConnection = Pick<
   SDKConnectionInterface,
@@ -76,6 +76,19 @@ async function loadExperiment(
   return { context, experiment };
 }
 
+// Connections named by the overrides' filters, hydrated for display.
+async function filteredConnections(
+  context: ReturnType<typeof getContextFromReq>,
+  overrides: ExperimentQaOverrideInterface[],
+): Promise<QaOverrideSdkConnection[]> {
+  const ids = [
+    ...new Set(overrides.flatMap((o) => o.filters.sdkConnections ?? [])),
+  ];
+  if (!ids.length) return [];
+  const connections = await findSDKConnectionsByIds(context, ids);
+  return connections.map(toConnectionSummary);
+}
+
 export const getExperimentQaOverrides = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{
@@ -88,77 +101,71 @@ export const getExperimentQaOverrides = async (
   const overrides = await context.models.experimentQaOverrides.findByExperiment(
     experiment.id,
   );
-  const connections = overrides.length
-    ? await findSDKConnectionsByIds(
-        context,
-        overrides.map((o) => o.sdkConnection),
-      )
-    : [];
-
   res.status(200).json({
     status: 200,
     overrides,
-    sdkConnections: connections.map(toConnectionSummary),
+    sdkConnections: await filteredConnections(context, overrides),
   });
 };
 
-export const postExperimentQaOverrides = async (
-  req: AuthRequest<CreateExperimentQaOverridesBody, { id: string }>,
-  res: Response<{ status: 200; overrides: ExperimentQaOverrideInterface[] }>,
+export const postExperimentQaOverride = async (
+  req: AuthRequest<CreateExperimentQaOverrideBody, { id: string }>,
+  res: Response<{ status: 200; override: ExperimentQaOverrideInterface }>,
 ) => {
   const { context, experiment } = await loadExperiment(req);
-  const { sdkConnections: connectionIds, ...fields } = req.body;
-
-  const connections = await findSDKConnectionsByIds(context, connectionIds);
-  const missing = connectionIds.filter(
-    (id) => !connections.some((c) => c.id === id),
-  );
-  if (missing.length) {
-    context.throwBadRequestError(
-      `Could not find SDK Connection(s): ${missing.join(", ")}`,
-    );
-  }
-
   const existing = await context.models.experimentQaOverrides.findByExperiment(
     experiment.id,
   );
+  const override = await context.models.experimentQaOverrides.create({
+    ...req.body,
+    experiment: experiment.id,
+    // New overrides go last; the first matching one wins in the payload.
+    order: existing.reduce((max, o) => Math.max(max, o.order + 1), 0),
+    createdBy: context.userId,
+  });
+  res.status(200).json({ status: 200, override });
+};
 
-  const overrides: ExperimentQaOverrideInterface[] = [];
-  for (const connection of connections) {
-    const current = existing.find((o) => o.sdkConnection === connection.id);
-    if (current) {
-      overrides.push(
-        await context.models.experimentQaOverrides.update(current, fields, {
-          skipSDKRefresh: true,
-        }),
-      );
-    } else {
-      overrides.push(
-        await context.models.experimentQaOverrides.create(
-          {
-            ...fields,
-            experiment: experiment.id,
-            sdkConnection: connection.id,
-            environment: connection.environment,
-            createdBy: context.userId,
-          },
-          { skipSDKRefresh: true },
-        ),
-      );
-    }
+export const putExperimentQaOverridesOrder = async (
+  req: AuthRequest<ReorderExperimentQaOverridesBody, { id: string }>,
+  res: Response<{ status: 200; overrides: ExperimentQaOverrideInterface[] }>,
+) => {
+  const { context, experiment } = await loadExperiment(req);
+  const { overrideIds } = req.body;
+  const existing = await context.models.experimentQaOverrides.findByExperiment(
+    experiment.id,
+  );
+  const unknown = overrideIds.filter(
+    (id) => !existing.some((o) => o.id === id),
+  );
+  if (unknown.length || new Set(overrideIds).size !== existing.length) {
+    context.throwBadRequestError(
+      "overrideIds must list every QA override of this experiment exactly once",
+    );
   }
 
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: [],
-    sdkConnections: connections,
-    auditContext: {
-      event: "updated",
-      model: "experimentQaOverride",
-      id: experiment.id,
-    },
-  });
-
+  const overrides: ExperimentQaOverrideInterface[] = [];
+  const movedEnvironments = new Set<string>();
+  for (const [order, id] of overrideIds.entries()) {
+    const override = existing.find((o) => o.id === id);
+    if (!override) continue;
+    if (override.order === order) {
+      overrides.push(override);
+      continue;
+    }
+    movedEnvironments.add(override.environment);
+    overrides.push(
+      await context.models.experimentQaOverrides.update(
+        override,
+        { order },
+        { skipSDKRefresh: true },
+      ),
+    );
+  }
+  // One refresh for the batch instead of one per moved row.
+  await context.models.experimentQaOverrides.refreshEnvironments([
+    ...movedEnvironments,
+  ]);
   res.status(200).json({ status: 200, overrides });
 };
 
@@ -167,30 +174,7 @@ export const deleteExperimentQaOverrides = async (
   res: Response<{ status: 200 }>,
 ) => {
   const { context, experiment } = await loadExperiment(req);
-  const overrides = await context.models.experimentQaOverrides.findByExperiment(
-    experiment.id,
-  );
-  for (const override of overrides) {
-    await context.models.experimentQaOverrides.delete(override, {
-      skipSDKRefresh: true,
-    });
-  }
-  if (overrides.length) {
-    const connections = await findSDKConnectionsByIds(
-      context,
-      overrides.map((o) => o.sdkConnection),
-    );
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys: [],
-      sdkConnections: connections,
-      auditContext: {
-        event: "deleted",
-        model: "experimentQaOverride",
-        id: experiment.id,
-      },
-    });
-  }
+  await context.models.experimentQaOverrides.deleteByExperiment(experiment.id);
   res.status(200).json({ status: 200 });
 };
 
@@ -230,53 +214,23 @@ export const getSdkConnectionQaOverrides = async (
   }
 
   const overrides =
-    await context.models.experimentQaOverrides.findBySdkConnection(
-      connection.id,
-    );
+    await context.models.experimentQaOverrides.findForSdkConnection(connection);
   const experiments = overrides.length
-    ? await getExperimentsByIds(
-        context,
-        overrides.map((o) => o.experiment),
-      )
+    ? await getExperimentsByIds(context, [
+        ...new Set(overrides.map((o) => o.experiment)),
+      ])
     : [];
+  const readable = overrides.filter((o) =>
+    experiments.some(
+      (e) =>
+        e.id === o.experiment &&
+        context.permissions.canReadSingleProjectResource(e.project),
+    ),
+  );
 
   res.status(200).json({
     status: 200,
-    overrides,
+    overrides: readable,
     experiments: experiments.map(toExperimentSummary),
   });
-};
-
-export const deleteSdkConnectionQaOverrides = async (
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>,
-) => {
-  const context = getContextFromReq(req);
-  const connection = await findSDKConnectionById(context, req.params.id);
-  if (!connection) {
-    return context.throwNotFoundError("SDK Connection not found");
-  }
-
-  const overrides =
-    await context.models.experimentQaOverrides.findBySdkConnection(
-      connection.id,
-    );
-  for (const override of overrides) {
-    await context.models.experimentQaOverrides.delete(override, {
-      skipSDKRefresh: true,
-    });
-  }
-  if (overrides.length) {
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys: [],
-      sdkConnections: [connection],
-      auditContext: {
-        event: "deleted",
-        model: "experimentQaOverride",
-        id: connection.id,
-      },
-    });
-  }
-  res.status(200).json({ status: 200 });
 };

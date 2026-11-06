@@ -1,9 +1,11 @@
 import { Flex } from "@radix-ui/themes";
-import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { ago } from "shared/dates";
+import { qaOverrideFiltersAreEmpty, qaOverrideHasCondition } from "shared/util";
 import { useUser } from "@/services/UserContext";
-import { AttributeBadge } from "@/components/Features/AttributeBadge";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
@@ -26,51 +28,60 @@ export function QaOverrideVariation({
   return <VariationLabel number={index} name={variations[index].name} />;
 }
 
-export function QaOverrideAdditionalTargeting({
+export function QaOverrideFiltersSummary({
   override,
 }: {
   override: ExperimentQaOverrideInterface;
 }) {
-  const targeting = override.additionalTargeting;
-  if (!targeting) return <Text color="text-low">None</Text>;
-  return (
-    <Flex align="center" gap="2" wrap="wrap">
-      <AttributeBadge attributeId={targeting.attribute} />
-      <Text color="text-mid">is any of</Text>
-      {targeting.values.map((v) => (
-        <Badge key={v} label={v} color="gray" />
-      ))}
-    </Flex>
-  );
-}
+  const { getProjectById } = useDefinitions();
+  const { data: connectionData } = useSDKConnections();
+  const { filters } = override;
 
-export function experimentTargetingLabel(
-  override: ExperimentQaOverrideInterface,
-): string {
-  const parts: string[] = [];
-  if (override.applyExperimentTargeting) parts.push("Conditions");
-  if (override.applyExperimentCoverage) parts.push("Coverage");
-  return parts.length ? parts.join(" · ") : "Skipped";
-}
-
-export function qaOverrideIncludedLabel(
-  override: ExperimentQaOverrideInterface,
-  phase: Pick<ExperimentPhaseStringDates, "coverage"> | undefined,
-): string {
-  const coverage = override.applyExperimentCoverage
-    ? Math.round((phase?.coverage ?? 1) * 100)
-    : 100;
-  const parts = [`${coverage}% of traffic`];
-  if (override.applyExperimentTargeting) parts.push("experiment targeting");
-  if (override.additionalTargeting) {
-    const n = override.additionalTargeting.values.length;
-    parts.push(
-      `${override.additionalTargeting.attribute} is any of ${n} value${
-        n === 1 ? "" : "s"
-      }`,
+  if (qaOverrideFiltersAreEmpty(filters)) {
+    return (
+      <Text color="text-mid">
+        Everyone in <Text weight="medium">{override.environment}</Text>
+      </Text>
     );
   }
-  return parts.join(" · ");
+
+  const connectionName = (id: string) =>
+    connectionData?.connections?.find((c) => c.id === id)?.name ?? id;
+
+  return (
+    <Flex direction="column" gap="1">
+      {(qaOverrideHasCondition(filters) || !!filters.savedGroups?.length) && (
+        <ConditionDisplay
+          condition={filters.condition}
+          savedGroups={filters.savedGroups}
+        />
+      )}
+      {!!filters.sdkConnections?.length && (
+        <Flex align="center" gap="1" wrap="wrap">
+          <Text size="sm" color="text-mid">
+            SDK Connection{filters.sdkConnections.length === 1 ? "" : "s"}:
+          </Text>
+          {filters.sdkConnections.map((id) => (
+            <Badge key={id} label={connectionName(id)} color="gray" />
+          ))}
+        </Flex>
+      )}
+      {!!filters.projects?.length && (
+        <Flex align="center" gap="1" wrap="wrap">
+          <Text size="sm" color="text-mid">
+            Project{filters.projects.length === 1 ? "" : "s"}:
+          </Text>
+          {filters.projects.map((id) => (
+            <Badge
+              key={id}
+              label={getProjectById(id)?.name ?? id}
+              color="gray"
+            />
+          ))}
+        </Flex>
+      )}
+    </Flex>
+  );
 }
 
 export function QaOverrideSetBy({

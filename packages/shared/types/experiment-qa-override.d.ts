@@ -1,16 +1,15 @@
 import { z } from "zod";
 import {
-  createExperimentQaOverridesBodyValidator,
+  createExperimentQaOverrideBodyValidator,
   experimentQaOverrideAssignmentValidator,
   experimentQaOverrideValidator,
-  qaOverrideAdditionalTargetingValidator,
+  qaOverrideFiltersValidator,
+  reorderExperimentQaOverridesBodyValidator,
   updateExperimentQaOverrideBodyValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 
-export type QaOverrideAdditionalTargeting = z.infer<
-  typeof qaOverrideAdditionalTargetingValidator
->;
+export type QaOverrideFilters = z.infer<typeof qaOverrideFiltersValidator>;
 
 export type ExperimentQaOverrideAssignment = z.infer<
   typeof experimentQaOverrideAssignmentValidator
@@ -24,12 +23,15 @@ export type CreateExperimentQaOverrideProps =
   CreateProps<ExperimentQaOverrideInterface>;
 export type UpdateExperimentQaOverrideProps = UpdateProps<
   ExperimentQaOverrideInterface,
-  "id" | "experiment" | "sdkConnection" | "environment" | "createdBy"
+  "id" | "experiment" | "environment" | "createdBy"
 >;
 
-export type CreateExperimentQaOverridesBody = z.infer<
-  typeof createExperimentQaOverridesBodyValidator
+export type CreateExperimentQaOverrideBody = z.infer<
+  typeof createExperimentQaOverrideBodyValidator
 >;
 export type UpdateExperimentQaOverrideBody = z.infer<
   typeof updateExperimentQaOverrideBodyValidator
+>;
+export type ReorderExperimentQaOverridesBody = z.infer<
+  typeof reorderExperimentQaOverridesBodyValidator
 >;

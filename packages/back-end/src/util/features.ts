@@ -275,27 +275,39 @@ function warnSavedGroupProblemOnce(problem: string) {
  *
  * The strategy decides how the group itself is written, not this function.
  */
-export function qaOverrideAdditionalTargetingCondition(
-  override: ExperimentQaOverrideInterface,
-): ConditionInterface | undefined {
-  if (!override.additionalTargeting) return undefined;
-  const { attribute, values } = override.additionalTargeting;
-  return { [attribute]: { $in: values } };
+// The override's own filters (attribute condition + saved groups), in the
+// connection's saved-group format. Connection and project filters are resolved
+// before the payload is built, so they never appear here.
+export function qaOverrideFiltersCondition({
+  override,
+  savedGroupStrategy,
+}: {
+  override: ExperimentQaOverrideInterface;
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): ConditionInterface | undefined {
+  return mergeConditionAndSavedGroups({
+    savedGroupStrategy,
+    condition: override.filters.condition,
+    savedGroups: override.filters.savedGroups,
+  });
 }
 
+// Random assignment keeps the experiment's own targeting and narrows it with
+// the filters; forcing a variation ignores the experiment's targeting.
 export function qaOverrideCondition({
   override,
   experimentCondition,
+  savedGroupStrategy,
 }: {
   override: ExperimentQaOverrideInterface;
   experimentCondition?: ConditionInterface;
+  savedGroupStrategy: SavedGroupPayloadStrategy;
 }): ConditionInterface | undefined {
-  const extra = qaOverrideAdditionalTargetingCondition(override);
-  const base = override.applyExperimentTargeting
-    ? experimentCondition
-    : undefined;
-  if (base && extra) return { $and: [base, extra] };
-  return base ?? extra;
+  const filters = qaOverrideFiltersCondition({ override, savedGroupStrategy });
+  const base =
+    override.assignment.type === "random" ? experimentCondition : undefined;
+  if (base && filters) return { $and: [base, filters] };
+  return base ?? filters;
 }
 
 export function qaOverrideWeights(
@@ -319,24 +331,29 @@ export function applyQaOverrideToRule(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,
   override: ExperimentQaOverrideInterface,
+  savedGroupStrategy: SavedGroupPayloadStrategy,
 ): FeatureDefinitionRule {
+  const forced = override.assignment.type === "forced";
+
   rule.key = getQaTrackingKey(experiment.trackingKey);
   rule.seed = rule.key;
   rule.weights = qaOverrideWeights(override, experiment, phase);
-  rule.coverage = override.applyExperimentCoverage ? phase.coverage : 1;
+  rule.coverage = forced ? 1 : phase.coverage;
   rule.disableStickyBucketing = true;
 
   const condition = qaOverrideCondition({
     override,
     experimentCondition: rule.condition,
+    savedGroupStrategy,
   });
   if (condition) {
     rule.condition = condition;
   } else {
     delete rule.condition;
   }
-  if (!override.applyExperimentTargeting) {
+  if (forced) {
     delete rule.parentConditions;
+    delete rule.namespace;
   }
   return rule;
 }
@@ -1146,8 +1163,9 @@ export function getFeatureDefinition({
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   includeDraftExperimentRefs?: boolean;
-  // Draft experiments served to this connection through a QA override, by experiment id.
-  qaOverrides?: Map<string, ExperimentQaOverrideInterface>;
+  // Draft experiments served to this connection through QA overrides, by
+  // experiment id, in priority order.
+  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -1421,7 +1439,7 @@ export function getFeatureDefinition({
           if (!exp) return null;
 
           const qaOverride =
-            exp.status === "draft" ? qaOverrides?.get(exp.id) : undefined;
+            exp.status === "draft" ? qaOverrides?.get(exp.id)?.[0] : undefined;
 
           if (
             exp.status === "draft" &&
@@ -1526,7 +1544,13 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
             if (qaOverride) {
-              applyQaOverrideToRule(rule, exp, phase, qaOverride);
+              applyQaOverrideToRule(
+                rule,
+                exp,
+                phase,
+                qaOverride,
+                savedGroupStrategy,
+              );
             }
           }
           if (rule.condition)
