@@ -7,6 +7,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import {
   isManagedWarehouseOutOfMemoryQueryError,
   isManagedWarehousePendingQueryError,
+  MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE,
 } from "shared/util";
 import {
   expandMetricGroups,
@@ -151,6 +152,9 @@ function SectionHeading({
     </Box>
   );
 }
+
+const MANAGED_WAREHOUSE_OUT_OF_MEMORY_MESSAGE =
+  "The Managed Warehouse ran out of memory running the bandit update. Reduce the number of contextual attributes or variations, then update again.";
 
 export default function ContextualBanditResultsTable({
   cb,
@@ -416,7 +420,11 @@ export default function ContextualBanditResultsTable({
         showAutoUpdateWidget={true}
         failedString={
           queryLatest && !queryLatest.queries.length && queryLatest.error
-            ? `Snapshot update failed: ${queryLatest.error}`
+            ? isManagedWarehousePendingQueryError(queryLatest.error)
+              ? MANAGED_WAREHOUSE_NO_EVENTS_MESSAGE
+              : isManagedWarehouseOutOfMemoryQueryError(queryLatest.error)
+                ? MANAGED_WAREHOUSE_OUT_OF_MEMORY_MESSAGE
+                : `Snapshot update failed: ${queryLatest.error}`
             : undefined
         }
         queries={
@@ -494,9 +502,7 @@ export default function ContextualBanditResultsTable({
         </Box>
       ) : isManagedWarehouseOutOfMemoryQueryError(queryLatest?.error) ? (
         <Callout status="error" mb="3">
-          The Managed Warehouse ran out of memory running the bandit update.
-          Reduce the number of contextual attributes or variations, then update
-          again.
+          {MANAGED_WAREHOUSE_OUT_OF_MEMORY_MESSAGE}
         </Callout>
       ) : null}
 

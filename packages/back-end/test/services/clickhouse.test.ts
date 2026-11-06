@@ -304,7 +304,7 @@ describe("syncManagedWarehouseIdentifiers", () => {
     );
   });
 
-  it("still syncs the fact table when the contextual bandit sync fails", async () => {
+  it("still syncs the fact table when the contextual bandit sync fails, then rethrows", async () => {
     const schema: SDKAttributeSchema = [
       { property: "age", datatype: "string" },
     ];
@@ -317,7 +317,7 @@ describe("syncManagedWarehouseIdentifiers", () => {
 
     await expect(
       syncManagedWarehouseIdentifiers(context, schema),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow("boom");
 
     expect(mockSyncFactTable).toHaveBeenCalledTimes(1);
   });

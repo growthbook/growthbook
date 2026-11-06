@@ -15,7 +15,10 @@ import {
   managedWarehouseGeneratesContextualBanditQueries,
   planManagedWarehouseContextualBanditQuerySync,
 } from "shared/util";
-import { DataSourceInterface } from "shared/types/datasource";
+import {
+  DataSourceInterface,
+  GrowthbookClickhouseSettings,
+} from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
 import type {
   ExperimentEvalItem,
@@ -304,6 +307,7 @@ export async function syncManagedWarehouseIdentifiers(
     { skipExposureQueryValidation: true },
   );
 
+  let contextualBanditQuerySyncError: unknown = null;
   try {
     await syncManagedWarehouseContextualBanditQueries(
       context,
@@ -315,8 +319,31 @@ export async function syncManagedWarehouseIdentifiers(
       e,
       "Failed to sync managed warehouse contextual bandit queries",
     );
+    contextualBanditQuerySyncError = e;
   }
 
+  await syncManagedWarehouseEventsFactTable(
+    context,
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
+    idAttributeIdentifier,
+    newUserIdTypes,
+  );
+
+  if (contextualBanditQuerySyncError) {
+    throw contextualBanditQuerySyncError;
+  }
+}
+
+async function syncManagedWarehouseEventsFactTable(
+  context: ReqContext | ApiReqContext,
+  attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[],
+  migratedColumns: NonNullable<GrowthbookClickhouseSettings["migratedColumns"]>,
+  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
+  newUserIdTypes: string[],
+): Promise<void> {
   // Update the events fact table sql + columns + userIdTypes
   const ft = await dangerouslyGetFactTableByIdBypassPermission(
     context.org.id,

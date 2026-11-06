@@ -215,6 +215,14 @@ export class ContextualBanditQueryModel extends BaseClass<WriteOptions> {
       managedWarehouseSync: { attributeSchema },
     };
     const orgId = this.context.org.id;
+    const failures: string[] = [];
+    const record = (label: string, e: unknown) => {
+      logger.error(
+        e,
+        `Failed to ${label} Managed Warehouse contextual bandit query for org ${orgId}`,
+      );
+      failures.push(`${label}: ${e instanceof Error ? e.message : String(e)}`);
+    };
 
     for (const d of plan.create) {
       try {
@@ -231,37 +239,35 @@ export class ContextualBanditQueryModel extends BaseClass<WriteOptions> {
           writeOptions,
           true,
         );
+        continue;
       } catch (e) {
         if (!isDuplicateKeyError(e)) {
-          logger.error(
-            e,
-            `Failed to create Managed Warehouse contextual bandit query ${d.userIdType} for org ${orgId}`,
-          );
+          record(`create ${d.userIdType}`, e);
           continue;
         }
-        const current = await this._findOne({
-          datasourceId,
-          managedBy: "api",
-          userIdType: d.userIdType,
-        });
-        if (!current) continue;
-        try {
-          await this._updateOne(
-            current,
-            {
-              name: d.name,
-              userIdType: d.userIdType,
-              query: d.query,
-              targetingAttributeColumns: d.targetingAttributeColumns,
-            },
-            { writeOptions, forceCanUpdate: true },
-          );
-        } catch (e) {
-          logger.error(
-            e,
-            `Failed to update Managed Warehouse contextual bandit query ${current.id} for org ${orgId}`,
-          );
-        }
+      }
+      const current = await this._findOne({
+        datasourceId,
+        managedBy: "api",
+        userIdType: d.userIdType,
+      });
+      if (!current) {
+        failures.push(`create ${d.userIdType}: duplicate key but no document`);
+        continue;
+      }
+      try {
+        await this._updateOne(
+          current,
+          {
+            name: d.name,
+            userIdType: d.userIdType,
+            query: d.query,
+            targetingAttributeColumns: d.targetingAttributeColumns,
+          },
+          { writeOptions, forceCanUpdate: true },
+        );
+      } catch (e) {
+        record(`update ${current.id}`, e);
       }
     }
 
@@ -272,10 +278,7 @@ export class ContextualBanditQueryModel extends BaseClass<WriteOptions> {
           forceCanUpdate: true,
         });
       } catch (e) {
-        logger.error(
-          e,
-          `Failed to update Managed Warehouse contextual bandit query ${existing.id} for org ${orgId}`,
-        );
+        record(`update ${existing.id}`, e);
       }
     }
 
@@ -283,11 +286,14 @@ export class ContextualBanditQueryModel extends BaseClass<WriteOptions> {
       try {
         await this._deleteOne(doc, writeOptions, true);
       } catch (e) {
-        logger.error(
-          e,
-          `Failed to delete Managed Warehouse contextual bandit query ${doc.id} for org ${orgId}`,
-        );
+        record(`delete ${doc.id}`, e);
       }
+    }
+
+    if (failures.length) {
+      throw new Error(
+        `Managed Warehouse contextual bandit query sync had ${failures.length} failure(s): ${failures.join("; ")}`,
+      );
     }
   }
 

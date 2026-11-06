@@ -18,7 +18,10 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import {
   contextualBanditQueryPickerLocked,
   getDefaultContextualBanditQueryId,
+  MANAGED_WAREHOUSE_QUERY_HELP_TEXT,
+  resolveContextualBanditQuerySelection,
 } from "@/services/contextualBandits";
+import NoMatchingContextualBanditQueryCallout from "@/components/ContextualBandit/NoMatchingContextualBanditQueryCallout";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import SelectField from "@/components/Forms/SelectField";
@@ -183,10 +186,22 @@ export default function ContextualBanditAnalysisMetricsModal({
 
   useEffect(() => {
     if (!contextualBanditQueries.length) return;
-    if (!contextualBanditQueries.find((q) => q.id === watchedQueryId)) {
-      form.setValue("exposureQueryId", defaultQueryId);
+    const next = resolveContextualBanditQuerySelection({
+      datasource,
+      hashAttribute: cb.hashAttribute,
+      queries: contextualBanditQueries,
+      selectedQueryId: watchedQueryId,
+    });
+    if (next !== watchedQueryId) {
+      form.setValue("exposureQueryId", next);
     }
-  }, [contextualBanditQueries, watchedQueryId, defaultQueryId, form]);
+  }, [
+    contextualBanditQueries,
+    watchedQueryId,
+    cb.hashAttribute,
+    datasource,
+    form,
+  ]);
 
   const seededQueryIdRef = useRef<string | undefined>(
     cb.contextualBanditQueryId,
@@ -294,7 +309,11 @@ export default function ContextualBanditAnalysisMetricsModal({
           helpText="Only data sources with a Contextual Bandit query can power a Contextual Bandit."
         />
 
-        {contextualBanditQueries.length > 0 ? (
+        {managedWarehouse && !defaultQueryId && !selectedQuery ? (
+          <NoMatchingContextualBanditQueryCallout
+            hashAttribute={cb.hashAttribute}
+          />
+        ) : contextualBanditQueries.length > 0 ? (
           <SelectField
             label="Contextual Bandit Query"
             value={form.watch("exposureQueryId")}
@@ -307,7 +326,7 @@ export default function ContextualBanditAnalysisMetricsModal({
             }))}
             helpText={
               managedWarehouse
-                ? "Generated queries are selected automatically from the hash attribute on your Managed Warehouse."
+                ? MANAGED_WAREHOUSE_QUERY_HELP_TEXT
                 : "The bandit assignment query for this data source."
             }
           />

@@ -13,8 +13,10 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import {
   contextualBanditQueryPickerLocked,
   getDefaultContextualBanditQueryId,
+  MANAGED_WAREHOUSE_QUERY_HELP_TEXT,
   resolveContextualBanditQuerySelection,
 } from "@/services/contextualBandits";
+import NoMatchingContextualBanditQueryCallout from "@/components/ContextualBandit/NoMatchingContextualBanditQueryCallout";
 import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
 import ContextualBanditDecisionMetricSettings from "@/components/ContextualBandit/ContextualBanditDecisionMetricSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -73,17 +75,13 @@ export default function ContextualBanditAnalysisFields({
     queries: cbQueries,
   });
 
-  const lastHashAttributeRef = useRef<string | undefined>(hashAttribute);
   useEffect(() => {
     if (!cbQueries.length) return;
-    const hashAttributeChanged = lastHashAttributeRef.current !== hashAttribute;
-    lastHashAttributeRef.current = hashAttribute;
     const next = resolveContextualBanditQuerySelection({
       datasource,
       hashAttribute,
       queries: cbQueries,
       selectedQueryId: exposureQueryId,
-      hashAttributeChanged,
     });
     if (next !== exposureQueryId) {
       form.setValue("exposureQueryId", next);
@@ -157,8 +155,11 @@ export default function ContextualBanditAnalysisFields({
                   <>
                     No Contextual Bandit queries exist for your Managed
                     Warehouse yet. They are generated from your attributes: add
-                    a string attribute that is not an identifier under Settings
-                    → Attributes.
+                    a string attribute that is not an identifier under{" "}
+                    <Link href="/attributes" external>
+                      Settings → Attributes
+                    </Link>
+                    .
                   </>
                 ) : (
                   <>
@@ -178,12 +179,9 @@ export default function ContextualBanditAnalysisFields({
                 )}
               </Callout>
             ) : managedWarehouse && !defaultCbQueryId && !selectedCbQuery ? (
-              <Callout status="warning" mt="3">
-                No generated Contextual Bandit query matches the hash attribute{" "}
-                <code>{hashAttribute || "id"}</code>. Mark it as an identifier
-                under Settings → Attributes, or choose a different hash
-                attribute.
-              </Callout>
+              <NoMatchingContextualBanditQueryCallout
+                hashAttribute={hashAttribute}
+              />
             ) : (
               <SelectField
                 label={
@@ -199,7 +197,7 @@ export default function ContextualBanditAnalysisFields({
                 disabled={pickerLocked}
                 helpText={
                   managedWarehouse
-                    ? "Generated queries are selected automatically from the hash attribute on your Managed Warehouse."
+                    ? MANAGED_WAREHOUSE_QUERY_HELP_TEXT
                     : undefined
                 }
                 options={cbQueries.map((q) => ({

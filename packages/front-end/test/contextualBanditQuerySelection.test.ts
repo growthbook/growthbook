@@ -108,7 +108,7 @@ describe("getDefaultContextualBanditQueryId", () => {
     ).toBe("cbq_user");
   });
 
-  it("ignores user-written queries when picking the generated default", () => {
+  it("prefers the generated query but falls back to a custom one", () => {
     expect(
       getDefaultContextualBanditQueryId({
         datasource: jsonWarehouse,
@@ -122,7 +122,7 @@ describe("getDefaultContextualBanditQueryId", () => {
         hashAttribute: "id",
         queries: [customQuery],
       }),
-    ).toBe("");
+    ).toBe("cbq_custom");
   });
 
   it("treats a legacy managed warehouse like any other data source", () => {
@@ -149,25 +149,53 @@ describe("getDefaultContextualBanditQueryId", () => {
 });
 
 describe("resolveContextualBanditQuerySelection", () => {
-  it("keeps a valid selection, generated or custom", () => {
+  it("keeps a custom selection and a matching generated selection", () => {
     expect(
       resolveContextualBanditQuerySelection({
         datasource: jsonWarehouse,
         hashAttribute: "id",
         queries: [customQuery, ...managedQueries],
         selectedQueryId: "cbq_custom",
-        hashAttributeChanged: false,
       }),
     ).toBe("cbq_custom");
     expect(
       resolveContextualBanditQuerySelection({
         datasource: jsonWarehouse,
-        hashAttribute: "id",
+        hashAttribute: "user_id",
         queries: [customQuery, ...managedQueries],
         selectedQueryId: "cbq_user",
-        hashAttributeChanged: false,
       }),
     ).toBe("cbq_user");
+  });
+
+  it("re-points a generated selection that no longer matches the hash attribute", () => {
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "company_id",
+        queries: [customQuery, ...managedQueries],
+        selectedQueryId: "cbq_device",
+      }),
+    ).toBe("cbq_company");
+  });
+
+  it("falls back to a custom query when no generated query matches", () => {
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "not_an_identifier",
+        queries: [customQuery, ...managedQueries],
+        selectedQueryId: "cbq_device",
+      }),
+    ).toBe("cbq_custom");
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "not_an_identifier",
+        queries: managedQueries,
+        selectedQueryId: "cbq_device",
+      }),
+    ).toBe("");
   });
 
   it("defaults when nothing valid is selected", () => {
@@ -177,7 +205,6 @@ describe("resolveContextualBanditQuerySelection", () => {
         hashAttribute: "company_id",
         queries: managedQueries,
         selectedQueryId: "",
-        hashAttributeChanged: false,
       }),
     ).toBe("cbq_company");
     expect(
@@ -186,39 +213,16 @@ describe("resolveContextualBanditQuerySelection", () => {
         hashAttribute: "id",
         queries: [customQuery, ...managedQueries],
         selectedQueryId: "cbq_gone",
-        hashAttributeChanged: false,
-      }),
-    ).toBe("cbq_custom");
-  });
-
-  it("re-picks a generated query when the hash attribute changes, but leaves a custom one alone", () => {
-    expect(
-      resolveContextualBanditQuerySelection({
-        datasource: jsonWarehouse,
-        hashAttribute: "company_id",
-        queries: [customQuery, ...managedQueries],
-        selectedQueryId: "cbq_device",
-        hashAttributeChanged: true,
-      }),
-    ).toBe("cbq_company");
-    expect(
-      resolveContextualBanditQuerySelection({
-        datasource: jsonWarehouse,
-        hashAttribute: "company_id",
-        queries: [customQuery, ...managedQueries],
-        selectedQueryId: "cbq_custom",
-        hashAttributeChanged: true,
       }),
     ).toBe("cbq_custom");
     expect(
       resolveContextualBanditQuerySelection({
-        datasource: jsonWarehouse,
-        hashAttribute: "not_an_identifier",
-        queries: managedQueries,
-        selectedQueryId: "cbq_device",
-        hashAttributeChanged: true,
+        datasource: makeDatasource("postgres"),
+        hashAttribute: "id",
+        queries: [customQuery, ...managedQueries],
+        selectedQueryId: "cbq_user",
       }),
-    ).toBe("");
+    ).toBe("cbq_user");
   });
 });
 

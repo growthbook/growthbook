@@ -18,10 +18,8 @@ import Callout from "@/ui/Callout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import { useRestApiCall } from "@/services/restApi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { OfficialBadge } from "@/components/Metrics/MetricName";
-
-const MANAGED_WAREHOUSE_QUERY_TOOLTIP =
-  "Generated from your organization's attributes for the Managed Warehouse. It is read-only and updates automatically when attributes change.";
+import { ManagedWarehouseQueryBadge } from "@/components/Settings/EditDataSource/ManagedWarehouseQueryBadge";
+import Link from "@/ui/Link";
 
 type ContextualBanditAssignmentQueriesProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -134,9 +132,16 @@ export const ContextualBanditAssignmentQueries: FC<
 
       {!loading && contextualBanditQueries.length === 0 ? (
         <Callout status="info">
-          {managedWarehouse
-            ? "No contextual bandit assignment queries yet. Add a string attribute that is not an identifier under Settings → Attributes and these queries will be generated."
-            : "No contextual bandit assignment queries. A contextual bandit requires one of these queries to analyze results."}
+          {managedWarehouse ? (
+            <>
+              No contextual bandit assignment queries yet. Add a string
+              attribute that is not an identifier under{" "}
+              <Link href="/attributes">Settings → Attributes</Link> and these
+              queries will be generated.
+            </>
+          ) : (
+            "No contextual bandit assignment queries. A contextual bandit requires one of these queries to analyze results."
+          )}
         </Callout>
       ) : null}
 
@@ -152,13 +157,7 @@ export const ContextualBanditAssignmentQueries: FC<
                 <Heading as="h4" size="sm" mb="0">
                   {query.name}
                   {isManaged && (
-                    <OfficialBadge
-                      type="assignment query"
-                      managedBy="api"
-                      tooltip={MANAGED_WAREHOUSE_QUERY_TOOLTIP}
-                      usePortal
-                      ml="1"
-                    />
+                    <ManagedWarehouseQueryBadge type="assignment query" />
                   )}
                 </Heading>
                 {query.description && (
