@@ -306,15 +306,17 @@ export default function RoleRulesTable({
     <Box>
       {groups.map(renderGroup)}
       <Flex align="center" gap="3">
-        {unusedProjects.length > 0 && hasAdvancedPermissions && (
-          <Button
-            variant="soft"
-            icon={<PiPlus />}
-            onClick={() => addRule(unusedProjects[0].id)}
-          >
-            Add Project override
-          </Button>
-        )}
+        {unusedProjects.length > 0 &&
+          hasAdvancedPermissions &&
+          !adminEverywhere && (
+            <Button
+              variant="soft"
+              icon={<PiPlus />}
+              onClick={() => addRule(unusedProjects[0].id)}
+            >
+              Add Project override
+            </Button>
+          )}
         {footerEnd && <Box ml="auto">{footerEnd}</Box>}
       </Flex>
     </Box>

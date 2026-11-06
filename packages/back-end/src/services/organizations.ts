@@ -798,6 +798,9 @@ export function assertMemberRoleInfoValid(
   },
 ) {
   const rules = [roleInfo, ...(roleInfo.additionalRoles ?? [])];
+  if (roleInfo.projectRoles?.length && rules.some((r) => r.role === "admin")) {
+    throw new Error("Admin roles cannot have Project overrides.");
+  }
   rules.forEach((rule) =>
     assertRoleRuleValid(organization, {
       ...rule,
