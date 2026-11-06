@@ -152,7 +152,8 @@ const RAW_SNAPSHOT_FAMILIES = [
   INTERLEAVING_SNAPSHOTS,
 ];
 
-// Only look back 24 hours to keep scans bounded; older docs should not still be running anyway.
+// Bounds the query-id sweep. The stalled sweep deliberately has no lower bound:
+// a snapshot stuck past a day is exactly the one nothing else will clean up.
 function oneDayAgo(): Date {
   const date = new Date();
   date.setDate(date.getDate() - 1);
@@ -711,7 +712,7 @@ function dangerousFindStalledRunningRawSnapshotsFromAllOrgs(
   return getCollection<RawSnapshot>(family.collection)
     .find({
       status: "running",
-      dateCreated: { $gt: oneDayAgo(), $lt: stalledBefore },
+      dateCreated: { $lt: stalledBefore },
       ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
     })
     .sort({ dateCreated: 1 })
