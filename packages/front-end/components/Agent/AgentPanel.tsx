@@ -1460,6 +1460,7 @@ function ActiveTurnItemRow({
           chartData={chartData}
           compact
           showSaveAction={false}
+          truncateTitle
           toolTransparency={
             <ToolUsageDetails
               embedded
@@ -1575,6 +1576,7 @@ function PersistedTurn({
           animate={false}
           compact
           showSaveAction={false}
+          truncateTitle
           toolTransparency={
             <ToolUsageDetails
               embedded
