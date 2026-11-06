@@ -22,6 +22,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
 import {
+  defaultRuleVariationName,
   newRuleVariation,
   removeRuleVariation,
   RuleVariation,
@@ -103,94 +104,98 @@ export default function NewRuleVariationsGrid({
           </div>
           <div className={clsx(styles.headerCell, lastColumn)} />
 
-          {variations.map((v, i) => (
-            <div key={v.id} className={own.row}>
-              <div className={clsx(styles.cell, firstColumn)}>
-                <Flex align="center" gap="2" className={styles.fieldLine}>
-                  <VariationNumber number={i} />
-                  <Field
-                    value={v.name}
-                    placeholder={i ? `Variation ${i}` : "Control"}
-                    aria-label={`Variation ${i} name`}
-                    containerStyle={{ flex: 1, minWidth: 0 }}
-                    onChange={(e) =>
-                      setVariations(
-                        variations.map((x, j) =>
-                          j === i ? { ...x, name: e.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                </Flex>
-              </div>
-              {hideSplits ? null : (
-                <div className={styles.cell}>
-                  <div className={clsx(styles.fieldLine, styles.splitField)}>
-                    <PercentField
-                      value={v.weight}
-                      commitOn="blur"
-                      decimals={VARIATION_WEIGHT_DECIMALS}
-                      onChange={(weight) =>
+          {variations.map((v, i) => {
+            // Blank until named, but its controls still need a name to read.
+            const name = v.name || defaultRuleVariationName(i);
+            return (
+              <div key={v.id} className={own.row}>
+                <div className={clsx(styles.cell, firstColumn)}>
+                  <Flex align="center" gap="2" className={styles.fieldLine}>
+                    <VariationNumber number={i} />
+                    <Field
+                      value={v.name}
+                      placeholder={defaultRuleVariationName(i)}
+                      aria-label={`${name} name`}
+                      containerStyle={{ flex: 1, minWidth: 0 }}
+                      onChange={(e) =>
                         setVariations(
-                          withWeights(
-                            variations,
-                            rebalance(weights, i, weight),
+                          variations.map((x, j) =>
+                            j === i ? { ...x, name: e.target.value } : x,
                           ),
                         )
                       }
-                      ariaLabel={`${v.name} split`}
                     />
+                  </Flex>
+                </div>
+                {hideSplits ? null : (
+                  <div className={styles.cell}>
+                    <div className={clsx(styles.fieldLine, styles.splitField)}>
+                      <PercentField
+                        value={v.weight}
+                        commitOn="blur"
+                        decimals={VARIATION_WEIGHT_DECIMALS}
+                        onChange={(weight) =>
+                          setVariations(
+                            withWeights(
+                              variations,
+                              rebalance(weights, i, weight),
+                            ),
+                          )
+                        }
+                        ariaLabel={`${name} split`}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className={styles.cell}>
+                  <FeatureValueCell
+                    id={`new-rule-value-${v.id}`}
+                    value={v.value}
+                    feature={feature}
+                    sparse={sparse}
+                    editable
+                    onChange={(value) =>
+                      setVariations(
+                        variations.map((x) =>
+                          x.id === v.id ? { ...x, value } : x,
+                        ),
+                      )
+                    }
+                    onOpenEditor={() => setEditingValuesOf(v.id)}
+                    label={name}
+                  />
+                </div>
+                <div
+                  className={clsx(styles.cell, lastColumn)}
+                  style={{ paddingLeft: 0 }}
+                >
+                  <div className={styles.fieldLine}>
+                    <Tooltip
+                      content={
+                        canRemove
+                          ? "Remove variation"
+                          : "Needs at least two variations"
+                      }
+                    >
+                      <IconButton
+                        type="button"
+                        variant="ghost"
+                        color="red"
+                        radius="full"
+                        size="2"
+                        className={own.remove}
+                        disabled={!canRemove}
+                        aria-label={`Remove ${name}`}
+                        onClick={() => removeVariation(i)}
+                      >
+                        <PiTrash size={16} />
+                      </IconButton>
+                    </Tooltip>
                   </div>
                 </div>
-              )}
-              <div className={styles.cell}>
-                <FeatureValueCell
-                  id={`new-rule-value-${v.id}`}
-                  value={v.value}
-                  feature={feature}
-                  sparse={sparse}
-                  editable
-                  onChange={(value) =>
-                    setVariations(
-                      variations.map((x) =>
-                        x.id === v.id ? { ...x, value } : x,
-                      ),
-                    )
-                  }
-                  onOpenEditor={() => setEditingValuesOf(v.id)}
-                  label={v.name}
-                />
               </div>
-              <div
-                className={clsx(styles.cell, lastColumn)}
-                style={{ paddingLeft: 0 }}
-              >
-                <div className={styles.fieldLine}>
-                  <Tooltip
-                    content={
-                      canRemove
-                        ? "Remove variation"
-                        : "Needs at least two variations"
-                    }
-                  >
-                    <IconButton
-                      type="button"
-                      variant="ghost"
-                      color="red"
-                      radius="full"
-                      size="2"
-                      className={own.remove}
-                      disabled={!canRemove}
-                      aria-label={`Remove ${v.name}`}
-                      onClick={() => removeVariation(i)}
-                    >
-                      <PiTrash size={16} />
-                    </IconButton>
-                  </Tooltip>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {hasFooter ? (
             <>

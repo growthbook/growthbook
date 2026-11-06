@@ -13,7 +13,10 @@ import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothes
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import NewRuleVariationsGrid from "@/components/Features/RuleModal/NewRuleVariationsGrid";
-import { newRuleVariation } from "@/services/ruleVariations";
+import {
+  defaultRuleVariationName,
+  newRuleVariation,
+} from "@/services/ruleVariations";
 import Collapse, { CollapseLink } from "@/ui/Collapse";
 import { CoverageField } from "@/components/Features/FeatureVariationsInput";
 import ExperimentSplitVisual from "@/components/Features/ExperimentSplitVisual";
@@ -118,7 +121,7 @@ export default function NewExperimentRuleFields({
   }, [missingIds]); // eslint-disable-line react-hooks/exhaustive-deps
   const variations = storedValues.map((v, i) => ({
     value: v.value || "",
-    name: v.name || (i ? `Variation ${i}` : "Control"),
+    name: v.name || defaultRuleVariationName(i),
     weight: v.weight,
     id: v.id || String(i),
   }));

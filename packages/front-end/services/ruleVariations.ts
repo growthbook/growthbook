@@ -32,6 +32,11 @@ export function prefillVariationValue(
   return defaultValue;
 }
 
+// What a variation is called until it's named.
+export function defaultRuleVariationName(index: number): string {
+  return index ? `Variation ${index}` : "Control";
+}
+
 export function newRuleVariation(
   valueType: FeatureValueType,
   defaultValue: string,
@@ -39,7 +44,7 @@ export function newRuleVariation(
 ): RuleVariation {
   return {
     id: generateVariationId(),
-    name: index ? `Variation ${index}` : "Control",
+    name: defaultRuleVariationName(index),
     value: prefillVariationValue(valueType, defaultValue, index),
     weight: 0,
   };

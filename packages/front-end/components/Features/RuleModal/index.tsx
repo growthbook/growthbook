@@ -59,6 +59,7 @@ import {
   useEnvironments,
   validateFeatureRule,
 } from "@/services/features";
+import { defaultRuleVariationName } from "@/services/ruleVariations";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -1379,7 +1380,7 @@ export default function RuleModal({
         const variations = values.values.map((v, i) => ({
           id: uniqId("var_"),
           key: i + "",
-          name: v.name || (i ? `Variation ${i}` : "Control"),
+          name: v.name || defaultRuleVariationName(i),
           screenshots: [],
         }));
         const variationWeights = values.values.map((v) => v.weight);
