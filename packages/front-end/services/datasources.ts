@@ -5,6 +5,7 @@ import {
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
+  UserIdType,
 } from "shared/types/datasource";
 import { MetricType } from "shared/types/metric";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -1052,6 +1053,76 @@ export function getInitialSettings(
         query: schema.getExperimentSQL(getTablePrefix(params), [id], options),
       })),
       identityJoins: schema.getIdentitySQL(getTablePrefix(params), options),
+    },
+  };
+}
+
+export const GA4_EXPOSURE_QUERY_ID = "ga4";
+
+// The dataset a GA4 export lives in, for display:
+// `project.analytics_123.events_*` -> analytics_123
+export function getGA4DatasetName(eventsTablePath: string): string {
+  return eventsTablePath.replace(/`/g, "").split(".").at(-2) ?? eventsTablePath;
+}
+
+export function hasGoogleAnalytics4ExposureQuery(
+  settings: DataSourceSettings | undefined,
+): boolean {
+  return (settings?.queries?.exposure ?? []).some(
+    (query) => query.id === GA4_EXPOSURE_QUERY_ID,
+  );
+}
+
+export function getGoogleAnalytics4UserIdTypes(
+  existingTypes: UserIdType[],
+): UserIdType[] {
+  const ga4Types = getSchemaObject("ga4").userIdTypes;
+  const existingNames = new Set(existingTypes.map((type) => type.userIdType));
+  return [
+    ...existingTypes,
+    ...ga4Types
+      .filter((id) => !existingNames.has(id))
+      .map((id) => ({
+        userIdType: id,
+        description: USER_ID_TYPE_META[id]?.description ?? "",
+      })),
+  ];
+}
+
+export function getGoogleAnalytics4ExposureQuery(
+  eventsTablePath: string,
+): ExposureQuery {
+  const schema = getSchemaObject("ga4");
+  const ga4Types = schema.userIdTypes;
+  return {
+    id: GA4_EXPOSURE_QUERY_ID,
+    name: "Google Analytics 4",
+    description: "",
+    userIdType: ga4Types[0] ?? "anonymous_id",
+    userIdTypes: [...ga4Types],
+    query: getGA4ExposureSql(eventsTablePath, ga4Types),
+    dimensions: [...schema.experimentDimensions],
+  };
+}
+
+// Existing identifier types and queries stay; this only fills in what GA4
+// needs, so applying it twice changes nothing.
+export function applyGoogleAnalytics4Settings(
+  settings: DataSourceSettings | undefined,
+  eventsTablePath: string,
+): DataSourceSettings {
+  const exposure = [...(settings?.queries?.exposure ?? [])];
+  if (!hasGoogleAnalytics4ExposureQuery(settings)) {
+    exposure.push(getGoogleAnalytics4ExposureQuery(eventsTablePath));
+  }
+
+  return {
+    ...settings,
+    schemaFormat: "ga4",
+    userIdTypes: getGoogleAnalytics4UserIdTypes(settings?.userIdTypes ?? []),
+    queries: {
+      ...settings?.queries,
+      exposure,
     },
   };
 }
