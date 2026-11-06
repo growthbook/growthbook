@@ -189,6 +189,8 @@ export function OptionPopover({
   return (
     <Popover
       openOnHover
+      // Rows of values sit close together; the gap to a popover crosses them.
+      hoverBridge={side === "rows"}
       anchorOnly
       side={side === "rows" ? rowSide : (side ?? (isValue ? "top" : "right"))}
       sideOffset={8}

@@ -65,6 +65,10 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
   openOnHover?: boolean;
+  // With openOnHover: covers the gap to the trigger, so the pointer reaches the
+  // popover without landing on what lies in between, such as another row of
+  // triggers with popovers of their own.
+  hoverBridge?: boolean;
 } & MarginProps;
 
 export function Popover({
@@ -87,6 +91,7 @@ export function Popover({
   onOpenAutoFocus,
   onCloseAutoFocus,
   openOnHover = false,
+  hoverBridge = false,
   avoidCollisions,
   ...props
 }: PopoverProps) {
@@ -136,9 +141,10 @@ export function Popover({
   const appliedContentStyle = {
     padding: "15px 20px",
     // The whole gap to the trigger: the offset plus the arrow Radix adds to it.
-    ...(openOnHover && {
-      "--hover-bridge": `${(sideOffset ?? 0) + (showArrow ? ARROW_HEIGHT : 0)}px`,
-    }),
+    ...(openOnHover &&
+      hoverBridge && {
+        "--hover-bridge": `${(sideOffset ?? 0) + (showArrow ? ARROW_HEIGHT : 0)}px`,
+      }),
     ...contentStyle,
   } as React.CSSProperties;
 
@@ -183,7 +189,7 @@ export function Popover({
               avoidCollisions={avoidCollisions}
               className={clsx(
                 styles.Content,
-                openOnHover && styles.HoverBridge,
+                openOnHover && hoverBridge && styles.HoverBridge,
                 contentClassName,
               )}
               style={appliedContentStyle}
