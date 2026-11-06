@@ -112,6 +112,22 @@
   color: var(--sidebar-chevron, var(--slate-10));
 }
 
+// A dropdown's heading, as the drawer's (.label) and the collapsed sections'
+// popovers (Sidebar.module.scss's .eyebrow). It keeps the menu's own side
+// padding, in line with the items.
+.dropdownLabel.dropdownLabel {
+  height: auto;
+  padding-top: 8px;
+  padding-bottom: 6px;
+
+  :global(.rt-Text) {
+    color: var(--slate-11);
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    line-height: 14px;
+  }
+}
+
 .label {
   padding: 8px 10px 6px;
   color: var(--slate-11);

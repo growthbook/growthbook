@@ -103,7 +103,10 @@ export function DropdownEntries({ entries }: { entries: SidebarMenuEntry[] }) {
             return <DropdownMenuSeparator key={entry.key} />;
           case "label":
             return (
-              <DropdownMenuLabel key={entry.key}>
+              <DropdownMenuLabel
+                key={entry.key}
+                className={styles.dropdownLabel}
+              >
                 {entry.label}
               </DropdownMenuLabel>
             );
