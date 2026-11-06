@@ -23,6 +23,7 @@ import { AppFeatures } from "shared/types/app-features";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import { isInterleavingEnabled } from "@/services/interleaving";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import ManagedWarehouseActivity from "@/components/ManagedWarehouse/ManagedWarehouseActivity";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -99,7 +100,10 @@ const DATA_SOURCE_TABS = [
   "settings",
 ] as const;
 
-type DataSourceTab = (typeof DATA_SOURCE_TABS)[number] | "event-forwarder";
+type DataSourceTab =
+  | (typeof DATA_SOURCE_TABS)[number]
+  | "event-forwarder"
+  | "recent-events";
 
 // Used when Finish Setting Up is on the page, so Explore stays a normal
 // scrolling section instead of a viewport-locked panel.
@@ -262,9 +266,13 @@ const DataSourcePage: FC = () => {
       d?.eventForwarderConfig &&
       d.eventForwarderConfig.status !== "unconfigured",
   );
+  // Recent Events is first for a Managed Warehouse, for the same reason.
+  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   const tabIds: readonly DataSourceTab[] = showEventForwarderTab
     ? ["event-forwarder", ...DATA_SOURCE_TABS]
-    : DATA_SOURCE_TABS;
+    : isManagedWarehouse
+      ? ["recent-events", ...DATA_SOURCE_TABS]
+      : DATA_SOURCE_TABS;
   const [tab, setTab] = useURLHash();
   // A full page load renders on the server, where the hash is invisible, so
   // read it once here. Legacy anchors are not tab ids; open Queries and
@@ -280,7 +288,8 @@ const DataSourcePage: FC = () => {
     }
     if (
       (DATA_SOURCE_TABS as readonly string[]).includes(hash) ||
-      hash === "event-forwarder"
+      hash === "event-forwarder" ||
+      hash === "recent-events"
     ) {
       setTab(hash);
     }
@@ -340,7 +349,6 @@ const DataSourcePage: FC = () => {
     setDataSourceNameError(null);
   }, [d?.name]);
 
-  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   const showFinishSettingUp =
     !!d &&
     d.properties?.queryLanguage === "sql" &&
@@ -711,24 +719,6 @@ const DataSourcePage: FC = () => {
           </Frame>
         )}
 
-        {isManagedWarehouse &&
-          (managedWarehouseAwaitingProvisioning ? (
-            <ManagedWarehouseNoEventsCallout />
-          ) : (
-            <Frame>
-              <Heading as="h2" size="md" mb="2">
-                Sending Events
-              </Heading>
-              <Text>
-                <DocLink useRadix={false} docSection="managedWarehouseTracking">
-                  Read our full docs
-                </DocLink>{" "}
-                with instructions on how to send events from your app to
-                GrowthBook.
-              </Text>
-            </Frame>
-          ))}
-
         <Tabs
           value={activeTab}
           onValueChange={(value) => {
@@ -754,6 +744,9 @@ const DataSourcePage: FC = () => {
             {showEventForwarderTab ? (
               <TabsTrigger value="event-forwarder">Event Forwarder</TabsTrigger>
             ) : null}
+            {isManagedWarehouse ? (
+              <TabsTrigger value="recent-events">Recent Events</TabsTrigger>
+            ) : null}
             {supportsSQL && <TabsTrigger value="queries">Queries</TabsTrigger>}
             <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="resources">Connected Resources</TabsTrigger>
@@ -771,6 +764,27 @@ const DataSourcePage: FC = () => {
                     onRefresh={refreshDataSource}
                   />
                 </Frame>
+              </Flex>
+            </TabsContent>
+          ) : null}
+
+          {isManagedWarehouse ? (
+            <TabsContent value="recent-events">
+              <Flex direction="column" gap="2" mt="3">
+                {managedWarehouseAwaitingProvisioning ? (
+                  <ManagedWarehouseNoEventsCallout />
+                ) : (
+                  <Frame mb="0">
+                    <ManagedWarehouseActivity dataSource={d} />
+                    <Text as="p" mt="4" mb="0">
+                      <DocLink docSection="managedWarehouseTracking">
+                        Read our full docs
+                      </DocLink>{" "}
+                      with instructions on how to send events from your app to
+                      GrowthBook.
+                    </Text>
+                  </Frame>
+                )}
               </Flex>
             </TabsContent>
           ) : null}
