@@ -46,7 +46,10 @@ export const apiCreateTeamBody = z.strictObject({
   createdBy: z.string().optional(),
   description: z.string().describe(PLAIN_DESCRIPTION),
   role: z.string().describe("The global role for members of this team"),
-  limitAccessByEnvironment: z.boolean().optional(),
+  limitAccessByEnvironment: z
+    .boolean()
+    .optional()
+    .meta({ "x-growthbook-default": false }),
   environments: z
     .array(z.string())
     .optional()

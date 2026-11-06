@@ -20200,6 +20200,7 @@ paths:
                   items:
                     type: string
                 archived:
+                  x-growthbook-default: false
                   type: boolean
                 behavior:
                   type: object
@@ -21181,6 +21182,7 @@ paths:
                     - SQL
                     - FACT
                 query:
+                  x-growthbook-server-default: true
                   description: >-
                     SQL query that defines the Segment. This is required for SQL
                     segments.
@@ -21310,6 +21312,7 @@ paths:
                     - SQL
                     - FACT
                 query:
+                  x-growthbook-server-default: true
                   description: >-
                     SQL query that defines the Segment. This is required for SQL
                     segments.
@@ -21690,6 +21693,7 @@ paths:
                   type: string
                   maxLength: 10000
                 publicId:
+                  x-growthbook-server-default: true
                   description: >-
                     URL-safe slug (lowercase letters, numbers, dashes).
                     Auto-generated from name if not provided.
@@ -21713,6 +21717,7 @@ paths:
                       type: number
                   additionalProperties: false
                 restrictAccess:
+                  x-growthbook-default: false
                   description: >-
                     When true, only members with an explicit role on this
                     Project (directly or via a team) can access it. Members with
@@ -21720,6 +21725,7 @@ paths:
                     Enterprise plan.
                   type: boolean
                 allowTargeting:
+                  x-growthbook-default: true
                   description: >-
                     Whether Feature Flags owned by other Projects may add this
                     Project to their Targeting Projects. Defaults to true.
@@ -21939,9 +21945,11 @@ paths:
                   description: Put context here, not in the name.
                   type: string
                 toggleOnList:
+                  x-growthbook-default: false
                   description: Show on feature list page
                   type: boolean
                 defaultState:
+                  x-growthbook-default: false
                   description: Default state for new features
                   type: boolean
                 projects:
@@ -22136,9 +22144,11 @@ paths:
                   description: Markdown. Put context here, not in the name.
                   type: string
                 archived:
+                  x-growthbook-default: false
                   description: The attribute is archived
                   type: boolean
                 hashAttribute:
+                  x-growthbook-default: false
                   description: Shall the attribute be hashed
                   type: boolean
                 enum:
@@ -22149,6 +22159,7 @@ paths:
                     values. Ignored for all other datatypes.
                   type: string
                 format:
+                  x-growthbook-default: ''
                   description: The attribute's format
                   type: string
                   enum:
@@ -22386,6 +22397,7 @@ paths:
                 language:
                   type: string
                 sdkVersion:
+                  x-growthbook-server-default: true
                   type: string
                 environment:
                   type: string
@@ -22394,46 +22406,63 @@ paths:
                   items:
                     type: string
                 encryptPayload:
+                  x-growthbook-default: false
                   type: boolean
                 includeVisualExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperimentRefs:
                   description: >-
                     When true, experiment-ref rules linked to draft experiments
                     are included in feature definitions. Off by default.
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentNames:
+                  x-growthbook-default: false
                   type: boolean
                 includeRedirectExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeRuleIds:
+                  x-growthbook-default: false
                   type: boolean
                 includeProjectIdInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeCustomFieldsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 allowedCustomFieldsInMetadata:
                   type: array
                   items:
                     type: string
                 includeTagsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentScheduleInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 proxyEnabled:
+                  x-growthbook-server-default: true
                   type: boolean
                 proxyHost:
+                  x-growthbook-server-default: true
                   type: string
                 hashSecureAttributes:
+                  x-growthbook-default: false
                   type: boolean
                 remoteEvalEnabled:
+                  x-growthbook-default: false
                   type: boolean
                 savedGroupReferencesEnabled:
                   description: Deprecated. Use `savedGroupFormat`.
+                  x-growthbook-server-default: true
                   type: boolean
                 savedGroupFormat:
+                  x-growthbook-server-default: true
                   type: string
                   enum:
                     - inline
@@ -22444,6 +22473,7 @@ paths:
                     Carry prerequisite Feature Flags into this payload even when
                     they target other Projects. Defaults to true for new
                     connections.
+                  x-growthbook-default: true
                   type: boolean
               required:
                 - name
@@ -22519,6 +22549,7 @@ paths:
                 language:
                   type: string
                 sdkVersion:
+                  x-growthbook-server-default: true
                   type: string
                 environment:
                   type: string
@@ -22527,46 +22558,63 @@ paths:
                   items:
                     type: string
                 encryptPayload:
+                  x-growthbook-default: false
                   type: boolean
                 includeVisualExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeDraftExperimentRefs:
                   description: >-
                     When true, experiment-ref rules linked to draft experiments
                     are included in feature definitions. Off by default.
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentNames:
+                  x-growthbook-default: false
                   type: boolean
                 includeRedirectExperiments:
+                  x-growthbook-default: false
                   type: boolean
                 includeRuleIds:
+                  x-growthbook-default: false
                   type: boolean
                 includeProjectIdInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeCustomFieldsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 allowedCustomFieldsInMetadata:
                   type: array
                   items:
                     type: string
                 includeTagsInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 includeExperimentScheduleInMetadata:
+                  x-growthbook-default: false
                   type: boolean
                 proxyEnabled:
+                  x-growthbook-server-default: true
                   type: boolean
                 proxyHost:
+                  x-growthbook-server-default: true
                   type: string
                 hashSecureAttributes:
+                  x-growthbook-default: false
                   type: boolean
                 remoteEvalEnabled:
+                  x-growthbook-default: false
                   type: boolean
                 savedGroupReferencesEnabled:
                   description: Deprecated. Use `savedGroupFormat`.
+                  x-growthbook-server-default: true
                   type: boolean
                 savedGroupFormat:
+                  x-growthbook-server-default: true
                   type: string
                   enum:
                     - inline
@@ -22577,6 +22625,7 @@ paths:
                     Carry prerequisite Feature Flags into this payload even when
                     they target other Projects. Defaults to true for new
                     connections.
+                  x-growthbook-default: true
                   type: boolean
               additionalProperties: false
       responses:
@@ -23562,6 +23611,7 @@ paths:
                     - list
                     - remote
                 condition:
+                  x-growthbook-server-default: true
                   description: >-
                     When type = 'condition', this is the JSON-encoded condition
                     for the group
@@ -32060,14 +32110,15 @@ paths:
                     $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
                     - dbt
+                    - terraform
               required:
                 - name
                 - datasource
@@ -32241,14 +32292,15 @@ paths:
                     $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
                     - dbt
+                    - terraform
                 archived:
                   type: boolean
               additionalProperties: false
@@ -33562,14 +33614,15 @@ paths:
                   minimum: 0
                 managedBy:
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
                     - dbt
+                    - terraform
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -34291,14 +34344,15 @@ paths:
                   minimum: 0
                 managedBy:
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
                     - dbt
+                    - terraform
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -34503,6 +34557,7 @@ paths:
                     - api
                     - admin
                     - dbt
+                    - terraform
                 dryRun:
                   description: Validate with zero writes.
                   type: boolean
@@ -34632,14 +34687,16 @@ paths:
                               $ref: '#/components/schemas/FactTableColumnInput'
                           managedBy:
                             description: >-
-                              Set this to "api" (or "dbt" for resources synced
-                              from dbt) to disable editing in the GrowthBook UI
+                              Set this to "api" (or "dbt" or "terraform" for
+                              resources those tools manage) to disable editing
+                              in the GrowthBook UI
                             type: string
                             enum:
                               - ''
                               - api
                               - admin
                               - dbt
+                              - terraform
                         required:
                           - name
                           - datasource
@@ -35371,14 +35428,16 @@ paths:
                             minimum: 0
                           managedBy:
                             description: >-
-                              Set this to "api" (or "dbt" for resources synced
-                              from dbt) to disable editing in the GrowthBook UI
+                              Set this to "api" (or "dbt" or "terraform" for
+                              resources those tools manage) to disable editing
+                              in the GrowthBook UI
                             type: string
                             enum:
                               - ''
                               - api
                               - admin
                               - dbt
+                              - terraform
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be
@@ -40205,6 +40264,7 @@ paths:
                   description: Put context here, not in the name.
                   type: string
                 status:
+                  x-growthbook-default: active
                   type: string
                   enum:
                     - active
@@ -40214,11 +40274,13 @@ paths:
                     Namespace format. Defaults to 'multiRange', which supports
                     multiple ranges per experiment and a configurable hash
                     attribute.
+                  x-growthbook-server-default: true
                   type: string
                   enum:
                     - legacy
                     - multiRange
                 hashAttribute:
+                  x-growthbook-server-default: true
                   description: >-
                     Required when format is 'multiRange'. The user attribute
                     (e.g. 'id', 'device_id') used to assign users to namespace
@@ -47611,7 +47673,10 @@ paths:
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization. Omit
-                    to leave the current owner unchanged.
+                    to leave the current owner unchanged. A private dashboard
+                    owned by another member can only be retrieved or updated
+                    using its owner's Personal Access Token (PAT), not an
+                    organization secret API key.
                   type: string
                   minLength: 1
               additionalProperties: false
@@ -57214,6 +57279,7 @@ paths:
                   description: >-
                     For enum and multiselect fields, allow users to enter values
                     beyond the predefined list
+                  x-growthbook-default: false
                   type: boolean
                 required:
                   type: boolean
@@ -57412,6 +57478,7 @@ paths:
                   description: >-
                     For enum and multiselect fields, allow users to enter values
                     beyond the predefined list
+                  x-growthbook-default: false
                   type: boolean
                 required:
                   type: boolean
@@ -57431,6 +57498,7 @@ paths:
                       - experiment
                       - attribute
                 active:
+                  x-growthbook-default: true
                   type: boolean
               additionalProperties: false
       responses:
@@ -57572,6 +57640,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 archived:
+                  x-growthbook-default: false
                   type: boolean
               additionalProperties: false
       responses:
@@ -57643,6 +57712,7 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 archived:
+                  x-growthbook-default: false
                   type: boolean
               required:
                 - name
@@ -57758,6 +57828,7 @@ paths:
                   description: The global role for members of this team
                   type: string
                 limitAccessByEnvironment:
+                  x-growthbook-default: false
                   type: boolean
                 environments:
                   description: An empty array means 'all environments'
@@ -57901,6 +57972,7 @@ paths:
                   description: The global role for members of this team
                   type: string
                 limitAccessByEnvironment:
+                  x-growthbook-default: false
                   type: boolean
                 environments:
                   description: An empty array means 'all environments'
@@ -74350,6 +74422,7 @@ components:
         encryptPayload:
           type: boolean
         encryptionKey:
+          x-growthbook-sensitive: true
           type: string
         includeVisualExperiments:
           type: boolean
@@ -74385,6 +74458,7 @@ components:
         proxyHost:
           type: string
         proxySigningKey:
+          x-growthbook-sensitive: true
           type: string
         sseEnabled:
           type: boolean
@@ -76879,6 +76953,7 @@ components:
             - api
             - admin
             - dbt
+            - terraform
         dateCreated:
           format: date-time
           type: string
@@ -78029,6 +78104,7 @@ components:
             - api
             - admin
             - dbt
+            - terraform
         dateCreated:
           format: date-time
           type: string
@@ -91849,3 +91925,211 @@ x-tagGroups:
       - VisualChange_model
       - VisualChangeset_model
       - VisualEditorCbExperimentStub_model
+x-growthbook-resources:
+  project:
+    operations:
+      create: postProject
+      list: listProjects
+      get: getProject
+      update: putProject
+      delete: deleteProject
+  attribute:
+    operations:
+      create: postAttribute
+      list: listAttributes
+      update: putAttribute
+      delete: deleteAttribute
+  sdk_connection:
+    operations:
+      create: postSdkConnection
+      list: listSdkConnections
+      get: getSdkConnection
+      update: putSdkConnection
+      delete: deleteSdkConnection
+  feature:
+    operations:
+      create: postFeatureV2
+      list: listFeaturesV2
+      get: getFeatureV2
+      update: updateFeatureV2
+      delete: deleteFeatureV2
+  environment:
+    operations:
+      create: postEnvironment
+      list: listEnvironments
+      update: putEnvironment
+      delete: deleteEnvironment
+  archetype:
+    operations:
+      create: postArchetype
+      list: listArchetypes
+      get: getArchetype
+      update: putArchetype
+      delete: deleteArchetype
+  dimension:
+    operations:
+      create: postDimension
+      list: listDimensions
+      get: getDimension
+      update: updateDimension
+      delete: deleteDimension
+  segment:
+    operations:
+      create: postSegment
+      list: listSegments
+      get: getSegment
+      update: updateSegment
+      delete: deleteSegment
+  namespace:
+    operations:
+      create: postNamespace
+      list: listNamespaces
+      get: getNamespace
+      update: putNamespace
+      delete: deleteNamespace
+  metric:
+    operations:
+      create: postMetric
+      list: listMetrics
+      get: getMetric
+      update: putMetric
+      delete: deleteMetric
+  saved_group:
+    operations:
+      create: postSavedGroup
+      list: listSavedGroups
+      get: getSavedGroup
+      update: updateSavedGroup
+      delete: deleteSavedGroup
+  fact_table:
+    operations:
+      create: postFactTable
+      list: listFactTables
+      get: getFactTable
+      update: updateFactTable
+      delete: deleteFactTable
+  fact_table_filter:
+    operations:
+      create: postFactTableFilter
+      list: listFactTableFilters
+      get: getFactTableFilter
+      update: updateFactTableFilter
+      delete: deleteFactTableFilter
+  fact_metric:
+    operations:
+      create: postFactMetric
+      list: listFactMetrics
+      get: getFactMetric
+      update: updateFactMetric
+      delete: deleteFactMetric
+  member:
+    operations:
+      list: listMembers
+      delete: deleteMember
+  data_source:
+    operations:
+      list: listDataSources
+      get: getDataSource
+  dashboard:
+    operations:
+      create: createDashboard
+      list: listDashboards
+      get: getDashboard
+      update: updateDashboard
+      delete: deleteDashboard
+  contextual_bandit:
+    operations:
+      create: createContextualBandit
+      list: listContextualBandits
+      get: getContextualBandit
+      update: updateContextualBandit
+      delete: deleteContextualBandit
+  contextual_bandit_query:
+    operations:
+      create: createContextualBanditQuery
+      list: listContextualBanditQueries
+      get: getContextualBanditQuery
+      update: updateContextualBanditQuery
+      delete: deleteContextualBanditQuery
+  interleaving_exposure_query:
+    operations:
+      create: createInterleavingExposureQuery
+      list: listInterleavingExposureQueries
+      get: getInterleavingExposureQuery
+      update: updateInterleavingExposureQuery
+      delete: deleteInterleavingExposureQuery
+  interleaving:
+    operations:
+      create: createInterleaving
+      list: listInterleavings
+      get: getInterleaving
+      update: updateInterleaving
+      delete: deleteInterleaving
+  custom_field:
+    operations:
+      create: createCustomField
+      list: listCustomFields
+      get: getCustomField
+      update: updateCustomField
+      delete: deleteCustomField
+  metric_group:
+    operations:
+      create: createMetricGroup
+      list: listMetricGroups
+      get: getMetricGroup
+      update: updateMetricGroup
+      delete: deleteMetricGroup
+  team:
+    operations:
+      create: createTeam
+      list: listTeams
+      get: getTeam
+      update: updateTeam
+      delete: deleteTeam
+  experiment_template:
+    operations:
+      create: createExperimentTemplate
+      list: listExperimentTemplates
+      get: getExperimentTemplate
+      update: updateExperimentTemplate
+      delete: deleteExperimentTemplate
+  ramp_schedule_template:
+    operations:
+      create: createRampScheduleTemplate
+      list: listRampScheduleTemplates
+      get: getRampScheduleTemplate
+      update: updateRampScheduleTemplate
+      delete: deleteRampScheduleTemplate
+  ramp_schedule:
+    operations:
+      create: postRampSchedule
+      list: listRampSchedules
+      get: getRampSchedule
+      update: updateRampSchedule
+      delete: deleteRampSchedule
+  learning:
+    operations:
+      create: createLearning
+      list: listLearnings
+      get: getLearning
+      update: updateLearning
+      delete: deleteLearning
+  holdout:
+    operations:
+      create: createHoldout
+      list: listHoldouts
+      get: getHoldout
+      update: updateHoldout
+  auto_run:
+    operations:
+      create: createAutoRun
+      list: listAutoRuns
+      get: getAutoRun
+      update: updateAutoRun
+  population:
+    operations:
+      create: createPopulation
+      list: listPopulations
+      get: getPopulation
+      update: updatePopulation
+      delete: deletePopulation
