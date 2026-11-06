@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   DEFAULT_ENVIRONMENT_IDS,
   guessIsProductionEnvironment,
@@ -45,6 +45,7 @@ export default function EnvironmentModal({
       }),
     },
   });
+  const [isProductionTouched, setIsProductionTouched] = useState(false);
   const { apiCall } = useAuth();
   const environments = useEnvironments();
 
@@ -174,13 +175,13 @@ export default function EnvironmentModal({
             `Use custom environment name "${value}"`
           }
           onChange={(value) => {
-            if (value !== form.getValues("id")) {
+            form.setValue("id", value);
+            if (!isProductionTouched) {
               form.setValue(
                 "isProduction",
                 guessIsProductionEnvironment(value),
               );
             }
-            form.setValue("id", value);
             if (!DEFAULT_ENVIRONMENT_IDS.includes(value)) {
               form.setValue("parent", undefined);
             }
@@ -221,6 +222,16 @@ export default function EnvironmentModal({
         {...form.register("description")}
         placeholder=""
         textarea
+      />
+      <Switch
+        id={"isProduction"}
+        label="This is a production environment"
+        value={!!form.watch("isProduction")}
+        onChange={(value) => {
+          setIsProductionTouched(true);
+          form.setValue("isProduction", value);
+        }}
+        mb="3"
       />
       {!existing.id && (
         <div className="mb-3">
@@ -286,15 +297,6 @@ export default function EnvironmentModal({
         value={!!form.watch("toggleOnList")}
         onChange={(value) => {
           form.setValue("toggleOnList", value);
-        }}
-        mb="3"
-      />
-      <Switch
-        id={"isProduction"}
-        label="This is a production environment"
-        value={!!form.watch("isProduction")}
-        onChange={(value) => {
-          form.setValue("isProduction", value);
         }}
       />
     </Modal>

@@ -128,7 +128,6 @@ const EnvironmentsPage: FC = () => {
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Environment</TableColumnHeader>
-              <TableColumnHeader>Production</TableColumnHeader>
               <TableColumnHeader>Description</TableColumnHeader>
               <TableColumnHeader>Projects</TableColumnHeader>
               <TableColumnHeader>SDK Connections</TableColumnHeader>
@@ -161,9 +160,13 @@ const EnvironmentsPage: FC = () => {
               };
               return (
                 <TableRow key={e.id}>
-                  <TableCell>{e.id}</TableCell>
                   <TableCell>
-                    {isProductionEnvironment(e) && <Badge label="Production" />}
+                    <Flex align="center" gap="2">
+                      {e.id}
+                      {isProductionEnvironment(e) && (
+                        <Badge label="Production" />
+                      )}
+                    </Flex>
                   </TableCell>
                   <TableCell>{e.description}</TableCell>
                   <TableCell>
