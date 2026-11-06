@@ -76,6 +76,8 @@ If the GrowthBook SDK’s `trackingCallback` is not implemented correctly, or if
 
 The HTML Script Tag SDK handles this automatically and no adjustment should be necessary. Usage of other SDKs requires manually configuring the `trackingCallback` to send `experiment_viewed` events to GA4. Read on for more information.
 
+Log `result.key` as the `variation_id`, not `result.variationId`. GrowthBook matches `variation_id` against each variation's key, and the 0-based index stops matching once variations are removed or their keys change. `result.key` is available in the JavaScript SDK 0.23.0 and later.
+
 #### Format for `trackingCallback` for pure GA4 integrations (no GTM)
 
 Use `gtag` in the `trackingCallback` if Google Analytics 4 (GA4) is loaded directly on your page **and** the `window.gtag` function is available on the web page:
@@ -86,8 +88,9 @@ trackingCallback: (experiment, result) => {
     window.gtag("event", "experiment_viewed", {
       event_category: "experiment",
       experiment_id: experiment.key,
-      variation_id: result.variationId // or result.key depending on SDK version
-   });
+      variation_id: result.key,
+    });
+  }
 }
 ```
 
@@ -108,7 +111,7 @@ trackingCallback: (experiment, result) => {
   window.dataLayer.push({
     event: "experiment_viewed",
     experiment_id: experiment.key,
-    variation_id: result.variationId // or result.key depending on SDK version
+    variation_id: result.key,
   });
 }
 ```

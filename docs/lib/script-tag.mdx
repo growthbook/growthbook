@@ -187,7 +187,7 @@ mixpanel.init("[YOUR PROJECT TOKEN]", {
 window.growthbook_config.trackingCallback = (experiment, result, user) => {
     mixpanel.track("$experiment_started", {
       "Experiment name": experiment.key,
-      "Variant name": result.variationId,
+      "Variant name": result.key,
       "GrowthBook attributes": user?.attributes,
       $source: "growthbook",
     });
