@@ -588,6 +588,7 @@ export default function Implementation({
           <QaOverridesSection
             experiment={experiment}
             linkedFeatures={linkedFeatures}
+            mutateExperiment={mutate}
           />
         ) : null}
         {isHoldout && holdout ? (

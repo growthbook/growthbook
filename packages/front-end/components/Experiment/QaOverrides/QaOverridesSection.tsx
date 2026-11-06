@@ -28,6 +28,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import QaOverrideModal from "./QaOverrideModal";
+import QaOverrideFeatureGate from "./QaOverrideFeatureGate";
 import {
   QaOverrideFiltersSummary,
   QaOverrideSetBy,
@@ -38,9 +39,12 @@ import {
 export default function QaOverridesSection({
   experiment,
   linkedFeatures,
+  mutateExperiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures?: LinkedFeatureInfo[];
+  // Refreshes the experiment (and its linked features) after a flag is toggled.
+  mutateExperiment?: () => Promise<unknown> | void;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -91,6 +95,7 @@ export default function QaOverridesSection({
             await mutate();
             setModal(null);
           }}
+          onFeatureChanged={mutateExperiment}
         />
       )}
       {confirmStopAll && (
@@ -206,10 +211,19 @@ export default function QaOverridesSection({
                   />
                 </TableCell>
                 <TableCell>
-                  <QaOverrideStatusBadge
-                    override={override}
-                    linkedFeatures={linkedFeatures}
-                  />
+                  <Flex direction="column" gap="2" align="start">
+                    <QaOverrideStatusBadge
+                      override={override}
+                      linkedFeatures={linkedFeatures}
+                    />
+                    {canEdit && (
+                      <QaOverrideFeatureGate
+                        environment={override.environment}
+                        linkedFeatures={linkedFeatures}
+                        onChanged={mutateExperiment}
+                      />
+                    )}
+                  </Flex>
                 </TableCell>
                 <TableCell>
                   <QaOverrideSetBy override={override} />

@@ -34,7 +34,8 @@ import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import { FeatureBadge } from "@/components/Features/FeatureBadge";
+import QaOverrideFeatureGate from "./QaOverrideFeatureGate";
+import { getQaOverrideWaitingFeatures } from "./QaOverrideSummary";
 
 export type QaOverrideModalExperiment = Pick<
   ExperimentInterfaceStringDates,
@@ -76,12 +77,14 @@ export default function QaOverrideModal({
   existing,
   close,
   onSaved,
+  onFeatureChanged,
 }: {
   experiment: QaOverrideModalExperiment;
   linkedFeatures?: LinkedFeatureInfo[];
   existing?: ExperimentQaOverrideInterface;
   close: () => void;
   onSaved: () => Promise<unknown> | void;
+  onFeatureChanged?: () => Promise<unknown> | void;
 }) {
   const { apiCall } = useAuth();
   const environments = useEnvironments();
@@ -137,9 +140,12 @@ export default function QaOverrideModal({
     [projects],
   );
 
-  const draftLinkedFeatures = (linkedFeatures ?? []).filter(
-    (f) => f.state === "draft" || f.liveHasMatchingRule === false,
-  );
+  const waitingFeatures = values.environment
+    ? getQaOverrideWaitingFeatures(
+        { environment: values.environment },
+        linkedFeatures,
+      )
+    : [];
 
   const addFilter = (kind: FilterKind) =>
     setActiveFilters((current) =>
@@ -333,17 +339,22 @@ export default function QaOverrideModal({
           )}
         </Box>
 
-        {draftLinkedFeatures.length > 0 && (
+        {waitingFeatures.length > 0 && (
           <Callout status="warning">
-            The rule for this experiment isn&apos;t published in{" "}
-            {draftLinkedFeatures.map((f, i) => (
-              <span key={f.feature.id}>
-                {i > 0 ? ", " : ""}
-                <FeatureBadge featureId={f.feature.id} />
-              </span>
-            ))}{" "}
-            yet, so this override won&apos;t change that Feature Flag until its
-            draft is published.
+            <Text as="p" mb="2">
+              This override won&apos;t apply through{" "}
+              {waitingFeatures.length === 1
+                ? "this Feature Flag"
+                : "these Feature Flags"}{" "}
+              until {waitingFeatures.length === 1 ? "it is" : "they are"} on in{" "}
+              <Text weight="medium">{values.environment}</Text>. You can still
+              save it now.
+            </Text>
+            <QaOverrideFeatureGate
+              environment={values.environment}
+              linkedFeatures={linkedFeatures}
+              onChanged={onFeatureChanged}
+            />
           </Callout>
         )}
 
