@@ -65,8 +65,12 @@ export function getAggregationMetadata(
   const userCountWithAggregateFilter =
     hasAggregateFilter && column === "$$distinctUsers";
   if (binomialWithAggregateFilter || userCountWithAggregateFilter) {
+    // Sums the filter column per user; a numeric column can hold decimals,
+    // which can't be inserted into an integer column (e.g. BigQuery FLOAT64).
+    const filterSumIsInteger =
+      column === "$$count" || column === "$$distinctUsers";
     return {
-      intermediateDataType: "integer",
+      intermediateDataType: filterSumIsInteger ? "integer" : "float",
       partialAggregationFunction: (column: string) =>
         `SUM(COALESCE((${column}), 0))`,
       finalDataType: "integer",

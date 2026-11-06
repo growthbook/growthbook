@@ -5,7 +5,9 @@ import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
   ContextualBanditSnapshotInterface,
+  InterleavingInterface,
   InterleavingSnapshotInterface,
+  SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import {
@@ -70,10 +72,13 @@ const HEARTBEAT_MIN_GAP_MS = 1000;
 const STALLED_SNAPSHOT_REAP_LIMIT = 50;
 const STALLED_SNAPSHOT_REAP_MAX_PER_TICK = 500;
 
-const INTERRUPTED_QUERIES_ERROR =
-  "Queries were interrupted. Please try updating results again.";
+const MANUAL_RETRY_HINT = "Please try updating results again.";
+const SCHEDULED_RETRY_HINT = "A retry has been scheduled.";
+const INTERRUPTED_QUERIES_ERROR = `Queries were interrupted. ${MANUAL_RETRY_HINT}`;
 const ORPHANED_SNAPSHOT_ERROR =
   "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh.";
+const NO_QUERIES_RECORDED_ERROR =
+  "Snapshot stalled: its queries were never recorded. This can happen when the server restarts mid-refresh.";
 const NOT_FINALIZED_SNAPSHOT_ERROR =
   "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 const ORPHANED_QUERY_ERROR =
@@ -102,12 +107,25 @@ type RawSnapshotFamily = {
   collection: string;
   label: string;
   parentIdField: "safeRolloutId" | "contextualBandit" | "interleavingId";
+  // Called after a snapshot is errored, for families whose scheduler defers
+  // while the latest snapshot is running and so needs a nudge to try again.
+  scheduleRetry?: (snapshot: RawSnapshot) => Promise<void>;
 };
 
 const SAFE_ROLLOUT_SNAPSHOTS: RawSnapshotFamily = {
   collection: "saferolloutsnapshots",
   label: "safe rollout snapshot",
   parentIdField: "safeRolloutId",
+  // Mirrors the experiment reaper's retry: addSafeRolloutSnapshotJob picks
+  // this up on its next minute tick, sees the errored snapshot, and starts a
+  // new one. nextSnapshotAttempt is excluded from the model's audit log and
+  // dateUpdated handling, so the raw write loses nothing.
+  scheduleRetry: async (snapshot) => {
+    await getCollection<SafeRolloutInterface>("saferollout").updateOne(
+      { id: snapshot.safeRolloutId, status: "running", autoSnapshots: true },
+      { $set: { nextSnapshotAttempt: new Date() } },
+    );
+  },
 };
 const CONTEXTUAL_BANDIT_SNAPSHOTS: RawSnapshotFamily = {
   collection: "contextualbanditsnapshots",
@@ -118,17 +136,18 @@ const INTERLEAVING_SNAPSHOTS: RawSnapshotFamily = {
   collection: "interleavingsnapshots",
   label: "interleaving snapshot",
   parentIdField: "interleavingId",
+  // updateInterleavingResults defers while a snapshot is running, and its next
+  // window can be up to a week out, so a reap without this waits that out.
+  scheduleRetry: async (snapshot) => {
+    await getCollection<InterleavingInterface>("interleavings").updateOne(
+      { id: snapshot.interleavingId, status: "running", autoSnapshots: true },
+      { $set: { nextSnapshotAttempt: new Date() } },
+    );
+  },
 };
 
 const RAW_SNAPSHOT_FAMILIES = [
   SAFE_ROLLOUT_SNAPSHOTS,
-  CONTEXTUAL_BANDIT_SNAPSHOTS,
-  INTERLEAVING_SNAPSHOTS,
-];
-// Safe rollout snapshots are reaped lazily by addSafeRolloutSnapshotJob when
-// the next scheduled snapshot is due, with copy that says a new one is starting.
-// TODO: Follow-up PR to move safe rollout reaping here.
-const STALLED_REAPER_FAMILIES = [
   CONTEXTUAL_BANDIT_SNAPSHOTS,
   INTERLEAVING_SNAPSHOTS,
 ];
@@ -248,9 +267,10 @@ const expireOldQueries = async () => {
   }
 
   for (const family of RAW_SNAPSHOT_FAMILIES) {
-    const rawSnapshots = await findRunningRawSnapshotsByQueryId(family, [
-      ...queryIds,
-    ]);
+    const rawSnapshots =
+      await dangerousFindRunningRawSnapshotsByQueryIdFromAllOrgs(family, [
+        ...queryIds,
+      ]);
     for (const snapshot of rawSnapshots) {
       logger.info(`Updating status of ${family.label} ${snapshot.id}`);
       updateQueryStatus(snapshot.queries, queryIds);
@@ -264,9 +284,10 @@ const expireOldQueries = async () => {
   // Finalize matching aggregated runs: driven only by an in-memory QueryRunner
   // (no client polling), so a dead process leaves run pointers stuck even though
   // the query docs were flipped to failed.
-  const aggregatedRuns = await findRunningAggregatedFactTableRunsByQueryId([
-    ...queryIds,
-  ]);
+  const aggregatedRuns =
+    await dangerousFindRunningAggregatedFactTableRunsByQueryIdFromAllOrgs([
+      ...queryIds,
+    ]);
   for (const run of aggregatedRuns) {
     logger.info("Updating status of aggregated fact table run " + run.id);
     updateQueryStatus(run.queries, queryIds);
@@ -282,7 +303,7 @@ const expireOldQueries = async () => {
     logger.error(e, "Failed to reap stalled experiment snapshots");
   }
 
-  for (const family of STALLED_REAPER_FAMILIES) {
+  for (const family of RAW_SNAPSHOT_FAMILIES) {
     try {
       await errorStalledSnapshots(family);
     } catch (e) {
@@ -376,8 +397,22 @@ async function evaluateStalledCandidate(
   const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
   if (!queryIds.length) return null;
 
-  const statuses = await getQueryStatusesByIds(snapshot.organization, queryIds);
-  if (statuses.length !== queryIds.length) return null;
+  const found = await getQueryStatusesByIds(snapshot.organization, queryIds);
+  // Query docs are inserted before their id is ever written into a snapshot
+  // and nothing deletes them, so a missing doc can never finish: count it as
+  // failed and let the legacy age + grace criteria decide when to give up.
+  const foundIds = new Set(found.map((s) => s.id));
+  const statuses: StalledQueryStatus[] = [
+    ...found,
+    ...queryIds
+      .filter((id) => !foundIds.has(id))
+      .map((id) => ({
+        id,
+        status: "failed" as const,
+        createdAt: snapshot.dateCreated,
+        heartbeat: snapshot.dateCreated,
+      })),
+  ];
 
   const verdict = classifyStalledSnapshot({
     queryStatuses: statuses,
@@ -399,10 +434,15 @@ async function evaluateStalledCandidate(
   };
 }
 
-function stalledSnapshotError(orphaned: boolean): string {
-  return orphaned
-    ? `${ORPHANED_SNAPSHOT_ERROR} Please try updating results again.`
+function stalledSnapshotError(
+  orphaned: boolean,
+  retryScheduled = false,
+): string {
+  const base = orphaned
+    ? ORPHANED_SNAPSHOT_ERROR
     : NOT_FINALIZED_SNAPSHOT_ERROR;
+  if (retryScheduled) return `${base} ${SCHEDULED_RETRY_HINT}`;
+  return orphaned ? `${base} ${MANUAL_RETRY_HINT}` : base;
 }
 
 // Oldest-first pages of running snapshots older than the heartbeat window,
@@ -557,9 +597,7 @@ async function recoverOrErrorStalledExperimentSnapshots() {
       snapshot.triggeredBy === "schedule";
 
     const error = isOrphanedDag
-      ? shouldScheduleSnapshotRetry
-        ? `${ORPHANED_SNAPSHOT_ERROR} A retry has been scheduled.`
-        : stalledSnapshotError(true)
+      ? stalledSnapshotError(true, shouldScheduleSnapshotRetry)
       : stalledSnapshotError(false) +
         (recoverError ? ` Automatic recovery failed: ${recoverError}` : "");
 
@@ -649,7 +687,7 @@ export default async function (agenda: Agenda) {
   await job.save();
 }
 
-async function findRunningRawSnapshotsByQueryId(
+async function dangerousFindRunningRawSnapshotsByQueryIdFromAllOrgs(
   family: RawSnapshotFamily,
   ids: string[],
 ): Promise<RawSnapshot[]> {
@@ -664,7 +702,7 @@ async function findRunningRawSnapshotsByQueryId(
     .toArray();
 }
 
-function findStalledRunningRawSnapshots(
+function dangerousFindStalledRunningRawSnapshotsFromAllOrgs(
   family: RawSnapshotFamily,
   stalledBefore: Date,
   limit: number,
@@ -696,6 +734,36 @@ async function errorRawSnapshotIfStillRunning(
   return res.modifiedCount > 0;
 }
 
+function rawSnapshotName(family: RawSnapshotFamily, snapshot: RawSnapshot) {
+  return `${family.label} ${snapshot.id} (${family.parentIdField} ${snapshot[family.parentIdField]})`;
+}
+
+// Guarded error write, then log and nudge the family's scheduler if it has
+// one. Returns false when the runner finalized first, in which case nothing
+// is logged or scheduled.
+async function reapRawSnapshot(
+  family: RawSnapshotFamily,
+  snapshot: RawSnapshot,
+  updates: { error: string; queries?: Queries },
+  logLine: string,
+): Promise<boolean> {
+  const reaped = await errorRawSnapshotIfStillRunning(
+    family,
+    snapshot.id,
+    updates,
+  );
+  if (!reaped) return false;
+  logger.warn(logLine);
+  if (family.scheduleRetry) {
+    await family
+      .scheduleRetry(snapshot)
+      .catch((e) =>
+        logger.warn(e, `Failed to schedule retry after reaping ${snapshot.id}`),
+      );
+  }
+  return true;
+}
+
 // These families have no recovery path, so the only outcome is status "error".
 // Compare recoverOrErrorStalledExperimentSnapshots.
 async function errorStalledSnapshots(family: RawSnapshotFamily) {
@@ -705,11 +773,16 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
   // heartbeats be caught before the snapshot is a full hour old.
   const stalledBefore = new Date(now - QUEUED_HEARTBEAT_STALE_MS);
   const candidates = stalledSnapshotCandidates(family.label, (limit, seen) =>
-    findStalledRunningRawSnapshots(family, stalledBefore, limit, seen),
+    dangerousFindStalledRunningRawSnapshotsFromAllOrgs(
+      family,
+      stalledBefore,
+      limit,
+      seen,
+    ),
   );
 
   for await (const snapshot of candidates) {
-    const name = `${family.label} ${snapshot.id} (${family.parentIdField} ${snapshot[family.parentIdField]})`;
+    const name = rawSnapshotName(family, snapshot);
 
     if (!snapshot.queries.length) {
       if (
@@ -718,12 +791,14 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
       ) {
         continue;
       }
-      const reaped = await errorRawSnapshotIfStillRunning(family, snapshot.id, {
-        error:
-          "Snapshot stalled: its queries were never recorded. This can happen when the server restarts mid-refresh. Please try updating results again.",
-      });
-      if (!reaped) continue;
-      logger.warn(`Reaped ${name}: running with no queries recorded`);
+      await reapRawSnapshot(
+        family,
+        snapshot,
+        {
+          error: `${NO_QUERIES_RECORDED_ERROR} ${family.scheduleRetry ? SCHEDULED_RETRY_HINT : MANUAL_RETRY_HINT}`,
+        },
+        `Reaped ${name}: running with no queries recorded`,
+      );
       continue;
     }
 
@@ -732,17 +807,18 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
     const { verdict, queryIds, queued, queries } = evaluated;
     const orphanedDag = verdict !== "stalled-terminal";
 
-    const reaped = await errorRawSnapshotIfStillRunning(family, snapshot.id, {
-      error: stalledSnapshotError(orphanedDag),
-      queries,
-    });
-    if (!reaped) continue;
-
-    logger.warn(
+    const reaped = await reapRawSnapshot(
+      family,
+      snapshot,
+      {
+        error: stalledSnapshotError(orphanedDag, !!family.scheduleRetry),
+        queries,
+      },
       orphanedDag
         ? `Reaped orphaned ${name}: ${verdict}, ${queryIds.length} queries with nothing running`
         : `Reaped stalled ${name}: all ${queryIds.length} queries terminal but status still running`,
     );
+    if (!reaped) continue;
 
     // Nothing ever dispatches a queued query doc from the collection, and the
     // stale sweep only looks at "running" ones, so without this they stay
@@ -763,7 +839,7 @@ async function errorStalledSnapshots(family: RawSnapshotFamily) {
 }
 
 // In-flight runs with a still-"running" pointer to a now-failed query. Mirrors findRunningSnapshotsByQueryId.
-async function findRunningAggregatedFactTableRunsByQueryId(
+async function dangerousFindRunningAggregatedFactTableRunsByQueryIdFromAllOrgs(
   ids: string[],
 ): Promise<AggregatedFactTableRunInterface[]> {
   if (!ids.length) return [];
@@ -779,10 +855,11 @@ async function findRunningAggregatedFactTableRunsByQueryId(
     .toArray();
 }
 
-// In-flight runs old enough to be considered stalled. Mirrors dangerousFindStalledRunningSnapshotsFromAllOrgs.
+// In-flight runs old enough to be considered stalled. Mirrors dangerousFindStalledRunningRawSnapshotsFromAllOrgs.
 async function dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
+  excludeIds: string[],
 ): Promise<AggregatedFactTableRunInterface[]> {
   return getCollection<AggregatedFactTableRunInterface>(
     AGGREGATED_FACT_TABLE_RUN_COLLECTION,
@@ -790,7 +867,9 @@ async function dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
     .find({
       finishedAt: null,
       dateCreated: { $gt: oneDayAgo(), $lt: stalledBefore },
+      ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
     })
+    .sort({ dateCreated: 1 })
     .limit(limit)
     .toArray();
 }
@@ -846,14 +925,21 @@ async function finalizeStuckAggregatedFactTableRun(
 // never finalized.
 async function reapStalledAggregatedFactTableRuns() {
   const now = Date.now();
-  const stalledBefore = new Date(now - STALLED_SNAPSHOT_THRESHOLD_MS);
-  const candidates =
-    await dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
-      stalledBefore,
-      STALLED_SNAPSHOT_REAP_LIMIT,
-    );
+  // Same window as the snapshot reapers: classifyStalledSnapshot does its own
+  // age reasoning, and the short window is what lets a dead runner's stale
+  // heartbeats be caught before the run is a full hour old.
+  const stalledBefore = new Date(now - QUEUED_HEARTBEAT_STALE_MS);
+  const candidates = stalledSnapshotCandidates(
+    "aggregated fact table run",
+    (limit, seen) =>
+      dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
+        stalledBefore,
+        limit,
+        seen,
+      ),
+  );
 
-  for (const run of candidates) {
+  for await (const run of candidates) {
     const evaluated = await evaluateStalledCandidate(run, now);
     if (!evaluated) continue;
     const { verdict, queryIds, queued, queries } = evaluated;

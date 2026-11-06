@@ -25,6 +25,7 @@ import {
 import {
   assertUsableRankerSchema,
   generateVariationId,
+  interleavingAnalysisConfigured,
   interleavingInSDKPayload,
   interleavingTargetingServes,
   mapInterleavingVariations,
@@ -33,7 +34,7 @@ import {
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import { MakeModelClass, waitForIndexes } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -93,22 +94,23 @@ function payloadAffectingChanges(
 }
 
 const trackingKeyCollisionMessage = (trackingKey: string) =>
-  `Another interleaving experiment already reports as "${trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`;
+  `Another interleaving experiment already reports as "${trackingKey}". Set a different tracking key so their exposures can be told apart.`;
 
-// Keyed on datasourceId. The original index named `datasource`, which no
-// document carries any more, so Mongo indexed it as null and the constraint
-// collapsed to one tracking key per organization. LEGACY_TRACKING_KEY_INDEX is
-// dropped through the model's indexesToRemove.
 const TRACKING_KEY_INDEX = "interleaving_datasourceid_trackingkey_unique";
-const LEGACY_TRACKING_KEY_INDEX = "interleaving_datasource_trackingkey_unique";
+const LEGACY_TRACKING_KEY_INDEXES = [
+  "interleaving_datasource_trackingkey_unique",
+];
+const INTERLEAVING_AUTOSNAPSHOT_SCAN_INDEX = "interleaving_autosnapshot_scan";
+const INTERLEAVING_COLLECTION = "interleavings";
 const trackingKeyUniquenessIndex = {
   name: TRACKING_KEY_INDEX,
   unique: true,
 } as const;
 
 async function ensureTrackingKeyIndex() {
+  await waitForIndexes(INTERLEAVING_COLLECTION);
   await ensureIndexOnce(
-    getCollection("interleavings"),
+    getCollection(INTERLEAVING_COLLECTION),
     { organization: 1, datasourceId: 1, trackingKey: 1 },
     trackingKeyUniquenessIndex,
   );
@@ -122,7 +124,7 @@ function toJSONSchema(
 
 const BaseClass = MakeModelClass({
   schema: interleavingValidator,
-  collectionName: "interleavings",
+  collectionName: INTERLEAVING_COLLECTION,
   idPrefix: "il_",
   globallyUniquePrimaryKeys: true,
   defaultValues: {
@@ -139,7 +141,11 @@ const BaseClass = MakeModelClass({
     updateEvent: "interleaving.update",
     deleteEvent: "interleaving.delete",
   },
-  indexesToRemove: [LEGACY_TRACKING_KEY_INDEX],
+  // The cron owns these; stamping them would churn dateUpdated (which
+  // updateIfUnchanged guards on) and write an audit row every tick.
+  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  indexesToRemove: LEGACY_TRACKING_KEY_INDEXES,
   additionalIndexes: [
     {
       fields: {
@@ -152,6 +158,13 @@ const BaseClass = MakeModelClass({
         organization: 1,
         trackingKey: 1,
       },
+    },
+    {
+      name: INTERLEAVING_AUTOSNAPSHOT_SCAN_INDEX,
+      fields: {
+        nextSnapshotAttempt: 1,
+      },
+      partialFilterExpression: { status: "running", autoSnapshots: true },
     },
   ],
   apiConfig: {
@@ -341,18 +354,11 @@ export class InterleavingModel extends BaseClass {
 
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateInterleavingBody.parse(rawBody);
+    const datasourceId = body.datasourceId ?? "";
     // An explicit tracking key is honoured as given; customValidation rejects it
     // if taken. Otherwise suffix the code key so reusing one to iterate works.
     const trackingKey =
-      body.trackingKey ||
-      nextAvailableTrackingKey(
-        body.key,
-        new Set(
-          (await this.scanAllInterleavings())
-            .filter((il) => il.datasourceId === body.datasourceId)
-            .map((il) => il.trackingKey),
-        ),
-      );
+      body.trackingKey || (await this.generateTrackingKey(body.key));
     return {
       ...body,
       owner: await resolveOwnerForCreate(body.owner, this.context, {
@@ -369,6 +375,9 @@ export class InterleavingModel extends BaseClass {
         id: generateVariationId(),
       })),
       jsonSchema: toJSONSchema(body.jsonSchema),
+      datasourceId,
+      interleavingExposureQueryId: body.interleavingExposureQueryId ?? "",
+      userIdType: body.userIdType ?? "",
       metrics: body.metrics ?? [],
       environmentSettings: body.environmentSettings ?? {},
     };
@@ -447,7 +456,11 @@ export class InterleavingModel extends BaseClass {
     try {
       return await write();
     } catch (e) {
-      if (isDuplicateKeyErrorForIndex(e, TRACKING_KEY_INDEX)) {
+      if (
+        [TRACKING_KEY_INDEX, ...LEGACY_TRACKING_KEY_INDEXES].some((name) =>
+          isDuplicateKeyErrorForIndex(e, name),
+        )
+      ) {
         throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
       }
       throw e;
@@ -468,6 +481,13 @@ export class InterleavingModel extends BaseClass {
     );
   }
 
+  private async generateTrackingKey(key: string): Promise<string> {
+    return nextAvailableTrackingKey(
+      key,
+      new Set((await this.scanAllInterleavings()).map((il) => il.trackingKey)),
+    );
+  }
+
   // Admin context so the scan is not permission-filtered: a tracking key the
   // caller cannot read still collides.
   private async scanAllInterleavings(): Promise<InterleavingInterface[]> {
@@ -483,8 +503,7 @@ export class InterleavingModel extends BaseClass {
   ): Promise<void> {
     const identityChanged =
       doc.key !== previousDoc?.key ||
-      doc.trackingKey !== previousDoc?.trackingKey ||
-      doc.datasourceId !== previousDoc?.datasourceId;
+      doc.trackingKey !== previousDoc?.trackingKey;
     const servingChanged =
       doc.status !== previousDoc?.status ||
       doc.archived !== previousDoc?.archived ||
@@ -516,23 +535,13 @@ export class InterleavingModel extends BaseClass {
 
       if (identityChanged) {
         await ensureTrackingKeyIndex();
-      }
-      if (
-        identityChanged &&
-        others.some(
-          (other) =>
-            other.datasourceId === doc.datasourceId &&
-            other.trackingKey === doc.trackingKey,
-        )
-      ) {
-        throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
+        if (others.some((other) => other.trackingKey === doc.trackingKey)) {
+          throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
+        }
       }
     }
 
-    if (
-      doc.trackingKey !== previousDoc?.trackingKey &&
-      !doc.trackingKey.trim()
-    ) {
+    if (!doc.trackingKey.trim()) {
       throw new Error("Interleaving tracking key cannot be empty.");
     }
 
@@ -600,13 +609,19 @@ export class InterleavingModel extends BaseClass {
 
     const starting =
       doc.status === "running" && previousDoc?.status !== "running";
+    if (!interleavingAnalysisConfigured(doc) && doc.status !== "draft") {
+      throw new Error(
+        "Set a Data Source, exposure query, and identifier type — only a draft interleaving experiment can have an incomplete analysis.",
+      );
+    }
     if (
-      !previousDoc ||
       starting ||
-      doc.interleavingExposureQueryId !==
-        previousDoc.interleavingExposureQueryId ||
-      doc.datasourceId !== previousDoc.datasourceId ||
-      doc.userIdType !== previousDoc.userIdType
+      (interleavingAnalysisConfigured(doc) &&
+        (!previousDoc ||
+          doc.interleavingExposureQueryId !==
+            previousDoc.interleavingExposureQueryId ||
+          doc.datasourceId !== previousDoc.datasourceId ||
+          doc.userIdType !== previousDoc.userIdType))
     ) {
       await resolveInterleavingExposureQuery(this.context, doc);
     }
@@ -828,4 +843,30 @@ export class InterleavingModel extends BaseClass {
   public getByKey(key: string): Promise<InterleavingInterface | null> {
     return this._findOne({ key });
   }
+}
+export async function dangerousFindInterleavingsToUpdate(
+  excludeIds: string[],
+): Promise<Pick<InterleavingInterface, "id" | "organization">[]> {
+  const docs = await getCollection<InterleavingInterface>(
+    INTERLEAVING_COLLECTION,
+  )
+    .find({
+      status: "running",
+      autoSnapshots: true,
+      nextSnapshotAttempt: { $exists: true, $lte: new Date() },
+      archived: { $ne: true },
+      datasourceId: { $exists: true, $ne: "" },
+      dateStarted: { $exists: true },
+      "metrics.0": { $exists: true },
+      id: { $nin: excludeIds },
+    })
+    .project<Pick<InterleavingInterface, "id" | "organization">>({
+      id: true,
+      organization: true,
+    })
+    .limit(100)
+    .sort({ nextSnapshotAttempt: 1 })
+    .toArray();
+
+  return docs.map((d) => ({ id: d.id, organization: d.organization }));
 }

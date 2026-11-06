@@ -179,29 +179,34 @@ const experimentSnapshotSchema = new mongoose.Schema({
       error: String,
       multipleExposures: Number,
     },
-    clusterTraffic: {
-      _id: false,
-      overall: experimentSnapshotTrafficObject,
-      dimension: {
-        type: Map,
-        of: [experimentSnapshotTrafficObject],
-      },
-      error: String,
-      multipleExposures: Number,
-    },
-    clusterUnits: {
-      _id: false,
-      clusters: [
-        {
-          _id: false,
-          id: String,
-          variation: Number,
-          units: Number,
-          pct: Number,
+    // Subdocuments: absent nested paths load as phantom objects that fail re-insert.
+    clusterTraffic: new mongoose.Schema(
+      {
+        overall: experimentSnapshotTrafficObject,
+        dimension: {
+          type: Map,
+          of: [experimentSnapshotTrafficObject],
         },
-      ],
-      error: String,
-    },
+        error: String,
+        multipleExposures: Number,
+      },
+      { _id: false },
+    ),
+    clusterUnits: new mongoose.Schema(
+      {
+        clusters: [
+          {
+            _id: false,
+            id: String,
+            variation: Number,
+            units: Number,
+            pct: Number,
+          },
+        ],
+        error: String,
+      },
+      { _id: false },
+    ),
     clusterAssignment: {
       _id: false,
       totalClusters: Number,

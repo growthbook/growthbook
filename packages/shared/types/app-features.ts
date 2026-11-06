@@ -13,6 +13,9 @@
  *
  * Exception: "interleave-exp" gates the in-development interleaving UI.
  *
+ * Exception: "trace-ingest" gates the "Accept traces" SDK connection setting
+ * and the traces usage notice. Target it by cloudOrgId.
+ *
  * Exception: "feature-page-redesign-v1" tests the redesigned feature page
  * against the one it replaces.
  */
@@ -151,6 +154,7 @@ export type AppFeatures = {
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
   populations: boolean;
+  "trace-ingest": boolean;
   "new-metric-creation-flow": boolean;
   "interleave-exp": boolean;
   "feature-page-redesign-v1": boolean;

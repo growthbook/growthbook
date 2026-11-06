@@ -77,7 +77,6 @@ export type CommercialFeature =
   | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
-  | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
   | "custom-hooks"
   | "metric-slices"
@@ -293,7 +292,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "custom-hooks",
   "metric-slices",
   "manage-official-resources",
-  "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
   "contextual-bandits",
