@@ -1009,6 +1009,13 @@
                 ]
               },
               {
+                "group": "Tags",
+                "pages": [
+                  "api/tags/operation/listTags",
+                  "api/tags/operation/postTag"
+                ]
+              },
+              {
                 "group": "Usage",
                 "pages": ["api/usage/operation/getMetricUsage"]
               },
@@ -1326,6 +1333,7 @@
               "api/SdkConnection_model",
               "api/Segment_model",
               "api/Settings_model",
+              "api/Tag_model",
               "api/Targeting Rule_model",
               "api/TargetingReviewRule_model",
               "api/Team_model",
