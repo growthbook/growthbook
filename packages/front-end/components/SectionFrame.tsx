@@ -97,7 +97,7 @@ export default function SectionFrame({
         {children}
       </Box>
       {footnote ? (
-        <Box px="5" pt="1" pb="3">
+        <Box px="5" pt="3" pb="3">
           <Text as="p" size="sm" color="text-low" align="right" mb="0">
             {footnote}
           </Text>

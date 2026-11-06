@@ -7,6 +7,7 @@ import {
 import React, {
   forwardRef,
   ReactElement,
+  ReactNode,
   useEffect,
   useMemo,
   useRef,
@@ -27,7 +28,6 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
 import {
-  PiArrowBendRightDown,
   PiPlayFill,
   PiPauseFill,
   PiFastForward,
@@ -65,6 +65,7 @@ import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import ContextualBanditRefSummary, {
+  contextualBanditSkipReason,
   isContextualBanditRefRuleSkipped,
 } from "@/components/ContextualBandit/ContextualBanditRefSummary";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
@@ -216,6 +217,7 @@ import ExperimentSummary from "./ExperimentSummary";
 import cornerStyles from "./CornerActions.module.scss";
 import ruleCardStyles from "./RuleCard.module.scss";
 import ExperimentRefSummary, {
+  experimentRefSkipReason,
   isExperimentRefRuleSkipped,
   TempRolloutCallout,
 } from "./ExperimentRefSummary";
@@ -1809,7 +1811,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 feature={feature}
                 experiment={experimentsMap.get(rule.experimentId)}
                 rule={rule}
-                isDraft={isDraft}
                 environment={isAllEnvsView ? undefined : environment}
               />
             )}
@@ -1825,7 +1826,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 rule={rule}
                 feature={feature}
                 environment={isAllEnvsView ? undefined : environment}
-                isDraft={isDraft}
               />
             )}
             {rampSchedule && (
@@ -2041,18 +2041,17 @@ export function SortableRule(props: SortableProps) {
   return <Rule {...props} ref={setNodeRef} style={ruleStyle} handle={handle} />;
 }
 
-function SkippedPill() {
-  return (
-    <Badge
-      color="amber"
-      label={
-        <>
-          <PiArrowBendRightDown />
-          Skipped
-        </>
-      }
-    />
-  );
+// A rule that serves nothing says so, and why, across its card.
+function skipped(reason: ReactNode): RuleMetaInfo {
+  return {
+    callout: (
+      <Callout status="warning">
+        <strong>Skipped</strong>
+        {reason ? <>: {reason}</> : null}
+      </Callout>
+    ),
+    sideColor: "skipped",
+  };
 }
 
 export type RuleMetaInfo = {
@@ -2205,25 +2204,22 @@ export function getRuleMetaInfo({
   ) {
     const lastRule = rule.scheduleRules[rule.scheduleRules.length - 1];
     if (lastRule && lastRule.timestamp) {
-      return {
-        pill: <SkippedPill />,
-        callout: (
-          <Callout status="warning">
-            Disabled by a schedule on{" "}
-            {new Date(lastRule.timestamp).toLocaleDateString()} at{" "}
-            {formatTimeZone(new Date(lastRule.timestamp), "h:mm a z")}
-          </Callout>
-        ),
-        sideColor: "skipped",
-      };
+      return skipped(
+        <>
+          Disabled by a schedule on{" "}
+          {new Date(lastRule.timestamp).toLocaleDateString()} at{" "}
+          {formatTimeZone(new Date(lastRule.timestamp), "h:mm a z")}.
+        </>,
+      );
     }
   }
 
   if (ruleInactive) {
-    return {
-      pill: <SkippedPill />,
-      sideColor: "skipped",
-    };
+    return skipped(
+      rule.type === "safe-rollout"
+        ? "This Safe Rollout is stopped."
+        : experimentRefSkipReason(linkedExperiment, isDraft),
+    );
   }
 
   if (
@@ -2231,24 +2227,21 @@ export function getRuleMetaInfo({
     upcomingScheduleRule.enabled &&
     upcomingScheduleRule.timestamp
   ) {
-    return {
-      pill: <SkippedPill />,
-      callout: (
-        <Callout status="warning">
-          Will be enabled on{" "}
-          {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
-          {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
-        </Callout>
-      ),
-      sideColor: "skipped",
-    };
+    return skipped(
+      <>
+        Will be enabled on{" "}
+        {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
+        {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}.
+      </>,
+    );
   }
 
   if (ruleSkipped) {
-    return {
-      pill: <SkippedPill />,
-      sideColor: "skipped",
-    };
+    return skipped(
+      rule.type === "contextual-bandit-ref" && linkedContextualBandit
+        ? contextualBanditSkipReason(linkedContextualBandit, isDraft)
+        : experimentRefSkipReason(linkedExperiment, isDraft),
+    );
   }
 
   // One callout per conflict banner (in the all-envs view there can be several,

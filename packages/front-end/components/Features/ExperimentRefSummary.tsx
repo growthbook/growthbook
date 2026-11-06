@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -54,6 +55,51 @@ export function isExperimentRefRuleSkipped(
   return !includeExperimentInPayload(experiment);
 }
 
+// Why an experiment rule serves nothing, or null while it serves.
+export function experimentRefSkipReason(
+  experiment: ExperimentInterfaceStringDates | undefined,
+  isDraft: boolean,
+): ReactNode {
+  if (!experiment) return "The experiment could not be found.";
+  const noun =
+    experiment.type === "multi-armed-bandit" ? "Bandit" : "experiment";
+  const view = <Link href={`/experiment/${experiment.id}`}>View {noun}</Link>;
+  if (experiment.archived) {
+    return (
+      <>
+        This {noun} is archived. {view}
+      </>
+    );
+  }
+  if (!experiment.phases.length) {
+    return (
+      <>
+        This {noun} is not running. {view}
+      </>
+    );
+  }
+  if (
+    experiment.status === "stopped" &&
+    (experiment.excludeFromPayload || !experiment.releasedVariationId)
+  ) {
+    return (
+      <>
+        This {noun} is stopped without a temporary rollout.{" "}
+        <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
+      </>
+    );
+  }
+  if (experiment.status === "draft" && !isDraft) {
+    return (
+      <>
+        This {noun} is in a <strong>draft</strong> state and has not been
+        started yet.
+      </>
+    );
+  }
+  return null;
+}
+
 export function TempRolloutCallout({
   rule,
   experiment,
@@ -84,13 +130,11 @@ export default function ExperimentRefSummary({
   rule,
   experiment,
   feature,
-  isDraft,
   environment,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
-  isDraft: boolean;
   // Environment this rule is shown for, so config-backed arm values preview
   // their matching env flavor. Absent (all-environments view) = base value.
   environment?: string;
@@ -102,34 +146,10 @@ export default function ExperimentRefSummary({
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
-  if (!experiment) {
-    return <Callout status="error">The experiment could not be found.</Callout>;
-  }
-
-  if (experiment.archived) {
-    return (
-      <Callout status="info">
-        This {isBandit ? "Bandit" : "experiment"} is archived and will be
-        skipped.{" "}
-        <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "experiment"}
-        </Link>
-      </Callout>
-    );
-  }
-
+  // The card's ribbon says why these serve nothing.
+  if (!experiment || experiment.archived) return null;
   const phase = experiment.phases[experiment.phases.length - 1];
-  if (!phase) {
-    return (
-      <Callout status="info">
-        This {isBandit ? "Bandit" : "experiment"} is not running and this rule
-        will be skipped.{" "}
-        <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "experiment"}
-        </Link>
-      </Callout>
-    );
-  }
+  if (!phase) return null;
 
   const releasedValue =
     experiment.status === "stopped" && !experiment.excludeFromPayload
@@ -138,15 +158,7 @@ export default function ExperimentRefSummary({
         )
       : null;
 
-  if (experiment.status === "stopped" && !releasedValue) {
-    return (
-      <Callout status="info">
-        This {isBandit ? "Bandit" : "experiment"} is stopped and does not have a{" "}
-        temporary rollout enabled. This rule will be skipped.{" "}
-        <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
-      </Callout>
-    );
-  }
+  if (experiment.status === "stopped" && !releasedValue) return null;
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
   // Calculate total namespace allocation
@@ -160,13 +172,6 @@ export default function ExperimentRefSummary({
 
   return (
     <Box>
-      {experiment.status === "draft" && !isDraft && (
-        <Callout status="warning" mb="3">
-          This {isBandit ? "Bandit" : "experiment"} is in a{" "}
-          <strong>draft</strong> state and has not been started yet. This rule
-          will be skipped.
-        </Callout>
-      )}
       {hasCondition && (
         <RuleField label="Targeting">
           <ConditionDisplay

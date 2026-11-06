@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import {
   ApiContextualBanditInterface,
   ContextualBanditRefRule,
@@ -33,16 +34,37 @@ export function isContextualBanditRefRuleSkipped(
   return false;
 }
 
+// Why a Contextual Bandit rule serves nothing, or null while it serves.
+export function contextualBanditSkipReason(
+  cb: ApiContextualBanditInterface,
+  isDraft: boolean,
+): ReactNode {
+  const view = (
+    <Link href={`/contextual-bandit/${cb.id}`}>View Contextual Bandit</Link>
+  );
+  if (cb.archived) return <>This Contextual Bandit is archived. {view}</>;
+  if (cb.status === "stopped") {
+    return <>This Contextual Bandit is stopped. {view}</>;
+  }
+  if (cb.status === "draft" && !isDraft) {
+    return (
+      <>
+        This Contextual Bandit is in a <strong>draft</strong> state and has not
+        been started yet.
+      </>
+    );
+  }
+  return null;
+}
+
 export default function ContextualBanditRefSummary({
   rule,
   feature,
   environment,
-  isDraft,
 }: {
   rule: ContextualBanditRefRule;
   feature: FeatureInterface;
   environment?: string;
-  isDraft?: boolean;
 }) {
   const { contextualBanditsMap, loading } = useContextualBandits();
   const cb: ApiContextualBanditInterface | undefined =
@@ -60,34 +82,11 @@ export default function ContextualBanditRefSummary({
     );
   }
 
-  const detailHref = `/contextual-bandit/${cb.id}`;
-
-  if (cb.archived) {
-    return (
-      <Callout status="info">
-        This Contextual Bandit is archived and will be skipped.{" "}
-        <Link href={detailHref}>View Contextual Bandit</Link>
-      </Callout>
-    );
-  }
-
-  if (cb.status === "stopped") {
-    return (
-      <Callout status="info">
-        This Contextual Bandit is stopped and will be skipped.{" "}
-        <Link href={detailHref}>View Contextual Bandit</Link>
-      </Callout>
-    );
-  }
+  // The card's ribbon says why these serve nothing.
+  if (cb.archived || cb.status === "stopped") return null;
 
   return (
     <Box>
-      {cb.status === "draft" && !isDraft && (
-        <Callout status="warning" mb="3">
-          This Contextual Bandit is in a <strong>draft</strong> state and has
-          not been started yet. This rule will be skipped.
-        </Callout>
-      )}
       {hasTargetingConfigured({
         condition: cb.condition,
         savedGroups: cb.savedGroups,
