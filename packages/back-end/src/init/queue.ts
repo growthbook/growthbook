@@ -1,6 +1,7 @@
 import addExperimentLifecycleRemindersJob from "back-end/src/jobs/experimentLifecycleReminders";
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
 import addContextualBanditResultsJob from "back-end/src/jobs/updateContextualBanditResults";
+import addInterleavingResultsJob from "back-end/src/jobs/updateInterleavingResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 import revalidateEventForwarderDataSourceQueries from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 import updateScheduledFeatures from "back-end/src/jobs/updateScheduledFeatures";
@@ -42,6 +43,7 @@ export async function queueInit() {
   addExperimentResultsJob(agenda);
   addExperimentLifecycleRemindersJob(agenda);
   addContextualBanditResultsJob(agenda);
+  addInterleavingResultsJob(agenda);
   updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);
   addWebhooksJob(agenda);
