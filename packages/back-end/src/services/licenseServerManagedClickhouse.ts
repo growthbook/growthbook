@@ -4,6 +4,7 @@
  */
 import type { AIPromptType } from "shared/ai";
 import type { DailyUsage, DailyUsageByKey } from "shared/types/organization";
+import type { ManagedWarehouseRecreatableTable } from "shared/util";
 import {
   dailyUsageByKeyForOrgResponseValidator,
   dailyUsageForOrgResponseValidator,
@@ -146,13 +147,16 @@ async function postManagedClickhouseJson<T>(
  * and rebuilds in the background under a datasource lock, so this returns as soon
  * as the rebuild is accepted — not when it finishes. A 423 means a rebuild is
  * already running for this org, so the caller should wait rather than re-request.
+ *
+ * @param tables Rebuild only these tables; omit to rebuild all of them.
  */
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
+  tables?: ManagedWarehouseRecreatableTable[],
 ): Promise<"started" | "already-running"> {
   const res = await postManagedClickhouse(
     "recreate-tables",
-    { orgId },
+    { orgId, tables },
     { allowStatuses: [423] },
   );
   return res.status === 423 ? "already-running" : "started";
