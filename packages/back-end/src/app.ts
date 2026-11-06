@@ -172,6 +172,7 @@ import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { autoRunRouter } from "./routers/auto-run/auto-run.router";
+import { linkRouter } from "./routers/link/link.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
@@ -612,6 +613,8 @@ app.use(organizationsRouter);
 
 app.use("/environment", environmentRouter);
 app.use("/auto-runs", autoRunRouter);
+// Linking an agent sandbox: signed in, no workspace yet.
+app.use("/link", linkRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
@@ -1273,6 +1276,11 @@ app.get(
 app.get(
   "/admin/organization/:orgId/license",
   adminController._dangerousAdminGetOrganizationLicense,
+);
+app.get("/admin/sandboxes", adminController._dangerousAdminGetSandboxes);
+app.post(
+  "/admin/sandboxes/:orgId/verify",
+  adminController._dangerousAdminVerifySandbox,
 );
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
 app.get("/admin/user/:userId", adminController._dangerousAdminGetUser);

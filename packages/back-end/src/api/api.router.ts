@@ -37,6 +37,7 @@ import {
   getApiRateLimitBucket,
 } from "back-end/src/util/apiRateLimit";
 import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { getSavedGroupUploadFile } from "./saved-groups/getSavedGroupUploadFile";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
@@ -67,6 +68,7 @@ import { bulkImportRoutes } from "./bulk-import/bulk-import.router";
 import { membersRoutes } from "./members/members.router";
 import { openaiRoutes } from "./openai/openai.router";
 import { visualEditorAiRoutes } from "./visual-editor-ai/visualEditorAi.router";
+import { agentSignupRoutes } from "./agent-signup/agent-signup.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
@@ -121,6 +123,9 @@ router.get("/v1/openapi.yaml", (req, res) => {
   res.setHeader("Content-Type", "text/yaml");
   res.send(openapiSpec);
 });
+
+// Routes that hand out a credential rather than require one.
+agentSignupRoutes.filter((route) => route.unauthenticated).forEach(mountRoute);
 
 router.use(authenticateApiRequestMiddleware as RequestHandler);
 
@@ -235,6 +240,7 @@ export const allRoutes = [
   ...namespacesRoutes,
   ...openaiRoutes,
   ...visualEditorAiRoutes,
+  ...agentSignupRoutes,
 ];
 
 /** Tag metadata from BaseModel specs, keyed by PascalCase tag name */
@@ -266,10 +272,14 @@ router.get(
 );
 
 allRoutes.forEach((route) => {
-  if (!route.method) {
+  // Unauthenticated routes were mounted before the auth middleware above.
+  if (!route.method || route.unauthenticated) {
     return;
   }
+  mountRoute(route);
+});
 
+function mountRoute(route: OpenApiRoute) {
   // Prepend version prefix so v1 routes live at /v1/... and v2 at /v2/...
   // The router is mounted at /api in app.ts, so the full path becomes
   // /api/v1/<route> or /api/v2/<route> as appropriate.
@@ -294,7 +304,7 @@ allRoutes.forEach((route) => {
   } else {
     router[route.method](versionedPath, route.handler);
   }
-});
+}
 
 // 404 route
 router.use(function (req, res) {

@@ -628,6 +628,9 @@ tags:
   - name: ContextualBandits
     x-displayName: Contextual Bandits
     description: ''
+  - name: agent-signup
+    x-displayName: agent-signup
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -40514,6 +40517,284 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/transform-copy' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/agent-signup:
+    post:
+      operationId: postAgentSignup
+      summary: Create a sandbox workspace for a coding agent, with no account
+      description: >-
+        Creates a temporary workspace with an SDK connection, an admin API key
+        that expires with the sandbox, a setup report and a link code. Feature
+        flags work right away. Starting experiments, connecting data sources and
+        webhooks wait until a person links the sandbox at the link URL, which
+        keeps everything the agent made and the same API key. Unlinked sandboxes
+        stop after 7 days.
+      security: []
+      tags:
+        - agent-signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language:
+                  description: SDK language of the app. Omit to create no SDK connection.
+                  type: string
+                  enum:
+                    - nocode-webflow
+                    - nocode-wordpress
+                    - nocode-shopify
+                    - nocode-other
+                    - javascript
+                    - nodejs
+                    - nextjs
+                    - react
+                    - php
+                    - ruby
+                    - python
+                    - go
+                    - java
+                    - csharp
+                    - android
+                    - ios
+                    - flutter
+                    - elixir
+                    - edge-cloudflare
+                    - edge-fastly
+                    - edge-lambda
+                    - edge-other
+                    - rust
+                    - roku
+                    - other
+                environment:
+                  description: 'Environment for the SDK connection (default: dev).'
+                  type: string
+                  enum:
+                    - production
+                    - dev
+                    - staging
+                    - test
+                name:
+                  description: The app's name, used for the workspace and the connection.
+                  type: string
+                  maxLength: 100
+                run:
+                  description: Details for the setup report the sandbox opens.
+                  type: object
+                  properties:
+                    agent:
+                      description: The coding agent doing the setup, e.g. claude-code.
+                      type: string
+                      maxLength: 100
+                    metadata:
+                      type: object
+                      propertyNames:
+                        type: string
+                        maxLength: 60
+                      additionalProperties:
+                        anyOf:
+                          - type: string
+                            maxLength: 500
+                          - type: number
+                          - type: boolean
+                          - type: 'null'
+                  additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizationId:
+                    type: string
+                  apiKey:
+                    description: A workspace API key with the admin role. Shown once.
+                    type: string
+                  apiHost:
+                    description: Where to send REST API calls.
+                    type: string
+                  sdkConnection:
+                    anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                          clientKey:
+                            description: Public. Goes in the app's env file.
+                            type: string
+                          sdkHost:
+                            description: What the SDK fetches features from.
+                            type: string
+                          environment:
+                            type: string
+                          language:
+                            type: string
+                        required:
+                          - id
+                          - clientKey
+                          - sdkHost
+                          - environment
+                          - language
+                        additionalProperties: false
+                      - type: 'null'
+                  run:
+                    $ref: '#/components/schemas/run'
+                  link:
+                    $ref: '#/components/schemas/link'
+                  limits:
+                    $ref: '#/components/schemas/limits'
+                  howToUse:
+                    type: string
+                required:
+                  - organizationId
+                  - apiKey
+                  - apiHost
+                  - sdkConnection
+                  - run
+                  - link
+                  - limits
+                  - howToUse
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/agent-signup' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"language":"react","environment":"dev","name":"acme-web"}'
+  /v1/agent-signup/status:
+    get:
+      operationId: getAgentSignupStatus
+      summary: Whether this key's workspace is still an unlinked sandbox
+      description: >-
+        Null when the workspace was never a sandbox. Once linked, the same key
+        keeps working in the linked workspace with full permissions.
+      tags:
+        - agent-signup
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sandbox:
+                    anyOf:
+                      - type: object
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - active
+                              - linked
+                              - expired
+                          expiresAt:
+                            type: string
+                          link:
+                            type: object
+                            properties:
+                              url:
+                                type: string
+                            required:
+                              - url
+                            additionalProperties: false
+                          linkedTo:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  organizationId:
+                                    type: string
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - new-workspace
+                                      - moved
+                                required:
+                                  - organizationId
+                                  - mode
+                                additionalProperties: false
+                              - type: 'null'
+                          notified:
+                            description: >-
+                              The address the link email went to, if one was
+                              sent.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - status
+                          - expiresAt
+                          - link
+                          - linkedTo
+                          - notified
+                        additionalProperties: false
+                      - type: 'null'
+                required:
+                  - sandbox
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/agent-signup/status' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/agent-signup/email:
+    post:
+      operationId: postAgentSignupEmail
+      summary: Email the link code to the person who will own this sandbox
+      description: >-
+        One email per sandbox. Needs the sandbox's own API key and its link
+        code, so only the agent that created it can send it, and only to one
+        address.
+      tags:
+        - agent-signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  description: The person who will own this setup.
+                  type: string
+                  format: email
+                  pattern: >-
+                    ^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$
+                code:
+                  description: The link code from signup, as proof.
+                  type: string
+              required:
+                - email
+                - code
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent:
+                    type: boolean
+                  email:
+                    type: string
+                required:
+                  - sent
+                  - email
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/agent-signup/email' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"email":"dev@example.com","code":"KQBX-7Q4M"}'
   /v1/dashboards/{id}:
     get:
       operationId: getDashboard
@@ -91445,6 +91726,53 @@ components:
       required:
         - mode
       additionalProperties: false
+    run:
+      description: The setup report. Record what you create on it.
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+      required:
+        - id
+        - url
+      additionalProperties: false
+    link:
+      type: object
+      properties:
+        code:
+          description: The code a person types on the link page.
+          type: string
+        url:
+          type: string
+        urlWithCode:
+          type: string
+        expiresAt:
+          type: string
+      required:
+        - code
+        - url
+        - urlWithCode
+        - expiresAt
+      additionalProperties: false
+    limits:
+      type: object
+      properties:
+        plan:
+          type: string
+        expiresAt:
+          type: string
+        denied:
+          description: Permissions the sandbox lacks until it is linked.
+          type: array
+          items:
+            type: string
+      required:
+        - plan
+        - expiresAt
+        - denied
+      additionalProperties: false
     featureDraftPublishFailures:
       type: object
       properties:
@@ -91716,6 +92044,7 @@ x-tagGroups:
       - usage
       - meta
       - ContextualBandits
+      - agent-signup
       - Dashboards
       - ContextualBanditQueries
       - InterleavingExposureQueries

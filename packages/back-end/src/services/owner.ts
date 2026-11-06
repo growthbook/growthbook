@@ -1,3 +1,4 @@
+import { isActiveSandbox } from "shared/permissions";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 
@@ -39,6 +40,8 @@ export async function resolveOwnerToUserId(
   return ownerInput;
 }
 
+export const AGENT_OWNER = "Agent";
+
 /**
  * Resolves the owner for a create request, falling back to the person behind
  * it: a personal access token's owner, or the member whose role an org key
@@ -52,6 +55,9 @@ export async function resolveOwnerForCreate(
   const resolved = await resolveOwnerToUserId(ownerInput, context, { strict });
   if (resolved) return resolved;
   if (context.actingUserId) return context.actingUserId;
+  // A sandbox has no members yet. The agent's work is owned by "Agent" until a
+  // person links the workspace and takes it over.
+  if (isActiveSandbox(context.org)) return AGENT_OWNER;
   throw new Error(
     "Must specify an `owner` in the request body. It's optional only with a personal access token, or an organization API key that assumes a named member's role.",
   );

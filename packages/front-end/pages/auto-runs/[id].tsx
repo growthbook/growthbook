@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Container, Flex, Grid } from "@radix-ui/themes";
+import { PiCheckBold, PiXBold } from "react-icons/pi";
+import { date } from "shared/dates";
+import { SandboxLinked } from "shared/types/organization";
 import { ApiAutoRun, autoRunMetaString } from "shared/validators";
 import {
   createdByRun,
@@ -38,6 +41,9 @@ import useApi from "@/hooks/useApi";
 
 type Artifact = ApiAutoRun["artifacts"][number];
 type ArtifactKind = Artifact["kind"];
+type SandboxConversion = Pick<SandboxLinked, "mode" | "conversion"> & {
+  at: string;
+};
 
 // Type label and destination per kind. No icon: an icon is the one thing that
 // cannot come from the API, so every new artifact type would need an entry in this
@@ -317,15 +323,16 @@ export default function AutoRunPage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const { data, error, isLoading, mutate } = useApi<{ autoRun: ApiAutoRun }>(
-    `/auto-runs/${id}`,
-    { shouldRun: () => router.isReady && !!id },
-  );
+  const { data, error, isLoading, mutate } = useApi<{
+    autoRun: ApiAutoRun;
+    sandbox: SandboxConversion | null;
+  }>(`/auto-runs/${id}`, { shouldRun: () => router.isReady && !!id });
   const { mutateDefinitions } = useDefinitions();
   const { refreshOrganization } = useUser();
   const [failures, setFailures] = useState<TeardownFailure[]>([]);
 
   const run = data?.autoRun;
+  const sandbox = data?.sandbox ?? null;
   const completed = run?.outcome === "completed";
 
   // Distinguish the three states rather than showing one overlay for all of them.
@@ -366,6 +373,8 @@ export default function AutoRunPage() {
   const byDeveloper = run.artifacts.filter((a) => a.by === "developer");
   const byGrowthBook = run.artifacts.filter((a) => a.by === "growthbook");
   const failing = run.checks.filter((c) => !c.ok && c.required);
+  const failingConversion =
+    sandbox?.conversion.checks.filter((c) => !c.ok) ?? [];
   const environment = autoRunMetaString(run.metadata, "environment");
 
   if (run.source === "eppo-import") {
@@ -511,6 +520,49 @@ export default function AutoRunPage() {
             ))}
           </Box>
         </Callout>
+      )}
+
+      {sandbox && (
+        <>
+          {!sandbox.conversion.ok && (
+            <Callout status="warning" size="md" mb="5">
+              <Text weight="medium" as="div">
+                {failingConversion.length === 1
+                  ? "1 conversion check failed"
+                  : `${failingConversion.length} conversion checks failed`}
+                : {failingConversion.map((c) => c.name).join(", ")}
+              </Text>
+            </Callout>
+          )}
+          <Section
+            title="Linked From a Sandbox"
+            description={`Linked ${date(sandbox.at)} · ${
+              sandbox.mode === "new-workspace" ? "new workspace" : "moved"
+            }`}
+          >
+            <Table variant="list">
+              <TableBody>
+                {sandbox.conversion.checks.map((c) => (
+                  <TableRow key={c.name}>
+                    <TableCell style={{ width: "1%" }}>
+                      {c.ok ? (
+                        <PiCheckBold
+                          aria-label="Passed"
+                          color="var(--green-11)"
+                        />
+                      ) : (
+                        <PiXBold aria-label="Failed" color="var(--red-11)" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <NameCell name={c.name} subtitle={c.detail} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Section>
+        </>
       )}
 
       {byDeveloper.length > 0 && (

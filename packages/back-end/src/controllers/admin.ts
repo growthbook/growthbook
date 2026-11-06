@@ -14,6 +14,7 @@ import { AdminOrgSummary, getAdminOrgSummary } from "shared/enterprise";
 import {
   OrganizationInterface,
   OrganizationMessage,
+  SandboxStatus,
 } from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
@@ -35,9 +36,13 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   findAllOrganizations,
+  findOrganizationById,
   findOrganizationsByMemberIds,
+  findSandboxOrganizations,
   updateOrganization,
+  updateOrganizationSandbox,
 } from "back-end/src/models/OrganizationModel";
+import { verifySandboxConversion } from "back-end/src/services/agentSignup";
 import {
   getOrganizationById,
   setLicenseKey,
@@ -161,6 +166,54 @@ export async function _dangerousAdminGetOrganizations(
     summaries,
     total,
   });
+}
+
+// Sandboxes agents started, and how each conversion went: created and linked
+// times, destination, mode and the verification result, filterable to failures.
+export async function _dangerousAdminGetSandboxes(
+  req: AuthRequest<
+    never,
+    never,
+    { page?: string; status?: SandboxStatus; failed?: string }
+  >,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
+  }
+  const { page, status, failed } = req.query;
+  const { organizations, total } = await findSandboxOrganizations({
+    page: parseIntWithDefault(page, 1),
+    limit: 50,
+    status,
+    failedOnly: failed === "true",
+  });
+  const sandboxes = organizations.map((o) => ({
+    id: o.id,
+    name: o.name,
+    ownerEmail: o.ownerEmail,
+    dateCreated: o.dateCreated,
+    disabled: !!o.disabled,
+    sandbox: o.sandbox,
+  }));
+  return res.status(200).json({ status: 200, sandboxes, total });
+}
+
+// Verification is a pure comparison, so it can run again for a support case.
+export async function _dangerousAdminVerifySandbox(
+  req: AuthRequest<null, { orgId: string }>,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
+  }
+  const org = await findOrganizationById(req.params.orgId);
+  if (!org?.sandbox) {
+    return res.status(404).json({ status: 404, message: "Sandbox not found" });
+  }
+  const conversion = await verifySandboxConversion(org);
+  await updateOrganizationSandbox(org.id, { conversion });
+  return res.status(200).json({ status: 200, conversion });
 }
 
 export async function _dangerousAdminGetOrganization(

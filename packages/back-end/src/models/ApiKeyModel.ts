@@ -598,6 +598,13 @@ export class ApiKeyModel extends BaseClass {
     return { before: doc, after };
   }
 
+  // Linking a sandbox keeps the agent's key and lifts the deadline it was made with.
+  public async clearExpiry(id: string): Promise<ApiKeyInterface> {
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
+    return this.update(doc, { expiresAt: null });
+  }
+
   // Admins can edit the permission scope of an existing org secret key in place,
   // and users their own PATs (role + environment/project restrictions +
   // description). This lets already issued tokens pick up new permissions

@@ -19,7 +19,7 @@ import {
   ExperimentStartChecklistStatus,
 } from "shared/validators";
 import { hasPendingScheduledStart, startBypassCovers } from "shared/util";
-import { canBypassStartApproval } from "shared/permissions";
+import { canBypassStartApproval, isActiveSandbox } from "shared/permissions";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -259,6 +259,15 @@ async function loadAndValidateExperimentForStatusChange(
   }
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
+  // A sandbox may draft experiments but not start them, however little a
+  // start with no linked changes would do. Through the permission, so it
+  // lifts with the mask once the sandbox is linked.
+  if (
+    isActiveSandbox(context.org) &&
+    !context.permissions.canRunExperiment(experiment, [])
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   return experiment;
 }

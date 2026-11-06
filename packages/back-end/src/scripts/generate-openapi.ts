@@ -702,6 +702,7 @@ curl https://api.growthbook.io/api/v1/features \
       deprecated,
       possibleErrors,
       confirmation,
+      unauthenticated,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -969,6 +970,7 @@ curl https://api.growthbook.io/api/v1/features \
       summary,
       ...(description !== undefined && { description }),
       ...(deprecated && { deprecated: true }),
+      ...(unauthenticated && { security: [] }),
       tags,
       ...(parameters.length > 0 && { parameters }),
       ...(requestBody !== undefined && { requestBody }),

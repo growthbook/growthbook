@@ -12,8 +12,12 @@
  * zod at the read site (back-end services/plan-limits.ts).
  *
  * Exception: "interleave-exp" gates the in-development interleaving UI.
+ *
+ * Exception: "agent-signup" is the kill switch for the agent sandbox signup
+ * endpoint (POST /api/v1/agent-signup), read on the back end.
  */
 export type AppFeatures = {
+  "agent-signup": boolean;
   // Added ahead of the flag's creation in GrowthBook's own account
   "eppo-importer": boolean;
   "papercups-config": Record<string, unknown>;

@@ -7,8 +7,12 @@ import {
   type ConfirmationNotice,
   SuperAdminPermission,
 } from "shared/validators";
-import { routeConfirmation } from "shared/util";
-import { hasSuperAdminPermission } from "shared/permissions";
+import { isPermissionError, routeConfirmation } from "shared/util";
+import {
+  hasSuperAdminPermission,
+  isActiveSandbox,
+  sandboxRefusalHint,
+} from "shared/permissions";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -42,7 +46,7 @@ import {
   SoftWarningError,
   UnscopedRuleError,
 } from "./errors";
-import { IS_MULTI_ORG } from "./secrets";
+import { APP_ORIGIN, IS_MULTI_ORG } from "./secrets";
 
 export type { ApiEndpointSpec, ExampleRequest, HttpVerb, RequestSchemas };
 
@@ -249,7 +253,11 @@ export async function runApiHandler(
       return { status: 202, body: e.body, headers: e.headers };
     }
     const body: ApiErrorResponse = { message: e.message };
-    const { isJwtAuth } = req as unknown as ApiRequestLocals;
+    const { isJwtAuth, context } = req as unknown as ApiRequestLocals;
+    // An agent in a sandbox is refused a few things on purpose; say what to do.
+    if (isPermissionError(e) && context && isActiveSandbox(context.org)) {
+      body.message = `${body.message.replace(/\.?$/, ".")} ${sandboxRefusalHint(APP_ORIGIN)}`;
+    }
     if (e instanceof ApiError) {
       body.code = e.code;
       body.details = e.details;
@@ -391,6 +399,8 @@ export type OpenApiRoute<
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
   confirmation?: readonly ConfirmAction[];
+  /** Registered before API authentication; see ApiEndpointSpec. */
+  unauthenticated?: boolean;
 };
 
 export function createApiRequestHandler<
@@ -426,6 +436,7 @@ export function createApiRequestHandler<
     possibleErrors,
     confirmation,
     confirmationInHandler,
+    unauthenticated,
   } = data;
 
   return (
@@ -520,6 +531,7 @@ export function createApiRequestHandler<
       excludeFromSpec,
       possibleErrors,
       confirmation,
+      unauthenticated,
     };
 
     return route;

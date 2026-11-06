@@ -490,6 +490,37 @@ export type OrgMemberInfo = {
   }[];
 };
 
+export type SandboxKind = "agent-signup";
+export type SandboxStatus = "active" | "linked" | "expired";
+export type SandboxLinkMode = "new-workspace" | "moved";
+
+export interface SandboxConversionCheck {
+  name: string;
+  ok: boolean;
+  required: boolean;
+  detail?: string;
+}
+
+export interface SandboxLinked {
+  at: Date;
+  by: string;
+  mode: SandboxLinkMode;
+  to: { organization: string; project: string | null };
+  conversion: { ok: boolean; checks: SandboxConversionCheck[] };
+}
+
+// A workspace made for an agent before anyone owned it. Facts only: what a
+// kind may do lives in SANDBOX_POLICIES. The record stays after linking.
+export interface OrganizationSandbox {
+  kind: SandboxKind;
+  status: SandboxStatus;
+  expiresAt: Date;
+  source: { runId: string; apiKeyId: string };
+  codeHash: string | null; // hashed; spent once linked, cleared on expiry
+  notified?: { email: string; at: Date };
+  linked?: SandboxLinked;
+}
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -540,6 +571,7 @@ export interface OrganizationInterface {
   suspended?: boolean;
   setupEventTracker?: string;
   limits?: OrgLimits;
+  sandbox?: OrganizationSandbox;
 }
 
 export type NamespaceUsage = Record<

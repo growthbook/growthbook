@@ -18,6 +18,19 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
+/**
+ * Lets coding agents create a sandbox workspace with one unauthenticated
+ * request (POST /api/v1/agent-signup). Off unless set; the "agent-signup" app
+ * flag is the runtime kill switch once it is on.
+ */
+export const AGENT_SIGNUP_ENABLED = stringToBoolean(
+  process.env.AGENT_SIGNUP_ENABLED,
+);
+/** Open, unlinked sandboxes allowed at once before signup answers 429. */
+export const AGENT_SIGNUP_MAX_OPEN = parseInt(
+  process.env.AGENT_SIGNUP_MAX_OPEN || "500",
+);
+
 /** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default on. */
 export const OAUTH_AS_ENABLED = stringToBoolean(
   process.env.OAUTH_AS_ENABLED,

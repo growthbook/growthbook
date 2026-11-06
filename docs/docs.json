@@ -1049,6 +1049,14 @@
                 ]
               },
               {
+                "group": "agent-signup",
+                "pages": [
+                  "api/agent-signup/operation/postAgentSignup",
+                  "api/agent-signup/operation/getAgentSignupStatus",
+                  "api/agent-signup/operation/postAgentSignupEmail"
+                ]
+              },
+              {
                 "group": "Dashboards",
                 "pages": [
                   "api/Dashboards/operation/getDashboard",

@@ -199,6 +199,37 @@ export async function sendResetPasswordEmail(email: string, resetUrl: string) {
   });
 }
 
+// The courtesy copy of a sandbox link code for the person who was not at the
+// terminal. It proves nothing on its own: linking still needs a sign-in.
+export async function sendSandboxLinkEmail({
+  email,
+  appName,
+  code,
+  url,
+  expiresAt,
+}: {
+  email: string;
+  appName: string;
+  code: string;
+  url: string;
+  expiresAt: Date;
+}) {
+  const expires = expiresAt.toUTCString();
+  const html = nunjucks.render("sandbox-link.jinja", {
+    appName,
+    code,
+    url,
+    expires,
+  });
+  await sendMail({
+    html,
+    subject: `Link your GrowthBook setup for ${noHyperlink(appName)}`,
+    to: email,
+    text: `A coding agent set up GrowthBook for ${noHyperlink(appName)}. Link it to your account with code ${code} at ${url} before ${expires}.`,
+    ignoreUnsubscribes: true,
+  });
+}
+
 export async function sendNewOrgEmail(company: string, email: string) {
   if (!SITE_MANAGER_EMAIL) return;
 

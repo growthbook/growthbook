@@ -7,6 +7,10 @@ import {
   apiUpdateAutoRunBody,
   MAX_AUTO_RUN_ARTIFACTS,
 } from "shared/validators";
+import {
+  OrganizationInterface,
+  SandboxLinked,
+} from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
@@ -38,10 +42,27 @@ async function withExperimentNames(
   };
 }
 
+// A run that opened an agent sandbox carries how the link went, so the report
+// can show it next to the run's own checks.
+function sandboxConversionFor(
+  org: OrganizationInterface,
+  runId: string,
+): Pick<SandboxLinked, "at" | "mode" | "conversion"> | null {
+  const sandbox = org.sandbox;
+  if (!sandbox?.linked || sandbox.source.runId !== runId) return null;
+  const { at, mode, conversion } = sandbox.linked;
+  return { at, mode, conversion };
+}
+
 export const getAutoRun = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<
-    { status: 200; autoRun: ApiAutoRun } | { status: 404; message: string }
+    | {
+        status: 200;
+        autoRun: ApiAutoRun;
+        sandbox: Pick<SandboxLinked, "at" | "mode" | "conversion"> | null;
+      }
+    | { status: 404; message: string }
   >,
 ) => {
   const context = getContextFromReq(req);
@@ -58,6 +79,7 @@ export const getAutoRun = async (
       context,
       context.models.autoRuns.toApi(run),
     ),
+    sandbox: sandboxConversionFor(context.org, run.id),
   });
 };
 

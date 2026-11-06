@@ -11,8 +11,12 @@ import {
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  OrganizationSandbox,
+  OrganizationSettings,
   OrgMemberInfo,
   Role,
+  SandboxLinked,
+  SandboxStatus,
 } from "shared/types/organization";
 import { ApiOrganization } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
@@ -60,6 +64,34 @@ const baseMemberFields = {
   externalId: String,
   managedByIdp: Boolean,
 };
+
+const sandboxCheckSchema = new mongoose.Schema(
+  { name: String, ok: Boolean, required: Boolean, detail: String },
+  { _id: false },
+);
+
+// A workspace an agent started before anyone owned it. See OrganizationSandbox.
+const sandboxSchema = new mongoose.Schema(
+  {
+    kind: String,
+    status: String,
+    expiresAt: Date,
+    source: { runId: String, apiKeyId: String },
+    codeHash: String,
+    notified: { email: String, at: Date },
+    linked: {
+      at: Date,
+      by: String,
+      mode: String,
+      to: { organization: String, project: String },
+      conversion: {
+        ok: Boolean,
+        checks: { type: [sandboxCheckSchema], default: undefined },
+      },
+    },
+  },
+  { _id: false },
+);
 
 const organizationSchema = new mongoose.Schema({
   id: {
@@ -168,9 +200,19 @@ const organizationSchema = new mongoose.Schema({
     customEnvironments: Boolean,
     roleManagement: Boolean,
   },
+  sandbox: sandboxSchema,
 });
 
 organizationSchema.index({ "members.id": 1 });
+// The code a person types to link a sandbox, hashed; cleared once used.
+organizationSchema.index(
+  { "sandbox.codeHash": 1 },
+  { partialFilterExpression: { "sandbox.codeHash": { $type: "string" } } },
+);
+organizationSchema.index(
+  { "sandbox.status": 1, "sandbox.expiresAt": 1 },
+  { partialFilterExpression: { "sandbox.status": { $exists: true } } },
+);
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
@@ -222,53 +264,7 @@ export async function createOrganization({
     ],
     id: uniqid("org_"),
     dateCreated: new Date(),
-    settings: {
-      environments: [
-        {
-          id: "production",
-          description: "",
-          toggleOnList: true,
-          defaultState: true,
-        },
-      ],
-      killswitchConfirmation: true,
-      runHealthTrafficQuery: true,
-      // Default to the same attributes as the auto-wrapper for the Javascript SDK
-      attributeSchema: [
-        { property: "id", datatype: "string", hashAttribute: true },
-        { property: "url", datatype: "string" },
-        { property: "path", datatype: "string" },
-        { property: "host", datatype: "string" },
-        { property: "query", datatype: "string" },
-        { property: "deviceType", datatype: "enum", enum: "desktop,mobile" },
-        {
-          property: "browser",
-          datatype: "enum",
-          enum: "chrome,edge,firefox,safari,unknown",
-        },
-        { property: "utmSource", datatype: "string" },
-        { property: "utmMedium", datatype: "string" },
-        { property: "utmCampaign", datatype: "string" },
-        { property: "utmTerm", datatype: "string" },
-        { property: "utmContent", datatype: "string" },
-      ],
-      disablePrecomputedDimensions: false,
-      restApiBypassesReviews: false,
-      requireRebaseBeforePublish: false,
-      revertsBypassApproval: false,
-      configsExtensibleByDefault: true,
-      blockPublishOnSchemaError: true,
-      requireReviews: [
-        {
-          requireReviewOn: false,
-          resetReviewOnChange: false,
-          environments: [],
-          projects: [],
-          featureRequireEnvironmentReview: true,
-          featureRequireMetadataReview: false,
-        },
-      ],
-    },
+    settings: newOrganizationSettings(["production"]),
     getStartedChecklistItems: [],
     isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
@@ -277,6 +273,216 @@ export async function createOrganization({
     limits: await getStampedOrgLimits(),
   });
   return toInterface(doc);
+}
+
+// The settings every new workspace starts with, whoever creates it.
+function newOrganizationSettings(environments: string[]): OrganizationSettings {
+  return {
+    environments: environments.map((id) => ({
+      id,
+      description: "",
+      toggleOnList: true,
+      defaultState: true,
+    })),
+    killswitchConfirmation: true,
+    runHealthTrafficQuery: true,
+    // Default to the same attributes as the auto-wrapper for the Javascript SDK
+    attributeSchema: [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "url", datatype: "string" },
+      { property: "path", datatype: "string" },
+      { property: "host", datatype: "string" },
+      { property: "query", datatype: "string" },
+      { property: "deviceType", datatype: "enum", enum: "desktop,mobile" },
+      {
+        property: "browser",
+        datatype: "enum",
+        enum: "chrome,edge,firefox,safari,unknown",
+      },
+      { property: "utmSource", datatype: "string" },
+      { property: "utmMedium", datatype: "string" },
+      { property: "utmCampaign", datatype: "string" },
+      { property: "utmTerm", datatype: "string" },
+      { property: "utmContent", datatype: "string" },
+    ],
+    disablePrecomputedDimensions: false,
+    restApiBypassesReviews: false,
+    requireRebaseBeforePublish: false,
+    revertsBypassApproval: false,
+    configsExtensibleByDefault: true,
+    blockPublishOnSchemaError: true,
+    requireReviews: [
+      {
+        requireReviewOn: false,
+        resetReviewOnChange: false,
+        environments: [],
+        projects: [],
+        featureRequireEnvironmentReview: true,
+        featureRequireMetadataReview: false,
+      },
+    ],
+  };
+}
+
+// A sandbox has no members and no owner until a person links it. An empty
+// verified domain keeps domain auto-join from offering it to strangers.
+export async function createSandboxOrganization({
+  name,
+  environments,
+  sandbox,
+}: {
+  name: string;
+  environments: string[];
+  sandbox: OrganizationSandbox;
+}) {
+  const doc = await OrganizationModel.create({
+    ownerEmail: "",
+    name,
+    url: "",
+    verifiedDomain: "",
+    externalId: "",
+    invites: [],
+    members: [],
+    id: uniqid("org_"),
+    dateCreated: new Date(),
+    settings: newOrganizationSettings(environments),
+    getStartedChecklistItems: [],
+    limits: await getStampedOrgLimits(),
+    sandbox,
+  });
+  return toInterface(doc);
+}
+
+export async function findOrganizationBySandboxCodeHash(codeHash: string) {
+  const doc = await getCollection(COLLECTION).findOne({
+    "sandbox.codeHash": codeHash,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
+// One guarded write makes the sandbox the person's own workspace: they become
+// its only member and owner, the code is spent, and the mask stops applying.
+// The hash stays so a second use of the code can be told from a wrong one.
+// Null means the code was already used, expired, or never existed.
+export async function linkSandboxOrganizationToUser({
+  codeHash,
+  userId,
+  email,
+  linked,
+}: {
+  codeHash: string;
+  userId: string;
+  email: string;
+  linked: SandboxLinked;
+}): Promise<OrganizationInterface | null> {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    {
+      "sandbox.codeHash": codeHash,
+      "sandbox.status": "active",
+      "sandbox.expiresAt": { $gt: new Date() },
+    },
+    {
+      $set: {
+        ownerEmail: email,
+        members: [
+          {
+            id: userId,
+            role: "admin",
+            dateCreated: new Date(),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+        "sandbox.status": "linked",
+        "sandbox.linked": linked,
+      },
+    },
+    { new: true },
+  );
+  return doc ? toInterface(doc) : null;
+}
+
+export async function updateOrganizationSandbox(
+  id: string,
+  update: {
+    status?: SandboxStatus;
+    source?: OrganizationSandbox["source"];
+    conversion?: SandboxLinked["conversion"];
+    clearCode?: boolean;
+  },
+) {
+  const $set: Record<string, unknown> = {};
+  if (update.status) $set["sandbox.status"] = update.status;
+  if (update.source) $set["sandbox.source"] = update.source;
+  if (update.conversion) $set["sandbox.linked.conversion"] = update.conversion;
+  if (update.clearCode) $set["sandbox.codeHash"] = null;
+  if (!Object.keys($set).length) return;
+  await OrganizationModel.updateOne(
+    { id, "sandbox.kind": { $exists: true } },
+    { $set },
+  );
+}
+
+// One email per sandbox: the first caller claims it, the rest are told whom
+// it went to. Released only if sending fails.
+export async function claimSandboxEmail(
+  id: string,
+  email: string,
+): Promise<boolean> {
+  const res = await OrganizationModel.updateOne(
+    {
+      id,
+      "sandbox.status": "active",
+      "sandbox.notified": { $exists: false },
+    },
+    { $set: { "sandbox.notified": { email, at: new Date() } } },
+  );
+  return res.modifiedCount > 0;
+}
+
+export async function releaseSandboxEmail(id: string) {
+  await OrganizationModel.updateOne(
+    { id },
+    { $unset: { "sandbox.notified": 1 } },
+  );
+}
+
+export async function findSandboxOrganizations({
+  page,
+  limit,
+  status,
+  failedOnly,
+}: {
+  page: number;
+  limit: number;
+  status?: SandboxStatus;
+  failedOnly?: boolean;
+}) {
+  const query: FilterQuery<OrganizationInterface> = {
+    "sandbox.kind": { $exists: true },
+    ...(status ? { "sandbox.status": status } : {}),
+    ...(failedOnly ? { "sandbox.linked.conversion.ok": false } : {}),
+  };
+  const [docs, total] = await Promise.all([
+    OrganizationModel.find(query)
+      .sort({ dateCreated: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    OrganizationModel.countDocuments(query),
+  ]);
+  return { organizations: docs.map(toInterface), total };
+}
+
+export async function countOpenSandboxOrganizations() {
+  return OrganizationModel.countDocuments({ "sandbox.status": "active" });
+}
+
+export async function findExpiredSandboxOrganizations(limit = 200) {
+  const docs = await OrganizationModel.find({
+    "sandbox.status": "active",
+    "sandbox.expiresAt": { $lt: new Date() },
+  }).limit(limit);
+  return docs.map(toInterface);
 }
 
 export async function findAllOrganizations(

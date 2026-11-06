@@ -1566,6 +1566,20 @@ export async function onFeatureUpdate(
     });
 }
 
+// Linking an agent sandbox hands its flags to the person who linked it. Owner
+// is not part of the SDK payload, so no revision or cache is touched.
+export async function reassignFeatureOwner(
+  context: ReqContext | ApiReqContext,
+  from: string,
+  to: string,
+): Promise<number> {
+  const res = await FeatureModel.updateMany(
+    { organization: context.org.id, owner: from },
+    { $set: { owner: to, dateUpdated: new Date() } },
+  );
+  return res.modifiedCount;
+}
+
 export async function updateFeature(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

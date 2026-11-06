@@ -1,0 +1,22 @@
+{% extends "base.jinja" %}
+{% import "utils.jinja" as utils %}
+
+{% block preview %}
+  Your code is {{ code }}. Link it before {{ expires }}.
+{% endblock %}
+
+{% block title %}
+  Link your GrowthBook setup
+{% endblock %}
+
+{% block top %}
+  <p style='margin: 0 0 20px;'>A coding agent set up GrowthBook for <strong>{{ appName }}</strong>. Link it to your account to keep the flags it made and to run experiments on them.</p>
+  <p style='margin: 0 0 8px; color: #6b7280; font-size: 13px;'>Your code</p>
+  <p style='margin: 0 0 30px; font-family: Menlo, Consolas, monospace; font-size: 28px; letter-spacing: 0.12em;'>{{ code }}</p>
+  {{ utils.button("Link it", url) }}
+{% endblock %}
+
+{% block bottom %}
+  <p style='margin: 30px 0;'>If the button does not work, open <a href="{{ url }}" style="color: #1f9adb;">{{ url }}</a> and type the code. Only continue if the code matches the one in your terminal or your agent's message.</p>
+  <p>The setup stops on {{ expires }} if nobody links it.</p>
+{% endblock %}

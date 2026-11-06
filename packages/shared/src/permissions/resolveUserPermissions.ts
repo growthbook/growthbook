@@ -26,6 +26,7 @@ import {
   ENV_SCOPED_PERMISSIONS,
 } from "./permissions.constants";
 import { Permissions } from "./permissionsClass";
+import { getActiveSandboxPolicy, removePermissions } from "./sandbox";
 import type { RevisionModel } from "./revisionPermissions";
 import {
   allowedEnvironments,
@@ -345,9 +346,16 @@ export function getRolePermissions(
     permissions.projects = {};
   }
 
-  applyProjectAccessRestrictions(permissions, restrictedProjects);
+  // A sandbox workspace keeps its roles and loses a fixed set of permissions
+  // until it is linked, so every caller, key or person, is refused the same way.
+  const policy = getActiveSandboxPolicy(org);
+  const resolved = policy
+    ? removePermissions(permissions, policy.deniedPermissions)
+    : permissions;
 
-  return permissions;
+  applyProjectAccessRestrictions(resolved, restrictedProjects);
+
+  return resolved;
 }
 
 function intersectUserPermission(

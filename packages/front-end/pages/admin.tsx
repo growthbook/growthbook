@@ -1,11 +1,16 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationSandbox,
+  SandboxLinked,
+} from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { PiCaretRight, PiMagnifyingGlass } from "react-icons/pi";
 import { date } from "shared/dates";
 import { hasSuperAdminPermission } from "shared/permissions";
 import { AdminOrgSummary } from "shared/enterprise";
+import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
@@ -129,6 +134,38 @@ const DEFAULT_MEMBER_FILTERS: MemberFilters = {
   search: "",
   superAdminsOnly: false,
 };
+
+type SandboxFilters = { page: number; status: string; failedOnly: boolean };
+const DEFAULT_SANDBOX_FILTERS: SandboxFilters = {
+  page: 1,
+  status: "all",
+  failedOnly: false,
+};
+const SANDBOX_STATUS_OPTIONS: FilterOptions = [
+  ["active", "Active"],
+  ["linked", "Linked"],
+  ["expired", "Expired"],
+];
+
+// Dates arrive as JSON strings
+type AdminSandboxRow = {
+  id: string;
+  name: string;
+  ownerEmail: string;
+  dateCreated: string;
+  disabled: boolean;
+  sandbox: Omit<OrganizationSandbox, "expiresAt" | "notified" | "linked"> & {
+    expiresAt: string;
+    notified?: { email: string; at: string };
+    linked?: Omit<SandboxLinked, "at"> & { at: string };
+  };
+};
+
+const SANDBOX_STATUS_BADGE = {
+  active: { label: "Active", color: "blue" },
+  linked: { label: "Linked", color: "green" },
+  expired: { label: "Expired", color: "gray" },
+} as const;
 
 // Kept in the URL so filters survive opening an organization and going back
 function useQueryFilters<T extends Record<string, string | number | boolean>>(
@@ -556,6 +593,165 @@ function MemberList({
   );
 }
 
+function SandboxList({
+  filters,
+  setFilters,
+}: {
+  filters: SandboxFilters;
+  setFilters: Dispatch<SetStateAction<SandboxFilters>>;
+}) {
+  const { apiCall } = useAuth();
+  const { page, status, failedOnly } = filters;
+
+  const params = new URLSearchParams({ page: String(page) });
+  if (status !== "all") params.set("status", status);
+  if (failedOnly) params.set("failed", "true");
+
+  const { data, error, mutate } = useApi<{
+    sandboxes: AdminSandboxRow[];
+    total: number;
+  }>(`/admin/sandboxes?${params.toString()}`);
+
+  return (
+    <>
+      <Flex gap="4" wrap="wrap" align="center" mb="3">
+        <Select
+          aria-label="Status"
+          value={status}
+          setValue={(v) => setFilters({ ...filters, status: v, page: 1 })}
+        >
+          <SelectItem value="all">All statuses</SelectItem>
+          {optionItems(SANDBOX_STATUS_OPTIONS)}
+        </Select>
+        <Checkbox
+          id="failed-conversions-only"
+          label="Failed conversions only"
+          value={failedOnly}
+          setValue={(v) => setFilters({ ...filters, failedOnly: v, page: 1 })}
+        />
+        {data && (
+          <Text color="text-mid" ml="auto">
+            {numberFormatter.format(data.total)} sandbox
+            {data.total === 1 ? "" : "es"}
+          </Text>
+        )}
+      </Flex>
+      {error && (
+        <Callout status="error" mb="3">
+          {error.message}
+        </Callout>
+      )}
+      <Box position="relative">
+        {!data && !error && <LoadingOverlay />}
+        <Table variant="list" stickyHeader>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Workspace</TableColumnHeader>
+              <TableColumnHeader>Created</TableColumnHeader>
+              <TableColumnHeader>Status</TableColumnHeader>
+              <TableColumnHeader>Linked</TableColumnHeader>
+              <TableColumnHeader>Destination</TableColumnHeader>
+              <TableColumnHeader>Conversion</TableColumnHeader>
+              <TableColumnHeader>Email</TableColumnHeader>
+              <TableColumnHeader />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data?.sandboxes.map((s) => {
+              const { linked, notified } = s.sandbox;
+              const failed = linked?.conversion.checks.filter((c) => !c.ok);
+              return (
+                <TableRow key={s.id}>
+                  <TableCell maxWidth="280px" style={WRAP}>
+                    <Text as="div" weight="semibold">
+                      {s.name}
+                    </Text>
+                    <Link href={`/admin/org/${s.id}`}>
+                      <code>{s.id}</code>
+                    </Link>
+                  </TableCell>
+                  <TableCell>{date(s.dateCreated)}</TableCell>
+                  <TableCell>
+                    <Flex gap="1" wrap="wrap">
+                      <Badge {...SANDBOX_STATUS_BADGE[s.sandbox.status]} />
+                      {s.disabled && <Badge label="Disabled" color="red" />}
+                    </Flex>
+                  </TableCell>
+                  <TableCell>
+                    {linked
+                      ? `${date(linked.at)} · ${
+                          linked.mode === "new-workspace"
+                            ? "new workspace"
+                            : "moved"
+                        }`
+                      : "—"}
+                  </TableCell>
+                  <TableCell style={WRAP}>
+                    {linked ? (
+                      <Link href={`/admin/org/${linked.to.organization}`}>
+                        <code>{linked.to.organization}</code>
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell maxWidth="240px">
+                    {!linked ? (
+                      "—"
+                    ) : linked.conversion.ok ? (
+                      <Badge label="✓ ok" color="green" />
+                    ) : (
+                      <Badge
+                        label={failed?.map((c) => c.name).join(", ") ?? ""}
+                        color="red"
+                        style={{ whiteSpace: "normal" }}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell maxWidth="240px" style={WRAP}>
+                    {notified ? `Sent to ${notified.email}` : "—"}
+                  </TableCell>
+                  <TableCell style={{ textAlign: "right" }}>
+                    {linked && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          await apiCall(`/admin/sandboxes/${s.id}/verify`, {
+                            method: "POST",
+                          });
+                          await mutate();
+                        }}
+                      >
+                        Verify again
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {data?.sandboxes.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8}>
+                  <Text color="text-mid">No sandboxes found</Text>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Box>
+      {data && data.total > 50 && (
+        <Pagination
+          currentPage={page}
+          numItemsTotal={data.total}
+          perPage={50}
+          onPageChange={(p) => setFilters({ ...filters, page: p })}
+        />
+      )}
+    </>
+  );
+}
+
 export default function Admin() {
   const router = useRouter();
   const { license, superAdmin } = useUser();
@@ -567,6 +763,11 @@ export default function Admin() {
   const [memberFilters, setMemberFilters] = useQueryFilters(
     DEFAULT_MEMBER_FILTERS,
     "members.",
+  );
+  const [sandboxFilters, setSandboxFilters] = useQueryFilters(
+    DEFAULT_SANDBOX_FILTERS,
+    "sandboxes.",
+    { status: SANDBOX_STATUS_OPTIONS },
   );
   const canView = hasSuperAdminPermission(superAdmin, "view");
 
@@ -602,6 +803,7 @@ export default function Admin() {
             {!isCloud() && <TabsTrigger value="license">License</TabsTrigger>}
             <TabsTrigger value="organizations">Organizations</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="sandboxes">Sandboxes</TabsTrigger>
           </TabsList>
         </Box>
         {!isCloud() && (
@@ -616,6 +818,12 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="members">
           <MemberList filters={memberFilters} setFilters={setMemberFilters} />
+        </TabsContent>
+        <TabsContent value="sandboxes">
+          <SandboxList
+            filters={sandboxFilters}
+            setFilters={setSandboxFilters}
+          />
         </TabsContent>
       </Tabs>
     </Box>
