@@ -837,25 +837,31 @@ export function getMetricValuesUnitState(
   getFactMetricById: (id: string) => FactMetricInterface | null,
   getFactTableById: (id: string) => FactTableDefinition | null,
 ): MetricValuesUnitState {
-  const selectable = values.flatMap((value) => {
+  const selectableMetrics: FactMetricInterface[] = [];
+  const selectedUnits = new Set<string>();
+  for (const value of values) {
     const metric = value.metricId ? getFactMetricById(value.metricId) : null;
-    return metric && metricSupportsUnitSelection(metric)
-      ? [{ value, metric }]
-      : [];
-  });
-  const units = new Set(
-    selectable.flatMap(({ value }) => (value.unit ? [value.unit] : [])),
-  );
-  const options = selectable.reduce<string[] | null>((acc, { metric }) => {
-    const ids =
+    if (!metric || !metricSupportsUnitSelection(metric)) continue;
+    selectableMetrics.push(metric);
+    if (value.unit) selectedUnits.add(value.unit);
+  }
+
+  const unitsOfferedByEachMetric = selectableMetrics.map(
+    (metric) =>
       getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
-      [];
-    return acc === null ? [...ids] : acc.filter((id) => ids.includes(id));
-  }, null);
+      [],
+  );
+  const [firstMetricUnits = [], ...otherMetricsUnits] =
+    unitsOfferedByEachMetric;
+  const unitsEveryMetricOffers = firstMetricUnits.filter((unit) =>
+    otherMetricsUnits.every((units) => units.includes(unit)),
+  );
+
+  const allValuesShareOneUnit = selectedUnits.size === 1;
   return {
-    unit: units.size === 1 ? [...units][0] : null,
-    isMixed: units.size > 1,
-    options: options ?? [],
+    unit: allValuesShareOneUnit ? [...selectedUnits][0] : null,
+    isMixed: selectedUnits.size > 1,
+    options: unitsEveryMetricOffers,
   };
 }
 
