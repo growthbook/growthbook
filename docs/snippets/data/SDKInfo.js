@@ -248,7 +248,7 @@ export default {
   },
   php: {
     name: "PHP SDK",
-    version: "3.0.0",
+    version: "3.0.1",
     github: "https://github.com/growthbook/growthbook-php",
     examples: [],
     packageRepos: [
