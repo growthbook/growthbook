@@ -61,8 +61,10 @@
 // header and body together, the cut-off edge fading while there's more that
 // way (AgentPanel.tsx sets data-more-*). Over AIChatPrimitives' .bubble,
 // which lets any text break anywhere.
+// Query results' tables fill the query card's frame at the default 400px
+// panel (its 323px inside), so they only scroll on a narrower one.
 .panel table {
-  min-width: 350px;
+  min-width: 323px;
 
   &,
   * {
@@ -79,6 +81,7 @@
 
 .panel .tableFrame > table {
   display: table;
+  min-width: 350px;
   max-width: none;
   overflow: visible;
   margin-bottom: 0;
