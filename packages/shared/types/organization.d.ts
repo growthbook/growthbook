@@ -622,6 +622,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    tracesBytes?: UsageLimit;
     eventForwarderEvents?: UsageLimit;
   };
   cdn: {
@@ -629,6 +630,10 @@ export type OrganizationUsage = {
     status: "under" | "approaching" | "over";
   };
   managedClickhouse?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
+  traces?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };
