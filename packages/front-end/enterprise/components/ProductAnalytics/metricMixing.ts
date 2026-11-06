@@ -24,6 +24,10 @@ export function getLockedMixClass(
   return null;
 }
 
+const RATIO_CONFLICT = "Ratio metrics can't be combined with other metrics.";
+const QUANTILE_CONFLICT =
+  "Quantile metrics can't be combined with other metrics.";
+
 /** Why a metric can't join a chart locked to `lockedClass`, or null if it can. */
 export function getMixClassConflict(
   metricType: string | null | undefined,
@@ -33,9 +37,20 @@ export function getMixClassConflict(
   if (!lockedClass || metricClass === lockedClass) return null;
   // Standard metrics mix freely, so name whichever side can't be combined.
   const exclusiveClass = lockedClass === "standard" ? metricClass : lockedClass;
-  return exclusiveClass === "ratio"
-    ? "Ratio metrics can't be combined with other metric types."
-    : "Quantile metrics can't be combined with other metric types.";
+  return exclusiveClass === "ratio" ? RATIO_CONFLICT : QUANTILE_CONFLICT;
+}
+
+/**
+ * Why no metric can be added to a chart with these metric types, or null if
+ * one can. Ratio and quantile metrics chart alone.
+ */
+export function getAddMetricConflict(
+  metricTypes: (string | null | undefined)[],
+): string | null {
+  const classes = metricTypes.map(getMetricMixClass);
+  if (classes.includes("ratio")) return RATIO_CONFLICT;
+  if (classes.includes("quantile")) return QUANTILE_CONFLICT;
+  return null;
 }
 
 /**

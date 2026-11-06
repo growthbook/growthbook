@@ -62,6 +62,7 @@ import {
   getColumnInfo,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
+import { renumberStepNames } from "@/components/FactTables/funnelStepUpdates";
 export {
   getAvailableDimensionColumns,
   getRelevantFactTableIds,
@@ -534,6 +535,19 @@ export function withDefaultSqlRawTable(
     chartType: "rawTable",
     dimensions: [],
   } as ExplorerDraftConfig;
+}
+
+/**
+ * Run after inserting, moving, or deleting funnel steps:
+ * - renumbers default names
+ * - clears optional/conversion window on whichever step lands first
+ */
+export function normalizeFunnelStepOrder(steps: FunnelStep[]): FunnelStep[] {
+  return renumberStepNames(steps).map((step, i) =>
+    i === 0 && (step.optional || step.conversionWindow)
+      ? { ...step, optional: false, conversionWindow: null }
+      : step,
+  );
 }
 
 /** Builds an empty funnel step. `factTableId` is optional so the "Add step"

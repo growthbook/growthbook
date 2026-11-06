@@ -5,6 +5,7 @@ import type {
 } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
 import {
+  getAddMetricConflict,
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
@@ -57,10 +58,9 @@ function value(metricId: string, unit: string | null): MetricValue {
   };
 }
 
-const RATIO_CONFLICT =
-  "Ratio metrics can't be combined with other metric types.";
+const RATIO_CONFLICT = "Ratio metrics can't be combined with other metrics.";
 const QUANTILE_CONFLICT =
-  "Quantile metrics can't be combined with other metric types.";
+  "Quantile metrics can't be combined with other metrics.";
 
 describe("getLockedMixClass", () => {
   it("locks to the first selected metric's class, skipping empty slots", () => {
@@ -95,6 +95,18 @@ describe("getMixClassConflict", () => {
 
   it("allows another metric of the same exclusive class", () => {
     expect(getMixClassConflict("ratio", "ratio")).toBeNull();
+  });
+});
+
+describe("getAddMetricConflict", () => {
+  it("blocks adding beside a ratio or quantile, skipping empty slots", () => {
+    expect(getAddMetricConflict([undefined, "ratio"])).toBe(RATIO_CONFLICT);
+    expect(getAddMetricConflict(["quantile"])).toBe(QUANTILE_CONFLICT);
+  });
+
+  it("allows adding beside standard metrics or an empty chart", () => {
+    expect(getAddMetricConflict(["mean", "proportion"])).toBeNull();
+    expect(getAddMetricConflict([])).toBeNull();
   });
 });
 

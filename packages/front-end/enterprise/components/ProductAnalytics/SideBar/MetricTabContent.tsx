@@ -19,6 +19,7 @@ import {
   MetricMixClass,
 } from "@/enterprise/components/ProductAnalytics/util";
 import {
+  getAddMetricConflict,
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
@@ -28,7 +29,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/metricMixing";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import ShowAsInput from "./ShowAsInput";
 import ValueCard from "./ValueCard";
@@ -50,6 +51,9 @@ export default function MetricTabContent() {
       ? draftExploreState.dataset.values
       : [];
   const unitPicker = getUnitPicker(values, getFactMetricById, getFactTableById);
+  const addMetricConflict = getAddMetricConflict(
+    values.map((v) => getFactMetricById(v.metricId ?? "")?.metricType),
+  );
 
   // Build the base grouped options list for this datasource. All metrics are
   // always shown; compat is enforced per-slot via isOptionDisabled so users
@@ -216,20 +220,21 @@ export default function MetricTabContent() {
                 }
                 formatOptionLabel={({ value }, meta) => {
                   const metric = factMetrics.find((m) => m.id === value);
-                  const label = metric ? <MetricName metric={metric} /> : value;
+                  if (!metric) return value;
                   // Only attach the restriction tooltip inside the open menu
                   // (not in the selected-value display) so it doesn't fire on
                   // every hover over the selected option.
                   const disabledReason =
                     meta.context === "menu" ? disabledReasonFor(value) : null;
-                  if (disabledReason) {
-                    return (
-                      <Tooltip body={disabledReason} usePortal>
-                        <span>{label}</span>
-                      </Tooltip>
-                    );
-                  }
-                  return label;
+                  if (!disabledReason) return <MetricName metric={metric} />;
+                  // Badge tooltip off: one tooltip per option.
+                  return (
+                    <Tooltip content={disabledReason}>
+                      <span>
+                        <MetricName metric={metric} disableTooltip />
+                      </span>
+                    </Tooltip>
+                  );
                 }}
                 formatGroupLabel={({ label }) => {
                   return label;
@@ -242,16 +247,22 @@ export default function MetricTabContent() {
           </ValueCard>
         );
       })}
-      <Button
-        size="md"
-        variant="outline"
-        onClick={() => addValueToDataset("metric")}
+      <Tooltip
+        enabled={addMetricConflict !== null}
+        content={addMetricConflict ?? ""}
       >
-        <Flex align="center" gap="2">
-          <PiPlus size={14} />
-          Add metric
-        </Flex>
-      </Button>
+        <Button
+          size="md"
+          variant="outline"
+          disabled={addMetricConflict !== null}
+          onClick={() => addValueToDataset("metric")}
+        >
+          <Flex align="center" gap="2">
+            <PiPlus size={14} />
+            Add metric
+          </Flex>
+        </Button>
+      </Tooltip>
       {unitPicker && (
         <Flex
           direction="column"

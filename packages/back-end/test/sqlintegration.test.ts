@@ -2023,6 +2023,23 @@ describe("getExperimentExposuresQuery", () => {
     expect(sql).toContain("'emea'");
   });
 
+  it("orders and row-filters on a cluster experiment's sub-unit", () => {
+    const sql = getExperimentExposuresQuery(bigQueryDialect, {
+      ...params,
+      exposureQuery: {
+        query: "SELECT * FROM t",
+        identifierType: "region_id",
+        columnMapping: { userIdColumns: { user_id: "uid" } },
+      },
+      subUnitIdentifierType: "user_id",
+      rowFilters: [{ operator: "=", column: "user_id", values: ["U1"] }],
+    });
+    expect(sql).toMatch(
+      /ORDER BY\s+`timestamp` DESC,\s+`region_id` DESC,\s+`uid` DESC/,
+    );
+    expect(sql).toContain("LOWER(cast(`uid` as string))");
+  });
+
   it("fetches one extra row to detect a truncated buffer", () => {
     const sql = getExperimentExposuresQuery(bigQueryDialect, params);
     expect(sql).toMatch(/LIMIT\s+1001/);

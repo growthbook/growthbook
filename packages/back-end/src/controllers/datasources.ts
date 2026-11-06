@@ -59,6 +59,7 @@ import {
   runFreeFormQuery,
   runUserExposureQuery,
   testUnsavedDataSourceConnection,
+  findGoogleAnalytics4Exports,
 } from "back-end/src/services/datasource";
 import {
   assertNoEventForwarderInOrg,
@@ -510,10 +511,14 @@ function withServerExposureQueryIds(
 }
 
 // Tests credentials without saving anything. Connection failures come back as a
-// 400 with the driver's message, the same as a failed save.
+// 400 with the driver's message, the same as a failed save. When asked, a new
+// BigQuery connection also reports any GA4 exports, so setup can offer them.
 export async function postTestDataSourceConnection(
   req: AuthRequest,
-  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+  res: Response<
+    | { status: 200; ga4Exports?: string[] }
+    | { status: 400 | 404; message: string }
+  >,
 ) {
   const parsed = testDataSourceConnectionBodySchema.safeParse(req.body);
   if (!parsed.success) {
@@ -524,7 +529,12 @@ export async function postTestDataSourceConnection(
   }
 
   const context = getContextFromReq(req);
-  const { type, projects, datasourceId } = parsed.data;
+  const {
+    type,
+    projects,
+    datasourceId,
+    findGoogleAnalytics4Exports: findGA4,
+  } = parsed.data;
   const params = parsed.data.params as Partial<DataSourceParams>;
 
   let datasource: DataSourceInterface;
@@ -574,6 +584,11 @@ export async function postTestDataSourceConnection(
       status: 400,
       message: e.message || "Unable to connect to the data source",
     });
+  }
+
+  if (findGA4 && !datasourceId && type === "bigquery") {
+    const ga4Exports = await findGoogleAnalytics4Exports(context, datasource);
+    return res.status(200).json({ status: 200, ga4Exports });
   }
 
   res.status(200).json({ status: 200 });

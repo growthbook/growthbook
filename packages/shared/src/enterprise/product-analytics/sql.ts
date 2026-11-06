@@ -1758,13 +1758,29 @@ export function buildFunnelSql(
   // so the inlined dimensionExpr (which references _dimension0_top) is
   // resolvable.
   if (dimension?.dimensionType === "dynamic") {
+    // Rank on step-1 rows only; later steps on the same table skew the top N.
     const initialRawCte = ctes[0];
+    const step1Filters = generateRowFilterSQL(
+      steps[0].rowFilters,
+      ftGroups[0].factTable,
+      dialect,
+    );
+    const topNSourceCte: CTE = step1Filters.length
+      ? {
+          name: "__funnel_step1_rows",
+          sql: `
+        SELECT * FROM ${initialRawCte.name}
+        WHERE ${step1Filters.join(" AND ")}
+      `,
+        }
+      : initialRawCte;
+    if (topNSourceCte !== initialRawCte) ctes.push(topNSourceCte);
     ctes.push(
       generateDynamicDimensionCTE(
         initialFactTableGroup,
         dimension as ProductAnalyticsDynamicDimension,
         0,
-        initialRawCte,
+        topNSourceCte,
         dialect,
       ),
     );
