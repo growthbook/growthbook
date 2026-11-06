@@ -317,6 +317,51 @@ export default function ExperimentSettings() {
           </SettingsField>
         )}
 
+        <UnsavedMark name="disableResultsRefreshForStoppedExperiments">
+          <Checkbox
+            id="toggle-disableResultsRefreshForStoppedExperiments"
+            label="Disable updating results for stopped experiments"
+            description={
+              <>
+                Once an experiment is stopped, this setting disables updates
+                (overall and dimension breakdowns) to preserve the results at
+                the time the experiment was stopped. Custom reports remain
+                available for ad-hoc analysis. When on, you can set a grace
+                period to allow updates for a few hours after stopping.
+              </>
+            }
+            value={!!form.watch("disableResultsRefreshForStoppedExperiments")}
+            setValue={(v) =>
+              form.setValue("disableResultsRefreshForStoppedExperiments", v)
+            }
+          />
+          {form.watch("disableResultsRefreshForStoppedExperiments") && (
+            <Box ml="6" mt="2">
+              <UnsavedMark name="stoppedExperimentResultsUpdateGraceHours">
+                <Field
+                  size="md"
+                  label="Allow updates for"
+                  append="hours after stopping"
+                  type="number"
+                  style={{ width: "180px" }}
+                  step={1}
+                  min={0}
+                  containerClassName="mb-0"
+                  disabled={hasFileConfig()}
+                  placeholder="0"
+                  {...form.register(
+                    "stoppedExperimentResultsUpdateGraceHours",
+                    {
+                      valueAsNumber: true,
+                      min: 0,
+                    },
+                  )}
+                />
+              </UnsavedMark>
+            </Box>
+          )}
+        </UnsavedMark>
+
         <SettingsField
           name="attributionModel"
           label={

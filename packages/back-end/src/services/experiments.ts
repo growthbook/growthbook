@@ -89,6 +89,8 @@ import {
   scheduleWriteNeedsRunPermission,
   sdkConnectionServesProject,
   withScheduledBy,
+  isExperimentResultsUpdateDisabled,
+  EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -263,6 +265,7 @@ import {
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   InvalidTrackingKeyError,
+  SoftWarningError,
 } from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import { isoOrNull } from "back-end/src/services/experimentChanges/loadedBase";
@@ -2959,6 +2962,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  bypassResultsUpdateDisabled,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2969,6 +2973,7 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  bypassResultsUpdateDisabled?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -2983,6 +2988,7 @@ export async function createExperimentSnapshot({
     triggeredBy,
     type,
     reweight,
+    bypassResultsUpdateDisabled,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -3036,6 +3042,7 @@ export async function planExperimentSnapshot({
   type,
   reweight,
   throwIfRequiresFullRefresh,
+  bypassResultsUpdateDisabled,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -3047,7 +3054,20 @@ export async function planExperimentSnapshot({
   type?: SnapshotType;
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
+  // Skip the org "disable updates on stopped experiments" setting.
+  bypassResultsUpdateDisabled?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
+  if (
+    !bypassResultsUpdateDisabled &&
+    !context.ignoreWarnings &&
+    isExperimentResultsUpdateDisabled(experiment, context.org.settings ?? {})
+  ) {
+    throw new SoftWarningError(
+      "Your organization has disabled updates on stopped experiments.",
+      [EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE],
+    );
+  }
+
   const snapshotType =
     type ??
     getSnapshotType({

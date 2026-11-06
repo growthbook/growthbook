@@ -117,6 +117,8 @@ const SECTION_FIELDS: Record<string, string[]> = {
   experiments: [
     "pastExperimentsMinLength",
     "updateSchedule",
+    "disableResultsRefreshForStoppedExperiments",
+    "stoppedExperimentResultsUpdateGraceHours",
     "runHealthTrafficQuery",
     "srmThreshold",
     "multipleExposureMinPercent",
