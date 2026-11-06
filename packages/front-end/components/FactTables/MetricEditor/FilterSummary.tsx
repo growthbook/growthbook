@@ -82,6 +82,8 @@ function RowFilterBadge({
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openedFromKeyboard = useRef(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const focusWasInside = useRef(false);
 
   const cancelClose = () => {
     if (closeTimer.current) {
@@ -93,12 +95,17 @@ function RowFilterBadge({
     cancelClose();
     setOpen(true);
   };
+  const closePreview = () => {
+    // Radix reports the close after the content unmounts, when focus has
+    // already fallen back to the body. Record it while the content is mounted.
+    focusWasInside.current = !!contentRef.current?.contains(
+      document.activeElement,
+    );
+    setOpen(false);
+  };
   const scheduleClose = () => {
     cancelClose();
-    closeTimer.current = setTimeout(
-      () => setOpen(false),
-      PREVIEW_CLOSE_DELAY_MS,
-    );
+    closeTimer.current = setTimeout(closePreview, PREVIEW_CLOSE_DELAY_MS);
   };
 
   useEffect(() => cancelClose, []);
@@ -106,7 +113,7 @@ function RowFilterBadge({
   return (
     <Popover
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => (next ? openPreview() : closePreview())}
       side="bottom"
       align="start"
       contentStyle={{ maxWidth: 500, padding: 0 }}
@@ -115,18 +122,15 @@ function RowFilterBadge({
         openedFromKeyboard.current = false;
       }}
       onCloseAutoFocus={(event) => {
-        const layer = event.currentTarget;
-        const active = document.activeElement;
-        const focusInside =
-          layer instanceof Element &&
-          active instanceof Node &&
-          layer.contains(active);
         // A pointer close otherwise focuses this pill. That focus lands
-        // outside the next preview and dismisses it.
-        if (!focusInside) event.preventDefault();
+        // outside the next preview and dismisses it. Keyboard users who
+        // moved focus into the preview still get it back on the pill.
+        if (!focusWasInside.current) event.preventDefault();
+        focusWasInside.current = false;
       }}
       content={
         <div
+          ref={contentRef}
           onMouseEnter={openPreview}
           onMouseLeave={scheduleClose}
           style={{ padding: PREVIEW_PADDING }}
