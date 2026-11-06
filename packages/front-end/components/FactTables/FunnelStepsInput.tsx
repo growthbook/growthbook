@@ -436,7 +436,12 @@ export default function FunnelStepsInput({
   };
 
   const moveStep = (from: number, to: number) => {
-    const result = moveFunnelStep(value.steps, from, to);
+    const result = moveFunnelStep(
+      value.steps,
+      from,
+      to,
+      overriddenTables.current,
+    );
     if (!result) return;
     overriddenTables.current = result.overriddenTables;
     stepIds.current = arrayMove(stepIds.current, from, to);

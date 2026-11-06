@@ -23,11 +23,11 @@ const CHART_TYPES_WITH_AXES = new Set([
 export default function ChartSettingsSection() {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { getFactMetricById } = useDefinitions();
-  // Open if custom axis labels are set.
+  // Open if axis labels are customized ("" = hidden, still custom).
   const [isCollapsed, setIsCollapsed] = useState(
     () =>
-      !draftExploreState.chartSettings?.categoryAxisLabel &&
-      !draftExploreState.chartSettings?.valueAxisLabel,
+      draftExploreState.chartSettings?.categoryAxisLabel === undefined &&
+      draftExploreState.chartSettings?.valueAxisLabel === undefined,
   );
 
   if (!CHART_TYPES_WITH_AXES.has(draftExploreState.chartType)) return null;

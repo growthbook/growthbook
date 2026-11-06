@@ -38,10 +38,10 @@ import {
   LOOKBACK_UNIT_LABELS,
 } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 
-// Smaller month nav than the global 28px buttons / 24px chevrons.
+// Smaller month nav; buttons stay at the 24px minimum target.
 const DAY_PICKER_STYLES = {
-  [UI.PreviousMonthButton]: { width: 22, height: 22 },
-  [UI.NextMonthButton]: { width: 22, height: 22 },
+  [UI.PreviousMonthButton]: { width: 24, height: 24 },
+  [UI.NextMonthButton]: { width: 24, height: 24 },
   [UI.Chevron]: { width: 14, height: 14 },
 };
 

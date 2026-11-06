@@ -132,7 +132,7 @@ describe("moveFunnelStep", () => {
   ];
 
   it("keeps each step's fact table and renumbers default names", () => {
-    const result = moveFunnelStep(mixed, 2, 1);
+    const result = moveFunnelStep(mixed, 2, 1, new Set());
     expect(result?.steps.map((s) => [s.name, s.factTableId])).toEqual([
       ["Step 1", "a"],
       ["Checkout", "b"],
@@ -142,18 +142,21 @@ describe("moveFunnelStep", () => {
     expect([...(result?.overriddenTables ?? [])]).toEqual([1, 2]);
   });
 
-  it("treats a step matching its new predecessor as inherited", () => {
-    const result = moveFunnelStep(mixed, 1, 2);
+  it("keeps overrides with their steps", () => {
+    const result = moveFunnelStep(mixed, 1, 2, new Set([2]));
     expect(result?.steps.map((s) => s.factTableId)).toEqual(["a", "b", "a"]);
     expect([...(result?.overriddenTables ?? [])]).toEqual([1, 2]);
-    const back = moveFunnelStep(result?.steps ?? [], 2, 1);
-    expect([...(back?.overriddenTables ?? [])]).toEqual([2]);
+  });
+
+  it("keeps an independent step independent when tables match", () => {
+    const result = moveFunnelStep(steps, 1, 2, new Set([1]));
+    expect([...(result?.overriddenTables ?? [])]).toEqual([2]);
   });
 
   it("refuses moves into or out of step 1", () => {
-    expect(moveFunnelStep(mixed, 0, 1)).toBeNull();
-    expect(moveFunnelStep(mixed, 2, 0)).toBeNull();
-    expect(moveFunnelStep(mixed, 1, 1)).toBeNull();
+    expect(moveFunnelStep(mixed, 0, 1, new Set())).toBeNull();
+    expect(moveFunnelStep(mixed, 2, 0, new Set())).toBeNull();
+    expect(moveFunnelStep(mixed, 1, 1, new Set())).toBeNull();
   });
 });
 

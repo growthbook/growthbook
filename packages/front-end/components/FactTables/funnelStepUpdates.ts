@@ -38,19 +38,29 @@ export function updateFunnelSteps(
 
 /**
  * Moves a step; null for moves involving pinned step 1.
- * - each step keeps its fact table: overrides recomputed from the new order
+ * - overrides move with their steps
+ * - a step whose table now differs from its new predecessor becomes overridden
  */
-export function moveFunnelStep(steps: FunnelStep[], from: number, to: number) {
+export function moveFunnelStep(
+  steps: FunnelStep[],
+  from: number,
+  to: number,
+  overriddenTables: ReadonlySet<number>,
+) {
   if (from === to || from < 1 || to < 1 || to >= steps.length) return null;
-  const moved = [...steps];
-  moved.splice(to, 0, ...moved.splice(from, 1));
-  const next = renumberStepNames(moved);
-  const overriddenTables = new Set(
-    next.flatMap((step, i) =>
-      i > 0 && step.factTableId !== next[i - 1].factTableId ? [i] : [],
+  const order = steps.map((_, i) => i);
+  order.splice(to, 0, ...order.splice(from, 1));
+  const next = renumberStepNames(order.map((i) => steps[i]));
+  const overrides = new Set(
+    order.flatMap((orig, i) =>
+      i > 0 &&
+      (overriddenTables.has(orig) ||
+        next[i].factTableId !== next[i - 1].factTableId)
+        ? [i]
+        : [],
     ),
   );
-  return { steps: next, overriddenTables };
+  return { steps: next, overriddenTables: overrides };
 }
 
 /** Inserts `newStep` at `atIndex`; overrides move with their steps. */

@@ -154,23 +154,23 @@ export default function MetricTabContent() {
                 }}
                 formatOptionLabel={({ value }, meta) => {
                   const metric = factMetrics.find((m) => m.id === value);
-                  const label = metric ? <MetricName metric={metric} /> : value;
+                  if (!metric) return value;
                   // Only attach the mix-restriction tooltip inside the open
                   // menu (not in the selected-value display) so it doesn't
                   // fire on every hover over the selected option.
                   const isDisabledInMenu =
                     meta.context === "menu" &&
                     !!lockedClass &&
-                    !!metric &&
                     getMetricMixClass(metric.metricType) !== lockedClass;
-                  if (isDisabledInMenu) {
-                    return (
-                      <Tooltip body={disabledTooltip} usePortal>
-                        <span>{label}</span>
-                      </Tooltip>
-                    );
-                  }
-                  return label;
+                  if (!isDisabledInMenu) return <MetricName metric={metric} />;
+                  // Badge tooltip off: one tooltip per option.
+                  return (
+                    <Tooltip body={disabledTooltip} usePortal>
+                      <span>
+                        <MetricName metric={metric} disableTooltip />
+                      </span>
+                    </Tooltip>
+                  );
                 }}
                 formatGroupLabel={({ label }) => {
                   return label;
