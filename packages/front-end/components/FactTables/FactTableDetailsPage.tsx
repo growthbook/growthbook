@@ -47,7 +47,7 @@ import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenI
 import FactTableDetailsModal from "./FactTableDetailsModal";
 import NewFactTableModal from "./NewFactTableModal";
 import FactTableColumnsTab from "./FactTableColumnsTab";
-import FactFilterList from "./FactFilterList";
+import FactTableFiltersTab from "./FactTableFiltersTab";
 import FactTableMetricsTab from "./FactTableMetricsTab";
 import AggregatedFactTablesCard from "./AggregatedFactTablesCard";
 import FactTableEventsTab from "./FactTableEventsTab";
@@ -566,7 +566,7 @@ export default function FactTableDetailsPage() {
           </TabsContent>
 
           <TabsContent value="filters">
-            <FactFilterList factTable={factTable} detailsLayout />
+            <FactTableFiltersTab factTable={factTable} />
           </TabsContent>
 
           <TabsContent value="metrics">
