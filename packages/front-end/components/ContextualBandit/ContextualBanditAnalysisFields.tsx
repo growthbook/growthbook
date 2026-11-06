@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getEligibleContextualAttributes } from "shared/validators";
+import { isManagedWarehouse } from "shared/util";
 import { Box, Separator } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -9,6 +10,7 @@ import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
+import { getDefaultContextualBanditQueryId } from "@/services/contextualBandits";
 import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
 import ContextualBanditDecisionMetricSettings from "@/components/ContextualBandit/ContextualBanditDecisionMetricSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -36,6 +38,8 @@ export default function ContextualBanditAnalysisFields({
     : null;
 
   const exposureQueryId = form.watch("exposureQueryId");
+  const hashAttribute = form.watch("hashAttribute");
+  const managedWarehouse = !!datasource && isManagedWarehouse(datasource);
 
   const {
     contextualBanditQueries: cbQueries,
@@ -49,12 +53,28 @@ export default function ContextualBanditAnalysisFields({
     [cbQueries, exposureQueryId],
   );
 
+  const defaultCbQueryId = useMemo(
+    () =>
+      getDefaultContextualBanditQueryId({
+        datasource,
+        hashAttribute,
+        queries: cbQueries,
+      }),
+    [datasource, hashAttribute, cbQueries],
+  );
+
   useEffect(() => {
     if (!cbQueries.length) return;
-    if (!cbQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", cbQueries[0]?.id ?? "");
+    if (managedWarehouse) {
+      if (exposureQueryId !== defaultCbQueryId) {
+        form.setValue("exposureQueryId", defaultCbQueryId);
+      }
+      return;
     }
-  }, [cbQueries, exposureQueryId, form]);
+    if (!cbQueries.find((q) => q.id === exposureQueryId)) {
+      form.setValue("exposureQueryId", defaultCbQueryId);
+    }
+  }, [cbQueries, exposureQueryId, defaultCbQueryId, managedWarehouse, form]);
 
   const attributeSchema = useAttributeSchema(false);
   const eligibleAttributes = useMemo(
@@ -119,18 +139,36 @@ export default function ContextualBanditAnalysisFields({
           <>
             {cbQueries.length === 0 && !cbQueriesLoading ? (
               <Callout status="warning" mt="3">
-                No Contextual Bandit queries exist for this data source yet.{" "}
-                <Link
-                  href="#"
-                  className="underline"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setCbQueryModalOpen(true);
-                  }}
-                >
-                  Add one
-                </Link>
-                .
+                {managedWarehouse ? (
+                  <>
+                    No Contextual Bandit queries exist for your Managed
+                    Warehouse yet. They are generated from your attributes: add
+                    a string attribute that is not an identifier under Settings
+                    → Attributes.
+                  </>
+                ) : (
+                  <>
+                    No Contextual Bandit queries exist for this data source yet.{" "}
+                    <Link
+                      href="#"
+                      className="underline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setCbQueryModalOpen(true);
+                      }}
+                    >
+                      Add one
+                    </Link>
+                    .
+                  </>
+                )}
+              </Callout>
+            ) : managedWarehouse && !defaultCbQueryId ? (
+              <Callout status="warning" mt="3">
+                No generated Contextual Bandit query matches the hash attribute{" "}
+                <code>{hashAttribute || "id"}</code>. Mark it as an identifier
+                under Settings → Attributes, or choose a different hash
+                attribute.
               </Callout>
             ) : (
               <SelectField
@@ -144,6 +182,12 @@ export default function ContextualBanditAnalysisFields({
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
+                disabled={managedWarehouse}
+                helpText={
+                  managedWarehouse
+                    ? "Selected automatically from the hash attribute on your Managed Warehouse."
+                    : undefined
+                }
                 options={cbQueries.map((q) => ({
                   label: q.name,
                   value: q.id,
@@ -196,7 +240,7 @@ export default function ContextualBanditAnalysisFields({
                 )}
               </Box>
             ) : null}
-            {cbQueryModalOpen && datasource ? (
+            {cbQueryModalOpen && datasource && !managedWarehouse ? (
               <AddEditContextualBanditQueryModal
                 dataSource={datasource}
                 mode="add"

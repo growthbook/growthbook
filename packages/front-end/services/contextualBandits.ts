@@ -1,6 +1,14 @@
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
+import {
+  DataSourceInterfaceWithParams,
+  GrowthbookClickhouseSettings,
+} from "shared/types/datasource";
 import { getActiveVariations } from "shared/experiments";
+import {
+  getManagedWarehouseQueryIdForAttribute,
+  isManagedWarehouse,
+} from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -186,4 +194,24 @@ export function useContextualBanditSearch({
     },
     filterResults,
   });
+}
+
+export function getDefaultContextualBanditQueryId({
+  datasource,
+  hashAttribute,
+  queries,
+}: {
+  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings"> | null;
+  hashAttribute: string | undefined;
+  queries: { id: string; userIdType: string }[];
+}): string {
+  if (!datasource || !queries.length) return "";
+  if (isManagedWarehouse(datasource)) {
+    return getManagedWarehouseQueryIdForAttribute({
+      settings: datasource.settings as GrowthbookClickhouseSettings,
+      attribute: hashAttribute || "id",
+      queries,
+    });
+  }
+  return queries[0].id;
 }

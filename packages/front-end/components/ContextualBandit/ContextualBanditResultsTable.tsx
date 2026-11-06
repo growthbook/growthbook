@@ -5,6 +5,10 @@ import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
+  isManagedWarehouseOutOfMemoryQueryError,
+  isManagedWarehousePendingQueryError,
+} from "shared/util";
+import {
   expandMetricGroups,
   conditionFromLeafClauses,
   getMetricLink,
@@ -37,6 +41,7 @@ import ContextualBanditAttributeTable from "@/components/ContextualBandit/Contex
 import ContextualBanditOverviewTable from "@/components/ContextualBandit/ContextualBanditOverviewTable";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -480,6 +485,18 @@ export default function ContextualBanditResultsTable({
       {refreshError ? (
         <Callout status="error" mb="3">
           {refreshError}
+        </Callout>
+      ) : null}
+
+      {isManagedWarehousePendingQueryError(queryLatest?.error) ? (
+        <Box mb="3">
+          <ManagedWarehouseNoEventsCallout />
+        </Box>
+      ) : isManagedWarehouseOutOfMemoryQueryError(queryLatest?.error) ? (
+        <Callout status="error" mb="3">
+          The Managed Warehouse ran out of memory running the bandit update.
+          Reduce the number of contextual attributes or variations, then update
+          again.
         </Callout>
       ) : null}
 

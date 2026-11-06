@@ -29,6 +29,7 @@ export const contextualBanditQueryValidator = baseSchema
     userIdType: z.string(),
     query: z.string(),
     targetingAttributeColumns: z.array(z.string()),
+    managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();
 
@@ -47,6 +48,7 @@ export const apiContextualBanditQueryValidator = namedSchema(
     userIdType: z.string(),
     query: z.string(),
     targetingAttributeColumns: z.array(z.string()),
+    managedBy: z.enum(["", "api"]).optional(),
   }),
 );
 
@@ -88,3 +90,9 @@ export const apiUpdateContextualBanditQueryBody = z.strictObject({
 export type ApiUpdateContextualBanditQueryBody = z.infer<
   typeof apiUpdateContextualBanditQueryBody
 >;
+
+export function isManagedWarehouseContextualBanditQuery(
+  query: Pick<ContextualBanditQueryInterface, "managedBy">,
+): boolean {
+  return query.managedBy === "api";
+}

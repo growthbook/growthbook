@@ -1,5 +1,6 @@
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
+  buildManagedWarehouseContextualBanditQueries,
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseEventsFactTableColumns,
@@ -301,6 +302,12 @@ export async function syncManagedWarehouseIdentifiers(
     { skipExposureQueryValidation: true },
   );
 
+  await syncManagedWarehouseContextualBanditQueries(
+    context,
+    datasource,
+    attributeSchema,
+  );
+
   // Update the events fact table sql + columns + userIdTypes
   const ft = await dangerouslyGetFactTableByIdBypassPermission(
     context.org.id,
@@ -408,6 +415,33 @@ export async function syncManagedWarehouseIdentifiers(
     columns: newColumns,
     userIdTypes: newUserIdTypes,
   });
+}
+
+export async function syncManagedWarehouseContextualBanditQueries(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+  attributeSchema: SDKAttributeSchema | undefined = context.org.settings
+    ?.attributeSchema,
+): Promise<void> {
+  if (
+    datasource.type !== "growthbook_clickhouse" ||
+    !datasource.settings.useJsonColumns
+  ) {
+    return;
+  }
+  const desired = buildManagedWarehouseContextualBanditQueries(
+    attributeSchema,
+    datasource.settings.migratedIdentifiers || [],
+    datasource.settings.migratedColumns || [],
+    datasource.settings.idAttributeIdentifier === "user_id"
+      ? "user_id"
+      : "device_id",
+  );
+  await context.models.contextualBanditQueries.dangerouslySyncManagedWarehouseQueries(
+    datasource.id,
+    desired,
+    attributeSchema,
+  );
 }
 
 /**

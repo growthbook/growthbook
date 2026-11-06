@@ -3,6 +3,7 @@ import { GrowthbookClickhouseDataSource } from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
+  buildManagedWarehouseContextualBanditQueries,
   buildManagedWarehouseEventsFactTableSql,
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseUserIdTypes,
@@ -10,6 +11,7 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import {
   listSessionReplays,
+  syncManagedWarehouseContextualBanditQueries,
   syncManagedWarehouseIdentifiers,
 } from "back-end/src/services/clickhouse";
 import {
@@ -142,8 +144,14 @@ describe("listSessionReplays", () => {
 });
 
 describe("syncManagedWarehouseIdentifiers", () => {
+  const mockSyncCbQueries = jest.fn();
   const context = {
     org: { id: "org_test", settings: {} },
+    models: {
+      contextualBanditQueries: {
+        dangerouslySyncManagedWarehouseQueries: mockSyncCbQueries,
+      },
+    },
   } as unknown as ReqContext;
 
   const datasource = {
@@ -265,6 +273,23 @@ describe("syncManagedWarehouseIdentifiers", () => {
     expect(mockSyncFactTable).not.toHaveBeenCalled();
   });
 
+  it("syncs the generated contextual bandit queries from the passed schema", async () => {
+    const schema: SDKAttributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "country", datatype: "string" },
+    ];
+    mockGetFactTableById.mockResolvedValue(makeManagedFactTable(schema));
+
+    await syncManagedWarehouseIdentifiers(context, schema);
+
+    expect(mockSyncCbQueries).toHaveBeenCalledTimes(1);
+    expect(mockSyncCbQueries).toHaveBeenCalledWith(
+      "managed_warehouse",
+      buildManagedWarehouseContextualBanditQueries(schema),
+      schema,
+    );
+  });
+
   it("no-ops for legacy (materialized-column) warehouses", async () => {
     mockGetDatasource.mockResolvedValue({
       ...datasource,
@@ -276,5 +301,103 @@ describe("syncManagedWarehouseIdentifiers", () => {
     expect(mockUpdateDataSource).not.toHaveBeenCalled();
     expect(mockGetFactTableById).not.toHaveBeenCalled();
     expect(mockSyncFactTable).not.toHaveBeenCalled();
+    expect(mockSyncCbQueries).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncManagedWarehouseContextualBanditQueries", () => {
+  const mockSyncCbQueries = jest.fn();
+  const schema: SDKAttributeSchema = [
+    { property: "id", datatype: "string", hashAttribute: true },
+    { property: "company_id", datatype: "string", hashAttribute: true },
+    { property: "country", datatype: "string" },
+    { property: "plan", datatype: "number" },
+  ];
+  const context = {
+    org: { id: "org_test", settings: { attributeSchema: schema } },
+    models: {
+      contextualBanditQueries: {
+        dangerouslySyncManagedWarehouseQueries: mockSyncCbQueries,
+      },
+    },
+  } as unknown as ReqContext;
+
+  const datasource = {
+    id: "managed_warehouse",
+    organization: "org_test",
+    type: "growthbook_clickhouse",
+    settings: {
+      useJsonColumns: true,
+      queries: {},
+      migratedIdentifiers: ["legacy_key"],
+      migratedColumns: [
+        {
+          columnName: "tier",
+          sourceField: "tier",
+          datatype: "string",
+          type: "dimension",
+        },
+      ],
+      idAttributeIdentifier: "user_id",
+    },
+  } as unknown as GrowthbookClickhouseDataSource;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("derives the queries from the datasource settings and the org schema", async () => {
+    await syncManagedWarehouseContextualBanditQueries(context, datasource);
+
+    const expected = buildManagedWarehouseContextualBanditQueries(
+      schema,
+      ["legacy_key"],
+      datasource.settings.migratedColumns,
+      "user_id",
+    );
+    expect(expected.map((q) => q.userIdType)).toEqual([
+      "user_id",
+      "device_id",
+      "company_id",
+      "legacy_key",
+    ]);
+    expect(mockSyncCbQueries).toHaveBeenCalledWith(
+      "managed_warehouse",
+      expected,
+      schema,
+    );
+  });
+
+  it("prefers an explicitly passed schema over the context's", async () => {
+    const fresh: SDKAttributeSchema = [
+      ...schema,
+      { property: "browser", datatype: "string" },
+    ];
+
+    await syncManagedWarehouseContextualBanditQueries(
+      context,
+      datasource,
+      fresh,
+    );
+
+    const [, desired, passedSchema] = mockSyncCbQueries.mock.calls[0];
+    expect(passedSchema).toBe(fresh);
+    expect(desired[0].targetingAttributeColumns).toEqual([
+      "browser",
+      "country",
+    ]);
+  });
+
+  it("no-ops for non-managed and legacy warehouses", async () => {
+    await syncManagedWarehouseContextualBanditQueries(context, {
+      ...datasource,
+      type: "clickhouse",
+    } as unknown as GrowthbookClickhouseDataSource);
+    await syncManagedWarehouseContextualBanditQueries(context, {
+      ...datasource,
+      settings: { queries: {} },
+    } as unknown as GrowthbookClickhouseDataSource);
+
+    expect(mockSyncCbQueries).not.toHaveBeenCalled();
   });
 });

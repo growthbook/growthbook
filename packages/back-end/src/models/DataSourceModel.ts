@@ -371,6 +371,17 @@ export async function deleteDatasource(
     } catch (e) {
       logger.error(e, "Error deleting clickhouse events fact table");
     }
+
+    try {
+      await context.models.contextualBanditQueries.dangerouslyDeleteManagedWarehouseQueries(
+        datasource.id,
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        "Error deleting managed warehouse contextual bandit queries",
+      );
+    }
   }
   await DataSourceModel.deleteOne({
     id: datasource.id,

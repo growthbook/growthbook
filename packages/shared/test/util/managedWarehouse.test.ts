@@ -5,9 +5,12 @@ import {
 } from "../../types/datasource";
 import {
   buildManagedWarehouseAttributeAliasClause,
+  buildManagedWarehouseContextualBanditQueries,
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseAttributesJsonFields,
+  getManagedWarehouseContextualBanditTargetingAttributes,
+  getManagedWarehouseQueryIdForAttribute,
   getManagedWarehouseCustomIdentifiers,
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseExposureQueryIdForAttribute,
@@ -378,6 +381,230 @@ describe("buildManagedWarehouseExposureQueries", () => {
       expect(q.dimensions).toContain("plan"); // preserved breakdown
       expect(q.dimensions).toContain("revenue");
     });
+  });
+});
+
+describe("getManagedWarehouseContextualBanditTargetingAttributes", () => {
+  it("keeps string and enum attributes stored in the attributes JSON", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "country", datatype: "string" },
+      { property: "deviceType", datatype: "enum", enum: "desktop,mobile" },
+    ];
+    expect(
+      getManagedWarehouseContextualBanditTargetingAttributes(schema),
+    ).toEqual([
+      {
+        property: "country",
+        selectExpr: "attributes.country::Nullable(String) AS country",
+      },
+      {
+        property: "deviceType",
+        selectExpr: "attributes.deviceType::Nullable(String) AS deviceType",
+      },
+    ]);
+  });
+
+  it("excludes identifiers, non-string datatypes, unsafe names and archived attributes", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "company", datatype: "string", hashAttribute: true },
+      { property: "user_id", datatype: "string" },
+      { property: "session_id", datatype: "string" },
+      { property: "plan", datatype: "number" },
+      { property: "beta", datatype: "boolean" },
+      { property: "tags", datatype: "string[]" },
+      { property: "secret", datatype: "secureString" },
+      { property: "bad-name", datatype: "string" },
+      { property: "old", datatype: "string", archived: true },
+      { property: "country", datatype: "string" },
+    ];
+    expect(
+      getManagedWarehouseContextualBanditTargetingAttributes(schema).map(
+        (t) => t.property,
+      ),
+    ).toEqual(["country"]);
+  });
+
+  it("excludes attributes that collide with a real top-level column", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "url", datatype: "string" },
+      { property: "Source", datatype: "string" },
+      { property: "value", datatype: "string" },
+      { property: "path", datatype: "string" },
+    ];
+    expect(
+      getManagedWarehouseContextualBanditTargetingAttributes(schema).map(
+        (t) => t.property,
+      ),
+    ).toEqual(["path"]);
+  });
+
+  it("reads SDK-extracted attributes from their top-level columns", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "utmSource", datatype: "string" },
+      { property: "utmCampaign", datatype: "string" },
+      { property: "pageTitle", datatype: "string" },
+    ];
+    expect(
+      getManagedWarehouseContextualBanditTargetingAttributes(schema),
+    ).toEqual([
+      { property: "pageTitle", selectExpr: "page_title AS pageTitle" },
+      { property: "utmCampaign", selectExpr: "utm_campaign AS utmCampaign" },
+      { property: "utmSource", selectExpr: "utm_source AS utmSource" },
+    ]);
+  });
+
+  it("excludes preserved legacy identifiers", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "legacy_key", datatype: "string" },
+      { property: "country", datatype: "string" },
+    ];
+    expect(
+      getManagedWarehouseContextualBanditTargetingAttributes(schema, [
+        "legacy_key",
+      ]).map((t) => t.property),
+    ).toEqual(["country"]);
+  });
+
+  it("reuses a preserved dimension alias instead of selecting it twice", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "string" },
+      { property: "tier", datatype: "string" },
+    ];
+    const dims: MaterializedColumn[] = [
+      ...migratedDims,
+      {
+        columnName: "tier",
+        sourceField: "plan_tier",
+        datatype: "string",
+        type: "dimension",
+      },
+    ];
+    expect(
+      getManagedWarehouseContextualBanditTargetingAttributes(schema, [], dims),
+    ).toEqual([{ property: "plan", selectExpr: null }]);
+  });
+});
+
+describe("buildManagedWarehouseContextualBanditQueries", () => {
+  const schema: SDKAttributeSchema = [
+    { property: "id", datatype: "string", hashAttribute: true },
+    { property: "company_id", datatype: "string", hashAttribute: true },
+    { property: "url", datatype: "string" },
+    { property: "country", datatype: "string" },
+    { property: "utmSource", datatype: "string" },
+    { property: "plan", datatype: "number" },
+  ];
+
+  it("creates one query per identifier with the same targeting columns", () => {
+    const queries = buildManagedWarehouseContextualBanditQueries(schema);
+    expect(queries.map((q) => q.userIdType)).toEqual([
+      "user_id",
+      "device_id",
+      "company_id",
+    ]);
+    queries.forEach((q) => {
+      expect(q.name).toBe(q.userIdType);
+      expect(q.targetingAttributeColumns).toEqual(["country", "utmSource"]);
+      expect(q.query).toBe(queries[0].query);
+    });
+  });
+
+  it("extends the exposure query SELECT with the targeting columns", () => {
+    const [cbQuery] = buildManagedWarehouseContextualBanditQueries(schema);
+    const [exposureQuery] = buildManagedWarehouseExposureQueries(schema);
+    expect(cbQuery.query).toContain(
+      "attributes.company_id::Nullable(String) AS company_id",
+    );
+    expect(cbQuery.query).toContain(
+      "attributes.country::Nullable(String) AS country",
+    );
+    expect(cbQuery.query).toContain("utm_source AS utmSource");
+    expect(cbQuery.query).not.toContain("AS plan");
+    expect(cbQuery.query).not.toContain("AS url");
+    expect(cbQuery.query).toContain("FROM experiment_views");
+    expect(cbQuery.query).toContain("experiment_id LIKE '{{ experimentId }}'");
+    expect(
+      cbQuery.query.replace(
+        ",\n  attributes.country::Nullable(String) AS country,\n  utm_source AS utmSource",
+        "",
+      ),
+    ).toBe(exposureQuery.query);
+  });
+
+  it("threads the id attribute mapping through like the exposure query", () => {
+    const [cbQuery] = buildManagedWarehouseContextualBanditQueries(
+      schema,
+      [],
+      [],
+      "user_id",
+    );
+    const [exposureQuery] = buildManagedWarehouseExposureQueries(
+      schema,
+      [],
+      [],
+      "user_id",
+    );
+    expect(cbQuery.query).toContain(
+      "nullIf(attributes.id::Nullable(String), '')) AS user_id",
+    );
+    expect(cbQuery.query.split("\nFROM")[0]).toContain(
+      exposureQuery.query.split("\nFROM")[0],
+    );
+  });
+
+  it("returns no queries when no attribute can be a targeting column", () => {
+    expect(
+      buildManagedWarehouseContextualBanditQueries([
+        { property: "id", datatype: "string", hashAttribute: true },
+        { property: "url", datatype: "string" },
+        { property: "plan", datatype: "number" },
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("getManagedWarehouseQueryIdForAttribute", () => {
+  const settings = { useJsonColumns: true } as GrowthbookClickhouseSettings;
+  const queries = [
+    { id: "cbq_user", userIdType: "user_id" },
+    { id: "cbq_device", userIdType: "device_id" },
+    { id: "cbq_company", userIdType: "company_id" },
+  ];
+
+  it("maps built-in and custom hash attributes to their identifier's query", () => {
+    expect(
+      getManagedWarehouseQueryIdForAttribute({
+        settings,
+        attribute: "id",
+        queries,
+      }),
+    ).toBe("cbq_device");
+    expect(
+      getManagedWarehouseQueryIdForAttribute({
+        settings: { ...settings, idAttributeIdentifier: "user_id" },
+        attribute: "id",
+        queries,
+      }),
+    ).toBe("cbq_user");
+    expect(
+      getManagedWarehouseQueryIdForAttribute({
+        settings,
+        attribute: "company_id",
+        queries,
+      }),
+    ).toBe("cbq_company");
+  });
+
+  it("returns an empty id when no query covers the identifier", () => {
+    expect(
+      getManagedWarehouseQueryIdForAttribute({
+        settings,
+        attribute: "other",
+        queries,
+      }),
+    ).toBe("");
   });
 });
 

@@ -380,8 +380,9 @@ export function getManagedWarehouseAttributesJsonFields(
  * v2: built-in identifier columns fall back to their folded `attributes` JSON
  * paths in generated SQL (pre-plugin integrations never populate the columns).
  * v3: `session_id` / `page_id` hashAttributes become identifiers on their columns.
+ * v4: managed contextual bandit queries are generated per identifier.
  */
-export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 3;
+export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 4;
 
 /**
  * Attributes to expose as typed `attributes.<property>` ALIAS columns on the
@@ -526,14 +527,28 @@ export function getManagedWarehouseExposureQueryIdForAttribute({
   settings: GrowthbookClickhouseSettings;
   attribute: string;
 }): string {
+  return getManagedWarehouseQueryIdForAttribute({
+    settings,
+    attribute,
+    queries: settings.queries?.exposure || [],
+  });
+}
+
+export function getManagedWarehouseQueryIdForAttribute({
+  settings,
+  attribute,
+  queries,
+}: {
+  settings: GrowthbookClickhouseSettings;
+  attribute: string;
+  queries: { id: string; userIdType: string }[];
+}): string {
   const identifier = getManagedWarehouseIdentifierForAttribute({
     settings,
     attribute,
   });
   if (!identifier) return "";
-  const query = (settings.queries?.exposure || []).find(
-    (q) => q.userIdType === identifier,
-  );
+  const query = queries.find((q) => q.userIdType === identifier);
   return query?.id ?? "";
 }
 
@@ -734,6 +749,36 @@ FROM ${MANAGED_WAREHOUSE_EVENTS_TABLE}
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 }
 
+function buildManagedWarehouseExperimentViewsSql(
+  attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[],
+  migratedColumns: MaterializedColumn[],
+  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
+  extraSelectExprs: string[] = [],
+): string {
+  const customIdentifiers = getManagedWarehouseCustomIdentifiers(
+    attributeSchema,
+    extraIdentifiers,
+  );
+  const dimensionAliases = dedupeMigratedDimensions(
+    customIdentifiers,
+    migratedColumns,
+  );
+  const extras = extraSelectExprs.length
+    ? ",\n  " + extraSelectExprs.join(",\n  ")
+    : "";
+  return `SELECT *${attributeAliasClause(
+    getManagedWarehousePhysicalIdentifiers(attributeSchema),
+    customIdentifiers,
+    dimensionAliases,
+    idAttributeIdentifier,
+  )}${extras}
+FROM ${MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE}
+WHERE
+  experiment_id LIKE '{{ experimentId }}'
+  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
+}
+
 // One exposure query per identifier, reading from `experiment_views`.
 export function buildManagedWarehouseExposureQueries(
   attributeSchema: SDKAttributeSchema | undefined,
@@ -749,16 +794,12 @@ export function buildManagedWarehouseExposureQueries(
     customIdentifiers,
     migratedColumns,
   );
-  const query = `SELECT *${attributeAliasClause(
-    getManagedWarehousePhysicalIdentifiers(attributeSchema),
-    customIdentifiers,
-    dimensionAliases,
+  const query = buildManagedWarehouseExperimentViewsSql(
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
     idAttributeIdentifier,
-  )}
-FROM ${MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE}
-WHERE
-  experiment_id LIKE '{{ experimentId }}'
-  AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
+  );
 
   // Re-expose preserved dimensions as breakdown options so pre-migration custom
   // breakdowns keep working (the aliased columns resolve in the query above).
@@ -777,6 +818,108 @@ WHERE
       userIdTypes: [identifier],
       dimensions,
       query,
+    }),
+  );
+}
+
+const SDK_TOP_LEVEL_ATTRIBUTE_COLUMNS: Record<string, string> = {
+  utmCampaign: "utm_campaign",
+  utmContent: "utm_content",
+  utmMedium: "utm_medium",
+  utmSource: "utm_source",
+  utmTerm: "utm_term",
+  pageTitle: "page_title",
+};
+
+const CONTEXTUAL_BANDIT_TARGETING_DATATYPES = new Set<SDKAttributeType>([
+  "string",
+  "enum",
+]);
+
+export type ManagedWarehouseContextualBanditTargetingAttribute = {
+  property: string;
+  selectExpr: string | null;
+};
+
+export function getManagedWarehouseContextualBanditTargetingAttributes(
+  attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
+  migratedColumns: MaterializedColumn[] = [],
+): ManagedWarehouseContextualBanditTargetingAttribute[] {
+  const customIdentifiers = new Set(
+    getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
+  );
+  const dimensionAliases = new Map(
+    dedupeMigratedDimensions([...customIdentifiers], migratedColumns).map(
+      (c) => [c.columnName, c.sourceField],
+    ),
+  );
+  const out: ManagedWarehouseContextualBanditTargetingAttribute[] = [];
+  const seen = new Set<string>();
+  for (const a of attributeSchema || []) {
+    if (a.archived || a.hashAttribute) continue;
+    if (!CONTEXTUAL_BANDIT_TARGETING_DATATYPES.has(a.datatype)) continue;
+    const property = a.property;
+    if (!SAFE_IDENTIFIER.test(property)) continue;
+    if (seen.has(property)) continue;
+    const topLevelColumn = SDK_TOP_LEVEL_ATTRIBUTE_COLUMNS[property];
+    if (topLevelColumn) {
+      seen.add(property);
+      out.push({ property, selectExpr: `${topLevelColumn} AS ${property}` });
+      continue;
+    }
+    if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(property)) continue;
+    if (MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(property.toLowerCase()))
+      continue;
+    if (customIdentifiers.has(property)) continue;
+    if (dimensionAliases.has(property)) {
+      if (dimensionAliases.get(property) !== property) continue;
+      seen.add(property);
+      out.push({ property, selectExpr: null });
+      continue;
+    }
+    seen.add(property);
+    out.push({ property, selectExpr: customIdentifierSelectExpr(property) });
+  }
+  out.sort((a, b) =>
+    a.property < b.property ? -1 : a.property > b.property ? 1 : 0,
+  );
+  return out;
+}
+
+export type ManagedWarehouseContextualBanditQuery = {
+  userIdType: string;
+  name: string;
+  query: string;
+  targetingAttributeColumns: string[];
+};
+
+export function buildManagedWarehouseContextualBanditQueries(
+  attributeSchema: SDKAttributeSchema | undefined,
+  extraIdentifiers: string[] = [],
+  migratedColumns: MaterializedColumn[] = [],
+  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier = "device_id",
+): ManagedWarehouseContextualBanditQuery[] {
+  const targeting = getManagedWarehouseContextualBanditTargetingAttributes(
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
+  );
+  if (!targeting.length) return [];
+  const query = buildManagedWarehouseExperimentViewsSql(
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
+    idAttributeIdentifier,
+    targeting.flatMap((t) => (t.selectExpr ? [t.selectExpr] : [])),
+  );
+  const targetingAttributeColumns = targeting.map((t) => t.property);
+  return getManagedWarehouseUserIdTypes(attributeSchema, extraIdentifiers).map(
+    (identifier) => ({
+      userIdType: identifier,
+      name: identifier,
+      query,
+      targetingAttributeColumns,
     }),
   );
 }
