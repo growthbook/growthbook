@@ -17,6 +17,7 @@ import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import {
   factTableToColumnSource,
   columnTypesToColumnSource,
@@ -207,12 +208,14 @@ export default function ValueCard({
         </Flex>
         <Flex align="center" style={{ flexShrink: 0 }}>
           {readOnlyUnit && (
-            <Flex align="center" gap="1" mr="2" title="Identifier type">
-              <PiUserFill size={12} />
-              <Text size="sm" color="text-low">
-                {readOnlyUnit}
-              </Text>
-            </Flex>
+            <Tooltip content="Identifier type">
+              <Flex align="center" gap="1" mr="2">
+                <PiUserFill size={12} />
+                <Text size="sm" color="text-low">
+                  {readOnlyUnit}
+                </Text>
+              </Flex>
+            </Tooltip>
           )}
           <Button
             variant="ghost"

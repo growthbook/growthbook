@@ -44,6 +44,11 @@ export function getValueAxisName(
   );
 }
 
+/** A value's display name; "Metric N" when it was saved blank. */
+function getValueName(value: ProductAnalyticsValue, index: number): string {
+  return value.name.trim() ? value.name : `Metric ${index + 1}`;
+}
+
 /**
  * A value's name annotated with how it renders, e.g. "Revenue (per user_id)"
  * or "Revenue (total)". Parenthesized so it reads as a note, not part of a
@@ -51,15 +56,17 @@ export function getValueAxisName(
  */
 function getAnnotatedName(
   value: ProductAnalyticsValue,
+  index: number,
   showAs: ShowAs,
   sharedUnit: string | null,
 ): string {
-  if (showAs === "total") return `${value.name} (total)`;
+  const name = getValueName(value, index);
+  if (showAs === "total") return `${name} (total)`;
   const unit =
     ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
     sharedUnit ||
     "unit";
-  return `${value.name} (per ${unit})`;
+  return `${name} (per ${unit})`;
 }
 
 /**
@@ -154,8 +161,8 @@ export function getExplorationRenderOpts(
       showAs: choices[i].showAs,
       isRatio: isRatioValue(v, getFactMetricById),
       seriesName: annotateNames
-        ? getAnnotatedName(v, choices[i].showAs, sharedUnit)
-        : v.name,
+        ? getAnnotatedName(v, i, choices[i].showAs, sharedUnit)
+        : getValueName(v, i),
     })),
     sharedShowAs,
     modesAreMixed,
@@ -243,7 +250,7 @@ export function buildExplorationColumns(
   const { modesAreMixed, sharedUnit } = renderOpts;
 
   values.forEach((v, metricIndex) => {
-    const name = v.name;
+    const name = getValueName(v, metricIndex);
     const { isRatio, showAs } = renderOpts.values[metricIndex];
     if (isRatio) {
       cols.push({
@@ -273,7 +280,7 @@ export function buildExplorationColumns(
     // A plain header means total, unless per-unit columns sit beside it.
     const annotate = showAs === "per_unit" || modesAreMixed;
     const singleLabel = annotate
-      ? getAnnotatedName(v, showAs, sharedUnit)
+      ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
       : name;
     cols.push({
       kind: "metric",

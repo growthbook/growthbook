@@ -1,26 +1,34 @@
 import { useState } from "react";
-import { PiCaretDown } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
+import { PiCaretDown, PiCheck } from "react-icons/pi";
 import type { ShowAs } from "shared/validators";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 
 // Keyed by every ShowAs so a new option can't ship without a label.
-const LABELS: Record<ShowAs, string> = {
+const getLabels = (unit: string | null): Record<ShowAs, string> => ({
   total: "Event totals",
-  per_unit: "Per unit",
-};
+  per_unit: unit ? `Per ${unit}` : "Per unit",
+});
 
 export default function ShowAsInput({
   options,
   value,
   setValue,
+  unit,
+  metricName,
 }: {
   options: readonly ShowAs[];
   value: ShowAs;
   setValue: (value: ShowAs) => void;
+  /** The chart's identifier type, when every metric shares one. */
+  unit: string | null;
+  /** Names the trigger, since every mean metric card has one. */
+  metricName: string;
 }) {
   const [open, setOpen] = useState(false);
+  const labels = getLabels(unit);
   return (
     <DropdownMenu
       open={open}
@@ -31,8 +39,9 @@ export default function ShowAsInput({
           variant="ghost"
           icon={<PiCaretDown />}
           iconPosition="right"
+          aria-label={`Show ${metricName} as: ${labels[value]}`}
         >
-          Show as {LABELS[value].toLowerCase()}
+          Show as: {labels[value]}
         </Button>
       }
     >
@@ -44,7 +53,12 @@ export default function ShowAsInput({
             setOpen(false);
           }}
         >
-          <Text>{LABELS[option]}</Text>
+          <Flex align="center" gap="2">
+            <Flex align="center" width="20px">
+              {option === value ? <PiCheck size={16} /> : null}
+            </Flex>
+            <Text>{labels[option]}</Text>
+          </Flex>
         </DropdownMenuItem>
       ))}
     </DropdownMenu>

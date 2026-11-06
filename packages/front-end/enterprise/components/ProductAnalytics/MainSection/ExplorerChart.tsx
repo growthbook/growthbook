@@ -241,18 +241,10 @@ export default function ExplorerChart({
     const row = exploration.result.rows[0];
     if (submittedExploreState.dataset?.type === "funnel") return null;
     if (submittedExploreState.dataset?.type === "journey") return null;
-    const valuesMeta = submittedExploreState.dataset?.values ?? [];
-    return valuesMeta.map((v, metricIndex) => {
+    return renderOpts.values.map((opts, metricIndex) => {
       const cell = row?.values?.[metricIndex];
-      const value = cell
-        ? getEffectiveMetricValue(cell, renderOpts.values[metricIndex])
-        : 0;
-      return {
-        value,
-        label: v.name?.trim()
-          ? renderOpts.values[metricIndex].seriesName
-          : `Metric ${metricIndex + 1}`,
-      };
+      const value = cell ? getEffectiveMetricValue(cell, opts) : 0;
+      return { value, label: opts.seriesName };
     });
   }, [exploration?.result?.rows, submittedExploreState, renderOpts]);
 

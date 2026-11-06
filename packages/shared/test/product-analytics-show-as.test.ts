@@ -460,6 +460,23 @@ describe("seriesName", () => {
       }),
     ).toEqual(["revenue (per user_id)"]);
   });
+
+  it("names a blank value by its position, keeping the mode note", () => {
+    expect(
+      names(
+        metricConfig([
+          metricValue("revenue", "per_unit"),
+          { ...metricValue("converted"), name: "  " },
+        ]),
+      ),
+    ).toEqual(["revenue (per user_id)", "Metric 2 (total)"]);
+  });
+
+  it("names a blank value by its position when names aren't annotated", () => {
+    expect(
+      names(metricConfig([{ ...metricValue("revenue"), name: "" }])),
+    ).toEqual(["Metric 1"]);
+  });
 });
 
 describe("buildExplorationColumns", () => {

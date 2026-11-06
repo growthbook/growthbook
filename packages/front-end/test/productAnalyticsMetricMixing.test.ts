@@ -114,7 +114,9 @@ describe("getUnitConflict", () => {
   it("rejects a metric whose Fact Table lacks the chart's unit", () => {
     expect(
       getUnitConflict(metrics.get("signups")!, "device_id", getFactTableById),
-    ).toBe("This metric's Fact Table has no device_id identifier type.");
+    ).toBe(
+      "This metric's Fact Table has no device_id identifier type. Change the identifier type below to use it.",
+    );
   });
 
   it("accepts a metric whose Fact Table offers the chart's unit", () => {

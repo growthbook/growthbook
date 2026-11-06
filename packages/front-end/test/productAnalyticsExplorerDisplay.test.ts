@@ -171,7 +171,7 @@ describe("describeExplorerDisplay", () => {
         placeholder: "Mixed identifier types",
         options: [],
         disabledReason:
-          "The Fact Tables of these metrics share no identifier type.",
+          "These metrics' Fact Tables share no identifier type. Remove or change a metric to pick one.",
       },
       cards: [
         { showAsOptions: [], showAs: "total", readOnlyUnit: "user_id" },

@@ -174,6 +174,8 @@ export default function MetricTabContent() {
                   setValue={(next) =>
                     updateValueInDataset(idx, { ...v, showAs: next })
                   }
+                  unit={v.unit}
+                  metricName={v.name}
                 />
               )
             }
@@ -277,12 +279,14 @@ export default function MetricTabContent() {
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
-          <Text weight="medium">Identifier type</Text>
           <Select
-            aria-label="Identifier type"
+            label="Identifier type"
+            labelWeight="medium"
             value={unitPicker.value ?? undefined}
             placeholder={unitPicker.placeholder}
             disabled={unitPicker.disabledReason !== null}
+            error={unitPicker.disabledReason ?? undefined}
+            errorLevel="warning"
             setValue={handleUnitChange}
           >
             {unitPicker.options.map((unit) => (
@@ -291,11 +295,6 @@ export default function MetricTabContent() {
               </SelectItem>
             ))}
           </Select>
-          {unitPicker.disabledReason && (
-            <Text size="sm" color="text-low">
-              {unitPicker.disabledReason}
-            </Text>
-          )}
         </Flex>
       )}
     </Flex>

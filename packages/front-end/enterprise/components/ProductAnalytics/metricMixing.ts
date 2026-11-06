@@ -68,7 +68,7 @@ export function getUnitConflict(
     getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
     [];
   if (userIdTypes.includes(lockedUnit)) return null;
-  return `This metric's Fact Table has no ${lockedUnit} identifier type.`;
+  return `This metric's Fact Table has no ${lockedUnit} identifier type. Change the identifier type below to use it.`;
 }
 
 /** The chart-level unit of a metric dataset, read across its values. */
@@ -158,7 +158,7 @@ export function getUnitPicker(
     options,
     disabledReason: options.length
       ? null
-      : "The Fact Tables of these metrics share no identifier type.",
+      : "These metrics' Fact Tables share no identifier type. Remove or change a metric to pick one.",
   };
 }
 
