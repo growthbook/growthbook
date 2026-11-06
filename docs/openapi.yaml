@@ -34192,9 +34192,10 @@ paths:
                     - api
                     - admin
                     - dbt
+                    - terraform
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
               required:
                 - name
                 - datasource
@@ -34373,9 +34374,10 @@ paths:
                     - api
                     - admin
                     - dbt
+                    - terraform
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                 archived:
                   type: boolean
               additionalProperties: false
@@ -35774,9 +35776,10 @@ paths:
                     - api
                     - admin
                     - dbt
+                    - terraform
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                 metricAutoSlices:
                   type: array
                   items:
@@ -36583,9 +36586,10 @@ paths:
                     - api
                     - admin
                     - dbt
+                    - terraform
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                 metricAutoSlices:
                   type: array
                   items:
@@ -36790,6 +36794,7 @@ paths:
                     - api
                     - admin
                     - dbt
+                    - terraform
                 dryRun:
                   description: Validate with zero writes.
                   type: boolean
@@ -36924,9 +36929,11 @@ paths:
                               - api
                               - admin
                               - dbt
+                              - terraform
                             description: >-
-                              Set this to "api" (or "dbt" for resources synced
-                              from dbt) to disable editing in the GrowthBook UI
+                              Set this to "api" (or "dbt" or "terraform" for
+                              resources those tools manage) to disable editing
+                              in the GrowthBook UI
                         required:
                           - name
                           - datasource
@@ -37745,9 +37752,11 @@ paths:
                               - api
                               - admin
                               - dbt
+                              - terraform
                             description: >-
-                              Set this to "api" (or "dbt" for resources synced
-                              from dbt) to disable editing in the GrowthBook UI
+                              Set this to "api" (or "dbt" or "terraform" for
+                              resources those tools manage) to disable editing
+                              in the GrowthBook UI
                           metricAutoSlices:
                             type: array
                             items:
@@ -81316,6 +81325,7 @@ components:
             - api
             - admin
             - dbt
+            - terraform
           description: >-
             Where this fact table must be managed from. If not set (empty
             string), it can be managed from anywhere.
@@ -82545,6 +82555,7 @@ components:
             - api
             - admin
             - dbt
+            - terraform
           description: >-
             Where this fact metric must be managed from. If not set (empty
             string), it can be managed from anywhere.
@@ -95686,6 +95697,8 @@ x-growthbook-resources:
     operations:
       list: listDataSources
       get: getDataSource
+      update: updateDataSource
+      delete: deleteDataSource
   dashboard:
     operations:
       create: createDashboard
