@@ -1,0 +1,34 @@
+.list {
+  max-height: 232px;
+  overflow-y: auto;
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid var(--gray-a4);
+  background: none;
+  text-align: left;
+  color: var(--gray-10);
+  cursor: pointer;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--violet-a2);
+  }
+}
+
+.name {
+  color: var(--violet-11);
+  font-weight: 500;
+}

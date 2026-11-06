@@ -13,6 +13,7 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
+import Text from "@/ui/Text";
 import {
   ARCHIVED_METRIC_REASON,
   ArchivedLabel,
@@ -47,6 +48,8 @@ const MetricSelector: FC<
     sortMetrics?: (a: MetricOption, b: MetricOption) => number;
     filterMetrics?: (m: MetricOption) => boolean;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+    // Shown beside an option in the open menu, e.g. why it's disabled
+    optionNote?: (metricId: string) => string | null;
   }
 > = ({
   datasource,
@@ -63,6 +66,7 @@ const MetricSelector: FC<
   sortMetrics,
   filterMetrics,
   onPaste,
+  optionNote,
   ...selectProps
 }) => {
   const {
@@ -191,8 +195,9 @@ const MetricSelector: FC<
           label: m.name,
         };
       })}
-      formatOptionLabel={({ value, label }) => {
+      formatOptionLabel={({ value, label }, { context }) => {
         if (!value) return label;
+        const note = context === "menu" ? optionNote?.(value) : null;
         return (
           <ArchivedLabel
             archived={!!archivedReason && value === selectedId}
@@ -200,6 +205,11 @@ const MetricSelector: FC<
             tooltip={archivedReason}
           >
             <MetricName id={value} />
+            {note && (
+              <Text size="sm" color="text-low" ml="2">
+                {note}
+              </Text>
+            )}
           </ArchivedLabel>
         );
       }}

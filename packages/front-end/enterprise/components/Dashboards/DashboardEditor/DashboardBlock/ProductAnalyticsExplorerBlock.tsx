@@ -32,7 +32,7 @@ import { BlockProps } from ".";
 
 // Poll interval for a tile's exploration: back off while it's still running,
 // stop (0) once it's terminal (success/error) or absent.
-function pollDelayForExploration(
+export function pollDelayForExploration(
   exploration: ProductAnalyticsExploration | undefined | null,
 ): number {
   if (exploration?.status !== "running") return 0;
