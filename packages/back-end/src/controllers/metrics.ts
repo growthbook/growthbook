@@ -65,6 +65,7 @@ import {
   secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import { getEmbeddingsForModel } from "back-end/src/util/vectors";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -1057,53 +1058,42 @@ export async function postSimilarMetrics(
       message: "No previous metrics found",
     });
   }
-  // get metric embeddings/vectors.
-  const metricIds = allMetrics.map((m) => m.id);
-  let existingVectors = await context.models.vectors.getByMetricIds(metricIds);
-  // check to see if we need to generate any missing vectors/embeddings:
-  if (existingVectors.length !== metricIds.length) {
-    // get the ids of the existing vectors:
-    const existingVectorIds = existingVectors.map((v) => v.joinId);
-    // check to see if there are any metrics that do not have an entry in the VectorsModel, or don't have embeddings:
-    const missingVectors = allMetrics.filter(
-      (m) => !existingVectorIds.includes(m.id),
-    );
-    // if there are any missing vectors, we need to generate them:
-    if (missingVectors.length > 0) {
-      await generateMetricEmbeddings(context, missingVectors);
-      // now fetch the updated vectors:
-      existingVectors = await context.models.vectors.getByMetricIds(metricIds);
-    }
-  }
-
-  // get the existing vectors that have embeddings with the text to search by:
-  const metricsToSearch = [];
-  for (const exp of allMetrics) {
-    // get the existing vector for the metric:
-    const existingVector = existingVectors.find((v) => v.joinId === exp.id);
-    if (!existingVector) continue;
-    metricsToSearch.push({
-      id: exp.id,
-      embeddings: existingVector.embeddings || [],
-    });
-  }
-  // Now we have all the existing metrics with embeddings, we can search for similar metrics
   // Create the text to search by for the new metric
   const newMetric = `Name: ${name}\nDescription: ${description || ""}`;
 
   // Generate embeddings for the new metric
-  const newMetricEmbeddingResponse = await generateEmbeddings({
+  const {
+    model,
+    embeddings: [newEmbedding],
+  } = await generateEmbeddings({
     context,
     input: [newMetric],
   });
-  const newEmbedding = newMetricEmbeddingResponse[0];
+
+  // get metric embeddings/vectors from the same embedding model:
+  const metricIds = allMetrics.map((m) => m.id);
+  let embeddingsById = getEmbeddingsForModel(
+    await context.models.vectors.getByMetricIds(metricIds),
+    model,
+  );
+  // regenerate any that are missing or were made by a different model:
+  const staleMetrics = allMetrics.filter((m) => !embeddingsById.has(m.id));
+  if (staleMetrics.length > 0) {
+    await generateMetricEmbeddings(context, staleMetrics);
+    embeddingsById = getEmbeddingsForModel(
+      await context.models.vectors.getByMetricIds(metricIds),
+      model,
+    );
+  }
+
   // Call to calculate cosine similarity between the new metric and existing metrics: cosineSimilarity
-  const similarities = metricsToSearch
-    .map((mv) => {
-      if (!mv.embeddings) return null;
-      const similarity = cosineSimilarity(newEmbedding, mv.embeddings);
+  const similarities = allMetrics
+    .map((m) => {
+      const embeddings = embeddingsById.get(m.id);
+      if (!embeddings) return null;
+      const similarity = cosineSimilarity(newEmbedding, embeddings);
       return {
-        id: mv.id,
+        id: m.id,
         similarity,
       };
     })
