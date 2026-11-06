@@ -3,6 +3,8 @@ import {
   WatchInterface,
   watchSchema,
 } from "shared/validators";
+import { logger } from "back-end/src/util/logger";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -61,22 +63,44 @@ export class WatchModel extends BaseClass {
     ).map((watcher) => watcher.userId);
   }
 
-  // One atomic write, so concurrent creates for a member can't collide on the
-  // unique key or drop each other's additions.
+  // The $ne filter skips the write when already watching: DocumentDB < v0.109
+  // (FerretDB 2.x) re-appends the array as a duplicate field on a no-op
+  // $addToSet combined with $set, doubling the doc on every save. An existing
+  // doc that already has the item misses the filter and the upsert hits the
+  // unique (organization, userId) index, so E11000 means "doc exists". The
+  // non-upsert retry adds the item if a concurrent create won the race.
+  // Watching is a side effect of saves, so failures are logged, not thrown.
   public async upsertWatch({ userId, item, type }: UpdateWatchOptions) {
+    const filter = {
+      organization: this.context.org.id,
+      userId,
+      [type]: { $ne: item },
+    };
     const now = new Date();
-    await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, userId },
-      {
-        $addToSet: { [type]: item },
-        $set: { dateUpdated: now },
-        $setOnInsert: {
-          dateCreated: now,
-          [type === "experiments" ? "features" : "experiments"]: [],
-        },
-      },
-      { upsert: true },
-    );
+    const update = {
+      $addToSet: { [type]: item },
+      $set: { dateUpdated: now },
+    };
+    try {
+      try {
+        await this._dangerousGetCollection().updateOne(
+          filter,
+          {
+            ...update,
+            $setOnInsert: {
+              dateCreated: now,
+              [type === "experiments" ? "features" : "experiments"]: [],
+            },
+          },
+          { upsert: true },
+        );
+      } catch (e) {
+        if (!isDuplicateKeyError(e)) throw e;
+        await this._dangerousGetCollection().updateOne(filter, update);
+      }
+    } catch (e) {
+      logger.error(e, `Error adding ${type} ${item} to watch for ${userId}`);
+    }
   }
 
   public async deleteWatchedByEntity({
