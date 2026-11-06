@@ -60,6 +60,19 @@ export const DashboardSnapshotContext = React.createContext<{
   updateAllSnapshots: async () => {},
 });
 
+// Covers a long Overall update; past this the dimension refresh was skipped.
+const MAX_DIMENSION_REFRESH_WAIT_MS = 60 * 60 * 1000;
+
+// The snapshot ids of dimension blocks, which the server patches only after
+// the Overall update finishes.
+function getDimensionSnapshotIds(blocks: DashboardInterface["blocks"]) {
+  return blocks
+    .map((block) =>
+      "dimensionId" in block && "snapshotId" in block ? block.snapshotId : null,
+    )
+    .filter((id) => id !== null);
+}
+
 export default function DashboardSnapshotProvider({
   experiment,
   dashboard,
@@ -89,6 +102,14 @@ export default function DashboardSnapshotProvider({
   const [refreshError, setRefreshError] = useState<string | undefined>(
     undefined,
   );
+  // Set while the server refreshes dimension blocks after an Overall update
+  // finishes. Holds when that wait started, so a skipped refresh stops polling,
+  // and the dimension snapshot ids it is waiting to see replaced.
+  const [dimensionRefreshPending, setDimensionRefreshPending] = useState<{
+    since: number;
+    snapshotIds: string[];
+  } | null>(null);
+  const dimensionRefreshPendingSince = dimensionRefreshPending?.since ?? null;
 
   const {
     data: allSnapshotsData,
@@ -200,6 +221,20 @@ export default function DashboardSnapshotProvider({
     prevBlocksRef.current = dashboard.blocks;
   }, [dashboard, mutateAllSnapshots]);
 
+  // Stop waiting once the server has patched the dimension blocks. The main
+  // block changes first, when the Overall update starts, so it doesn't count.
+  useEffect(() => {
+    if (!dashboard || !dimensionRefreshPending) return;
+    if (
+      !isEqual(
+        getDimensionSnapshotIds(dashboard.blocks),
+        dimensionRefreshPending.snapshotIds,
+      )
+    ) {
+      setDimensionRefreshPending(null);
+    }
+  }, [dashboard, dimensionRefreshPending]);
+
   // Periodically check for the status of all snapshots
   useEffect(() => {
     const intervalId = setInterval(async () => {
@@ -211,7 +246,18 @@ export default function DashboardSnapshotProvider({
           });
         }
       }
-      if (status === "running") {
+      const awaitingDimensionBlocks =
+        dimensionRefreshPendingSince !== null &&
+        Date.now() - dimensionRefreshPendingSince <
+          MAX_DIMENSION_REFRESH_WAIT_MS;
+      if (dimensionRefreshPendingSince !== null && !awaitingDimensionBlocks) {
+        setDimensionRefreshPending(null);
+      }
+      if (awaitingDimensionBlocks) {
+        // The new dimension snapshot ids land on the dashboard itself.
+        mutateDefinitions();
+      }
+      if (status === "running" || awaitingDimensionBlocks) {
         mutateAllSnapshots();
       } else {
         clearInterval(intervalId);
@@ -220,15 +266,29 @@ export default function DashboardSnapshotProvider({
     return () => {
       clearInterval(intervalId);
     };
-  }, [mutateAllSnapshots, status, runningMetricAnalyses, apiCall]);
+  }, [
+    mutateAllSnapshots,
+    mutateDefinitions,
+    status,
+    runningMetricAnalyses,
+    apiCall,
+    dimensionRefreshPendingSince,
+  ]);
 
   const updateAllSnapshots = async () => {
     if (!dashboard || dashboard.id === "new") return;
     setRefreshError(undefined);
     try {
-      await apiCall(`/dashboards/${dashboard.id}/refresh`, {
-        method: "POST",
-      });
+      const res = await apiCall<{ dimensionRefreshPending?: boolean }>(
+        `/dashboards/${dashboard.id}/refresh`,
+        { method: "POST" },
+      );
+      if (res?.dimensionRefreshPending) {
+        setDimensionRefreshPending({
+          since: Date.now(),
+          snapshotIds: getDimensionSnapshotIds(dashboard.blocks),
+        });
+      }
     } catch (e) {
       setRefreshError(e.message);
     } finally {
@@ -308,6 +368,28 @@ export function useDashboardSnapshot(
 
   const snapshot =
     blockSnapshotId && blockSnapshot ? blockSnapshot : defaultSnapshot;
+
+  // The server can point a block at a snapshot this page hasn't loaded yet,
+  // e.g. a dimension refresh that ran after the Overall update. Reload the
+  // snapshots once before treating the block as mismatched; otherwise it would
+  // fall back to the default snapshot and overwrite the server's choice.
+  const [checkedMissingSnapshotId, setCheckedMissingSnapshotId] = useState<
+    string | null
+  >(null);
+  const awaitingBlockSnapshot =
+    !!blockSnapshotId &&
+    !blockSnapshot &&
+    checkedMissingSnapshotId !== blockSnapshotId;
+  useEffect(() => {
+    if (!awaitingBlockSnapshot || !blockSnapshotId) return;
+    let cancelled = false;
+    mutateSnapshotsMap().finally(() => {
+      if (!cancelled) setCheckedMissingSnapshotId(blockSnapshotId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [awaitingBlockSnapshot, blockSnapshotId, mutateSnapshotsMap]);
   const mutateSnapshot = isDefined(blockSnapshotId)
     ? mutateSnapshotsMap
     : mutateDefault;
@@ -335,6 +417,7 @@ export function useDashboardSnapshot(
       !setBlockRef.current ||
       !experiment ||
       !snapshot ||
+      awaitingBlockSnapshot ||
       snapshotSettingsMatch ||
       fetchingSnapshot ||
       fetchingSnapshotFailed
@@ -373,6 +456,7 @@ export function useDashboardSnapshot(
     fetchingSnapshotFailed,
     apiCall,
     block,
+    awaitingBlockSnapshot,
   ]);
 
   // If unable to get the necessary analysis on the current snapshot, post the updated settings
