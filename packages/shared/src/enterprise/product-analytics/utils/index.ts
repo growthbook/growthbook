@@ -506,27 +506,30 @@ function getAnnotatedName(
   return `${value.name} (per ${unit})`;
 }
 
+/** Whether some values render as totals and others per unit. */
+function showAsModesAreMixed(choices: ShowAsChoice[]): boolean {
+  const someValueOffersShowAs = choices.some(
+    (choice) => choice.options.length > 0,
+  );
+  return getCommonShowAs(choices) === null && someValueOffersShowAs;
+}
+
 /**
- * Whether chart series names (legend and tooltip) need annotating because the
- * default value-axis title can't say how the values render:
- * - modes are mixed on the axis (no title): every value is annotated,
- *   including values without Show as options, which render as totals;
- * - every value is per unit but the title doesn't name one unit (units
- *   differ, or a custom title is set): each gets "(per {unit})".
- * When every value is a total, names stay plain.
+ * Annotate series names when the axis title can't tell readers how the values
+ * are calculated.
  */
 function shouldAnnotateSeriesNames(
   config: ExplorationConfig,
   choices: ShowAsChoice[],
 ): boolean {
+  if (showAsModesAreMixed(choices)) return true;
+
   const commonShowAs = getCommonShowAs(choices);
-  const modesAreMixed =
-    commonShowAs === null &&
-    choices.some((choice) => choice.options.length > 0);
-  const axisTitleNamesUnit =
-    config.chartSettings?.valueAxisLabel === undefined &&
-    getSharedUnit(config) !== null;
-  return modesAreMixed || (commonShowAs === "per_unit" && !axisTitleNamesUnit);
+  const everyValueIsPerUnit = commonShowAs === "per_unit";
+  const hasCustomAxisTitle = config.chartSettings?.valueAxisLabel !== undefined;
+  const valuesShareOneUnit = getSharedUnit(config) !== null;
+  const axisTitleNamesTheUnit = !hasCustomAxisTitle && valuesShareOneUnit;
+  return everyValueIsPerUnit && !axisTitleNamesTheUnit;
 }
 
 /**
@@ -672,6 +675,10 @@ export function buildExplorationColumns(
   if (values.length === 0) return cols;
 
   const sharedUnit = getSharedUnit(config);
+  const choices = values.map((v) =>
+    getShowAsChoice(v, config?.showAs, getFactMetricById),
+  );
+  const modesAreMixed = showAsModesAreMixed(choices);
 
   values.forEach((v, metricIndex) => {
     const name = v.name;
@@ -700,12 +707,12 @@ export function buildExplorationColumns(
       return;
     }
 
-    // Only per-unit columns are annotated, so a plain header means totals.
-    const { showAs } = getShowAsChoice(v, config?.showAs, getFactMetricById);
-    const singleLabel =
-      showAs === "per_unit"
-        ? getAnnotatedName(v, "per_unit", sharedUnit)
-        : name;
+    // A plain header means total, unless per-unit columns sit beside it.
+    const { showAs } = choices[metricIndex];
+    const annotate = showAs === "per_unit" || modesAreMixed;
+    const singleLabel = annotate
+      ? getAnnotatedName(v, showAs, sharedUnit)
+      : name;
     cols.push({
       kind: "metric",
       key: `__metric_${metricIndex}__`,

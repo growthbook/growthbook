@@ -1,4 +1,5 @@
 import {
+  buildExplorationColumns,
   getDefaultValueAxisName,
   getEffectiveMetricValue,
   getExplorationRenderOpts,
@@ -418,5 +419,50 @@ describe("seriesName", () => {
         chartSettings: { valueAxisLabel: "Revenue" },
       }),
     ).toEqual(["revenue (per user_id)"]);
+  });
+});
+
+describe("buildExplorationColumns", () => {
+  const labels = (config: ExplorationConfig) =>
+    buildExplorationColumns(config, getFactMetricById)
+      .filter((col) => col.kind === "metric")
+      .map((col) => col.label);
+
+  it("labels only per-unit columns when no column is a total", () => {
+    expect(
+      labels(
+        metricConfig([
+          metricValue("revenue", "per_unit"),
+          metricValue("maxOrder", "per_unit"),
+        ]),
+      ),
+    ).toEqual(["revenue (per user_id)", "maxOrder (per user_id)"]);
+  });
+
+  it("keeps plain headers when every column is a total", () => {
+    expect(
+      labels(
+        metricConfig([
+          metricValue("revenue", "total"),
+          metricValue("converted"),
+        ]),
+      ),
+    ).toEqual(["revenue", "converted"]);
+  });
+
+  it("labels totals when they sit beside per-unit columns", () => {
+    expect(
+      labels(
+        metricConfig([
+          metricValue("revenue", "per_unit"),
+          metricValue("maxOrder", "total"),
+          metricValue("converted"),
+        ]),
+      ),
+    ).toEqual([
+      "revenue (per user_id)",
+      "maxOrder (total)",
+      "converted (total)",
+    ]);
   });
 });
