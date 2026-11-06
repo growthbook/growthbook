@@ -1596,6 +1596,9 @@ export async function updateFeature(
     isCompensation?: boolean;
     // Preserve references already accepted in the draft being landed.
     savedGroupScopeRevision?: FeatureRevisionInterface;
+    // Drift repair writing back the live revision: that state was judged when
+    // it published, so neither scope nor hooks may veto restoring it.
+    restoresLiveRevision?: boolean;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options.casOnDateUpdated);
@@ -1650,7 +1653,7 @@ export async function updateFeature(
   // the mid-commit mix — and would veto compensation restores. Gated on
   // `bulkPublishApplying` (not the correlation token) so genuine post-commit
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
-  if (!context.bulkPublishApplying) {
+  if (!context.bulkPublishApplying && !options.restoresLiveRevision) {
     if (!options?.isCompensation) {
       await assertFeatureSavedGroupScope(
         context,

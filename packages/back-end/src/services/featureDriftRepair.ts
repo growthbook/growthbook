@@ -12,6 +12,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { LandingConflictError } from "back-end/src/revisions/landingSequence";
 import { logger } from "back-end/src/util/logger";
+import { getErrorMessage } from "back-end/src/util/errors";
 
 // Detect drift between the live revision (source of truth) and the persisted
 // `feature.rules` / `feature.defaultValue`. If found, repair in place by
@@ -69,7 +70,11 @@ export async function repairFeatureDriftIfNeeded(
           : {}),
         rules: liveRulesFlat,
       },
-      { preserveStoredValues: true, casOnDateUpdated: feature.dateUpdated },
+      {
+        preserveStoredValues: true,
+        casOnDateUpdated: feature.dateUpdated,
+        restoresLiveRevision: true,
+      },
     );
     Object.assign(feature, repaired);
 
@@ -116,7 +121,7 @@ export async function repairFeatureDriftIfNeeded(
     // (e.g. getFeatureById) tolerate the stale response.
     if (throwOnFailure) {
       throw new Error(
-        "Could not reconcile feature with its live revision. Please retry.",
+        `Could not reconcile feature with its live revision: ${getErrorMessage(e)}`,
       );
     }
   }
