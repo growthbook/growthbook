@@ -113,12 +113,14 @@ export default function MetricTabContent() {
     lockedClass: Exclude<MetricMixClass, "unknown"> | null,
     lockedUnit: string | null,
   ): string | null => {
-    if (lockedClass && getMetricMixClass(metric.metricType) !== lockedClass) {
-      return lockedClass === "ratio"
+    const metricClass = getMetricMixClass(metric.metricType);
+    if (lockedClass && metricClass !== lockedClass) {
+      // Standard metrics mix freely, so name whichever side can't be combined.
+      const exclusiveClass =
+        lockedClass === "standard" ? metricClass : lockedClass;
+      return exclusiveClass === "ratio"
         ? "Ratio metrics can't be combined with other metric types."
-        : lockedClass === "quantile"
-          ? "Quantile metrics can't be combined with other metric types."
-          : "Only the same metric type can be combined in one chart.";
+        : "Quantile metrics can't be combined with other metric types.";
     }
     const userIdTypes =
       getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
