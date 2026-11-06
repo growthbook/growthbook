@@ -217,6 +217,14 @@ export default function ValueCard({
           )}
         </Flex>
         <Flex align="center" style={{ flexShrink: 0 }}>
+          {showsReadOnlyUnit && (
+            <Flex align="center" gap="1" mr="2" title="Identifier type">
+              <PiUserFill size={12} />
+              <Text size="sm" color="text-low">
+                {value.unit}
+              </Text>
+            </Flex>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -252,14 +260,6 @@ export default function ValueCard({
                 value={filters}
                 setValue={handleFiltersChange}
               >
-                {showsReadOnlyUnit && (
-                  <Flex align="center" gap="1" title="Identifier type">
-                    <PiUserFill size={12} />
-                    <Text size="sm" color="text-low">
-                      {value.unit}
-                    </Text>
-                  </Flex>
-                )}
                 {factTable && supportsUnitSelection && (
                   <DropdownMenu
                     open={unitDropdownOpen}
