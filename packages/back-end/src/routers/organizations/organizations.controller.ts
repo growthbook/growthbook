@@ -327,7 +327,7 @@ export async function getHistory(
     parseIntWithDefaultCapped(req.query.limit, 50, 100), // Max 100 per page
     {
       event: parseEventParam(req.query.event),
-      before: req.query.cursor ? new Date(req.query.cursor) : undefined,
+      cursor: req.query.cursor,
       excludeIds,
     },
   );

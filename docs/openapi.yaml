@@ -67696,13 +67696,9 @@ components:
     cursor:
       name: cursor
       in: query
-      description: >-
-        Pagination cursor (ISO date string from a previous response's
-        nextCursor)
+      description: Opaque pagination cursor from a previous response's nextCursor
       schema:
-        description: >-
-          Pagination cursor (ISO date string from a previous response's
-          nextCursor)
+        description: Opaque pagination cursor from a previous response's nextCursor
         type: string
     phase:
       name: phase

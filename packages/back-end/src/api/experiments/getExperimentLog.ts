@@ -27,14 +27,13 @@ export const getExperimentLog = createApiRequestHandler(
   }
 
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100);
-  const before = req.query.cursor ? new Date(req.query.cursor) : undefined;
 
   const history = await getAuditHistory(
     req.context.org.id,
     "experiment",
     experiment.id,
     limit,
-    { before },
+    { cursor: req.query.cursor },
   );
 
   return {
@@ -47,6 +46,6 @@ export const getExperimentLog = createApiRequestHandler(
       ...(event.details ? { details: event.details } : {}),
     })),
     total: history.total,
-    nextCursor: history.nextCursor?.toISOString() ?? null,
+    nextCursor: history.nextCursor,
   };
 });

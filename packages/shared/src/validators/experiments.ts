@@ -2978,7 +2978,7 @@ export const getExperimentLogValidator = {
         .string()
         .optional()
         .describe(
-          "Pagination cursor (ISO date string from a previous response's nextCursor)",
+          "Opaque pagination cursor from a previous response's nextCursor",
         ),
     })
     .strict(),
