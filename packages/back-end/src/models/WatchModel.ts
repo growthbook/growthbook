@@ -3,15 +3,12 @@ import {
   WatchInterface,
   watchSchema,
 } from "shared/validators";
-import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
-
-const COLLECTION_NAME = "watches";
 
 const BaseClass = MakeModelClass({
   schema: watchSchema,
   pKey: ["userId", "organization"] as const,
-  collectionName: COLLECTION_NAME,
+  collectionName: "watches",
   idPrefix: "watch_",
   readonlyFields: [],
   additionalIndexes: [{ fields: { organization: 1, experiments: 1 } }],
@@ -96,7 +93,7 @@ export class WatchModel extends BaseClass {
     type,
     item,
   }: Omit<UpdateWatchOptions, "userId">) {
-    await getCollection<WatchInterface>(COLLECTION_NAME).updateMany(
+    await this._dangerousGetCollection().updateMany(
       { organization: this.context.org.id, [type]: item },
       { $pull: { [type]: item }, $set: { dateUpdated: new Date() } },
     );
