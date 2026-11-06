@@ -50,11 +50,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
@@ -759,11 +755,12 @@ function TabbedPageContents({
       <Box
         mx="auto"
         width="100%"
+        className="experiment-layout"
         style={{ maxWidth: "var(--page-content-max-width)" }}
       >
         <CollapsiblePanelLayout
           open={detailsPanelOpen}
-          top={TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX}
+          top="var(--tabs-bottom)"
           width={detailsWidth}
           onWidthChange={setDetailsWidth}
           onCollapse={() => setDetailsShown(false)}

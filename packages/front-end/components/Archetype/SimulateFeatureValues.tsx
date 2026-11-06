@@ -262,7 +262,7 @@ export const SimulateFeatureValues: FC<{
           <table className="table gbtable table-hover appbox">
             <thead
               className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
+              style={{ top: "var(--page-top-offset)", zIndex: 900 }}
             >
               <tr>
                 <th>Feature Name</th>

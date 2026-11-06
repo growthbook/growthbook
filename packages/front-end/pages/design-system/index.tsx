@@ -57,13 +57,12 @@ type StoryEntry = {
   Stories: () => React.ReactNode;
 };
 
-const TOP_NAV_HEIGHT = 56;
-const PAGE_TOP_PADDING = 24;
 const PAGE_BOTTOM_PADDING = 16;
-const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;
-const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
-  SIDEBAR_TOP_OFFSET + PAGE_BOTTOM_PADDING
-}px)`;
+// Under the header (--header-height) and the page's top padding
+// (--page-top-padding, which the page uses too), both from global.scss.
+const SIDEBAR_TOP_OFFSET =
+  "calc(var(--header-height) + var(--page-top-padding))";
+const SIDEBAR_MAX_HEIGHT = `calc(100vh - var(--header-height) - var(--page-top-padding) - ${PAGE_BOTTOM_PADDING}px)`;
 
 export default function DesignSystemPage() {
   const components = [
@@ -155,7 +154,9 @@ export default function DesignSystemPage() {
   );
 
   return (
-    <div className="pt-4 pb-3">
+    // Not in the page wrapper (a pre-sign-in page), so it takes the wrapper's
+    // top padding itself, for its sidebar to stick where it sits.
+    <div className="pb-3" style={{ paddingTop: "var(--page-top-padding)" }}>
       <Flex gap="6">
         <nav
           aria-label="Components"
@@ -198,7 +199,10 @@ export default function DesignSystemPage() {
           <h1 className="mb-4">GrowthBook Design System</h1>
           <div className="pagecontents">
             <Flex gap="4" direction="column">
-              <Frame id="size-cohesion" style={{ scrollMarginTop: 90 }}>
+              <Frame
+                id="size-cohesion"
+                style={{ scrollMarginTop: "calc(var(--header-height) + 34px)" }}
+              >
                 <Flex direction="column" gap="3">
                   <h3 className="mb-1">Size cohesion</h3>
                   <Text>
@@ -214,7 +218,13 @@ export default function DesignSystemPage() {
                 </Flex>
               </Frame>
               {entries.map(({ name, description, Stories, id }) => (
-                <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
+                <Frame
+                  key={id}
+                  id={id}
+                  style={{
+                    scrollMarginTop: "calc(var(--header-height) + 34px)",
+                  }}
+                >
                   <Flex direction="column" gap="3">
                     <h3 className="mb-1">{name}</h3>
                     <Text>{description}</Text>

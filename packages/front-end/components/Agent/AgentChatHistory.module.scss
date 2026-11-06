@@ -1,0 +1,11 @@
+// The title shrinks to the space beside the panel's header buttons and
+// truncates there, at any panel width. Button and its label (a Text span)
+// otherwise keep their full width.
+.titleButton {
+  flex-shrink: 1;
+  min-width: 0;
+
+  > * {
+    min-width: 0;
+  }
+}

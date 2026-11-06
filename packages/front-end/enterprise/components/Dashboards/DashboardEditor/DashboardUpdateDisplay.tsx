@@ -90,7 +90,9 @@ function DashboardStatusSummary({
           </Tooltip>
         )}
       </Text>
-      <Text size="sm">
+      {/* One line, so it stays within the header row (a long title
+        truncates instead). */}
+      <Text size="sm" whiteSpace="nowrap">
         <span style={{ color: textColor }}>{content}</span>
       </Text>
       {tooltipBody && (

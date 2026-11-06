@@ -128,7 +128,7 @@ const VisualEditorConnectPage = () => {
   const ready = !!orgId;
 
   return (
-    <Flex align="center" justify="center" px="4" style={{ minHeight: "70vh" }}>
+    <Flex align="center" justify="center" style={{ minHeight: "70vh" }}>
       <Box style={{ maxWidth: 520, width: "100%" }}>
         {!ready && (
           <Flex direction="column" align="center" gap="3">

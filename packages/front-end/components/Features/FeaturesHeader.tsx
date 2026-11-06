@@ -463,7 +463,7 @@ export default function FeaturesHeader({
       <Box className="features-header contents container-fluid pagecontents pb-0">
         <Box>
           <Flex align="start" justify="between" gap="2">
-            <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
+            <Flex align="center" mb="2" gap="3">
               <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                 {feature.id}
               </Heading>
@@ -620,44 +620,42 @@ export default function FeaturesHeader({
           }}
         />
         <div
-          className={clsx("feature-tabs d-print-none", {
+          className={clsx("feature-tabs page-bleed d-print-none", {
             pinned: headerPinned,
           })}
         >
-          <div className="container-fluid pagecontents px-3">
-            <div className="header-tabs">
-              <Tabs value={tab} onValueChange={setTab}>
-                <TabsList size="lg" style={{ width: "100%" }}>
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="review">
-                    Review &amp; Publish
-                    {activeDraftCount > 0 && (
-                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                        <Badge
-                          label={String(activeDraftCount)}
-                          color="red"
-                          variant="solid"
-                          radius="full"
-                          ml="2"
-                          style={{ minWidth: 18, height: 18 }}
-                        />
-                      </Tooltip>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="test">Simulate</TabsTrigger>
-                  <TabsTrigger value="stats">Code Refs</TabsTrigger>
-                  <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-                  {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
-                  {!(isCloud() && feature.valueType === "boolean") && (
-                    <TabsTrigger value="validation">Validation</TabsTrigger>
+          <div className="header-tabs">
+            <Tabs value={tab} onValueChange={setTab}>
+              <TabsList size="lg" style={{ width: "100%" }}>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="review">
+                  Review &amp; Publish
+                  {activeDraftCount > 0 && (
+                    <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                      <Badge
+                        label={String(activeDraftCount)}
+                        color="red"
+                        variant="solid"
+                        radius="full"
+                        ml="2"
+                        style={{ minWidth: 18, height: 18 }}
+                      />
+                    </Tooltip>
                   )}
-                  {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
-                  <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
-                    <div ref={tabsSlotRef} />
-                  </Box>
-                </TabsList>
-              </Tabs>
-            </div>
+                </TabsTrigger>
+                <TabsTrigger value="test">Simulate</TabsTrigger>
+                <TabsTrigger value="stats">Code Refs</TabsTrigger>
+                <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
+                {!(isCloud() && feature.valueType === "boolean") && (
+                  <TabsTrigger value="validation">Validation</TabsTrigger>
+                )}
+                {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
+                <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
+                  <div ref={tabsSlotRef} />
+                </Box>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
       </>

@@ -7,6 +7,7 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import useExplorationTableData from "./useExplorationTableData";
+import styles from "./SimpleExplorationTable.module.scss";
 
 export default function SimpleExplorationTable({
   exploration,
@@ -48,11 +49,13 @@ export default function SimpleExplorationTable({
 
   return (
     <Box
+      // Set by its container, as ExplorerChart's; as before otherwise.
       style={{
         maxHeight,
         overflow: "auto",
         borderRadius: "var(--radius-2)",
-        border: "1px solid var(--gray-a4)",
+        border: "var(--ai-artifact-inner-border, 1px solid var(--gray-a4))",
+        background: "var(--ai-artifact-inner-bg, transparent)",
       }}
     >
       <Flex align="center" gap="2" px="3" py="2">
@@ -61,7 +64,7 @@ export default function SimpleExplorationTable({
         </Text>
       </Flex>
       <table
-        className="table table-bordered gbtable table-hover mb-0"
+        className={`table table-bordered gbtable table-hover mb-0 ${styles.table}`}
         style={{ fontSize: "var(--font-size-1)" }}
       >
         <thead

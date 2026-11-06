@@ -443,7 +443,8 @@ const FeatureSearchFilters: FC<
   );
 
   return (
-    <Flex gap="5" align="center">
+    // Wraps onto more lines where the page is narrow (SearchFilterRow).
+    <Flex gapX="5" gapY="2" align="center" wrap="wrap">
       {!project && (
         <FilterDropdown
           filter="project"

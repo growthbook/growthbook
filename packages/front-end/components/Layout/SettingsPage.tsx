@@ -80,16 +80,11 @@ export default function SettingsPage({
   children: ReactNode;
 }) {
   const permissionsUtil = usePermissionsUtil();
+  // The page's Settings nav group, as plain text: a group isn't a page.
   const root: BreadcrumbItem =
     section && permissionsUtil.canManageOrgSettings()
-      ? { display: "General", href: `/settings#${section}` }
-      : {
-          display: "Organization",
-          // Organization lands on Projects, so only link it for users who can open it.
-          ...(permissionsUtil.canViewProjectsPage()
-            ? { href: "/projects" }
-            : {}),
-        };
+      ? { display: "General" }
+      : { display: "Organization" };
   return (
     <>
       <PageHead

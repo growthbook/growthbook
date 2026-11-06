@@ -1,0 +1,5 @@
+// In dark mode, the bordered table's light grey top border drew a bright
+// line under the row count.
+:global(.dark-theme) .table {
+  border-top: none;
+}

@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import useApi from "@/hooks/useApi";
 import { isCloud } from "@/services/env";
 
@@ -17,18 +18,27 @@ type UseAITokenUsageResult = {
   data: AITokenUsage | null | undefined;
   error: Error | undefined;
   isLoading: boolean;
+  refresh: () => void;
 };
 
-export function useAITokenUsage(): UseAITokenUsageResult {
-  const { data, error } = useApi<APIResponse>("/ai/token-usage", {
-    shouldRun: () => isCloud(),
+/** `enabled: false` skips the request, as off Cloud. */
+export function useAITokenUsage({
+  enabled = true,
+}: { enabled?: boolean } = {}): UseAITokenUsageResult {
+  const shouldRun = isCloud() && enabled;
+  const { data, error, mutate } = useApi<APIResponse>("/ai/token-usage", {
+    shouldRun: () => shouldRun,
   });
+  const refresh = useCallback(() => {
+    void mutate();
+  }, [mutate]);
 
-  if (!isCloud()) {
+  if (!shouldRun) {
     return {
       data: null,
       error: undefined,
       isLoading: false,
+      refresh,
     };
   }
 
@@ -36,5 +46,6 @@ export function useAITokenUsage(): UseAITokenUsageResult {
     data: data?.tokenUsage,
     error,
     isLoading: !data && !error,
+    refresh,
   };
 }

@@ -1,12 +1,14 @@
 .demo-datasource-banner__wrapper {
   position: sticky;
-  top: 56px;
+  top: var(--header-height);
   z-index: 100;
 }
 
+// No negative margin: it would collapse through the sticky wrapper, which
+// then sits 4px higher in the page than where it pins, so the page would
+// start 4px under the banner and end 4px short (--page-top-offset).
 .demo-datasource-banner {
   position: relative;
-  margin-top: -4px;
   display: flex;
   justify-content: center;
 }
@@ -43,7 +45,7 @@
   max-width: 100%;
   width: 100vw;
   height: 100vh;
-  max-height: calc(100vh - 56px); // 56px = .topbar height
+  max-height: calc(100vh - var(--header-height));
   z-index: 10;
   position: fixed;
   top: 0px;

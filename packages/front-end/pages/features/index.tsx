@@ -46,6 +46,7 @@ import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
+import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
@@ -309,9 +310,12 @@ export default function FeaturesPage() {
       allFeatures.length > 0 && (
         <Box>
           <Box mb="2">
-            <Flex justify="between" mb="3" gap="3" align="center">
-              <Flex align="center" gap="1" width="40%">
-                <Box flexGrow="1" style={{ position: "relative" }}>
+            <SearchFilterRow
+              mb="3"
+              search={
+                // The spinner inside the box's right end, so the box fills
+                // its space.
+                <Box style={{ position: "relative" }}>
                   <Field
                     size="legacy"
                     placeholder="Search..."
@@ -319,19 +323,32 @@ export default function FeaturesPage() {
                     containerClassName="mb-0"
                     {...searchInputProps}
                   />
+                  {searchLoading ? (
+                    <Box
+                      style={{
+                        position: "absolute",
+                        top: "50%",
+                        right: 32,
+                        transform: "translateY(-50%)",
+                        display: "flex",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      <LoadingSpinner />
+                    </Box>
+                  ) : null}
                 </Box>
-                <Box style={{ width: 20, flexShrink: 0 }}>
-                  {searchLoading ? <LoadingSpinner /> : null}
-                </Box>
-              </Flex>
-              <FeatureSearchFilters
-                features={allFeatures}
-                searchInputProps={searchInputProps}
-                setSearchValue={setSearchValue}
-                syntaxFilters={syntaxFilters}
-                hasArchived={hasArchived}
-              />
-            </Flex>
+              }
+              filters={
+                <FeatureSearchFilters
+                  features={allFeatures}
+                  searchInputProps={searchInputProps}
+                  setSearchValue={setSearchValue}
+                  syntaxFilters={syntaxFilters}
+                  hasArchived={hasArchived}
+                />
+              }
+            />
           </Box>
 
           <Table variant="list" stickyHeader roundedCorners>
@@ -404,6 +421,9 @@ export default function FeaturesPage() {
                         style={{
                           padding: "var(--space-3)",
                           display: "block",
+                          // On one line: too wide, the table scrolls sideways
+                          // instead (Table).
+                          whiteSpace: "nowrap",
                           color: feature.archived
                             ? "var(--gray-11)"
                             : undefined,

@@ -50,11 +50,8 @@ const TeamPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
-  // Organization lands on Projects, so only link it for users who can open it.
-  const orgCrumb = {
-    display: "Organization",
-    ...(permissionsUtil.canViewProjectsPage() ? { href: "/projects" } : {}),
-  };
+  // The Settings nav group, as plain text: a group isn't a page.
+  const orgCrumb = { display: "Organization" };
 
   const { teams, refreshOrganization, settings, organization } = useUser();
 
