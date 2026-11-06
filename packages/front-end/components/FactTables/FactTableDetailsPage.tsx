@@ -566,7 +566,7 @@ export default function FactTableDetailsPage() {
           </TabsContent>
 
           <TabsContent value="filters">
-            <FactFilterList factTable={factTable} hideSearch />
+            <FactFilterList factTable={factTable} detailsLayout />
           </TabsContent>
 
           <TabsContent value="metrics">
