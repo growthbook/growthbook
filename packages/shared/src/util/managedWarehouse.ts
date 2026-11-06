@@ -822,19 +822,29 @@ export function buildManagedWarehouseExposureQueries(
   );
 }
 
-const SDK_TOP_LEVEL_ATTRIBUTE_COLUMNS: Record<string, string> = {
-  utmCampaign: "utm_campaign",
-  utmContent: "utm_content",
-  utmMedium: "utm_medium",
-  utmSource: "utm_source",
-  utmTerm: "utm_term",
-  pageTitle: "page_title",
-};
+const SDK_TOP_LEVEL_ATTRIBUTE_COLUMNS = new Map<string, string>([
+  ["utmCampaign", "utm_campaign"],
+  ["utmContent", "utm_content"],
+  ["utmMedium", "utm_medium"],
+  ["utmSource", "utm_source"],
+  ["utmTerm", "utm_term"],
+  ["pageTitle", "page_title"],
+]);
 
 const CONTEXTUAL_BANDIT_TARGETING_DATATYPES = new Set<SDKAttributeType>([
   "string",
   "enum",
 ]);
+
+export function managedWarehouseGeneratesContextualBanditQueries(
+  datasource: Pick<DataSourceInterface, "type" | "settings">,
+): boolean {
+  if (!isManagedWarehouse(datasource)) return false;
+  return (
+    (datasource.settings as GrowthbookClickhouseSettings | undefined)
+      ?.useJsonColumns === true
+  );
+}
 
 export type ManagedWarehouseContextualBanditTargetingAttribute = {
   property: string;
@@ -845,6 +855,7 @@ export function getManagedWarehouseContextualBanditTargetingAttributes(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
+  preservedColumns: string[] = [],
 ): ManagedWarehouseContextualBanditTargetingAttribute[] {
   const customIdentifiers = new Set(
     getManagedWarehouseCustomIdentifiers(attributeSchema, extraIdentifiers),
@@ -854,15 +865,19 @@ export function getManagedWarehouseContextualBanditTargetingAttributes(
       (c) => [c.columnName, c.sourceField],
     ),
   );
+  const preserved = new Set(preservedColumns);
   const out: ManagedWarehouseContextualBanditTargetingAttribute[] = [];
   const seen = new Set<string>();
   for (const a of attributeSchema || []) {
-    if (a.archived || a.hashAttribute) continue;
-    if (!CONTEXTUAL_BANDIT_TARGETING_DATATYPES.has(a.datatype)) continue;
+    if (a.archived) continue;
     const property = a.property;
-    if (!SAFE_IDENTIFIER.test(property)) continue;
     if (seen.has(property)) continue;
-    const topLevelColumn = SDK_TOP_LEVEL_ATTRIBUTE_COLUMNS[property];
+    if (!SAFE_IDENTIFIER.test(property)) continue;
+    if (!preserved.has(property)) {
+      if (a.hashAttribute) continue;
+      if (!CONTEXTUAL_BANDIT_TARGETING_DATATYPES.has(a.datatype)) continue;
+    }
+    const topLevelColumn = SDK_TOP_LEVEL_ATTRIBUTE_COLUMNS.get(property);
     if (topLevelColumn) {
       seen.add(property);
       out.push({ property, selectExpr: `${topLevelColumn} AS ${property}` });
@@ -871,7 +886,12 @@ export function getManagedWarehouseContextualBanditTargetingAttributes(
     if (RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS.has(property)) continue;
     if (MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(property.toLowerCase()))
       continue;
-    if (customIdentifiers.has(property)) continue;
+    if (customIdentifiers.has(property)) {
+      if (!preserved.has(property)) continue;
+      seen.add(property);
+      out.push({ property, selectExpr: null });
+      continue;
+    }
     if (dimensionAliases.has(property)) {
       if (dimensionAliases.get(property) !== property) continue;
       seen.add(property);
@@ -899,11 +919,13 @@ export function buildManagedWarehouseContextualBanditQueries(
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
   idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier = "device_id",
+  preservedColumns: string[] = [],
 ): ManagedWarehouseContextualBanditQuery[] {
   const targeting = getManagedWarehouseContextualBanditTargetingAttributes(
     attributeSchema,
     extraIdentifiers,
     migratedColumns,
+    preservedColumns,
   );
   if (!targeting.length) return [];
   const query = buildManagedWarehouseExperimentViewsSql(
@@ -922,6 +944,128 @@ export function buildManagedWarehouseContextualBanditQueries(
       targetingAttributeColumns,
     }),
   );
+}
+
+export type ManagedWarehouseContextualBanditQueryRecord = {
+  id: string;
+  userIdType: string;
+  name: string;
+  query: string;
+  targetingAttributeColumns: string[];
+  dateCreated: Date;
+};
+
+export type ManagedWarehouseContextualBanditQueryUpdate = Pick<
+  ManagedWarehouseContextualBanditQuery,
+  "name" | "userIdType" | "query" | "targetingAttributeColumns"
+>;
+
+export type ManagedWarehouseContextualBanditQuerySyncPlan<
+  T extends ManagedWarehouseContextualBanditQueryRecord,
+> = {
+  create: ManagedWarehouseContextualBanditQuery[];
+  update: {
+    existing: T;
+    changes: ManagedWarehouseContextualBanditQueryUpdate;
+  }[];
+  remove: T[];
+  keep: T[];
+};
+
+function normalizeIdentifierKey(userIdType: string): string {
+  return userIdType.trim().toLowerCase();
+}
+
+function toQueryUpdate(
+  desired: ManagedWarehouseContextualBanditQuery,
+): ManagedWarehouseContextualBanditQueryUpdate {
+  return {
+    name: desired.name,
+    userIdType: desired.userIdType,
+    query: desired.query,
+    targetingAttributeColumns: desired.targetingAttributeColumns,
+  };
+}
+
+function queryRecordMatches(
+  existing: ManagedWarehouseContextualBanditQueryRecord,
+  changes: ManagedWarehouseContextualBanditQueryUpdate,
+): boolean {
+  return (
+    existing.name === changes.name &&
+    existing.userIdType === changes.userIdType &&
+    existing.query === changes.query &&
+    existing.targetingAttributeColumns.length ===
+      changes.targetingAttributeColumns.length &&
+    existing.targetingAttributeColumns.every(
+      (c, i) => c === changes.targetingAttributeColumns[i],
+    )
+  );
+}
+
+export function planManagedWarehouseContextualBanditQuerySync<
+  T extends ManagedWarehouseContextualBanditQueryRecord,
+>({
+  existing,
+  desired,
+  referencedQueryIds,
+}: {
+  existing: T[];
+  desired: ManagedWarehouseContextualBanditQuery[];
+  referencedQueryIds: Iterable<string>;
+}): ManagedWarehouseContextualBanditQuerySyncPlan<T> {
+  const referenced = new Set(referencedQueryIds);
+  const groups = new Map<string, T[]>();
+  for (const doc of existing) {
+    const key = normalizeIdentifierKey(doc.userIdType);
+    const group = groups.get(key) ?? [];
+    group.push(doc);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    group.sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
+  }
+
+  const plan: ManagedWarehouseContextualBanditQuerySyncPlan<T> = {
+    create: [],
+    update: [],
+    remove: [],
+    keep: [],
+  };
+
+  for (const d of desired) {
+    const key = normalizeIdentifierKey(d.userIdType);
+    const group = groups.get(key);
+    groups.delete(key);
+    if (!group) {
+      plan.create.push(d);
+      continue;
+    }
+    const changes = toQueryUpdate(d);
+    group.forEach((doc, i) => {
+      if (i > 0 && !referenced.has(doc.id)) {
+        plan.remove.push(doc);
+        return;
+      }
+      if (queryRecordMatches(doc, changes)) {
+        plan.keep.push(doc);
+        return;
+      }
+      plan.update.push({ existing: doc, changes });
+    });
+  }
+
+  for (const group of groups.values()) {
+    for (const doc of group) {
+      if (referenced.has(doc.id)) {
+        plan.keep.push(doc);
+      } else {
+        plan.remove.push(doc);
+      }
+    }
+  }
+
+  return plan;
 }
 
 export type ManagedWarehouseFactColumn = {

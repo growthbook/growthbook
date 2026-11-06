@@ -7,7 +7,7 @@ import {
   getEligibleContextualAttributes,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import { isManagedWarehouse } from "shared/util";
+import { managedWarehouseGeneratesContextualBanditQueries } from "shared/util";
 import { Box, Separator } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -15,7 +15,10 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-import { getDefaultContextualBanditQueryId } from "@/services/contextualBandits";
+import {
+  contextualBanditQueryPickerLocked,
+  getDefaultContextualBanditQueryId,
+} from "@/services/contextualBandits";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import SelectField from "@/components/Forms/SelectField";
@@ -161,7 +164,9 @@ export default function ContextualBanditAnalysisMetricsModal({
     attributeSchema,
   );
 
-  const managedWarehouse = !!datasource && isManagedWarehouse(datasource);
+  const managedWarehouse =
+    !!datasource &&
+    managedWarehouseGeneratesContextualBanditQueries(datasource);
   const defaultQueryId = useMemo(
     () =>
       getDefaultContextualBanditQueryId({
@@ -171,25 +176,17 @@ export default function ContextualBanditAnalysisMetricsModal({
       }),
     [datasource, cb.hashAttribute, contextualBanditQueries],
   );
+  const pickerLocked = contextualBanditQueryPickerLocked({
+    datasource,
+    queries: contextualBanditQueries,
+  });
 
   useEffect(() => {
     if (!contextualBanditQueries.length) return;
-    if (managedWarehouse) {
-      if (watchedQueryId !== defaultQueryId) {
-        form.setValue("exposureQueryId", defaultQueryId);
-      }
-      return;
-    }
     if (!contextualBanditQueries.find((q) => q.id === watchedQueryId)) {
       form.setValue("exposureQueryId", defaultQueryId);
     }
-  }, [
-    contextualBanditQueries,
-    watchedQueryId,
-    defaultQueryId,
-    managedWarehouse,
-    form,
-  ]);
+  }, [contextualBanditQueries, watchedQueryId, defaultQueryId, form]);
 
   const seededQueryIdRef = useRef<string | undefined>(
     cb.contextualBanditQueryId,
@@ -303,14 +300,14 @@ export default function ContextualBanditAnalysisMetricsModal({
             value={form.watch("exposureQueryId")}
             onChange={(v) => form.setValue("exposureQueryId", v)}
             required
-            disabled={managedWarehouse}
+            disabled={pickerLocked}
             options={contextualBanditQueries.map((q) => ({
               value: q.id,
               label: q.name,
             }))}
             helpText={
               managedWarehouse
-                ? "Selected automatically from the hash attribute on your Managed Warehouse."
+                ? "Generated queries are selected automatically from the hash attribute on your Managed Warehouse."
                 : "The bandit assignment query for this data source."
             }
           />

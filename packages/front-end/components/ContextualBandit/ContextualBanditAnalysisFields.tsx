@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getEligibleContextualAttributes } from "shared/validators";
-import { isManagedWarehouse } from "shared/util";
+import { managedWarehouseGeneratesContextualBanditQueries } from "shared/util";
 import { Box, Separator } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -10,7 +10,11 @@ import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
-import { getDefaultContextualBanditQueryId } from "@/services/contextualBandits";
+import {
+  contextualBanditQueryPickerLocked,
+  getDefaultContextualBanditQueryId,
+  resolveContextualBanditQuerySelection,
+} from "@/services/contextualBandits";
 import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
 import ContextualBanditDecisionMetricSettings from "@/components/ContextualBandit/ContextualBanditDecisionMetricSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -39,7 +43,9 @@ export default function ContextualBanditAnalysisFields({
 
   const exposureQueryId = form.watch("exposureQueryId");
   const hashAttribute = form.watch("hashAttribute");
-  const managedWarehouse = !!datasource && isManagedWarehouse(datasource);
+  const managedWarehouse =
+    !!datasource &&
+    managedWarehouseGeneratesContextualBanditQueries(datasource);
 
   const {
     contextualBanditQueries: cbQueries,
@@ -62,19 +68,27 @@ export default function ContextualBanditAnalysisFields({
       }),
     [datasource, hashAttribute, cbQueries],
   );
+  const pickerLocked = contextualBanditQueryPickerLocked({
+    datasource,
+    queries: cbQueries,
+  });
 
+  const lastHashAttributeRef = useRef<string | undefined>(hashAttribute);
   useEffect(() => {
     if (!cbQueries.length) return;
-    if (managedWarehouse) {
-      if (exposureQueryId !== defaultCbQueryId) {
-        form.setValue("exposureQueryId", defaultCbQueryId);
-      }
-      return;
+    const hashAttributeChanged = lastHashAttributeRef.current !== hashAttribute;
+    lastHashAttributeRef.current = hashAttribute;
+    const next = resolveContextualBanditQuerySelection({
+      datasource,
+      hashAttribute,
+      queries: cbQueries,
+      selectedQueryId: exposureQueryId,
+      hashAttributeChanged,
+    });
+    if (next !== exposureQueryId) {
+      form.setValue("exposureQueryId", next);
     }
-    if (!cbQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", defaultCbQueryId);
-    }
-  }, [cbQueries, exposureQueryId, defaultCbQueryId, managedWarehouse, form]);
+  }, [cbQueries, exposureQueryId, hashAttribute, datasource, form]);
 
   const attributeSchema = useAttributeSchema(false);
   const eligibleAttributes = useMemo(
@@ -163,7 +177,7 @@ export default function ContextualBanditAnalysisFields({
                   </>
                 )}
               </Callout>
-            ) : managedWarehouse && !defaultCbQueryId ? (
+            ) : managedWarehouse && !defaultCbQueryId && !selectedCbQuery ? (
               <Callout status="warning" mt="3">
                 No generated Contextual Bandit query matches the hash attribute{" "}
                 <code>{hashAttribute || "id"}</code>. Mark it as an identifier
@@ -182,10 +196,10 @@ export default function ContextualBanditAnalysisFields({
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
-                disabled={managedWarehouse}
+                disabled={pickerLocked}
                 helpText={
                   managedWarehouse
-                    ? "Selected automatically from the hash attribute on your Managed Warehouse."
+                    ? "Generated queries are selected automatically from the hash attribute on your Managed Warehouse."
                     : undefined
                 }
                 options={cbQueries.map((q) => ({

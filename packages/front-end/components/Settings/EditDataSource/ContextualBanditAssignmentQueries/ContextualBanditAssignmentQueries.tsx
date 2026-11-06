@@ -5,7 +5,7 @@ import {
   ApiContextualBanditQueryInterface,
   isManagedWarehouseContextualBanditQuery,
 } from "shared/validators";
-import { isManagedWarehouse } from "shared/util";
+import { managedWarehouseGeneratesContextualBanditQueries } from "shared/util";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
@@ -45,7 +45,8 @@ export const ContextualBanditAssignmentQueries: FC<
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
-  const managedWarehouse = isManagedWarehouse(dataSource);
+  const managedWarehouse =
+    managedWarehouseGeneratesContextualBanditQueries(dataSource);
 
   const { contextualBanditQueries, mutate, loading } =
     useContextualBanditQueries(dataSource.id);

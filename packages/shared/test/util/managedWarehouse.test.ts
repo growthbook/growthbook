@@ -11,6 +11,8 @@ import {
   getManagedWarehouseAttributesJsonFields,
   getManagedWarehouseContextualBanditTargetingAttributes,
   getManagedWarehouseQueryIdForAttribute,
+  managedWarehouseGeneratesContextualBanditQueries,
+  planManagedWarehouseContextualBanditQuerySync,
   getManagedWarehouseCustomIdentifiers,
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseExposureQueryIdForAttribute,
@@ -467,6 +469,58 @@ describe("getManagedWarehouseContextualBanditTargetingAttributes", () => {
     ).toEqual(["country"]);
   });
 
+  it("never reads prototype properties for attribute names", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "constructor", datatype: "string" },
+      { property: "toString", datatype: "string" },
+      { property: "hasOwnProperty", datatype: "string" },
+      { property: "__proto__", datatype: "string" },
+    ];
+    const out = getManagedWarehouseContextualBanditTargetingAttributes(schema);
+    expect(out.map((t) => t.property)).toEqual([
+      "__proto__",
+      "constructor",
+      "hasOwnProperty",
+      "toString",
+    ]);
+    out.forEach((t) => {
+      expect(t.selectExpr).toBe(
+        `attributes.${t.property}::Nullable(String) AS ${t.property}`,
+      );
+    });
+  });
+
+  it("keeps preserved columns that would otherwise be excluded", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "country", datatype: "string", hashAttribute: true },
+      { property: "plan", datatype: "number" },
+      { property: "tags", datatype: "string[]" },
+      { property: "old", datatype: "string", archived: true },
+      { property: "url", datatype: "string" },
+      { property: "utmSource", datatype: "string" },
+    ];
+    expect(
+      getManagedWarehouseContextualBanditTargetingAttributes(
+        schema,
+        [],
+        [],
+        ["country", "plan", "tags", "old", "url", "utmSource", "missing"],
+      ),
+    ).toEqual([
+      { property: "country", selectExpr: null },
+      {
+        property: "plan",
+        selectExpr: "attributes.plan::Nullable(String) AS plan",
+      },
+      {
+        property: "tags",
+        selectExpr: "attributes.tags::Nullable(String) AS tags",
+      },
+      { property: "utmSource", selectExpr: "utm_source AS utmSource" },
+    ]);
+  });
+
   it("reuses a preserved dimension alias instead of selecting it twice", () => {
     const schema: SDKAttributeSchema = [
       { property: "plan", datatype: "string" },
@@ -562,6 +616,169 @@ describe("buildManagedWarehouseContextualBanditQueries", () => {
         { property: "plan", datatype: "number" },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("managedWarehouseGeneratesContextualBanditQueries", () => {
+  it("is true only for JSON-columns managed warehouses", () => {
+    expect(
+      managedWarehouseGeneratesContextualBanditQueries({
+        type: "growthbook_clickhouse",
+        settings: { useJsonColumns: true } as GrowthbookClickhouseSettings,
+      }),
+    ).toBe(true);
+    expect(
+      managedWarehouseGeneratesContextualBanditQueries({
+        type: "growthbook_clickhouse",
+        settings: { materializedColumns: [] } as GrowthbookClickhouseSettings,
+      }),
+    ).toBe(false);
+    expect(
+      managedWarehouseGeneratesContextualBanditQueries({
+        type: "clickhouse",
+        settings: { useJsonColumns: true } as GrowthbookClickhouseSettings,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("planManagedWarehouseContextualBanditQuerySync", () => {
+  const schema: SDKAttributeSchema = [
+    { property: "id", datatype: "string", hashAttribute: true },
+    { property: "country", datatype: "string" },
+  ];
+  const desired = buildManagedWarehouseContextualBanditQueries(schema);
+  const record = (
+    overrides: Partial<{
+      id: string;
+      userIdType: string;
+      name: string;
+      query: string;
+      targetingAttributeColumns: string[];
+      dateCreated: Date;
+    }> = {},
+  ) => ({
+    id: "cbq_1",
+    userIdType: "user_id",
+    name: "user_id",
+    query: desired[0].query,
+    targetingAttributeColumns: desired[0].targetingAttributeColumns,
+    dateCreated: new Date("2026-01-01"),
+    ...overrides,
+  });
+
+  it("creates every desired query when none exist", () => {
+    const plan = planManagedWarehouseContextualBanditQuerySync({
+      existing: [],
+      desired,
+      referencedQueryIds: [],
+    });
+    expect(plan.create).toEqual(desired);
+    expect(plan.update).toEqual([]);
+    expect(plan.remove).toEqual([]);
+    expect(plan.keep).toEqual([]);
+  });
+
+  it("keeps unchanged queries and updates changed ones in place", () => {
+    const userQuery = record();
+    const deviceQuery = record({
+      id: "cbq_2",
+      userIdType: "device_id",
+      name: "device_id",
+      targetingAttributeColumns: [],
+    });
+    const plan = planManagedWarehouseContextualBanditQuerySync({
+      existing: [userQuery, deviceQuery],
+      desired,
+      referencedQueryIds: [],
+    });
+    expect(plan.create).toEqual([]);
+    expect(plan.keep).toEqual([userQuery]);
+    expect(plan.update).toEqual([
+      {
+        existing: deviceQuery,
+        changes: {
+          name: "device_id",
+          userIdType: "device_id",
+          query: desired[1].query,
+          targetingAttributeColumns: desired[1].targetingAttributeColumns,
+        },
+      },
+    ]);
+    expect(plan.remove).toEqual([]);
+  });
+
+  it("matches identifiers case-insensitively", () => {
+    const plan = planManagedWarehouseContextualBanditQuerySync({
+      existing: [record({ userIdType: "User_ID", name: "User_ID" })],
+      desired: [desired[0]],
+      referencedQueryIds: [],
+    });
+    expect(plan.create).toEqual([]);
+    expect(plan.update).toHaveLength(1);
+    expect(plan.update[0].changes.userIdType).toBe("user_id");
+  });
+
+  it("removes queries for identifiers that are gone unless a bandit references them", () => {
+    const company = record({
+      id: "cbq_company",
+      userIdType: "company_id",
+      name: "company_id",
+    });
+    const legacy = record({
+      id: "cbq_legacy",
+      userIdType: "legacy_key",
+      name: "legacy_key",
+    });
+    const plan = planManagedWarehouseContextualBanditQuerySync({
+      existing: [record(), company, legacy],
+      desired: [desired[0]],
+      referencedQueryIds: ["cbq_company"],
+    });
+    expect(plan.keep).toEqual([record(), company]);
+    expect(plan.remove).toEqual([legacy]);
+  });
+
+  it("refreshes every duplicate a bandit references and drops the unreferenced extras", () => {
+    const canonical = record({
+      id: "cbq_old",
+      dateCreated: new Date("2026-01-01"),
+      targetingAttributeColumns: [],
+    });
+    const referencedDup = record({
+      id: "cbq_dup_used",
+      dateCreated: new Date("2026-01-03"),
+      targetingAttributeColumns: [],
+    });
+    const unusedDup = record({
+      id: "cbq_dup_unused",
+      dateCreated: new Date("2026-01-02"),
+    });
+    const plan = planManagedWarehouseContextualBanditQuerySync({
+      existing: [unusedDup, referencedDup, canonical],
+      desired: [desired[0]],
+      referencedQueryIds: ["cbq_dup_used"],
+    });
+    expect(plan.create).toEqual([]);
+    expect(plan.update.map((u) => u.existing.id)).toEqual([
+      "cbq_old",
+      "cbq_dup_used",
+    ]);
+    expect(plan.remove).toEqual([unusedDup]);
+    expect(plan.keep).toEqual([]);
+  });
+
+  it("plans nothing for an empty desired set beyond removing unreferenced queries", () => {
+    const used = record({ id: "cbq_used" });
+    const plan = planManagedWarehouseContextualBanditQuerySync({
+      existing: [used, record({ id: "cbq_unused", userIdType: "device_id" })],
+      desired: [],
+      referencedQueryIds: ["cbq_used"],
+    });
+    expect(plan.create).toEqual([]);
+    expect(plan.update).toEqual([]);
+    expect(plan.keep).toEqual([used]);
+    expect(plan.remove.map((d) => d.id)).toEqual(["cbq_unused"]);
   });
 });
 

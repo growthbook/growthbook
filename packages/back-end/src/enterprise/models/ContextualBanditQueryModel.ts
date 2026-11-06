@@ -6,15 +6,13 @@ import {
   contextualBanditQueryValidator,
   isManagedWarehouseContextualBanditQuery,
 } from "shared/validators";
-import {
-  ManagedWarehouseContextualBanditQuery,
-  normalizeUserIdTypeName,
-} from "shared/util";
+import { ManagedWarehouseContextualBanditQuerySyncPlan } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { logger } from "back-end/src/util/logger";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 
 type WriteOptions = {
   managedWarehouseSync?: {
@@ -37,6 +35,15 @@ const BaseClass = MakeModelClass({
         organization: 1,
         datasourceId: 1,
       },
+    },
+    {
+      fields: {
+        organization: 1,
+        datasourceId: 1,
+        userIdType: 1,
+      },
+      unique: true,
+      partialFilterExpression: { managedBy: "api" },
     },
   ],
   apiConfig: {
@@ -199,25 +206,18 @@ export class ContextualBanditQueryModel extends BaseClass<WriteOptions> {
     return docs.filter(isManagedWarehouseContextualBanditQuery);
   }
 
-  public async dangerouslySyncManagedWarehouseQueries(
+  public async dangerouslyApplyManagedWarehouseQuerySyncPlan(
     datasourceId: string,
-    desired: ManagedWarehouseContextualBanditQuery[],
+    plan: ManagedWarehouseContextualBanditQuerySyncPlan<ContextualBanditQueryInterface>,
     attributeSchema: SDKAttributeSchema | undefined,
   ): Promise<void> {
     const writeOptions: WriteOptions = {
       managedWarehouseSync: { attributeSchema },
     };
-    const existing =
-      await this.getManagedWarehouseQueriesByDatasource(datasourceId);
-    const stale = new Map(
-      existing.map((q) => [normalizeUserIdTypeName(q.userIdType), q]),
-    );
+    const orgId = this.context.org.id;
 
-    for (const d of desired) {
-      const key = normalizeUserIdTypeName(d.userIdType);
-      const current = stale.get(key);
-      stale.delete(key);
-      if (!current) {
+    for (const d of plan.create) {
+      try {
         await this._createOne(
           {
             owner: "",
@@ -231,32 +231,63 @@ export class ContextualBanditQueryModel extends BaseClass<WriteOptions> {
           writeOptions,
           true,
         );
-        continue;
-      }
-      await this._updateOne(
-        current,
-        {
-          name: d.name,
+      } catch (e) {
+        if (!isDuplicateKeyError(e)) {
+          logger.error(
+            e,
+            `Failed to create Managed Warehouse contextual bandit query ${d.userIdType} for org ${orgId}`,
+          );
+          continue;
+        }
+        const current = await this._findOne({
+          datasourceId,
+          managedBy: "api",
           userIdType: d.userIdType,
-          query: d.query,
-          targetingAttributeColumns: d.targetingAttributeColumns,
-        },
-        { writeOptions, forceCanUpdate: true },
-      );
+        });
+        if (!current) continue;
+        try {
+          await this._updateOne(
+            current,
+            {
+              name: d.name,
+              userIdType: d.userIdType,
+              query: d.query,
+              targetingAttributeColumns: d.targetingAttributeColumns,
+            },
+            { writeOptions, forceCanUpdate: true },
+          );
+        } catch (e) {
+          logger.error(
+            e,
+            `Failed to update Managed Warehouse contextual bandit query ${current.id} for org ${orgId}`,
+          );
+        }
+      }
     }
 
-    for (const doc of stale.values()) {
-      const referencing =
-        await this.context.models.contextualBandits.getByContextualBanditQueryId(
-          doc.id,
+    for (const { existing, changes } of plan.update) {
+      try {
+        await this._updateOne(existing, changes, {
+          writeOptions,
+          forceCanUpdate: true,
+        });
+      } catch (e) {
+        logger.error(
+          e,
+          `Failed to update Managed Warehouse contextual bandit query ${existing.id} for org ${orgId}`,
         );
-      if (referencing.length > 0) {
-        logger.warn(
-          `Keeping Managed Warehouse contextual bandit query ${doc.id} (${doc.userIdType}) for org ${this.context.org.id}: identifier removed but still referenced by ${referencing.length} contextual bandit(s)`,
-        );
-        continue;
       }
-      await this._deleteOne(doc, writeOptions, true);
+    }
+
+    for (const doc of plan.remove) {
+      try {
+        await this._deleteOne(doc, writeOptions, true);
+      } catch (e) {
+        logger.error(
+          e,
+          `Failed to delete Managed Warehouse contextual bandit query ${doc.id} for org ${orgId}`,
+        );
+      }
     }
   }
 

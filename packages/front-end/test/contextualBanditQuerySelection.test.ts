@@ -2,7 +2,11 @@ import type {
   DataSourceInterfaceWithParams,
   DataSourceType,
 } from "shared/types/datasource";
-import { getDefaultContextualBanditQueryId } from "@/services/contextualBandits";
+import {
+  contextualBanditQueryPickerLocked,
+  getDefaultContextualBanditQueryId,
+  resolveContextualBanditQuerySelection,
+} from "@/services/contextualBandits";
 
 function makeDatasource(
   type: DataSourceType,
@@ -17,10 +21,17 @@ function makeDatasource(
 }
 
 const managedQueries = [
-  { id: "cbq_user", userIdType: "user_id" },
-  { id: "cbq_device", userIdType: "device_id" },
-  { id: "cbq_company", userIdType: "company_id" },
+  { id: "cbq_user", userIdType: "user_id", managedBy: "api" as const },
+  { id: "cbq_device", userIdType: "device_id", managedBy: "api" as const },
+  { id: "cbq_company", userIdType: "company_id", managedBy: "api" as const },
 ];
+const customQuery = { id: "cbq_custom", userIdType: "device_id" };
+const jsonWarehouse = makeDatasource("growthbook_clickhouse", {
+  useJsonColumns: true,
+});
+const legacyWarehouse = makeDatasource("growthbook_clickhouse", {
+  materializedColumns: [],
+});
 
 describe("getDefaultContextualBanditQueryId", () => {
   it("returns nothing without a datasource or queries", () => {
@@ -97,6 +108,33 @@ describe("getDefaultContextualBanditQueryId", () => {
     ).toBe("cbq_user");
   });
 
+  it("ignores user-written queries when picking the generated default", () => {
+    expect(
+      getDefaultContextualBanditQueryId({
+        datasource: jsonWarehouse,
+        hashAttribute: "id",
+        queries: [customQuery, ...managedQueries],
+      }),
+    ).toBe("cbq_device");
+    expect(
+      getDefaultContextualBanditQueryId({
+        datasource: jsonWarehouse,
+        hashAttribute: "id",
+        queries: [customQuery],
+      }),
+    ).toBe("");
+  });
+
+  it("treats a legacy managed warehouse like any other data source", () => {
+    expect(
+      getDefaultContextualBanditQueryId({
+        datasource: legacyWarehouse,
+        hashAttribute: "company_id",
+        queries: [customQuery, ...managedQueries],
+      }),
+    ).toBe("cbq_custom");
+  });
+
   it("does not fall back to an arbitrary query on a managed warehouse", () => {
     expect(
       getDefaultContextualBanditQueryId({
@@ -107,5 +145,114 @@ describe("getDefaultContextualBanditQueryId", () => {
         queries: managedQueries,
       }),
     ).toBe("");
+  });
+});
+
+describe("resolveContextualBanditQuerySelection", () => {
+  it("keeps a valid selection, generated or custom", () => {
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "id",
+        queries: [customQuery, ...managedQueries],
+        selectedQueryId: "cbq_custom",
+        hashAttributeChanged: false,
+      }),
+    ).toBe("cbq_custom");
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "id",
+        queries: [customQuery, ...managedQueries],
+        selectedQueryId: "cbq_user",
+        hashAttributeChanged: false,
+      }),
+    ).toBe("cbq_user");
+  });
+
+  it("defaults when nothing valid is selected", () => {
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "company_id",
+        queries: managedQueries,
+        selectedQueryId: "",
+        hashAttributeChanged: false,
+      }),
+    ).toBe("cbq_company");
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: makeDatasource("postgres"),
+        hashAttribute: "id",
+        queries: [customQuery, ...managedQueries],
+        selectedQueryId: "cbq_gone",
+        hashAttributeChanged: false,
+      }),
+    ).toBe("cbq_custom");
+  });
+
+  it("re-picks a generated query when the hash attribute changes, but leaves a custom one alone", () => {
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "company_id",
+        queries: [customQuery, ...managedQueries],
+        selectedQueryId: "cbq_device",
+        hashAttributeChanged: true,
+      }),
+    ).toBe("cbq_company");
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "company_id",
+        queries: [customQuery, ...managedQueries],
+        selectedQueryId: "cbq_custom",
+        hashAttributeChanged: true,
+      }),
+    ).toBe("cbq_custom");
+    expect(
+      resolveContextualBanditQuerySelection({
+        datasource: jsonWarehouse,
+        hashAttribute: "not_an_identifier",
+        queries: managedQueries,
+        selectedQueryId: "cbq_device",
+        hashAttributeChanged: true,
+      }),
+    ).toBe("");
+  });
+});
+
+describe("contextualBanditQueryPickerLocked", () => {
+  it("locks only when every query on a JSON managed warehouse is generated", () => {
+    expect(
+      contextualBanditQueryPickerLocked({
+        datasource: jsonWarehouse,
+        queries: managedQueries,
+      }),
+    ).toBe(true);
+    expect(
+      contextualBanditQueryPickerLocked({
+        datasource: jsonWarehouse,
+        queries: [customQuery, ...managedQueries],
+      }),
+    ).toBe(false);
+    expect(
+      contextualBanditQueryPickerLocked({
+        datasource: jsonWarehouse,
+        queries: [],
+      }),
+    ).toBe(false);
+    expect(
+      contextualBanditQueryPickerLocked({
+        datasource: legacyWarehouse,
+        queries: managedQueries,
+      }),
+    ).toBe(false);
+    expect(
+      contextualBanditQueryPickerLocked({
+        datasource: makeDatasource("postgres"),
+        queries: managedQueries,
+      }),
+    ).toBe(false);
   });
 });

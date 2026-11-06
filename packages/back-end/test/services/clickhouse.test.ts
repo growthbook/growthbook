@@ -7,6 +7,7 @@ import {
   buildManagedWarehouseEventsFactTableSql,
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseUserIdTypes,
+  planManagedWarehouseContextualBanditQuerySync,
 } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -144,12 +145,18 @@ describe("listSessionReplays", () => {
 });
 
 describe("syncManagedWarehouseIdentifiers", () => {
-  const mockSyncCbQueries = jest.fn();
+  const mockApplyPlan = jest.fn();
+  const mockGetManagedQueries = jest.fn();
+  const mockGetReferencing = jest.fn();
   const context = {
     org: { id: "org_test", settings: {} },
     models: {
       contextualBanditQueries: {
-        dangerouslySyncManagedWarehouseQueries: mockSyncCbQueries,
+        getManagedWarehouseQueriesByDatasource: mockGetManagedQueries,
+        dangerouslyApplyManagedWarehouseQuerySyncPlan: mockApplyPlan,
+      },
+      contextualBandits: {
+        getByContextualBanditQueryIds: mockGetReferencing,
       },
     },
   } as unknown as ReqContext;
@@ -197,6 +204,9 @@ describe("syncManagedWarehouseIdentifiers", () => {
     mockGetDatasource.mockResolvedValue(datasource);
     mockUpdateDataSource.mockResolvedValue(undefined as never);
     mockSyncFactTable.mockResolvedValue(undefined as never);
+    mockGetManagedQueries.mockResolvedValue([]);
+    mockGetReferencing.mockResolvedValue([]);
+    mockApplyPlan.mockResolvedValue(undefined);
   });
 
   it("updates the attributes JSON field type when an attribute datatype changes", async () => {
@@ -282,12 +292,34 @@ describe("syncManagedWarehouseIdentifiers", () => {
 
     await syncManagedWarehouseIdentifiers(context, schema);
 
-    expect(mockSyncCbQueries).toHaveBeenCalledTimes(1);
-    expect(mockSyncCbQueries).toHaveBeenCalledWith(
+    expect(mockApplyPlan).toHaveBeenCalledTimes(1);
+    expect(mockApplyPlan).toHaveBeenCalledWith(
       "managed_warehouse",
-      buildManagedWarehouseContextualBanditQueries(schema),
+      planManagedWarehouseContextualBanditQuerySync({
+        existing: [],
+        desired: buildManagedWarehouseContextualBanditQueries(schema),
+        referencedQueryIds: [],
+      }),
       schema,
     );
+  });
+
+  it("still syncs the fact table when the contextual bandit sync fails", async () => {
+    const schema: SDKAttributeSchema = [
+      { property: "age", datatype: "string" },
+    ];
+    const ft = makeManagedFactTable(schema, (cols) => {
+      const attrs = cols.find((c) => c.column === "attributes")!;
+      attrs.jsonFields = { age: { datatype: "number" } };
+    });
+    mockGetFactTableById.mockResolvedValue(ft);
+    mockGetManagedQueries.mockRejectedValue(new Error("boom"));
+
+    await expect(
+      syncManagedWarehouseIdentifiers(context, schema),
+    ).resolves.toBeUndefined();
+
+    expect(mockSyncFactTable).toHaveBeenCalledTimes(1);
   });
 
   it("no-ops for legacy (materialized-column) warehouses", async () => {
@@ -301,12 +333,14 @@ describe("syncManagedWarehouseIdentifiers", () => {
     expect(mockUpdateDataSource).not.toHaveBeenCalled();
     expect(mockGetFactTableById).not.toHaveBeenCalled();
     expect(mockSyncFactTable).not.toHaveBeenCalled();
-    expect(mockSyncCbQueries).not.toHaveBeenCalled();
+    expect(mockApplyPlan).not.toHaveBeenCalled();
   });
 });
 
 describe("syncManagedWarehouseContextualBanditQueries", () => {
-  const mockSyncCbQueries = jest.fn();
+  const mockApplyPlan = jest.fn();
+  const mockGetManagedQueries = jest.fn();
+  const mockGetReferencing = jest.fn();
   const schema: SDKAttributeSchema = [
     { property: "id", datatype: "string", hashAttribute: true },
     { property: "company_id", datatype: "string", hashAttribute: true },
@@ -317,7 +351,11 @@ describe("syncManagedWarehouseContextualBanditQueries", () => {
     org: { id: "org_test", settings: { attributeSchema: schema } },
     models: {
       contextualBanditQueries: {
-        dangerouslySyncManagedWarehouseQueries: mockSyncCbQueries,
+        getManagedWarehouseQueriesByDatasource: mockGetManagedQueries,
+        dangerouslyApplyManagedWarehouseQuerySyncPlan: mockApplyPlan,
+      },
+      contextualBandits: {
+        getByContextualBanditQueryIds: mockGetReferencing,
       },
     },
   } as unknown as ReqContext;
@@ -342,28 +380,51 @@ describe("syncManagedWarehouseContextualBanditQueries", () => {
     },
   } as unknown as GrowthbookClickhouseDataSource;
 
+  function managedQuery(id: string, userIdType: string) {
+    return {
+      id,
+      organization: "org_test",
+      datasourceId: "managed_warehouse",
+      managedBy: "api",
+      name: userIdType,
+      userIdType,
+      query: "",
+      targetingAttributeColumns: [],
+      dateCreated: new Date("2026-01-01"),
+      dateUpdated: new Date("2026-01-01"),
+      owner: "",
+    };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetManagedQueries.mockResolvedValue([]);
+    mockGetReferencing.mockResolvedValue([]);
+    mockApplyPlan.mockResolvedValue(undefined);
   });
 
   it("derives the queries from the datasource settings and the org schema", async () => {
     await syncManagedWarehouseContextualBanditQueries(context, datasource);
 
-    const expected = buildManagedWarehouseContextualBanditQueries(
+    const desired = buildManagedWarehouseContextualBanditQueries(
       schema,
       ["legacy_key"],
       datasource.settings.migratedColumns,
       "user_id",
     );
-    expect(expected.map((q) => q.userIdType)).toEqual([
+    expect(desired.map((q) => q.userIdType)).toEqual([
       "user_id",
       "device_id",
       "company_id",
       "legacy_key",
     ]);
-    expect(mockSyncCbQueries).toHaveBeenCalledWith(
+    expect(mockApplyPlan).toHaveBeenCalledWith(
       "managed_warehouse",
-      expected,
+      planManagedWarehouseContextualBanditQuerySync({
+        existing: [],
+        desired,
+        referencedQueryIds: [],
+      }),
       schema,
     );
   });
@@ -380,12 +441,59 @@ describe("syncManagedWarehouseContextualBanditQueries", () => {
       fresh,
     );
 
-    const [, desired, passedSchema] = mockSyncCbQueries.mock.calls[0];
+    const [, plan, passedSchema] = mockApplyPlan.mock.calls[0];
     expect(passedSchema).toBe(fresh);
-    expect(desired[0].targetingAttributeColumns).toEqual([
+    expect(plan.create[0].targetingAttributeColumns).toEqual([
       "browser",
       "country",
     ]);
+  });
+
+  it("preserves the context attributes of bandits that use the existing queries", async () => {
+    const existing = [
+      managedQuery("cbq_user", "user_id"),
+      managedQuery("cbq_device", "device_id"),
+    ];
+    mockGetManagedQueries.mockResolvedValue(existing);
+    mockGetReferencing.mockResolvedValue([
+      {
+        id: "cb_running",
+        contextualBanditQueryId: "cbq_user",
+        archived: false,
+        contextualAttributes: ["country"],
+      },
+      {
+        id: "cb_archived",
+        contextualBanditQueryId: "cbq_device",
+        archived: true,
+        contextualAttributes: ["plan"],
+      },
+    ]);
+    const countryIsNowAnIdentifier: SDKAttributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "country", datatype: "string", hashAttribute: true },
+      { property: "plan", datatype: "number" },
+    ];
+
+    await syncManagedWarehouseContextualBanditQueries(
+      context,
+      datasource,
+      countryIsNowAnIdentifier,
+    );
+
+    expect(mockGetReferencing).toHaveBeenCalledWith(["cbq_user", "cbq_device"]);
+    const [, plan] = mockApplyPlan.mock.calls[0];
+    const userUpdate = plan.update.find(
+      (u: { existing: { id: string } }) => u.existing.id === "cbq_user",
+    );
+    expect(userUpdate.changes.targetingAttributeColumns).toEqual(["country"]);
+    expect(userUpdate.changes.query).toContain(
+      "attributes.country::Nullable(String) AS country",
+    );
+    expect(userUpdate.changes.query).not.toContain("AS plan");
+    expect(
+      plan.create.map((q: { userIdType: string }) => q.userIdType),
+    ).toEqual(["country", "legacy_key"]);
   });
 
   it("no-ops for non-managed and legacy warehouses", async () => {
@@ -398,6 +506,7 @@ describe("syncManagedWarehouseContextualBanditQueries", () => {
       settings: { queries: {} },
     } as unknown as GrowthbookClickhouseDataSource);
 
-    expect(mockSyncCbQueries).not.toHaveBeenCalled();
+    expect(mockGetManagedQueries).not.toHaveBeenCalled();
+    expect(mockApplyPlan).not.toHaveBeenCalled();
   });
 });

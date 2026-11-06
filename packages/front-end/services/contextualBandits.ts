@@ -7,7 +7,7 @@ import {
 import { getActiveVariations } from "shared/experiments";
 import {
   getManagedWarehouseQueryIdForAttribute,
-  isManagedWarehouse,
+  managedWarehouseGeneratesContextualBanditQueries,
 } from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -196,6 +196,12 @@ export function useContextualBanditSearch({
   });
 }
 
+type ContextualBanditQueryOption = {
+  id: string;
+  userIdType: string;
+  managedBy?: "" | "api";
+};
+
 export function getDefaultContextualBanditQueryId({
   datasource,
   hashAttribute,
@@ -203,15 +209,58 @@ export function getDefaultContextualBanditQueryId({
 }: {
   datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings"> | null;
   hashAttribute: string | undefined;
-  queries: { id: string; userIdType: string }[];
+  queries: ContextualBanditQueryOption[];
 }): string {
   if (!datasource || !queries.length) return "";
-  if (isManagedWarehouse(datasource)) {
+  if (managedWarehouseGeneratesContextualBanditQueries(datasource)) {
     return getManagedWarehouseQueryIdForAttribute({
       settings: datasource.settings as GrowthbookClickhouseSettings,
       attribute: hashAttribute || "id",
-      queries,
+      queries: queries.filter((q) => q.managedBy === "api"),
     });
   }
   return queries[0].id;
+}
+
+export function resolveContextualBanditQuerySelection({
+  datasource,
+  hashAttribute,
+  queries,
+  selectedQueryId,
+  hashAttributeChanged,
+}: {
+  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings"> | null;
+  hashAttribute: string | undefined;
+  queries: ContextualBanditQueryOption[];
+  selectedQueryId: string | undefined;
+  hashAttributeChanged: boolean;
+}): string {
+  const generates =
+    !!datasource &&
+    managedWarehouseGeneratesContextualBanditQueries(datasource);
+  const selected = queries.find((q) => q.id === selectedQueryId);
+  if (selected) {
+    const followsHashAttribute =
+      generates && selected.managedBy === "api" && hashAttributeChanged;
+    if (!followsHashAttribute) return selected.id;
+  }
+  return getDefaultContextualBanditQueryId({
+    datasource,
+    hashAttribute,
+    queries,
+  });
+}
+
+export function contextualBanditQueryPickerLocked({
+  datasource,
+  queries,
+}: {
+  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings"> | null;
+  queries: ContextualBanditQueryOption[];
+}): boolean {
+  if (!datasource) return false;
+  if (!managedWarehouseGeneratesContextualBanditQueries(datasource)) {
+    return false;
+  }
+  return queries.length > 0 && queries.every((q) => q.managedBy === "api");
 }
