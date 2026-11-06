@@ -16,10 +16,11 @@
   flex-shrink: 0;
   margin-right: -8px;
 
-  // LetterAvatar's 26px size shown at 22px, nearer the 18px icons, without
-  // changing the component. A transform keeps its 26px layout box.
+  // LetterAvatar's 26px size shown at 20px, as the profile avatar, nearer the
+  // 18px icons, without changing the component. A transform keeps its 26px
+  // layout box.
   > * {
-    transform: scale(calc(22 / 26));
+    transform: scale(calc(20 / 26));
   }
 }
 
