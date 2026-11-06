@@ -1,7 +1,7 @@
 import {
-  getManagedWarehouseActivityConfig,
-  getManagedWarehouseDailyCounts,
-} from "./managedWarehouseActivityConfig";
+  getEventActivityConfig,
+  getEventActivityDailyCounts,
+} from "./eventActivityConfig";
 
 const dateRange = {
   predefined: "customDateRange" as const,
@@ -9,11 +9,11 @@ const dateRange = {
   endDate: "2026-10-03",
 };
 
-describe("getManagedWarehouseActivityConfig", () => {
+describe("getEventActivityConfig", () => {
   it("counts events per day on the managed events fact table", () => {
-    const config = getManagedWarehouseActivityConfig({
+    const config = getEventActivityConfig({
       datasourceId: "ds_1",
-      factTableId: "ch_events",
+      factTableId: "ds_1_events",
       dateRange,
     });
     expect(config).toMatchObject({
@@ -25,16 +25,16 @@ describe("getManagedWarehouseActivityConfig", () => {
       ],
       dataset: {
         type: "fact_table",
-        factTableId: "ch_events",
+        factTableId: "ds_1_events",
         values: [{ valueType: "count", valueColumn: null, unit: null }],
       },
     });
   });
 });
 
-describe("getManagedWarehouseDailyCounts", () => {
+describe("getEventActivityDailyCounts", () => {
   it("fills missing days with zero and sums the total", () => {
-    const result = getManagedWarehouseDailyCounts({
+    const result = getEventActivityDailyCounts({
       dateStart: "2026-10-01T00:00:00Z",
       dateEnd: "2026-10-03T23:59:59Z",
       result: {

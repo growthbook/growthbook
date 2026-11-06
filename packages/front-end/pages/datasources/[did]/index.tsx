@@ -775,17 +775,14 @@ const DataSourcePage: FC = () => {
                   <ManagedWarehouseNoEventsCallout />
                 ) : (
                   <Frame mb="0">
-                    <Text as="p" mb="4">
-                      <DocLink
-                        useRadix={false}
-                        docSection="managedWarehouseTracking"
-                      >
+                    <ManagedWarehouseActivity dataSource={d} />
+                    <Text as="p" mt="4" mb="0">
+                      <DocLink docSection="managedWarehouseTracking">
                         Read our full docs
                       </DocLink>{" "}
                       with instructions on how to send events from your app to
                       GrowthBook.
                     </Text>
-                    <ManagedWarehouseActivity dataSource={d} />
                   </Frame>
                 )}
               </Flex>

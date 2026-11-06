@@ -5,8 +5,8 @@ import type {
 } from "shared/validators";
 import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
 
-// Daily event counts from the Managed Warehouse's `ch_events` fact table.
-export function getManagedWarehouseActivityConfig({
+// Daily event counts from a managed events fact table.
+export function getEventActivityConfig({
   datasourceId,
   factTableId,
   dateRange,
@@ -42,7 +42,7 @@ export function getManagedWarehouseActivityConfig({
 }
 
 // One entry per UTC day in the range; days without rows count as zero.
-export function getManagedWarehouseDailyCounts(
+export function getEventActivityDailyCounts(
   exploration: Pick<
     ProductAnalyticsExploration,
     "dateStart" | "dateEnd" | "result"
