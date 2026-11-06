@@ -1,6 +1,7 @@
 import type { GrowthBook } from "../GrowthBook";
 import type { UserScopedGrowthBook } from "../GrowthBookClient";
-import { genUUID, hash } from "../util";
+import type { InterleavingDefinition } from "../types/growthbook";
+import { genUUID, hasOwn, hash } from "../util";
 import { AnyGrowthBook, isGrowthBookClient } from "./utils/instance";
 
 export const EVENT_INTERLEAVE_EXPOSURE = "Interleave Exposure";
@@ -8,6 +9,12 @@ export const EVENT_INTERLEAVE_EXPOSURE = "Interleave Exposure";
 // A ranker's config, authored in GrowthBook and handed straight to getList.
 // Opaque to the SDK — only getList knows its shape.
 export type InterleaveConfig = Record<string, unknown>;
+
+// One ranker as the payload carries it: its key and the config handed to getList.
+export type InterleaveRanker<C extends object = InterleaveConfig> = {
+  key: string;
+  config: C;
+};
 
 export type InterleavedItem = {
   itemId: string;
@@ -310,4 +317,31 @@ export async function interleave<T, C extends object = InterleaveConfig>(
       ranking_id: rankingId,
     },
   };
+}
+
+function rankersOf(definition: InterleavingDefinition): InterleaveRanker[] {
+  return definition.variations.length === 2
+    ? definition.variations.map((v) => ({ ...v }))
+    : [];
+}
+
+export function getActiveRankingConfigs(
+  gb: AnyGrowthBook,
+): Record<string, InterleaveRanker[]> {
+  const interleavings = gb.getDecryptedPayload().interleavings || {};
+  // Object.fromEntries keeps a `__proto__` key as a plain key
+  return Object.fromEntries(
+    Object.entries(interleavings)
+      .map(([key, definition]) => [key, rankersOf(definition)] as const)
+      .filter(([, rankers]) => rankers.length > 0),
+  );
+}
+
+export function getActiveRankingConfigsForKey<
+  C extends object = InterleaveConfig,
+>(gb: AnyGrowthBook, key: string): InterleaveRanker<C>[] {
+  const interleavings = gb.getDecryptedPayload().interleavings || {};
+  return hasOwn(interleavings, key)
+    ? (rankersOf(interleavings[key]) as InterleaveRanker<C>[])
+    : [];
 }

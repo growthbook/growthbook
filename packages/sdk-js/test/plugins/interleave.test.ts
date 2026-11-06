@@ -9,6 +9,8 @@ import type {
 import {
   interleave,
   interleavePlugin,
+  getActiveRankingConfigs,
+  getActiveRankingConfigsForKey,
   teamDraft,
   EVENT_INTERLEAVE_EXPOSURE,
   InterleaveConfig,
@@ -771,6 +773,107 @@ describe("interleave", () => {
     expect(
       onExposure.mock.calls.map((c) => (c[0] as InterleaveExposure).rankingId),
     ).toEqual(["r-page", "r-page"]);
+    gb.destroy();
+  });
+});
+
+describe("getActiveRankingConfigs", () => {
+  const rankers = [
+    { key: "popular", config: configs.popular },
+    { key: "buyers-pick", config: configs["buyers-pick"] },
+  ];
+
+  it("returns every interleaving's rankers in control-first order", () => {
+    const { gb } = setup();
+    expect(getActiveRankingConfigs(gb)).toEqual({ search: rankers });
+    gb.destroy();
+  });
+
+  it("returns the rankers for a single key", () => {
+    const { gb } = setup();
+    expect(getActiveRankingConfigsForKey(gb, "search")).toEqual(rankers);
+    expect(getActiveRankingConfigsForKey(gb, "missing")).toEqual([]);
+    // Inherited keys are not interleavings
+    expect(getActiveRankingConfigsForKey(gb, "toString")).toEqual([]);
+    gb.destroy();
+  });
+
+  it("returns nothing before init and when the payload has no interleavings", () => {
+    const uninitialized = new GrowthBook({ attributes: { id: "u1" } });
+    expect(getActiveRankingConfigs(uninitialized)).toEqual({});
+    expect(getActiveRankingConfigsForKey(uninitialized, "search")).toEqual([]);
+    uninitialized.destroy();
+
+    const gb = new GrowthBook({ attributes: { id: "u1" } });
+    gb.initSync({ payload: { features: flag() } });
+    expect(getActiveRankingConfigs(gb)).toEqual({});
+    gb.destroy();
+  });
+
+  it("reads the payload off a multi-user client and its scoped instances", () => {
+    const client = new GrowthBookClient();
+    client.initSync({ payload: payload() });
+    const user = client.createScopedInstance({ attributes: { id: "u2" } });
+    expect(getActiveRankingConfigs(client)).toEqual({ search: rankers });
+    expect(getActiveRankingConfigs(user)).toEqual({ search: rankers });
+    client.destroy();
+  });
+
+  it("ignores targeting, since a pre-compute job has no user yet", async () => {
+    const { gb } = setup({ id: "u1" }, { condition: { country: "US" } });
+    const res = await interleave(gb, {
+      key: "search",
+      getList,
+      fallbackConfig,
+    });
+    expect(res.inExperiment).toBe(false);
+    expect(getActiveRankingConfigs(gb)).toEqual({ search: rankers });
+    gb.destroy();
+  });
+
+  it("handles an interleaving keyed __proto__", () => {
+    const gb = new GrowthBook({ attributes: { id: "u1" } });
+    // Parsed rather than written as a literal, which would set the prototype
+    const interleavings = JSON.parse(
+      `{"__proto__":${JSON.stringify(payload().interleavings!.search)}}`,
+    );
+    gb.initSync({ payload: { features: flag(), interleavings } });
+    expect(Object.keys(getActiveRankingConfigs(gb))).toEqual(["__proto__"]);
+    expect(getActiveRankingConfigsForKey(gb, "__proto__")).toEqual(rankers);
+    gb.destroy();
+  });
+
+  it("skips a definition that isn't exactly two rankers", () => {
+    const base = payload();
+    const gb = new GrowthBook({ attributes: { id: "u1" } });
+    gb.initSync({
+      payload: {
+        ...base,
+        interleavings: {
+          search: {
+            ...base.interleavings!.search,
+            variations: [{ key: "popular", config: configs.popular }],
+          },
+        },
+      },
+    });
+    expect(getActiveRankingConfigs(gb)).toEqual({});
+    expect(getActiveRankingConfigsForKey(gb, "search")).toEqual([]);
+    gb.destroy();
+  });
+
+  it("hands back a copy, so a caller can't break what interleave serves", async () => {
+    const { gb } = setup();
+    const mine = getActiveRankingConfigsForKey(gb, "search");
+    mine[0].key = "tampered";
+    mine.length = 1;
+    const res = await interleave(gb, {
+      key: "search",
+      getList,
+      fallbackConfig,
+    });
+    expect(res.inExperiment).toBe(true);
+    expect(getActiveRankingConfigsForKey(gb, "search")).toEqual(rankers);
     gb.destroy();
   });
 });
