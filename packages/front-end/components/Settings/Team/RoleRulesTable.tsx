@@ -324,7 +324,7 @@ export default function RoleRulesTable({
       <Flex align="center" gap="3">
         {unusedProjects.length > 0 && hasAdvancedPermissions && (
           <Tooltip
-            content="Project overrides have no effect for admins"
+            content="Project overrides have no effect for a global Admin."
             enabled={adminEverywhere}
           >
             <span tabIndex={adminEverywhere ? 0 : undefined}>
