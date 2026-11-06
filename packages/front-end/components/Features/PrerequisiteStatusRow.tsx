@@ -241,9 +241,9 @@ export default function PrerequisiteStatusRow({
               iconOnly
             />
             {/* Shows when the row is pointed at. */}
-            <Box className={revealedByQuickEdit} style={{ flexShrink: 0 }}>
+            <Flex className={revealedByQuickEdit} flexShrink="0">
               {menu}
-            </Box>
+            </Flex>
           </Flex>
         </Box>
         {envs.length > 0 && (
