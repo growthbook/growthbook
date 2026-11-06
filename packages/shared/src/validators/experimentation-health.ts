@@ -14,6 +14,8 @@ export const experimentationHealthQualitySettingsValidator = z
     // The checks, customized as one group; unset uses the built-in defaults
     // (org record) or the organization default's checks (Project record)
     config: experimentQualityConfigBodyValidator.optional(),
+    // Scores at or above this count as good quality; organization default only
+    threshold: z.number().int().min(0).max(100).optional(),
   })
   .strict();
 export type ExperimentationHealthQualitySettings = z.infer<

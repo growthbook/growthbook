@@ -1,8 +1,10 @@
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { countHealthOverrides } from "shared/enterprise";
 import { ORG_DEFAULT_SCOPE } from "shared/validators";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import Switch from "@/ui/Switch";
+import Text from "@/ui/Text";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SettingsPage from "@/components/Layout/SettingsPage";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -10,6 +12,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import QualityConfigEditor from "./QualityConfigEditor";
 import QualitySaveFooter from "./QualitySaveFooter";
+import { NumberInput } from "./PercentInput";
 import ProjectOverridesTab from "./ProjectOverridesTab";
 import { useQualityScopeForm, useQualityStatus } from "./useQualityScopeForm";
 
@@ -77,6 +80,23 @@ export default function ExperimentQualityPage() {
                 Only organization admins can change the organization default.
               </Callout>
             ) : null}
+            <Box mb="5">
+              <Heading as="h3" size="sm" mb="2">
+                Good Quality
+              </Heading>
+              <Flex align="center" gap="2" wrap="wrap">
+                <Text color="text-mid">Experiments that score</Text>
+                <NumberInput
+                  value={form.threshold}
+                  min={0}
+                  max={100}
+                  ariaLabel="Good quality score"
+                  disabled={!canManageOrg}
+                  suffix="or more count as good quality."
+                  onChange={form.setThreshold}
+                />
+              </Flex>
+            </Box>
             <QualityConfigEditor
               draft={form.draft}
               setDraft={form.setDraft}
@@ -100,10 +120,14 @@ export default function ExperimentQualityPage() {
       {canManageOrg ? (
         <QualitySaveFooter
           impact={
-            <>
-              Saving re-scores <strong>{plural(rescored, "experiment")}</strong>
-              .{keepNote}
-            </>
+            form.rescores ? (
+              <>
+                Saving re-scores{" "}
+                <strong>{plural(rescored, "experiment")}</strong>.{keepNote}
+              </>
+            ) : (
+              "Saving changes which experiments count as good quality. Scores don't change."
+            )
           }
           scopeImpact={<strong>{plural(rescored, "experiment")}</strong>}
           dirty={form.dirty}

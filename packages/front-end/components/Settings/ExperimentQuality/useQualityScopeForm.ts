@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import isUndefined from "lodash/isUndefined";
 import omitBy from "lodash/omitBy";
 import { ORG_DEFAULT_SCOPE } from "shared/validators";
+import { getQualityThreshold } from "shared/enterprise";
 import { AIPromptInterface, AI_PROMPT_DEFAULTS } from "shared/ai";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -64,20 +65,28 @@ export function useQualityScopeForm(scope: string, copyFrom?: string | null) {
     [startRecord, orgDraft],
   );
 
+  const savedThreshold = getQualityThreshold(orgRecord);
+
   const [edits, setEdits] = useState<{
     enabled: boolean;
     draft: QualityConfigDraft;
+    threshold: number;
   } | null>(null);
   const enabled = edits?.enabled ?? savedEnabled;
   const draft = edits?.draft ?? savedDraft;
-  const setEnabled = (v: boolean) => setEdits({ enabled: v, draft });
-  const setDraft = (d: QualityConfigDraft) => setEdits({ enabled, draft: d });
+  const threshold = edits?.threshold ?? savedThreshold;
+  const setEnabled = (v: boolean) => setEdits({ enabled: v, draft, threshold });
+  const setDraft = (d: QualityConfigDraft) =>
+    setEdits({ enabled, draft: d, threshold });
+  const setThreshold = (t: number) =>
+    setEdits({ enabled, draft, threshold: t });
 
   // A copy isn't the Project's until it's saved
-  const dirty =
+  const rescores =
     enabled !== savedEnabled ||
     !isEqual(draft, savedDraft) ||
     (!!copyRecord && !record);
+  const dirty = rescores || threshold !== savedThreshold;
   const aiChanged = isSectionChanged(draft, savedDraft, "ai");
   const blocked = isDegenerateDraft(draft)
     ? "Turn on at least one check to save."
@@ -87,7 +96,7 @@ export function useQualityScopeForm(scope: string, copyFrom?: string | null) {
 
   async function save({ recheck = false }: { recheck?: boolean } = {}) {
     const quality = isOrg
-      ? { enabled, config: draftToConfig(draft) }
+      ? { enabled, config: draftToConfig(draft), threshold }
       : // A Project keeps only what differs, so the rest follows the default
         omitBy(
           {
@@ -119,7 +128,11 @@ export function useQualityScopeForm(scope: string, copyFrom?: string | null) {
     setEnabled,
     draft,
     setDraft,
+    threshold,
+    setThreshold,
     dirty,
+    // Saving changes scores, not just the threshold
+    rescores,
     aiChanged,
     blocked,
     save,
