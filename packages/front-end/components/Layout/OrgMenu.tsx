@@ -24,6 +24,12 @@ import { useIsTruncated } from "./useIsTruncated";
 import styles from "./OrgMenu.module.scss";
 
 const OrgIcon = withOpticalWeight(PiBuildings);
+/**
+ * Raises the menu so its first organization is level with the trigger, as the
+ * project menu's first row is: the menu's 8px top padding plus its heading's
+ * 28px (SidebarMenu.module.scss's .dropdownLabel: 8 + 14 + 6).
+ */
+const MENU_FIRST_ROW_OFFSET = 8 + 28;
 
 /** The side nav's organization switcher, for members of more than one. */
 export default function OrgMenu({
@@ -143,6 +149,7 @@ export default function OrgMenu({
       menuSide="right"
       // 8px past the sidebar's edge: the item sits 8px inside it.
       menuSideOffset={16}
+      menuAlignOffset={-MENU_FIRST_ROW_OFFSET}
       // Room for a long name before it truncates.
       menuWidth={280}
       variant="soft"
