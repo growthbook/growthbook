@@ -12,6 +12,7 @@ import {
   assignServerIdsToAddedExposureQueries,
   getDataSourceSaveChanges,
   getSavedQueriesSharingId,
+  MANAGED_WAREHOUSE_RECREATABLE_TABLES,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -2017,8 +2018,15 @@ export async function fetchBigQueryDatasets(
   });
 }
 
+const recreateManagedWarehouseBodyValidator = z
+  .object({
+    // Omit to recreate every table.
+    tables: z.array(z.enum(MANAGED_WAREHOUSE_RECREATABLE_TABLES)).min(1),
+  })
+  .partial();
+
 export async function postRecreateManagedWarehouse(
-  req: AuthRequest<null, { datasourceId: string }>,
+  req: AuthRequest<unknown, { datasourceId: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2042,7 +2050,14 @@ export async function postRecreateManagedWarehouse(
     );
   }
 
-  const result = await dangerousRecreateClickhouseTables(context.org.id);
+  const { tables } = recreateManagedWarehouseBodyValidator.parse(
+    req.body ?? {},
+  );
+
+  const result = await dangerousRecreateClickhouseTables(
+    context.org.id,
+    tables,
+  );
   if (result === "already-running") {
     res.status(409).json({
       status: 409,

@@ -17,6 +17,10 @@ import {
   LicenseInterface,
 } from "shared/enterprise";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  MANAGED_WAREHOUSE_RECREATABLE_TABLES,
+  ManagedWarehouseRecreatableTable,
+} from "shared/util";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -42,6 +46,7 @@ import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -177,6 +182,9 @@ function OrganizationDetail({
     null,
   );
   const [recreateOpen, setRecreateOpen] = useState(false);
+  const [recreateTables, setRecreateTables] = useState<
+    ManagedWarehouseRecreatableTable[]
+  >([...MANAGED_WAREHOUSE_RECREATABLE_TABLES]);
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
 
   const users = new Map((membersData?.members ?? []).map((u) => [u.id, u]));
@@ -406,23 +414,53 @@ function OrganizationDetail({
         </ModalStandard>
       )}
       {recreateOpen && managedWarehouse && (
-        <ConfirmDialog
-          title="Drop and Recreate Managed Warehouse"
-          content="This may take several minutes, and all queries will fail in the meantime."
-          yesText="Drop and recreate"
-          color="red"
-          onConfirm={async () => {
+        <ModalStandard
+          open
+          trackingEventModalType=""
+          header="Drop and Recreate Managed Warehouse"
+          cta="Drop and recreate"
+          ctaColor="red"
+          ctaEnabled={recreateTables.length > 0}
+          close={() => setRecreateOpen(false)}
+          submit={async () => {
+            const allTables =
+              recreateTables.length ===
+              MANAGED_WAREHOUSE_RECREATABLE_TABLES.length;
             await apiCall(
               `/datasource/${managedWarehouse.id}/recreate-managed-warehouse`,
               {
                 method: "POST",
                 headers: { "X-Organization": org.id },
+                body: JSON.stringify(
+                  allTables ? {} : { tables: recreateTables },
+                ),
               },
             );
-            setRecreateOpen(false);
           }}
-          onCancel={() => setRecreateOpen(false)}
-        />
+        >
+          <Text as="p" mb="3">
+            Each selected table is rebuilt and backfilled from raw events. This
+            may take several minutes. Queries keep working while it runs.
+          </Text>
+          <Flex direction="column" gap="2">
+            {MANAGED_WAREHOUSE_RECREATABLE_TABLES.map((table) => (
+              <Checkbox
+                key={table}
+                label={table}
+                value={recreateTables.includes(table)}
+                setValue={(checked) =>
+                  setRecreateTables((prev) =>
+                    checked
+                      ? MANAGED_WAREHOUSE_RECREATABLE_TABLES.filter(
+                          (t) => t === table || prev.includes(t),
+                        )
+                      : prev.filter((t) => t !== table),
+                  )
+                }
+              />
+            ))}
+          </Flex>
+        </ModalStandard>
       )}
       {rawOpen && (
         <ModalStandard
@@ -828,7 +866,12 @@ function OrganizationDetail({
                     size="sm"
                     variant="outline"
                     color="red"
-                    onClick={() => setRecreateOpen(true)}
+                    onClick={() => {
+                      setRecreateTables([
+                        ...MANAGED_WAREHOUSE_RECREATABLE_TABLES,
+                      ]);
+                      setRecreateOpen(true);
+                    }}
                   >
                     Drop and recreate Managed Warehouse
                   </Button>

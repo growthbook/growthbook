@@ -16,6 +16,16 @@ import type {
   JSONColumnFields,
 } from "shared/types/fact-table";
 
+/** Per-org Managed Warehouse tables a super admin can recreate on their own. */
+export const MANAGED_WAREHOUSE_RECREATABLE_TABLES = [
+  "events",
+  "experiment_views",
+  "feature_usage",
+  "session_replay",
+] as const;
+export type ManagedWarehouseRecreatableTable =
+  (typeof MANAGED_WAREHOUSE_RECREATABLE_TABLES)[number];
+
 /** Docs: Managed Warehouse — sending events */
 export const MANAGED_WAREHOUSE_SENDING_EVENTS_DOC_URL =
   "https://docs.growthbook.io/app/managed-warehouse#sending-events";
