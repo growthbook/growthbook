@@ -10,6 +10,7 @@ import clsx from "clsx";
 import {
   PANEL_DEFAULT_WIDTH,
   PANEL_MIN_WIDTH,
+  canResizePanel,
   clampPanelWidth,
   dragPanelWidth,
   keyPanelWidth,
@@ -34,8 +35,9 @@ function currentMax(): number {
 
 /**
  * The docked panel's inner edge: drag it, or focus it and use the arrow keys,
- * to resize the panel. Dragging well past the widest expands the panel
- * instead; double-clicking puts it back to its default width.
+ * to widen the panel (its default is its narrowest). Dragging well past the
+ * widest and holding expands the panel instead; double-clicking puts it back
+ * to its default width. Hidden when the window leaves no room to widen it.
  */
 export default function AgentPanelResizeHandle({
   panelRef,
@@ -55,11 +57,21 @@ export default function AgentPanelResizeHandle({
   const [max, setMax] = useState(() =>
     typeof window === "undefined" ? PANEL_DEFAULT_WIDTH : currentMax(),
   );
+  // With the window, and with the side nav collapsing or expanding (its
+  // class on <html> sets --page-nav-width).
   useEffect(() => {
     const update = () => setMax(currentMax());
     update();
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => {
+      window.removeEventListener("resize", update);
+      observer.disconnect();
+    };
   }, []);
   const shown = clampPanelWidth(width, max);
 
@@ -182,6 +194,9 @@ export default function AgentPanelResizeHandle({
     e.preventDefault();
     onCommit(next);
   };
+
+  // Nowhere to widen it: no handle rather than one that doesn't move.
+  if (!canResizePanel(max) && !dragging) return null;
 
   return (
     <div
