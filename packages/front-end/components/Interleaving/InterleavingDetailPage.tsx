@@ -98,7 +98,7 @@ export default function InterleavingDetailPage({
           </Box>
         </Flex>
         <Flex align="center" gap="2" flexShrink="0">
-          {canRun && il.status === "draft" && (
+          {canRun && !il.archived && il.status === "draft" && (
             <Button onClick={start} setError={setError}>
               Start
             </Button>
@@ -139,7 +139,11 @@ export default function InterleavingDetailPage({
         <Metadata label="Owner" value={<Owner ownerId={il.owner} />} />
         <Metadata
           label="Data Source"
-          value={getDatasourceById(il.datasourceId)?.name ?? il.datasourceId}
+          value={
+            getDatasourceById(il.datasourceId)?.name ||
+            il.datasourceId ||
+            "None"
+          }
         />
         {il.tags.length > 0 && (
           <Metadata
