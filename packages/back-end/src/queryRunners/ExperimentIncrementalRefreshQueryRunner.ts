@@ -42,6 +42,7 @@ import {
   RunQueryMetadata,
 } from "shared/types/query";
 import { FactMetricInterface } from "shared/types/fact-table";
+import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 import {
   errorSnapshotIfStillRunning,
@@ -479,7 +480,7 @@ const startExperimentIncrementalRefreshQueries = async (
   );
 
   if (!exposureQuery) {
-    throw new Error("Exposure query not found");
+    throw new UnrecoverableSnapshotError("Exposure query not found");
   }
 
   const resolvedExposureQuery = resolveExposureQueryForAnalysis(
