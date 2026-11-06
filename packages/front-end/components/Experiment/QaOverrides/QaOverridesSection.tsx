@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiPlusBold } from "react-icons/pi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiArrowDownBold, PiArrowUpBold, PiPlusBold } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -31,6 +31,7 @@ import QaOverrideModal from "./QaOverrideModal";
 import {
   QaOverrideFiltersSummary,
   QaOverrideSetBy,
+  QaOverrideStatusBadge,
   QaOverrideVariation,
 } from "./QaOverrideSummary";
 
@@ -64,6 +65,19 @@ export default function QaOverridesSection({
     await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
     await mutate();
   };
+
+  const move = async (index: number, direction: -1 | 1) => {
+    const ids = overrides.map((o) => o.id);
+    const target = index + direction;
+    if (target < 0 || target >= ids.length) return;
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    await apiCall(`/qa-overrides/experiment/${experiment.id}/order`, {
+      method: "PUT",
+      body: JSON.stringify({ overrideIds: ids }),
+    });
+    await mutate();
+  };
+  const canReorder = canEdit && overrides.length > 1;
 
   return (
     <Frame>
@@ -141,16 +155,44 @@ export default function QaOverridesSection({
         <Table variant="ghost">
           <TableHeader>
             <TableRow>
+              {canReorder && <TableColumnHeader style={{ width: 70 }} />}
               <TableColumnHeader>Environment</TableColumnHeader>
               <TableColumnHeader>Filters</TableColumnHeader>
               <TableColumnHeader>Variation</TableColumnHeader>
+              <TableColumnHeader>Status</TableColumnHeader>
               <TableColumnHeader>Set by</TableColumnHeader>
               <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {overrides.map((override) => (
+            {overrides.map((override, i) => (
               <TableRow key={override.id}>
+                {canReorder && (
+                  <TableCell>
+                    <Flex gap="2">
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        size="1"
+                        aria-label="Move up"
+                        disabled={i === 0}
+                        onClick={() => move(i, -1)}
+                      >
+                        <PiArrowUpBold />
+                      </IconButton>
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        size="1"
+                        aria-label="Move down"
+                        disabled={i === overrides.length - 1}
+                        onClick={() => move(i, 1)}
+                      >
+                        <PiArrowDownBold />
+                      </IconButton>
+                    </Flex>
+                  </TableCell>
+                )}
                 <TableCell>
                   <Badge label={override.environment} color="gray" />
                 </TableCell>
@@ -161,6 +203,12 @@ export default function QaOverridesSection({
                   <QaOverrideVariation
                     override={override}
                     variations={variations}
+                  />
+                </TableCell>
+                <TableCell>
+                  <QaOverrideStatusBadge
+                    override={override}
+                    linkedFeatures={linkedFeatures}
                   />
                 </TableCell>
                 <TableCell>
