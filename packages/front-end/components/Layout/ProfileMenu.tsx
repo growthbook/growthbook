@@ -61,7 +61,15 @@ const ActivityIcon = withOpticalWeight(PiListChecks);
 const TokenIcon = withOpticalWeight(PiKey);
 const LockIcon = withOpticalWeight(PiLock);
 const SignOutIcon = withOpticalWeight(PiSignOut);
-const AdminIcon = withOpticalWeight(PiShieldCheck);
+/** 0.1px heavier at the menu's 16px: 0.1 × 256 / 16 in the 256-unit grid. */
+const AdminIcon: IconType = (props) => (
+  <PiShieldCheck
+    {...props}
+    stroke="currentColor"
+    strokeWidth={(0.1 * 256) / 16}
+    strokeLinejoin="round"
+  />
+);
 
 const THEME_LABELS = { system: "System", light: "Light", dark: "Dark" };
 const THEME_ICONS: Record<keyof typeof THEME_LABELS, IconType> = {
