@@ -59,6 +59,7 @@ export default function RoleRulesTable({
 
   const rules = useMemo(() => toRules(value, teams), [value, teams]);
   const adminEverywhere = !forApiKey && holdsGlobalAdmin(value, teams);
+  const ownAdmin = !forApiKey && holdsGlobalAdmin(value, []);
   const inert = useMemo(
     () => inertRules(rules, organization),
     [rules, organization],
@@ -264,9 +265,11 @@ export default function RoleRulesTable({
           )}
           {!isAllProjects && (
             <Text size="sm" color="text-low">
-              {adminEverywhere
-                ? "Has no effect for a global Admin."
-                : "Replaces the All Projects rules inside it"}
+              {ownAdmin && editable
+                ? "Admins can't have Project overrides. Remove it to save."
+                : adminEverywhere
+                  ? "Has no effect for a global Admin."
+                  : "Replaces the All Projects rules inside it"}
             </Text>
           )}
         </Flex>
