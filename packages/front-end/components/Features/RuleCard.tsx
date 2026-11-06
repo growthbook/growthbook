@@ -5,6 +5,7 @@ import { PiDotsSixVertical } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import cornerStyles from "./CornerActions.module.scss";
 import styles from "./RuleCard.module.scss";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 export type RuleCardSideColor =
   | "active"
@@ -34,6 +35,47 @@ export default function RuleCard({
   ribbon,
   children,
 }: Props) {
+  const redesign = useFeaturePageRedesign();
+  const handle = dragHandleProps ? (
+    <div
+      {...dragHandleProps}
+      title="Drag and drop to re-order rules"
+      className={styles.grab}
+    >
+      <PiDotsSixVertical size={16} />
+    </div>
+  ) : (
+    <Box aria-hidden className={styles.idleHandle}>
+      <PiDotsSixVertical size={16} />
+    </Box>
+  );
+  const indexBadge = (
+    <Badge
+      label={<>{index}</>}
+      radius="full"
+      color="gray"
+      className={styles.index}
+    />
+  );
+
+  // The page it's tested against: header and details in one column.
+  if (!redesign) {
+    return (
+      <Card className={cornerStyles.hoverActions}>
+        <div className={clsx(styles.sideBar, styles[sideColor])} />
+        <Flex align="start" justify="between" gap="2" p="1">
+          <Box className={styles.handle}>{handle}</Box>
+          {indexBadge}
+          <Box flexGrow="1" pr="2" minWidth="0">
+            <Box mb="3">{header}</Box>
+            {ribbon ? <Box mb="3">{ribbon}</Box> : null}
+            {children}
+          </Box>
+        </Flex>
+      </Card>
+    );
+  }
+
   // Its values' copy and fullscreen buttons show while it's hovered.
   return (
     <Card className={clsx(cornerStyles.hoverActions, styles.card)}>
@@ -45,26 +87,9 @@ export default function RuleCard({
               align="center"
               className={clsx(cornerStyles.actions, styles.handle)}
             >
-              {dragHandleProps ? (
-                <div
-                  {...dragHandleProps}
-                  title="Drag and drop to re-order rules"
-                  className={styles.grab}
-                >
-                  <PiDotsSixVertical size={16} />
-                </div>
-              ) : (
-                <Box aria-hidden className={styles.idleHandle}>
-                  <PiDotsSixVertical size={16} />
-                </Box>
-              )}
+              {handle}
             </Flex>
-            <Badge
-              label={<>{index}</>}
-              radius="full"
-              color="gray"
-              className={styles.index}
-            />
+            {indexBadge}
           </Flex>
           <Flex
             align="center"

@@ -27,7 +27,7 @@ import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescri
 import EditFeatureInfoModal, {
   FeatureInfoSection,
   SECTION_HEADERS,
-} from "@/components/Features/EditFeatureInfoModal";
+} from "@/components/Features/EditFeatureInfoModalNew";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import Markdown from "@/components/Markdown/Markdown";
 import { useDefinitions } from "@/services/DefinitionsContext";
