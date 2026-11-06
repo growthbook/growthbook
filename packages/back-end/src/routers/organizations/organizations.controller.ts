@@ -1841,6 +1841,16 @@ export async function putOrganization(
       }
     }
 
+    const updateGraceHours = settings?.stoppedExperimentResultsUpdateGraceHours;
+    if (
+      (updateGraceHours ?? null) !== null &&
+      (!Number.isInteger(updateGraceHours) || (updateGraceHours as number) < 0)
+    ) {
+      context.throwBadRequestError(
+        "Grace period for updating stopped experiments must be a whole number of hours, at least 0",
+      );
+    }
+
     const topValuesLookbackValue = settings?.topValuesLookbackValue;
     if (
       typeof topValuesLookbackValue === "number" &&

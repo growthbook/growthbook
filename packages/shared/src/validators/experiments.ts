@@ -2617,8 +2617,6 @@ export const postExperimentSnapshotValidator = {
     })
     .strict(),
   summary: "Create Experiment Snapshot",
-  description:
-    "Creates a new results snapshot for the experiment. When the organization has disabled updates on stopped experiments, this returns a 422 with `warnings` once the grace period after the stop date has elapsed; re-send with `ignoreWarnings: true` to proceed anyway.",
   confirmation: [],
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],

@@ -1534,7 +1534,7 @@ export async function postExperiments(
           phase: 0,
           useCache: true,
           // Imported experiments may already be stopped but have no results yet
-          bypassStoppedResultsLock: true,
+          bypassResultsUpdateDisabled: true,
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");

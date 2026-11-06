@@ -162,7 +162,7 @@ export const createHoldout = async (
           phase: 0,
           useCache: true,
           // Imported holdouts may already be stopped but have no results yet
-          bypassStoppedResultsLock: true,
+          bypassResultsUpdateDisabled: true,
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");

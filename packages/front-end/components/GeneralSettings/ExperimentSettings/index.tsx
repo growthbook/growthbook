@@ -326,10 +326,8 @@ export default function ExperimentSettings() {
                 Once an experiment is stopped, this setting disables updates
                 (overall and dimension breakdowns) in the UI to preserve the
                 results at the time the experiment was stopped. Custom reports
-                remain available for ad-hoc analysis. The REST API can still
-                bypass this with <code>ignoreWarnings: true</code>. When on, you
-                can set a grace period to allow updates for a few hours after
-                stopping.
+                remain available for ad-hoc analysis. When on, you can set a
+                grace period to allow updates for a few hours after stopping.
               </>
             }
             value={!!form.watch("disableResultsRefreshForStoppedExperiments")}
@@ -339,7 +337,7 @@ export default function ExperimentSettings() {
           />
           {form.watch("disableResultsRefreshForStoppedExperiments") && (
             <Box ml="6" mt="2">
-              <UnsavedMark name="stoppedExperimentResultsLockGraceHours">
+              <UnsavedMark name="stoppedExperimentResultsUpdateGraceHours">
                 <Field
                   size="md"
                   label="Allow updates for"
@@ -351,10 +349,13 @@ export default function ExperimentSettings() {
                   containerClassName="mb-0"
                   disabled={hasFileConfig()}
                   placeholder="0"
-                  {...form.register("stoppedExperimentResultsLockGraceHours", {
-                    valueAsNumber: true,
-                    min: 0,
-                  })}
+                  {...form.register(
+                    "stoppedExperimentResultsUpdateGraceHours",
+                    {
+                      valueAsNumber: true,
+                      min: 0,
+                    },
+                  )}
                 />
               </UnsavedMark>
             </Box>

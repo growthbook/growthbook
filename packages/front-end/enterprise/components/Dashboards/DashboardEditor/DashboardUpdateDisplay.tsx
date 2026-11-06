@@ -1,7 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
-import { STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE } from "shared/experiments";
+import { EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE } from "shared/experiments";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -145,7 +145,7 @@ export default function DashboardUpdateDisplay({
     allQueries,
     savedQueriesMap,
     updateAllSnapshots,
-    resultsLocked,
+    resultsUpdateDisabled,
   } = useContext(DashboardSnapshotContext);
   const refreshing =
     updatingTemporaryDashboard || ["running", "queued"].includes(refreshStatus);
@@ -192,14 +192,14 @@ export default function DashboardUpdateDisplay({
       <div className="position-relative">
         {canRefresh && (
           <Tooltip
-            body={STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE}
-            shouldDisplay={resultsLocked}
+            body={EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE}
+            shouldDisplay={resultsUpdateDisabled}
             tipPosition="top"
           >
             <Button
               size="md"
               disabled={
-                resultsLocked ||
+                resultsUpdateDisabled ||
                 refreshing ||
                 !dashboardId ||
                 (dashboardId === "new" && !updateTemporaryDashboardResults) ||

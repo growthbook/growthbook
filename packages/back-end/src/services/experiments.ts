@@ -83,8 +83,8 @@ import {
   scheduleWriteNeedsRunPermission,
   sdkConnectionServesProject,
   withScheduledBy,
-  isStoppedExperimentResultsLocked,
-  STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE,
+  isExperimentResultsUpdateDisabled,
+  EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -2859,7 +2859,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
-  bypassStoppedResultsLock,
+  bypassResultsUpdateDisabled,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2870,7 +2870,7 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
-  bypassStoppedResultsLock?: boolean;
+  bypassResultsUpdateDisabled?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -2885,7 +2885,7 @@ export async function createExperimentSnapshot({
     triggeredBy,
     type,
     reweight,
-    bypassStoppedResultsLock,
+    bypassResultsUpdateDisabled,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -2939,7 +2939,7 @@ export async function planExperimentSnapshot({
   type,
   reweight,
   throwIfRequiresFullRefresh,
-  bypassStoppedResultsLock,
+  bypassResultsUpdateDisabled,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2951,19 +2951,17 @@ export async function planExperimentSnapshot({
   type?: SnapshotType;
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
-  // Skip the org "disable updates on stopped experiments" lock. Used for
-  // creation-time auto-refreshes of imported stopped experiments that have no
-  // results yet. API callers bypass via `ignoreWarnings` instead.
-  bypassStoppedResultsLock?: boolean;
+  // Skip the org "disable updates on stopped experiments" setting.
+  bypassResultsUpdateDisabled?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   if (
-    !bypassStoppedResultsLock &&
+    !bypassResultsUpdateDisabled &&
     !context.ignoreWarnings &&
-    isStoppedExperimentResultsLocked(experiment, context.org.settings ?? {})
+    isExperimentResultsUpdateDisabled(experiment, context.org.settings ?? {})
   ) {
     throw new SoftWarningError(
       "Your organization has disabled updates on stopped experiments.",
-      [STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE],
+      [EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE],
     );
   }
 

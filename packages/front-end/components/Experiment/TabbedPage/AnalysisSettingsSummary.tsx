@@ -24,8 +24,8 @@ import {
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
   isAutoSnapshotScheduled,
-  isStoppedExperimentResultsLocked,
-  STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE,
+  isExperimentResultsUpdateDisabled,
+  EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -389,7 +389,7 @@ export default function AnalysisSettingsSummary({
     viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
   // Org setting that freezes results (overall and dimension) of stopped
   // experiments once the grace period has elapsed. Custom reports stay open.
-  const resultsLocked = isStoppedExperimentResultsLocked(
+  const resultsUpdateDisabled = isExperimentResultsUpdateDisabled(
     experiment,
     orgSettings,
   );
@@ -973,8 +973,8 @@ export default function AnalysisSettingsSummary({
             permissionsUtil.canRunExperimentQueries(ds) &&
             allMetrics.length > 0 ? (
               <Tooltip
-                content={STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE}
-                enabled={resultsLocked}
+                content={EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE}
+                enabled={resultsUpdateDisabled}
               >
                 <span style={{ display: "inline-flex" }}>
                   <RefreshResultsButton
@@ -1009,7 +1009,7 @@ export default function AnalysisSettingsSummary({
                     customValidation={confirmRefresh}
                     onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
                     disabled={
-                      resultsLocked ||
+                      resultsUpdateDisabled ||
                       (viewingDimensionThatRequiresOverallFirst &&
                         overallResultsRequiredBeforeDimensionRefresh)
                     }
@@ -1027,8 +1027,8 @@ export default function AnalysisSettingsSummary({
               experiment={experiment}
               datasource={datasource}
               forceRefreshDisabledReason={
-                resultsLocked
-                  ? STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE
+                resultsUpdateDisabled
+                  ? EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE
                   : undefined
               }
               forceRefresh={

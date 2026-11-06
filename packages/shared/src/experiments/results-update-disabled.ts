@@ -2,7 +2,7 @@ import { differenceInHours } from "date-fns";
 import { getValidDate } from "shared/dates";
 import { OrganizationSettings } from "shared/types/organization";
 
-export const STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE =
+export const EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE =
   "Your organization has disabled updates on stopped experiments. For ad-hoc analysis, use custom reports.";
 
 /**
@@ -11,7 +11,7 @@ export const STOPPED_EXPERIMENT_RESULTS_LOCK_MESSAGE =
  * the last phase's end date) has elapsed. Custom reports are not covered by
  * this check; they use a separate snapshot path.
  */
-export function isStoppedExperimentResultsLocked(
+export function isExperimentResultsUpdateDisabled(
   experiment: {
     status: string;
     phases?: { dateEnded?: string | Date }[];
@@ -19,7 +19,7 @@ export function isStoppedExperimentResultsLocked(
   settings: Pick<
     OrganizationSettings,
     | "disableResultsRefreshForStoppedExperiments"
-    | "stoppedExperimentResultsLockGraceHours"
+    | "stoppedExperimentResultsUpdateGraceHours"
   >,
   now: Date = new Date(),
 ): boolean {
@@ -28,6 +28,6 @@ export function isStoppedExperimentResultsLocked(
   const dateEnded =
     experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
   if (!dateEnded) return false;
-  const graceHours = settings.stoppedExperimentResultsLockGraceHours ?? 0;
+  const graceHours = settings.stoppedExperimentResultsUpdateGraceHours ?? 0;
   return differenceInHours(now, getValidDate(dateEnded)) >= graceHours;
 }
