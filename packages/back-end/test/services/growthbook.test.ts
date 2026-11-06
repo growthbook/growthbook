@@ -3,7 +3,9 @@ import type { OrganizationInterface } from "shared/types/organization";
 import {
   getRoutePath,
   parseContentLength,
+  revisionActivityEventName,
   trackEventForContext,
+  trackRevisionActivity,
   trackMcpRequestCompletion,
 } from "back-end/src/services/growthbook";
 
@@ -125,6 +127,42 @@ describe("trackEventForContext", () => {
         attributes: expect.objectContaining({ cloudOrgId: expect.anything() }),
       },
     );
+  });
+});
+
+describe("revisionActivityEventName", () => {
+  it.each([
+    ["created", "Revision Created"],
+    ["reviewRequested", "Revision Review Requested"],
+    ["changesRequested", "Revision Changes Requested"],
+    ["publishScheduleChanged", "Revision Publish Schedule Changed"],
+  ])("names %s %s", (action, name) => {
+    expect(revisionActivityEventName(action)).toBe(name);
+  });
+});
+
+describe("trackRevisionActivity", () => {
+  const logEvent = jest.fn();
+  const context = {
+    org: { id: "org_123" },
+    auditUser: { type: "dashboard", id: "u_1" },
+    req: { gb: { logEvent } },
+  } as unknown as Parameters<typeof trackRevisionActivity>[0];
+
+  beforeEach(() => logEvent.mockClear());
+
+  it("logs a revision event with its resource, action and actor", () => {
+    trackRevisionActivity(context, "savedGroup", "revision.published");
+    expect(logEvent).toHaveBeenCalledWith("Revision Published", {
+      resource: "savedGroup",
+      action: "published",
+      actor: "dashboard",
+    });
+  });
+
+  it("ignores events that aren't about a revision", () => {
+    trackRevisionActivity(context, "feature", "updated");
+    expect(logEvent).not.toHaveBeenCalled();
   });
 });
 

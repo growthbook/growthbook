@@ -23,6 +23,7 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
+import { trackRevisionActivity } from "back-end/src/services/growthbook";
 
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;
@@ -259,8 +260,9 @@ export const createEvent = async <
   tags,
   environments,
   notify = true,
-}: CreateEventParams<Resource, Event>) =>
-  createEventWithPayload<Resource, Event>({
+}: CreateEventParams<Resource, Event>) => {
+  trackRevisionActivity(context, object, event);
+  return createEventWithPayload<Resource, Event>({
     payload: {
       event: `${object}.${event}`,
       object,
@@ -275,6 +277,7 @@ export const createEvent = async <
     notify,
     ...(objectId ? { objectId } : {}),
   });
+};
 
 /**
  * Get an event by ID

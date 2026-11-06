@@ -494,6 +494,29 @@ export function trackEventForContext(
   trackEventForOrganization(context.org, eventName, properties);
 }
 
+// "reviewRequested" -> "Revision Review Requested": an event per action, so a
+// metric on one is just its name.
+export function revisionActivityEventName(action: string): string {
+  const words = action.replace(/([A-Z])/g, " $1");
+  return `Revision ${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+}
+
+// Revision and review activity on features, saved groups, configs and
+// constants, logged beside the app event that records it.
+export function trackRevisionActivity(
+  context: ReqContext,
+  resource: string,
+  event: string,
+): void {
+  if (!event.startsWith("revision.")) return;
+  const action = event.slice("revision.".length);
+  trackEventForContext(context, revisionActivityEventName(action), {
+    resource,
+    action,
+    actor: context.auditUser?.type ?? "system",
+  });
+}
+
 /**
  * Cleanup the GrowthBook client on shutdown
  * Call this during graceful shutdown to close SSE connections
