@@ -17,7 +17,7 @@ import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
-  getMetricUnitState,
+  getMetricValuesUnitState,
   metricSupportsUnitSelection,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Text from "@/ui/Text";
@@ -152,7 +152,8 @@ export default function ValueCard({
         metricSupportsUnitSelection(
           getFactMetricById(values[index].metricId),
         ) &&
-        getMetricUnitState(values, getFactMetricById, getFactTableById).isMixed;
+        getMetricValuesUnitState(values, getFactMetricById, getFactTableById)
+          .isMixed;
       break;
     }
     case "population":

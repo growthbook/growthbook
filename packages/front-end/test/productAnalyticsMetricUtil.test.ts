@@ -6,9 +6,9 @@ import type {
 import type { ExplorationConfig, MetricValue, ShowAs } from "shared/validators";
 import {
   fillMissingUnits,
-  getMetricUnitState,
+  getMetricValuesUnitState,
   metricSupportsUnitSelection,
-  setMetricUnit,
+  setMetricValuesUnit,
   toFetchKey,
 } from "@/enterprise/components/ProductAnalytics/util";
 
@@ -104,9 +104,9 @@ describe("metricSupportsUnitSelection", () => {
   });
 });
 
-describe("getMetricUnitState", () => {
+describe("getMetricValuesUnitState", () => {
   const state = (values: MetricValue[]) =>
-    getMetricUnitState(values, getFactMetricById, getFactTableById);
+    getMetricValuesUnitState(values, getFactMetricById, getFactTableById);
 
   it("reports the one unit the metrics share", () => {
     expect(
@@ -142,10 +142,10 @@ describe("getMetricUnitState", () => {
   });
 });
 
-describe("setMetricUnit", () => {
+describe("setMetricValuesUnit", () => {
   it("sets the unit only on metrics whose unit can be chosen", () => {
     expect(
-      setMetricUnit(
+      setMetricValuesUnit(
         [value("revenue", "device_id"), value("p95", "device_id")],
         "user_id",
         getFactMetricById,

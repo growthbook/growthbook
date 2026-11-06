@@ -17,11 +17,11 @@ import {
   generateUniqueValueName,
   getLockedMixClass,
   getMetricMixClass,
-  getMetricUnitState,
+  getMetricValuesUnitState,
   getShowAsChoiceByIndex,
   metricSupportsUnitSelection,
   MetricMixClass,
-  setMetricUnit,
+  setMetricValuesUnit,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
@@ -50,7 +50,7 @@ export default function MetricTabContent() {
     draftExploreState,
     getFactMetricById,
   );
-  const unitState = getMetricUnitState(
+  const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
     getFactTableById,
@@ -103,7 +103,7 @@ export default function MetricTabContent() {
   /** The unit a metric in `slotIdx` must offer to keep the chart on one unit
    *  (or null when the other metrics have none, or already mix units). */
   const getLockedUnitForSlot = (slotIdx: number): string | null => {
-    const others = getMetricUnitState(
+    const others = getMetricValuesUnitState(
       values.filter((_, i) => i !== slotIdx),
       getFactMetricById,
       getFactTableById,
@@ -144,7 +144,7 @@ export default function MetricTabContent() {
             ...prev,
             dataset: {
               ...prev.dataset,
-              values: setMetricUnit(
+              values: setMetricValuesUnit(
                 prev.dataset.values,
                 unit,
                 getFactMetricById,

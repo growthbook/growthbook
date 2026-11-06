@@ -818,7 +818,7 @@ export function metricSupportsUnitSelection(
 }
 
 /** The chart-level unit of a metric dataset, read across its values. */
-export type MetricUnitState = {
+export type MetricValuesUnitState = {
   /** The unit every unit-selectable value uses; null when mixed or unset. */
   unit: string | null;
   /** Values use more than one unit, e.g. a config saved before the single picker. */
@@ -832,11 +832,11 @@ export type MetricUnitState = {
  * (see `metricSupportsUnitSelection`). Empty slots and unresolved metrics are
  * skipped.
  */
-export function getMetricUnitState(
+export function getMetricValuesUnitState(
   values: MetricValue[],
   getFactMetricById: (id: string) => FactMetricInterface | null,
   getFactTableById: (id: string) => FactTableDefinition | null,
-): MetricUnitState {
+): MetricValuesUnitState {
   const selectable = values.flatMap((value) => {
     const metric = value.metricId ? getFactMetricById(value.metricId) : null;
     return metric && metricSupportsUnitSelection(metric)
@@ -860,7 +860,7 @@ export function getMetricUnitState(
 }
 
 /** Sets `unit` on every metric value whose unit can be chosen. */
-export function setMetricUnit(
+export function setMetricValuesUnit(
   values: MetricValue[],
   unit: string,
   getFactMetricById: (id: string) => FactMetricInterface | null,
