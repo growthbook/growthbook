@@ -8,6 +8,7 @@ import styles from "./NewNavigationIntroModal.module.scss";
 
 const PREVIEW_PARAM = "nav-intro";
 const IMAGE_SRC = "/images/announcements/new-navigation.webp";
+const OPEN_DELAY_MS = 500;
 
 /**
  * Introduces the new navigation (side nav and docked AI assistant).
@@ -21,10 +22,19 @@ const IMAGE_SRC = "/images/announcements/new-navigation.webp";
 export default function NewNavigationIntroModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  // Opens a moment after the page, so the new layout shows first; Modal's own
+  // animation (Radix's: the backdrop fades, the modal fades and rises) brings
+  // it in. With reduced motion there's no animation, so no wait either.
   useEffect(() => {
-    if (router.isReady && router.query.preview === PREVIEW_PARAM) {
+    if (!router.isReady || router.query.preview !== PREVIEW_PARAM) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setOpen(true);
+      return;
     }
+    // Loads the image meanwhile, so it's there as the modal comes in.
+    new Image().src = IMAGE_SRC;
+    const timer = window.setTimeout(() => setOpen(true), OPEN_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [router.isReady, router.query.preview]);
 
   const descriptionId = useId();
