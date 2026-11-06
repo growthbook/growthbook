@@ -173,8 +173,15 @@ export default function EnvironmentModal({
             `Use custom environment name "${value}"`
           }
           onChange={(value) => {
+            // SelectField re-fires onChange on blur with the same id; don't
+            // clobber a manual production choice unless the id changed.
+            if (value !== form.getValues("id")) {
+              form.setValue(
+                "isProduction",
+                guessIsProductionEnvironment(value),
+              );
+            }
             form.setValue("id", value);
-            form.setValue("isProduction", guessIsProductionEnvironment(value));
             if (!DEFAULT_ENVIRONMENT_IDS.includes(value)) {
               form.setValue("parent", undefined);
             }
@@ -286,7 +293,6 @@ export default function EnvironmentModal({
       <Switch
         id={"isProduction"}
         label="This is a production environment"
-        description="Production environments get extra safeguards, for example QA overrides aren't allowed."
         value={!!form.watch("isProduction")}
         onChange={(value) => {
           form.setValue("isProduction", value);
