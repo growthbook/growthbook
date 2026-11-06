@@ -49,6 +49,10 @@ describe("analyzeResource", () => {
       serverDefault: true,
       clearable: false,
     });
+    expect(field("managedBy")).toMatchObject({
+      defaultValue: "terraform",
+      clearable: false,
+    });
   });
 
   it("maps schema types, falling back to JSON for unions", () => {

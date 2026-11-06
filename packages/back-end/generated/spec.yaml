@@ -32110,14 +32110,15 @@ paths:
                     $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
                     - dbt
+                    - terraform
               required:
                 - name
                 - datasource
@@ -32291,14 +32292,15 @@ paths:
                     $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
                     - dbt
+                    - terraform
                 archived:
                   type: boolean
               additionalProperties: false
@@ -33612,14 +33614,15 @@ paths:
                   minimum: 0
                 managedBy:
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
                     - dbt
+                    - terraform
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -34341,14 +34344,15 @@ paths:
                   minimum: 0
                 managedBy:
                   description: >-
-                    Set this to "api" (or "dbt" for resources synced from dbt)
-                    to disable editing in the GrowthBook UI
+                    Set this to "api" (or "dbt" or "terraform" for resources
+                    those tools manage) to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
                     - dbt
+                    - terraform
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -34553,6 +34557,7 @@ paths:
                     - api
                     - admin
                     - dbt
+                    - terraform
                 dryRun:
                   description: Validate with zero writes.
                   type: boolean
@@ -34682,14 +34687,16 @@ paths:
                               $ref: '#/components/schemas/FactTableColumnInput'
                           managedBy:
                             description: >-
-                              Set this to "api" (or "dbt" for resources synced
-                              from dbt) to disable editing in the GrowthBook UI
+                              Set this to "api" (or "dbt" or "terraform" for
+                              resources those tools manage) to disable editing
+                              in the GrowthBook UI
                             type: string
                             enum:
                               - ''
                               - api
                               - admin
                               - dbt
+                              - terraform
                         required:
                           - name
                           - datasource
@@ -35421,14 +35428,16 @@ paths:
                             minimum: 0
                           managedBy:
                             description: >-
-                              Set this to "api" (or "dbt" for resources synced
-                              from dbt) to disable editing in the GrowthBook UI
+                              Set this to "api" (or "dbt" or "terraform" for
+                              resources those tools manage) to disable editing
+                              in the GrowthBook UI
                             type: string
                             enum:
                               - ''
                               - api
                               - admin
                               - dbt
+                              - terraform
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be
@@ -76944,6 +76953,7 @@ components:
             - api
             - admin
             - dbt
+            - terraform
         dateCreated:
           format: date-time
           type: string
@@ -78094,6 +78104,7 @@ components:
             - api
             - admin
             - dbt
+            - terraform
         dateCreated:
           format: date-time
           type: string

@@ -171,7 +171,7 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
 
 export interface MetricTableItem {
   id: string;
-  managedBy: "" | "api" | "config" | "admin" | "dbt";
+  managedBy: "" | "api" | "config" | "admin" | "dbt" | "terraform";
   name: string;
   description?: string;
   type: string;
@@ -317,7 +317,10 @@ export function useCombinedMetrics({
       let canEdit = permissionsUtil.canUpdateFactMetric(m, {});
       let canDelete = permissionsUtil.canDeleteFactMetric(m);
 
-      if (m.managedBy && ["admin", "api", "dbt"].includes(m.managedBy)) {
+      if (
+        m.managedBy &&
+        ["admin", "api", "dbt", "terraform"].includes(m.managedBy)
+      ) {
         canEdit = false;
         canDelete = false;
       }

@@ -347,7 +347,11 @@ export function analyzeResource(spec: Spec, name: string): ResourceModel {
       inCreate ? createBody[json] : inUpdate ? updateBody[json] : undefined,
       required,
     );
-    const defaultValue = input["x-growthbook-default"];
+    // What Terraform creates, it locks against edits in the app where the API allows.
+    const defaultValue =
+      json === "managedBy" && input.enum?.includes("terraform")
+        ? "terraform"
+        : input["x-growthbook-default"];
     const serverDefault =
       !!input["x-growthbook-server-default"] ||
       requesterDefaults.includes(json);

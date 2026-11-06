@@ -727,7 +727,7 @@ export const postFactMetricBodyFields = z.object({
     .optional(),
   managedBy: factManagedByValidator
     .describe(
-      'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+      'Set this to "api" (or "dbt" or "terraform" for resources those tools manage) to disable editing in the GrowthBook UI',
     )
     .optional(),
   metricAutoSlices: z
