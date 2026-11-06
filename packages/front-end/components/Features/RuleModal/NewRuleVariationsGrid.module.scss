@@ -9,6 +9,7 @@
   transition: opacity 0.1s ease-in-out;
 
   .row:hover &,
+  .row:focus-within &,
   &:focus-visible {
     opacity: 1;
   }

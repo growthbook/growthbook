@@ -1,5 +1,4 @@
 import { ExperimentRule, FeatureInterface } from "shared/types/feature";
-import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { calculateNamespaceCoverage } from "shared/util";
@@ -146,12 +145,12 @@ export default function ExperimentSummary({
           />
           <Box>
             {experiment ? (
-              <Link
+              <LinkButton
                 href={`/experiment/${experiment.id}#results`}
-                className="btn btn-outline-primary"
+                variant="outline"
               >
                 View results
-              </Link>
+              </LinkButton>
             ) : null}
           </Box>
         </Flex>

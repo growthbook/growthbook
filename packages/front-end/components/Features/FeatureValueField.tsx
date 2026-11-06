@@ -1215,7 +1215,7 @@ function SimpleSchemaEditor({
             />
           </Modal>
         ) : null}
-        <div className="gb-field-indicator-host mb-3">
+        <Box mb="3" className="gb-field-indicator-host">
           <Field
             textarea
             value={stringify(valueParsed)}
@@ -1232,13 +1232,12 @@ function SimpleSchemaEditor({
                   setTempValue(value);
                   setOpen(true);
                 }}
-                reveal
               >
                 <EditIcon />
               </FieldIndicator>
             </FieldIndicatorCorner>
           )}
-        </div>
+        </Box>
       </>
     );
   }

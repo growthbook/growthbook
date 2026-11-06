@@ -1,7 +1,7 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { FaArrowRight } from "react-icons/fa";
 import {
+  PiArrowRight,
   PiCaretDown,
   PiClockFill,
   PiLockSimple,
@@ -125,7 +125,7 @@ export default function RevisionStatusBar({
           <Link onClick={() => setConfirmDiscard(true)}>Discard</Link>
         ) : null}
         <Button
-          icon={<FaArrowRight />}
+          icon={<PiArrowRight />}
           iconPosition="right"
           onClick={() => setTab("review")}
         >
@@ -228,7 +228,9 @@ export default function RevisionStatusBar({
         }}
       >
         <Flex
-          className="container-fluid pagecontents px-4"
+          // The header's page column and gutter, so the two line up.
+          className="container-fluid pagecontents"
+          style={{ paddingInline: "var(--space-5)" }}
           align="center"
           justify="between"
           gap="4"

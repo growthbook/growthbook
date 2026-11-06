@@ -564,7 +564,7 @@ export default function ConditionDisplay({
             console.error(e, p.condition);
           }
           parts.push(
-            <Flex wrap="wrap" gap="2" key={partId++} className="w-100">
+            <Flex wrap="wrap" gap="2" key={partId++} width="100%">
               {!prefixUsed && prefix}
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
@@ -609,10 +609,10 @@ export default function ConditionDisplay({
 
   if (condition && showsJson) {
     parts.push(
-      <div className="w-100" key={partId++}>
+      <Box width="100%" key={partId++}>
         {!prefixUsed && prefix}
         <ConditionJson code={jsonFormattedCondition ?? condition} />
-      </div>,
+      </Box>,
     );
     prefixUsed = true;
   } else if (conds) {

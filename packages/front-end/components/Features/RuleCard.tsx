@@ -1,7 +1,7 @@
 import React from "react";
 import clsx from "clsx";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { RiDraggable } from "react-icons/ri";
+import { PiDotsSixVertical } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import cornerStyles from "./CornerActions.module.scss";
 import styles from "./RuleCard.module.scss";
@@ -51,11 +51,11 @@ export default function RuleCard({
                   title="Drag and drop to re-order rules"
                   className={styles.grab}
                 >
-                  <RiDraggable size={16} />
+                  <PiDotsSixVertical size={16} />
                 </div>
               ) : (
                 <Box aria-hidden className={styles.idleHandle}>
-                  <RiDraggable size={16} />
+                  <PiDotsSixVertical size={16} />
                 </Box>
               )}
             </Flex>

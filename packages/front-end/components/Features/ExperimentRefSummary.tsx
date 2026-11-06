@@ -14,7 +14,7 @@ import {
   getLatestPhaseVariations,
   hasTargetingConfigured,
 } from "shared/experiments";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { PiWarningFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import ValidateValue from "@/components/Features/ValidateValue";
@@ -206,12 +206,16 @@ export default function ExperimentRefSummary({
                     <Text color="text-high">
                       {namespaces?.find((n) => n.name === phase.namespace!.name)
                         ?.label || (
-                        <span
-                          className="italic text-danger"
-                          title="this namespace is not found"
-                        >
-                          <FaExclamationTriangle /> {phase.namespace!.name}
-                        </span>
+                        <Tooltip content="This namespace was not found">
+                          <span
+                            style={{
+                              color: "var(--red-11)",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            <PiWarningFill /> {phase.namespace!.name}
+                          </span>
+                        </Tooltip>
                       )}
                     </Text>
                   }

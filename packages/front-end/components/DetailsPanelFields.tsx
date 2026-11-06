@@ -71,7 +71,8 @@ export function HiddenProject({ id }: { id: string }) {
         </>
       }
     >
-      <em>Hidden Project</em>
+      {/* Focusable, so the explanation reaches keyboard users too. */}
+      <em tabIndex={0}>Hidden Project</em>
     </Tooltip>
   );
 }

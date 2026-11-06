@@ -12,6 +12,7 @@ import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Table, {
@@ -267,7 +268,9 @@ function EditPhaseStep({
             containerClassName=""
             clearButton
           />
-          <div className="mb-3 mt-1 small">Leave blank if still running.</div>
+          <Text as="div" size="sm" color="text-mid" mt="1" mb="3">
+            Leave blank if still running.
+          </Text>
           {form.watch("dateEnded") && (
             <Field
               size="legacy"

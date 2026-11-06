@@ -14,6 +14,7 @@ import {
   withStagedTargeting,
 } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
 import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -31,7 +32,7 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getMetadataEditEnvs, useEnvironments } from "@/services/features";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
@@ -329,7 +330,11 @@ const EditFeatureInfoModal: FC<{
               <Callout status="warning">
                 Changing the project may prevent this Feature and any linked
                 Experiments from being sent to users.{" "}
-                <Tooltip body="SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload." />
+                <Tooltip content="SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload.">
+                  <span style={{ display: "inline-flex" }}>
+                    <PiInfo />
+                  </span>
+                </Tooltip>
               </Callout>
             ) : null}
           </Box>
