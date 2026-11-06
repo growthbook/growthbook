@@ -56,6 +56,7 @@ export * from "./feature-webhook-schemas";
 export * from "./watch";
 export * from "./apikey";
 export * from "./confirmations";
+export * from "./page-load";
 export * from "./figma-connection";
 export * from "./slack-workspace-connection";
 export * from "./ai-credential";
