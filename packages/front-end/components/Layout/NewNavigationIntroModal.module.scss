@@ -1,0 +1,19 @@
+// The image runs to the modal's edges, where the standard shadow's 1px ring
+// (its first layer) shows as a light line. This modal only: the same shadow
+// as Radix's --shadow-6, without the ring.
+:global(.rt-BaseDialogContent):has(.image) {
+  --shadow-6:
+    0 12px 60px var(--black-a3), 0 16px 64px var(--gray-a2),
+    0 16px 36px -20px var(--gray-a7);
+
+  :global(.dark-theme) & {
+    --shadow-6:
+      0 12px 60px var(--black-a4), 0 16px 64px var(--black-a6),
+      0 16px 36px -20px var(--black-a11);
+  }
+}
+
+.image {
+  aspect-ratio: 1000 / 472;
+  background: linear-gradient(135deg, var(--violet-9), var(--violet-11));
+}

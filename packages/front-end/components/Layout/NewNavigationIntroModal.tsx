@@ -4,6 +4,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import styles from "./NewNavigationIntroModal.module.scss";
 
 const PREVIEW_PARAM = "nav-intro";
 const IMAGE_SRC = "/images/announcements/new-navigation.webp";
@@ -44,7 +45,7 @@ export default function NewNavigationIntroModal() {
       open={open}
       onOpenChange={setOpen}
       size="md"
-      // Got it, Escape and clicking outside all close it.
+      // "OK, got it", Escape and clicking outside all close it.
       dismissible
       // Described by the body instead (onOpenAutoFocus).
       hasDescription={false}
@@ -54,15 +55,7 @@ export default function NewNavigationIntroModal() {
     >
       {/* Full-bleed and decorative. The gradient stands in until the image
           loads, and keeps the space if it doesn't. */}
-      <Box
-        flexShrink="0"
-        aria-hidden="true"
-        style={{
-          aspectRatio: "1000 / 472",
-          background:
-            "linear-gradient(135deg, var(--violet-9), var(--violet-11))",
-        }}
-      >
+      <Box flexShrink="0" aria-hidden="true" className={styles.image}>
         <img
           src={IMAGE_SRC}
           alt=""
@@ -77,7 +70,12 @@ export default function NewNavigationIntroModal() {
         />
       </Box>
       <Modal.Header>
-        <Flex direction="column" gap="1">
+        {/* --space-4 down to the body, rather than Modal.Body's --space-5. */}
+        <Flex
+          direction="column"
+          gap="2"
+          style={{ marginBottom: "calc(var(--space-4) - var(--space-5))" }}
+        >
           <Box style={{ color: "var(--violet-11)" }}>
             <Text size="sm" weight="medium">
               New Navigation
@@ -99,13 +97,14 @@ export default function NewNavigationIntroModal() {
           </Text>
         </Flex>
       </Modal.Body>
-      {/* A standard footer's spacing, without its divider line. */}
+      {/* A standard footer's spacing, without its divider line or the space
+          above it: the body's own bottom padding separates them. */}
       <Flex
         flexShrink="0"
         justify="end"
-        style={{ padding: "20px var(--space-7)" }}
+        style={{ padding: "0 var(--space-7) 20px" }}
       >
-        <Button onClick={() => setOpen(false)}>Got it</Button>
+        <Button onClick={() => setOpen(false)}>OK, got it</Button>
       </Flex>
     </Modal.Root>
   );
