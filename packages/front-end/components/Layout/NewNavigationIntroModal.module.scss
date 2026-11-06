@@ -17,3 +17,19 @@
   aspect-ratio: 1000 / 472;
   background: linear-gradient(135deg, var(--violet-9), var(--violet-11));
 }
+
+// The backdrop is there from the start, and the modal comes in half a second
+// later with Modal's own entrance (Radix's: it fades in and rises), so the new
+// layout shows under the backdrop first. Closing keeps Radix's fades. With
+// reduced motion Radix has no animations, so the modal is there at once.
+@media (prefers-reduced-motion: no-preference) {
+  :global(.rt-BaseDialogOverlay[data-state="open"]):has(.image)::before {
+    animation: none;
+  }
+
+  :global(.rt-BaseDialogContent[data-state="open"]):has(.image) {
+    animation-delay: 500ms;
+    // Hidden, at the animation's start, until then.
+    animation-fill-mode: backwards;
+  }
+}
