@@ -119,8 +119,8 @@ const AUTO_COLLAPSE_MAX_WIDTH = "(max-width: 1599px)";
  * doesn't slide shut on load (global.scss).
  */
 const SIDEBAR_RESTORE_CLASS = "app-sidebar-restore";
-/** A notch under the 18px nav icons, so the plan crown stays quiet. */
-const PLAN_CROWN_SIZE = 16;
+/** Under the 18px nav icons, so the plan crown stays quiet. */
+const PLAN_CROWN_SIZE = 14;
 /** Matches .sidebar's width transition (Sidebar.module.scss). */
 const SIDEBAR_WIDTH_TRANSITION_MS = 200;
 /**
