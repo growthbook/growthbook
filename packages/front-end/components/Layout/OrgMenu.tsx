@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { VisuallyHidden } from "@radix-ui/themes";
-import { PiBuildings, PiCheck } from "react-icons/pi";
+import { PiBuildings } from "react-icons/pi";
 import { DropdownMenu } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { withOpticalWeight } from "./opticalWeight";
@@ -75,10 +75,8 @@ export default function OrgMenu({
           switchOrg(o.id);
         },
         content: (
+          // The current one is bold, as in the project menu.
           <span className={styles.option}>
-            <span className={styles.check} aria-hidden="true">
-              {current ? <PiCheck size={16} /> : null}
-            </span>
             <TruncatedName name={o.name} current={current} />
             {current ? <VisuallyHidden> (current)</VisuallyHidden> : null}
           </span>
