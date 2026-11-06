@@ -551,18 +551,14 @@ export function getEffectiveMetricValue(
   return num;
 }
 
-/**
- * Build an array of `isRatio` flags indexed by dataset value position.
- * Only metric datasets can contain ratio values; fact_table and data_source
- * datasets never do.
- */
-export function getIsRatioByIndex(
-  config: ExplorationConfig | null,
+/** Whether a dataset value is a ratio metric. Only metric values can be. */
+export function isRatioValue(
+  value: ProductAnalyticsValue,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-): boolean[] {
-  if (!config?.dataset || config.dataset.type !== "metric") return [];
-  return config.dataset.values.map(
-    (v) => getDraftOrSavedMetric(v, getFactMetricById)?.metricType === "ratio",
+): boolean {
+  return (
+    value.type === "metric" &&
+    getDraftOrSavedMetric(value, getFactMetricById)?.metricType === "ratio"
   );
 }
 
@@ -589,11 +585,9 @@ export function getExplorationRenderOpts(
   );
   const annotateNames = shouldAnnotateSeriesNames(config, choices);
   const sharedUnit = getSharedUnit(config);
-  const isRatioByIndex = getIsRatioByIndex(config, getFactMetricById);
   return values.map((v, i) => ({
     showAs: choices[i].showAs,
-    // Only metric datasets can hold ratios; other datasets have no flags.
-    isRatio: isRatioByIndex[i] ?? false,
+    isRatio: isRatioValue(v, getFactMetricById),
     seriesName: annotateNames
       ? getAnnotatedName(v, choices[i].showAs, sharedUnit)
       : v.name,
@@ -679,12 +673,11 @@ export function buildExplorationColumns(
       : (config?.dataset?.values ?? []);
   if (values.length === 0) return cols;
 
-  const isRatio = getIsRatioByIndex(config, getFactMetricById);
   const sharedUnit = getSharedUnit(config);
 
   values.forEach((v, metricIndex) => {
     const name = v.name;
-    if (isRatio[metricIndex]) {
+    if (isRatioValue(v, getFactMetricById)) {
       cols.push({
         kind: "metric",
         key: `__metric_${metricIndex}_numerator__`,
