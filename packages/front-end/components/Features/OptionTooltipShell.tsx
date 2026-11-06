@@ -153,23 +153,6 @@ export function OptionTooltipDescription({
   );
 }
 
-// Whether a value sits on the first line of the wrapping list it's in.
-function onFirstRow(el: HTMLElement): boolean {
-  let item = el;
-  while (
-    item.parentElement &&
-    getComputedStyle(item.parentElement).flexWrap !== "wrap"
-  ) {
-    item = item.parentElement;
-  }
-  const first = item.parentElement?.firstElementChild;
-  if (!first) return true;
-  return (
-    item.getBoundingClientRect().top - first.getBoundingClientRect().top <
-    item.offsetHeight / 2
-  );
-}
-
 export function OptionPopover({
   context = "menu",
   side,
@@ -178,28 +161,19 @@ export function OptionPopover({
 }: {
   context?: OptionContext;
   // Overrides the side the context would use, for a control too narrow for it.
-  // "rows": values on a list's first line open up and the rest down, so a
-  // popover never covers the values below its own.
-  side?: "top" | "right" | "bottom" | "left" | "rows";
+  side?: "top" | "right" | "bottom" | "left";
   content: React.ReactNode;
   children: React.ReactNode;
 }) {
   const isValue = context === "value";
-  const [rowSide, setRowSide] = React.useState<"top" | "bottom">("bottom");
   return (
     <Popover
       openOnHover
       anchorOnly
-      side={side === "rows" ? rowSide : (side ?? (isValue ? "top" : "right"))}
+      side={side ?? (isValue ? "top" : "right")}
       sideOffset={8}
       trigger={
         <div
-          onMouseEnter={
-            side === "rows"
-              ? (e) =>
-                  setRowSide(onFirstRow(e.currentTarget) ? "top" : "bottom")
-              : undefined
-          }
           style={{
             position: "relative",
             display: isValue ? "flex" : "block",
