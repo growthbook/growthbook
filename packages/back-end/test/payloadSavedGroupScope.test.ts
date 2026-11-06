@@ -54,6 +54,7 @@ import {
 // queue, which this suite does not start.
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
+  hasSdkPayloadListeners: jest.fn().mockResolvedValue(true),
 }));
 
 jest.setTimeout(60000);
