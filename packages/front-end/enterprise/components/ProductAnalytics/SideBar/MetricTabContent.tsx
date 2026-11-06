@@ -18,7 +18,7 @@ import {
   getLockedMixClass,
   getMetricMixClass,
   getMetricValuesUnitState,
-  getShowAsChoiceByIndex,
+  getShowAsChoice,
   metricSupportsUnitSelection,
   MetricMixClass,
   setMetricValuesUnit,
@@ -46,10 +46,6 @@ export default function MetricTabContent() {
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
-  const showAsChoiceByIndex = getShowAsChoiceByIndex(
-    draftExploreState,
-    getFactMetricById,
-  );
   const unitState = getMetricValuesUnitState(
     values,
     getFactMetricById,
@@ -171,7 +167,11 @@ export default function MetricTabContent() {
             ? getDisabledReason(metric, lockedClass, lockedUnit)
             : null;
         };
-        const { options: showAsOptions, showAs } = showAsChoiceByIndex[idx];
+        const { options: showAsOptions, showAs } = getShowAsChoice(
+          v,
+          draftExploreState.showAs,
+          getFactMetricById,
+        );
         return (
           <ValueCard
             key={idx}

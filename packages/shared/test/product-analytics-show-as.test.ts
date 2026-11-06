@@ -2,7 +2,7 @@ import {
   getDefaultValueAxisName,
   getEffectiveMetricValue,
   getExplorationRenderOpts,
-  getShowAsChoiceByIndex,
+  getShowAsChoice,
   getShowAsOptions,
   normalizeShowAs,
 } from "shared/enterprise";
@@ -39,6 +39,16 @@ const metrics = new Map(
   ].map((m) => [m.id, m]),
 );
 const getFactMetricById = (id: string) => metrics.get(id) ?? null;
+
+const getShowAsChoices = (
+  config: ExplorationConfig,
+  getMetric: (id: string) => FactMetricInterface | null,
+) =>
+  config.dataset.type === "funnel" || config.dataset.type === "journey"
+    ? []
+    : config.dataset.values.map((v) =>
+        getShowAsChoice(v, config.showAs, getMetric),
+      );
 
 function metricValue(
   metricId: string,
@@ -91,13 +101,13 @@ describe("getShowAsOptions", () => {
   });
 });
 
-describe("getShowAsChoiceByIndex", () => {
+describe("getShowAsChoice", () => {
   it("resolves each mean metric independently", () => {
     const config = metricConfig([
       metricValue("revenue", "per_unit"),
       metricValue("revenue", "total"),
     ]);
-    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([
+    expect(getShowAsChoices(config, getFactMetricById)).toEqual([
       mean("per_unit"),
       mean("total"),
     ]);
@@ -108,7 +118,7 @@ describe("getShowAsChoiceByIndex", () => {
       metricValue("revenue"),
       metricValue("maxOrder"),
     ]);
-    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([
+    expect(getShowAsChoices(config, getFactMetricById)).toEqual([
       mean("total"),
       mean("per_unit"),
     ]);
@@ -120,7 +130,7 @@ describe("getShowAsChoiceByIndex", () => {
       metricValue("aov"),
       metricValue("revenue"),
     ]);
-    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([
+    expect(getShowAsChoices(config, getFactMetricById)).toEqual([
       none,
       none,
       mean("total"),
@@ -129,7 +139,7 @@ describe("getShowAsChoiceByIndex", () => {
 
   it("offers no options for a slot with no metric selected", () => {
     const config = metricConfig([metricValue("")]);
-    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([none]);
+    expect(getShowAsChoices(config, getFactMetricById)).toEqual([none]);
   });
 
   it("falls back to the deprecated config-level showAs", () => {
@@ -137,7 +147,7 @@ describe("getShowAsChoiceByIndex", () => {
       [metricValue("revenue"), metricValue("revenue", "total")],
       "per_unit",
     );
-    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([
+    expect(getShowAsChoices(config, getFactMetricById)).toEqual([
       mean("per_unit"),
       mean("total"),
     ]);
@@ -146,9 +156,7 @@ describe("getShowAsChoiceByIndex", () => {
   it("resolves an unsaved draft metric", () => {
     const draft = makeMetric("", "mean", "max");
     const config = metricConfig([{ ...metricValue(""), draftMetric: draft }]);
-    expect(getShowAsChoiceByIndex(config, () => null)).toEqual([
-      mean("per_unit"),
-    ]);
+    expect(getShowAsChoices(config, () => null)).toEqual([mean("per_unit")]);
   });
 
   it("offers no options for any value of a non-metric dataset", () => {
@@ -170,7 +178,7 @@ describe("getShowAsChoiceByIndex", () => {
         ],
       },
     };
-    expect(getShowAsChoiceByIndex(config, getFactMetricById)).toEqual([none]);
+    expect(getShowAsChoices(config, getFactMetricById)).toEqual([none]);
   });
 });
 
