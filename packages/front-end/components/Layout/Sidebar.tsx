@@ -236,7 +236,7 @@ function opensElsewhere(e: ReactMouseEvent) {
 
 function PageBadge({ page }: { page: SidebarLinkProps }) {
   return page.beta ? (
-    <Badge color="indigo" label="Beta" variant="soft" size="xs" ml="1" />
+    <Badge color="indigo" label="Beta" variant="soft" size="xs" ml="2" />
   ) : null;
 }
 

@@ -34,14 +34,14 @@
   }
 }
 
-// The name and the Demo badge, 4px apart as a page's name and its Beta badge.
+// The name and the Demo badge, 8px apart as a page's name and its Beta badge.
 // The name only takes its own width, so the badge sits beside it rather than
 // at the row's end, and it still truncates.
 .nameWithBadge {
   display: flex;
   flex-grow: 1;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
 
   > :first-child {
