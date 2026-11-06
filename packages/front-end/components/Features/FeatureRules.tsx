@@ -88,7 +88,7 @@ export default function FeatureRules({
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
   // Selected env tab, lifted to the parent so the Default Value display can
-  // resolve for the same environment. null = "All environments" view.
+  // resolve for the same environment. null = "All Environments" view.
   rulesEnv: string | null;
   setRulesEnv: (v: string | null) => void;
   // Where the header, with its tabs and add button, sticks while the rules
@@ -320,7 +320,7 @@ export default function FeatureRules({
     if (key === FEATURE_RULES_ALL_ENVS) {
       overflowLabels.push({
         key,
-        label: "All environments",
+        label: "All Environments",
         count:
           (feature.rules?.length ?? 0) + (includeHoldoutRuleAllEnvs ? 1 : 0),
       });
@@ -346,7 +346,7 @@ export default function FeatureRules({
       )
     : overflowLabels;
 
-  // Into the open tab's environment, or every one from "All environments".
+  // Into the open tab's environment, or every one from "All Environments".
   const addRuleEnv = env === null ? "" : (activeEnv?.id ?? null);
 
   const tabs = (
@@ -370,7 +370,7 @@ export default function FeatureRules({
             }
           >
             <Flex align="center" gap="2">
-              All environments
+              All Environments
               <Badge
                 label={String(
                   (feature.rules?.length ?? 0) +

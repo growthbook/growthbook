@@ -1,6 +1,8 @@
 // Specific files, not the package barrels: this module is imported by both apps
 // and a barrel round-trip risks a runtime cycle.
 import { proposedProjectScope } from "../util/featureDraftPurity";
+import { eventUserIdentity } from "../validators/event-user";
+import type { EventUser } from "../validators/event-user";
 import { holdsMoveDestination } from "./moveAuthority";
 import { NO_ENVIRONMENT_BINDING } from "./revisionPermissions";
 import type { RevisionAction, RevisionModel } from "./revisionPermissions";
@@ -237,5 +239,42 @@ export function canWriteArchiveIntoDraft({
   if (!userId) return false;
   return (
     revision.authorId === userId || !!revision.contributors?.includes(userId)
+  );
+}
+
+// A feature's environment switch changes it one way or another: in a draft,
+// with draft authority, or straight to live with publish authority there.
+export function canOfferEnvironmentToggle(
+  permissionsUtil: Pick<
+    Permissions,
+    "canEditFeatureDrafts" | "canPublishFeature"
+  >,
+  feature: ProjectScoped,
+  environmentId: string,
+): boolean {
+  return (
+    permissionsUtil.canEditFeatureDrafts(feature) ||
+    permissionsUtil.canPublishFeature(feature, [environmentId])
+  );
+}
+
+// Mirrors the server's `canDiscardFeatureDraft` for a signed-in member: draft
+// authority, or having written the draft.
+export function canDiscardFeatureDraftControl({
+  permissions,
+  feature,
+  draft,
+  userId,
+}: {
+  permissions: Pick<Permissions, "canEditFeatureDrafts">;
+  feature: ProjectScoped;
+  draft: { createdBy?: EventUser; contributors?: string[] };
+  userId?: string | null;
+}): boolean {
+  if (permissions.canEditFeatureDrafts(feature)) return true;
+  if (!userId) return false;
+  return (
+    eventUserIdentity(draft.createdBy ?? null) === userId ||
+    !!draft.contributors?.includes(userId)
   );
 }

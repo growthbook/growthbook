@@ -414,10 +414,14 @@ export default function FeaturesHeader({
   // White over the page's violet, which only the content column below shows.
   return (
     <>
-      {/* Bootstrap's spacing: container-fluid's own padding outranks Radix's. */}
+      {/* Padding inline: container-fluid's own outranks Radix's props. */}
       <Box
-        className="container-fluid pagecontents position-relative px-4 pt-3 pb-2"
-        style={{ background: "var(--color-panel-solid)" }}
+        className="container-fluid pagecontents"
+        position="relative"
+        style={{
+          background: "var(--color-panel-solid)",
+          padding: "var(--space-4) var(--space-5) var(--space-2)",
+        }}
       >
         <Box>
           <Flex direction="row" align="start" justify="between" gap="5">
@@ -476,7 +480,11 @@ export default function FeaturesHeader({
             pinned: headerPinned,
           })}
         >
-          <Box className="position-relative container-fluid pagecontents px-4">
+          <Box
+            className="container-fluid pagecontents"
+            position="relative"
+            style={{ paddingInline: "var(--space-5)" }}
+          >
             <Flex align="center" className="header-tabs">
               <Tabs
                 value={tab}

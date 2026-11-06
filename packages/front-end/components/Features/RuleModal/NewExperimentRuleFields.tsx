@@ -35,7 +35,6 @@ import {
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import { useTemplates } from "@/hooks/useTemplates";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import Text from "@/ui/Text";
 
@@ -73,7 +72,6 @@ export default function NewExperimentRuleFields({
   templateRequired: boolean;
 }) {
   const form = useFormContext();
-  const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const { templatesMap } = useTemplates();
   const trackingKeyFormatProps = useExperimentKeyFieldProps(
@@ -168,13 +166,15 @@ export default function NewExperimentRuleFields({
         minLength={2}
         {...form.register("name")}
       />
-      {settings.experimentKeyRegexValidator && (
-        <Field
-          label="Tracking key"
-          {...form.register("trackingKey")}
-          {...trackingKeyFormatProps}
-        />
-      )}
+      <Field
+        label="Tracking key"
+        {...form.register("trackingKey")}
+        placeholder={feature.id}
+        {...trackingKeyFormatProps}
+        helpText={`Unique identifier for this ${
+          kind === "bandit" ? "Bandit" : "Experiment"
+        }, used to track impressions and analyze results`}
+      />
 
       {hasCommercialFeature("templates") && availableTemplates.length >= 1 && (
         <SelectField

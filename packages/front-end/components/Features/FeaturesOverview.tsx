@@ -15,6 +15,7 @@ import {
   getReviewSetting,
 } from "shared/util";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
+import { canOfferEnvironmentToggle } from "shared/permissions";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -78,12 +79,14 @@ export const featureStatusColors = {
 // A changeable environment's switch, its state named after it. In a grid
 // column the switch centres and its label hangs off to the right.
 function EnvironmentSwitch({
+  environment,
   enabled,
   onToggle,
   disabled = false,
   changed = false,
   labelOverhangs = false,
 }: {
+  environment: string;
   enabled: boolean;
   onToggle: (on: boolean) => void;
   disabled?: boolean;
@@ -107,6 +110,7 @@ function EnvironmentSwitch({
         <Switch
           color="green"
           size="lg"
+          ariaLabel={environment}
           value={enabled}
           onChange={onToggle}
           disabled={disabled}
@@ -273,7 +277,7 @@ export default function FeaturesOverview({
   const envs = environments.map((e) => e.id);
   // Selected rules env tab, lifted here so the Default Value display resolves a
   // config-backed value for the same environment the rules are filtered to.
-  // null = "All environments".
+  // null = "All Environments".
   const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
 
   const prerequisites = feature?.prerequisites || [];
@@ -432,10 +436,8 @@ export default function FeaturesOverview({
   // projection, so a draft staging a project move judged the wrong project.
   const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
 
-  // Drafted by anyone who edits drafts; otherwise only published, so only
-  // where this user may publish.
   const canToggleEnvironment = (envId: string) =>
-    canEditDrafts || permissionsUtil.canPublishFeature(baseFeature, [envId]);
+    canOfferEnvironmentToggle(permissionsUtil, baseFeature, envId);
   const envBlockedReason = (envId: string) =>
     lockReason ??
     (canToggleEnvironment(envId)
@@ -690,6 +692,7 @@ export default function FeaturesOverview({
                             >
                               {showsControls && canChangeEnvironments ? (
                                 <EnvironmentSwitch
+                                  environment={en.id}
                                   enabled={enabled}
                                   onToggle={(on) =>
                                     toggleEnvironment(en.id, on)
@@ -833,6 +836,7 @@ export default function FeaturesOverview({
                         >
                           {showsControls && canChangeEnvironments ? (
                             <EnvironmentSwitch
+                              environment={en.id}
                               enabled={enabled}
                               onToggle={(on) => toggleEnvironment(en.id, on)}
                               disabled={

@@ -196,7 +196,7 @@ export default function FeatureDetailsPanel({
             <Metadata
               size="sm"
               stacked
-              label="Targeting projects"
+              label="Targeting Projects"
               action={fieldAction("targetingProjects")}
               value={
                 feature.targetingAllProjects ? (

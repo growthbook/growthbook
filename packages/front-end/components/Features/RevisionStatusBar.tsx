@@ -16,10 +16,8 @@ import {
 } from "shared/enterprise";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  MinimalFeatureRevisionInterface,
-  eventUserPersonId,
-} from "shared/validators";
+import { MinimalFeatureRevisionInterface } from "shared/validators";
+import { canDiscardFeatureDraftControl } from "shared/permissions";
 import {
   featureToFeatureRevisionDiffInput,
   revisionToFeatureRevisionDiffInput,
@@ -91,13 +89,14 @@ export default function RevisionStatusBar({
   const inReview =
     revision.status === "pending-review" ||
     revision.status === "changes-requested";
-  const authoredDraft =
-    !!userId &&
-    (eventUserPersonId(revision.createdBy ?? null) === userId ||
-      (revision.contributors ?? []).includes(userId));
   const canDiscard =
     isDraft &&
-    (permissionsUtil.canEditFeatureDrafts(baseFeature) || authoredDraft);
+    canDiscardFeatureDraftControl({
+      permissions: permissionsUtil,
+      feature: baseFeature,
+      draft: revision,
+      userId,
+    });
 
   const drafts = revisionList.filter(isOpenUserDraft);
   const switchToLive = (
