@@ -2,11 +2,7 @@ import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
 import { ReactNode, useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
-import {
-  PiArrowsClockwise,
-  PiPencilSimpleFill,
-  PiPlusBold,
-} from "react-icons/pi";
+import { PiArrowsClockwise, PiPencilSimple, PiPlusBold } from "react-icons/pi";
 import {
   coverageToPercent,
   decimalToPercent,
@@ -331,7 +327,7 @@ export default function FeatureVariationsInput({
                                 }}
                                 aria-label="Customize split"
                               >
-                                <PiPencilSimpleFill size={14} />
+                                <PiPencilSimple size={14} />
                               </IconButton>
                             </Tooltip>
                           )}
