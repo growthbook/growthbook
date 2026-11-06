@@ -521,6 +521,18 @@ export async function editSDKConnection(
     dateUpdated: new Date(),
   };
 
+  // QA override filters name connections by id; one that leaves the
+  // environment can no longer be served the override.
+  if (
+    otherChanges.environment !== undefined &&
+    otherChanges.environment !== connection.environment
+  ) {
+    await context.models.experimentQaOverrides.removeSdkConnectionFromFilters(
+      connection.id,
+      { skipSDKRefresh: true },
+    );
+  }
+
   await SDKConnectionModel.updateOne(
     {
       organization: context.org.id,
@@ -579,6 +591,10 @@ export async function deleteSDKConnectionModel(
     organization: context.org.id,
     id: sdkConnection.id,
   });
+  await context.models.experimentQaOverrides.removeSdkConnectionFromFilters(
+    sdkConnection.id,
+    { skipSDKRefresh: true },
+  );
 
   await audit.logDelete(context, sdkConnection);
 }

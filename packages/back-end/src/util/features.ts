@@ -17,6 +17,7 @@ import {
   getNamespaceHashAttribute,
   getNamespaceRanges,
   getRulesForEnvironment,
+  getQaTrackingKey,
   getTargetingProjectIds,
   includeExperimentInPayload,
   isDefined,
@@ -73,7 +74,9 @@ import {
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  ExperimentPhase,
 } from "shared/types/experiment";
+import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -272,6 +275,95 @@ function warnSavedGroupProblemOnce(problem: string) {
  *
  * The strategy decides how the group itself is written, not this function.
  */
+// The override's own filters (attribute condition + saved groups), in the
+// connection's saved-group format. Connection and project filters are resolved
+// before the payload is built, so they never appear here.
+export function qaOverrideFiltersCondition({
+  override,
+  savedGroupStrategy,
+}: {
+  override: ExperimentQaOverrideInterface;
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): ConditionInterface | undefined {
+  return mergeConditionAndSavedGroups({
+    savedGroupStrategy,
+    condition: override.filters.condition,
+    savedGroups: override.filters.savedGroups,
+  });
+}
+
+// Random assignment keeps the experiment's own targeting and narrows it with
+// the filters; forcing a variation ignores the experiment's targeting.
+export function qaOverrideCondition({
+  override,
+  experimentCondition,
+  savedGroupStrategy,
+}: {
+  override: ExperimentQaOverrideInterface;
+  experimentCondition?: ConditionInterface;
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): ConditionInterface | undefined {
+  const filters = qaOverrideFiltersCondition({ override, savedGroupStrategy });
+  const base =
+    override.assignment.type === "random" ? experimentCondition : undefined;
+  if (base && filters) return { $and: [base, filters] };
+  return base ?? filters;
+}
+
+export function qaOverrideWeights(
+  override: ExperimentQaOverrideInterface,
+  experiment: Pick<ExperimentInterface, "variations" | "phases">,
+  phase: Pick<ExperimentPhase, "variationWeights">,
+): number[] {
+  if (override.assignment.type === "forced") {
+    const variationId = override.assignment.variationId;
+    const variations = getLatestPhaseVariations(experiment);
+    const index = variations.findIndex((v) => v.id === variationId);
+    if (index >= 0) {
+      return variations.map((_, i) => (i === index ? 1 : 0));
+    }
+  }
+  return phase.variationWeights;
+}
+
+export function applyQaOverrideToRule(
+  rule: FeatureDefinitionRule,
+  experiment: ExperimentInterface,
+  phase: ExperimentPhase,
+  override: ExperimentQaOverrideInterface,
+  savedGroupStrategy: SavedGroupPayloadStrategy,
+): FeatureDefinitionRule {
+  const forced = override.assignment.type === "forced";
+
+  rule.key = getQaTrackingKey(experiment.trackingKey);
+  // Hash on the same seed the live experiment will use, so a user lands in
+  // the same bucket during QA as after the experiment starts. Without a seed
+  // the SDK falls back to the key, which differs here.
+  rule.seed = phase.seed || experiment.trackingKey;
+  // Connections that get rule ids (dev tools) get the override's id, so the
+  // tools can link back to it; the key suffix marks the rule as QA either way.
+  if (rule.id) rule.id = override.id;
+  rule.weights = qaOverrideWeights(override, experiment, phase);
+  rule.coverage = forced ? 1 : phase.coverage;
+  rule.disableStickyBucketing = true;
+
+  const condition = qaOverrideCondition({
+    override,
+    experimentCondition: rule.condition,
+    savedGroupStrategy,
+  });
+  if (condition) {
+    rule.condition = condition;
+  } else {
+    delete rule.condition;
+  }
+  if (forced) {
+    delete rule.parentConditions;
+    delete rule.namespace;
+  }
+  return rule;
+}
+
 export function mergeConditionAndSavedGroups({
   savedGroupStrategy,
   condition,
@@ -1048,6 +1140,7 @@ export function getFeatureDefinition({
   includeRuleIds,
   includeExperimentNames,
   includeDraftExperimentRefs,
+  qaOverrides,
   namespaces,
   metadataOptions,
   projectsMap,
@@ -1076,6 +1169,9 @@ export function getFeatureDefinition({
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   includeDraftExperimentRefs?: boolean;
+  // Draft experiments served to this connection through QA overrides, by
+  // experiment id, in priority order.
+  qaOverrides?: Map<string, ExperimentQaOverrideInterface[]>;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -1273,11 +1369,25 @@ export function getFeatureDefinition({
     }
   }
 
+  // QA overrides ignore holdouts: the holdout's force rule sits above the
+  // experiment rule, so a tester in holdout control would never reach the
+  // override. Dropping it only happens on non-production connections while
+  // the experiment is a draft.
+  const hasQaOverride =
+    !!qaOverrides?.size &&
+    (rules ?? []).some(
+      (r) =>
+        r.type === "experiment-ref" &&
+        qaOverrides.has(r.experimentId) &&
+        experimentMap.get(r.experimentId)?.status === "draft",
+    );
+
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
   // pseudo force rule with a prerequisite condition. The environment being enabled is
   // already checked in the getAllPayloadHoldouts function.
   const holdoutRule: FeatureDefinitionRule[] =
     hasPrerequisites &&
+    !hasQaOverride &&
     feature.holdout &&
     holdoutsMap &&
     holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
@@ -1348,12 +1458,20 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          if (exp.status === "draft" && !includeDraftExperimentRefs)
+          const expQaOverrides =
+            exp.status === "draft" ? qaOverrides?.get(exp.id) : undefined;
+          const hasExpQaOverride = !!expQaOverrides?.length;
+
+          if (
+            exp.status === "draft" &&
+            !includeDraftExperimentRefs &&
+            !hasExpQaOverride
+          )
             return null;
 
           if (
             !includeExperimentInPayload(exp, [], {
-              includeDrafts: includeDraftExperimentRefs,
+              includeDrafts: includeDraftExperimentRefs || hasExpQaOverride,
             })
           )
             return null;
@@ -1447,43 +1565,63 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
           }
-          if (rule.condition)
-            savedGroupStrategy.finalizeCondition(rule.condition);
-          if (rule.parentConditions)
-            savedGroupStrategy.finalizeCondition(rule.parentConditions);
-          if (metadataOptions) {
-            const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
-              {
-                // No project here — metadata.projects comes solely from the
-                // rule's own scope below, not the experiment's project.
-                customFields: exp.customFields,
-                tags: exp.tags,
-                statusUpdateSchedule: exp.statusUpdateSchedule,
-              },
-              metadataOptions,
-              projectsMap,
-            );
-            if (expMetadata) rule.metadata = expMetadata;
-            applyRuleProjectMetadata(
-              rule,
-              r,
-              deliveryProjects,
-              metadataOptions,
-              projectsMap,
-            );
-          }
 
-          if (allowedKeys) {
-            const picked = pick(
-              rule,
-              allowedKeys.featureRuleKeys,
-            ) as FeatureDefinitionRule;
-            if (includeRuleIds && r.id != null) {
-              (picked as Record<string, unknown>).id = stemRuleId(r.id);
+          const finalizeExperimentRule = (rule: FeatureDefinitionRule) => {
+            if (rule.condition)
+              savedGroupStrategy.finalizeCondition(rule.condition);
+            if (rule.parentConditions)
+              savedGroupStrategy.finalizeCondition(rule.parentConditions);
+            if (metadataOptions) {
+              const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
+                {
+                  // No project here — metadata.projects comes solely from the
+                  // rule's own scope below, not the experiment's project.
+                  customFields: exp.customFields,
+                  tags: exp.tags,
+                  statusUpdateSchedule: exp.statusUpdateSchedule,
+                },
+                metadataOptions,
+                projectsMap,
+              );
+              if (expMetadata) rule.metadata = expMetadata;
+              applyRuleProjectMetadata(
+                rule,
+                r,
+                deliveryProjects,
+                metadataOptions,
+                projectsMap,
+              );
             }
-            return picked;
+
+            if (allowedKeys) {
+              const picked = pick(
+                rule,
+                allowedKeys.featureRuleKeys,
+              ) as FeatureDefinitionRule;
+              if (includeRuleIds && rule.id != null) {
+                (picked as Record<string, unknown>).id = rule.id;
+              }
+              return picked;
+            }
+            return rule;
+          };
+
+          // One rule per QA override, in priority order: the first one whose
+          // filters match wins, the same as any other feature rule.
+          if (expQaOverrides?.length && exp.status !== "stopped") {
+            return expQaOverrides.map((override) =>
+              finalizeExperimentRule(
+                applyQaOverrideToRule(
+                  cloneDeep(rule),
+                  exp,
+                  phase,
+                  override,
+                  savedGroupStrategy,
+                ),
+              ),
+            );
           }
-          return rule;
+          return finalizeExperimentRule(rule);
         }
 
         if (r.type === "contextual-bandit-ref") {
@@ -1839,6 +1977,7 @@ export function getFeatureDefinition({
         }
         return rule;
       })
+      ?.flat()
       ?.filter(isRule) ?? []),
   ];
 

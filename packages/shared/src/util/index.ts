@@ -70,6 +70,7 @@ export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
 export * from "./event-forwarder-fact-table";
+export * from "./qa-overrides";
 export * from "./event-forwarder-warehouse-queries";
 
 // URL Redirects and Visual Editor changes serve in every environment. Never

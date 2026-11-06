@@ -18,6 +18,7 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   canEditDeliveryInPlace,
   experimentHasLinkedChanges,
+  experimentSupportsQaOverrides,
   getLinkedChangeEnvs,
   hasPendingScheduledStart,
 } from "shared/util";
@@ -67,6 +68,7 @@ import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
+import QaOverridesSection from "@/components/Experiment/QaOverrides/QaOverridesSection";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
   FlagEnvironmentsDraft,
@@ -580,6 +582,15 @@ export default function Implementation({
             phaseIndex={getActivePhaseIndex(experiment)}
           />
         )}
+        {experiment.status === "draft" &&
+        !experiment.archived &&
+        experimentSupportsQaOverrides(experiment) ? (
+          <QaOverridesSection
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
+            mutateExperiment={mutate}
+          />
+        ) : null}
         {isHoldout && holdout ? (
           <HoldoutEnvironments
             editEnvironments={() => setShowEditEnvironmentsModal(true)}
