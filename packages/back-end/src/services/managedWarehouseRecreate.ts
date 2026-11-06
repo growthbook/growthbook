@@ -260,9 +260,10 @@ export async function advanceManagedWarehouseRecreate(
   }
 
   // Claim the request before calling the license server, so a second job
-  // can't start the same recreate.
+  // can't start the same recreate. Use the tables as claimed: a new request
+  // can add tables while the request is pending, but not once it's running.
   const startedAt = new Date();
-  const claimed = await datasources().updateOne(
+  const claimed = await datasources().findOneAndUpdate(
     {
       ...MANAGED_WAREHOUSE_FILTER,
       organization,
@@ -275,8 +276,10 @@ export async function advanceManagedWarehouseRecreate(
         "recreateRequest.startedAt": startedAt,
       },
     },
+    { returnDocument: "after", projection: { recreateRequest: 1 } },
   );
-  if (!claimed.modifiedCount) return;
+  const tables = claimed.value?.recreateRequest?.tables;
+  if (!tables) return;
 
   // Several job workers can pass the count check above at the same time. Each
   // re-counts after claiming and backs out if that put us over the limit, so a
@@ -290,11 +293,11 @@ export async function advanceManagedWarehouseRecreate(
 
   try {
     const allTables = MANAGED_WAREHOUSE_RECREATABLE_TABLES.every((t) =>
-      request.tables.includes(t),
+      tables.includes(t),
     );
     const result = await dangerousRecreateClickhouseTables(
       organization,
-      allTables ? undefined : request.tables,
+      allTables ? undefined : tables,
     );
     if (result === "already-running") {
       // Another recreate holds the org's lock. Requeue so the sweep retries.

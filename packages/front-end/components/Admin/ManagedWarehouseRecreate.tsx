@@ -217,6 +217,7 @@ export default function ManagedWarehouseRecreates({
           title="Cancel Pending Recreates"
           content={`Cancel ${counts?.pending ?? 0} pending recreate${counts?.pending === 1 ? "" : "s"}? Running recreates aren't affected.`}
           yesText="Cancel pending"
+          noText="Keep pending"
           color="red"
           onConfirm={async () => {
             setConfirmingCancel(false);
