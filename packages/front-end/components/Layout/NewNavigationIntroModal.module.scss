@@ -18,18 +18,33 @@
   background: linear-gradient(135deg, var(--violet-9), var(--violet-11));
 }
 
-// The backdrop is there from the start, and the modal comes in half a second
-// later with Modal's own entrance (Radix's: it fades in and rises), so the new
-// layout shows under the backdrop first. Closing keeps Radix's fades. With
-// reduced motion Radix has no animations, so the modal is there at once.
+// The backdrop is there from the start, and the modal rises into place half a
+// second later, so the new layout shows under the backdrop first. Closing
+// keeps Radix's fades. With reduced motion there's no animation at all, so the
+// modal is there at once.
 @media (prefers-reduced-motion: no-preference) {
   :global(.rt-BaseDialogOverlay[data-state="open"]):has(.image)::before {
     animation: none;
   }
 
+  // Hidden, at the animation's start, until the delay ends.
   :global(.rt-BaseDialogContent[data-state="open"]):has(.image) {
-    animation-delay: 500ms;
-    // Hidden, at the animation's start, until then.
-    animation-fill-mode: backwards;
+    animation: rise-in 420ms cubic-bezier(0.16, 1, 0.3, 1) 500ms backwards;
+  }
+}
+
+// Further and slower than Radix's 5px, 200ms entrance: it lifts into place and
+// settles, fading in over the first part of the rise.
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
