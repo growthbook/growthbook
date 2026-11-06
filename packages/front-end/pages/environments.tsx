@@ -21,7 +21,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import EnvironmentConnectionsList from "@/components/Settings/EnvironmentConnectionsList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
@@ -128,6 +127,7 @@ const EnvironmentsPage: FC = () => {
           <TableHeader>
             <TableRow>
               <TableColumnHeader>Environment</TableColumnHeader>
+              <TableColumnHeader>Production</TableColumnHeader>
               <TableColumnHeader>Description</TableColumnHeader>
               <TableColumnHeader>Projects</TableColumnHeader>
               <TableColumnHeader>SDK Connections</TableColumnHeader>
@@ -160,13 +160,25 @@ const EnvironmentsPage: FC = () => {
               };
               return (
                 <TableRow key={e.id}>
+                  <TableCell>{e.id}</TableCell>
                   <TableCell>
-                    <Flex align="center" gap="2">
-                      {e.id}
-                      {isProductionEnvironment(e) && (
-                        <Badge label="Production" />
+                    <Tooltip
+                      body={
+                        isProductionEnvironment(e)
+                          ? "Production environment"
+                          : "Non-production environment"
+                      }
+                    >
+                      {isProductionEnvironment(e) ? (
+                        <FaRegCircleCheck
+                          style={{ color: "var(--green-9)", fontSize: 18 }}
+                        />
+                      ) : (
+                        <FaRegCircleXmark
+                          style={{ color: "var(--gray-8)", fontSize: 18 }}
+                        />
                       )}
-                    </Flex>
+                    </Tooltip>
                   </TableCell>
                   <TableCell>{e.description}</TableCell>
                   <TableCell>

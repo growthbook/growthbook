@@ -11,6 +11,11 @@ export function isEnvironmentDevLike(envId: string): boolean {
 
 const NON_PRODUCTION_ENVIRONMENT_IDS = ["dev", "staging", "test"];
 
+export const DEFAULT_ENVIRONMENT_IDS = [
+  "production",
+  ...NON_PRODUCTION_ENVIRONMENT_IDS,
+];
+
 export function guessIsProductionEnvironment(envId: string): boolean {
   return !NON_PRODUCTION_ENVIRONMENT_IDS.includes(envId.toLowerCase());
 }

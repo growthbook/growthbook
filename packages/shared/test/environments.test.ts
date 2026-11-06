@@ -1,4 +1,5 @@
 import {
+  DEFAULT_ENVIRONMENT_IDS,
   guessIsProductionEnvironment,
   isProductionEnvironment,
   withIsProduction,
@@ -23,6 +24,18 @@ describe("guessIsProductionEnvironment", () => {
     "development",
   ])("treats %s as production (exact match only)", (id) => {
     expect(guessIsProductionEnvironment(id)).toBe(true);
+  });
+});
+
+describe("DEFAULT_ENVIRONMENT_IDS", () => {
+  it("treats every default except production as non-production", () => {
+    expect(DEFAULT_ENVIRONMENT_IDS).toContain("production");
+    expect(guessIsProductionEnvironment("production")).toBe(true);
+    DEFAULT_ENVIRONMENT_IDS.filter((id) => id !== "production").forEach(
+      (id) => {
+        expect(guessIsProductionEnvironment(id)).toBe(false);
+      },
+    );
   });
 });
 
