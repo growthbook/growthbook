@@ -18,6 +18,7 @@ import { useAuth } from "@/services/auth";
 import { getPrerequisites } from "@/services/features";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -54,6 +55,8 @@ interface Props {
   revisionList: MinimalFeatureRevisionInterface[];
   gatedEnvSet: Set<string> | "all" | "none";
   isLocked?: boolean;
+  // Shows the menu disabled rather than hiding it.
+  lockedBySchedule?: boolean;
   labelWidth?: number;
   colWidth?: number;
 }
@@ -70,6 +73,7 @@ export default function PrerequisiteStatusRow({
   revisionList,
   gatedEnvSet,
   isLocked = false,
+  lockedBySchedule = false,
   labelWidth = 200,
   colWidth = 120,
 }: Props) {
@@ -167,7 +171,9 @@ export default function PrerequisiteStatusRow({
     </Modal>
   );
 
-  const menu = canEdit && !isLocked && (
+  const menu = !canEdit ? null : lockedBySchedule ? (
+    <LockedRowMenu iconSize={18} />
+  ) : isLocked ? null : (
     <DropdownMenu
       trigger={
         <IconButton

@@ -23,6 +23,7 @@ import Callout from "@/ui/Callout";
 import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { DetailsPanelLayout, useDetailsPanel } from "@/components/DetailsPanel";
 import FeatureDetailsPanel from "@/components/Features/FeatureDetailsPanel";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import RevisionStatusBar, {
   getRevisionStatus,
   REVISION_STATUS_BAR_HEIGHT_PX,
@@ -248,9 +249,12 @@ export default function FeaturePage() {
               holdout={holdout}
               dependents={dependentsData}
               canEdit={
-                permissionsUtil.canEditFeatureDrafts(baseFeature) &&
-                !isReadOnly &&
-                !(viewingDraft && isRevisionEditLockedBySchedule(revision))
+                permissionsUtil.canEditFeatureDrafts(baseFeature) && !isReadOnly
+              }
+              blockedReason={
+                viewingDraft && isRevisionEditLockedBySchedule(revision)
+                  ? SCHEDULE_EDIT_LOCK_REASON
+                  : null
               }
               mutate={refreshData}
               setVersion={setVersion}

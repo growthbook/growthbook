@@ -170,15 +170,16 @@ export default function RevisionStatusBar({
       </>
     );
     if (status === "scheduled") {
+      const editsLocked = isRevisionEditLockedBySchedule(revision);
       const lockClauses = [
-        isRevisionEditLockedBySchedule(revision) ? "edits are locked" : null,
+        editsLocked ? "edits are locked" : null,
         isScheduledPublishLockActive(revision) &&
         revision.scheduledPublishLockOthers
           ? "publishing other drafts is locked"
           : null,
       ].filter((c): c is string => c !== null);
       icon = lockClauses.length ? <PiLockSimple /> : <PiClockFill />;
-      label = "Draft · scheduled";
+      label = editsLocked ? "Draft · locked" : "Draft · scheduled";
       message = (
         <>
           Publishes {datetime(revision.scheduledPublishAt as Date)}

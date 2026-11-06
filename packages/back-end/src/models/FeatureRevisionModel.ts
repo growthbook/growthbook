@@ -1522,7 +1522,9 @@ export function computeRevisionUpdate(
         revision.status === "changes-requested"
       )
     ) {
-      throw new Error("Can only update draft revisions");
+      throw new Error(
+        "This draft was already published or discarded, so it can no longer be edited.",
+      );
     }
     // Reset changes-requested back to pending-review whenever any content changes.
     if (revision.status === "changes-requested") {

@@ -3,7 +3,8 @@ import { useFormContext } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { CustomField } from "shared/types/custom-fields";
 import { ExperimentValue, FeatureInterface } from "shared/types/feature";
-import { generateVariationId, isProjectListValidForProject } from "shared/util";
+import { ExperimentTemplateInterface } from "shared/types/experiment";
+import { generateVariationId } from "shared/util";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -55,6 +56,8 @@ export default function NewExperimentRuleFields({
   customFieldValues,
   setCustomFields,
   setHypothesisUploading,
+  templates,
+  templateRequired,
 }: {
   kind: "experiment" | "bandit";
   feature: FeatureInterface;
@@ -66,11 +69,14 @@ export default function NewExperimentRuleFields({
   customFieldValues: Record<string, string>;
   setCustomFields: (value: Record<string, string>) => void;
   setHypothesisUploading: (uploading: boolean) => void;
+  // The rule modal's, which also enforces the requirement on submit.
+  templates: ExperimentTemplateInterface[];
+  templateRequired: boolean;
 }) {
   const form = useFormContext();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
-  const { templates: allTemplates, templatesMap } = useTemplates();
+  const { templatesMap } = useTemplates();
   const trackingKeyFormatProps = useExperimentKeyFieldProps(
     form.watch("trackingKey"),
   );
@@ -79,20 +85,13 @@ export default function NewExperimentRuleFields({
 
   const availableTemplates =
     kind === "experiment"
-      ? allTemplates
+      ? templates
           .slice()
           .sort((a, b) =>
             a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
           )
-          .filter((t) =>
-            isProjectListValidForProject(t.project ? [t.project] : [], project),
-          )
           .map((t) => ({ value: t.id, label: t.templateMetadata.name }))
       : [];
-  const templateRequired =
-    hasCommercialFeature("templates") &&
-    settings.requireExperimentTemplates &&
-    availableTemplates.length >= 1;
 
   const attributeSchema = useAttributeSchema(
     false,
@@ -134,15 +133,23 @@ export default function NewExperimentRuleFields({
 
   // A Bandit's count keeps the values already set, and fills in new ones.
   const [typedCount, setTypedCount] = useState<string | null>(null);
-  const setCount = (raw: string) => {
-    setTypedCount(null);
-    const n = Math.min(Math.max(2, parseInt(raw) || 2), 100);
+  const applyCount = (n: number) => {
     const next = Array.from(
       { length: n },
       (_, i) =>
         variations[i] ?? newRuleVariation(feature.valueType, defaultValue, i),
     );
     setVariations(next.map((v) => ({ ...v, weight: 1 / n })));
+  };
+  // Applied as it's typed, so a submit by Enter uses it; clamped on blur.
+  const typeCount = (raw: string) => {
+    setTypedCount(raw);
+    const n = parseInt(raw);
+    if (n >= 2 && n <= 100 && n !== variations.length) applyCount(n);
+  };
+  const settleCount = (raw: string) => {
+    setTypedCount(null);
+    applyCount(Math.min(Math.max(2, parseInt(raw) || 2), 100));
   };
   const [valuesOpen, setValuesOpen] = useState(false);
 
@@ -280,8 +287,8 @@ export default function NewExperimentRuleFields({
             max={100}
             style={{ width: 120 }}
             value={typedCount ?? String(variations.length)}
-            onChange={(e) => setTypedCount(e.target.value)}
-            onBlur={(e) => setCount(e.target.value)}
+            onChange={(e) => typeCount(e.target.value)}
+            onBlur={(e) => settleCount(e.target.value)}
           />
           <Box mb="4">
             <CollapseLink open={valuesOpen} onOpenChange={setValuesOpen}>

@@ -54,6 +54,7 @@ export default function FeatureDetailsPanel({
   holdout,
   dependents,
   canEdit,
+  blockedReason,
   mutate,
   setVersion,
   tab,
@@ -69,6 +70,8 @@ export default function FeatureDetailsPanel({
   // Features and experiments that use this feature as a prerequisite.
   dependents: FeatureDependents | null;
   canEdit: boolean;
+  // Why the pencils show disabled.
+  blockedReason: string | null;
   mutate: () => void;
   setVersion: (v: number) => void;
   tab: DetailsPanelTab;
@@ -91,7 +94,12 @@ export default function FeatureDetailsPanel({
   };
   const pencil = (label: string, onClick: () => void) =>
     canEdit ? (
-      <QuickEditButton label={label} onClick={onClick} labelTooltip={false} />
+      <QuickEditButton
+        label={label}
+        onClick={onClick}
+        blockedReason={blockedReason}
+        labelTooltip={false}
+      />
     ) : null;
   const fieldAction = (section: FeatureInfoSection) =>
     pencil(SECTION_HEADERS[section], () => editSection(section));

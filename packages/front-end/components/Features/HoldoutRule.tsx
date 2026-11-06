@@ -12,6 +12,7 @@ import {
 } from "shared/util";
 import { hasTargetingConfigured } from "shared/experiments";
 import Link from "@/ui/Link";
+import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
@@ -41,6 +42,8 @@ interface Props {
   // The current draft adds this holdout; it goes live when the draft publishes.
   isPendingAdd?: boolean;
   isLocked?: boolean;
+  // Shows the menu disabled rather than hiding it.
+  lockedBySchedule?: boolean;
   // Per-env tab passes its env id so the badge sorts current env first;
   // omitted in the All-Environments view.
   currentEnvironment?: string;
@@ -58,6 +61,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       isDeleted = false,
       isPendingAdd = false,
       isLocked = false,
+      lockedBySchedule = false,
       currentEnvironment,
       ...props
     },
@@ -149,6 +153,11 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 />
               )}
 
+              {canEdit && lockedBySchedule ? (
+                <LockedRowMenu
+                  style={{ marginRight: "calc(var(--space-2) * -1)" }}
+                />
+              ) : null}
               {canEdit && !isLocked && (
                 <DropdownMenu
                   trigger={

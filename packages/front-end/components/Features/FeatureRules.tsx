@@ -28,6 +28,8 @@ import { isHoldoutEnabledAnyEnv } from "@/hooks/useHoldouts";
 import useApi from "@/hooks/useApi";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
+import UITooltip from "@/ui/Tooltip";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsMoreTrigger, TabsTrigger } from "@/ui/Tabs";
@@ -512,23 +514,31 @@ export default function FeatureRules({
         mt="5"
         stickyTop={stickyHeaderTop}
         actions={
-          !isLocked && canEditDrafts && addRuleEnv !== null ? (
-            <Button
-              onClick={() => {
-                setRuleModal({
-                  environment: addRuleEnv,
-                  i: (feature.rules ?? []).length,
-                  mode: "create",
-                });
-                track("Viewed Rule Modal", {
-                  source: "add-rule",
-                  type: "force",
-                });
-              }}
-              icon={<PiPlusBold />}
+          (!isLocked || lockedBySchedule) &&
+          canEditDrafts &&
+          addRuleEnv !== null ? (
+            <UITooltip
+              content={SCHEDULE_EDIT_LOCK_REASON}
+              enabled={!!lockedBySchedule}
             >
-              Add rule
-            </Button>
+              <Button
+                disabled={!!lockedBySchedule}
+                onClick={() => {
+                  setRuleModal({
+                    environment: addRuleEnv,
+                    i: (feature.rules ?? []).length,
+                    mode: "create",
+                  });
+                  track("Viewed Rule Modal", {
+                    source: "add-rule",
+                    type: "force",
+                  });
+                }}
+                icon={<PiPlusBold />}
+              >
+                Add rule
+              </Button>
+            </UITooltip>
           ) : null
         }
         tabs={tabs}

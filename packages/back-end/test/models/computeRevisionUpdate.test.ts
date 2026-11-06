@@ -111,7 +111,7 @@ describe("computeRevisionUpdate", () => {
       computeRevisionUpdate(mockContext(), FEATURE, revision, {
         rules: [v2Rule("r1")],
       }),
-    ).toThrow("Can only update draft revisions");
+    ).toThrow("This draft was already published or discarded");
   });
 
   it("allows non-mutable changes on a published revision", () => {

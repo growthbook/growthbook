@@ -243,12 +243,23 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
       }
       const width = (value: string) => widths.current.get(value) ?? 0;
       const total = tabs.reduce((sum, [value]) => sum + width(value), 0);
+      // Anything else in the list, such as a button after the tabs, keeps its
+      // room; the tabs share what's left.
+      const others = Array.from(el.children).reduce(
+        (sum, child) =>
+          (more.current && child.contains(more.current)) ||
+          tabs.some(([, entry]) => child.contains(entry.el))
+            ? sum
+            : sum + child.getBoundingClientRect().width,
+        0,
+      );
+      const available = el.clientWidth - others;
 
       const next: string[] = [];
       // 1px of slack for sub-pixel widths against the rounded clientWidth.
-      if (total > el.clientWidth + 1) {
+      if (total > available + 1) {
         let room =
-          el.clientWidth -
+          available -
           moreWidth.current -
           (active !== null && entries.current.has(active) ? width(active) : 0);
         // Once one tab doesn't fit, the rest go too, so the order holds.

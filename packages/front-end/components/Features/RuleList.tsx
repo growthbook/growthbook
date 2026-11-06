@@ -497,6 +497,7 @@ export default function RuleList(props: RuleListProps) {
             revisionList={revisionList}
             setVersion={setVersion}
             isLocked={locked}
+            lockedBySchedule={lockedBySchedule}
             currentEnvironment={allEnvsView ? undefined : props.environment}
           />
         )}

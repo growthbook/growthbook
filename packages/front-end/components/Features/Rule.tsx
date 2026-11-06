@@ -52,6 +52,7 @@ import {
   RampScheduleInterface,
 } from "shared/validators";
 import Link from "@/ui/Link";
+import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import SafeRolloutRuleDashboard from "@/components/RampSchedule/SafeRolloutRuleDashboard";
@@ -1063,6 +1064,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               {/* Shown when rule-edit OR ramp runtime actions are available.
                 Under a scheduled-publish lock the rule-edit group is hidden but
                 ramp/schedule actions remain. */}
+              {canEdit && lockedBySchedule && !rampSchedule ? (
+                <LockedRowMenu />
+              ) : null}
               {(canEdit || hasRampRuntimeItems) &&
                 !rampControlsLocked &&
                 (!locked || !!rampSchedule) && (

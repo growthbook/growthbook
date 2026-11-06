@@ -2723,6 +2723,8 @@ export default function RuleModal({
               customFieldValues={customFieldValues}
               setCustomFields={(value) => form.setValue("customFields", value)}
               setHypothesisUploading={setHypothesisUploading}
+              templates={availableTemplates}
+              templateRequired={!!templateRequired}
             />
           </Page>
         ) : null}

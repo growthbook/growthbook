@@ -18,8 +18,6 @@ import { useEnvironments } from "@/services/features";
 import track from "@/services/track";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
-import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
-import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -69,9 +67,6 @@ export default function KillSwitchModal({
   const reviewSetting = Array.isArray(rawRequireReviews)
     ? getReviewSetting(rawRequireReviews, feature)
     : null;
-
-  // Values picked while resolving a conflict.
-  const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({});
 
   const activeDrafts = useMemo(
     () =>
@@ -140,7 +135,6 @@ export default function KillSwitchModal({
   }, [targetRevisions, liveDoc, feature.version, mode, selectedDraft]);
 
   const getEffectiveState = (envId: string): boolean => {
-    if (envId in envOverrides) return envOverrides[envId];
     if (envId === environment) return desiredState;
     return baseEnvEnabled[envId] ?? false;
   };
@@ -185,16 +179,6 @@ export default function KillSwitchModal({
     }
   }, [canAutoPublish, canDraft, mode]);
 
-  const conflict = useDraftConflict<Record<string, boolean>>({
-    initial: baseEnvEnabled,
-    labels: Object.fromEntries(visibleEnvs.map((e) => [e.id, e.id])),
-    applyField: (field, value) => {
-      setEnvOverrides((o) => ({ ...o, [field]: !!value }));
-    },
-    isNewDraft: mode === "new",
-    entityNoun: "feature",
-  });
-
   const submit = async () => {
     const environments: Record<string, boolean> = {};
     for (const env of visibleEnvs) {
@@ -213,28 +197,15 @@ export default function KillSwitchModal({
           ? { draftVersion: selectedDraft }
           : { forceNewDraft: true };
 
-    const guard = conflict.guard(environments);
-    const res = await conflict.guarded(() =>
-      apiCall<{ status: 200; draftVersion?: number }>(
-        `/feature/${feature.id}/toggle`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            environments,
-            // Only the envs being changed; the rest are untouched either way.
-            baseline: Object.fromEntries(
-              Object.keys(environments).map((env) => [
-                env,
-                baseEnvEnabled[env] ?? false,
-              ]),
-            ),
-            ...modePayload,
-          }),
-        },
-        guard.onError,
-      ),
+    // A single switch can't conflict, so no baseline is sent: whoever flipped
+    // it first flipped it the same way.
+    const res = await apiCall<{ status: 200; draftVersion?: number }>(
+      `/feature/${feature.id}/toggle`,
+      {
+        method: "POST",
+        body: JSON.stringify({ environments, ...modePayload }),
+      },
     );
-    conflict.clear();
 
     track("Feature Environment Toggle", {
       environments,
@@ -262,84 +233,70 @@ export default function KillSwitchModal({
         !!liveDoc.environmentSettings?.[env.id]?.enabled,
     );
 
-  const changedEnvs = visibleEnvs.filter(
-    (env) => getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled,
-  );
   // Selected "Publish now" but the flip set includes an environment this user
   // can't publish. The switch was legitimately theirs to flip; the route isn't.
   const cannotLandSelectedRoute =
     mode === "publish" && !noRouteAvailable && !canAutoPublish;
-  const modalHeader =
-    changedEnvs.length === 1
-      ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
-      : "Change enabled environments";
+  // Named for the switch that was flipped, whatever else the draft changes.
+  const modalHeader = `${getEffectiveState(environment) ? "Enable" : "Disable"} ${environment}`;
 
   return (
-    <ConflictProvider {...conflict.providerProps}>
-      <ModalStandard
-        trackingEventModalType="kill-switch-toggle"
-        header={modalHeader}
-        close={close}
-        open={true}
-        cta={mode === "publish" ? "Publish now" : "Save to draft"}
-        size="md"
-        // Without draft rights, publishing is the only route — and an
-        // approval-gated change closes it, leaving nothing to submit.
-        submit={noRouteAvailable ? undefined : submit}
-        // The switches are open to anyone with either route, so the CTA is where
-        // the chosen route is enforced: publishing environments this user can't
-        // publish is refused here rather than by the server.
-        ctaEnabled={
-          !cannotLandSelectedRoute &&
-          conflict.resolved &&
-          !targetRevisions.loading
-        }
-      >
-        <div>
-          {cannotLandSelectedRoute ? (
-            <PermissionBlocker mb="4">
-              You don&apos;t have permission to publish every environment you
-              changed. Save it to a draft instead.
-            </PermissionBlocker>
-          ) : null}
-          {noRouteAvailable ? (
-            <PermissionBlocker mb="4">
-              This change needs review before it can be published, and you
-              don&apos;t have permission to put it in a draft.
-            </PermissionBlocker>
-          ) : null}
-          <DraftSelectorForChanges
-            feature={feature}
-            baseFeature={baseFeature}
-            revisionList={revisionList}
-            mode={mode}
-            setMode={setMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={canAutoPublish}
-            canDraft={canDraft}
-            gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
-            defaultExpanded
-            alert={conflict.alert}
-            alertActive={conflict.alertActive}
-          />
-          {conflict.callouts}
+    <ModalStandard
+      trackingEventModalType="kill-switch-toggle"
+      header={modalHeader}
+      close={close}
+      open={true}
+      cta={mode === "publish" ? "Publish now" : "Save to draft"}
+      size="md"
+      // Without draft rights, publishing is the only route — and an
+      // approval-gated change closes it, leaving nothing to submit.
+      submit={noRouteAvailable ? undefined : submit}
+      // The switches are open to anyone with either route, so the CTA is where
+      // the chosen route is enforced: publishing environments this user can't
+      // publish is refused here rather than by the server.
+      ctaEnabled={!cannotLandSelectedRoute && !targetRevisions.loading}
+    >
+      <div>
+        {cannotLandSelectedRoute ? (
+          <PermissionBlocker mb="4">
+            You don&apos;t have permission to publish every environment you
+            changed. Save it to a draft instead.
+          </PermissionBlocker>
+        ) : null}
+        {noRouteAvailable ? (
+          <PermissionBlocker mb="4">
+            This change needs review before it can be published, and you
+            don&apos;t have permission to put it in a draft.
+          </PermissionBlocker>
+        ) : null}
+        <DraftSelectorForChanges
+          feature={feature}
+          baseFeature={baseFeature}
+          revisionList={revisionList}
+          mode={mode}
+          setMode={setMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={canAutoPublish}
+          canDraft={canDraft}
+          gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
+          defaultExpanded
+        />
 
-          <Flex justify="center" mt="2">
-            {noNetChange && (
-              <Text as="p" color="text-low">
-                <em>
-                  {draftHadPendingChanges
-                    ? "This undoes pending draft changes — no net change from live."
-                    : mode === "publish"
-                      ? "Already matches live — nothing will be published."
-                      : "Already matches live — this will have no effect."}
-                </em>
-              </Text>
-            )}
-          </Flex>
-        </div>
-      </ModalStandard>
-    </ConflictProvider>
+        <Flex justify="center" mt="2">
+          {noNetChange && (
+            <Text as="p" color="text-low">
+              <em>
+                {draftHadPendingChanges
+                  ? "This undoes pending draft changes — no net change from live."
+                  : mode === "publish"
+                    ? "Already matches live — nothing will be published."
+                    : "Already matches live — this will have no effect."}
+              </em>
+            </Text>
+          )}
+        </Flex>
+      </div>
+    </ModalStandard>
   );
 }

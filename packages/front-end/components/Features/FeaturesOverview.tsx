@@ -3,7 +3,12 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
-import { PiPlus, PiCaretRightBold, PiCaretDownBold } from "react-icons/pi";
+import {
+  PiPlus,
+  PiCaretRightBold,
+  PiCaretDownBold,
+  PiInfo,
+} from "react-icons/pi";
 import {
   filterEnvironmentsByFeature,
   getMalformedPrereqConditionError,
@@ -50,6 +55,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import UITooltip from "@/ui/Tooltip";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -149,8 +156,8 @@ function environmentKillSwitchTooltipBody(
   enabled: boolean,
   liveEnabled: boolean,
   view: false | "draft" | "inactive",
-  // Why the switch is disabled for this user.
-  blocked = false,
+  // Why the switch is disabled.
+  blockedReason: string | null = null,
 ): JSX.Element {
   const state = (on: boolean, midSentence = false) => (
     <strong
@@ -191,9 +198,9 @@ function environmentKillSwitchTooltipBody(
           live.
         </>
       )}
-      {blocked ? (
+      {blockedReason ? (
         <Text as="div" mt="2" size="sm" color="text-mid">
-          You don&apos;t have permission to publish this environment.
+          {blockedReason}
         </Text>
       ) : null}
     </Text>
@@ -244,6 +251,12 @@ export default function FeaturesOverview({
   } | null>(null);
   // The environment whose switch is saving to the draft.
   const [savingEnv, setSavingEnv] = useState<string | null>(null);
+  // A switch's save the server refused for a reason other than a conflict.
+  const [envError, setEnvError] = useState<{
+    envId: string;
+    on: boolean;
+    message: string;
+  } | null>(null);
   const { apiCall } = useAuth();
 
   const { hasCommercialFeature } = useUser();
@@ -379,6 +392,9 @@ export default function FeaturesOverview({
     isDiscarded ||
     (revision.status === "published" && !isLive) ||
     editLockedBySchedule;
+  // Past revisions show no controls; a locked draft shows them disabled.
+  const showsControls = !isReadOnly || editLockedBySchedule;
+  const lockReason = editLockedBySchedule ? SCHEDULE_EDIT_LOCK_REASON : null;
 
   const envAndSummaryTooltipNonLiveDisclaimer = !isLive
     ? isDraft
@@ -417,6 +433,11 @@ export default function FeaturesOverview({
   // where this user may publish.
   const canToggleEnvironment = (envId: string) =>
     canEditDrafts || permissionsUtil.canPublishFeature(baseFeature, [envId]);
+  const envBlockedReason = (envId: string) =>
+    lockReason ??
+    (canToggleEnvironment(envId)
+      ? null
+      : "You don't have permission to publish this environment.");
   const liveEnabled = (envId: string) =>
     baseFeature.environmentSettings?.[envId]?.enabled ?? false;
   // A draft that turns environments on or off, before it's published.
@@ -429,8 +450,10 @@ export default function FeaturesOverview({
     );
 
   // On a draft, a switch saves to it; on live, it asks which draft to use.
-  // A save that's refused (a conflict) falls back to asking.
+  // A stale switch can't conflict: whoever flipped it first flipped it the
+  // same way. Any refusal is shown on the card.
   const toggleEnvironment = async (envId: string, on: boolean) => {
+    setEnvError(null);
     if (!isDraft || !canEditDrafts) {
       setKillSwitchTarget({ envId, desiredState: on });
       return;
@@ -441,7 +464,6 @@ export default function FeaturesOverview({
         method: "POST",
         body: JSON.stringify({
           environments: { [envId]: on },
-          baseline: { [envId]: !on },
           draftVersion: revision.version,
         }),
       });
@@ -450,8 +472,14 @@ export default function FeaturesOverview({
         autoPublish: false,
       });
       await mutate();
-    } catch {
-      setKillSwitchTarget({ envId, desiredState: on });
+    } catch (e) {
+      setEnvError({
+        envId,
+        on,
+        message: e instanceof Error ? e.message : "There was an error",
+      });
+      // The draft may have been published, discarded or locked meanwhile.
+      await mutate();
     } finally {
       setSavingEnv(null);
     }
@@ -459,6 +487,12 @@ export default function FeaturesOverview({
   // Switches show when any environment can change; each one is disabled where
   // it can't.
   const canChangeEnvironments = envs.some(canToggleEnvironment);
+  const addPrerequisiteLabel = (
+    <Flex align="center" gap="1">
+      <PiPlus />
+      Add prerequisite
+    </Flex>
+  );
 
   const invalidPrereqs: {
     key: string;
@@ -573,31 +607,35 @@ export default function FeaturesOverview({
           }
           actions={
             <>
-              {canEditDrafts && !isReadOnly ? (
-                <PremiumTooltip commercialFeature="prerequisites">
-                  <Link
-                    color="gray"
-                    onClick={() => {
-                      if (!hasPrerequisitesCommercialFeature) return;
-                      setPrerequisiteModal({
-                        i: getPrerequisites(feature).length,
-                      });
-                      track("Viewed prerequisite feature modal", {
-                        source: "add-prerequisite",
-                      });
-                    }}
-                    style={
-                      hasPrerequisitesCommercialFeature
-                        ? undefined
-                        : { opacity: 0.5, cursor: "not-allowed" }
-                    }
-                  >
-                    <Flex align="center" gap="1">
-                      <PiPlus />
-                      Add prerequisite
-                    </Flex>
-                  </Link>
-                </PremiumTooltip>
+              {canEditDrafts && showsControls ? (
+                lockReason ? (
+                  <UITooltip content={lockReason}>
+                    <Link style={{ opacity: 0.5, cursor: "not-allowed" }}>
+                      {addPrerequisiteLabel}
+                    </Link>
+                  </UITooltip>
+                ) : (
+                  <PremiumTooltip commercialFeature="prerequisites">
+                    <Link
+                      onClick={() => {
+                        if (!hasPrerequisitesCommercialFeature) return;
+                        setPrerequisiteModal({
+                          i: getPrerequisites(feature).length,
+                        });
+                        track("Viewed prerequisite feature modal", {
+                          source: "add-prerequisite",
+                        });
+                      }}
+                      style={
+                        hasPrerequisitesCommercialFeature
+                          ? undefined
+                          : { opacity: 0.5, cursor: "not-allowed" }
+                      }
+                    >
+                      {addPrerequisiteLabel}
+                    </Link>
+                  </PremiumTooltip>
+                )
               ) : null}
             </>
           }
@@ -642,12 +680,12 @@ export default function FeaturesOverview({
                                 enabled,
                                 liveEnabled(en.id),
                                 envAndSummaryTooltipNonLiveDisclaimer,
-                                !isReadOnly &&
-                                  canChangeEnvironments &&
-                                  !canToggleEnvironment(en.id),
+                                showsControls && canChangeEnvironments
+                                  ? envBlockedReason(en.id)
+                                  : null,
                               )}
                             >
-                              {!isReadOnly && canChangeEnvironments ? (
+                              {showsControls && canChangeEnvironments ? (
                                 <EnvironmentSwitch
                                   enabled={enabled}
                                   onToggle={(on) =>
@@ -655,7 +693,7 @@ export default function FeaturesOverview({
                                   }
                                   disabled={
                                     savingEnv === en.id ||
-                                    !canToggleEnvironment(en.id)
+                                    !!envBlockedReason(en.id)
                                   }
                                   changed={
                                     isDraft && enabled !== liveEnabled(en.id)
@@ -707,6 +745,7 @@ export default function FeaturesOverview({
                       revisionList={revisionList || []}
                       gatedEnvSet={gatedEnvSet}
                       isLocked={isReadOnly}
+                      lockedBySchedule={editLockedBySchedule}
                       labelWidth={200}
                       colWidth={120}
                     />
@@ -784,18 +823,17 @@ export default function FeaturesOverview({
                             enabled,
                             liveEnabled(en.id),
                             envAndSummaryTooltipNonLiveDisclaimer,
-                            !isReadOnly &&
-                              canChangeEnvironments &&
-                              !canToggleEnvironment(en.id),
+                            showsControls && canChangeEnvironments
+                              ? envBlockedReason(en.id)
+                              : null,
                           )}
                         >
-                          {!isReadOnly && canChangeEnvironments ? (
+                          {showsControls && canChangeEnvironments ? (
                             <EnvironmentSwitch
                               enabled={enabled}
                               onToggle={(on) => toggleEnvironment(en.id, on)}
                               disabled={
-                                savingEnv === en.id ||
-                                !canToggleEnvironment(en.id)
+                                savingEnv === en.id || !!envBlockedReason(en.id)
                               }
                               changed={
                                 isDraft && enabled !== liveEnabled(en.id)
@@ -832,8 +870,21 @@ export default function FeaturesOverview({
             </Box>
           )}
 
+          {envError ? (
+            <HelperText status="error" size="sm" mt="3">
+              Couldn&apos;t turn {envError.envId} {envError.on ? "on" : "off"}:{" "}
+              {/* Several validation hooks' messages arrive one per line. */}
+              <span style={{ whiteSpace: "pre-line" }}>{envError.message}</span>
+            </HelperText>
+          ) : null}
           {draftChangesEnvironments ? (
-            <HelperText status="warning" size="sm" mt="3">
+            // Amber because it's about the draft, not a warning.
+            <HelperText
+              status="warning"
+              size="sm"
+              mt="3"
+              icon={<PiInfo size={13} />}
+            >
               Environment changes go live after this draft is published.
             </HelperText>
           ) : null}
@@ -857,14 +908,17 @@ export default function FeaturesOverview({
               // rule's do.
               className={cornerStyles.hoverActions}
               actions={
-                canEditDrafts && !isReadOnly ? (
-                  <Button
-                    variant="ghost"
-                    size="md"
-                    onClick={() => setEdit(true)}
-                  >
-                    Edit
-                  </Button>
+                canEditDrafts && showsControls ? (
+                  <UITooltip content={lockReason} enabled={!!lockReason}>
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      disabled={!!lockReason}
+                      onClick={() => setEdit(true)}
+                    >
+                      Edit
+                    </Button>
+                  </UITooltip>
                 ) : null
               }
             >
