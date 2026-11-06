@@ -1832,6 +1832,11 @@
       "count": 1
     }
   },
+  "packages/sdk-js/src/auto-wrapper-core.ts": {
+    "import/no-extraneous-dependencies": {
+      "count": 1
+    }
+  },
   "packages/stats-ts/test/statistics.test.ts": {
     "no-loss-of-precision": {
       "count": 1

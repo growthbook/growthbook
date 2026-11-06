@@ -86,6 +86,7 @@ describe("eventForwarderDestinationFromDatasource", () => {
         eventForwarderConfig: {
           sinkType: "bigquery",
           status: "ready",
+          inHouseConsumer: true,
           config: {
             projectId: "analytics",
             dataset: "saved_dataset",
@@ -107,6 +108,7 @@ describe("eventForwarderDestinationFromDatasource", () => {
         eventForwarderConfig: {
           sinkType: "snowflake",
           status: "ready",
+          inHouseConsumer: true,
           config: {
             database: "ANALYTICS",
             schema: "SAVED_SCHEMA",
@@ -128,6 +130,7 @@ describe("eventForwarderDestinationFromDatasource", () => {
         eventForwarderConfig: {
           sinkType: "databricks",
           status: "ready",
+          inHouseConsumer: true,
           config: {
             catalog: "main",
             schema: "saved_schema",

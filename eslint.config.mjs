@@ -170,6 +170,14 @@ export default defineConfig([
       "import/no-named-as-default": "off",
       "import/no-named-as-default-member": "off",
 
+      // The Docker image prunes dev and optional dependencies, so a value import
+      // of one passes type-check, tests, and the build, then crashes in
+      // production. `import type` is exempt. Dev-only files are allowed below.
+      "import/no-extraneous-dependencies": [
+        "error",
+        { devDependencies: false, optionalDependencies: false },
+      ],
+
       "@typescript-eslint/prefer-ts-expect-error": "error",
     },
   },
@@ -196,6 +204,28 @@ export default defineConfig([
     rules: {
       "@typescript-eslint/no-require-imports": "off",
       "no-console": "off",
+    },
+  },
+  {
+    // Files that never run in the production image or a published package.
+    // Stories stay strict: the /design-system page ships them.
+    files: [
+      "./eslint.config.mjs",
+      "./eslint-rules/**/*",
+      "./scripts/**/*",
+      "./packages/*/test/**/*",
+      "./packages/**/*.test.{ts,tsx,js,jsx}",
+      "./packages/**/*.d.ts",
+      "./packages/*/scripts/**/*",
+      "./packages/*/{jest,vitest,rollup}.config.{js,mjs}",
+      "./packages/back-end/src/scripts/{generate-openapi,generate-openapi-docs,test-rest-api,diff-features}.ts",
+      // Only reachable through the rollup bundle, which inlines its imports.
+      "./packages/sdk-js/src/auto-wrapper.ts",
+    ],
+    ignores: ["./scripts/run-apps.js"],
+
+    rules: {
+      "import/no-extraneous-dependencies": ["error", { devDependencies: true }],
     },
   },
   {

@@ -59,6 +59,7 @@ import {
   runFreeFormQuery,
   runUserExposureQuery,
   testUnsavedDataSourceConnection,
+  findGoogleAnalytics4Exports,
 } from "back-end/src/services/datasource";
 import {
   assertNoEventForwarderInOrg,
@@ -66,6 +67,7 @@ import {
   recordEventForwarderCreateFailure,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
+  migrateEventForwarderToInHouseConsumer,
   syncEventForwarderConfigFromDatasource,
   toEventForwarderConfigDraft,
 } from "back-end/src/services/eventForwarder/config";
@@ -509,10 +511,14 @@ function withServerExposureQueryIds(
 }
 
 // Tests credentials without saving anything. Connection failures come back as a
-// 400 with the driver's message, the same as a failed save.
+// 400 with the driver's message, the same as a failed save. When asked, a new
+// BigQuery connection also reports any GA4 exports, so setup can offer them.
 export async function postTestDataSourceConnection(
   req: AuthRequest,
-  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+  res: Response<
+    | { status: 200; ga4Exports?: string[] }
+    | { status: 400 | 404; message: string }
+  >,
 ) {
   const parsed = testDataSourceConnectionBodySchema.safeParse(req.body);
   if (!parsed.success) {
@@ -523,7 +529,12 @@ export async function postTestDataSourceConnection(
   }
 
   const context = getContextFromReq(req);
-  const { type, projects, datasourceId } = parsed.data;
+  const {
+    type,
+    projects,
+    datasourceId,
+    findGoogleAnalytics4Exports: findGA4,
+  } = parsed.data;
   const params = parsed.data.params as Partial<DataSourceParams>;
 
   let datasource: DataSourceInterface;
@@ -573,6 +584,11 @@ export async function postTestDataSourceConnection(
       status: 400,
       message: e.message || "Unable to connect to the data source",
     });
+  }
+
+  if (findGA4 && !datasourceId && type === "bigquery") {
+    const ga4Exports = await findGoogleAnalytics4Exports(context, datasource);
+    return res.status(200).json({ status: 200, ga4Exports });
   }
 
   res.status(200).json({ status: 200 });
@@ -2130,4 +2146,95 @@ function getManagedWarehouseJsonSettings(
       ),
     },
   };
+}
+
+// Super admin only: moves a Confluent-connector forwarder onto the in-house
+// consumer and provisions it. Confluent resources are torn down manually later.
+export async function postMigrateEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+) {
+  const context = getContextFromReq(req);
+  if (!hasSuperAdminPermission(context.superAdmin, "provision")) {
+    context.permissions.throwPermissionError();
+  }
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    res.status(404).json({ status: 404, message: "Cannot find Data Source" });
+    return;
+  }
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (!existing) {
+    res
+      .status(404)
+      .json({ status: 404, message: "Cannot find event forwarder config" });
+    return;
+  }
+
+  try {
+    const datasourceParams = getEventForwarderDatasourceParams(
+      datasource.type,
+      getSourceIntegrationObject(context, datasource).params,
+    );
+    const { migrated, previous } = await migrateEventForwarderToInHouseConsumer(
+      context,
+      existing,
+      datasourceParams,
+    );
+    try {
+      await provisionEventForwarderThroughLicenseServer(
+        context,
+        migrated,
+        datasourceParams,
+      );
+    } catch (e) {
+      // Restore the pre-migrate row so the Confluent connector keeps serving it
+      // and Migrate can be retried; lastProvisioningError keeps the cause.
+      const ids = {
+        topic: previous.topic,
+        status: previous.status,
+        schemaId: previous.schemaId,
+        connectorName: previous.connectorName,
+        connectorId: previous.connectorId,
+      };
+      try {
+        await context.models.eventForwarderConfigs.update(migrated, {
+          ...ids,
+          config: previous.config,
+        });
+      } catch (revertError) {
+        req.log.error(
+          { err: revertError, ...ids },
+          "Failed to revert event forwarder migration",
+        );
+      }
+      throw e;
+    }
+    // Logged only once provisioning succeeded: manual Confluent teardown is
+    // driven from this entry, so a failed migrate must not appear here.
+    try {
+      await context.auditLog({
+        entity: { object: "eventForwarderConfig", id: previous.id, name: "" },
+        event: "eventForwarderConfig.migrate",
+        details: JSON.stringify({
+          datasourceId: previous.datasourceId,
+          topic: previous.topic,
+          connectorName: previous.connectorName,
+          connectorId: previous.connectorId,
+        }),
+      });
+    } catch (auditError) {
+      req.log.error(
+        { err: auditError, datasourceId: existing.datasourceId },
+        "Failed to audit log event forwarder migration",
+      );
+    }
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to migrate event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
 }

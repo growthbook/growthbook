@@ -55,9 +55,9 @@ export class EventForwarderConfigModel extends BaseClass {
     _updates: UpdateProps<EventForwarderConfigInterface>,
     newDoc: EventForwarderConfigInterface,
   ): boolean {
-    return this.context.permissions.canUpdateEventForwarderConfig(
-      existing,
-      newDoc,
+    return (
+      hasSuperAdminPermission(this.context.superAdmin, "provision") ||
+      this.context.permissions.canUpdateEventForwarderConfig(existing, newDoc)
     );
   }
 

@@ -61,6 +61,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
+import { logger } from "back-end/src/util/logger";
 
 // freeFormQuery runs user-authored SQL; we should only use it for this scenario
 const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
@@ -200,6 +201,39 @@ export async function testDataSourceConnection(
 ) {
   const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
+}
+
+// Test Connection waits on this, so a slow lookup gives up rather than hold
+// up the result.
+const GA4_LOOKUP_TIMEOUT_MS = 5000;
+
+// Never throws: a missing permission, an API error, or a timeout just means
+// there's nothing to offer.
+export async function findGoogleAnalytics4Exports(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+): Promise<string[]> {
+  if (datasource.type !== "bigquery") return [];
+  const integration = getSourceIntegrationObject(context, datasource);
+  if (!(integration instanceof BigQuery)) return [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<string[]>((resolve) => {
+    timer = setTimeout(() => {
+      logger.warn("Timed out looking for Google Analytics 4 exports");
+      resolve([]);
+    }, GA4_LOOKUP_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([
+      integration.listGoogleAnalytics4Exports(),
+      timeout,
+    ]);
+  } catch (e) {
+    logger.warn(e, "Could not look for Google Analytics 4 exports");
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // MSSQL caches connection pools by Data Source id. An unsaved test uses a
