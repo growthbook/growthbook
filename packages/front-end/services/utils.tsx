@@ -69,15 +69,6 @@ export const gbContext: Context = {
 };
 export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
-let growthbookInit: Promise<unknown> | null = null;
-// Loads the app's own flags once. Settles however the load goes.
-export function initGrowthBook(): Promise<unknown> {
-  growthbookInit ??= growthbook.init({ streaming: true }).catch(() => {
-    console.log("Failed to fetch GrowthBook feature definitions");
-  });
-  return growthbookInit;
-}
-
 export function trafficSplitPercentages(weights: number[]): number[] {
   const sum = weights.reduce((sum, n) => sum + n, 0);
   return weights.map((w) => +((w / sum) * 100));

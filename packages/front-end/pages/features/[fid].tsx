@@ -1,11 +1,10 @@
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { FeaturesReady, useFeatureIsOn } from "@growthbook/growthbook-react";
 import type { AppFeatures } from "shared/types/app-features";
 import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { isActiveDraftStatus } from "shared/validators";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
-import { initGrowthBook } from "@/services/utils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
@@ -67,21 +66,8 @@ export default function FeaturePage() {
   }, [fid]);
 
   const { userId } = useUser();
-  // The redesign, tested against the page it replaces. Read once, after the
-  // SDK has its features and knows who's viewing, so a late payload or a
-  // streamed change can't swap the page mid-visit.
-  const growthbook = useGrowthBook<AppFeatures>();
-  const [redesign, setRedesign] = useState<boolean | null>(null);
-  const [sdkLoaded, setSdkLoaded] = useState(growthbook.ready);
-  useEffect(() => {
-    void initGrowthBook().then(() => setSdkLoaded(true));
-  }, []);
-  const flagSettled = sdkLoaded && !!growthbook.getAttributes().id;
-  useEffect(() => {
-    if (redesign === null && flagSettled) {
-      setRedesign(growthbook.isOn("feature-page-redesign-v1"));
-    }
-  }, [redesign, flagSettled, growthbook]);
+  // The redesign, tested against the page it replaces.
+  const redesign = useFeatureIsOn<AppFeatures>("feature-page-redesign-v1");
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
 
@@ -187,7 +173,7 @@ export default function FeaturePage() {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
-  if (!data || !feature || !revision || !baseFeature || redesign === null) {
+  if (!data || !feature || !revision || !baseFeature) {
     return <LoadingOverlay />;
   }
 
@@ -436,10 +422,13 @@ export default function FeaturePage() {
             { display: feature.id },
           ]}
         />
-        <FeaturePageRedesignContext.Provider value={redesign}>
-          {page}
-          {compareModal}
-        </FeaturePageRedesignContext.Provider>
+        {/* Picks a design only once flags load, or gives up on them. */}
+        <FeaturesReady timeout={3000} fallback={<LoadingOverlay />}>
+          <FeaturePageRedesignContext.Provider value={redesign}>
+            {page}
+            {compareModal}
+          </FeaturePageRedesignContext.Provider>
+        </FeaturesReady>
       </FeatureUsageProvider>
     </FeatureRevisionsContext.Provider>
   );
