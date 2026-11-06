@@ -823,7 +823,7 @@ export type MetricValuesUnitState = {
   unit: string | null;
   /** Values use more than one unit, e.g. a config saved before the single picker. */
   isMixed: boolean;
-  /** Units every unit-selectable value's Fact Table offers, in the first one's order. */
+  /** Units offered by every metric that supports unit selection, in the first metric's order. */
   options: string[];
 };
 
@@ -837,16 +837,16 @@ export function getMetricValuesUnitState(
   getFactMetricById: (id: string) => FactMetricInterface | null,
   getFactTableById: (id: string) => FactTableDefinition | null,
 ): MetricValuesUnitState {
-  const selectableMetrics: FactMetricInterface[] = [];
+  const metricsSupportingUnitSelection: FactMetricInterface[] = [];
   const selectedUnits = new Set<string>();
   for (const value of values) {
     const metric = value.metricId ? getFactMetricById(value.metricId) : null;
     if (!metric || !metricSupportsUnitSelection(metric)) continue;
-    selectableMetrics.push(metric);
+    metricsSupportingUnitSelection.push(metric);
     if (value.unit) selectedUnits.add(value.unit);
   }
 
-  const unitsOfferedByEachMetric = selectableMetrics.map(
+  const unitsOfferedByEachMetric = metricsSupportingUnitSelection.map(
     (metric) =>
       getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
       [],
