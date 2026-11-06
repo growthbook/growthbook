@@ -1,4 +1,5 @@
 export const CommercialFeature = ({ feature, description }) => {
+  // BEGIN GENERATED commercialFeatures: `pnpm --filter shared gen-commercial-features-for-docs` rewrites this block. Do not edit by hand.
   const commercialFeatures = {
     "adv-presentations": {
       plan: "enterprise",
@@ -39,6 +40,10 @@ export const CommercialFeature = ({ feature, description }) => {
     "contextual-bandits": {
       plan: "enterprise",
       displayName: "Contextual Bandits",
+    },
+    "custom-environments": {
+      plan: "enterprise",
+      displayName: "Custom Environments",
     },
     "custom-hooks": {
       plan: "enterprise",
@@ -103,6 +108,10 @@ export const CommercialFeature = ({ feature, description }) => {
     holdouts: {
       plan: "enterprise",
       displayName: "Holdouts",
+    },
+    "human-in-the-loop": {
+      plan: "enterprise",
+      displayName: "Human In The Loop",
     },
     "incremental-refresh": {
       plan: "enterprise",
@@ -244,6 +253,10 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "pro",
       displayName: "Retention Metrics",
     },
+    "role-management": {
+      plan: "pro",
+      displayName: "Role Management",
+    },
     "safe-rollout": {
       plan: "pro",
       displayName: "Safe Rollout",
@@ -288,15 +301,24 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "enterprise",
       displayName: "Templates",
     },
+    "unlimited-event-forwarder-usage": {
+      plan: "pro",
+      displayName: "Unlimited Event Forwarder Usage",
+    },
     "unlimited-managed-warehouse-usage": {
       plan: "pro",
       displayName: "Unlimited Managed Warehouse Usage",
+    },
+    "unlimited-projects": {
+      plan: "enterprise",
+      displayName: "Unlimited Projects",
     },
     "visual-editor": {
       plan: "pro",
       displayName: "AI Visual Editor",
     },
   };
+  // END GENERATED commercialFeatures
 
   const { plan, displayName } = commercialFeatures[feature];
   const isEnterprise = plan === "enterprise";
