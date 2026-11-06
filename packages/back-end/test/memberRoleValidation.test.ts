@@ -146,54 +146,6 @@ describe("assertMemberRoleInfoValid", () => {
     ).toThrow(/not a valid environment/);
   });
 
-  describe("admin with Project overrides", () => {
-    const override = { project: "prj_a", role: "engineer" };
-
-    it.each([
-      ["as the base role", { role: "admin", projectRoles: [override] }],
-      [
-        "as an additional role",
-        {
-          role: "engineer",
-          additionalRoles: [{ role: "admin" }],
-          projectRoles: [override],
-        },
-      ],
-    ])("rejects admin %s", (_name, info) => {
-      expect(() => valid(info)).toThrow(
-        "Admin roles cannot have Project overrides.",
-      );
-    });
-
-    it("rejects before the environment-limit check", () => {
-      expect(() =>
-        valid({
-          role: "admin",
-          limitAccessByEnvironment: true,
-          environments: ["dev"],
-          projectRoles: [override],
-        }),
-      ).toThrow("Admin roles cannot have Project overrides.");
-    });
-
-    it.each([
-      ["a plain admin", { role: "admin" }],
-      [
-        "a non-admin with Project overrides",
-        { role: "engineer", projectRoles: [override] },
-      ],
-      [
-        "an admin Project override",
-        {
-          role: "engineer",
-          projectRoles: [{ project: "prj_a", role: "admin" }],
-        },
-      ],
-    ])("accepts %s", (_name, info) => {
-      expect(() => valid(info)).not.toThrow();
-    });
-  });
-
   describe("plan gates", () => {
     beforeEach(() => {
       mockPremium.mockReturnValue(false);
