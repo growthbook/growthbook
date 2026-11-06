@@ -1,9 +1,10 @@
 /**
  * When the app collapses the side nav for you, on top of your saved choice.
  * Nothing here is saved: after a reload your choice applies, then any active
- * trigger.
+ * trigger. Today the one trigger is the docked AI Assistant panel; the rules
+ * hold for more.
  */
-export type AutoCollapseTrigger = "agentPanel" | "settings";
+export type AutoCollapseTrigger = "agentPanel";
 
 export type AutoCollapseState = {
   /** Your saved choice (the Collapse/Expand button). */

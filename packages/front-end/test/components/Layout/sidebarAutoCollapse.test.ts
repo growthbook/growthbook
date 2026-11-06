@@ -20,31 +20,25 @@ describe("isCollapsed", () => {
     expect(isCollapsed(state(true))).toBe(true);
   });
 
-  it("collapses for a trigger on top of an expanded choice", () => {
-    expect(isCollapsed(state(false, ["settings"]))).toBe(true);
+  it("collapses for the AI panel on top of an expanded choice", () => {
+    expect(isCollapsed(state(false, ["agentPanel"]))).toBe(true);
     expect(isAutoCollapsed(state(false, ["agentPanel"]))).toBe(true);
   });
 
-  it("leaves a collapsed choice to itself: a trigger doesn't own it", () => {
-    expect(isCollapsed(state(true, ["settings"]))).toBe(true);
-    expect(isAutoCollapsed(state(true, ["settings"]))).toBe(false);
-  });
-
-  it("stays expanded over a trigger you expanded over", () => {
-    expect(isCollapsed(state(false, ["settings"], ["settings"]))).toBe(false);
-  });
-
-  it("collapses for a trigger you didn't expand over", () => {
-    expect(
-      isCollapsed(state(false, ["settings", "agentPanel"], ["settings"])),
-    ).toBe(true);
-  });
-
-  it("stays collapsed until neither of two triggers is active", () => {
-    expect(isCollapsed(state(false, ["settings", "agentPanel"]))).toBe(true);
-    expect(isCollapsed(state(false, ["settings"]))).toBe(true);
-    expect(isCollapsed(state(false, ["agentPanel"]))).toBe(true);
+  it("expands again once the panel closes", () => {
     expect(isCollapsed(state(false, []))).toBe(false);
+  });
+
+  it("leaves a collapsed choice to itself: the panel doesn't own it", () => {
+    expect(isCollapsed(state(true, ["agentPanel"]))).toBe(true);
+    expect(isAutoCollapsed(state(true, ["agentPanel"]))).toBe(false);
+    expect(isCollapsed(state(true, []))).toBe(true);
+  });
+
+  it("stays expanded over the panel once you expanded over it", () => {
+    expect(isCollapsed(state(false, ["agentPanel"], ["agentPanel"]))).toBe(
+      false,
+    );
   });
 });
 
@@ -60,54 +54,52 @@ describe("toggleCollapse", () => {
     });
   });
 
-  it("expanding over a trigger keeps the choice and holds the nav open", () => {
-    const next = toggleCollapse(state(false, ["settings"]));
+  it("expanding over the panel keeps the choice and holds the nav open", () => {
+    const next = toggleCollapse(state(false, ["agentPanel"]));
     expect(next).toEqual({
       preferCollapsed: false,
-      expandedOver: ["settings"],
+      expandedOver: ["agentPanel"],
     });
     expect(
-      isCollapsed(state(next.preferCollapsed, ["settings"], next.expandedOver)),
+      isCollapsed(
+        state(next.preferCollapsed, ["agentPanel"], next.expandedOver),
+      ),
     ).toBe(false);
   });
 
-  it("expanding a saved collapse during a trigger saves expanded and stays open", () => {
-    const next = toggleCollapse(state(true, ["settings"]));
+  it("expanding a saved collapse with the panel open saves expanded and stays open", () => {
+    const next = toggleCollapse(state(true, ["agentPanel"]));
     expect(next).toEqual({
       preferCollapsed: false,
-      expandedOver: ["settings"],
+      expandedOver: ["agentPanel"],
     });
     expect(
-      isCollapsed(state(next.preferCollapsed, ["settings"], next.expandedOver)),
+      isCollapsed(
+        state(next.preferCollapsed, ["agentPanel"], next.expandedOver),
+      ),
     ).toBe(false);
   });
 
-  it("collapsing while held open hands it back to the trigger, unsaved", () => {
-    const next = toggleCollapse(state(false, ["settings"], ["settings"]));
+  it("collapsing while held open hands it back to the panel, unsaved", () => {
+    const next = toggleCollapse(state(false, ["agentPanel"], ["agentPanel"]));
     expect(next).toEqual({ preferCollapsed: false, expandedOver: [] });
     expect(
       isAutoCollapsed(
-        state(next.preferCollapsed, ["settings"], next.expandedOver),
+        state(next.preferCollapsed, ["agentPanel"], next.expandedOver),
       ),
     ).toBe(true);
   });
 });
 
 describe("pruneExpandedOver", () => {
-  it("keeps triggers still active", () => {
-    const over: AutoCollapseTrigger[] = ["settings", "agentPanel"];
-    expect(pruneExpandedOver(over, ["settings", "agentPanel"])).toBe(over);
+  it("keeps the panel while it's open", () => {
+    const over: AutoCollapseTrigger[] = ["agentPanel"];
+    expect(pruneExpandedOver(over, ["agentPanel"])).toBe(over);
   });
 
-  it("drops ended triggers, so starting again collapses again", () => {
-    const over = pruneExpandedOver(["settings", "agentPanel"], ["settings"]);
-    expect(over).toEqual(["settings"]);
-    expect(isCollapsed(state(false, ["settings", "agentPanel"], over))).toBe(
-      true,
-    );
-  });
-
-  it("empties once no trigger is active", () => {
-    expect(pruneExpandedOver(["settings"], [])).toEqual([]);
+  it("drops it once the panel closes, so reopening collapses again", () => {
+    const over = pruneExpandedOver(["agentPanel"], []);
+    expect(over).toEqual([]);
+    expect(isCollapsed(state(false, ["agentPanel"], over))).toBe(true);
   });
 });

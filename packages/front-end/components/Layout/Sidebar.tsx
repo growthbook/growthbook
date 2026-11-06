@@ -61,7 +61,6 @@ import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
   buildSidebarLinkFilterProps,
   navlinks,
-  isSettingsRoute,
   settingsNavLink,
   SidebarLinkFilterProps,
   SidebarLinkProps,
@@ -69,7 +68,6 @@ import {
 import { SidebarMemory, useSidebarOpen } from "./SidebarOpenProvider";
 import {
   AutoCollapseTrigger,
-  isAutoCollapsed,
   isCollapsed as isSidebarCollapsed,
   pruneExpandedOver,
   toggleCollapse,
@@ -608,18 +606,14 @@ export default function Sidebar() {
 
   // The app collapses it, on top of your saved choice and never saving it
   // (sidebarAutoCollapse.ts), while the docked AI Assistant panel is open below
-  // 1600px or you're on a Settings page.
+  // 1600px.
   const { open: agentOpen } = useAgentPanel();
   const panelDocked = agentOpen && !isNarrow;
   const belowAutoCollapseWidth = useMediaQuery(AUTO_COLLAPSE_MAX_WIDTH);
-  const onSettings = isSettingsRoute(route);
   const panelTrigger = panelDocked && belowAutoCollapseWidth;
   const activeTriggers = useMemo<AutoCollapseTrigger[]>(
-    () => [
-      ...(panelTrigger ? ["agentPanel" as const] : []),
-      ...(onSettings ? ["settings" as const] : []),
-    ],
-    [panelTrigger, onSettings],
+    () => (panelTrigger ? ["agentPanel"] : []),
+    [panelTrigger],
   );
   // Triggers you expanded it over, until each ends.
   const [expandedOver, setExpandedOver] = useState<AutoCollapseTrigger[]>(
@@ -643,17 +637,6 @@ export default function Sidebar() {
     memory.current.lastCollapsed !== sidebarCollapsed
       ? memory.current.lastCollapsed
       : null,
-  );
-  // Opening the page with a trigger active (e.g. on Settings), it starts
-  // collapsed without sliding shut, as a saved collapsed sidebar does.
-  useIsomorphicLayoutEffect(
-    () =>
-      memory.current.lastCollapsed === null &&
-      isAutoCollapsed(autoCollapseState)
-        ? snapWithoutTransition()
-        : undefined,
-    // Only as the page loads.
-    [],
   );
   useEffect(() => {
     memory.current.lastCollapsed = sidebarCollapsed;
