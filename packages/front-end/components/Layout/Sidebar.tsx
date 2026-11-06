@@ -1,5 +1,4 @@
 import {
-  CSSProperties,
   Dispatch,
   MouseEvent as ReactMouseEvent,
   ReactNode,
@@ -19,6 +18,7 @@ import {
   PiCaretRightBold,
   PiChartLine,
   PiCode,
+  PiCrownSimple,
   PiDatabase,
   PiFlagPennant,
   PiFlask,
@@ -44,11 +44,10 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
-import Text from "@/ui/Text";
 import { planNameFromAccountPlan } from "@/services/utils";
 import { TooltipContainerContext } from "@/ui/Tooltip";
 import { BOTTOM_TOOLTIP_DELAY_MS, SidebarTooltip } from "./SidebarTooltip";
-import GrowthBookLogo, { WORDMARK_INSET_PX } from "./GrowthBookLogo";
+import GrowthBookLogo from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
 import SidebarProjectSelector from "./SidebarProjectSelector";
@@ -120,6 +119,8 @@ const AUTO_COLLAPSE_MAX_WIDTH = "(max-width: 1599px)";
  * doesn't slide shut on load (global.scss).
  */
 const SIDEBAR_RESTORE_CLASS = "app-sidebar-restore";
+/** A notch under the 18px nav icons, so the plan crown stays quiet. */
+const PLAN_CROWN_SIZE = 16;
 /** Matches .sidebar's width transition (Sidebar.module.scss). */
 const SIDEBAR_WIDTH_TRANSITION_MS = 200;
 /**
@@ -815,7 +816,7 @@ export default function Sidebar() {
     effectiveAccountPlan,
   } = useUser();
   // Paid plans only. The effective plan: an expired or invalid license shows none.
-  const planLabel =
+  const planName =
     effectiveAccountPlan &&
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan)
       ? planNameFromAccountPlan(effectiveAccountPlan)
@@ -954,53 +955,48 @@ export default function Sidebar() {
           }
         }}
       >
-        <Link
-          href="/"
-          className={clsx(styles.logo, logoPlaying && styles.logoPlaying)}
-          // The label is drawn below, hidden from the name so it's read once.
-          aria-label={
-            planLabel && !contentCollapsed
-              ? `GrowthBook ${planLabel} home`
-              : "GrowthBook home"
-          }
-          onMouseEnter={() => setLogoPlaying(true)}
-          onFocus={(e) => {
-            if (e.currentTarget.matches(":focus-visible")) setLogoPlaying(true);
-          }}
-          onAnimationEnd={() => setLogoPlaying(false)}
-        >
-          <GrowthBookLogo
-            showWordmark={!contentCollapsed}
-            className={styles.brandLogo}
-            markClassName={styles.brandMark}
-            wordmarkClassName={styles.brandWordmark}
-            sweepClassName={styles.sweep}
-          />
-          {planLabel ? (
-            // Kept while collapsed, folded away, so the rows below move with
-            // the sidebar's width instead of jumping once it lands.
-            <span
-              className={styles.planFold}
-              data-open={!collapsed}
-              aria-hidden="true"
+        <div className={styles.brand}>
+          <Link
+            href="/"
+            className={clsx(styles.logo, logoPlaying && styles.logoPlaying)}
+            aria-label={
+              planName ? `GrowthBook ${planName} home` : "GrowthBook home"
+            }
+            onMouseEnter={() => setLogoPlaying(true)}
+            onFocus={(e) => {
+              if (e.currentTarget.matches(":focus-visible"))
+                setLogoPlaying(true);
+            }}
+            onAnimationEnd={() => setLogoPlaying(false)}
+          >
+            <GrowthBookLogo
+              showWordmark={!contentCollapsed}
+              className={styles.brandLogo}
+              markClassName={styles.brandMark}
+              wordmarkClassName={styles.brandWordmark}
+              sweepClassName={styles.sweep}
+            />
+          </Link>
+          {/* The link's name carries the plan for screen readers. */}
+          {planName && !contentCollapsed ? (
+            <SidebarTooltip
+              content={`${planName} plan`}
+              delayDuration={BOTTOM_TOOLTIP_DELAY_MS}
             >
-              <span className={styles.planFoldInner}>
-                <span
-                  className={styles.planLabel}
-                  style={
-                    {
-                      "--wordmark-inset": `${WORDMARK_INSET_PX}px`,
-                    } as CSSProperties
-                  }
-                >
-                  <Text size="sm" weight="medium" textTransform="uppercase">
-                    {planLabel}
-                  </Text>
-                </span>
+              <span
+                className={clsx(
+                  styles.planCrown,
+                  effectiveAccountPlan === "enterprise"
+                    ? styles.planCrownEnterprise
+                    : styles.planCrownPro,
+                )}
+                aria-hidden="true"
+              >
+                <PiCrownSimple size={PLAN_CROWN_SIZE} />
               </span>
-            </span>
+            </SidebarTooltip>
           ) : null}
-        </Link>
+        </div>
         {isNarrow ? (
           <IconButton
             ref={closeRef}

@@ -147,8 +147,7 @@
 
 // The panel's curve moves the sidebar's edge sooner, so the wordmark fades
 // faster to be gone before the edge reaches it.
-:global(html.agent-dock-motion) .collapsing .brandWordmark,
-:global(html.agent-dock-motion) .collapsing .planLabel {
+:global(html.agent-dock-motion) .collapsing .brandWordmark {
   transition-duration: 40ms;
 }
 
@@ -162,24 +161,22 @@
   align-items: flex-start;
 }
 
-// The logo and, on paid plans, the plan label under it: one link home.
+// The logo, and on paid plans the plan crown at the row's end.
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-bottom: 5px;
+}
+
 .logo {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   flex-shrink: 0;
-  align-self: flex-start;
   padding: 3px 5px;
-  margin-bottom: 5px;
   border-radius: var(--radius-3);
   text-decoration: none;
-
-  // Over the global a:hover underline, which would underline the plan label.
-  &:hover,
-  &:focus,
-  &:focus-visible {
-    text-decoration: none;
-  }
 
   .collapsed & {
     width: 32px;
@@ -196,71 +193,36 @@
   flex-shrink: 0;
 }
 
-// The plan label's row folds with the sidebar's width (200ms ease), so the
-// rows below rise and fall with it. A one-row grid from 0fr to 1fr, as
-// .subList.
-.planFold {
-  display: grid;
-  grid-template-rows: 0fr;
-  visibility: hidden;
-  transition:
-    grid-template-rows 200ms ease,
-    visibility 0s linear 200ms;
+// The section chevrons' box (.chevronButton): 28px, 2px in from the row's
+// end, so the crown sits centred over them.
+.planCrown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-right: 2px;
 
-  &[data-open="true"] {
-    grid-template-rows: 1fr;
-    visibility: visible;
-    transition:
-      grid-template-rows 200ms ease,
-      visibility 0s linear 0s;
-  }
-
-  // While the docked AI Assistant panel moves the sidebar, on its timing.
-  :global(html.agent-dock-motion) & {
-    transition:
-      grid-template-rows var(--agent-dock-duration) var(--agent-dock-easing),
-      visibility 0s linear var(--agent-dock-duration);
-  }
-
-  :global(html.agent-dock-motion) &[data-open="true"] {
-    transition:
-      grid-template-rows var(--agent-dock-duration) var(--agent-dock-easing),
-      visibility 0s linear 0s;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    &,
-    &[data-open="true"] {
-      transition: none !important;
-    }
+  // In the drawer, the close button holds that spot: just left of it.
+  @media (max-width: 1180px) {
+    margin-right: calc(32px + var(--space-1));
   }
 }
 
-.planFoldInner {
-  min-height: 0;
-  overflow: hidden;
+// Gold for Enterprise, silver for Pro (the chevrons' gray).
+.planCrownEnterprise {
+  color: var(--amber-11);
 }
 
-// Under the logo, starting where "GrowthBook" does (the wordmark's inset, set
-// in Sidebar.tsx). The 3px matches the link's bottom padding, which it sat
-// below before it moved inside the link.
-.planLabel {
-  display: block;
-  margin-top: 3px;
-  padding-left: var(--wordmark-inset);
+.planCrownPro {
+  color: var(--sidebar-chevron);
+}
 
-  // Text sets its own letter-spacing. 10px is deliberately below Text's
-  // smallest size: the label is part of the logo lockup, not body text.
-  // slate-11, not Text's text-low, which is under 4.5:1 at this size.
-  // A block with a 10px line height, so it doesn't keep the 12px size's
-  // taller line, or its wrapper's.
-  & > * {
-    display: block;
-    font-size: 10px;
-    line-height: 1;
-    letter-spacing: 0.08em;
-    color: var(--slate-11);
-  }
+// Hidden while the sidebar resizes, as the chevrons are, so the narrowing
+// edge never drags it over the wordmark.
+.resizing .planCrown {
+  opacity: 0;
 }
 
 .brandWordmark {
@@ -269,8 +231,7 @@
 
 // Fades out before the narrowing sidebar's edge cuts into it. Only while the
 // sidebar moves, so reduced motion stays instant.
-.collapsing .brandWordmark,
-.collapsing .planLabel {
+.collapsing .brandWordmark {
   opacity: 0;
   transition: opacity 80ms ease-out;
 }
