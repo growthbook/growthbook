@@ -113,17 +113,26 @@ html.app-drawer-open body {
     var(--settings-nav-left) + var(--settings-nav-width)
   );
 }
-// Below 1024px the nav is a select at the page's top instead
-// (SettingsPageTop), pinned under the header as a 60px row; General's
-// section headings pin under it (--settings-section-top).
+// In the narrow layout (below 1024px, or with the docked AI panel leaving
+// too little room: html.settings-narrow, SettingsNavContext) the nav is a
+// select at the page's top instead (SettingsPageTop), pinned under the header
+// as a 60px row; General's section headings pin under it
+// (--settings-section-top). The media query keeps a narrow window right from
+// the first paint.
 :root {
   --settings-section-top: var(--header-height);
 }
+// Without the Settings nav column the page starts past the side nav alone:
+// nothing on a narrow window, where the side nav is a drawer.
 @media (max-width: 1023px) {
   :root {
     --settings-section-top: calc(var(--page-top-offset) + 60px);
     --settings-layout-left: 0px;
   }
+}
+:root.settings-narrow {
+  --settings-section-top: calc(var(--page-top-offset) + 60px);
+  --settings-layout-left: var(--page-nav-width);
 }
 .main {
   padding-left: var(--sidebar-width);

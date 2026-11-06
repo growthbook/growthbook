@@ -1,13 +1,12 @@
 import { useRouter } from "next/router";
-import useMediaQuery from "@/hooks/useMediaQuery";
 import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import Sidebar from "./Sidebar";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import SettingsNav from "./SettingsNav";
+import { useSettingsNav } from "./SettingsNavContext";
 import NewNavigationIntroModal from "./NewNavigationIntroModal";
-import { SETTINGS_NAV_MIN_WIDTH_PX } from "./constants";
 
 const otherPageTitles = [
   {
@@ -43,11 +42,9 @@ const otherPageTitles = [
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
   const { breadcrumb } = usePageHead();
-  // Narrower, the Settings nav is a select at the page's top
+  // Narrow, the Settings nav is a select at the page's top
   // (SettingsPageTop).
-  const settingsNarrow = useMediaQuery(
-    `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
-  );
+  const { narrow: settingsNarrow } = useSettingsNav();
 
   // hacky:
   const router = useRouter();

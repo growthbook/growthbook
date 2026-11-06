@@ -50,9 +50,10 @@
         var(--settings-nav-inset) - var(--unsaved-bar-left)
     );
   // Ends Save at the cards' right edge: the page's padding plus the 920px
-  // column, or the page's padding where the column is narrower.
+  // column, or the page's padding (and the docked AI panel, which the bar
+  // runs under) where the column is narrower.
   padding-right: max(
-    var(--page-padding),
+    calc(var(--page-padding) + var(--agent-rail-width, 0px)),
     calc(100% - var(--settings-layout-left) - var(--page-padding) - 920px)
   );
   background: var(--color-panel-solid);
@@ -71,8 +72,12 @@
   @media (max-width: 1180px) {
     --unsaved-bar-left: 0px;
   }
-  // Without the sub nav, the count lines up with the page content instead.
+  // Without the sub nav (the narrow layout), the count lines up with the page
+  // content instead.
   @media (max-width: 1023px) {
+    padding-left: var(--page-padding);
+  }
+  :global(html.settings-narrow) & {
     padding-left: var(--page-padding);
   }
 }
@@ -140,15 +145,21 @@
   max-width: 920px;
   padding-top: var(--space-3);
 
-  // Under the pinned Settings select, the first section starts as close as
-  // a page's title does.
-  @media (max-width: 1023px) {
+  // Under the pinned Settings select (the narrow layout), the first section
+  // starts as close as a page's title does.
+  @mixin under-pinned-select {
     padding-top: 0;
 
     .section:first-of-type,
     .section:first-of-type .header {
       padding-top: 0;
     }
+  }
+  @media (max-width: 1023px) {
+    @include under-pinned-select;
+  }
+  :global(html.settings-narrow) & {
+    @include under-pinned-select;
   }
 }
 

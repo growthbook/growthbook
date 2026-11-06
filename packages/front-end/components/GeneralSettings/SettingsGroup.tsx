@@ -4,6 +4,7 @@ import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import { useSettingsNarrow } from "@/components/Layout/SettingsNavContext";
 import { SettingsCard } from "./SettingsSection";
 import { useOptionalSettingsForm } from "./SettingsFormProvider";
 import styles from "./SettingsSection.module.scss";
@@ -23,12 +24,15 @@ export function SettingsGroup({
   keywords?: string;
   children: ReactNode;
 }) {
+  // Stacked in Settings' narrow layout, which a narrow window gets from the
+  // breakpoints below and the docked AI panel can bring on a wide one.
+  const narrow = useSettingsNarrow();
   return (
     <SettingsCard id={id} keywords={keywords}>
-      <Frame mb="3" p={{ initial: "4", md: "5" }}>
+      <Frame mb="3" p={narrow ? "4" : { initial: "4", md: "5" }}>
         <Grid
-          columns={{ initial: "1", md: "220px 1fr" }}
-          gap={{ initial: "3", md: "7" }}
+          columns={narrow ? "1" : { initial: "1", md: "220px 1fr" }}
+          gap={narrow ? "3" : { initial: "3", md: "7" }}
         >
           <Flex direction="column" gap="2">
             <Flex align="center" gap="2" wrap="wrap">
