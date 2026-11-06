@@ -1,20 +1,13 @@
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import type { AppFeatures } from "shared/types/app-features";
 import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { isActiveDraftStatus } from "shared/validators";
 import { isRevisionEditLockedBySchedule } from "shared/enterprise";
-import { initGrowthBook } from "@/services/utils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
-import FeaturesHeaderNew from "@/components/Features/FeaturesHeaderNew";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
-import FeaturesOverviewNew from "@/components/Features/FeaturesOverviewNew";
-import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
-import { FeaturePageRedesignContext } from "@/components/Features/FeaturePageRedesign";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
@@ -67,23 +60,6 @@ export default function FeaturePage() {
   }, [fid]);
 
   const { userId } = useUser();
-  // The redesign, tested against the page it replaces. Read once, after the
-  // SDK has its features and knows who's viewing, so a late payload or a
-  // streamed change can't swap the page mid-visit.
-  const growthbook = useGrowthBook<AppFeatures>();
-  const [redesign, setRedesign] = useState<boolean | null>(null);
-  const [sdkLoaded, setSdkLoaded] = useState(growthbook.ready);
-  useEffect(() => {
-    void initGrowthBook().then(() => setSdkLoaded(true));
-  }, []);
-  const flagSettled = sdkLoaded && !!growthbook.getAttributes().id;
-  useEffect(() => {
-    if (redesign === null && flagSettled) {
-      setRedesign(growthbook.isOn("feature-page-redesign-v1"));
-    }
-  }, [redesign, flagSettled, growthbook]);
-  const [editProjectModal, setEditProjectModal] = useState(false);
-  const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
 
   const {
     data,
@@ -187,7 +163,7 @@ export default function FeaturePage() {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
-  if (!data || !feature || !revision || !baseFeature || redesign === null) {
+  if (!data || !feature || !revision || !baseFeature) {
     return <LoadingOverlay />;
   }
 
@@ -210,215 +186,6 @@ export default function FeaturePage() {
     revision.status === "discarded" ||
     (revision.status === "published" && !viewingLive);
 
-  const compareRevisions =
-    (data.revisionList?.length ?? 0) >= 2
-      ? () => setCompareRevisionsOpen(true)
-      : undefined;
-
-  // Every tab but the overview is the same in both versions of the page.
-  const otherTabs = (
-    <>
-      {tab === "review" && (
-        <ReviewAndPublish
-          feature={baseFeature}
-          revisions={data.revisions}
-          revisionList={data.revisionList || []}
-          version={version ?? baseFeature.version}
-          setVersion={setVersion}
-          experiments={experiments}
-          rampSchedules={rampSchedules}
-          mutate={refreshData}
-          onPublish={() => {
-            setTimeout(() => {
-              if (liveVersionRef.current !== null) {
-                setVersion(liveVersionRef.current);
-              }
-            }, 300);
-          }}
-          onCompareRevisions={compareRevisions}
-        />
-      )}
-
-      {tab === "test" && (
-        <FeatureTest
-          baseFeature={baseFeature}
-          feature={feature}
-          revision={revision}
-          version={version}
-        />
-      )}
-
-      {tab === "stats" && (
-        <FeaturesStats orgSettings={orgSettings} featureId={feature.id} />
-      )}
-
-      {tab === "diagnostics" && (
-        <FeatureDiagnostics
-          feature={feature}
-          results={diagnosticsResults}
-          setResults={setDiagnosticsResults}
-        />
-      )}
-
-      {tab === "validation" && (
-        <FeatureValidationTab
-          feature={feature}
-          revision={revision}
-          mutate={refreshData}
-          setVersion={setVersion}
-          revisionList={data.revisionList}
-        />
-      )}
-    </>
-  );
-
-  const compareModal = compareRevisionsOpen ? (
-    <CompareRevisionsModal
-      feature={feature}
-      baseFeature={baseFeature}
-      revisionList={data.revisionList || []}
-      revisions={data.revisions}
-      currentVersion={version ?? feature.version}
-      onClose={() => setCompareRevisionsOpen(false)}
-      initialPreviewDraft={viewingDraft ? (version ?? undefined) : undefined}
-      initialMode={
-        viewingLive && !viewingDraft ? "most-recent-live" : undefined
-      }
-      rampSchedules={rampSchedules}
-    />
-  ) : null;
-
-  const page = !redesign ? (
-    <>
-      <FeaturesHeader
-        feature={feature}
-        baseFeature={baseFeature}
-        mutate={refreshData}
-        setVersion={setVersion}
-        version={version}
-        revisions={data.revisionList || []}
-        tab={tab}
-        setTab={setTabAndScroll}
-        setEditFeatureInfoModal={setEditFeatureInfoModal}
-        holdout={holdout}
-        isReadOnly={isReadOnly}
-        onCompareRevisions={compareRevisions}
-      />
-      {tab === "overview" && (
-        <FeaturesOverview
-          baseFeature={baseFeature}
-          feature={feature}
-          revision={revision}
-          revisionList={data.revisionList}
-          revisions={data.revisions}
-          experiments={experiments}
-          safeRollouts={safeRollouts}
-          holdout={holdout}
-          rampSchedules={rampSchedules}
-          mutate={refreshData}
-          editProjectModal={editProjectModal}
-          setEditProjectModal={setEditProjectModal}
-          version={version}
-          setVersion={setVersion}
-          setTab={setTabAndScroll}
-        />
-      )}
-      {otherTabs}
-      {editFeatureInfoModal && (
-        <EditFeatureInfoModal
-          baseFeature={baseFeature}
-          source="feature-header"
-          dependents={
-            (dependentsData?.features.length ?? 0) +
-            (dependentsData?.experiments.length ?? 0)
-          }
-          feature={feature}
-          revisionList={data.revisionList || []}
-          cancel={() => setEditFeatureInfoModal(false)}
-          mutate={refreshData}
-          setVersion={setVersion}
-        />
-      )}
-    </>
-  ) : (
-    <>
-      <FeaturesHeaderNew
-        feature={feature}
-        baseFeature={baseFeature}
-        mutate={refreshData}
-        setVersion={setVersion}
-        version={version}
-        revisions={data.revisionList || []}
-        tab={tab}
-        setTab={setTabAndScroll}
-        holdout={holdout}
-        isReadOnly={isReadOnly}
-        onCompareRevisions={compareRevisions}
-        detailsOpen={details.open}
-        setDetailsOpen={details.toggle}
-        statusBar={
-          showsStatusBar ? (
-            <RevisionStatusBar
-              baseFeature={baseFeature}
-              revision={revision}
-              revisionList={data.revisionList || []}
-              setTab={setTabAndScroll}
-              setVersion={setVersion}
-              mutate={refreshData}
-            />
-          ) : null
-        }
-      />
-      <DetailsPanelLayout
-        details={details}
-        stickyTop={stickyTop}
-        panel={
-          <FeatureDetailsPanel
-            feature={feature}
-            baseFeature={baseFeature}
-            revision={revision}
-            revisionList={data.revisionList || []}
-            holdout={holdout}
-            dependents={dependentsData}
-            canEdit={
-              permissionsUtil.canEditFeatureDrafts(baseFeature) && !isReadOnly
-            }
-            blockedReason={
-              viewingDraft && isRevisionEditLockedBySchedule(revision)
-                ? SCHEDULE_EDIT_LOCK_REASON
-                : null
-            }
-            mutate={refreshData}
-            setVersion={setVersion}
-            tab={details.panelTab}
-            setTab={details.setPanelTab}
-          />
-        }
-      >
-        <div className="feature-column">
-          {tab === "overview" && (
-            <FeaturesOverviewNew
-              baseFeature={baseFeature}
-              feature={feature}
-              revision={revision}
-              revisionList={data.revisionList}
-              revisions={data.revisions}
-              experiments={experiments}
-              safeRollouts={safeRollouts}
-              holdout={holdout}
-              rampSchedules={rampSchedules}
-              mutate={refreshData}
-              version={version}
-              setVersion={setVersion}
-              stickyTop={stickyTop}
-            />
-          )}
-          {otherTabs}
-        </div>
-      </DetailsPanelLayout>
-    </>
-  );
-
   return (
     <FeatureRevisionsContext.Provider
       value={{
@@ -436,10 +203,158 @@ export default function FeaturePage() {
             { display: feature.id },
           ]}
         />
-        <FeaturePageRedesignContext.Provider value={redesign}>
-          {page}
-          {compareModal}
-        </FeaturePageRedesignContext.Provider>
+        <FeaturesHeader
+          feature={feature}
+          baseFeature={baseFeature}
+          mutate={refreshData}
+          setVersion={setVersion}
+          version={version}
+          revisions={data.revisionList || []}
+          tab={tab}
+          setTab={setTabAndScroll}
+          holdout={holdout}
+          isReadOnly={isReadOnly}
+          onCompareRevisions={
+            (data.revisionList?.length ?? 0) >= 2
+              ? () => setCompareRevisionsOpen(true)
+              : undefined
+          }
+          detailsOpen={details.open}
+          setDetailsOpen={details.toggle}
+          statusBar={
+            showsStatusBar ? (
+              <RevisionStatusBar
+                baseFeature={baseFeature}
+                revision={revision}
+                revisionList={data.revisionList || []}
+                setTab={setTabAndScroll}
+                setVersion={setVersion}
+                mutate={refreshData}
+              />
+            ) : null
+          }
+        />
+
+        <DetailsPanelLayout
+          details={details}
+          stickyTop={stickyTop}
+          panel={
+            <FeatureDetailsPanel
+              feature={feature}
+              baseFeature={baseFeature}
+              revision={revision}
+              revisionList={data.revisionList || []}
+              holdout={holdout}
+              dependents={dependentsData}
+              canEdit={
+                permissionsUtil.canEditFeatureDrafts(baseFeature) && !isReadOnly
+              }
+              blockedReason={
+                viewingDraft && isRevisionEditLockedBySchedule(revision)
+                  ? SCHEDULE_EDIT_LOCK_REASON
+                  : null
+              }
+              mutate={refreshData}
+              setVersion={setVersion}
+              tab={details.panelTab}
+              setTab={details.setPanelTab}
+            />
+          }
+        >
+          <div className="feature-column">
+            {tab === "overview" && (
+              <FeaturesOverview
+                baseFeature={baseFeature}
+                feature={feature}
+                revision={revision}
+                revisionList={data.revisionList}
+                revisions={data.revisions}
+                experiments={experiments}
+                safeRollouts={safeRollouts}
+                holdout={holdout}
+                rampSchedules={rampSchedules}
+                mutate={refreshData}
+                version={version}
+                setVersion={setVersion}
+                stickyTop={stickyTop}
+              />
+            )}
+
+            {tab === "review" && (
+              <ReviewAndPublish
+                feature={baseFeature}
+                revisions={data.revisions}
+                revisionList={data.revisionList || []}
+                version={version ?? baseFeature.version}
+                setVersion={setVersion}
+                experiments={experiments}
+                rampSchedules={rampSchedules}
+                mutate={refreshData}
+                onPublish={() => {
+                  setTimeout(() => {
+                    if (liveVersionRef.current !== null) {
+                      setVersion(liveVersionRef.current);
+                    }
+                  }, 300);
+                }}
+                onCompareRevisions={
+                  (data.revisionList?.length ?? 0) >= 2
+                    ? () => setCompareRevisionsOpen(true)
+                    : undefined
+                }
+              />
+            )}
+
+            {tab === "test" && (
+              <FeatureTest
+                baseFeature={baseFeature}
+                feature={feature}
+                revision={revision}
+                version={version}
+              />
+            )}
+
+            {tab === "stats" && (
+              <FeaturesStats orgSettings={orgSettings} featureId={feature.id} />
+            )}
+
+            {tab === "diagnostics" && (
+              <FeatureDiagnostics
+                feature={feature}
+                results={diagnosticsResults}
+                setResults={setDiagnosticsResults}
+              />
+            )}
+
+            {tab === "validation" && (
+              <FeatureValidationTab
+                feature={feature}
+                revision={revision}
+                mutate={refreshData}
+                setVersion={setVersion}
+                revisionList={data.revisionList}
+              />
+            )}
+          </div>
+        </DetailsPanelLayout>
+
+        {compareRevisionsOpen && (
+          <CompareRevisionsModal
+            feature={feature}
+            baseFeature={baseFeature}
+            revisionList={data.revisionList || []}
+            revisions={data.revisions}
+            currentVersion={version ?? feature.version}
+            onClose={() => setCompareRevisionsOpen(false)}
+            initialPreviewDraft={
+              viewingDraft ? (version ?? undefined) : undefined
+            }
+            initialMode={
+              viewingLive && !viewingDraft ? "most-recent-live" : undefined
+            }
+            rampSchedules={rampSchedules}
+          />
+        )}
       </FeatureUsageProvider>
     </FeatureRevisionsContext.Provider>
   );

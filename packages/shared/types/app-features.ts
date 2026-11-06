@@ -12,9 +12,6 @@
  * zod at the read site (back-end services/plan-limits.ts).
  *
  * Exception: "interleave-exp" gates the in-development interleaving UI.
- *
- * Exception: "feature-page-redesign-v1" tests the redesigned feature page
- * against the one it replaces.
  */
 export type AppFeatures = {
   // Added ahead of the flag's creation in GrowthBook's own account
@@ -153,5 +150,4 @@ export type AppFeatures = {
   populations: boolean;
   "new-metric-creation-flow": boolean;
   "interleave-exp": boolean;
-  "feature-page-redesign-v1": boolean;
 };

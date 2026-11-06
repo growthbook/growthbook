@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
+import { PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SafeRolloutInterface,
@@ -28,14 +28,17 @@ import { isHoldoutEnabledAnyEnv } from "@/hooks/useHoldouts";
 import useApi from "@/hooks/useApi";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
+import UITooltip from "@/ui/Tooltip";
+import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
-import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import { Tabs, TabsList, TabsMoreTrigger, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import SectionFrame from "@/components/SectionFrame";
 import HoldoutValueModal from "./HoldoutValueModal";
 
 export default function FeatureRules({
@@ -60,6 +63,7 @@ export default function FeatureRules({
   onPendingRuleEditHandled,
   rulesEnv,
   setRulesEnv,
+  stickyHeaderTop,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -84,9 +88,12 @@ export default function FeatureRules({
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
   // Selected env tab, lifted to the parent so the Default Value display can
-  // resolve for the same environment. null = "All environments" view.
+  // resolve for the same environment. null = "All Environments" view.
   rulesEnv: string | null;
   setRulesEnv: (v: string | null) => void;
+  // Where the header, with its tabs and add button, sticks while the rules
+  // scroll under it.
+  stickyHeaderTop: number;
 }) {
   const envs = environments.map((e) => e.id);
   const storedEnv = rulesEnv;
@@ -339,49 +346,61 @@ export default function FeatureRules({
       )
     : overflowLabels;
 
-  return (
-    <>
-      <Tabs
-        value={env ?? FEATURE_RULES_ALL_ENVS}
-        onValueChange={(v) => setEnv(v === FEATURE_RULES_ALL_ENVS ? null : v)}
-        mb="3"
+  // Into the open tab's environment, or every one from "All Environments".
+  const addRuleEnv = env === null ? "" : (activeEnv?.id ?? null);
+
+  const tabs = (
+    <Tabs
+      value={env ?? FEATURE_RULES_ALL_ENVS}
+      onValueChange={(v) => setEnv(v === FEATURE_RULES_ALL_ENVS ? null : v)}
+    >
+      <TabsList
+        // Its own More menu also holds the view toggles.
+        overflowMenu={false}
+        style={{ boxShadow: "none", flexWrap: "nowrap" }}
       >
-        <Flex
-          align="center"
-          justify="between"
-          style={{
-            boxShadow: "inset 0 -1px 0 0 var(--slate-a3)",
-            position: "relative",
-          }}
-        >
-          <Box
-            ref={tabsBarRef}
-            style={{
-              flex: 1,
-              minWidth: 0,
-            }}
+        <Flex ref={tabsBarRef} flexGrow="1" minWidth="0">
+          <TabsTrigger
+            value={FEATURE_RULES_ALL_ENVS}
+            ref={setTriggerRef(FEATURE_RULES_ALL_ENVS)}
+            style={
+              overflowKeys.has(FEATURE_RULES_ALL_ENVS)
+                ? { display: "none" }
+                : undefined
+            }
           >
-            {/* Its own overflow menu, as on main. */}
-            <TabsList
-              overflowMenu={false}
-              style={{ boxShadow: "none", flexWrap: "nowrap" }}
-            >
+            <Flex align="center" gap="2">
+              All Environments
+              <Badge
+                label={String(
+                  (feature.rules?.length ?? 0) +
+                    (includeHoldoutRuleAllEnvs ? 1 : 0),
+                )}
+                radius="full"
+                variant="soft"
+                color="gray"
+                size="sm"
+                style={{ marginRight: -4 }}
+              />
+            </Flex>
+          </TabsTrigger>
+          {orderedEnvIds.map((id) => {
+            const e = envById.get(id);
+            if (!e) return null;
+            const count = holdoutRowInEnv(e.id)
+              ? rulesByEnv[e.id].length + 1
+              : rulesByEnv[e.id].length;
+            return (
               <TabsTrigger
-                value={FEATURE_RULES_ALL_ENVS}
-                ref={setTriggerRef(FEATURE_RULES_ALL_ENVS)}
-                style={
-                  overflowKeys.has(FEATURE_RULES_ALL_ENVS)
-                    ? { display: "none" }
-                    : undefined
-                }
+                key={e.id}
+                value={e.id}
+                ref={setTriggerRef(e.id)}
+                style={overflowKeys.has(e.id) ? { display: "none" } : undefined}
               >
                 <Flex align="center" gap="2">
-                  All Environments
+                  {e.id}
                   <Badge
-                    label={String(
-                      (feature.rules?.length ?? 0) +
-                        (includeHoldoutRuleAllEnvs ? 1 : 0),
-                    )}
+                    label={String(count)}
                     radius="full"
                     variant="soft"
                     color="gray"
@@ -390,150 +409,139 @@ export default function FeatureRules({
                   />
                 </Flex>
               </TabsTrigger>
-              {orderedEnvIds.map((id) => {
-                const e = envById.get(id);
-                if (!e) return null;
-                const count = holdoutRowInEnv(e.id)
-                  ? rulesByEnv[e.id].length + 1
-                  : rulesByEnv[e.id].length;
-                return (
-                  <TabsTrigger
-                    key={e.id}
-                    value={e.id}
-                    ref={setTriggerRef(e.id)}
-                    style={
-                      overflowKeys.has(e.id) ? { display: "none" } : undefined
-                    }
-                  >
-                    <Flex align="center" gap="2">
-                      {e.id}
-                      <Badge
-                        label={String(count)}
-                        radius="full"
-                        variant="soft"
-                        color="gray"
-                        size="sm"
-                        style={{ marginRight: -4 }}
-                      />
-                    </Flex>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+            );
+          })}
+        </Flex>
+        <DropdownMenu
+          menuPlacement="end"
+          color="violet"
+          variant="soft"
+          open={moreOpen}
+          onOpenChange={setMoreOpen}
+          trigger={
+            <TabsMoreTrigger>
+              {overflowLabels.length > 0
+                ? `More (${overflowLabels.length})`
+                : "More"}
+            </TabsMoreTrigger>
+          }
+        >
+          <Box px="3">
+            <Flex align="center" gap="2" justify="end" py="2">
+              <Text size="sm" color="text-low">
+                Show inactive rules
+              </Text>
+              <Switch
+                size="sm"
+                value={!hasInactiveRules ? false : !hideInactive}
+                onChange={(v) => setHideInactive(!v)}
+                disabled={!hasInactiveRules}
+              />
+            </Flex>
+            <Flex align="center" gap="2" justify="end" py="2">
+              <Text size="sm" color="text-low">
+                Show rule IDs
+              </Text>
+              <Switch size="sm" value={showRuleIds} onChange={setShowRuleIds} />
+            </Flex>
+            {env === null && hasOrphanedRules && (
+              <Flex align="center" gap="2" justify="end" py="2">
+                <Text size="sm" color="text-low">
+                  Show missing environment rules
+                </Text>
+                <Switch
+                  size="sm"
+                  value={showOrphaned}
+                  onChange={(v) => setShowOrphaned(v)}
+                />
+              </Flex>
+            )}
           </Box>
-          <Box
-            style={{
-              flexShrink: 0,
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              paddingLeft: 8,
-            }}
-          >
-            <DropdownMenu
-              menuPlacement="end"
-              color="violet"
-              variant="soft"
-              open={moreOpen}
-              onOpenChange={setMoreOpen}
-              trigger={
-                <Button
-                  variant="ghost"
-                  color="violet"
-                  icon={<PiFunnel />}
-                  iconPosition="left"
-                >
-                  {overflowLabels.length > 0
-                    ? `More (${overflowLabels.length})`
-                    : "More"}
-                </Button>
+          {overflowLabels.length > 0 && <DropdownMenuSeparator />}
+          {showOverflowSearch && (
+            <Box px="3" pt="1" pb="2">
+              <TextField.Root
+                size="2"
+                placeholder="Search..."
+                value={overflowSearch}
+                onChange={(e) => setOverflowSearch(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                autoFocus
+              >
+                <TextField.Slot>
+                  <PiMagnifyingGlass />
+                </TextField.Slot>
+              </TextField.Root>
+            </Box>
+          )}
+          {filteredOverflowLabels.map(({ key, label, count }) => (
+            <DropdownMenuItem
+              key={key}
+              onClick={() =>
+                setEnv(key === FEATURE_RULES_ALL_ENVS ? null : key)
               }
             >
-              <Box px="3">
-                <Flex align="center" gap="2" justify="end" py="2">
-                  <Text size="sm" color="text-low">
-                    Show inactive rules
-                  </Text>
-                  <Switch
-                    size="sm"
-                    value={!hasInactiveRules ? false : !hideInactive}
-                    onChange={(v) => setHideInactive(!v)}
-                    disabled={!hasInactiveRules}
-                  />
-                </Flex>
-                <Flex align="center" gap="2" justify="end" py="2">
-                  <Text size="sm" color="text-low">
-                    Show rule IDs
-                  </Text>
-                  <Switch
-                    size="sm"
-                    value={showRuleIds}
-                    onChange={setShowRuleIds}
-                  />
-                </Flex>
-                {env === null && hasOrphanedRules && (
-                  <Flex align="center" gap="2" justify="end" py="2">
-                    <Text size="sm" color="text-low">
-                      Show missing environment rules
-                    </Text>
-                    <Switch
-                      size="sm"
-                      value={showOrphaned}
-                      onChange={(v) => setShowOrphaned(v)}
-                    />
-                  </Flex>
-                )}
-              </Box>
-              {overflowLabels.length > 0 && <DropdownMenuSeparator />}
-              {showOverflowSearch && (
-                <Box px="3" pt="1" pb="2">
-                  <TextField.Root
-                    size="2"
-                    placeholder="Search..."
-                    value={overflowSearch}
-                    onChange={(e) => setOverflowSearch(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                    autoFocus
-                  >
-                    <TextField.Slot>
-                      <PiMagnifyingGlass />
-                    </TextField.Slot>
-                  </TextField.Root>
-                </Box>
-              )}
-              {filteredOverflowLabels.map(({ key, label, count }) => (
-                <DropdownMenuItem
-                  key={key}
-                  onClick={() =>
-                    setEnv(key === FEATURE_RULES_ALL_ENVS ? null : key)
-                  }
-                >
-                  <Flex align="center" justify="between" gap="3" width="100%">
-                    <span>{label}</span>
-                    <Badge
-                      label={String(count)}
-                      radius="full"
-                      variant="soft"
-                      color="gray"
-                      size="sm"
-                    />
-                  </Flex>
-                </DropdownMenuItem>
-              ))}
-              {showOverflowSearch && filteredOverflowLabels.length === 0 && (
-                <Box px="3" py="2">
-                  <Text size="sm" color="text-low">
-                    No matches
-                  </Text>
-                </Box>
-              )}
-            </DropdownMenu>
-          </Box>
-        </Flex>
-      </Tabs>
+              <Flex align="center" justify="between" gap="3" width="100%">
+                <span>{label}</span>
+                <Badge
+                  label={String(count)}
+                  radius="full"
+                  variant="soft"
+                  color="gray"
+                  size="sm"
+                />
+              </Flex>
+            </DropdownMenuItem>
+          ))}
+          {showOverflowSearch && filteredOverflowLabels.length === 0 && (
+            <Box px="3" py="2">
+              <Text size="sm" color="text-low">
+                No matches
+              </Text>
+            </Box>
+          )}
+        </DropdownMenu>
+      </TabsList>
+    </Tabs>
+  );
 
-      <Box mt="4">
+  return (
+    <>
+      <SectionFrame
+        title="Rules"
+        mt="5"
+        stickyTop={stickyHeaderTop}
+        actions={
+          (!isLocked || lockedBySchedule) &&
+          canEditDrafts &&
+          addRuleEnv !== null ? (
+            <UITooltip
+              content={SCHEDULE_EDIT_LOCK_REASON}
+              enabled={!!lockedBySchedule}
+            >
+              <Button
+                disabled={!!lockedBySchedule}
+                onClick={() => {
+                  setRuleModal({
+                    environment: addRuleEnv,
+                    i: (feature.rules ?? []).length,
+                    mode: "create",
+                  });
+                  track("Viewed Rule Modal", {
+                    source: "add-rule",
+                    type: "force",
+                  });
+                }}
+                icon={<PiPlusBold />}
+              >
+                Add rule
+              </Button>
+            </UITooltip>
+          ) : null
+        }
+        tabs={tabs}
+      >
         {env === null ? (
           <>
             {(feature.rules ?? []).length > 0 || includeHoldoutRuleAllEnvs ? (
@@ -564,30 +572,9 @@ export default function FeatureRules({
                 hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
               />
             ) : (
-              <Box py="4" className="text-muted">
-                <em>No rules have been added yet</em>
-              </Box>
-            )}
-            {!isLocked && canEditDrafts && (
-              <Flex mt="5" mb="1" justify="end">
-                <Button
-                  onClick={() => {
-                    // environment="" → rule modal defaults to allEnvironments scope
-                    setRuleModal({
-                      environment: "",
-                      i: (feature.rules ?? []).length,
-                      mode: "create",
-                    });
-                    track("Viewed Rule Modal", {
-                      source: "add-rule",
-                      type: "force",
-                    });
-                  }}
-                  icon={<PiPlusBold />}
-                >
-                  Add Rule
-                </Button>
-              </Flex>
+              <Text as="p" color="text-low" mb="0">
+                No rules yet. Everyone gets the default value.
+              </Text>
             )}
           </>
         ) : activeEnv ? (
@@ -618,33 +605,14 @@ export default function FeatureRules({
                 baseRevision={baseRevision}
               />
             ) : (
-              <Box py="4" className="text-muted">
-                <em>No rules have been added to this environment yet</em>
-              </Box>
-            )}
-            {!isLocked && canEditDrafts && (
-              <>
-                <Flex pt="4" justify="between" align="center">
-                  <Text weight="semibold" size="lg">
-                    Add rule to {activeEnv.id}
-                  </Text>
-                  <Button
-                    onClick={() => {
-                      setRuleModal({
-                        environment: activeEnv.id,
-                        i: (feature.rules ?? []).length,
-                        mode: "create",
-                      });
-                    }}
-                  >
-                    Add Rule
-                  </Button>
-                </Flex>
-              </>
+              <Text as="p" color="text-low" mb="0">
+                No rules in {activeEnv.id}. Everyone there gets the default
+                value.
+              </Text>
             )}
           </>
         ) : null}
-      </Box>
+      </SectionFrame>
       {ruleModal !== null && (
         <RuleModal
           // Remount when the ramp-to-new-value switch retargets the open modal.

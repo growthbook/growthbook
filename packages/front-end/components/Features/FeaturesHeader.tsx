@@ -3,18 +3,18 @@ import {
   canStageArchiveDraft,
 } from "shared/permissions";
 import { useRouter } from "next/router";
-import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { ReactNode, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiEye, PiWarning } from "react-icons/pi";
-import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
+import { PiEye } from "react-icons/pi";
+import {
+  isActiveDraftStatus,
+  REVIEW_REQUESTED_STATUSES,
+  HoldoutInterface,
+} from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import Text from "@/ui/Text";
-import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
@@ -26,10 +26,7 @@ import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import SortedTags from "@/components/Tags/SortedTags";
-import { tagLinkProps } from "@/services/search";
 import { useWatching } from "@/services/WatchProvider";
 import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -37,40 +34,32 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Owner from "@/components/Avatar/Owner";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import Metadata from "@/ui/Metadata";
+import NewDraftButton from "@/components/Features/NewDraftButton";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import Link from "@/ui/Link";
+import {
+  DetailsPanelToggle,
+  PANEL_WIDTH_PX,
+} from "@/components/CollapsiblePanelLayout";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownSubMenu,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import usePinnedHeader from "@/hooks/usePinnedHeader";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
-function HiddenProject({ id }: { id: string }) {
-  return (
-    <Tooltip
-      body={
-        <>
-          A Project you don&apos;t have access to, or one that no longer exists
-          (<code>{id}</code>)
-        </>
-      }
-    >
-      <em>Hidden Project</em>
-    </Tooltip>
-  );
-}
+
+// The details panel's default width, less the page gutter (24px) and the
+// menu button and its gap beside the CTA (34px).
+const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 58;
 
 export default function FeaturesHeader({
   feature,
@@ -81,10 +70,12 @@ export default function FeaturesHeader({
   revisions,
   tab,
   setTab,
-  setEditFeatureInfoModal,
   holdout,
   isReadOnly = false,
   onCompareRevisions,
+  detailsOpen,
+  setDetailsOpen,
+  statusBar,
 }: {
   feature: FeatureInterface;
   // Live feature doc. `feature` is merged with whichever revision is being
@@ -97,13 +88,15 @@ export default function FeaturesHeader({
   revisions: MinimalFeatureRevisionInterface[];
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
-  setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
   isReadOnly?: boolean;
   onCompareRevisions?: () => void;
+  detailsOpen: boolean;
+  setDetailsOpen: (open: boolean) => void;
+  // The viewed revision's state, fixed under the tabs.
+  statusBar?: ReactNode;
 }) {
   const router = useRouter();
-  const projectId = feature?.project;
   const firstFeature = router?.query && "first" in router.query;
   const [auditModal, setAuditModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
@@ -140,11 +133,6 @@ export default function FeaturesHeader({
     refreshWatching();
     setDropdownOpen(false);
   }
-  const {
-    getProjectById,
-    project: currentProject,
-    projects,
-  } = useDefinitions();
   const { holdouts } = useHoldouts(feature.project);
   const holdoutsEnabled = hasCommercialFeature("holdouts");
 
@@ -160,24 +148,6 @@ export default function FeaturesHeader({
   useEffect(() => watchHealth([feature.id]), [feature.id, watchHealth]);
 
   const [tabsPinSentinelRef, headerPinned] = usePinnedHeader();
-  const { scrollY } = useScrollPosition();
-
-  // Portal the revisionAndSettingsGroup between the header and sticky tabs on scroll.
-  // Moving a single DOM node keeps dropdown menus stable.
-  const scrolled = scrollY > 15;
-  const headerSlotRef = useRef<HTMLDivElement>(null);
-  const tabsSlotRef = useRef<HTMLDivElement>(null);
-  const [portalHost] = useState<HTMLDivElement | null>(() => {
-    if (typeof document === "undefined") return null;
-    const div = document.createElement("div");
-    div.style.display = "contents";
-    return div;
-  });
-  useEffect(() => {
-    if (!portalHost) return;
-    const target = scrolled ? tabsSlotRef.current : headerSlotRef.current;
-    if (target) target.appendChild(portalHost);
-  }, [scrolled, portalHost]);
 
   // Re-compute whenever the feature is saved (version increments on publish).
   const prevVersionRef = useRef<number | null>(null);
@@ -198,10 +168,6 @@ export default function FeaturesHeader({
     await healthHook.fetchSome([feature.id]);
   };
 
-  const project = getProjectById(projectId || "");
-  const projectName = project?.name || null;
-  const projectIsDeReferenced = projectId && !projectName;
-
   // Editing an existing flag takes draft authority, not the create gate:
   // `canViewFeatureModal` answers "may this user create a feature".
   const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
@@ -210,7 +176,7 @@ export default function FeaturesHeader({
   // Duplicating CREATES a flag, so it takes create authority — not authority over
   // the one being copied. The modal gates its own environment toggles.
   const canDuplicate = permissionsUtil.canCreateFeature(
-    { project: projectId },
+    { project: feature.project },
     NO_ENVIRONMENT_BINDING,
   );
   // Archive controls use live state, not the viewed draft projection.
@@ -253,45 +219,32 @@ export default function FeaturesHeader({
     0,
   );
 
-  // Rendered once via a stable portal host (see above).
-  const revisionAndSettingsGroup = (
-    <Flex align="center" gap="4" pr="2">
-      <RevisionDropdown
-        feature={feature}
-        revisions={revisions}
-        version={version ?? feature.version}
-        setVersion={setVersion}
-        context="header"
-      />
+  const viewedRevision = revisions.find(
+    (r) => r.version === (version ?? feature.version),
+  );
+  const viewingDraft =
+    !!viewedRevision && isActiveDraftStatus(viewedRevision.status);
+  // Judged on the live flag, like the server.
+  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
+
+  const headerActions = (
+    <Flex align="center" gap="4" height="var(--space-6)">
+      {/* A draft's way to review is on the status bar under the tabs. */}
+      {viewingDraft ? null : canEditDrafts ? (
+        <NewDraftButton
+          feature={baseFeature}
+          revisionList={revisions}
+          mutate={mutate}
+          setVersion={setVersion}
+        />
+      ) : null}
       <DropdownMenu
-        trigger={
-          <IconButton
-            variant="ghost"
-            color="gray"
-            radius="full"
-            size="2"
-            highContrast
-          >
-            <BsThreeDotsVertical size={16} />
-          </IconButton>
-        }
+        trigger={<MoreMenuTrigger label="More actions" size="lg" />}
         open={dropdownOpen}
         onOpenChange={setDropdownOpen}
         menuPlacement="end"
       >
         <DropdownMenuGroup>
-          {/* Metadata is draft-class server-side; requiring publish here shut
-              draft-only editors out of an action they are allowed to take. */}
-          {canEdit && !isReadOnly && (
-            <DropdownMenuItem
-              onClick={() => {
-                setEditFeatureInfoModal(true);
-                setDropdownOpen(false);
-              }}
-            >
-              Edit information
-            </DropdownMenuItem>
-          )}
           <DropdownMenuItem
             onClick={() => {
               setShowImplementation(true);
@@ -458,13 +411,30 @@ export default function FeaturesHeader({
     </Flex>
   );
 
+  // White over the page's violet, which only the content column below shows.
   return (
     <>
-      <Box className="features-header contents container-fluid pagecontents pb-0">
+      {/* Padding inline: container-fluid's own outranks Radix's props. */}
+      <Box
+        className="container-fluid pagecontents"
+        position="relative"
+        style={{
+          background: "var(--color-panel-solid)",
+          padding: "var(--space-4) var(--space-5) var(--space-2)",
+        }}
+      >
         <Box>
-          <Flex align="start" justify="between" gap="2">
-            <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
-              <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
+          <Flex direction="row" align="start" justify="between" gap="5">
+            {/* Raised so the name's x-height centres on the buttons' text. */}
+            <Flex align="center" gap="3" mt="-3px">
+              <Heading
+                as="h1"
+                size="2xl"
+                color="text-high"
+                overflowWrap="anywhere"
+                weight="medium"
+                mb="0"
+              >
                 {feature.id}
               </Heading>
               <FeatureStatusBadge
@@ -477,130 +447,15 @@ export default function FeaturesHeader({
                 onOpenChange={setStaleStatusOpen}
               />
             </Flex>
-            {/* Slot: revisionAndSettingsGroup portal mounts here when not scrolled (>20px → tabs bar) */}
-            <div ref={headerSlotRef} />
-            {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
+            {headerActions}
           </Flex>
-          <Flex gap="4" align="center">
-            {holdout?.id && (
-              <Box>
-                <Text weight="medium">Holdout: </Text>
-                <Link href={`/holdout/${holdout.id}`}>{holdout.name}</Link>
-              </Box>
-            )}
-
-            {(projects.length > 0 || projectIsDeReferenced) && (
-              <Metadata
-                label="Project"
-                value={
-                  <Flex gap="1">
-                    {projectIsDeReferenced ? (
-                      // The viewer's project list is read-filtered, so this is
-                      // either a Project they cannot see or one since deleted.
-                      <Text weight="regular" color="text-mid">
-                        <HiddenProject id={projectId} />
-                      </Text>
-                    ) : currentProject && currentProject !== feature.project ? (
-                      <Tooltip
-                        body={<>This feature is not in your current project.</>}
-                      >
-                        {projectId && (
-                          <Text weight="regular" color="text-mid">
-                            {projectName}
-                          </Text>
-                        )}{" "}
-                        <PiWarning className="text-warning" />
-                      </Tooltip>
-                    ) : projectId ? (
-                      <Text weight="regular" color="text-mid">
-                        {projectName}
-                      </Text>
-                    ) : canEdit && canPublish && !isReadOnly ? (
-                      <Link
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditFeatureInfoModal(true);
-                        }}
-                      >
-                        +Add
-                      </Link>
-                    ) : (
-                      <Text weight="regular" color="text-mid">
-                        None
-                      </Text>
-                    )}
-                  </Flex>
-                }
-              />
-            )}
-
-            {(feature.targetingAllProjects ||
-              (feature.targetingProjects?.length ?? 0) > 0) && (
-              <Metadata
-                label="Targeting Projects"
-                value={
-                  feature.targetingAllProjects ? (
-                    "All Projects"
-                  ) : (
-                    // Same tokens Metadata applies to a string value, so the
-                    // list reads like the Project field beside it.
-                    <Text weight="regular" color="text-mid">
-                      {(feature.targetingProjects ?? []).map((id, i) => (
-                        <span key={id}>
-                          {i > 0 ? ", " : ""}
-                          {getProjectById(id)?.name || (
-                            <HiddenProject id={id} />
-                          )}
-                        </span>
-                      ))}
-                    </Text>
-                  )
-                }
-              />
-            )}
-
-            <Box>
-              <Text weight="medium">Feature Key: </Text>
-              {feature.id || "-"}
-            </Box>
-
-            <Box>
-              <Text weight="medium">Type: </Text>
-              {feature.valueType ? (
-                <FeatureValueTypeDisplay
-                  valueType={feature.valueType}
-                  baseConfig={feature.baseConfig}
-                />
-              ) : (
-                "unknown"
-              )}
-            </Box>
-
-            <Box>
-              <Text weight="medium">Owner: </Text>
-              <Owner ownerId={feature.owner} gap="1" />
-            </Box>
-          </Flex>
-          <Box mt="1" mb="3">
-            {feature.tags?.length ? (
-              <Box>
-                <Text weight="medium">Tags: </Text>
-                <SortedTags
-                  tags={feature.tags || []}
-                  useFlex
-                  shouldShowEllipsis={false}
-                  {...tagLinkProps("features")}
-                />
-              </Box>
-            ) : null}
-          </Box>
           {isArchived ? (
-            <Callout status="info" mb="2">
+            <Callout status="info" mt="3">
               <strong>This Feature Flag is archived.</strong> It will not be
               included in SDK Endpoints or Webhook payloads.
             </Callout>
           ) : feature.archived ? (
-            <Callout status="warning" mb="2">
+            <Callout status="warning" mt="3">
               <strong>This draft will archive the Feature Flag.</strong> Once
               published it will be removed from SDK Endpoints and Webhook
               payloads.
@@ -617,6 +472,7 @@ export default function FeaturesHeader({
             height: 1,
             width: "100%",
             pointerEvents: "none",
+            background: "var(--color-panel-solid)",
           }}
         />
         <div
@@ -624,15 +480,18 @@ export default function FeaturesHeader({
             pinned: headerPinned,
           })}
         >
-          <div className="container-fluid pagecontents px-3">
-            <div className="header-tabs">
-              <Tabs value={tab} onValueChange={setTab}>
-                {/* Unfolded, as on main. */}
-                <TabsList
-                  size="lg"
-                  overflowMenu={false}
-                  style={{ width: "100%" }}
-                >
+          <Box
+            className="container-fluid pagecontents"
+            position="relative"
+            style={{ paddingInline: "var(--space-5)" }}
+          >
+            <Flex align="center" className="header-tabs">
+              <Tabs
+                value={tab}
+                onValueChange={setTab}
+                style={{ flex: 1, minWidth: 0 }}
+              >
+                <TabsList size="lg" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="review">
                     Review &amp; Publish
@@ -656,14 +515,26 @@ export default function FeaturesHeader({
                   {!(isCloud() && feature.valueType === "boolean") && (
                     <TabsTrigger value="validation">Validation</TabsTrigger>
                   )}
-                  {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
-                  <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
-                    <div ref={tabsSlotRef} />
-                  </Box>
                 </TabsList>
               </Tabs>
-            </div>
-          </div>
+              {/* Beside the tab list, not in it: the list folds tabs that
+                  don't fit into its More menu. Runs from the details panel's
+                  default edge to the CTA's right edge above it, which sits
+                  2px right of where the toggle's margin ends the row. */}
+              <Box flexShrink="0" ml="4" mr="-2px">
+                <RevisionDropdown
+                  feature={feature}
+                  revisions={revisions}
+                  version={version ?? feature.version}
+                  setVersion={setVersion}
+                  context="header"
+                  width={REVISION_SELECTOR_WIDTH_PX}
+                />
+              </Box>
+              <DetailsPanelToggle open={detailsOpen} setOpen={setDetailsOpen} />
+            </Flex>
+          </Box>
+          {statusBar}
         </div>
       </>
       {auditModal && (

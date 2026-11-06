@@ -42,7 +42,6 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { featureStatusColors } from "./FeaturesOverview";
-import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 interface Props {
   i: number;
@@ -81,7 +80,6 @@ export default function PrerequisiteStatusRow({
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const { apiCall } = useAuth();
-  const redesign = useFeaturePageRedesign();
   const [open, setOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   // Pinned when the modal opens: `feature` is reactive, so reading the list at
@@ -214,14 +212,14 @@ export default function PrerequisiteStatusRow({
       {deleteModal}
       <Flex
         align="center"
-        className={redesign ? revealsQuickEdit : undefined}
+        className={revealsQuickEdit}
         style={{ borderTop: "1px solid var(--gray-4)" }}
       >
         {/* Indented under the "Prerequisites" label above the rows. */}
         <Box
           style={{ width: labelWidth, flexShrink: 0, minWidth: 0 }}
           py="2"
-          pl={redesign ? "3" : undefined}
+          pl="3"
         >
           <Flex align="center" gap="1">
             <a
@@ -243,10 +241,7 @@ export default function PrerequisiteStatusRow({
               iconOnly
             />
             {/* Shows when the row is pointed at. */}
-            <Flex
-              className={redesign ? revealedByQuickEdit : undefined}
-              flexShrink="0"
-            >
+            <Flex className={revealedByQuickEdit} flexShrink="0">
               {menu}
             </Flex>
           </Flex>

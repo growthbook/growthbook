@@ -125,7 +125,6 @@ import useSortableItem from "@/hooks/useSortableItem";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import RuleField from "./RuleField";
-import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 function fmtScheduleDate(d: Date | string): string {
   return new Date(d).toLocaleDateString(undefined, {
@@ -374,7 +373,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref,
   ) => {
     const { apiCall } = useAuth();
-    const redesign = useFeaturePageRedesign();
     const { hasCommercialFeature } = useUser();
     const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
 
@@ -1725,9 +1723,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     condition={rule.condition || ""}
                     savedGroups={rule.savedGroups}
                     prerequisites={rule.prerequisites}
-                    prefix={
-                      redesign ? <Text weight="medium">IF</Text> : undefined
-                    }
+                    prefix={<Text weight="medium">IF</Text>}
                   />
                 ) : (
                   "All traffic"

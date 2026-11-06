@@ -510,11 +510,6 @@
   },
   "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {
     "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "packages/front-end/components/Features/EditFeatureInfoModalNew.tsx": {
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -594,11 +589,6 @@
   "packages/front-end/components/Features/FeatureVariationsInput.tsx": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Features/FeaturesOverview.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
     }
   },
   "packages/front-end/components/Features/HoldoutRule.tsx": {

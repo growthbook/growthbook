@@ -1,17 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
+import { useEffect, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { Environment } from "shared/types/organization";
-import { ACTIVE_DRAFT_STATUSES, eventUserPersonId } from "shared/validators";
+import { isActiveDraftStatus, eventUserPersonId } from "shared/validators";
 import {
   getReviewSetting,
   liveRevisionFromFeature,
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -19,210 +16,21 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
 import track from "@/services/track";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
-import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
-import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
-import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import PermissionBlocker from "@/ui/PermissionBlocker";
 
-function EnvStateIcon({ enabled }: { enabled: boolean }) {
-  return enabled ? (
-    <FaCircleCheck size={20} style={{ color: "var(--green-10)" }} />
-  ) : (
-    <FaCircleXmark size={20} style={{ color: "var(--color-text-low)" }} />
-  );
-}
-
-const COL_W = 120;
-const LABEL_W = 140;
-
-function EnvStateGrid({
-  liveFeature,
-  visibleEnvs,
-  getEffectiveState,
-  getSwitchDisplayState,
-  onToggle,
-  canToggle,
-  scrollToEnvId,
-}: {
-  liveFeature: FeatureInterface;
-  visibleEnvs: Environment[];
-  getEffectiveState: (envId: string) => boolean;
-  getSwitchDisplayState: (envId: string) => boolean;
-  onToggle: (envId: string, val: boolean) => void;
-  canToggle: (envId: string) => boolean;
-  scrollToEnvId?: string;
-}) {
-  const liveEnvSettings = liveFeature.environmentSettings ?? {};
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!scrollToEnvId || !scrollRef.current) return;
-    const idx = visibleEnvs.findIndex((e) => e.id === scrollToEnvId);
-    if (idx === -1) return;
-    const colLeft = LABEL_W + idx * COL_W;
-    const colRight = colLeft + COL_W;
-    if (colRight > scrollRef.current.clientWidth) {
-      scrollRef.current.scrollLeft = colRight - scrollRef.current.clientWidth;
-    }
-  }, [scrollToEnvId, visibleEnvs]);
-
-  return (
-    <Box ref={scrollRef} style={{ overflowX: "auto", textAlign: "center" }}>
-      <Flex
-        direction="column"
-        style={{
-          minWidth: "max-content",
-          display: "inline-flex",
-          textAlign: "left",
-        }}
-      >
-        {/* Env name header */}
-        <Flex align="center" pb="1">
-          <Box style={{ width: LABEL_W, flexShrink: 0 }} />
-          {visibleEnvs.map((env) => (
-            <Box
-              key={env.id}
-              style={{ width: COL_W, flexShrink: 0, textAlign: "center" }}
-            >
-              <Text weight="semibold" color="text-mid">
-                <OverflowText maxWidth={COL_W}>{env.id}</OverflowText>
-              </Text>
-            </Box>
-          ))}
-        </Flex>
-
-        {/* Switches row */}
-        <Flex align="center" pt="1" pb="3">
-          <Box style={{ width: LABEL_W, flexShrink: 0 }} />
-          {visibleEnvs.map((env) => (
-            <Flex
-              key={env.id}
-              justify="center"
-              align="center"
-              style={{ width: COL_W, flexShrink: 0 }}
-            >
-              <Switch
-                value={getSwitchDisplayState(env.id)}
-                onChange={(val) => onToggle(env.id, val)}
-                disabled={!canToggle(env.id)}
-                size="lg"
-              />
-            </Flex>
-          ))}
-        </Flex>
-
-        {/* Change summary */}
-        <Box mt="3" pb="1">
-          <Flex
-            align="center"
-            pb="2"
-            style={{ borderBottom: "1px solid var(--gray-4)" }}
-          >
-            <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-              <Text color="text-mid">Change summary</Text>
-            </Box>
-          </Flex>
-
-          <Box style={{ position: "relative" }}>
-            {visibleEnvs.map((env, i) =>
-              (liveEnvSettings[env.id]?.enabled ?? false) !==
-              getEffectiveState(env.id) ? (
-                <div
-                  key={env.id}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: LABEL_W + i * COL_W + 6,
-                    width: COL_W - 12,
-                    height: "100%",
-                    borderRadius: "var(--radius-3)",
-                    boxShadow: "inset 0 0 0 1.5px var(--violet-7)",
-                    pointerEvents: "none",
-                  }}
-                />
-              ) : null,
-            )}
-
-            <Flex align="center" my="1">
-              <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-                <Text weight="semibold">Live</Text>
-              </Box>
-              {visibleEnvs.map((env) => {
-                const unchanged =
-                  (liveEnvSettings[env.id]?.enabled ?? false) ===
-                  getEffectiveState(env.id);
-                return (
-                  <Box key={env.id} style={{ width: COL_W, flexShrink: 0 }}>
-                    <Flex
-                      justify="center"
-                      align="center"
-                      py="2"
-                      mx="1"
-                      style={{
-                        borderRadius: "var(--radius-2)",
-                        background: unchanged ? "var(--gray-3)" : undefined,
-                      }}
-                    >
-                      <span style={{ opacity: unchanged ? 0.5 : 1 }}>
-                        <EnvStateIcon
-                          enabled={liveEnvSettings[env.id]?.enabled ?? false}
-                        />
-                      </span>
-                    </Flex>
-                  </Box>
-                );
-              })}
-            </Flex>
-
-            <Flex align="center" my="1">
-              <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-                <Text weight="semibold">After change</Text>
-              </Box>
-              {visibleEnvs.map((env) => {
-                const unchanged =
-                  (liveEnvSettings[env.id]?.enabled ?? false) ===
-                  getEffectiveState(env.id);
-                return (
-                  <Box key={env.id} style={{ width: COL_W, flexShrink: 0 }}>
-                    <Flex
-                      justify="center"
-                      align="center"
-                      py="2"
-                      mx="1"
-                      style={{
-                        borderRadius: "var(--radius-2)",
-                        background: unchanged ? "var(--gray-3)" : undefined,
-                      }}
-                    >
-                      <span style={{ opacity: unchanged ? 0.5 : 1 }}>
-                        <EnvStateIcon enabled={getEffectiveState(env.id)} />
-                      </span>
-                    </Flex>
-                  </Box>
-                );
-              })}
-            </Flex>
-          </Box>
-        </Box>
-      </Flex>
-    </Box>
-  );
-}
-
 export interface KillSwitchModalProps {
   // Merged feature (may reflect draft state)
   feature: FeatureInterface;
   // Raw live feature document (un-merged)
-  baseFeature?: FeatureInterface;
-  // When set, pre-initialises that env to desiredState in the grid
-  environment?: string;
-  desiredState?: boolean;
+  baseFeature: FeatureInterface;
+  // The environment a switch was flipped for, and the state it asks for.
+  environment: string;
+  desiredState: boolean;
   currentVersion: number;
   revisionList: MinimalFeatureRevisionInterface[];
   mutate: () => Promise<unknown>;
@@ -246,9 +54,8 @@ export default function KillSwitchModal({
   const settings = useOrgSettings();
   const { userId } = useUser();
   const allOrgEnvironments = useEnvironments();
-  const ctx = useFeatureRevisionsContext();
 
-  const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
+  const liveDoc = baseFeature;
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
     liveDoc,
     "feature",
@@ -259,16 +66,8 @@ export default function KillSwitchModal({
     ? getReviewSetting(rawRequireReviews, feature)
     : null;
 
-  // Envs explicitly toggled by the user during this modal session.
-  const [touchedEnvs, setTouchedEnvs] = useState<Set<string>>(new Set());
-  // Per-env overrides applied by the user in the "Change State" row.
-  const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({});
-
   const activeDrafts = useMemo(
-    () =>
-      revisionList.filter((r) =>
-        (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-      ),
+    () => revisionList.filter((r) => isActiveDraftStatus(r.status)),
     [revisionList],
   );
 
@@ -294,25 +93,6 @@ export default function KillSwitchModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
-
-  // Wrap mode/draft setters so that touched overrides are always preserved
-  // while un-touched envs are free to follow the newly selected base.
-  const handleSetMode = (m: DraftMode) => {
-    setMode(m);
-    setEnvOverrides((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).filter(([k]) => touchedEnvs.has(k)),
-      ),
-    );
-  };
-  const handleSetSelectedDraft = (v: number | null) => {
-    setSelectedDraft(v);
-    setEnvOverrides((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).filter(([k]) => touchedEnvs.has(k)),
-      ),
-    );
-  };
 
   const targetRevisions = useFeatureRevisions(feature.id, [
     feature.version,
@@ -350,9 +130,7 @@ export default function KillSwitchModal({
   }, [targetRevisions, liveDoc, feature.version, mode, selectedDraft]);
 
   const getEffectiveState = (envId: string): boolean => {
-    if (envId in envOverrides) return envOverrides[envId];
-    if (environment === envId && desiredState !== undefined)
-      return desiredState;
+    if (envId === environment) return desiredState;
     return baseEnvEnabled[envId] ?? false;
   };
 
@@ -396,34 +174,6 @@ export default function KillSwitchModal({
     }
   }, [canAutoPublish, canDraft, mode]);
 
-  // Delay the switch animation for pre-toggled envs so users see it animate in.
-  const [uiReady, setUiReady] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setUiReady(true), 100);
-    return () => clearTimeout(t);
-  }, []);
-  const getSwitchDisplayState = (envId: string): boolean => {
-    if (!uiReady && environment === envId && desiredState !== undefined) {
-      return baseEnvEnabled[envId] ?? false;
-    }
-    return getEffectiveState(envId);
-  };
-
-  const canToggleEnv = (envId: string) =>
-    canDraft || permissionsUtil.canPublishFeature(liveDoc, [envId]);
-
-  const conflict = useDraftConflict<Record<string, boolean>>({
-    initial: baseEnvEnabled,
-    labels: Object.fromEntries(visibleEnvs.map((e) => [e.id, e.id])),
-    applyField: (field, value) => {
-      // Overrides are pruned to touched envs when the draft target changes.
-      setTouchedEnvs((prev) => new Set([...prev, field]));
-      setEnvOverrides((o) => ({ ...o, [field]: !!value }));
-    },
-    isNewDraft: mode === "new",
-    entityNoun: "feature",
-  });
-
   const submit = async () => {
     const environments: Record<string, boolean> = {};
     for (const env of visibleEnvs) {
@@ -442,28 +192,15 @@ export default function KillSwitchModal({
           ? { draftVersion: selectedDraft }
           : { forceNewDraft: true };
 
-    const guard = conflict.guard(environments);
-    const res = await conflict.guarded(() =>
-      apiCall<{ status: 200; draftVersion?: number }>(
-        `/feature/${feature.id}/toggle`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            environments,
-            // Only the envs being changed; the rest are untouched either way.
-            baseline: Object.fromEntries(
-              Object.keys(environments).map((env) => [
-                env,
-                baseEnvEnabled[env] ?? false,
-              ]),
-            ),
-            ...modePayload,
-          }),
-        },
-        guard.onError,
-      ),
+    // A single switch can't conflict, so no baseline is sent: whoever flipped
+    // it first flipped it the same way.
+    const res = await apiCall<{ status: 200; draftVersion?: number }>(
+      `/feature/${feature.id}/toggle`,
+      {
+        method: "POST",
+        body: JSON.stringify({ environments, ...modePayload }),
+      },
     );
-    conflict.clear();
 
     track("Feature Environment Toggle", {
       environments,
@@ -491,97 +228,70 @@ export default function KillSwitchModal({
         !!liveDoc.environmentSettings?.[env.id]?.enabled,
     );
 
-  const changedEnvs = visibleEnvs.filter(
-    (env) => getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled,
-  );
   // Selected "Publish now" but the flip set includes an environment this user
   // can't publish. The switch was legitimately theirs to flip; the route isn't.
   const cannotLandSelectedRoute =
     mode === "publish" && !noRouteAvailable && !canAutoPublish;
-  const modalHeader =
-    changedEnvs.length === 1
-      ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
-      : "Change enabled environments";
+  // Named for the switch that was flipped, whatever else the draft changes.
+  const modalHeader = `${getEffectiveState(environment) ? "Enable" : "Disable"} ${environment}`;
 
   return (
-    <ConflictProvider {...conflict.providerProps}>
-      <ModalStandard
-        trackingEventModalType="kill-switch-toggle"
-        header={modalHeader}
-        close={close}
-        open={true}
-        cta={mode === "publish" ? "Publish now" : "Save to draft"}
-        size="lg"
-        // Without draft rights, publishing is the only route — and an
-        // approval-gated change closes it, leaving nothing to submit.
-        submit={noRouteAvailable ? undefined : submit}
-        // The switches are open to anyone with either route, so the CTA is where
-        // the chosen route is enforced: publishing environments this user can't
-        // publish is refused here rather than by the server.
-        ctaEnabled={
-          !cannotLandSelectedRoute &&
-          conflict.resolved &&
-          !targetRevisions.loading
-        }
-      >
-        <div style={{ minHeight: 300 }}>
-          {cannotLandSelectedRoute ? (
-            <PermissionBlocker mb="4">
-              You don&apos;t have permission to publish every environment you
-              changed. Save it to a draft instead.
-            </PermissionBlocker>
-          ) : null}
-          {noRouteAvailable ? (
-            <PermissionBlocker mb="4">
-              This change needs review before it can be published, and you
-              don&apos;t have permission to put it in a draft.
-            </PermissionBlocker>
-          ) : null}
-          <DraftSelectorForChanges
-            feature={feature}
-            baseFeature={baseFeature}
-            revisionList={revisionList}
-            mode={mode}
-            setMode={handleSetMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={handleSetSelectedDraft}
-            canAutoPublish={canAutoPublish}
-            canDraft={canDraft}
-            gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
-            defaultExpanded
-            alert={conflict.alert}
-            alertActive={conflict.alertActive}
-          />
-          {conflict.callouts}
-          <EnvStateGrid
-            liveFeature={liveDoc}
-            visibleEnvs={visibleEnvs}
-            getEffectiveState={getEffectiveState}
-            getSwitchDisplayState={getSwitchDisplayState}
-            onToggle={(envId, val) => {
-              setTouchedEnvs((prev) => new Set([...prev, envId]));
-              setEnvOverrides((prev) => ({ ...prev, [envId]: val }));
-            }}
-            canToggle={canToggleEnv}
-            scrollToEnvId={environment}
-          />
+    <ModalStandard
+      trackingEventModalType="kill-switch-toggle"
+      header={modalHeader}
+      close={close}
+      open={true}
+      cta={mode === "publish" ? "Publish now" : "Save to draft"}
+      size="md"
+      // Without draft rights, publishing is the only route — and an
+      // approval-gated change closes it, leaving nothing to submit.
+      submit={noRouteAvailable ? undefined : submit}
+      // The switches are open to anyone with either route, so the CTA is where
+      // the chosen route is enforced: publishing environments this user can't
+      // publish is refused here rather than by the server.
+      ctaEnabled={!cannotLandSelectedRoute && !targetRevisions.loading}
+    >
+      <div>
+        {cannotLandSelectedRoute ? (
+          <PermissionBlocker mb="4">
+            You don&apos;t have permission to publish every environment you
+            changed. Save it to a draft instead.
+          </PermissionBlocker>
+        ) : null}
+        {noRouteAvailable ? (
+          <PermissionBlocker mb="4">
+            This change needs review before it can be published, and you
+            don&apos;t have permission to put it in a draft.
+          </PermissionBlocker>
+        ) : null}
+        <DraftSelectorForChanges
+          feature={feature}
+          baseFeature={baseFeature}
+          revisionList={revisionList}
+          mode={mode}
+          setMode={setMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={canAutoPublish}
+          canDraft={canDraft}
+          gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
+          defaultExpanded
+        />
 
-          <Flex justify="center" style={{ minHeight: 50 }} mt="2">
-            {noNetChange &&
-              (touchedEnvs.size > 0 || environment !== undefined) && (
-                <Text as="p" color="text-low">
-                  <em>
-                    {draftHadPendingChanges
-                      ? "This undoes pending draft changes — no net change from live."
-                      : mode === "publish"
-                        ? "Already matches live — nothing will be published."
-                        : "Already matches live — this will have no effect."}
-                  </em>
-                </Text>
-              )}
-          </Flex>
-        </div>
-      </ModalStandard>
-    </ConflictProvider>
+        <Flex justify="center" mt="2">
+          {noNetChange && (
+            <Text as="p" color="text-low">
+              <em>
+                {draftHadPendingChanges
+                  ? "This undoes pending draft changes — no net change from live."
+                  : mode === "publish"
+                    ? "Already matches live — nothing will be published."
+                    : "Already matches live — this will have no effect."}
+              </em>
+            </Text>
+          )}
+        </Flex>
+      </div>
+    </ModalStandard>
   );
 }
