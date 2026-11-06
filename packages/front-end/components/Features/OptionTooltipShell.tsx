@@ -173,14 +173,17 @@ export function onFirstRow(el: HTMLElement): boolean {
 export function OptionPopover({
   context = "menu",
   side,
+  byRow = false,
   content,
   children,
 }: {
   context?: OptionContext;
   // Overrides the side the context would use, for a control too narrow for it.
-  // "rows": values on a list's first line open up and the rest down, so a
-  // popover never covers the values below its own.
-  side?: "top" | "right" | "bottom" | "left" | "rows";
+  side?: "top" | "right" | "bottom" | "left";
+  // A value among others in a list that wraps, with a popover worth reaching:
+  // first-row values open up and the rest down, so a popover never covers the
+  // values below its own, and the popover bridges the gap to its value.
+  byRow?: boolean;
   content: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -189,15 +192,14 @@ export function OptionPopover({
   return (
     <Popover
       openOnHover
-      // Rows of values sit close together; the gap to a popover crosses them.
-      hoverBridge={side === "rows"}
+      hoverBridge={byRow}
       anchorOnly
-      side={side === "rows" ? rowSide : (side ?? (isValue ? "top" : "right"))}
+      side={byRow ? rowSide : (side ?? (isValue ? "top" : "right"))}
       sideOffset={8}
       trigger={
         <div
           onMouseEnter={
-            side === "rows"
+            byRow
               ? (e) =>
                   setRowSide(onFirstRow(e.currentTarget) ? "top" : "bottom")
               : undefined

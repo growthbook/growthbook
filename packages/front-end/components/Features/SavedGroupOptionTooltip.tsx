@@ -82,6 +82,8 @@ export function SavedGroupOptionWithTooltip({
   return (
     <OptionPopover
       context={context}
+      // A selected group, among the others in the field.
+      byRow={context === "value"}
       content={
         <SavedGroupOptionTooltipContent
           group={group}

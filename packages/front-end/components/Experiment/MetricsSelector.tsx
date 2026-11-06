@@ -819,7 +819,7 @@ const MetricsSelector: FC<{
       return (
         <OptionPopover
           context="value"
-          side="rows"
+          byRow
           content={
             <MetricOverrideTooltipContent
               id={value}
