@@ -4,6 +4,8 @@ How to capitalize and phrase user-facing strings across GrowthBook. Read this be
 
 The rules are the same everywhere; only the surfaces differ. The front-end has UI elements (headings vs. everything else); the back-end has no headings, so its messages follow the sentence-case rule below. The named-resource glossary applies identically in both.
 
+Use American spelling everywhere: "Initializing", not "Initialising"; "color", not "colour".
+
 ## The two-tier casing rule
 
 Two cases, chosen by element type.
