@@ -45,7 +45,7 @@ export type QaOverrideModalExperiment = Pick<
 type FilterKind = "attributes" | "savedGroups" | "sdkConnections" | "projects";
 
 const FILTER_LABELS: Record<FilterKind, string> = {
-  attributes: "Attributes",
+  attributes: "Identifiers",
   savedGroups: "Saved Groups",
   sdkConnections: "SDK Connections",
   projects: "Projects",
@@ -276,7 +276,7 @@ export default function QaOverrideModal({
           {activeFilters.length === 0 ? (
             <Text as="p" size="sm" color="text-low">
               No filters: every request in this environment gets the override.
-              Add one to narrow it to specific users, saved groups, SDK
+              Add one to narrow it to specific identifiers, saved groups, SDK
               Connections or projects.
             </Text>
           ) : (
@@ -302,6 +302,7 @@ export default function QaOverrideModal({
                       project={experiment.project || ""}
                       emptyText=""
                       slimMode
+                      identifiersOnly
                     />
                   )}
                   {kind === "savedGroups" && (

@@ -102,6 +102,7 @@ const BASE_OPERATOR: Record<string, string> = {
 function useScopedAttributes(
   filter: string | string[] | null | undefined,
   referencedKeys: string[],
+  identifiersOnly = false,
 ) {
   const allAttributes = useAttributeMap(null);
   const scopedSchema = useAttributeSchema(false, filter);
@@ -117,7 +118,9 @@ function useScopedAttributes(
     }
     // Internal attributes are set by GrowthBook's SDKs, not targeted directly.
     const visibleSchema = scopedSchema.filter(
-      (s) => !isInternalAttributeName(s.property),
+      (s) =>
+        !isInternalAttributeName(s.property) &&
+        (!identifiersOnly || s.hashAttribute),
     );
     const scoped = new Set(visibleSchema.map((s) => s.property));
     const attributeSchema = [
@@ -130,7 +133,7 @@ function useScopedAttributes(
       [...allAttributes].filter(([k]) => scoped.has(k) || referenced.has(k)),
     );
     return { attributes, attributeSchema };
-  }, [allAttributes, scopedSchema, allSchema, referencedKey]);
+  }, [allAttributes, scopedSchema, allSchema, referencedKey, identifiersOnly]);
 }
 
 export function operatorSupportsCaseInsensitive(operator: string): boolean {
@@ -181,6 +184,8 @@ interface Props {
   onRemoveEffect?: () => void;
   setModeLabel?: string;
   removeModeLabel?: string;
+  // Offer only identifier (hash) attributes in the picker.
+  identifiersOnly?: boolean;
 }
 
 export default function ConditionInput({
@@ -205,6 +210,7 @@ export default function ConditionInput({
   onRemoveEffect,
   setModeLabel,
   removeModeLabel,
+  identifiersOnly,
 }: Props) {
   const attributeFilter = resolveAttributeFilter(attributeProjects, project);
   const [value, setValue] = useState(defaultValue);
@@ -218,6 +224,7 @@ export default function ConditionInput({
   const { attributes, attributeSchema } = useScopedAttributes(
     attributeFilter,
     referencedKeys,
+    identifiersOnly,
   );
 
   const [advanced, setAdvanced] = useState(
