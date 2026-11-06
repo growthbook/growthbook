@@ -1,10 +1,7 @@
 import type { Response } from "express";
 import { z } from "zod";
 import { isEqual } from "lodash";
-import {
-  DEFAULT_ENVIRONMENT_IDS,
-  guessIsProductionEnvironment,
-} from "shared/util";
+import { DEFAULT_ENVIRONMENT_IDS, withIsProduction } from "shared/util";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { Environment } from "shared/types/organization";
 import {
@@ -48,11 +45,6 @@ type DeleteEnvironmentProps = z.infer<typeof deleteEnvValidator>;
 type CreateEnvironmentResponse = {
   environment: Environment;
 };
-
-const withIsProduction = (env: Environment): Environment => ({
-  ...env,
-  isProduction: env.isProduction ?? guessIsProductionEnvironment(env.id),
-});
 
 export const putEnvironmentOrder = async (
   req: AuthRequest<UpdateEnvOrderProps>,
@@ -199,7 +191,6 @@ export const putEnvironment = async (
     context.permissions.throwPermissionError();
   }
 
-  // Merge so fields the edit form doesn't send (parent, isProduction) survive
   const updatedEnv: Environment = {
     ...envsArr[existingEnvIndex],
     ...environment,

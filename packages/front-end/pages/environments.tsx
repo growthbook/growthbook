@@ -163,9 +163,7 @@ const EnvironmentsPage: FC = () => {
                 <TableRow key={e.id}>
                   <TableCell>{e.id}</TableCell>
                   <TableCell>
-                    {isProductionEnvironment(e) ? (
-                      <Badge label="Production" />
-                    ) : null}
+                    {isProductionEnvironment(e) && <Badge label="Production" />}
                   </TableCell>
                   <TableCell>{e.description}</TableCell>
                   <TableCell>

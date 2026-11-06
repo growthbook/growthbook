@@ -39,9 +39,10 @@ export default function EnvironmentModal({
       defaultState: existing.defaultState ?? true,
       projects: existing.projects || [],
       parent: existing.parent,
-      isProduction: existing.id
-        ? isProductionEnvironment({ ...existing, id: existing.id })
-        : true,
+      isProduction: isProductionEnvironment({
+        ...existing,
+        id: existing.id ?? "",
+      }),
     },
   });
   const { apiCall } = useAuth();
@@ -173,8 +174,6 @@ export default function EnvironmentModal({
             `Use custom environment name "${value}"`
           }
           onChange={(value) => {
-            // SelectField re-fires onChange on blur with the same id; don't
-            // clobber a manual production choice unless the id changed.
             if (value !== form.getValues("id")) {
               form.setValue(
                 "isProduction",

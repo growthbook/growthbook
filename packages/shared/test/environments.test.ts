@@ -1,6 +1,7 @@
 import {
   guessIsProductionEnvironment,
   isProductionEnvironment,
+  withIsProduction,
 } from "../src/util/environments";
 
 describe("guessIsProductionEnvironment", () => {
@@ -38,5 +39,19 @@ describe("isProductionEnvironment", () => {
   it("falls back to the guess when nothing is saved", () => {
     expect(isProductionEnvironment({ id: "dev" })).toBe(false);
     expect(isProductionEnvironment({ id: "production" })).toBe(true);
+  });
+});
+
+describe("withIsProduction", () => {
+  it("fills a missing value and keeps an explicit one", () => {
+    expect(withIsProduction({ id: "dev", description: "" })).toEqual({
+      id: "dev",
+      description: "",
+      isProduction: false,
+    });
+    expect(withIsProduction({ id: "dev", isProduction: true })).toEqual({
+      id: "dev",
+      isProduction: true,
+    });
   });
 });

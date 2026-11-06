@@ -1,4 +1,4 @@
-import { guessIsProductionEnvironment } from "shared/util";
+import { withIsProduction } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 
 export const validatePayload = async (
@@ -39,13 +39,13 @@ export const validatePayload = async (
     throw new Error("Environment inheritance requires an enterprise license");
   }
 
-  return {
+  return withIsProduction({
     id,
     projects,
     description,
     toggleOnList,
     defaultState,
     parent,
-    isProduction: isProduction ?? guessIsProductionEnvironment(id),
-  };
+    isProduction,
+  });
 };

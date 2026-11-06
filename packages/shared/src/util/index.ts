@@ -1041,9 +1041,9 @@ export function capitalizeFirstCharacter(s: string) {
 
 export {
   NON_PRODUCTION_ENV_PATTERNS,
-  NON_PRODUCTION_ENVIRONMENT_IDS,
   isEnvironmentDevLike,
   guessIsProductionEnvironment,
   isProductionEnvironment,
+  withIsProduction,
 } from "./environments";
 export * from "./confirmations";
