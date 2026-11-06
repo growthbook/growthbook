@@ -15,14 +15,17 @@ import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   generateUniqueValueName,
-  getLockedMixClass,
-  getMetricMixClass,
-  getMetricValuesUnitState,
   getShowAsChoice,
-  metricSupportsUnitSelection,
   MetricMixClass,
-  setMetricValuesUnit,
 } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getLockedMixClass,
+  getMetricValuesUnitState,
+  getMixClassConflict,
+  getUnitConflict,
+  metricSupportsUnitSelection,
+  setMetricValuesUnit,
+} from "@/enterprise/components/ProductAnalytics/metricMixing";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -112,28 +115,9 @@ export default function MetricTabContent() {
     metric: FactMetricInterface,
     lockedClass: Exclude<MetricMixClass, "unknown"> | null,
     lockedUnit: string | null,
-  ): string | null => {
-    const metricClass = getMetricMixClass(metric.metricType);
-    if (lockedClass && metricClass !== lockedClass) {
-      // Standard metrics mix freely, so name whichever side can't be combined.
-      const exclusiveClass =
-        lockedClass === "standard" ? metricClass : lockedClass;
-      return exclusiveClass === "ratio"
-        ? "Ratio metrics can't be combined with other metric types."
-        : "Quantile metrics can't be combined with other metric types.";
-    }
-    const userIdTypes =
-      getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
-      [];
-    if (
-      lockedUnit &&
-      metricSupportsUnitSelection(metric) &&
-      !userIdTypes.includes(lockedUnit)
-    ) {
-      return `This metric's Fact Table has no ${lockedUnit} identifier type.`;
-    }
-    return null;
-  };
+  ): string | null =>
+    getMixClassConflict(metric.metricType, lockedClass) ??
+    getUnitConflict(metric, lockedUnit, getFactTableById);
 
   const handleUnitChange = (unit: string) =>
     setDraftExploreState((prev) =>

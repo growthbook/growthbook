@@ -19,7 +19,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import {
   getMetricValuesUnitState,
   metricSupportsUnitSelection,
-} from "@/enterprise/components/ProductAnalytics/util";
+} from "@/enterprise/components/ProductAnalytics/metricMixing";
 import Text from "@/ui/Text";
 import {
   factTableToColumnSource,
