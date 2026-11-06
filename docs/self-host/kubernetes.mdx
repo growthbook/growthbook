@@ -74,14 +74,13 @@ The examples below provide minimal configurations to get you started quickly. Fo
 <Tabs>
   <Tab title="AWS (EKS)">
     <div>
-      <div className="admonition note">
-        <p>
-          <strong>Default hostnames below use sslip.io for quick testing.</strong><br/>
-          For production, use a domain registered in your cloud provider's DNS (e.g., Route53 for AWS).<br/>
-          The hostnames in the values file must match the domain you intend to use for Ingress.<br/>
-          <strong>Replace INGRESS_IP with the external IP assigned to your Ingress object.</strong>
-        </p>
-      </div>
+      <Note>
+      **Default hostnames below use sslip.io for quick testing.**
+
+      For production, use a domain registered in your cloud provider's DNS (e.g., Route53 for AWS). The hostnames in the values file must match the domain you intend to use for Ingress.
+
+      **Replace INGRESS_IP with the external IP assigned to your Ingress object.**
+      </Note>
       <Accordion title="Minimal values-aws.yaml">
 
 ```yaml
@@ -159,27 +158,25 @@ ingress:
       ```bash
       helm install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-aws.yaml
       ```
-      <div className="admonition info">
-        <p>
-          <strong>After Install: Update Hostnames</strong><br/>
-          1. Wait for your Ingress object to be assigned an external IP. This might take anywhere from 3 to 5 minutes.<br/>
-          2. Update your <code>values-aws.yaml</code> file to use this IP in all <code>sslip.io</code> hostnames.<br/>
-          3. Run <code>helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-aws.yaml</code> to apply the change.<br/>
-        </p>
-      </div>
+      <Info>
+      **After Install: Update Hostnames**
+
+      1. Wait for your Ingress object to be assigned an external IP. This might take anywhere from 3 to 5 minutes.
+      2. Update your `values-aws.yaml` file to use this IP in all `sslip.io` hostnames.
+      3. Run `helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-aws.yaml` to apply the change.
+      </Info>
     </div>
 
   </Tab>
   <Tab title="GCP">
     <div>
-      <div className="admonition note">
-        <p>
-          <strong>Default hostnames below use sslip.io for quick testing.</strong><br/>
-          For production, use a domain registered in your cloud provider's DNS (e.g., Cloud DNS for GCP).<br/>
-          The hostnames in the values file must match the domain you intend to use for Ingress.<br/>
-          <strong>Replace INGRESS_IP with the external IP assigned to your Ingress object.</strong>
-        </p>
-      </div>
+      <Note>
+      **Default hostnames below use sslip.io for quick testing.**
+
+      For production, use a domain registered in your cloud provider's DNS (e.g., Cloud DNS for GCP). The hostnames in the values file must match the domain you intend to use for Ingress.
+
+      **Replace INGRESS_IP with the external IP assigned to your Ingress object.**
+      </Note>
       <Accordion title="Minimal values-gcp.yaml">
 
 ```yaml
@@ -264,32 +261,29 @@ ingress:
       ```bash
       helm install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-gcp.yaml
       ```
-      <div className="admonition info">
-        <p>
-          <strong>After Install: Update Hostnames</strong><br/>
-          1. Wait for your Ingress object to be assigned an external IP.<br/>
-          2. Update your <code>values-gcp.yaml</code> file to use this IP in all <code>sslip.io</code> hostnames.<br/>
-          3. Run <code>helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-gcp.yaml</code> to apply the change.<br/>
-        </p>
-      </div>
+      <Info>
+      **After Install: Update Hostnames**
+
+      1. Wait for your Ingress object to be assigned an external IP.
+      2. Update your `values-gcp.yaml` file to use this IP in all `sslip.io` hostnames.
+      3. Run `helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-gcp.yaml` to apply the change.
+      </Info>
     </div>
 
   </Tab>
   <Tab title="Minikube">
     <div>
-      <div className="admonition note">
-        <p>
-          Minikube is for local testing and development only, not for production.<br/>
-          Default hostnames below use sslip.io for quick testing.<br/>
-          Replace <code>MINIKUBE-IP</code> with the output of <code>minikube ip</code>.
-        </p>
-      </div>
+      <Note>
+      Minikube is for local testing and development only, not for production. Default hostnames below use sslip.io for quick testing.
 
-      <div className="admonition tip">
-          <p>
-              <strong>Tip: Local TLS with mkcert</strong><br/>
-              For a more realistic development setup, you can use <a href="https://github.com/FiloSottile/mkcert">mkcert</a> to issue locally-trusted TLS certificates within Minikube. This allows you to work with HTTPS without browser warnings.
-          </p>
+      Replace `MINIKUBE-IP` with the output of `minikube ip`.
+      </Note>
+
+      <Tip>
+      **Local TLS with mkcert**
+
+      For a more realistic development setup, you can use [mkcert](https://github.com/FiloSottile/mkcert) to issue locally-trusted TLS certificates within Minikube. This allows you to work with HTTPS without browser warnings.
+
           <Accordion title="Click for mkcert setup instructions">
             <div>
 
@@ -393,7 +387,7 @@ Now you can proceed with deploying GrowthBook using the values file below:
 
             </div>
           </Accordion>
-      </div>
+      </Tip>
 
       <Accordion title="Minimal values-minikube.yaml (with TLS)">
 

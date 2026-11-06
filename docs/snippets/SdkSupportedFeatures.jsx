@@ -1,4 +1,5 @@
 export const SdkSupportedFeatures = ({ sdk }) => {
+  // BEGIN GENERATED sdkInfo: `pnpm --filter shared gen-sdk-resources-for-docs` rewrites this block. Do not edit by hand.
   const sdkInfo = {
     js: {
       name: "JS SDK",
@@ -1034,7 +1035,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeCloudflare: {
       name: "Cloudflare Workers App & SDK",
-      version: "0.2.9",
+      version: "0.3.0",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
       examples: [
@@ -1055,6 +1056,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v0.3.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
+        },
+        {
+          interleaving: "≥ v0.3.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v0.3.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.2.7",
@@ -1105,7 +1118,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeFastly: {
       name: "Fastly Compute App & SDK",
-      version: "0.2.9",
+      version: "0.3.0",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
       examples: [
@@ -1126,6 +1139,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v0.3.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
+        },
+        {
+          interleaving: "≥ v0.3.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v0.3.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.2.7",
@@ -1176,7 +1201,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeLambda: {
       name: "Lambda@Edge App & SDK",
-      version: "0.0.29",
+      version: "0.3.0",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
       examples: [],
@@ -1192,6 +1217,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v0.3.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
+        },
+        {
+          interleaving: "≥ v0.3.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v0.3.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.0.27",
@@ -1242,7 +1279,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     edgeUtils: {
       name: "Edge Utils",
-      version: "0.2.9",
+      version: "0.3.0",
       github:
         "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
       examples: [],
@@ -1258,6 +1295,18 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v0.3.0",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
+        },
+        {
+          interleaving: "≥ v0.3.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v0.3.0",
         },
         {
           caseInsensitiveRegex: "≥ v0.2.7",
@@ -1417,6 +1466,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
       ],
     },
   };
+  // END GENERATED sdkInfo
 
   const capabilityDetails = {
     features: {
