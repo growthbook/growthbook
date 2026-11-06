@@ -19,9 +19,30 @@ function hideMintlifyAssistantChrome() {
   });
 }
 
+// The app sets gb_last_active on .growthbook.io whenever a signed-in user
+// opens it (see packages/front-end/services/last-active-cookie.ts). People
+// who've used the app get "Open App"; everyone else gets "Start For Free".
+// The cookie is a spoofable UI hint only.
+function hasUsedApp() {
+  return document.cookie
+    .split(";")
+    .some((c) => c.trim().startsWith("gb_last_active="));
+}
+
+function labelAppCta() {
+  const label = hasUsedApp() ? "Open App" : "Start For Free";
+  const span = document.querySelector(
+    'a.bg-primary[href^="https://app.growthbook.io"] span',
+  );
+  if (span && span.textContent !== label) {
+    span.textContent = label;
+  }
+}
+
 function applyDocsUi() {
   labelThemeToggle();
   hideMintlifyAssistantChrome();
+  labelAppCta();
 }
 
 let docsUiScheduled = false;

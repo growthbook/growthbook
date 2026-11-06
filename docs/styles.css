@@ -261,21 +261,114 @@ code a {
   background-color: #242526 !important;
 }
 
-/* Navbar logo at 32px tall, the same size it renders at on docs.growthbook.io.
-   The logo sits in a flex track that shares the row with the tab list and the
-   link group, so without a natural-width basis it gets squeezed to ~95px and
-   the artwork letterboxes down to about a third of its intended size. Keeping
-   flex-shrink on means it degrades back to letterboxing on narrow desktops
-   instead of colliding with the tabs. */
+/* Navbar logo at 24px tall, a bit smaller than the 32px it used to render at
+   so it doesn't overpower the tabs and links beside it. The logo sits in a
+   flex track that shares the row with the tab list and the link group, so
+   without a natural-width basis it gets squeezed to ~95px and the artwork
+   letterboxes down to about a third of its intended size. Keeping flex-shrink
+   on means it degrades back to letterboxing on narrow desktops instead of
+   colliding with the tabs. */
 @media (min-width: 1024px) {
   #navbar .nav-logo {
-    height: 2rem !important;
+    height: 1.5rem !important;
     max-width: none !important;
   }
 
   #navbar div:has(> a > .nav-logo) {
     flex: 0 1 auto;
   }
+
+  /* Tighter Docs / SDKs / API tabs to match the smaller logo: 28px pills with
+     12px side padding instead of Mintlify's 36px / 16px. */
+  #navbar nav ul > li > a.rounded-full {
+    height: 1.75rem;
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  /* Right-hand navbar controls at the same 28px height as the tabs: the
+     Product Updates / GitHub links, the app CTA, search and the icon buttons. */
+  #navbar .navbar-link > a,
+  #navbar a.bg-primary.rounded-full,
+  #navbar #search-bar-entry {
+    height: 1.75rem;
+    font-size: 0.8125rem;
+  }
+
+  #navbar #theme-preference-menu-trigger,
+  #navbar button[aria-label="More actions"] {
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+  }
+}
+
+/* Theme toggle sits left of the app CTA so the CTA is the last thing in the
+   navbar. The CTA lives inside the links <ul> while the toggle is a sibling of
+   it, so flatten the <ul> into the right-hand flex row and reorder. Scoped to
+   the same 1100px navbar container width at which Mintlify shows the <ul>;
+   narrower than that the links collapse into the More actions menu. */
+@container navbar (min-width: 1100px) {
+  #navbar .topbar-right-container > ul {
+    display: contents;
+  }
+
+  #navbar .topbar-right-container > ul > li:has(> a.bg-primary) {
+    order: 2;
+  }
+
+  #navbar .topbar-right-container > #theme-preference-menu-trigger {
+    order: 1;
+  }
+
+  #navbar .topbar-right-container > div:last-child {
+    order: 3;
+  }
+}
+
+/* GitHub navbar link as a borderless pill with just the GitHub mark and the
+   star count: the "Github" label and the star icon are hidden, the mark is
+   bumped to 20px, and the fill matches the other round navbar buttons. */
+#navbar a[href="https://github.com/growthbook/growthbook"]
+{
+  gap: 0.625rem;
+  padding: 0 0.875rem 0 0.375rem;
+  border-color: transparent !important;
+  background-color: rgb(3 7 18 / 0.03);
+  color: #1d2140;
+}
+
+#navbar a[href="https://github.com/growthbook/growthbook"]:hover
+{
+  background-color: rgb(3 7 18 / 0.06);
+}
+
+.dark #navbar a[href="https://github.com/growthbook/growthbook"]
+{
+  background-color: rgb(255 255 255 / 0.06);
+  color: rgb(255 255 255 / 0.9);
+}
+
+.dark #navbar a[href="https://github.com/growthbook/growthbook"]:hover
+{
+  background-color: rgb(255 255 255 / 0.1);
+}
+
+#navbar a[href="https://github.com/growthbook/growthbook"] > svg
+{
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+#navbar a[href="https://github.com/growthbook/growthbook"] > span.truncate,
+#navbar a[href="https://github.com/growthbook/growthbook"] span.ml-1 > svg
+{
+  display: none;
+}
+
+#navbar a[href="https://github.com/growthbook/growthbook"] span.ml-1
+{
+  margin-left: 0;
 }
 
 /* Wider left nav (18rem instead of 14rem) so group labels fit on one line
@@ -507,7 +600,7 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
 }
 
 /* Product Updates navbar link: brand tint plus a "new" dot on the icon,
-   matching Open App (blue in light mode, purple in dark mode).
+   matching the app CTA button (blue in light mode, purple in dark mode).
    Light-mode text uses a deeper blue to meet WCAG AA contrast on the tint.
    Remove once the page is no longer new. */
 #navbar a[href="https://growthbook.io/product-updates"]:not(#banner a)

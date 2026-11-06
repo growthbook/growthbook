@@ -1341,10 +1341,6 @@
       "anchors": []
     }
   },
-  "banner": {
-    "content": "**New:** See what we've shipped lately on our [Product Updates](https://growthbook.io/product-updates) page.",
-    "dismissible": true
-  },
   "navbar": {
     "links": [
       {
@@ -1360,7 +1356,7 @@
     ],
     "primary": {
       "type": "button",
-      "label": "Open App",
+      "label": "Start For Free",
       "href": "https://app.growthbook.io/"
     }
   },
