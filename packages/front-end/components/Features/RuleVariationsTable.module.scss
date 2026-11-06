@@ -3,6 +3,9 @@
 // line, and each row ruled off beneath.
 .table :global(.rt-TableCell) {
   vertical-align: top;
+  // As tall as its content, not Radix's row minimum, which would leave a
+  // one-line value's row padded only below.
+  height: auto;
   padding: var(--space-2) var(--space-3);
   box-shadow: inset 0 -1px 0 var(--gray-a4);
 }
