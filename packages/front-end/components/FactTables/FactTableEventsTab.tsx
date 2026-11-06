@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiArrowClockwise, PiCaretRightBold } from "react-icons/pi";
+import { PiArrowClockwise, PiCaretRightBold, PiInfo } from "react-icons/pi";
 import { ago } from "shared/dates";
 import {
   ColumnInterface,
@@ -22,9 +22,11 @@ import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import FactTableSampleRows from "./FactTableSampleRows";
 import styles from "./FactTableEventsTab.module.scss";
-import { useTopValuesLookbackDays } from "./ColumnValues";
+import columnStyles from "./ColumnList.module.scss";
+import { CountBar, useTopValuesLookbackDays } from "./ColumnValues";
 
 // Keeps an expanded row's height close to the sample rows beside it
 const MAX_METRICS = 5;
@@ -61,6 +63,11 @@ export default function FactTableEventsTab({
     counts ?? (column.topValues || []).map((value) => ({ value }));
   const q = search.trim().toLowerCase();
   const visible = rows.filter((r) => !q || r.value.toLowerCase().includes(q));
+  // Total of the listed events only; the table's full row count is unknown
+  const totalCount = Math.max(
+    1,
+    rows.reduce((sum, r) => sum + (r.count ?? 0), 0),
+  );
 
   return (
     <Flex direction="column" gap="3">
@@ -114,7 +121,8 @@ export default function FactTableEventsTab({
 
       {rows.length === 0 ? (
         <Text color="text-mid">
-          No values found for <code>{column.column}</code> yet.
+          No values found for{" "}
+          <span className={columnStyles.mono}>{column.column}</span> yet.
           {canRefresh ? " Refresh to load them." : ""}
         </Text>
       ) : (
@@ -123,7 +131,20 @@ export default function FactTableEventsTab({
             <TableRow>
               <TableColumnHeader style={{ width: 32 }} />
               <TableColumnHeader>Event</TableColumnHeader>
-              {counts ? <TableColumnHeader>Rows</TableColumnHeader> : null}
+              {counts ? (
+                <>
+                  <TableColumnHeader>Rows</TableColumnHeader>
+                  <TableColumnHeader>
+                    <Tooltip
+                      content={`Each event's share of all rows across the top ${rows.length} events from the last ${lookbackDays} days. Rows from events not listed aren't counted.`}
+                    >
+                      <Flex align="center" gap="1" display="inline-flex">
+                        Share <PiInfo />
+                      </Flex>
+                    </Tooltip>
+                  </TableColumnHeader>
+                </>
+              ) : null}
               <TableColumnHeader>Metrics</TableColumnHeader>
             </TableRow>
           </TableHeader>
@@ -156,16 +177,21 @@ export default function FactTableEventsTab({
                       </IconButton>
                     </TableCell>
                     <TableCell>
-                      <code>{r.value}</code>
+                      <span className={columnStyles.mono}>{r.value}</span>
                     </TableCell>
                     {counts ? (
-                      <TableCell>{r.count?.toLocaleString()}</TableCell>
+                      <>
+                        <TableCell>{r.count?.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <CountBar count={r.count} max={totalCount} />
+                        </TableCell>
+                      </>
                     ) : null}
                     <TableCell>{eventMetrics.length || "—"}</TableCell>
                   </TableRow>
                   {isOpen ? (
                     <TableRow>
-                      <TableCell colSpan={counts ? 4 : 3}>
+                      <TableCell colSpan={counts ? 5 : 3}>
                         <Flex gap="5" py="3" px="4" align="start">
                           <Box flexGrow="1" minWidth="0">
                             <div className={styles.sectionLabel}>
@@ -225,7 +251,7 @@ export default function FactTableEventsTab({
             })}
             {!visible.length ? (
               <TableRow>
-                <TableCell colSpan={counts ? 4 : 3}>
+                <TableCell colSpan={counts ? 5 : 3}>
                   <Text color="text-mid">No events match “{search}”.</Text>
                 </TableCell>
               </TableRow>

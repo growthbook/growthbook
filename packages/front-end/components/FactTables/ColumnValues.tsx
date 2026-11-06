@@ -2,7 +2,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { ColumnInterface } from "shared/types/fact-table";
 import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import { useState } from "react";
-import { PiArrowClockwise } from "react-icons/pi";
+import { PiArrowClockwise, PiInfo } from "react-icons/pi";
 import { ago } from "shared/dates";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { ValueCount } from "@/hooks/useColumnValueCounts";
@@ -17,6 +17,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 
 const CHIPS = 4;
 
@@ -44,6 +45,42 @@ export default function ColumnValues({ column }: { column: ColumnInterface }) {
 
 const compact = new Intl.NumberFormat(undefined, { notation: "compact" });
 
+const percent = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
+
+// Row count as a share of `max`, as a bar and a percentage
+export function CountBar({ count, max }: { count?: number; max: number }) {
+  const share = (count ?? 0) / max;
+  return (
+    <Flex align="center" gap="3">
+      <Box
+        aria-hidden
+        style={{
+          flexGrow: 1,
+          minWidth: 120,
+          height: 6,
+          borderRadius: 3,
+          background: "var(--gray-a3)",
+          overflow: "hidden",
+        }}
+      >
+        <Box
+          style={{
+            width: `${share * 100}%`,
+            height: "100%",
+            background: "var(--accent-9)",
+          }}
+        />
+      </Box>
+      <Box style={{ minWidth: 48, textAlign: "right" }}>
+        {count !== undefined ? percent.format(share) : null}
+      </Box>
+    </Flex>
+  );
+}
+
 export function ColumnValuesPanel({
   column,
   counts,
@@ -70,8 +107,11 @@ export function ColumnValuesPanel({
   const q = search.trim().toLowerCase();
   const visible = rows.filter((r) => !q || r.value.toLowerCase().includes(q));
   const showCounts = !!withCounts;
-  // Bars are relative to the top value; the table's total row count is unknown
-  const maxCount = Math.max(1, ...rows.map((r) => r.count ?? 0));
+  // Total of the listed values only; the table's full row count is unknown
+  const totalCount = Math.max(
+    1,
+    rows.reduce((sum, r) => sum + (r.count ?? 0), 0),
+  );
 
   return (
     <Flex direction="column" gap="2" style={{ maxWidth: 900 }}>
@@ -116,7 +156,15 @@ export function ColumnValuesPanel({
             {showCounts ? (
               <>
                 <TableColumnHeader justify="end">Rows</TableColumnHeader>
-                <TableColumnHeader>Relative to top value</TableColumnHeader>
+                <TableColumnHeader>
+                  <Tooltip
+                    content={`Each value's share of all rows across the top ${rows.length} values from the last ${lookbackDays} days. Rows with values not listed aren't counted.`}
+                  >
+                    <Flex align="center" gap="1" display="inline-flex">
+                      Share of sample rows <PiInfo />
+                    </Flex>
+                  </Tooltip>
+                </TableColumnHeader>
               </>
             ) : null}
           </TableRow>
@@ -139,25 +187,7 @@ export function ColumnValuesPanel({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Box
-                      aria-hidden
-                      style={{
-                        width: "100%",
-                        minWidth: 120,
-                        height: 6,
-                        borderRadius: 3,
-                        background: "var(--gray-a3)",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <Box
-                        style={{
-                          width: `${((r.count ?? 0) / maxCount) * 100}%`,
-                          height: "100%",
-                          background: "var(--accent-9)",
-                        }}
-                      />
-                    </Box>
+                    <CountBar count={r.count} max={totalCount} />
                   </TableCell>
                 </>
               ) : null}

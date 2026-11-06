@@ -49,3 +49,37 @@
     border-bottom: 1px solid var(--gray-a4);
   }
 }
+
+// Row dividers only, no vertical column lines
+.full :global(.table-bordered) {
+  th,
+  td {
+    border-left: 0;
+    border-right: 0;
+  }
+}
+
+.full,
+.compact {
+  th {
+    font-family: var(--code-font-family);
+    font-size: 0.9em;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+}
+
+.cell {
+  display: block;
+  width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--code-font-family);
+  font-size: 0.9em;
+}
+
+.null {
+  font-style: italic;
+  color: var(--color-text-low);
+}

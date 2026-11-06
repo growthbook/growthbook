@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCaretRightBold } from "react-icons/pi";
+import { PiCaretRightBold, PiPlusBold } from "react-icons/pi";
 import { FactTableInterface } from "shared/types/fact-table";
 import { hasStartDateFilter, usesBackslashStringEscapes } from "shared/sql";
 import { getFactMetricFactTableIds } from "shared/experiments";
@@ -14,7 +14,6 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import Metadata from "@/ui/Metadata";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenu,
@@ -37,7 +36,6 @@ import useColumnValueCounts from "@/hooks/useColumnValueCounts";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Markdown from "@/components/Markdown/Markdown";
-import SortedTags from "@/components/Tags/SortedTags";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
@@ -50,7 +48,9 @@ import FactTableDetailsModal from "./FactTableDetailsModal";
 import NewFactTableModal from "./NewFactTableModal";
 import ColumnList from "./ColumnList";
 import ColumnValues, { ColumnValuesPanel } from "./ColumnValues";
-import VirtualColumnList from "./VirtualColumnList";
+import VirtualColumnModal from "./VirtualColumnModal";
+import columnStyles from "./ColumnList.module.scss";
+import eventsStyles from "./FactTableEventsTab.module.scss";
 import FactFilterList from "./FactFilterList";
 import FactTableMetricsTab from "./FactTableMetricsTab";
 import AggregatedFactTablesCard from "./AggregatedFactTablesCard";
@@ -96,6 +96,8 @@ export default function FactTableDetailsPage() {
   const { ftid } = router.query;
 
   const [editOpen, setEditOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [newVirtualOpen, setNewVirtualOpen] = useState(false);
   const [editSQLOpen, setEditSQLOpen] = useState(false);
   const [showSql, setShowSql] = useState(false);
   const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
@@ -181,16 +183,31 @@ export default function FactTableDetailsPage() {
     columns: [],
   });
   const canLoadCounts = canEditColumns && canOpenInExplorer;
+  // Virtual columns carry raw SQL, so they use the stricter gate
+  const canManageVirtualColumns =
+    permissionsUtil.canManageFactTableVirtualColumn(factTable);
 
   const numColumns = factTable.columns.filter((c) => !c.deleted).length;
   const closeMenu = () => setDropdownOpen(false);
 
   return (
-    <div className="pagecontents container-fluid">
+    <div className={`pagecontents container-fluid ${styles.page}`}>
       {editOpen && (
         <FactTableDetailsModal
           close={() => setEditOpen(false)}
           factTable={factTable}
+        />
+      )}
+      {newVirtualOpen && (
+        <VirtualColumnModal
+          close={() => setNewVirtualOpen(false)}
+          factTable={factTable}
+        />
+      )}
+      {settingsOpen && (
+        <NewFactTableModal
+          close={() => setSettingsOpen(false)}
+          existing={factTable}
         />
       )}
       {duplicateFactTable && (
@@ -257,11 +274,6 @@ export default function FactTableDetailsPage() {
           />
         </Heading>
         <Flex align="center" gap="3">
-          {canEdit && (
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
-              Edit details
-            </Button>
-          )}
           {canOpenInExplorer && (
             <OpenInExplorerButton
               enabled
@@ -297,6 +309,16 @@ export default function FactTableDetailsPage() {
                   }}
                 >
                   Edit SQL
+                </DropdownMenuItem>
+              )}
+              {canEdit && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSettingsOpen(true);
+                    closeMenu();
+                  }}
+                >
+                  Edit settings
                 </DropdownMenuItem>
               )}
               {!factTable.managedBy &&
@@ -392,51 +414,37 @@ export default function FactTableDetailsPage() {
       ) : null}
 
       <Flex gap="4" align="center" wrap="wrap" mb="4">
-        <Metadata
-          label="Data Source"
-          value={
-            <Link href={`/datasources/${factTable.datasource}`}>
-              {datasource?.name || "Unknown"}
-            </Link>
-          }
-        />
+        <Link href={`/datasources/${factTable.datasource}`}>
+          {datasource?.name || "Unknown data source"}
+        </Link>
         {eventColumns.length > 0 && (
           <Text color="text-mid">
             Event stream, typed by{" "}
             {eventColumns.map((c, i) => (
               <span key={c.column}>
                 {i > 0 ? ", " : ""}
-                <code>{c.column}</code>
+                <span className={columnStyles.mono}>{c.column}</span>
               </span>
             ))}
           </Text>
         )}
         {projects.length > 0 && (
-          <Metadata
-            label="Projects"
-            value={
-              factTable.projects.length > 0
-                ? factTable.projects
-                    .map((p) => getProjectById(p)?.name || p)
-                    .join(", ")
-                : "All Projects"
-            }
-          />
+          <Text color="text-mid">
+            Projects:{" "}
+            {factTable.projects.length > 0
+              ? factTable.projects
+                  .map((p) => getProjectById(p)?.name || p)
+                  .join(", ")
+              : "All Projects"}
+          </Text>
         )}
-        <Metadata
-          label="Owner"
-          value={getOwnerDisplay(factTable.owner) || "None"}
-        />
+        <Text color="text-mid">
+          Owner: {getOwnerDisplay(factTable.owner) || "None"}
+        </Text>
         {factTable.tags?.length ? (
-          <Flex align="center" gap="1">
-            <Text weight="medium">Tags:</Text>
-            <SortedTags
-              tags={factTable.tags}
-              useFlex
-              shouldShowEllipsis={false}
-            />
-          </Flex>
+          <Text color="text-mid">Tags: {factTable.tags.join(", ")}</Text>
         ) : null}
+        {canEdit && <Link onClick={() => setEditOpen(true)}>Edit details</Link>}
       </Flex>
 
       <Frame px="3" py="2" mb="4">
@@ -558,24 +566,60 @@ export default function FactTableDetailsPage() {
               hideSearch
               detailsLayout
               renderValues={(col) => <ColumnValues column={col} />}
-              renderExpanded={(col) => (
-                <ColumnValuesPanel
-                  column={col}
-                  counts={valueCounts.counts[col.column]}
-                  loading={!!valueCounts.loading[col.column]}
-                  error={valueCounts.errors[col.column]}
-                  onLoad={
-                    canLoadCounts
-                      ? () => valueCounts.load(col.column)
-                      : undefined
-                  }
-                />
-              )}
+              renderExpanded={(col) =>
+                // Only string columns get top values
+                col.datatype === "string" ? (
+                  <ColumnValuesPanel
+                    column={col}
+                    counts={valueCounts.counts[col.column]}
+                    loading={!!valueCounts.loading[col.column]}
+                    error={valueCounts.errors[col.column]}
+                    onLoad={
+                      canLoadCounts
+                        ? () => valueCounts.load(col.column)
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <Text color="text-mid">
+                    No value summary for {col.datatype || "unknown"} columns.
+                  </Text>
+                )
+              }
             />
-            <Heading as="h3" size="md" mt="5" mb="2">
-              Virtual Columns
-            </Heading>
-            <VirtualColumnList factTable={factTable} />
+            <Flex justify="between" align="center" mt="5" mb="2">
+              <Heading as="h3" size="md" mb="0">
+                Virtual Columns
+              </Heading>
+              {canManageVirtualColumns ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<PiPlusBold />}
+                  onClick={() => setNewVirtualOpen(true)}
+                >
+                  Add virtual column
+                </Button>
+              ) : null}
+            </Flex>
+            {factTable.columns.some((c) => c.isVirtual && !c.deleted) ? (
+              <ColumnList
+                factTable={factTable}
+                canEdit={canManageVirtualColumns}
+                hideSearch
+                detailsLayout
+                virtual
+                renderValues={(col) => <ColumnValues column={col} />}
+                renderExpanded={(col) => (
+                  <>
+                    <div className={eventsStyles.sectionLabel}>Expression</div>
+                    <div className={columnStyles.expression}>{col.sql}</div>
+                  </>
+                )}
+              />
+            ) : (
+              <Text color="text-mid">No virtual columns yet.</Text>
+            )}
           </TabsContent>
 
           <TabsContent value="sample">

@@ -1,12 +1,47 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { RowFilter, RowFilterTestResults } from "shared/types/fact-table";
+import { parseWarehouseDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { TestQueryResultsTable } from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import styles from "./FactTableSampleRows.module.scss";
+
+// e.g. "Oct 1, 07:00"; the year and seconds are in the tooltip
+const shortTimestamp = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/;
+
+// Fixed-width, truncated cells so every column reads at a glance; the
+// full value is in the tooltip
+function renderSampleCell(key: string, value: unknown) {
+  if ((value ?? null) === null) {
+    return <span className={`${styles.cell} ${styles.null}`}>NULL</span>;
+  }
+  const text =
+    typeof value === "number"
+      ? value.toLocaleString()
+      : typeof value === "string" || typeof value === "boolean"
+        ? String(value)
+        : JSON.stringify(value);
+  // Timestamps read as the viewer's local time; the tooltip keeps the raw value
+  const when =
+    typeof value === "string" && TIMESTAMP_RE.test(value)
+      ? parseWarehouseDate(value)
+      : null;
+  return (
+    <span className={styles.cell} title={text}>
+      {when && !isNaN(when.getTime()) ? shortTimestamp.format(when) : text}
+    </span>
+  );
+}
 
 // About the placeholder's height, so loading rows doesn't shift the page
 const COMPACT_MAX_HEIGHT = 280;
@@ -87,7 +122,7 @@ export default function FactTableSampleRows({
   return (
     <Flex
       direction="column"
-      className={compact ? styles.compact : undefined}
+      className={compact ? styles.compact : styles.full}
       style={
         compact
           ? // Without inline-size containment, a wide result widens the
@@ -104,6 +139,7 @@ export default function FactTableSampleRows({
         expandable={false}
         allowDownload={true}
         compact={compact}
+        renderCell={renderSampleCell}
       />
     </Flex>
   );

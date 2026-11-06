@@ -23,8 +23,11 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ColumnModal from "./ColumnModal";
+import VirtualColumnModal from "./VirtualColumnModal";
 import styles from "./ColumnList.module.scss";
 
 export interface Props {
@@ -39,6 +42,8 @@ export interface Props {
   // Redesigned details page: no icon, display name, or edit columns, and
   // roomier rows
   detailsLayout?: boolean;
+  // Lists only virtual columns, which edit in their own modal and can be deleted
+  virtual?: boolean;
 }
 
 const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
@@ -51,6 +56,7 @@ export default function ColumnList({
   renderExpanded,
   hideSearch = false,
   detailsLayout = false,
+  virtual = false,
 }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -83,8 +89,7 @@ export default function ColumnList({
     const out: (ColumnInterface & { jsonFieldParent?: string })[] = [];
     for (const col of factTable.columns || []) {
       if (col.deleted) continue;
-      // Virtual columns are managed in their own tab, not the Columns list.
-      if (col.isVirtual) continue;
+      if (!!col.isVirtual !== virtual) continue;
       out.push(col);
       if (col.datatype === "json" && col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
@@ -103,7 +108,7 @@ export default function ColumnList({
       }
     }
     return out;
-  }, [factTable]);
+  }, [factTable, virtual]);
 
   const timestampColumn = getFactTableTimestampColumn(factTable);
 
@@ -144,32 +149,39 @@ export default function ColumnList({
   }
 
   const numCols =
-    (detailsLayout ? 2 : 5) + (renderValues ? 1 : 0) + (renderExpanded ? 1 : 0);
+    (detailsLayout ? 3 : 5) + (renderValues ? 1 : 0) + (renderExpanded ? 1 : 0);
 
   const existing = editOpen
     ? factTable.columns.find((c) => c.column === editOpen)
     : null;
 
   // The details layout puts the table in a frame with a refresh strip on top
-  const refreshStrip = detailsLayout ? (
-    <Flex justify="end" align="center" gap="3" px="4" py="3">
-      {canEdit ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={<PiArrowClockwise />}
-          loading={refreshing || !!factTable.columnRefreshPending}
-          onClick={refreshColumns}
-        >
-          Refresh
-        </Button>
-      ) : null}
-    </Flex>
-  ) : null;
+  const refreshStrip =
+    detailsLayout && !virtual ? (
+      <Flex justify="end" align="center" gap="3" px="4" py="3">
+        {canEdit ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<PiArrowClockwise />}
+            loading={refreshing || !!factTable.columnRefreshPending}
+            onClick={refreshColumns}
+          >
+            Refresh
+          </Button>
+        ) : null}
+      </Flex>
+    ) : null;
 
   return (
     <>
-      {existing ? (
+      {existing && virtual ? (
+        <VirtualColumnModal
+          close={() => setEditOpen("")}
+          factTable={factTable}
+          existing={existing}
+        />
+      ) : existing ? (
         <ColumnModal
           close={() => setEditOpen("")}
           factTable={factTable}
@@ -241,16 +253,15 @@ export default function ColumnList({
                   <SortableTH field="column">Column</SortableTH>
                   {!detailsLayout ? <th></th> : null}
                   <SortableTH field="type">Type</SortableTH>
+                  {detailsLayout ? <th>Roles</th> : null}
                   {renderValues ? <th>Values</th> : null}
                   {!detailsLayout ? <th style={{ width: 30 }}></th> : null}
                 </tr>
               </thead>
               <tbody>
                 {items.map((col) => {
-                  const expandable =
-                    !!renderExpanded &&
-                    !col.isJsonField &&
-                    !!col.topValues?.length;
+                  // JSON sub-fields are read-only, so they have no panel
+                  const expandable = !!renderExpanded && !col.isJsonField;
                   const isOpen = expandable && expanded === col.column;
                   const toggle = () => setExpanded(isOpen ? null : col.column);
                   return (
@@ -275,16 +286,6 @@ export default function ColumnList({
                                       : undefined,
                                   }}
                                 />
-                              </IconButton>
-                            ) : canEdit && !col.isJsonField ? (
-                              // No panel to hold the Edit button
-                              <IconButton
-                                variant="ghost"
-                                size="1"
-                                aria-label={`Edit ${col.column}`}
-                                onClick={() => setEditOpen(col.column)}
-                              >
-                                <PiPencilSimpleFill />
                               </IconButton>
                             ) : null}
                           </td>
@@ -385,17 +386,33 @@ export default function ColumnList({
                         <td>
                           {col.isJsonField ? (
                             <span
-                              className="text-muted"
+                              className={`text-muted ${detailsLayout ? styles.mono : ""}`}
                               style={{ paddingLeft: 16 }}
                             >
+                              {col.column}
+                            </span>
+                          ) : detailsLayout ? (
+                            <span className={`${styles.mono} ${styles.name}`}>
                               {col.column}
                             </span>
                           ) : (
                             col.column
                           )}
-                          {detailsLayout && col.name !== col.column ? (
+                          {detailsLayout && virtual ? (
+                            <Text as="div" size="sm" color="text-mid">
+                              <span className={styles.mono}>{col.sql}</span>
+                            </Text>
+                          ) : null}
+                          {detailsLayout &&
+                          !virtual &&
+                          col.name !== col.column ? (
                             <Text as="div" size="sm" color="text-mid">
                               {col.name}
+                            </Text>
+                          ) : null}
+                          {detailsLayout && !virtual && col.description ? (
+                            <Text as="div" size="sm" color="text-mid">
+                              {col.description}
                             </Text>
                           ) : null}
                         </td>
@@ -415,6 +432,27 @@ export default function ColumnList({
                             </Tooltip>
                           )}
                         </td>
+                        {detailsLayout ? (
+                          <td>
+                            <Flex gap="1" wrap="wrap">
+                              {[
+                                col.identifier && "Identifier",
+                                col.column === timestampColumn && "Timestamp",
+                                col.alwaysInlineFilter && "Filter",
+                                col.isAutoSliceColumn && "Auto Slice",
+                              ]
+                                .filter((role): role is string => !!role)
+                                .map((role) => (
+                                  <Badge
+                                    key={role}
+                                    label={role}
+                                    color="violet"
+                                    variant="soft"
+                                  />
+                                ))}
+                            </Flex>
+                          </td>
+                        ) : null}
                         {renderValues ? (
                           <td>{col.isJsonField ? null : renderValues(col)}</td>
                         ) : null}
@@ -454,6 +492,21 @@ export default function ColumnList({
                                 >
                                   Edit column
                                 </Button>
+                              ) : null}
+                              {canEdit && virtual ? (
+                                <DeleteButton
+                                  useRadix
+                                  displayName="Virtual Column"
+                                  text="Delete"
+                                  deleteMessage="This will remove the virtual column. Metrics or filters that reference it will need to be updated."
+                                  onClick={async () => {
+                                    await apiCall(
+                                      `/fact-tables/${factTable.id}/column/${col.column}`,
+                                      { method: "DELETE" },
+                                    );
+                                    await mutateDefinitions();
+                                  }}
+                                />
                               ) : null}
                             </Flex>
                           </td>
