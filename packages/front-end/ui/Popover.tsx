@@ -200,7 +200,24 @@ export function Popover({
                     }
                   : onOpenAutoFocus
               }
-              onCloseAutoFocus={onCloseAutoFocus}
+              onCloseAutoFocus={
+                openOnHover
+                  ? (event) => {
+                      onCloseAutoFocus?.(event);
+                      if (event.defaultPrevented) return;
+                      const layer = event.currentTarget;
+                      const active = document.activeElement;
+                      const focusInside =
+                        layer instanceof Element &&
+                        active instanceof Node &&
+                        layer.contains(active);
+                      // A pointer close otherwise focuses the trigger. That
+                      // focus lands outside the popover the pointer just
+                      // opened and dismisses it.
+                      if (!focusInside) event.preventDefault();
+                    }
+                  : onCloseAutoFocus
+              }
               onEscapeKeyDown={
                 disableDismiss ? (e) => e.preventDefault() : undefined
               }
