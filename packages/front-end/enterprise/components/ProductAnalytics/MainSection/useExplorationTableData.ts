@@ -523,8 +523,8 @@ export default function useExplorationTableData(
   );
 
   const columns = useMemo(
-    () => buildExplorationColumns(submittedExploreState, getFactMetricById),
-    [submittedExploreState, getFactMetricById],
+    () => buildExplorationColumns(submittedExploreState, renderOpts),
+    [submittedExploreState, renderOpts],
   );
 
   const hasAnyRatio = useMemo(

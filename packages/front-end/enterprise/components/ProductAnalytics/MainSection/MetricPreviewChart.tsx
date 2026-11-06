@@ -77,7 +77,7 @@ export default function MetricPreviewChart({
   const days = getDailyBuckets(exploration);
   const dailyValue = (day: string) => {
     const cell = cellsByDay.get(day);
-    return cell ? getEffectiveMetricValue(cell, renderOpts[0]) : 0;
+    return cell ? getEffectiveMetricValue(cell, renderOpts.values[0]) : 0;
   };
 
   return (

@@ -89,12 +89,11 @@ function metricChart(
  */
 function describeExplorerDisplay(config: ExplorationConfig) {
   const values = config.dataset.type === "metric" ? config.dataset.values : [];
+  const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
   return {
-    axisTitle: getValueAxisName(config, getFactMetricById),
-    seriesNames: getExplorationRenderOpts(config, getFactMetricById).map(
-      (opts) => opts.seriesName,
-    ),
-    columnHeaders: buildExplorationColumns(config, getFactMetricById)
+    axisTitle: getValueAxisName(config, renderOpts),
+    seriesNames: renderOpts.values.map((opts) => opts.seriesName),
+    columnHeaders: buildExplorationColumns(config, renderOpts)
       .filter((col) => col.kind === "metric")
       .map((col) => col.label),
     unitPicker: getUnitPicker(values, getFactMetricById, getFactTableById),

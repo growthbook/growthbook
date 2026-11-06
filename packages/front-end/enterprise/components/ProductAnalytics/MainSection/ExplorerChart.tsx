@@ -201,10 +201,7 @@ export default function ExplorerChart({
   // Empty string hides the axis name; unset falls back to the inferred default.
   const customCategoryAxisName =
     submittedExploreState.chartSettings?.categoryAxisLabel?.trim();
-  const valueAxisName = getValueAxisName(
-    submittedExploreState,
-    getFactMetricById,
-  );
+  const valueAxisName = getValueAxisName(submittedExploreState, renderOpts);
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
@@ -248,7 +245,7 @@ export default function ExplorerChart({
     return valuesMeta.map((v, metricIndex) => {
       const cell = row?.values?.[metricIndex];
       const value = cell
-        ? getEffectiveMetricValue(cell, renderOpts[metricIndex])
+        ? getEffectiveMetricValue(cell, renderOpts.values[metricIndex])
         : 0;
       return {
         value,

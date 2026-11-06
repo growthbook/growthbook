@@ -768,10 +768,10 @@ export function densifyComparisonExplorationTimeseries(params: {
     return null;
   }
 
-  const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
-  const hasAnyRatio = columns.some(
-    (c) => c.kind === "metric" && c.sub !== "single",
-  );
+  const hasAnyRatio = getExplorationRenderOpts(
+    submittedConfig,
+    getFactMetricById,
+  ).values.some((opts) => opts.isRatio);
   if (hasAnyRatio) {
     return null;
   }
@@ -957,7 +957,7 @@ export function computeExplorationComparisonPayload(
     getFactMetricById,
   );
 
-  const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
+  const columns = buildExplorationColumns(submittedConfig, renderOpts);
   const hasAnyRatio = columns.some(
     (c) => c.kind === "metric" && c.sub !== "single",
   );
@@ -991,11 +991,11 @@ export function computeExplorationComparisonPayload(
 
     const currentValue = getEffectiveMetricValue(
       currCell,
-      renderOpts[metricIndex],
+      renderOpts.values[metricIndex],
     );
     const previousValue = getEffectiveMetricValue(
       prevCell,
-      renderOpts[metricIndex],
+      renderOpts.values[metricIndex],
     );
 
     if (previousValue === 0) {

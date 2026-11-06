@@ -338,7 +338,7 @@ function metricNameForDatasetValue(
   renderOpts: RenderOpts,
   metricIndex: number,
 ): string {
-  return renderOpts[metricIndex]?.seriesName ?? `Metric ${metricIndex}`;
+  return renderOpts.values[metricIndex]?.seriesName ?? `Metric ${metricIndex}`;
 }
 
 /**
@@ -383,7 +383,11 @@ export function buildComparisonOverlaySeriesMaps(
         }
         const cell = row.values?.[mi];
         if (!cell) continue;
-        bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts[mi]));
+        bump(
+          seriesKey,
+          x,
+          getEffectiveMetricValue(cell, renderOpts.values[mi]),
+        );
       }
       continue;
     }
@@ -404,7 +408,7 @@ export function buildComparisonOverlaySeriesMaps(
       }
       const cell = row.values?.[0];
       if (!cell) continue;
-      bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts[0]));
+      bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts.values[0]));
       continue;
     }
 
@@ -417,7 +421,7 @@ export function buildComparisonOverlaySeriesMaps(
     }
     const cell = row.values?.[0];
     if (!cell) continue;
-    bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts[0]));
+    bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts.values[0]));
   }
 
   return { uniqueXValues, dataMap, seriesMeta };
@@ -901,11 +905,11 @@ export function computeBigNumberComparisonTrendForMetricIndex(
 
   const currentValue = getEffectiveMetricValue(
     currCell,
-    renderOpts[metricIndex],
+    renderOpts.values[metricIndex],
   );
   const previousValue = getEffectiveMetricValue(
     prevCell,
-    renderOpts[metricIndex],
+    renderOpts.values[metricIndex],
   );
 
   if (previousValue === 0) {

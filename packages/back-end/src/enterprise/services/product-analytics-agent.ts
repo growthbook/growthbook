@@ -361,10 +361,9 @@ function buildResultCsv(
 ): string | null {
   if (!rows.length || !config) return null;
 
-  const columns = buildExplorationColumns(config, getFactMetricById);
-  if (columns.length === 0) return null;
-
   const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+  const columns = buildExplorationColumns(config, renderOpts);
+  if (columns.length === 0) return null;
 
   const hasNoDimensions = !config.dimensions || config.dimensions.length === 0;
 
@@ -387,7 +386,7 @@ function buildResultCsv(
     }
     // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.
     if (typeof raw === "number") {
-      const valueOpts = renderOpts[col.metricIndex];
+      const valueOpts = renderOpts.values[col.metricIndex];
       const isRatioOrPerUnit =
         col.sub === "value" ||
         (col.sub === "single" &&

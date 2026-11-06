@@ -257,11 +257,13 @@ describe("getDefaultValueAxisName", () => {
   it("names the shared mode", () => {
     expect(
       getDefaultValueAxisName(
-        metricConfig([
-          metricValue("revenue", "per_unit"),
-          metricValue("maxOrder"),
-        ]),
-        getFactMetricById,
+        getExplorationRenderOpts(
+          metricConfig([
+            metricValue("revenue", "per_unit"),
+            metricValue("maxOrder"),
+          ]),
+          getFactMetricById,
+        ),
       ),
     ).toBe("Per user_id");
   });
@@ -269,8 +271,10 @@ describe("getDefaultValueAxisName", () => {
   it("ignores values that offer no options", () => {
     expect(
       getDefaultValueAxisName(
-        metricConfig([metricValue("revenue"), metricValue("converted")]),
-        getFactMetricById,
+        getExplorationRenderOpts(
+          metricConfig([metricValue("revenue"), metricValue("converted")]),
+          getFactMetricById,
+        ),
       ),
     ).toBe("Total");
   });
@@ -278,11 +282,13 @@ describe("getDefaultValueAxisName", () => {
   it("is empty when a per-unit value shares the axis with a proportion", () => {
     expect(
       getDefaultValueAxisName(
-        metricConfig([
-          metricValue("revenue", "per_unit"),
-          metricValue("converted"),
-        ]),
-        getFactMetricById,
+        getExplorationRenderOpts(
+          metricConfig([
+            metricValue("revenue", "per_unit"),
+            metricValue("converted"),
+          ]),
+          getFactMetricById,
+        ),
       ),
     ).toBe("");
   });
@@ -290,8 +296,10 @@ describe("getDefaultValueAxisName", () => {
   it("is empty when no value offers options", () => {
     expect(
       getDefaultValueAxisName(
-        metricConfig([metricValue("converted")]),
-        getFactMetricById,
+        getExplorationRenderOpts(
+          metricConfig([metricValue("converted")]),
+          getFactMetricById,
+        ),
       ),
     ).toBe("");
   });
@@ -299,11 +307,13 @@ describe("getDefaultValueAxisName", () => {
   it("is empty when values render in different modes", () => {
     expect(
       getDefaultValueAxisName(
-        metricConfig([
-          metricValue("revenue", "total"),
-          metricValue("revenue", "per_unit"),
-        ]),
-        getFactMetricById,
+        getExplorationRenderOpts(
+          metricConfig([
+            metricValue("revenue", "total"),
+            metricValue("revenue", "per_unit"),
+          ]),
+          getFactMetricById,
+        ),
       ),
     ).toBe("");
   });
@@ -321,7 +331,7 @@ describe("getEffectiveMetricValue", () => {
     );
     const cell = { numerator: 100, denominator: 4 };
     expect(
-      [0, 1, 2].map((i) => getEffectiveMetricValue(cell, opts[i])),
+      [0, 1, 2].map((i) => getEffectiveMetricValue(cell, opts.values[i])),
     ).toEqual([100, 25, 100]);
   });
 });
@@ -339,7 +349,7 @@ describe("getEffectiveMetricValue for ratios", () => {
     const [opts] = getExplorationRenderOpts(
       metricConfig([metricValue("aov", "total")]),
       getFactMetricById,
-    );
+    ).values;
     expect(
       getEffectiveMetricValue({ numerator: 100, denominator: 4 }, opts),
     ).toBe(25);
@@ -378,7 +388,7 @@ describe("withRequestedDisplayConfig", () => {
 
 describe("seriesName", () => {
   const names = (config: ExplorationConfig) =>
-    getExplorationRenderOpts(config, getFactMetricById).map(
+    getExplorationRenderOpts(config, getFactMetricById).values.map(
       (opts) => opts.seriesName,
     );
 
@@ -454,7 +464,10 @@ describe("seriesName", () => {
 
 describe("buildExplorationColumns", () => {
   const labels = (config: ExplorationConfig) =>
-    buildExplorationColumns(config, getFactMetricById)
+    buildExplorationColumns(
+      config,
+      getExplorationRenderOpts(config, getFactMetricById),
+    )
       .filter((col) => col.kind === "metric")
       .map((col) => col.label);
 

@@ -675,20 +675,14 @@ export function withRequestedDisplayConfig(
 
 /**
  * Value-axis title when no custom `valueAxisLabel` is set. Empty unless every
- * value on the axis renders the same way (see `getCommonShowAs`).
+ * value on the axis renders the same way (see `sharedShowAs`).
  */
-export function getDefaultValueAxisName(
-  config: ExplorationConfig | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): string {
-  if (!datasetHasValues(config?.dataset)) return "";
-  const choices = config.dataset.values.map((v) =>
-    getShowAsChoice(v, config.showAs, getFactMetricById),
-  );
-  const commonShowAs = getCommonShowAs(choices);
-  if (commonShowAs === null) return "";
-  if (commonShowAs === "total") return "Total";
-  const sharedUnit = getSharedUnit(config, getFactMetricById);
+export function getDefaultValueAxisName({
+  sharedShowAs,
+  sharedUnit,
+}: ExplorationRenderOpts): string {
+  if (sharedShowAs === null) return "";
+  if (sharedShowAs === "total") return "Total";
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
 }
 
@@ -698,22 +692,12 @@ export function getDefaultValueAxisName(
  */
 export function getValueAxisName(
   config: ExplorationConfig | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
+  renderOpts: ExplorationRenderOpts,
 ): string {
   return (
     config?.chartSettings?.valueAxisLabel?.trim() ??
-    getDefaultValueAxisName(config, getFactMetricById)
+    getDefaultValueAxisName(renderOpts)
   );
-}
-
-/**
- * Returns the common ShowAs mode when all values in a metric dataset agree on a
- * single mode, otherwise null
- */
-function getCommonShowAs(choices: ShowAsChoice[]): ShowAs | null {
-  if (!choices.some((choice) => choice.options.length > 0)) return null;
-  const modes = new Set(choices.map((choice) => choice.showAs));
-  return modes.size === 1 ? [...modes][0] : null;
 }
 
 /**
@@ -732,33 +716,6 @@ function getAnnotatedName(
     sharedUnit ||
     "unit";
   return `${value.name} (per ${unit})`;
-}
-
-/** Whether some values render as totals and others per unit. */
-function showAsModesAreMixed(choices: ShowAsChoice[]): boolean {
-  const someValueOffersShowAs = choices.some(
-    (choice) => choice.options.length > 0,
-  );
-  return getCommonShowAs(choices) === null && someValueOffersShowAs;
-}
-
-/**
- * Annotate series names when the axis title can't tell readers how the values
- * are calculated.
- */
-function shouldAnnotateSeriesNames(
-  config: ExplorationConfig,
-  choices: ShowAsChoice[],
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): boolean {
-  if (showAsModesAreMixed(choices)) return true;
-
-  const commonShowAs = getCommonShowAs(choices);
-  const everyValueIsPerUnit = commonShowAs === "per_unit";
-  const hasCustomAxisTitle = config.chartSettings?.valueAxisLabel !== undefined;
-  const valuesShareOneUnit = getSharedUnit(config, getFactMetricById) !== null;
-  const axisTitleNamesTheUnit = !hasCustomAxisTitle && valuesShareOneUnit;
-  return everyValueIsPerUnit && !axisTitleNamesTheUnit;
 }
 
 /**
@@ -800,32 +757,66 @@ export type ValueRenderOpts = {
   seriesName: string;
 };
 
-/** Render settings per dataset value, index-aligned with `dataset.values`. */
-export type ExplorationRenderOpts = ValueRenderOpts[];
+/** How a config's values render: each value, plus what they share. */
+export type ExplorationRenderOpts = {
+  /** Index-aligned with `dataset.values`; empty for funnels and journeys. */
+  values: ValueRenderOpts[];
+  /** The mode every value renders in; null when modes differ or no value offers a choice. */
+  sharedShowAs: ShowAs | null;
+  /** Some values render as totals and others per unit. */
+  modesAreMixed: boolean;
+  /** See `getSharedUnit`. */
+  sharedUnit: string | null;
+};
 
-/** Empty for datasets without values (funnels, journeys). */
+const NO_VALUES_RENDER_OPTS: ExplorationRenderOpts = {
+  values: [],
+  sharedShowAs: null,
+  modesAreMixed: false,
+  sharedUnit: null,
+};
+
+/**
+ * Resolves how every value renders, once. The chart, the result table, the
+ * axis title and the agent's CSV all read the result.
+ */
 export function getExplorationRenderOpts(
   config: ExplorationConfig | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationRenderOpts {
-  if (!datasetHasValues(config?.dataset)) return [];
+  if (!datasetHasValues(config?.dataset)) return NO_VALUES_RENDER_OPTS;
   const { values } = config.dataset;
   const choices = values.map((v) =>
     getShowAsChoice(v, config.showAs, getFactMetricById),
   );
-  const annotateNames = shouldAnnotateSeriesNames(
-    config,
-    choices,
-    getFactMetricById,
+  const someValueOffersShowAs = choices.some(
+    (choice) => choice.options.length > 0,
   );
+  const modes = new Set(choices.map((choice) => choice.showAs));
+  const sharedShowAs =
+    someValueOffersShowAs && modes.size === 1 ? [...modes][0] : null;
+  const modesAreMixed = someValueOffersShowAs && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
-  return values.map((v, i) => ({
-    showAs: choices[i].showAs,
-    isRatio: isRatioValue(v, getFactMetricById),
-    seriesName: annotateNames
-      ? getAnnotatedName(v, choices[i].showAs, sharedUnit)
-      : v.name,
-  }));
+
+  // Annotate series names when the axis title can't tell readers how the
+  // values are calculated.
+  const hasCustomAxisTitle = config.chartSettings?.valueAxisLabel !== undefined;
+  const axisTitleNamesTheUnit = !hasCustomAxisTitle && sharedUnit !== null;
+  const annotateNames =
+    modesAreMixed || (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit);
+
+  return {
+    values: values.map((v, i) => ({
+      showAs: choices[i].showAs,
+      isRatio: isRatioValue(v, getFactMetricById),
+      seriesName: annotateNames
+        ? getAnnotatedName(v, choices[i].showAs, sharedUnit)
+        : v.name,
+    })),
+    sharedShowAs,
+    modesAreMixed,
+    sharedUnit,
+  };
 }
 
 // ---- Exploration table column schema ----------------------------------------
@@ -885,7 +876,7 @@ function getDimensionLabels(config: ExplorationConfig | null): string[] {
  */
 export function buildExplorationColumns(
   config: ExplorationConfig | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
+  renderOpts: ExplorationRenderOpts,
 ): ExplorationColumn[] {
   const cols: ExplorationColumn[] = [];
 
@@ -901,21 +892,16 @@ export function buildExplorationColumns(
   // column layout (see useExplorationTableData). Bail out here with only
   // dimension columns so the shared schema doesn't claim a value layout
   // that doesn't exist on the row.
-  const values =
-    config?.dataset?.type === "funnel" || config?.dataset?.type === "journey"
-      ? []
-      : (config?.dataset?.values ?? []);
+  if (!datasetHasValues(config?.dataset)) return cols;
+  const { values } = config.dataset;
   if (values.length === 0) return cols;
 
-  const sharedUnit = getSharedUnit(config, getFactMetricById);
-  const choices = values.map((v) =>
-    getShowAsChoice(v, config?.showAs, getFactMetricById),
-  );
-  const modesAreMixed = showAsModesAreMixed(choices);
+  const { modesAreMixed, sharedUnit } = renderOpts;
 
   values.forEach((v, metricIndex) => {
     const name = v.name;
-    if (isRatioValue(v, getFactMetricById)) {
+    const { isRatio, showAs } = renderOpts.values[metricIndex];
+    if (isRatio) {
       cols.push({
         kind: "metric",
         key: `__metric_${metricIndex}_numerator__`,
@@ -941,7 +927,6 @@ export function buildExplorationColumns(
     }
 
     // A plain header means total, unless per-unit columns sit beside it.
-    const { showAs } = choices[metricIndex];
     const annotate = showAs === "per_unit" || modesAreMixed;
     const singleLabel = annotate
       ? getAnnotatedName(v, showAs, sharedUnit)
@@ -989,7 +974,7 @@ export function getExplorationCellValue(
     return null;
   }
   if (v.numerator == null) return null;
-  return getEffectiveMetricValue(v, renderOpts[col.metricIndex]);
+  return getEffectiveMetricValue(v, renderOpts.values[col.metricIndex]);
 }
 
 function getRowTotal(
@@ -997,7 +982,7 @@ function getRowTotal(
   opts: ExplorationRenderOpts,
 ): number {
   return (row.values ?? []).reduce(
-    (sum, v, i) => sum + getEffectiveMetricValue(v, opts[i]),
+    (sum, v, i) => sum + getEffectiveMetricValue(v, opts.values[i]),
     0,
   );
 }
