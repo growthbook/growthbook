@@ -1,6 +1,5 @@
 import React, { forwardRef, useRef, useState } from "react";
 import * as RadixPopover from "@radix-ui/react-popover";
-import clsx from "clsx";
 import { IconButton } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiX } from "react-icons/pi";
@@ -9,9 +8,6 @@ import Button from "./Button";
 import styles from "./Popover.module.scss";
 
 type AllowedChildren = string | React.ReactNode;
-
-// Radix's default arrow height.
-const ARROW_HEIGHT = 5;
 
 type ControlledPopoverProps = {
   open: boolean;
@@ -135,12 +131,8 @@ export function Popover({
 
   const appliedContentStyle = {
     padding: "15px 20px",
-    // The whole gap to the trigger: the offset plus the arrow Radix adds to it.
-    ...(openOnHover && {
-      "--hover-bridge": `${(sideOffset ?? 0) + (showArrow ? ARROW_HEIGHT : 0)}px`,
-    }),
     ...contentStyle,
-  } as React.CSSProperties;
+  };
 
   // Override the @/ui/Button default of preventDefault=true so it doesn't
   // interfere with Radix Popover's open/close handling. Only applies to that
@@ -181,11 +173,7 @@ export function Popover({
               sideOffset={sideOffset}
               alignOffset={alignOffset}
               avoidCollisions={avoidCollisions}
-              className={clsx(
-                styles.Content,
-                openOnHover && styles.HoverBridge,
-                contentClassName,
-              )}
+              className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
               style={appliedContentStyle}
               {...hoverHandlers}
               onOpenAutoFocus={
