@@ -77,7 +77,6 @@ export type CommercialFeature =
   | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
-  | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
   | "custom-hooks"
   | "metric-slices"
@@ -249,7 +248,6 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
-  "share-product-analytics-dashboards",
   "cluster-experiments",
 ];
 

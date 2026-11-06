@@ -264,10 +264,6 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "pro",
       displayName: "Sequential Testing",
     },
-    "share-product-analytics-dashboards": {
-      plan: "pro",
-      displayName: "Share Product Analytics Dashboards",
-    },
     simulate: {
       plan: "pro",
       displayName: "Simulate",
