@@ -200,7 +200,7 @@ const MORE_WIDTH_ESTIMATE_PX = 80;
 
 // A width in the list's own layout pixels, as clientWidth counts them, however
 // a transform or zoom around the list scales it on screen.
-function layoutWidth(node: Element, list: HTMLElement) {
+export function layoutWidth(node: Element, list: HTMLElement) {
   const scale = list.getBoundingClientRect().width / list.offsetWidth || 1;
   return node.getBoundingClientRect().width / scale;
 }

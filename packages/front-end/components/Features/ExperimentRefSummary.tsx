@@ -158,7 +158,19 @@ export default function ExperimentRefSummary({
         )
       : null;
 
-  if (experiment.status === "stopped" && !releasedValue) return null;
+  if (experiment.status === "stopped" && !releasedValue) {
+    // The ribbon covers a stop without a rollout; this rule just predates the
+    // variation that was released.
+    if (experiment.excludeFromPayload || !experiment.releasedVariationId) {
+      return null;
+    }
+    return (
+      <Callout status="warning">
+        This rule has no value for the released variation.{" "}
+        <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
+      </Callout>
+    );
+  }
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
   // Calculate total namespace allocation
