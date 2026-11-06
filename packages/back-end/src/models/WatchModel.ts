@@ -1,3 +1,4 @@
+import { UpdateFilter } from "mongodb";
 import {
   UpdateWatchOptions,
   WatchInterface,
@@ -93,9 +94,10 @@ export class WatchModel extends BaseClass {
     type,
     item,
   }: Omit<UpdateWatchOptions, "userId">) {
+    const pullOperation: UpdateFilter<WatchInterface> = { [type]: item };
     await this._dangerousGetCollection().updateMany(
       { organization: this.context.org.id, [type]: item },
-      { $pull: { [type]: item }, $set: { dateUpdated: new Date() } },
+      { $pull: pullOperation, $set: { dateUpdated: new Date() } },
     );
   }
 }
