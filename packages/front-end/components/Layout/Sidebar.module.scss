@@ -204,13 +204,13 @@
   left: calc(5px + var(--wordmark-inset));
   white-space: nowrap;
 
-  // Text sets its own letter-spacing. 10px is deliberately below Text's
+  // Text sets its own letter-spacing. 9px is deliberately below Text's
   // smallest size: the label is part of the logo lockup, not body text.
   // slate-11, not Text's text-low, which is under 4.5:1 at this size.
-  // A block with a 10px line height, so it carries no extra space.
+  // A block with a line height of its size, so it carries no extra space.
   & > * {
     display: block;
-    font-size: 10px;
+    font-size: 9px;
     line-height: 1;
     letter-spacing: 0.08em;
     color: var(--slate-11);
