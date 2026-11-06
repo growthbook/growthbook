@@ -3,13 +3,20 @@ import { ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { Dimension } from "shared/types/integrations";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import type { BigQuery as BigQueryClient } from "@google-cloud/bigquery";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getFactTableTypeFromBigQueryType } from "back-end/src/services/bigquery";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
+
+// Only the GA4 export tests use this. The other tests replace getClient.
+jest.mock("back-end/src/services/bigqueryClient", () => ({
+  createBigQueryClient: jest.fn(),
+}));
 
 type MockBigQueryJob = {
   id: string;
@@ -2126,5 +2133,83 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
     const statsSection = sql.substring(sql.indexOf("__joinedData"));
     expect(statsSection).toContain("dim_combo");
     expect(statsSection).not.toContain("dim_exp_country");
+  });
+});
+
+describe("BigQuery listGoogleAnalytics4Exports", () => {
+  function dataset(id: string, tables: string[] | Error) {
+    return {
+      id,
+      getTables: jest.fn(async () => {
+        if (tables instanceof Error) throw tables;
+        return [tables.map((tableId) => ({ id: tableId }))];
+      }),
+    };
+  }
+
+  const getDatasets = jest.fn();
+
+  function withDatasets(
+    datasets: ReturnType<typeof dataset>[],
+    params: { projectId?: string; defaultProject?: string } = {
+      projectId: "proj",
+    },
+  ) {
+    getDatasets.mockResolvedValue([datasets]);
+    jest.mocked(createBigQueryClient).mockReturnValue({
+      getDatasets,
+    } as unknown as BigQueryClient);
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    const integration = new BigQuery("", { type: "bigquery" });
+    integration.params = { ...integration.params, ...params };
+    return integration;
+  }
+
+  it("returns analytics datasets that have daily or intraday event shards", async () => {
+    const integration = withDatasets([
+      dataset("analytics_1", ["events_20240101"]),
+      dataset("analytics_2", ["events_intraday_20240101"]),
+      dataset("analytics_3", ["pseudonymous_users_20240101"]),
+      dataset("marketing", ["events_20240101"]),
+    ]);
+    await expect(integration.listGoogleAnalytics4Exports()).resolves.toEqual([
+      "`proj.analytics_1.events_*`",
+      "`proj.analytics_2.events_*`",
+    ]);
+  });
+
+  it("looks in the project GrowthBook queries, not the key's project", async () => {
+    const integration = withDatasets(
+      [dataset("analytics_1", ["events_20240101"])],
+      {
+        projectId: "key-project",
+        defaultProject: "data-project",
+      },
+    );
+    await expect(integration.listGoogleAnalytics4Exports()).resolves.toEqual([
+      "`data-project.analytics_1.events_*`",
+    ]);
+    expect(getDatasets).toHaveBeenCalledWith({ projectId: "data-project" });
+  });
+
+  it("checks at most 25 analytics datasets", async () => {
+    const datasets = Array.from({ length: 30 }, (_, i) =>
+      dataset(`analytics_${i}`, ["events_20240101"]),
+    );
+    const integration = withDatasets(datasets);
+    await expect(
+      integration.listGoogleAnalytics4Exports(),
+    ).resolves.toHaveLength(25);
+    expect(datasets[29].getTables).not.toHaveBeenCalled();
+  });
+
+  it("keeps the other exports when one dataset can't be read", async () => {
+    const integration = withDatasets([
+      dataset("analytics_1", new Error("Access Denied")),
+      dataset("analytics_2", ["events_20240101"]),
+    ]);
+    await expect(integration.listGoogleAnalytics4Exports()).resolves.toEqual([
+      "`proj.analytics_2.events_*`",
+    ]);
   });
 });

@@ -190,13 +190,12 @@ export default function DashboardShareModal({
             Share product analytics dashboards with other members of your
             organization, and control edit access.
           </p>
-          {!hasCommercialFeature("share-product-analytics-dashboards") ? (
+          {!hasCommercialFeature("product-analytics-dashboards") ? (
             <PremiumCallout
-              commercialFeature="share-product-analytics-dashboards"
+              commercialFeature="product-analytics-dashboards"
               id="dashboard-share-modal"
             >
-              Creating shared dashboards requires an Enterprise plan, reach out
-              to try a free Enterprise Trial.
+              Sharing dashboards requires a Pro plan.
             </PremiumCallout>
           ) : shareLevel === "private" ? (
             <Callout status="info" size="sm">
@@ -214,7 +213,7 @@ export default function DashboardShareModal({
                   size="legacy"
                   label="View access"
                   disabled={
-                    !hasCommercialFeature("share-product-analytics-dashboards")
+                    !hasCommercialFeature("product-analytics-dashboards")
                   }
                   options={[
                     { label: "Organization members", value: "published" },
@@ -252,7 +251,7 @@ export default function DashboardShareModal({
                 label="Edit access"
                 disabled={
                   shareLevel === "private" ||
-                  !hasCommercialFeature("share-product-analytics-dashboards")
+                  !hasCommercialFeature("product-analytics-dashboards")
                 }
                 options={[
                   {

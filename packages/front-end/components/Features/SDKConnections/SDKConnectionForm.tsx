@@ -7,6 +7,7 @@ import {
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
   FaCheck,
   FaExclamationCircle,
@@ -114,6 +115,8 @@ export default function SDKConnectionForm({
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
+  const showTraces =
+    useFeatureIsOn("trace-ingest") || !!initialValue.tracesEnabled;
   const customFields = useCustomFields();
 
   useEffect(() => {
@@ -167,6 +170,7 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
+      tracesEnabled: initialValue.tracesEnabled ?? false,
       // Existing connections keep what they have; `savedGroupFormat` is
       // derived from the old boolean by the model, so it is always set once a
       // connection is saved. A new connection's default follows the chosen SDK
@@ -1529,6 +1533,21 @@ export default function SDKConnectionForm({
           </Box>
         </Flex>
       </Box>
+
+      {showTraces && (
+        <Box mt="5">
+          <Heading as="h4" size="sm" mb="3">
+            Traces
+          </Heading>
+          <Checkbox
+            weight="regular"
+            value={form.watch("tracesEnabled")}
+            setValue={(val) => form.setValue("tracesEnabled", val)}
+            label="Accept traces"
+            description="Lets OpenTelemetry exporters send traces to GrowthBook with this connection's client key. Client keys aren't secret, so anyone with this one can send traces."
+          />
+        </Box>
+      )}
 
       {isCloud() && (
         <Box mt="5">

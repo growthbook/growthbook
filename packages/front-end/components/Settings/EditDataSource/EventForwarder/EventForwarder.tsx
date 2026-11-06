@@ -31,6 +31,7 @@ import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { isCloud } from "@/services/env";
 import UsageMeter from "@/components/Settings/EditDataSource/EventForwarder/UsageMeter";
+import EventForwarderActivity from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderActivity";
 import PremiumCallout from "@/ui/PremiumCallout";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import SelectField from "@/components/Forms/SelectField";
@@ -66,6 +67,8 @@ type Props = {
   dataSource: DataSourceInterfaceWithParams;
   canEdit?: boolean;
   onRefresh: () => Promise<void>;
+  /** Title the section when it isn't on its own Event Forwarder tab. */
+  showTitle?: boolean;
 };
 
 type EventForwarderDatasourceDraft = {
@@ -612,6 +615,7 @@ export default function EventForwarder({
   dataSource,
   canEdit = true,
   onRefresh,
+  showTitle = false,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -688,69 +692,59 @@ export default function EventForwarder({
 
   return (
     <Box>
-      <Flex align="center" justify="between" gap="3" mb="2">
-        <Flex align="center" gap="2">
-          <Heading as="h3" size="md" mb="0">
-            Event Forwarder
-          </Heading>
-          {eventForwarderConfig ? (
-            <Flex align="center" gap="2">
-              {isProvisioning ? (
-                <EventForwarderSetupIndicator />
-              ) : (
-                <>
-                  <Badge
-                    label={statusLabels[eventForwarderConfig.status]}
-                    color={statusColors[eventForwarderConfig.status]}
-                    variant="soft"
-                  />
-                  {isOverLimit ? (
-                    <Badge label="Limit reached" color="red" variant="soft" />
-                  ) : null}
-                </>
-              )}
-            </Flex>
-          ) : null}
-        </Flex>
-
-        {canEdit && eventForwarderConfig ? (
+      {showTitle || eventForwarderConfig ? (
+        <Flex align="center" justify="between" gap="3" mb="2">
           <Flex align="center" gap="2">
+            {showTitle ? (
+              <Heading as="h3" size="md" mb="0">
+                Event Forwarder
+              </Heading>
+            ) : (
+              <Text weight="semibold">Status</Text>
+            )}
+            {!eventForwarderConfig ? null : isProvisioning ? (
+              <EventForwarderSetupIndicator />
+            ) : (
+              <>
+                <Badge
+                  label={statusLabels[eventForwarderConfig.status]}
+                  color={statusColors[eventForwarderConfig.status]}
+                  variant="soft"
+                />
+                {isOverLimit ? (
+                  <Badge label="Limit reached" color="red" variant="soft" />
+                ) : null}
+              </>
+            )}
+          </Flex>
+
+          {canToggle ? (
             <Button
               variant="outline"
-              icon={<PiPencilSimple />}
+              color={isReady ? "red" : undefined}
+              icon={isReady ? <PiPause /> : <PiPlay />}
               iconPosition="left"
-              onClick={() => setShowEditModal(true)}
+              loading={pauseResumeLoading}
+              onClick={async () => {
+                setPauseResumeLoading(true);
+                try {
+                  await apiCall(
+                    `/datasource/${dataSource.id}/event-forwarder/${action}`,
+                    { method: "POST" },
+                  );
+                  await onRefresh();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Action failed");
+                } finally {
+                  setPauseResumeLoading(false);
+                }
+              }}
             >
-              Edit
+              {isReady ? "Pause" : "Resume"}
             </Button>
-            {canToggle ? (
-              <Button
-                variant="outline"
-                color={isReady ? "red" : undefined}
-                icon={isReady ? <PiPause /> : <PiPlay />}
-                iconPosition="left"
-                loading={pauseResumeLoading}
-                onClick={async () => {
-                  setPauseResumeLoading(true);
-                  try {
-                    await apiCall(
-                      `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                      { method: "POST" },
-                    );
-                    await onRefresh();
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Action failed");
-                  } finally {
-                    setPauseResumeLoading(false);
-                  }
-                }}
-              >
-                {isReady ? "Pause" : "Resume"}
-              </Button>
-            ) : null}
-          </Flex>
-        ) : null}
-      </Flex>
+          ) : null}
+        </Flex>
+      ) : null}
 
       <p>
         GrowthBook&apos;s Event Forwarder streams SDK event data from GrowthBook
@@ -836,9 +830,59 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
+      {eventForwarderConfig && isProvisioning ? (
+        <Callout status="info" mb="3">
+          <Text color="text-mid" size="md">
+            This page will update automatically once provisioning completes.
+          </Text>
+        </Callout>
+      ) : null}
+
+      {eventForwarderConfig &&
+      showProvisioningError &&
+      primaryConnectorErrorMessage ? (
+        <Callout status="error" mb="3">
+          <Box style={{ whiteSpace: "pre-wrap" }}>
+            {primaryConnectorErrorMessage}
+          </Box>
+        </Callout>
+      ) : null}
+
+      {eventForwarderConfig && typeof forwarderLimit === "number" ? (
+        <Box mb="4">
+          <UsageMeter
+            used={forwardedThisMonth}
+            limit={forwarderLimit}
+            noun="events"
+          />
+        </Box>
+      ) : null}
+
+      {(isReady || isPaused) && !isProvisioning ? (
+        <EventForwarderActivity
+          dataSource={dataSource}
+          isPaused={isPaused}
+          isOverLimit={isOverLimit}
+        />
+      ) : null}
       {eventForwarderConfig ? (
         <Card>
           <Flex direction="column" gap="3" p="2">
+            <Flex align="center" justify="between" gap="3">
+              <Heading as="h4" size="sm" mb="0">
+                Destination
+              </Heading>
+              {canEdit ? (
+                <Button
+                  variant="outline"
+                  icon={<PiPencilSimple />}
+                  iconPosition="left"
+                  onClick={() => setShowEditModal(true)}
+                >
+                  Edit
+                </Button>
+              ) : null}
+            </Flex>
             <Flex direction="column" gap="4">
               {eventForwarderConfig.sinkType === "bigquery" ? (
                 <>
@@ -915,31 +959,6 @@ export default function EventForwarder({
                 )}
               />
             </Flex>
-
-            {typeof forwarderLimit === "number" ? (
-              <UsageMeter
-                used={forwardedThisMonth}
-                limit={forwarderLimit}
-                noun="events"
-              />
-            ) : null}
-
-            {isProvisioning ? (
-              <Callout status="info">
-                <Text color="text-mid" size="md">
-                  This page will update automatically once provisioning
-                  completes.
-                </Text>
-              </Callout>
-            ) : null}
-
-            {showProvisioningError && primaryConnectorErrorMessage ? (
-              <Callout status="error" mb="0">
-                <Box style={{ whiteSpace: "pre-wrap" }}>
-                  {primaryConnectorErrorMessage}
-                </Box>
-              </Callout>
-            ) : null}
           </Flex>
         </Card>
       ) : null}
