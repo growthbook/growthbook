@@ -26,6 +26,8 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import LinkButton from "@/ui/LinkButton";
+import { docUrl } from "@/components/DocLink";
 import { Select, SelectItem } from "@/ui/Select";
 import {
   buildFunnelStepSliceRows,
@@ -185,7 +187,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
           title="Metric Slices"
           description="Discover which segments are driving your results. Automatically break down any metric by dimensions like product type, country, or device—no need to create separate metrics."
           commercialFeature="metric-slices"
-          learnMoreLink="https://docs.growthbook.io/app/metrics#metric-slices"
+          learnMoreLink={docUrl("metricSlices")}
         />
       </Box>
     );
@@ -199,14 +201,13 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
           description="Metric slices let you see separate breakdowns for each value of a dimension (e.g., revenue by product type). Configure slices in your Fact Table columns to enable granular analysis."
           leftButton={null}
           rightButton={
-            <a
-              href="https://docs.growthbook.io/app/metrics#metric-slices"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline-primary"
+            <LinkButton
+              href={docUrl("metricSlices")}
+              variant="outline"
+              external
             >
               Learn more
-            </a>
+            </LinkButton>
           }
         />
       </Box>

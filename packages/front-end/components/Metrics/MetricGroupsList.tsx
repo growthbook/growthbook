@@ -23,6 +23,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import { docUrl } from "@/components/DocLink";
 
 const MetricGroupsList: FC = () => {
   const [openModal, setOpenModal] = useState(false);
@@ -63,7 +64,7 @@ const MetricGroupsList: FC = () => {
           title="Streamline Metric Usage in Experiments"
           description="Create reusable groups of metrics that can be ordered and added to experiments"
           commercialFeature="metric-groups"
-          learnMoreLink="https://docs.growthbook.io/app/metrics#metric-groups"
+          learnMoreLink={docUrl("metricGroups")}
           image="/images/empty-states/metric_groups.png"
         />
       </div>

@@ -41,6 +41,7 @@ import ContextualBanditEmptyState, {
 import Callout from "@/ui/Callout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
+import { docUrl } from "@/components/DocLink";
 
 const NUM_PER_PAGE = 20;
 
@@ -189,7 +190,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
           title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
           description="Contextual Bandits automatically guide more traffic to better variants based on user context."
           commercialFeature="contextual-bandits"
-          learnMoreLink="https://docs.growthbook.io/bandits/overview"
+          learnMoreLink={docUrl("bandits")}
         />
       </Box>
     );
