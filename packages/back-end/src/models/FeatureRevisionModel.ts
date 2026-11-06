@@ -1714,7 +1714,8 @@ export async function updateRevision(
   const contributorId = eventUserIdentity(log.user);
   const editorKey = log.user?.type === "api_key" ? log.user.apiKey : "";
   const addToSet = {
-    ...(contributorId != null && !revision.contributors?.includes(contributorId)
+    ...(contributorId !== null &&
+    !revision.contributors?.includes(contributorId)
       ? { contributors: contributorId }
       : {}),
     ...(editorKey && !revision.editorKeys?.includes(editorKey)
