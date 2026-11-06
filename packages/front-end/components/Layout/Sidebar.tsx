@@ -960,7 +960,11 @@ export default function Sidebar() {
       >
         <Link
           href="/"
-          className={clsx(styles.logo, logoPlaying && styles.logoPlaying)}
+          className={clsx(
+            styles.logo,
+            !planName && styles.logoNoPlan,
+            logoPlaying && styles.logoPlaying,
+          )}
           aria-label={
             planName ? `GrowthBook ${planName} home` : "GrowthBook home"
           }

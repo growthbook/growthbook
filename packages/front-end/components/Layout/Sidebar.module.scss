@@ -169,8 +169,14 @@
   flex-shrink: 0;
   align-self: flex-start;
   padding: 3px 5px;
-  // A little more room above the project selector than the other rows get.
+  // A little more room above the rows than they get between them. Less on
+  // free plans, with no plan label to clear; by plan, not by whether the label
+  // shows, so the header is the same height expanded and collapsed.
   margin-bottom: 9px;
+
+  &.logoNoPlan {
+    margin-bottom: 7px;
+  }
   border-radius: var(--radius-3);
   text-decoration: none;
 
