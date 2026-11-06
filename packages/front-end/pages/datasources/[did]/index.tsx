@@ -989,6 +989,7 @@ const DataSourcePage: FC = () => {
                     dataSource={d}
                     canEdit={canUpdateDataSourceSettings}
                     onRefresh={refreshDataSource}
+                    showTitle
                   />
                 </Frame>
               ) : null}
