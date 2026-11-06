@@ -4,7 +4,11 @@ import type {
 } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
-import { getMetricMixClass } from "shared/enterprise";
+import {
+  getChosenUnits,
+  getMetricMixClass,
+  metricSupportsUnitSelection,
+} from "shared/enterprise";
 import type { MetricMixClass } from "shared/enterprise";
 
 /**
@@ -53,29 +57,6 @@ export function getAddMetricConflict(
   return null;
 }
 
-/**
- * Whether the Explorer lets a metric's counting unit be chosen. Other metrics
- * (quantiles, most ratios) keep the unit `fillMissingUnits` gives them.
- */
-export function metricSupportsUnitSelection(
-  metric: FactMetricInterface | null,
-): boolean {
-  if (!metric) return false;
-  switch (metric.metricType) {
-    case "mean":
-    case "proportion":
-    case "retention":
-    case "dailyParticipation":
-      return true;
-    case "ratio":
-      // TODO: handle separate denominator unit selector
-      return metric.numerator.column === "$$distinctUsers";
-    case "quantile":
-    case "funnel":
-      return false;
-  }
-}
-
 /** Why a metric can't join a chart locked to `lockedUnit`, or null if it can. */
 export function getUnitConflict(
   metric: FactMetricInterface,
@@ -102,38 +83,31 @@ export type MetricValuesUnitState = {
 
 /**
  * Reads the chart-level unit from the metric values whose unit can be chosen
- * (see `metricSupportsUnitSelection`). Empty slots and unresolved metrics are
- * skipped.
+ * (see `getChosenUnits`), and the units the picker can offer.
  */
 export function getMetricValuesUnitState(
   values: MetricValue[],
   getFactMetricById: (id: string) => FactMetricInterface | null,
   getFactTableById: (id: string) => FactTableDefinition | null,
 ): MetricValuesUnitState {
-  const metricsSupportingUnitSelection: FactMetricInterface[] = [];
-  const selectedUnits = new Set<string>();
-  for (const value of values) {
-    const metric = value.metricId ? getFactMetricById(value.metricId) : null;
-    if (!metric || !metricSupportsUnitSelection(metric)) continue;
-    metricsSupportingUnitSelection.push(metric);
-    if (value.unit) selectedUnits.add(value.unit);
-  }
-
-  const unitsOfferedByEachMetric = metricsSupportingUnitSelection.map(
-    (metric) =>
+  const unitsOfferedByEachMetric = values.flatMap((value) => {
+    const metric = getFactMetricById(value.metricId);
+    if (!metric || !metricSupportsUnitSelection(metric)) return [];
+    return [
       getFactTableById(getFactMetricPrimaryFactTableId(metric))?.userIdTypes ??
-      [],
-  );
+        [],
+    ];
+  });
   const [firstMetricUnits = [], ...otherMetricsUnits] =
     unitsOfferedByEachMetric;
   const unitsEveryMetricOffers = firstMetricUnits.filter((unit) =>
     otherMetricsUnits.every((units) => units.includes(unit)),
   );
 
-  const allValuesShareOneUnit = selectedUnits.size === 1;
+  const chosenUnits = getChosenUnits(values, getFactMetricById);
   return {
-    unit: allValuesShareOneUnit ? [...selectedUnits][0] : null,
-    isMixed: selectedUnits.size > 1,
+    unit: chosenUnits.length === 1 ? chosenUnits[0] : null,
+    isMixed: chosenUnits.length > 1,
     options: unitsEveryMetricOffers,
   };
 }

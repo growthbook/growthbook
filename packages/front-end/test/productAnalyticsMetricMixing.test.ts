@@ -4,13 +4,13 @@ import type {
   FactTableDefinition,
 } from "shared/types/fact-table";
 import type { MetricValue } from "shared/validators";
+import { metricSupportsUnitSelection } from "shared/enterprise";
 import {
   getAddMetricConflict,
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
   getUnitConflict,
-  metricSupportsUnitSelection,
   setMetricValuesUnit,
 } from "@/enterprise/components/ProductAnalytics/metricMixing";
 

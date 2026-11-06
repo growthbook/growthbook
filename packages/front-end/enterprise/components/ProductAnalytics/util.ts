@@ -40,7 +40,6 @@ import type { AIChatMention } from "shared/ai-chat";
 import { createParser } from "nuqs";
 import {
   canInlineFilterColumn,
-  getFactMetricPrimaryFactTableId,
   getInlineFilterPromptColumns,
 } from "shared/experiments";
 import {
@@ -54,7 +53,7 @@ import {
   sanitizeDimensions,
   getRelevantFactTableIds,
   normalizeShowAs,
-  getSharedUnit,
+  fillMissingUnits,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 import {
@@ -78,6 +77,7 @@ export {
   getExplorationCellValue,
   computeDimensionTotals,
   sortExplorationRows,
+  fillMissingUnits,
 } from "shared/enterprise";
 export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
@@ -807,92 +807,6 @@ export function normalizeExplorerDraft(
       )
     : showAsNormalized;
   return validated as ExplorerDraftConfig;
-}
-
-/**
- * Fills in a default `unit` for metric values that have a resolved metric but
- * no unit selected. Defaults to the numerator fact table's first userIdType.
- *
- * Without a unit, the SQL layer doesn't emit a denominator column, which breaks
- * the per_unit branch of the showAs toggle and silently degrades ratio-like
- * metrics. Applied when loading a config from any source (URL, AI agent, saved
- * exploration) so users don't end up in that state.
- *
- * Skips:
- * - fact_table / data_source datasets (their unit semantics are user-driven).
- * - Metric values whose unit is already set.
- * - Metric values whose metricId is empty or can't be resolved.
- * - Metrics whose fact table has no userIdTypes (nothing to default to).
- */
-export function fillMissingUnits(
-  config: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableDefinition | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): ExplorationConfig {
-  if (!config.dataset) return config;
-
-  if (config.dataset.type === "funnel") {
-    // Funnels store unit at the dataset level (not per-step). Default to the
-    // first userIdType that exists on every step's fact table.
-    if (config.dataset.unit) return config;
-    const steps = config.dataset.steps;
-    if (!steps.length) return config;
-    const factTables = steps
-      .map((s) => (s.factTableId ? getFactTableById(s.factTableId) : null))
-      .filter((ft): ft is FactTableDefinition => !!ft);
-    if (factTables.length !== steps.length) return config;
-    const intersection = factTables.reduce<string[] | null>((acc, ft) => {
-      const ids = ft.userIdTypes ?? [];
-      if (acc === null) return [...ids];
-      return acc.filter((id) => ids.includes(id));
-    }, null);
-    const defaultUnit = intersection?.[0];
-    if (!defaultUnit) return config;
-    return {
-      ...config,
-      dataset: { ...config.dataset, unit: defaultUnit },
-    } as ExplorationConfig;
-  }
-
-  // Narrow on config.type, not config.dataset.type — only the former
-  // discriminates ExplorationConfig, so the spread below stays type-safe
-  // instead of needing an `as ExplorationConfig`.
-  if (config.type === "journey") {
-    const current = config.dataset;
-    if (current.unit || !current.factTableId) return config;
-    const unit =
-      getFactTableById(current.factTableId)?.userIdTypes?.[0] ?? null;
-    if (unit === current.unit) return config;
-    return { ...config, dataset: { ...current, unit } };
-  }
-
-  if (config.dataset.type !== "metric") return config;
-
-  // Prefer the unit the other metrics already share, so filling a gap doesn't
-  // mix units on a chart that has a single one.
-  const sharedUnit = getSharedUnit(config);
-
-  let changed = false;
-  const newValues = config.dataset.values.map((v) => {
-    if (v.unit || !v.metricId) return v;
-    const metric = getFactMetricById(v.metricId);
-    if (!metric) return v;
-    const factTable = getFactTableById(getFactMetricPrimaryFactTableId(metric));
-    const userIdTypes = factTable?.userIdTypes ?? [];
-    const defaultUnit =
-      sharedUnit && userIdTypes.includes(sharedUnit)
-        ? sharedUnit
-        : userIdTypes[0];
-    if (!defaultUnit) return v;
-    changed = true;
-    return { ...v, unit: defaultUnit };
-  });
-
-  if (!changed) return config;
-  return {
-    ...config,
-    dataset: { ...config.dataset, values: newValues },
-  } as ExplorationConfig;
 }
 
 /** Removes incomplete (partially configured) row filters from a value. */

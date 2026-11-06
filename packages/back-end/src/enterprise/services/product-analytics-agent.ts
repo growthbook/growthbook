@@ -22,6 +22,7 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import {
   normalizeShowAs,
+  fillMissingUnits,
   getExplorationRenderOpts,
   buildExplorationColumns,
   getExplorationCellValue,
@@ -808,45 +809,23 @@ async function normalizeConfigForExplorer(
   dims = sanitized.config.dimensions;
   warnings.push(...sanitized.warnings);
 
-  // Backfill missing units for metric values so the SQL layer emits a
+  // Backfill missing units with the Explorer's rule, so the SQL layer emits a
   // denominator and per_unit rendering works. The agent often omits `unit`
-  // even when it should be set; default to the numerator fact table's primary
-  // userIdType. Only applies to metric datasets — fact_table/data_source
-  // datasets have user-driven unit semantics.
-  if (dataset.type === "metric") {
-    const needsUnit = dataset.values.some(
-      (v) => !v.unit && v.metricId && metricById.has(v.metricId),
+  // even when it should be set.
+  let normalized = fillMissingUnits(
+    { ...config, dimensions: dims, dataset } as ExplorationConfig,
+    getDimensionFactTableById,
+    getFactMetricByIdResolver,
+  );
+  const countMissingUnits = (d: ExplorationConfig["dataset"]) =>
+    d.type === "metric" ? d.values.filter((v) => !v.unit).length : 0;
+  const filledCount =
+    countMissingUnits(dataset) - countMissingUnits(normalized.dataset);
+  if (filledCount > 0) {
+    warnings.push(
+      `Filled in a default unit (the chart's identifier type, else the first userIdType of the metric's fact table) for ${filledCount} metric value(s) where unit was missing. Set unit explicitly for standard metrics (mean, proportion, retention, dailyParticipation) to avoid this.`,
     );
-
-    if (needsUnit) {
-      let filledCount = 0;
-      const newValues = dataset.values.map((v) => {
-        if (v.unit || !v.metricId) return v;
-        const metric = metricById.get(v.metricId);
-        if (!metric) return v;
-        const factTable = getDimensionFactTableById(
-          metric.numerator?.factTableId ?? "",
-        );
-        const defaultUnit = factTable?.userIdTypes?.[0];
-        if (!defaultUnit) return v;
-        filledCount++;
-        return { ...v, unit: defaultUnit };
-      });
-
-      if (filledCount > 0) {
-        dataset = { ...dataset, values: newValues } as typeof dataset;
-        warnings.push(
-          `Filled in default unit (userIdTypes[0] from the metric's fact table) for ${filledCount} metric value(s) where unit was missing. Set unit explicitly for standard metrics (mean, proportion, retention, dailyParticipation) to avoid this.`,
-        );
-      }
-    }
   }
-
-  let normalized = {
-    ...config,
-    dimensions: dims,
-    dataset,
-  } as ExplorationConfig;
 
   // Move a deprecated top-level `showAs` onto the values and drop it where it
   // isn't one of the metric's Show as options, so we never persist a mode that

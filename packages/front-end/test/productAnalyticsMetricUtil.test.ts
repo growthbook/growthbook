@@ -68,6 +68,7 @@ const metrics = new Map(
     makeMetric("signups", "proportion", "users_only"),
     makeMetric("installs", "mean", "devices_only"),
     makeMetric("p95", "quantile", "devices_only"),
+    makeMetric("p50", "quantile", "users_only"),
   ].map((m) => [m.id, m]),
 );
 const factTables = new Map(
@@ -115,6 +116,34 @@ describe("fillMissingUnits", () => {
       filled.dataset.type === "metric" &&
         filled.dataset.values.map((v) => v.unit),
     ).toEqual(["device_id", "device_id"]);
+  });
+
+  it("ignores units of metrics whose unit can't be chosen", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds",
+      chartType: "line",
+      dimensions: [],
+      dateRange: { predefined: "last30Days" },
+      dataset: {
+        type: "metric",
+        // The quantile's user_id doesn't make the chart's unit mixed.
+        values: [
+          value("installs", "device_id"),
+          value("p50", "user_id"),
+          value("revenue", null),
+        ],
+      },
+    };
+    const filled = fillMissingUnits(
+      config,
+      getFactTableById,
+      getFactMetricById,
+    );
+    expect(
+      filled.dataset.type === "metric" &&
+        filled.dataset.values.map((v) => v.unit),
+    ).toEqual(["device_id", "user_id", "device_id"]);
   });
 
   it("falls back to the Fact Table's first unit when it lacks the shared one", () => {
