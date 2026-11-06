@@ -15,16 +15,27 @@ export default function RuleField({
   label,
   children,
   mb = "3",
+  align = "baseline",
 }: {
   label: string;
   children: ReactNode;
   mb?: "0" | "3" | "4";
+  // "start" where the value is a framed table, whose first line baseline
+  // alignment can't find.
+  align?: "baseline" | "start";
 }) {
   return (
-    <Flex align="baseline" gap="3" mb={mb}>
-      <Box flexShrink="0" width={`${LABEL_WIDTH}px`}>
+    // As tall as a row of badges, so rows step evenly whatever they hold.
+    <Flex align={align} gap="3" mb={mb} minHeight="22px">
+      {/* Centered in a row's height, where a top-aligned label sits too. */}
+      <Flex
+        flexShrink="0"
+        width={`${LABEL_WIDTH}px`}
+        minHeight="22px"
+        align="center"
+      >
         <RuleLabel>{label}</RuleLabel>
-      </Box>
+      </Flex>
       <Box flexGrow="1" minWidth="0">
         {children}
       </Box>

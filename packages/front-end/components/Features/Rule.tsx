@@ -654,60 +654,28 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       );
     }
 
-    // Surface the experiment's scheduled start/end + what happens at the end,
-    // so a linked feature rule shows the automation at a glance (analogous to
-    // the simple-schedule "Starts …/Disables …" tag on forced rules). Only
-    // relevant while the schedule is still ahead of the experiment.
+    // The linked experiment's own schedule, while it's still ahead.
+    let experimentSchedule: string | null = null;
     if (
       linkedExperiment &&
       linkedExperiment.status !== "stopped" &&
       linkedExperiment.statusUpdateSchedule
     ) {
       const sched = linkedExperiment.statusUpdateSchedule;
-      const shipping = linkedExperiment.statusUpdateSchedule?.scheduledStopPlan;
-
+      const parts: string[] = [];
+      // Still a draft, so it hasn't started, whatever the date.
       if (linkedExperiment.status === "draft" && sched.startAt) {
-        ruleTags.push(
-          <Badge
-            key="exp-start"
-            color="violet"
-            variant="soft"
-            // Still a draft, so it hasn't started, whatever the date.
-            label={`Starts ${fmtScheduleDate(sched.startAt)}`}
-          />,
+        parts.push(`Starts ${fmtScheduleDate(sched.startAt)}`);
+      }
+      // As the experiment page says it: when, not what happens then.
+      if (sched.stopAt) {
+        parts.push(`Ends ${fmtScheduleDate(sched.stopAt)}`);
+      } else if (sched.stopAfter) {
+        parts.push(
+          `Ends ${sched.stopAfter.value} ${sched.stopAfter.unit} after start`,
         );
       }
-
-      const endDescriptor = sched.stopAt
-        ? `on ${fmtScheduleDate(sched.stopAt)}`
-        : sched.stopAfter
-          ? `${sched.stopAfter.value} ${sched.stopAfter.unit} after start`
-          : null;
-      if (endDescriptor) {
-        const mode = shipping?.mode ?? "notify";
-        let action: string;
-        if (mode === "auto-ship") {
-          action = "Ships winner";
-        } else if (mode === "force-ship") {
-          const v = linkedExperiment.variations.find(
-            (x) => x.id === shipping?.fallbackVariationId,
-          );
-          action = `Ships ${v?.name || "a variation"}`;
-        } else if (mode === "stop") {
-          action = "Stops";
-        } else {
-          // notify is soft — the experiment keeps running past the date.
-          action = "Notifies";
-        }
-        ruleTags.push(
-          <Badge
-            key="exp-end"
-            color="violet"
-            variant="soft"
-            label={`${action} ${endDescriptor}`}
-          />,
-        );
-      }
+      experimentSchedule = parts.length ? parts.join(" · ") : null;
     }
 
     if (
@@ -1754,6 +1722,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     condition={rule.condition || ""}
                     savedGroups={rule.savedGroups}
                     prerequisites={rule.prerequisites}
+                    prefix={<Text weight="medium">IF</Text>}
                   />
                 ) : (
                   "All traffic"
@@ -1844,6 +1813,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 environment={isAllEnvsView ? undefined : environment}
               />
             )}
+            {experimentSchedule ? (
+              <Box mt="3">
+                <RuleField label="Schedule" mb="0">
+                  {experimentSchedule}
+                </RuleField>
+              </Box>
+            ) : null}
             {rule.type === "contextual-bandit-ref" && (
               <ContextualBanditRefSummary
                 rule={rule}

@@ -10,14 +10,18 @@ import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
-import ValueDisplay from "@/components/Features/ValueDisplay";
+import ValueDisplay, {
+  LISTED_VALUE_STYLE,
+} from "@/components/Features/ValueDisplay";
 import RuleField from "@/components/Features/RuleField";
 import RolloutRow from "@/components/Features/RolloutRow";
-import VariationLabel from "@/ui/VariationLabel";
+import VariationNumber from "@/ui/VariationNumber";
 import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
+import Tooltip from "@/ui/Tooltip";
+import variationsTableStyles from "@/components/Features/RuleVariationsTable.module.scss";
 
 export function isContextualBanditRefRuleSkipped(
   cb: ApiContextualBanditInterface,
@@ -114,16 +118,10 @@ export default function ContextualBanditRefSummary({
         </RuleField>
       )}
 
-      <RuleField label="Serve" mb="0">
-        <Box
-          px="3"
-          style={{
-            border: "1px solid var(--gray-a5)",
-            borderRadius: "var(--radius-2)",
-          }}
-        >
+      <RuleField label="Serve" mb="0" align="start">
+        <Box>
           <ValueDiffProvider>
-            <Table>
+            <Table variant="surface" className={variationsTableStyles.table}>
               <TableBody>
                 {cb.variations.map((v, i) => {
                   const ruleVariation = rule.variations.find(
@@ -135,7 +133,11 @@ export default function ContextualBanditRefSummary({
                       style={{ color: "var(--color-text-high)" }}
                     >
                       <TableCell style={{ whiteSpace: "nowrap" }}>
-                        <VariationLabel number={i} name={v.name || v.key} />
+                        <Tooltip content={v.name || v.key}>
+                          <Box className={variationsTableStyles.marker}>
+                            <VariationNumber number={i} />
+                          </Box>
+                        </Tooltip>
                       </TableCell>
                       <TableCell width="100%">
                         {ruleVariation ? (
@@ -160,6 +162,7 @@ export default function ContextualBanditRefSummary({
                               <ValueDisplay
                                 value={ruleVariation.value}
                                 type={type}
+                                fullStyle={LISTED_VALUE_STYLE}
                               />
                             );
                           })()

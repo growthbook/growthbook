@@ -1,0 +1,20 @@
+// A rule's variations, laid out as the experiment page's variations table:
+// cells top-aligned, so each row's number and split sit on its value's first
+// line, and each row ruled off beneath.
+.table :global(.rt-TableCell) {
+  vertical-align: top;
+  padding: var(--space-2) var(--space-3);
+  box-shadow: inset 0 -1px 0 var(--gray-a4);
+}
+
+// The frame closes the last row.
+.table :global(.rt-TableRow):last-child :global(.rt-TableCell) {
+  box-shadow: none;
+}
+
+// A row's number, centered on its first line of text.
+.marker {
+  display: flex;
+  align-items: center;
+  height: var(--line-height-2);
+}

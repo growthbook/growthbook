@@ -79,3 +79,12 @@
   color: var(--color-text-low);
   white-space: nowrap;
 }
+
+.condensed {
+  .bar_wrapper {
+    margin-top: 0;
+  }
+  .bar_holder {
+    height: 18px;
+  }
+}

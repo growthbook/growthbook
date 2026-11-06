@@ -16,7 +16,6 @@ import {
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
@@ -24,7 +23,9 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import { coveragePercentFormatter } from "@/services/utils";
-import ValueDisplay from "./ValueDisplay";
+import Tooltip from "@/ui/Tooltip";
+import VariationNumber from "@/ui/VariationNumber";
+import ValueDisplay, { LISTED_VALUE_STYLE } from "./ValueDisplay";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 import { ValueDiffProvider } from "./ValueDiffContext";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -34,6 +35,7 @@ import { EntityBadge, PlainEntityBadge } from "./EntityBadge";
 import ForceSummary from "./ForceSummary";
 import RolloutRow from "./RolloutRow";
 import RuleField from "./RuleField";
+import variationsTableStyles from "./RuleVariationsTable.module.scss";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -227,23 +229,13 @@ export default function ExperimentRefSummary({
         />
       ) : (
         <>
-          <RuleField label="Serve">
-            {useStickyBucketing ? (
-              <Text as="div" color="text-mid">
-                Sticky Bucketing{" "}
-                {experiment.disableStickyBucketing ? "disabled" : "enabled"}
-              </Text>
-            ) : null}
-            <Box
-              mt={useStickyBucketing ? "2" : "0"}
-              px="3"
-              style={{
-                border: "1px solid var(--gray-a5)",
-                borderRadius: "var(--radius-2)",
-              }}
-            >
+          <RuleField label="Serve" align="start">
+            <Box>
               <ValueDiffProvider>
-                <Table>
+                <Table
+                  variant="surface"
+                  className={variationsTableStyles.table}
+                >
                   <TableBody>
                     {getLatestPhaseVariations(experiment).map(
                       (variation, j) => {
@@ -261,29 +253,11 @@ export default function ExperimentRefSummary({
                             style={{ color: "var(--color-text-high)" }}
                           >
                             <TableCell style={{ whiteSpace: "nowrap" }}>
-                              <Flex align="center" gap="2">
-                                <span
-                                  style={{
-                                    color: getVariationColor(j, true),
-                                    borderColor: getVariationColor(j, true),
-                                    fontSize: "14px",
-                                    width: 20,
-                                    height: 20,
-                                    borderRadius: 20,
-                                    borderWidth: 1,
-                                    borderStyle: "solid",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {j}
-                                </span>
-                                <Text weight="medium" whiteSpace="nowrap">
-                                  {variation.name}
-                                </Text>
-                              </Flex>
+                              <Tooltip content={variation.name}>
+                                <Box className={variationsTableStyles.marker}>
+                                  <VariationNumber number={j} />
+                                </Box>
+                              </Tooltip>
                             </TableCell>
                             {!isBandit && (
                               <TableCell
@@ -329,6 +303,7 @@ export default function ExperimentRefSummary({
                                       <ValueDisplay
                                         value={value}
                                         type={type}
+                                        fullStyle={LISTED_VALUE_STYLE}
                                         showFullscreenButton={true}
                                         sparse={rule.sparse}
                                         defaultValue={feature.defaultValue}
@@ -351,8 +326,9 @@ export default function ExperimentRefSummary({
                 </Table>
               </ValueDiffProvider>
             </Box>
-            <Box mt="3" mb="3">
-              {!isBandit && (
+            {/* A Bandit sets its own split. */}
+            {!isBandit && (
+              <Box mt="3">
                 <ExperimentSplitVisual
                   values={getLatestPhaseVariations(experiment).map(
                     (variation, j) => {
@@ -366,6 +342,7 @@ export default function ExperimentRefSummary({
                     },
                   )}
                   coverage={effectiveCoverage}
+                  condensed
                   label="Traffic split"
                   unallocated="Not included (skips this rule)"
                   type={type}
@@ -373,8 +350,15 @@ export default function ExperimentRefSummary({
                   stackLeft={true}
                   showPercentages={true}
                 />
-              )}
-            </Box>
+              </Box>
+            )}
+
+            {useStickyBucketing ? (
+              <Text as="div" mt="2">
+                Sticky Bucketing{" "}
+                {experiment.disableStickyBucketing ? "disabled" : "enabled"}
+              </Text>
+            ) : null}
           </RuleField>
 
           <RuleField label="Tracking key" mb="0">

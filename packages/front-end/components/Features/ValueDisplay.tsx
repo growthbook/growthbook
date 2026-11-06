@@ -54,6 +54,13 @@ function getSparseMerge(
   };
 }
 
+// A value as one of several in a list, kept short.
+export const LISTED_VALUE_STYLE: CSSProperties = {
+  maxHeight: 100,
+  overflowY: "auto",
+  maxWidth: "100%",
+};
+
 export default function ValueDisplay({
   value,
   type,

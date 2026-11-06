@@ -3,18 +3,20 @@ import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { calculateNamespaceCoverage } from "shared/util";
-import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Badge from "@/ui/Badge";
 import LinkButton from "@/ui/LinkButton";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import { coveragePercentFormatter } from "@/services/utils";
+import Tooltip from "@/ui/Tooltip";
+import VariationNumber from "@/ui/VariationNumber";
 import { AttributeBadge } from "./AttributeBadge";
-import ValueDisplay from "./ValueDisplay";
+import ValueDisplay, { LISTED_VALUE_STYLE } from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import RolloutRow from "./RolloutRow";
 import RuleField from "./RuleField";
+import variationsTableStyles from "./RuleVariationsTable.module.scss";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -82,45 +84,24 @@ export default function ExperimentSummary({
           </>
         )}
       </RolloutRow>
-      <RuleField label="Serve">
-        <Box
-          px="3"
-          style={{
-            border: "1px solid var(--gray-a5)",
-            borderRadius: "var(--radius-2)",
-          }}
-        >
-          <Table>
+      <RuleField label="Serve" align="start">
+        <Box>
+          <Table variant="surface" className={variationsTableStyles.table}>
             <TableBody>
               {values.map((r, j) => (
                 <TableRow key={j} style={{ color: "var(--color-text-high)" }}>
                   <TableCell style={{ whiteSpace: "nowrap" }}>
-                    <Flex align="center" gap="2">
-                      <span
-                        style={{
-                          color: getVariationColor(j, true),
-                          borderColor: getVariationColor(j, true),
-                          fontSize: "14px",
-                          width: 20,
-                          height: 20,
-                          borderRadius: 20,
-                          borderWidth: 1,
-                          borderStyle: "solid",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {j}
-                      </span>
-                      <Text weight="medium">{r?.name}</Text>
-                    </Flex>
+                    <Tooltip content={r?.name}>
+                      <Box className={variationsTableStyles.marker}>
+                        <VariationNumber number={j} />
+                      </Box>
+                    </Tooltip>
                   </TableCell>
                   <TableCell width="100%">
                     <ValueDisplay
                       value={r.value}
                       type={type}
+                      fullStyle={LISTED_VALUE_STYLE}
                       showFullscreenButton={true}
                       actionsOverlay={{ inline: true }}
                     />
@@ -139,10 +120,11 @@ export default function ExperimentSummary({
             </TableBody>
           </Table>
         </Box>
-        <Box mt="3" mb="3">
+        <Box mt="3">
           <ExperimentSplitVisual
             values={values}
             coverage={effectiveCoverage}
+            condensed
             label="Traffic split"
             unallocated="Not included (skips this rule)"
             type={type}
