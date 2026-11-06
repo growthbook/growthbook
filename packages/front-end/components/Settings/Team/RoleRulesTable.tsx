@@ -322,17 +322,23 @@ export default function RoleRulesTable({
     <Box>
       {groups.map(renderGroup)}
       <Flex align="center" gap="3">
-        {unusedProjects.length > 0 &&
-          hasAdvancedPermissions &&
-          !adminEverywhere && (
-            <Button
-              variant="soft"
-              icon={<PiPlus />}
-              onClick={() => addRule(unusedProjects[0].id)}
-            >
-              Add Project override
-            </Button>
-          )}
+        {unusedProjects.length > 0 && hasAdvancedPermissions && (
+          <Tooltip
+            content="Project overrides have no effect for admins"
+            enabled={adminEverywhere}
+          >
+            <span tabIndex={adminEverywhere ? 0 : undefined}>
+              <Button
+                variant="soft"
+                icon={<PiPlus />}
+                disabled={adminEverywhere}
+                onClick={() => addRule(unusedProjects[0].id)}
+              >
+                Add Project override
+              </Button>
+            </span>
+          </Tooltip>
+        )}
         {footerEnd && <Box ml="auto">{footerEnd}</Box>}
       </Flex>
     </Box>
