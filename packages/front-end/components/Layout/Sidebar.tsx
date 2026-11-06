@@ -123,11 +123,6 @@ const AUTO_COLLAPSE_MAX_WIDTH = "(max-width: 1599px)";
  * doesn't slide shut on load (global.scss).
  */
 const SIDEBAR_RESTORE_CLASS = "app-sidebar-restore";
-/**
- * The expanded logo's scale on paid plans, so the logo and the plan label under
- * it fit the header's height with the logo still centred on its line.
- */
-const PLAN_LOGO_SCALE = 0.9;
 /** Matches .sidebar's width transition (Sidebar.module.scss). */
 const SIDEBAR_WIDTH_TRANSITION_MS = 200;
 /**
@@ -968,12 +963,6 @@ export default function Sidebar() {
           aria-label={
             planName ? `GrowthBook ${planName} home` : "GrowthBook home"
           }
-          style={
-            {
-              // Back to full size as the sidebar collapses, on its timing.
-              "--logo-scale": planName && !collapsed ? PLAN_LOGO_SCALE : 1,
-            } as CSSProperties
-          }
           onMouseEnter={() => setLogoPlaying(true)}
           onFocus={(e) => {
             if (e.currentTarget.matches(":focus-visible")) setLogoPlaying(true);
@@ -994,8 +983,8 @@ export default function Sidebar() {
               aria-hidden="true"
               style={
                 {
-                  "--wordmark-inset": `${WORDMARK_INSET_PX * PLAN_LOGO_SCALE}px`,
-                  "--wordmark-baseline": `${WORDMARK_BASELINE_PX * PLAN_LOGO_SCALE}px`,
+                  "--wordmark-inset": `${WORDMARK_INSET_PX}px`,
+                  "--wordmark-baseline": `${WORDMARK_BASELINE_PX}px`,
                 } as CSSProperties
               }
             >
