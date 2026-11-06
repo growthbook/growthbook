@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ModelMessage } from "ai";
-import { pickVisionModel } from "shared/ai";
+import { isVisionCapableModel, pickVisionModel } from "shared/ai";
 import { updateVisualChange } from "back-end/src/models/VisualChangesetModel";
 import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { changesetOwnerConfirmationLink } from "back-end/src/services/changesetOwner";
@@ -23,7 +23,18 @@ import {
   toolResultsMessage,
   verifyEnvelope,
 } from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
-import { clientToolArgs } from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
+import {
+  clientToolArgs,
+  PAGE_TOOLS,
+  type PageTool,
+} from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
+import {
+  attachScreenshots,
+  PREVIEW_SCREENSHOT_TOOL,
+  SCREENSHOTS_PER_ROUND_MAX,
+  SCREENSHOTS_PER_TURN_MAX,
+  screenshotImageSchema,
+} from "back-end/src/api/visual-editor-ai/screenshots";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 import {
   buildVisualEditorTools,
@@ -254,6 +265,11 @@ const bodySchema = z
             }),
           )
           .max(10),
+        // previewScreenshot images, kept out of the signed transcript.
+        images: z
+          .array(screenshotImageSchema)
+          .max(SCREENSHOTS_PER_ROUND_MAX)
+          .optional(),
       })
       .optional(),
   })
@@ -386,6 +402,24 @@ const outputSchema = z.object({
       "One-paragraph summary of what you changed, for the editor user. Parts you could not do belong in `skipped`, not here.",
     ),
 });
+
+// Appended to the system prompt only when previewScreenshot is offered.
+const SCREENSHOT_GUIDANCE = `Checking your work visually:
+- \`previewScreenshot\` renders a draft on the live page and shows you a screenshot. Each one adds several seconds, so decide from your draft whether it needs one:
+  - Text, link, alt or other attribute changes only: answer without one. The exception is new text much longer than the old, which could wrap or overflow.
+  - Layout, CSS, moves, inserts or images: one.
+- Workflow: work out your full answer, call \`previewScreenshot\` once with exactly the mutations / cssAppend / css / insert you plan to return (plus a \`selector\` for the changed element or its section), then either return that answer or fix what the screenshot shows and return the fixed version. Take another only to check that fix; an identical draft is refused. You have at most ${SCREENSHOTS_PER_TURN_MAX} per request.
+- If the result lists \`unmatchedSelectors\`, those changes are missing from the shot because the selector matched nothing. Fix the selector instead of judging the shot.
+- Judge the screenshot critically: text cut off or overflowing, elements overlapping, poor contrast, an insert in the wrong place, a move that didn't happen, broken alignment. If the draft looks wrong, correct it rather than returning it as-is.
+- For requests about the page's current look ("make this section look more modern", "clean up this layout"), you may call it with no draft first to see what's there.
+- Mention a problem you saw and couldn't fix in \`skipped\`.`;
+
+// One bullet per page tool offered, appended to the system prompt.
+const PAGE_TOOL_GUIDANCE: Record<PageTool, string> = {
+  searchPage: `- \`searchPage\` greps the live page. When the user names something by its words ("the 'Start free trial' button", "the paragraph about pricing", "the $49 price") and it isn't in the catalog or elementContext, call it with those words before guessing a selector, giving up, or asking the user to click. Add a \`selector\` to narrow it (e.g. text "Sign up" + selector "button"). Its \`selector\` and \`parentSelector\` are real and can be used verbatim. To move or reorder whole sections, \`findElements\` and \`describeContainer\` (when offered) also give the siblings.`,
+  inspectLayout: `- \`inspectLayout\` measures an element's box, whether it's above the fold, and what clips or hides it. Use it for placement questions ("move it above the fold", "why is this cut off") instead of guessing from markup.`,
+  getCSSRules: `- \`getCSSRules\` shows which stylesheet rules set a property on an element. Call it when a style change might lose to an existing rule (a media query, a more specific selector, !important), then write cssAppend that wins.`,
+};
 
 // Selectors whose innerHTML must never be replaced.
 const PAGE_ROOT_SELECTOR_RE = /^\s*(?::root|html|body)\s*$/i;
@@ -1207,12 +1241,26 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     );
   }
   const useToolLoop = streamingMode && !IS_CLOUD && !stateless;
+  // Client-run tools the extension supports beyond the original three. A
+  // header, not a body field: older back-ends reject unknown body fields.
+  const clientTools = String(req.headers["x-gb-client-tools"] ?? "")
+    .split(",")
+    .map((t) => t.trim());
+  const screenshotTool =
+    stateless &&
+    clientTools.includes(PREVIEW_SCREENSHOT_TOOL) &&
+    isVisionCapableModel(editModel);
+  const pageTools = stateless
+    ? PAGE_TOOLS.filter((t) => clientTools.includes(t))
+    : [];
   const job = aiEditJobStore.create();
   const imageState = newImageTurnState();
   const tools = buildVisualEditorTools({
     context,
     job: useToolLoop ? job : undefined,
     deferDomTools: stateless,
+    screenshotTool,
+    pageTools,
     pageStructure,
     imageState,
     quarantineImages: !persist,
@@ -1228,7 +1276,18 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
   const parsePromptArgs = {
     context,
-    instructions: effectiveInstructions,
+    instructions: [
+      effectiveInstructions,
+      ...(pageTools.length > 0
+        ? [
+            [
+              "Inspecting the live page:",
+              ...pageTools.map((t) => PAGE_TOOL_GUIDANCE[t]),
+            ].join("\n"),
+          ]
+        : []),
+      ...(screenshotTool ? [SCREENSHOT_GUIDANCE] : []),
+    ].join("\n\n"),
     prompt: buildPrompt({
       prompt,
       elementContext,
@@ -1338,7 +1397,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       variationId,
       requestHash: requestHash({ ...req.body, resume: undefined }),
     };
+    // What the model sees this round vs. what gets signed for the next one:
+    // screenshots go to the model once and never into the envelope.
     let priorMessages: ModelMessage[] | undefined;
+    let signedPrior: ModelMessage[] = [];
     let stepsAlreadyUsed = 0;
     if (resume) {
       if (!verifyEnvelope(JWT_SECRET, scope, resume.envelope)) {
@@ -1348,12 +1410,21 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       }
       // Signed by us last round, so it is the SDK's own shape.
       const transcript = resume.envelope.transcript as ModelMessage[];
+      const shots = attachScreenshots(
+        transcript,
+        resume.results,
+        resume.images ?? [],
+      );
+      if (!shots.ok) return context.throwBadRequestError(shots.error);
       const answered = toolResultsMessage(
         pendingToolCalls(transcript),
-        resume.results,
+        shots.results,
       );
       if (!answered.ok) return context.throwBadRequestError(answered.error);
-      priorMessages = [...transcript, answered.message];
+      signedPrior = [...transcript, answered.message];
+      priorMessages = shots.message
+        ? [...signedPrior, shots.message]
+        : signedPrior;
       for (const r of answeredToolCalls(priorMessages)) {
         for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
       }
@@ -1379,7 +1450,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         envelope: signEnvelope(
           JWT_SECRET,
           scope,
-          [...(priorMessages ?? []), ...transcript],
+          [...signedPrior, ...transcript],
           stepsAlreadyUsed + stepsUsed,
         ),
         calls: pending.map((c) => ({
