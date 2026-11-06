@@ -3,7 +3,10 @@ import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { getDefaultValueAxisName } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getDefaultValueAxisName,
+  getExplorationRenderOpts,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -43,8 +46,7 @@ export default function ChartSettingsSection() {
     : "valueAxisLabel";
 
   const defaultValueAxisLabel = getDefaultValueAxisName(
-    draftExploreState,
-    getFactMetricById,
+    getExplorationRenderOpts(draftExploreState, getFactMetricById),
   );
   const labels = draftExploreState.chartSettings;
 

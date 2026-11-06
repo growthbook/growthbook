@@ -1075,12 +1075,12 @@ function getMetricData(
 
   // Always expose a denominator (unit count) for unit-aggregated non-ratio,
   // non-quantile metrics so the frontend can render either the raw numerator
-  // (totals) or numerator/denominator (per-unit averages) based on the
-  // chart-level `showAs` setting.
+  // (totals) or numerator/denominator (per-unit averages) based on each
+  // value's `showAs` setting.
   //
   // Intentionally symmetric across dataset types: fact_table/data_source
-  // datasets (where `showAsAppliesTo` returns false and the denominator is
-  // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
+  // datasets (which offer no Show as options, so the denominator is never
+  // surfaced) still emit this column. The extra `COUNT(...)` is cheap
   // relative to the rest of the rollup and keeps the SQL shape / result
   // column set identical regardless of dataset type, which simplifies the
   // downstream parser and test fixtures. If this ever becomes a measurable

@@ -10,14 +10,17 @@ import { parseWarehouseDate } from "shared/dates";
 import type { FactMetricInterface } from "shared/types/fact-table";
 // Imported from the module rather than the `shared/validators` barrel: the
 // barrel forms a require cycle with this file, leaving the array undefined.
-import { comparisonMode } from "../../validators/product-analytics";
+import {
+  comparisonMode,
+  datasetHasValues,
+} from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
 import {
   buildExplorationColumns,
   getEffectiveMetricValue,
-  getEffectiveShowAs,
   getExplorationCellValue,
-  getIsRatioByIndex,
+  getExplorationRenderOpts,
+  isRatioValue,
   sortExplorationRows,
 } from "./utils";
 
@@ -765,10 +768,10 @@ export function densifyComparisonExplorationTimeseries(params: {
     return null;
   }
 
-  const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
-  const hasAnyRatio = columns.some(
-    (c) => c.kind === "metric" && c.sub !== "single",
-  );
+  const hasAnyRatio = getExplorationRenderOpts(
+    submittedConfig,
+    getFactMetricById,
+  ).values.some((opts) => opts.isRatio);
   if (hasAnyRatio) {
     return null;
   }
@@ -798,7 +801,11 @@ export function densifyComparisonExplorationTimeseries(params: {
     return null;
   }
 
-  const isRatioByIndex = getIsRatioByIndex(submittedConfig, getFactMetricById);
+  const isRatioByIndex = datasetHasValues(submittedConfig.dataset)
+    ? submittedConfig.dataset.values.map((v) =>
+        isRatioValue(v, getFactMetricById),
+      )
+    : [];
   // buildZeroValueRow always returns an array; the `| undefined` comes from
   // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
   const zeroValues = buildZeroValueRow(metricIds, isRatioByIndex)!;
@@ -945,12 +952,12 @@ export function computeExplorationComparisonPayload(
     };
   }
 
-  const renderOpts = {
-    showAs: getEffectiveShowAs(submittedConfig, getFactMetricById),
-    isRatioByIndex: getIsRatioByIndex(submittedConfig, getFactMetricById),
-  };
+  const renderOpts = getExplorationRenderOpts(
+    submittedConfig,
+    getFactMetricById,
+  );
 
-  const columns = buildExplorationColumns(submittedConfig, getFactMetricById);
+  const columns = buildExplorationColumns(submittedConfig, renderOpts);
   const hasAnyRatio = columns.some(
     (c) => c.kind === "metric" && c.sub !== "single",
   );
@@ -982,15 +989,14 @@ export function computeExplorationComparisonPayload(
     const prevCell = exploration.result.rows[0]?.values?.[metricIndex];
     if (!currCell || !prevCell) return null;
 
-    const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
-    const currentValue = getEffectiveMetricValue(currCell, {
-      showAs: renderOpts.showAs,
-      isRatio,
-    });
-    const previousValue = getEffectiveMetricValue(prevCell, {
-      showAs: renderOpts.showAs,
-      isRatio,
-    });
+    const currentValue = getEffectiveMetricValue(
+      currCell,
+      renderOpts.values[metricIndex],
+    );
+    const previousValue = getEffectiveMetricValue(
+      prevCell,
+      renderOpts.values[metricIndex],
+    );
 
     if (previousValue === 0) {
       return null;

@@ -77,7 +77,6 @@ export function getPopulationPreviewConfig(
     type: "population",
     datasource: population.datasource,
     chartType: "bar",
-    showAs: "total",
     dateRange,
     dimensions: [
       { dimensionType: "date", column: "date", dateGranularity: "day" },
