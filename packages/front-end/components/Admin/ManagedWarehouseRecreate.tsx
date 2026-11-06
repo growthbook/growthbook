@@ -74,7 +74,7 @@ export function RecreateTablesCheckboxes({
       {MANAGED_WAREHOUSE_RECREATABLE_TABLES.map((table) => (
         <Checkbox
           key={table}
-          label={table}
+          label={<Text mono>{table}</Text>}
           value={value.includes(table)}
           setValue={(checked) =>
             setValue(
@@ -112,7 +112,8 @@ export function RecreateRequestSummary({
         <RecreateStatusBadge status={request.status} />
       </Flex>
       <Text size="sm" color="text-mid">
-        {request.tables.join(", ")} · requested {datetime(request.requestedAt)}
+        <Text mono>{request.tables.join(", ")}</Text> · requested{" "}
+        {datetime(request.requestedAt)}
         {request.finishedAt
           ? ` · finished ${datetime(request.finishedAt)}`
           : ""}
@@ -154,6 +155,7 @@ export default function ManagedWarehouseRecreates({
   // Start with nothing checked so a bulk run is always a deliberate choice
   const [tables, setTables] = useState<ManagedWarehouseRecreatableTable[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [target, setTarget] = useState<"all" | "list">("list");
   const [orgIds, setOrgIds] = useState("");
   const [message, setMessage] = useState("");
@@ -210,6 +212,25 @@ export default function ManagedWarehouseRecreates({
           onCancel={() => setConfirming(false)}
         />
       )}
+      {confirmingCancel && (
+        <ConfirmDialog
+          title="Cancel Pending Recreates"
+          content={`Cancel ${counts?.pending ?? 0} pending recreate${counts?.pending === 1 ? "" : "s"}? Running recreates aren't affected.`}
+          yesText="Cancel pending"
+          color="red"
+          onConfirm={async () => {
+            setConfirmingCancel(false);
+            await run(async () => {
+              const { cancelled } = await apiCall<{ cancelled: number }>(
+                "/admin/managed-warehouse/recreates/cancel-pending",
+                { method: "POST" },
+              );
+              return `Cancelled ${cancelled} pending recreate${cancelled === 1 ? "" : "s"}.`;
+            });
+          }}
+          onCancel={() => setConfirmingCancel(false)}
+        />
+      )}
       {canRequest && (
         <Frame py="4" px="5">
           <Heading as="h3" size="sm" mb="3">
@@ -222,24 +243,30 @@ export default function ManagedWarehouseRecreates({
             a recreate, are skipped.
           </Text>
           <Flex direction="column" gap="4">
-            <RecreateTablesCheckboxes value={tables} setValue={setTables} />
-            <RadioGroup
-              value={target}
-              setValue={(v) => setTarget(v as "all" | "list")}
-              options={[
-                { value: "list", label: "These organizations" },
-                { value: "all", label: "All Managed Warehouses" },
-              ]}
-            />
-            {target === "list" && (
-              <TextField
-                multiline
-                label="Organization IDs"
-                placeholder="org_abc123, org_def456"
-                value={orgIds}
-                onChange={(e) => setOrgIds(e.target.value)}
+            <Flex direction="column" gap="2">
+              <Text weight="semibold">Tables</Text>
+              <RecreateTablesCheckboxes value={tables} setValue={setTables} />
+            </Flex>
+            <Flex direction="column" gap="2">
+              <Text weight="semibold">Organizations</Text>
+              <RadioGroup
+                value={target}
+                setValue={(v) => setTarget(v as "all" | "list")}
+                options={[
+                  { value: "list", label: "These organizations" },
+                  { value: "all", label: "All Managed Warehouses" },
+                ]}
               />
-            )}
+              {target === "list" && (
+                <TextField
+                  multiline
+                  label="Organization IDs"
+                  placeholder="org_abc123, org_def456"
+                  value={orgIds}
+                  onChange={(e) => setOrgIds(e.target.value)}
+                />
+              )}
+            </Flex>
             <Flex>
               <Button
                 disabled={
@@ -286,15 +313,7 @@ export default function ManagedWarehouseRecreates({
                 variant="outline"
                 color="red"
                 disabled={!counts?.pending}
-                onClick={() =>
-                  run(async () => {
-                    const { cancelled } = await apiCall<{ cancelled: number }>(
-                      "/admin/managed-warehouse/recreates/cancel-pending",
-                      { method: "POST" },
-                    );
-                    return `Cancelled ${cancelled} pending recreate${cancelled === 1 ? "" : "s"}.`;
-                  })
-                }
+                onClick={() => setConfirmingCancel(true)}
               >
                 Cancel pending
               </Button>
@@ -334,13 +353,15 @@ export default function ManagedWarehouseRecreates({
                 <TableRow key={organization}>
                   <TableCell>
                     <Link href={`/admin/org/${organization}`}>
-                      {organization}
+                      <Text mono>{organization}</Text>
                     </Link>
                   </TableCell>
                   <TableCell>
                     <RecreateStatusBadge status={request.status} />
                   </TableCell>
-                  <TableCell>{request.tables.join(", ")}</TableCell>
+                  <TableCell>
+                    <Text mono>{request.tables.join(", ")}</Text>
+                  </TableCell>
                   <TableCell>{datetime(request.requestedAt)}</TableCell>
                   <TableCell>{request.error ?? ""}</TableCell>
                 </TableRow>

@@ -84,6 +84,25 @@ test("requests skip never-provisioned warehouses and running recreates", async (
   expect(await statusOf("org_c")).toBe("running");
 });
 
+test("a new request adds tables to an org's pending request", async () => {
+  await addWarehouse("org_a");
+  await requestManagedWarehouseRecreates({
+    organizations: ["org_a"],
+    tables: ["feature_usage"],
+    requestedBy: "u_1",
+  });
+  const created = await requestManagedWarehouseRecreates({
+    organizations: "all",
+    tables: ["events"],
+    requestedBy: "u_2",
+  });
+
+  expect(created).toBe(1);
+  const request = await getManagedWarehouseRecreateRequest("org_a");
+  expect(request?.tables.sort()).toEqual(["events", "feature_usage"]);
+  expect(request?.requestedBy).toBe("u_1");
+});
+
 test("a recreate runs, then records the license server's result", async () => {
   await addWarehouse("org_a");
   await requestManagedWarehouseRecreates({

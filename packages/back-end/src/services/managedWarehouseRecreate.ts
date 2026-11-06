@@ -37,7 +37,8 @@ function datasources() {
 /**
  * Request a recreate of the given tables for each org's Managed Warehouse.
  * Never-provisioned warehouses (no tables yet) and orgs with a recreate already
- * running are skipped. Returns how many requests were created.
+ * running are skipped. An org with a pending request gets the tables added to
+ * it, so queued work is never dropped. Returns how many orgs were queued.
  */
 export async function requestManagedWarehouseRecreates({
   organizations,
@@ -48,24 +49,31 @@ export async function requestManagedWarehouseRecreates({
   tables: ManagedWarehouseRecreatableTable[];
   requestedBy: string;
 }): Promise<number> {
+  const targets = {
+    ...MANAGED_WAREHOUSE_FILTER,
+    "settings.hasBeenProvisioned": { $ne: false },
+    ...(organizations === "all"
+      ? {}
+      : { organization: { $in: organizations } }),
+  };
+
+  const merged = await datasources().updateMany(
+    { ...targets, "recreateRequest.status": "pending" },
+    { $addToSet: { "recreateRequest.tables": { $each: tables } } },
+  );
+
   const request: ManagedWarehouseRecreateRequest = {
     tables,
     requestedBy,
     requestedAt: new Date(),
     status: "pending",
   };
-  const res = await datasources().updateMany(
-    {
-      ...MANAGED_WAREHOUSE_FILTER,
-      "settings.hasBeenProvisioned": { $ne: false },
-      "recreateRequest.status": { $ne: "running" },
-      ...(organizations === "all"
-        ? {}
-        : { organization: { $in: organizations } }),
-    },
+  const created = await datasources().updateMany(
+    { ...targets, "recreateRequest.status": { $nin: ["pending", "running"] } },
     { $set: { recreateRequest: request } },
   );
-  return res.modifiedCount;
+
+  return merged.matchedCount + created.modifiedCount;
 }
 
 export async function getManagedWarehouseRecreateRequest(
