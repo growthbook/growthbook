@@ -6,8 +6,8 @@ import {
 } from "shared/util";
 import { BiShow } from "react-icons/bi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { ImBlocked } from "react-icons/im";
+import { PiCheckCircle, PiXCircle } from "react-icons/pi";
 import { Flex, IconButton } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
@@ -37,6 +37,19 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+
+const BooleanStatusIcon: FC<{ value: boolean; tooltip: string }> = ({
+  value,
+  tooltip,
+}) => (
+  <Tooltip body={tooltip}>
+    {value ? (
+      <PiCheckCircle style={{ color: "var(--green-9)", fontSize: 18 }} />
+    ) : (
+      <PiXCircle style={{ color: "var(--gray-8)", fontSize: 18 }} />
+    )}
+  </Tooltip>
+);
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -196,42 +209,24 @@ const EnvironmentsPage: FC = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Tooltip
-                      body={
+                    <BooleanStatusIcon
+                      value={e.defaultState !== false}
+                      tooltip={
                         e.defaultState === false
                           ? "New features default to disabled"
                           : "New features default to enabled"
                       }
-                    >
-                      {e.defaultState === false ? (
-                        <FaRegCircleXmark
-                          style={{ color: "var(--gray-8)", fontSize: 18 }}
-                        />
-                      ) : (
-                        <FaRegCircleCheck
-                          style={{ color: "var(--green-9)", fontSize: 18 }}
-                        />
-                      )}
-                    </Tooltip>
+                    />
                   </TableCell>
                   <TableCell>
-                    <Tooltip
-                      body={
+                    <BooleanStatusIcon
+                      value={isProductionEnvironment(e)}
+                      tooltip={
                         isProductionEnvironment(e)
                           ? "Production environment"
                           : "Non-production environment"
                       }
-                    >
-                      {isProductionEnvironment(e) ? (
-                        <FaRegCircleCheck
-                          style={{ color: "var(--green-9)", fontSize: 18 }}
-                        />
-                      ) : (
-                        <FaRegCircleXmark
-                          style={{ color: "var(--gray-8)", fontSize: 18 }}
-                        />
-                      )}
-                    </Tooltip>
+                    />
                   </TableCell>
                   <TableCell>{e.toggleOnList ? "yes" : ""}</TableCell>
                   <TableCell>
