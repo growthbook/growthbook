@@ -38,7 +38,6 @@ export function DemoBadge() {
       label="Demo"
       title={DEMO_BADGE_TITLE}
       variant="solid"
-      radius="full"
       size="xs"
       style={{ backgroundColor: DEMO_BADGE_COLOR, flexShrink: 0 }}
     />

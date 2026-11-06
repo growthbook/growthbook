@@ -69,10 +69,13 @@ export default function SidebarProjectSelector({
   ) : (
     <>
       {avatar}
-      <span ref={labelRef} className={sidebarItem.labelClassName}>
-        {name}
+      {/* The badge follows the name, as Beta does a page's. */}
+      <span className={styles.nameWithBadge}>
+        <span ref={labelRef} className={sidebarItem.labelClassName}>
+          {name}
+        </span>
+        {current && isDemo(current.id) ? <DemoBadge /> : null}
       </span>
-      {current && isDemo(current.id) ? <DemoBadge /> : null}
       {tooltip.anchor}
     </>
   );
