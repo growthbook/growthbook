@@ -281,16 +281,21 @@ export function getRowFilterDescription(
 }
 
 /**
- * Generic, dialect-neutral SQL for showing what a row filter does. Saved
- * filters expand to their SQL, with a comment naming the source filter.
- * Without a fact table, falls back to a plain `column operator values` line.
+ * Dialect-neutral SQL for showing what a row filter does. Without a fact
+ * table, falls back to a plain `column operator values` line.
  */
 export function getRowFilterDisplaySQL(
   rowFilter: RowFilter,
   factTable: FactTableDefinition | null,
 ): string {
   if (!factTable) {
-    return `${rowFilter.column} ${rowFilter.operator} ${rowFilter.values?.join(", ")}`;
+    return [
+      rowFilter.column,
+      rowFilter.operator,
+      (rowFilter.values ?? []).join(", "),
+    ]
+      .filter(Boolean)
+      .join(" ");
   }
   const escapeStringLiteral = (s: string) => s.replace(/'/g, "''");
   return (
