@@ -3,7 +3,24 @@
   transition: opacity 0.15s;
 }
 
+// Keyboard focus shows them too; a click's focus (after a drag, or a menu
+// closing) doesn't, so they hide once the pointer leaves. A menu it opens
+// keeps it shown.
 .hoverActions:hover .actions,
-.hoverActions:focus-within .actions {
+.hoverActions:has(:focus-visible) .actions,
+.hoverActions .actions[data-state="open"] {
+  opacity: 1;
+}
+
+// A value inside a hovered card shows its buttons only while it's hovered
+// itself, so a rule's variations don't all show theirs at once.
+.hoverActions
+  .value:not(:hover):not(:has(:focus-visible)):not(:has([data-state="open"]))
+  > .actions {
+  opacity: 0;
+}
+
+// A card being dragged isn't hovered, but is the one in hand.
+.showActions .actions {
   opacity: 1;
 }

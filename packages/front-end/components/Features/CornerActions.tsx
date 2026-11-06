@@ -1,5 +1,6 @@
 import { CSSProperties, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import clsx from "clsx";
 import styles from "./CornerActions.module.scss";
 
 /** Where a value's action buttons (copy, fullscreen) sit over it. */
@@ -12,7 +13,8 @@ export type ActionsOverlay = {
 
 /**
  * A value with its action buttons pinned over one corner. Inside anything with
- * the `hoverActions` class, they're hidden until that is hovered or focused.
+ * the `hoverActions` class, they're hidden until the value is hovered or
+ * focused.
  */
 export default function CornerActions({
   overlay,
@@ -27,7 +29,7 @@ export default function CornerActions({
   return (
     <Box
       position="relative"
-      className={reveal ? styles.hoverActions : undefined}
+      className={clsx(styles.value, reveal && styles.hoverActions)}
     >
       {children}
       {actions ? (
@@ -37,7 +39,7 @@ export default function CornerActions({
           className={styles.actions}
           style={{
             position: "absolute",
-            bottom: -4,
+            bottom: 4,
             right: 16,
             ...overlay?.style,
           }}

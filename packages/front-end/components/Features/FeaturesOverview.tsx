@@ -862,7 +862,7 @@ export default function FeaturesOverview({
                       </strong>{" "}
                       Ensure that this feature&apos;s project is included in at
                       least one environment to use it.{" "}
-                      <Link href="/environments">Manage Environments</Link>
+                      <Link href="/environments">Manage environments</Link>
                     </Callout>
                   </Box>
                 )}

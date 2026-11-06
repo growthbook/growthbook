@@ -31,6 +31,7 @@ import {
 import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 import HoldoutSummary from "./HoldoutSummary";
+import cornerStyles from "./CornerActions.module.scss";
 
 interface Props {
   feature: FeatureInterface;
@@ -111,109 +112,117 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
 
     return (
       <Box {...props} ref={ref} style={{ margin: -1 }}>
-        <RuleCard index={1} sideColor={sideColor}>
-          <Flex
-            justify="between"
-            align="start"
-            mb="3"
-            gap="3"
-            style={{ maxWidth: "100%" }}
-          >
+        <RuleCard
+          index={1}
+          sideColor={sideColor}
+          header={
             <Flex
+              justify="between"
               align="center"
-              gap="2"
-              style={{ flex: "0 1 auto", flexWrap: "wrap" }}
+              gap="3"
+              style={{ maxWidth: "100%" }}
             >
-              <Heading as="h4" size="3" weight="medium" mb="0">
-                <>
-                  Holdout:{" "}
-                  <Link
-                    href={`/holdout/${feature.holdout?.id}`}
-                    style={{ marginRight: "var(--space-2)" }}
-                  >
-                    {holdout.name}
-                  </Link>
-                </>
-              </Heading>
-              {!isDeleted && (
-                <ExperimentStatusIndicator experimentData={holdoutExperiment} />
-              )}
-            </Flex>
-
-            <Flex align="center" gap="2" flexShrink="0">
-              {isInactive && (
-                <Badge
-                  color="amber"
-                  label={
-                    <>
-                      <PiArrowBendRightDown />
-                      Skipped
-                    </>
-                  }
-                />
-              )}
-
-              {canEdit && lockedBySchedule ? (
-                <LockedRowMenu
-                  style={{ marginRight: "calc(var(--space-2) * -1)" }}
-                />
-              ) : null}
-              {canEdit && !isLocked && (
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                      style={{ marginRight: "calc(var(--space-2) * -1)" }}
+              <Flex
+                align="center"
+                gap="2"
+                style={{ flex: "0 1 auto", flexWrap: "wrap" }}
+              >
+                <Heading as="h4" size="3" weight="medium" mb="0">
+                  <>
+                    Holdout:{" "}
+                    <Link
+                      href={`/holdout/${feature.holdout?.id}`}
+                      style={{ marginRight: "var(--space-2)" }}
                     >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  open={dropdownOpen}
-                  onOpenChange={setDropdownOpen}
-                  menuPlacement="end"
-                  variant="soft"
-                >
-                  <DropdownMenuGroup>
-                    {isDeleted ? (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setDropdownOpen(false);
-                          setReEnableModal(true);
-                        }}
-                      >
-                        Re-enable holdout
-                      </DropdownMenuItem>
-                    ) : (
+                      {holdout.name}
+                    </Link>
+                  </>
+                </Heading>
+                {!isDeleted && (
+                  <ExperimentStatusIndicator
+                    experimentData={holdoutExperiment}
+                  />
+                )}
+              </Flex>
+
+              <Flex align="center" gap="2" flexShrink="0">
+                {isInactive && (
+                  <Badge
+                    color="amber"
+                    label={
                       <>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setRuleModal();
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          color="red"
-                          onClick={() => {
-                            setDropdownOpen(false);
-                            setRemoveModal(true);
-                          }}
-                        >
-                          Remove from holdout
-                        </DropdownMenuItem>
+                        <PiArrowBendRightDown />
+                        Skipped
                       </>
-                    )}
-                  </DropdownMenuGroup>
-                </DropdownMenu>
-              )}
+                    }
+                  />
+                )}
+
+                {canEdit && lockedBySchedule ? (
+                  <LockedRowMenu
+                    className={cornerStyles.actions}
+                    style={{ marginRight: "calc(var(--space-2) * -1)" }}
+                  />
+                ) : null}
+                {canEdit && !isLocked && (
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        className={cornerStyles.actions}
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                        style={{ marginRight: "calc(var(--space-2) * -1)" }}
+                      >
+                        <BsThreeDotsVertical size={16} />
+                      </IconButton>
+                    }
+                    open={dropdownOpen}
+                    onOpenChange={setDropdownOpen}
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuGroup>
+                      {isDeleted ? (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            setReEnableModal(true);
+                          }}
+                        >
+                          Re-enable holdout
+                        </DropdownMenuItem>
+                      ) : (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setRuleModal();
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            color="red"
+                            onClick={() => {
+                              setDropdownOpen(false);
+                              setRemoveModal(true);
+                            }}
+                          >
+                            Remove from holdout
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
+                )}
+              </Flex>
             </Flex>
-          </Flex>
+          }
+        >
           <RuleEnvScopeBadges
             activeEnvironmentIds={activeHoldoutEnvIds}
             environments={environments}
@@ -234,7 +243,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
               <Callout status="info">
                 This Holdout is stopped and this rule will be skipped.{" "}
                 <Link href={`/holdout/${holdout.id}#results`}>
-                  View Results
+                  View results
                 </Link>
               </Callout>
             ) : null}

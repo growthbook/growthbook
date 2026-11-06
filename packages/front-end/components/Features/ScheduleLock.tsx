@@ -11,9 +11,11 @@ export const SCHEDULE_EDIT_LOCK_REASON =
 export function LockedRowMenu({
   iconSize = 16,
   style = { margin: 0 },
+  className,
 }: {
   iconSize?: number;
   style?: CSSProperties;
+  className?: string;
 }) {
   return (
     <Tooltip content={SCHEDULE_EDIT_LOCK_REASON}>
@@ -25,6 +27,7 @@ export function LockedRowMenu({
         highContrast
         disabled
         aria-label="Actions"
+        className={className}
         style={style}
       >
         <BsThreeDotsVertical size={iconSize} />
