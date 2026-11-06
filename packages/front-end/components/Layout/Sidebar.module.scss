@@ -147,7 +147,8 @@
 
 // The panel's curve moves the sidebar's edge sooner, so the wordmark fades
 // faster to be gone before the edge reaches it.
-:global(html.agent-dock-motion) .collapsing .brandWordmark {
+:global(html.agent-dock-motion) .collapsing .brandWordmark,
+:global(html.agent-dock-motion) .collapsing .planLabel {
   transition-duration: 40ms;
 }
 
@@ -161,22 +162,23 @@
   align-items: flex-start;
 }
 
-// The logo, and on paid plans the plan crown at the row's end.
-.brand {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  margin-bottom: 5px;
-}
-
 .logo {
+  position: relative;
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  align-self: flex-start;
   padding: 3px 5px;
+  margin-bottom: 5px;
   border-radius: var(--radius-3);
   text-decoration: none;
+
+  // Over the global a:hover underline, which would underline the plan label.
+  &:hover,
+  &:focus,
+  &:focus-visible {
+    text-decoration: none;
+  }
 
   .collapsed & {
     width: 32px;
@@ -189,40 +191,45 @@
   }
 }
 
+// Smaller on paid plans (Sidebar.tsx), about its left edge and vertical
+// centre, so it stays on the header's line. A transform, so the header's
+// height doesn't change; it eases with the sidebar's width.
 .brandLogo {
   flex-shrink: 0;
-}
+  transform: scale(var(--logo-scale, 1));
+  transform-origin: 0 50%;
+  transition: transform 200ms ease;
 
-// The section chevrons' box (.chevronButton): 28px, 2px in from the row's
-// end, so the crown sits centred over them.
-.planCrown {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  margin-right: 2px;
+  :global(html.agent-dock-motion) & {
+    transition-duration: var(--agent-dock-duration);
+    transition-timing-function: var(--agent-dock-easing);
+  }
 
-  // In the drawer, the close button holds that spot: just left of it.
-  @media (max-width: 1180px) {
-    margin-right: calc(32px + var(--space-1));
+  @media (prefers-reduced-motion: reduce) {
+    transition: none !important;
   }
 }
 
-// Gold for Enterprise, silver for Pro (the chevrons' gray).
-.planCrownEnterprise {
-  color: var(--amber-11);
-}
+// Under the scaled wordmark, from where "GrowthBook" starts, 2px below its
+// baseline (both set in Sidebar.tsx). Out of the flow, so the header keeps its
+// height.
+.planLabel {
+  position: absolute;
+  top: calc(50% + var(--wordmark-baseline) + 2px);
+  left: calc(5px + var(--wordmark-inset));
+  white-space: nowrap;
 
-.planCrownPro {
-  color: var(--sidebar-chevron);
-}
-
-// Hidden while the sidebar resizes, as the chevrons are, so the narrowing
-// edge never drags it over the wordmark.
-.resizing .planCrown {
-  opacity: 0;
+  // Text sets its own letter-spacing. 10px is deliberately below Text's
+  // smallest size: the label is part of the logo lockup, not body text.
+  // slate-11, not Text's text-low, which is under 4.5:1 at this size.
+  // A block with a 10px line height, so it carries no extra space.
+  & > * {
+    display: block;
+    font-size: 10px;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    color: var(--slate-11);
+  }
 }
 
 .brandWordmark {
@@ -231,7 +238,8 @@
 
 // Fades out before the narrowing sidebar's edge cuts into it. Only while the
 // sidebar moves, so reduced motion stays instant.
-.collapsing .brandWordmark {
+.collapsing .brandWordmark,
+.collapsing .planLabel {
   opacity: 0;
   transition: opacity 80ms ease-out;
 }
