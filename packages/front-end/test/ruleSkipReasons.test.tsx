@@ -24,11 +24,8 @@ function experiment(
 }
 
 describe("experimentRefSkipReason", () => {
-  it("serves a running experiment, and a draft while viewing a draft", () => {
+  it("serves a running experiment", () => {
     expect(experimentRefSkipReason(experiment({}), false)).toBeNull();
-    expect(
-      experimentRefSkipReason(experiment({ status: "draft" }), true),
-    ).toBeNull();
     expect(
       experimentRefSkipReason(
         experiment({ status: "stopped", releasedVariationId: "v1" }),
@@ -55,9 +52,23 @@ describe("experimentRefSkipReason", () => {
       }),
       "stopped without a temporary rollout",
     ],
-    ["a draft", experiment({ status: "draft" }), "draft state"],
+    [
+      "a draft",
+      experiment({ status: "draft" }),
+      "SDK connections that include draft experiments",
+    ],
   ])("explains %s", (_, exp, reason) => {
     expect(text(experimentRefSkipReason(exp, false))).toContain(reason);
+  });
+
+  it("offers a draft's start on publish only while viewing a draft", () => {
+    const draft = experiment({ status: "draft" });
+    expect(text(experimentRefSkipReason(draft, true))).toContain(
+      "You can start the experiment when you publish this feature draft.",
+    );
+    expect(text(experimentRefSkipReason(draft, false))).not.toContain(
+      "publish",
+    );
   });
 
   it("names a Bandit as one", () => {
@@ -81,18 +92,15 @@ describe("contextualBanditSkipReason", () => {
       ...overrides,
     }) as ApiContextualBanditInterface;
 
-  it("serves a running one, and a draft while viewing a draft", () => {
-    expect(contextualBanditSkipReason(cb({}), false)).toBeNull();
-    expect(
-      contextualBanditSkipReason(cb({ status: "draft" }), true),
-    ).toBeNull();
+  it("serves a running one", () => {
+    expect(contextualBanditSkipReason(cb({}))).toBeNull();
   });
 
   it.each([
     ["archived", cb({ archived: true }), "is archived"],
     ["stopped", cb({ status: "stopped" }), "is stopped"],
-    ["a draft", cb({ status: "draft" }), "draft state"],
+    ["a draft", cb({ status: "draft" }), "is a draft"],
   ])("explains %s", (_, bandit, reason) => {
-    expect(text(contextualBanditSkipReason(bandit, false))).toContain(reason);
+    expect(text(contextualBanditSkipReason(bandit))).toContain(reason);
   });
 });

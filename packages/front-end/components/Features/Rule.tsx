@@ -295,10 +295,8 @@ function isRuleSkipped({
   rule,
   linkedExperiment,
   linkedContextualBandit,
-  isDraft,
 }: {
   rule: FeatureRule;
-  isDraft: boolean;
   linkedExperiment?: ExperimentInterfaceStringDates;
   linkedContextualBandit?: ApiContextualBanditInterface;
 }): boolean {
@@ -314,17 +312,14 @@ function isRuleSkipped({
     return true;
   }
 
-  if (
-    linkedExperiment &&
-    isExperimentRefRuleSkipped(linkedExperiment, isDraft)
-  ) {
+  if (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) {
     return true;
   }
 
   if (
     rule.type === "contextual-bandit-ref" &&
     linkedContextualBandit &&
-    isContextualBanditRefRuleSkipped(linkedContextualBandit, isDraft)
+    isContextualBanditRefRuleSkipped(linkedContextualBandit)
   ) {
     return true;
   }
@@ -569,6 +564,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rampSchedule,
       rampPendingDetach: !!hasPendingDetach,
       missingSavedGroupIds: getMissingSavedGroupIds?.(rule) ?? [],
+      // The redesign's ribbons all match its conflict ribbon.
+      calloutSize: redesign ? "sm" : undefined,
     });
 
     if (hideInactive && isInactive) {
@@ -2045,11 +2042,15 @@ export function SortableRule(props: SortableProps) {
 }
 
 // A rule that serves nothing says so, and why, across its card.
-function skipped(reason: ReactNode): RuleMetaInfo {
+function skipped(
+  reason: ReactNode,
+  size?: "sm",
+  label = "Skipped",
+): RuleMetaInfo {
   return {
     callout: (
-      <Callout status="warning">
-        <strong>Skipped</strong>
+      <Callout status="warning" size={size}>
+        <strong>{label}</strong>
         {reason ? <>: {reason}</> : null}
       </Callout>
     ),
@@ -2073,6 +2074,7 @@ export function getRuleMetaInfo({
   rampSchedule,
   rampPendingDetach,
   missingSavedGroupIds = [],
+  calloutSize,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -2084,6 +2086,7 @@ export function getRuleMetaInfo({
   rampPendingDetach?: boolean;
   // Saved groups this rule names that no longer exist
   missingSavedGroupIds?: string[];
+  calloutSize?: "sm";
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -2094,7 +2097,6 @@ export function getRuleMetaInfo({
     rule,
     linkedExperiment,
     linkedContextualBandit,
-    isDraft,
   });
 
   const upcomingScheduleRule = getUpcomingScheduleRule(rule);
@@ -2108,7 +2110,7 @@ export function getRuleMetaInfo({
     rule.type === "experiment-ref"
       ? experimentRefSkipReason(linkedExperiment, isDraft)
       : rule.type === "contextual-bandit-ref" && linkedContextualBandit
-        ? contextualBanditSkipReason(linkedContextualBandit, isDraft)
+        ? contextualBanditSkipReason(linkedContextualBandit)
         : null;
 
   if (!rule.enabled) {
@@ -2205,7 +2207,9 @@ export function getRuleMetaInfo({
       ),
       // Its summary has nothing to show for a missing or retired target.
       callout: targetReason ? (
-        <Callout status="info">{targetReason}</Callout>
+        <Callout status="info" size={calloutSize}>
+          {targetReason}
+        </Callout>
       ) : undefined,
       sideColor: "disabled",
     };
@@ -2224,6 +2228,7 @@ export function getRuleMetaInfo({
           {new Date(lastRule.timestamp).toLocaleDateString()} at{" "}
           {formatTimeZone(new Date(lastRule.timestamp), "h:mm a z")}.
         </>,
+        calloutSize,
       );
     }
   }
@@ -2233,6 +2238,7 @@ export function getRuleMetaInfo({
       rule.type === "safe-rollout"
         ? "This Safe Rollout is stopped."
         : experimentRefSkipReason(linkedExperiment, isDraft),
+      calloutSize,
     );
   }
 
@@ -2247,14 +2253,22 @@ export function getRuleMetaInfo({
         {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
         {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}.
       </>,
+      calloutSize,
     );
   }
 
   if (ruleSkipped) {
+    if (rule.type === "contextual-bandit-ref" && linkedContextualBandit) {
+      return skipped(
+        contextualBanditSkipReason(linkedContextualBandit),
+        calloutSize,
+      );
+    }
     return skipped(
-      rule.type === "contextual-bandit-ref" && linkedContextualBandit
-        ? contextualBanditSkipReason(linkedContextualBandit, isDraft)
-        : experimentRefSkipReason(linkedExperiment, isDraft),
+      experimentRefSkipReason(linkedExperiment, isDraft),
+      calloutSize,
+      // An SDK connection can include draft experiment rules.
+      linkedExperiment?.status === "draft" ? "Skipped by default" : "Skipped",
     );
   }
 
@@ -2273,7 +2287,7 @@ export function getRuleMetaInfo({
   ));
   if (missingSavedGroupIds.length) {
     callouts.unshift(
-      <Callout key="missing-saved-groups" status="error">
+      <Callout key="missing-saved-groups" status="error" size={calloutSize}>
         {missingSavedGroupIds.length === 1
           ? "This rule targets a Saved Group that no longer exists"
           : "This rule targets Saved Groups that no longer exist"}{" "}
@@ -2296,7 +2310,7 @@ export function getRuleMetaInfo({
 
   if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
     callouts.push(
-      <Callout key="schedule" status="info">
+      <Callout key="schedule" status="info" size={calloutSize}>
         Will be disabled on{" "}
         {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
         {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}

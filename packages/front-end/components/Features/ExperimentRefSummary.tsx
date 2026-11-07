@@ -43,13 +43,10 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export function isExperimentRefRuleSkipped(
   experiment: ExperimentInterfaceStringDates,
-  isDraft: boolean,
 ) {
-  if (experiment.status === "draft" && !experiment.archived) {
-    // Draft experiments are published alongside feature drafts,
-    // so don't need to mark this as skipped if we're viewing a feature draft
-    return !isDraft;
-  }
+  // A draft's rule is left out of SDK payloads until it starts, unless a
+  // connection includes draft experiment rules.
+  if (experiment.status === "draft" && !experiment.archived) return true;
   return !includeExperimentInPayload(experiment);
 }
 
@@ -87,11 +84,14 @@ export function experimentRefSkipReason(
       </>
     );
   }
-  if (experiment.status === "draft" && !isDraft) {
+  if (experiment.status === "draft") {
     return (
       <>
-        This {noun} is in a <strong>draft</strong> state and has not been
-        started yet.
+        This {noun} is a <strong>draft</strong>, served only to SDK connections
+        that include draft experiments.
+        {isDraft
+          ? ` You can start the ${noun} when you publish this feature draft.`
+          : null}
       </>
     );
   }

@@ -21,20 +21,16 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import RuleVariationsTable from "@/components/Features/RuleVariationsTable";
 
+// A draft's rule is left out of SDK payloads until it starts.
 export function isContextualBanditRefRuleSkipped(
   cb: ApiContextualBanditInterface,
-  isDraft: boolean,
 ): boolean {
-  if (cb.archived) return true;
-  if (cb.status === "stopped") return true;
-  if (cb.status === "draft") return !isDraft;
-  return false;
+  return cb.archived || cb.status === "stopped" || cb.status === "draft";
 }
 
 // Why a Contextual Bandit rule serves nothing, or null while it serves.
 export function contextualBanditSkipReason(
   cb: ApiContextualBanditInterface,
-  isDraft: boolean,
 ): ReactNode {
   const view = (
     <Link href={`/contextual-bandit/${cb.id}`}>View Contextual Bandit</Link>
@@ -43,11 +39,11 @@ export function contextualBanditSkipReason(
   if (cb.status === "stopped") {
     return <>This Contextual Bandit is stopped. {view}</>;
   }
-  if (cb.status === "draft" && !isDraft) {
+  if (cb.status === "draft") {
     return (
       <>
-        This Contextual Bandit is in a <strong>draft</strong> state and has not
-        been started yet.
+        This Contextual Bandit is a <strong>draft</strong> and hasn&apos;t
+        started.
       </>
     );
   }

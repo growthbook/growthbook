@@ -1,23 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useFormContext } from "react-hook-form";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPlus, PiTrash } from "react-icons/pi";
-import { FeatureInterface } from "shared/types/feature";
+import {
+  PiCaretDownFill,
+  PiCaretRightFill,
+  PiPlus,
+  PiTrash,
+} from "react-icons/pi";
+import { ExperimentValue, FeatureInterface } from "shared/types/feature";
 import { getEqualWeights } from "shared/experiments";
-import { parsePlainJSONObject } from "shared/util";
-import FeatureValueCell from "@/components/Features/FeatureValueCell";
+import {
+  expandSparseToFull,
+  generateVariationId,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+} from "shared/util";
+import FeatureValueField from "@/components/Features/FeatureValueField";
+import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import Field from "@/components/Forms/Field";
 import { PercentField } from "@/components/Forms/PercentSliderField";
-import FlagValuesModal from "@/components/Experiment/TabbedPage/FlagValuesModal";
+import { CoverageField } from "@/components/Features/FeatureVariationsInput";
+import ExperimentSplitVisual from "@/components/Features/ExperimentSplitVisual";
+import { getFeatureDefaultValue } from "@/services/features";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import styles from "@/components/Experiment/TabbedPage/VariationValuesTable.module.scss";
 import {
   isEqualSplit,
   rebalance,
   VARIATION_WEIGHT_DECIMALS,
 } from "@/services/utils";
-import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import Collapse from "@/ui/Collapse";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
@@ -28,6 +43,129 @@ import {
   RuleVariation,
 } from "@/services/ruleVariations";
 import own from "./NewRuleVariationsGrid.module.scss";
+
+/** A new rule's traffic and variations, read from and written to its form. */
+export function NewRuleTrafficFields({
+  kind,
+  feature,
+  coverageTooltip,
+}: {
+  kind: "experiment" | "bandit";
+  feature: FeatureInterface;
+  coverageTooltip: string;
+}) {
+  const form = useFormContext();
+  const defaultValue = getFeatureDefaultValue(feature);
+  const stored: (ExperimentValue & { id?: string })[] =
+    form.watch("values") ?? [];
+  // Each variation needs an id that holds across renders, as a row key.
+  const missingIds = stored.some((v) => !v.id);
+  useEffect(() => {
+    if (!missingIds) return;
+    form.setValue(
+      "values",
+      stored.map((v) => ({ ...v, id: v.id || generateVariationId() })),
+    );
+  }, [missingIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const variations: RuleVariation[] = stored.map((v, i) => ({
+    id: v.id || String(i),
+    name: v.name ?? "",
+    value: v.value || "",
+    weight: v.weight,
+  }));
+  const setVariations = (next: RuleVariation[]) =>
+    form.setValue("values", next);
+  const coverage = form.watch("coverage") ?? 1;
+  const noun = kind === "bandit" ? "Bandit" : "experiment";
+
+  // A Bandit's count keeps the values already set, and fills in new ones.
+  const [typedCount, setTypedCount] = useState<string | null>(null);
+  const applyCount = (n: number) => {
+    const next = Array.from(
+      { length: n },
+      (_, i) =>
+        variations[i] ?? newRuleVariation(feature.valueType, defaultValue, i),
+    );
+    setVariations(next.map((v) => ({ ...v, weight: 1 / n })));
+  };
+  // Applied as it's typed, so a submit by Enter uses it; clamped on blur.
+  const typeCount = (raw: string) => {
+    setTypedCount(raw);
+    const n = parseInt(raw);
+    if (n >= 2 && n <= 100 && n !== variations.length) applyCount(n);
+  };
+  const settleCount = (raw: string) => {
+    setTypedCount(null);
+    applyCount(Math.min(Math.max(2, parseInt(raw) || 2), 100));
+  };
+  const [valuesOpen, setValuesOpen] = useState(false);
+  const grid = (
+    <NewRuleVariationsGrid
+      feature={feature}
+      defaultValue={defaultValue}
+      variations={variations}
+      setVariations={setVariations}
+      sparse={!!form.watch("sparse")}
+      setSparse={(sparse) => form.setValue("sparse", sparse)}
+      hideSplits={kind === "bandit"}
+      hideAddVariation={kind === "bandit"}
+    />
+  );
+
+  return (
+    <>
+      <CoverageField
+        label={`Traffic included in this ${noun}`}
+        tooltip={coverageTooltip}
+        coverage={coverage}
+        setCoverage={(next) => form.setValue("coverage", next)}
+        disabled={false}
+        panel
+      >
+        {kind === "experiment" ? (
+          <Box pb="4">
+            <ExperimentSplitVisual
+              coverage={coverage}
+              values={variations}
+              type={feature.valueType}
+            />
+          </Box>
+        ) : null}
+      </CoverageField>
+      {kind === "bandit" ? (
+        <>
+          <Field
+            label="Number of variations"
+            type="number"
+            min={2}
+            max={100}
+            style={{ width: 120 }}
+            value={typedCount ?? String(variations.length)}
+            onChange={(e) => typeCount(e.target.value)}
+            onBlur={(e) => settleCount(e.target.value)}
+          />
+          <Box mb={valuesOpen ? "0" : "6"}>
+            <Link
+              weight="bold"
+              aria-expanded={valuesOpen}
+              onClick={() => setValuesOpen(!valuesOpen)}
+            >
+              <Flex align="center" gap="1">
+                {valuesOpen ? <PiCaretDownFill /> : <PiCaretRightFill />}
+                <span>Variation values</span>
+              </Flex>
+            </Link>
+            <Collapse open={valuesOpen}>
+              <Box pt="2">{grid}</Box>
+            </Collapse>
+          </Box>
+        </>
+      ) : (
+        grid
+      )}
+    </>
+  );
+}
 
 /** A new rule's variations as the experiment page lays them out. */
 export default function NewRuleVariationsGrid({
@@ -51,7 +189,6 @@ export default function NewRuleVariationsGrid({
   // The count is set elsewhere.
   hideAddVariation?: boolean;
 }) {
-  const [editingValuesOf, setEditingValuesOf] = useState<string | null>(null);
   const weights = variations.map((v) => v.weight);
   const equal = isEqualSplit(weights);
 
@@ -72,10 +209,25 @@ export default function NewRuleVariationsGrid({
   const firstColumn = styles.pinnedStart;
   const lastColumn = styles.lastColumn;
   const hasFooter = !hideAddVariation || (!hideSplits && !equal);
+  const sparseEligible =
+    feature.valueType === "json" && parsePlainJSONObject(defaultValue) !== null;
+  // Each value is rewritten, so none is left a default-laden patch (on) or a
+  // bare patch shown as the full value (off).
+  const toggleSparse = (checked: boolean) => {
+    setVariations(
+      variations.map((v) => ({
+        ...v,
+        value: checked
+          ? stripDefaultsForSparse(v.value, defaultValue)
+          : expandSparseToFull(v.value, defaultValue),
+      })),
+    );
+    setSparse(checked);
+  };
   const canRemove = variations.length > 2;
 
   return (
-    <Box className="appbox" mb="4" style={{ overflow: "hidden" }}>
+    <Box className="appbox" mb="6" style={{ overflow: "hidden" }}>
       <ValueDiffProvider>
         <div
           className={styles.grid}
@@ -86,21 +238,20 @@ export default function NewRuleVariationsGrid({
           }}
         >
           <div className={clsx(styles.headerCell, firstColumn)}>
-            <Heading as="h4" size="sm" color="text-high" mb="0">
-              Variations
-            </Heading>
+            <Text weight="semibold">Variations</Text>
           </div>
           {hideSplits ? null : (
             <div className={styles.headerCell}>
-              <Text weight="medium" color="text-high">
-                Split
-              </Text>
+              <Text weight="semibold">Split</Text>
             </div>
           )}
           <div className={styles.headerCell}>
-            <Text weight="medium" color="text-high">
-              Value
-            </Text>
+            <Flex align="center" justify="between" gap="3" width="100%">
+              <Text weight="semibold">Value</Text>
+              {sparseEligible ? (
+                <SparsePatchToggle checked={sparse} onChange={toggleSparse} />
+              ) : null}
+            </Flex>
           </div>
           <div className={clsx(styles.headerCell, lastColumn)} />
 
@@ -113,6 +264,7 @@ export default function NewRuleVariationsGrid({
                   <Flex align="center" gap="2" className={styles.fieldLine}>
                     <VariationNumber number={i} />
                     <Field
+                      size="md"
                       value={v.name}
                       placeholder={defaultRuleVariationName(i)}
                       aria-label={`${name} name`}
@@ -148,22 +300,28 @@ export default function NewRuleVariationsGrid({
                   </div>
                 )}
                 <div className={styles.cell}>
-                  <FeatureValueCell
-                    id={`new-rule-value-${v.id}`}
-                    value={v.value}
-                    feature={feature}
-                    sparse={sparse}
-                    editable
-                    onChange={(value) =>
-                      setVariations(
-                        variations.map((x) =>
-                          x.id === v.id ? { ...x, value } : x,
-                        ),
-                      )
-                    }
-                    onOpenEditor={() => setEditingValuesOf(v.id)}
-                    label={name}
-                  />
+                  <Box width="100%" minWidth="0">
+                    <FeatureValueField
+                      id={`new-rule-value-${v.id}`}
+                      value={v.value}
+                      setValue={(value) =>
+                        setVariations(
+                          variations.map((x) =>
+                            x.id === v.id ? { ...x, value } : x,
+                          ),
+                        )
+                      }
+                      valueType={feature.valueType}
+                      feature={feature}
+                      sparse={sparse}
+                      renderJSONInline={false}
+                      codeInputDefaultHeight={FIVE_LINES_HEIGHT}
+                      useDropdown
+                      compact
+                      size="md"
+                      fullWidth
+                    />
+                  </Box>
                 </div>
                 <div
                   className={clsx(styles.cell, lastColumn)}
@@ -244,34 +402,6 @@ export default function NewRuleVariationsGrid({
           ) : null}
         </div>
       </ValueDiffProvider>
-
-      {editingValuesOf ? (
-        <FlagValuesModal
-          feature={feature}
-          variations={variations.map((v, index) => ({
-            id: v.id,
-            name: v.name || defaultRuleVariationName(index),
-            index,
-          }))}
-          initialValues={Object.fromEntries(
-            variations.map((v) => [v.id, v.value]),
-          )}
-          initialSparse={sparse}
-          sparseEligible={
-            feature.valueType === "json" &&
-            parsePlainJSONObject(defaultValue) !== null
-          }
-          focusVariationId={editingValuesOf}
-          close={() => setEditingValuesOf(null)}
-          apply={({ values, sparse: nextSparse }) => {
-            setVariations(
-              variations.map((v) => ({ ...v, value: values[v.id] ?? v.value })),
-            );
-            setSparse(nextSparse);
-            setEditingValuesOf(null);
-          }}
-        />
-      ) : null}
     </Box>
   );
 }

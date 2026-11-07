@@ -29,6 +29,7 @@ import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import { NewRuleTrafficFields } from "@/components/Features/RuleModal/NewRuleVariationsGrid";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditDecisionMetricSettings from "@/components/Experiment/BanditDecisionMetricSettings";
@@ -273,21 +274,31 @@ export default function BanditRefNewFields({
             )}
           </div>
 
-          <FeatureVariationsInput
-            simple={true}
-            hideCoverage={false}
-            label="Traffic Percent & Variations"
-            defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
-            valueType={feature?.valueType ?? "string"}
-            coverageLabel="Traffic included in this Bandit"
-            coverageTooltip={`Units not included in the Bandit skip this ${source}`}
-            coverage={coverage}
-            setCoverage={setCoverage}
-            setWeight={setWeight}
-            variations={variations}
-            setVariations={setVariations}
-            feature={feature}
-          />
+          {source === "rule" && feature ? (
+            <NewRuleTrafficFields
+              kind="bandit"
+              feature={feature}
+              coverageTooltip={`Units not included in the Bandit skip this ${source}`}
+            />
+          ) : (
+            <FeatureVariationsInput
+              simple={true}
+              hideCoverage={false}
+              label="Traffic Percent & Variations"
+              defaultValue={
+                feature ? getFeatureDefaultValue(feature) : undefined
+              }
+              valueType={feature?.valueType ?? "string"}
+              coverageLabel="Traffic included in this Bandit"
+              coverageTooltip={`Units not included in the Bandit skip this ${source}`}
+              coverage={coverage}
+              setCoverage={setCoverage}
+              setWeight={setWeight}
+              variations={variations}
+              setVariations={setVariations}
+              feature={feature}
+            />
+          )}
 
           {namespaces && namespaces.length > 0 && (
             <div className="mt-4">
