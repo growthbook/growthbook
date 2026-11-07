@@ -369,6 +369,7 @@ export default function FeaturePage() {
             canEdit={
               permissionsUtil.canEditFeatureDrafts(baseFeature) && !isReadOnly
             }
+            canEditRevision={permissionsUtil.canEditFeatureDrafts(baseFeature)}
             blockedReason={
               viewingDraft && isRevisionEditLockedBySchedule(revision)
                 ? SCHEDULE_EDIT_LOCK_REASON

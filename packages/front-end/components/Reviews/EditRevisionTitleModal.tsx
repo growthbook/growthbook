@@ -24,7 +24,7 @@ export default function EditRevisionTitleModal({
       trackingEventModalType={trackingEventModalType}
       open={true}
       close={close}
-      header="Rename Draft"
+      header="Rename Revision"
       cta="Save"
       submit={async () => {
         await onSubmit(value.trim());

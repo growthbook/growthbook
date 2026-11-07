@@ -5,7 +5,7 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import { isActiveDraftStatus, HoldoutInterface } from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import DetailsPanel, {
   DetailsPanelTab,
   PanelSection,
@@ -49,6 +49,7 @@ export default function FeatureDetailsPanel({
   holdout,
   dependents,
   canEdit,
+  canEditRevision,
   blockedReason,
   mutate,
   setVersion,
@@ -65,6 +66,8 @@ export default function FeatureDetailsPanel({
   // Features and experiments that use this feature as a prerequisite.
   dependents: FeatureDependents | null;
   canEdit: boolean;
+  // Names and descriptions stay editable on past revisions too.
+  canEditRevision: boolean;
   // Why the pencils show disabled.
   blockedReason: string | null;
   mutate: () => void;
@@ -87,8 +90,8 @@ export default function FeatureDetailsPanel({
     setInfoSection(section);
     setCustomFieldId(fieldId);
   };
-  const pencil = (label: string, onClick: () => void) =>
-    canEdit ? (
+  const pencil = (label: string, onClick: () => void, allowed = canEdit) =>
+    allowed ? (
       <PanelEditButton
         label={label}
         onClick={onClick}
@@ -99,10 +102,6 @@ export default function FeatureDetailsPanel({
     pencil(SECTION_HEADERS[section], () => editSection(section));
 
   const liveVersion = baseFeature.version;
-  const isDraft = isActiveDraftStatus(revision.status);
-  // Published and discarded revisions keep what they shipped with.
-  const revisionAction = (label: string, onClick: () => void) =>
-    isDraft ? pencil(label, onClick) : null;
 
   const { projects, getProjectById } = useDefinitions();
   const targetingProjects = feature.targetingProjects ?? [];
@@ -315,8 +314,10 @@ export default function FeatureDetailsPanel({
             size="sm"
             stacked
             label="Name"
-            action={revisionAction("Rename revision", () =>
-              setRenamingRevision(true),
+            action={pencil(
+              "Rename revision",
+              () => setRenamingRevision(true),
+              canEditRevision,
             )}
             value={
               revision.title ? (
@@ -332,8 +333,10 @@ export default function FeatureDetailsPanel({
             size="sm"
             stacked
             label="Description"
-            action={revisionAction("Edit revision description", () =>
-              setDescribingRevision(true),
+            action={pencil(
+              "Edit revision description",
+              () => setDescribingRevision(true),
+              canEditRevision,
             )}
             value={<MarkdownValue markdown={revision.comment} />}
           />
