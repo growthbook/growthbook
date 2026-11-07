@@ -18,10 +18,15 @@ export type {
   DestroyOptions,
   FeatureDefinitions,
   FeatureDefinition,
+  ContextualBanditDefinitions,
+  ContextualBanditDefinition,
+  InterleavingDefinitions,
+  InterleavingDefinition,
   FeatureRule,
   FeatureResult,
   FeatureResultSource,
   Experiment,
+  CBContext,
   Result,
   ExperimentOverride,
   ExperimentStatus,
@@ -53,7 +58,14 @@ export type {
   InitSyncOptions,
   Helpers,
   GrowthBookPayload,
+  PayloadMetadata,
+  PayloadFilters,
+  ReducePayloadOptions,
   SavedGroupsValues,
+  SavedGroupsPayload,
+  SavedGroupPayloadEntry,
+  RemoteSavedGroup,
+  SavedGroupResolver,
   EventLogger,
   EventProperties,
   Plugin,
@@ -63,6 +75,11 @@ export type {
 export type {
   ConditionInterface,
   ParentConditionInterface,
+  SavedGroupReference,
+  SavedGroupCondition,
+  ConditionTypeMismatch,
+  EvalConditionOptions,
+  TypeMismatchCallback,
 } from "./types/mongrule";
 
 export {
@@ -91,7 +108,23 @@ export {
   RedisStickyBucketService,
 } from "./sticky-bucket-service";
 
-export { evalCondition } from "./mongrule";
+export type {
+  CookieAttributes,
+  JsCookiesCompat,
+  IORedisCompat,
+  RequestCompat,
+  ResponseCompat,
+} from "./sticky-bucket-service";
+
+export { evalCondition, pruneCondition } from "./mongrule";
+
+export {
+  getRemoteSavedGroups,
+  redisResolver,
+  resolveRemoteGroupIds,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
+} from "./remoteSavedGroups";
+export type { RedisSetClient } from "./remoteSavedGroups";
 
 export {
   isURLTargeted,

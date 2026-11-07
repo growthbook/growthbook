@@ -1,4 +1,5 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
+import { getLatestSDKVersion } from "shared/sdk-versioning";
 import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -26,9 +27,7 @@ export default function InstallationCodeSnippet({
   eventIngestorRegion?: DataRegion;
 }) {
   const eventIngestorHost =
-    eventTracker === "growthbook" &&
-    eventIngestorRegion &&
-    eventIngestorRegion !== "us-east-1"
+    eventTracker === "growthbook" && eventIngestorRegion
       ? getEventIngestorHost(eventIngestorRegion)
       : undefined;
   const nocodeSnippet =
@@ -180,7 +179,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.+'
+    implementation 'io.growthbook.sdk:GrowthBook:${getLatestSDKVersion("android")}'
+    implementation 'io.growthbook.sdk:NetworkDispatcherKtor:1.3.0'
 }`.trim()}
           />
         );
@@ -210,7 +210,7 @@ end
                 filename="Package.swift"
                 code={`
 dependencies: [
-  .package(url: "https://github.com/growthbook/growthbook-swift.git")
+  .package(url: "https://github.com/growthbook/growthbook-swift.git", from: "${getLatestSDKVersion("ios")}")
 ]
             `.trim()}
               />
@@ -235,7 +235,12 @@ dependencies: [
         );
       }
       if (language === "python") {
-        return <Code language="sh" code={`pip install growthbook`} />;
+        return (
+          <Code
+            language="sh"
+            code={`pip install growthbook${eventTracker === "growthbook" ? " requests" : ""}`}
+          />
+        );
       }
       if (language === "java") {
         return (
@@ -255,7 +260,7 @@ dependencies: [
 <dependency>
   <groupId>com.github.growthbook</groupId>
   <artifactId>growthbook-sdk-java</artifactId>
-  <version>0.3.0</version>
+  <version>${getLatestSDKVersion("java")}</version>
 </dependency>
 `.trim()}
               />
@@ -272,7 +277,7 @@ allprojects {
     }
 }
 dependencies {
-    implementation 'com.github.growthbook:growthbook-sdk-java:0.3.0'
+    implementation 'com.github.growthbook:growthbook-sdk-java:${getLatestSDKVersion("java")}'
 }`.trim()}
               />
             </div>
@@ -284,7 +289,7 @@ dependencies {
           <Code
             language="yml"
             filename="pubspec.yml"
-            code="growthbook_sdk_flutter: ^1.0.0"
+            code={`growthbook_sdk_flutter: ^${getLatestSDKVersion("flutter")}`}
           />
         );
       }

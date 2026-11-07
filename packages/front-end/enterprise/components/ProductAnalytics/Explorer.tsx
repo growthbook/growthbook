@@ -6,6 +6,7 @@ import { PiDotsSix } from "react-icons/pi";
 import {
   ComparisonMode,
   DatasetType,
+  datasetTypeHasValues,
   ExplorationConfig,
   ExplorationDateRange,
 } from "shared/validators";
@@ -42,10 +43,12 @@ import {
   decodeExplorationConfig,
   explorationConfigParser,
   ExplorerDraftConfig,
+  getInitialInlineFilters,
   previousTimeFrameQueryParser,
   comparisonModeQueryParser,
   stripExplorerDraftFields,
 } from "./util";
+import { EXPLORER_AUTO_RUN_QUERY } from "./journeyFunnel";
 import styles from "./Explorer.module.scss";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
@@ -54,6 +57,8 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   data_source: "Data Source",
   sql: "SQL",
   funnel: "Funnel",
+  journey: "User Journey",
+  population: "Population",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -84,6 +89,7 @@ function deriveConfigError(
   urlConfig: ExplorationConfig | null,
   rawParam: string | undefined,
   type: DatasetType,
+  lockedDatasourceId?: string,
 ): string | null {
   if (!rawParam) return null;
 
@@ -98,6 +104,12 @@ function deriveConfigError(
     } explorer, but you're currently viewing the ${
       EXPLORER_TYPE_LABELS[type]
     } explorer.`;
+  }
+
+  // The selector that would reveal a mismatch is hidden here, so a saved
+  // config for another Data Source would otherwise silently win.
+  if (lockedDatasourceId && urlConfig.datasource !== lockedDatasourceId) {
+    return "This link was created from a different Data Source.";
   }
 
   return null;
@@ -349,15 +361,45 @@ function ExplorerPreviousTimeFrameUrlSync({
   return null;
 }
 
-export default function Explorer({ type }: { type: DatasetType }) {
+export default function Explorer({
+  type,
+  datasourceId,
+  lockDatasource = false,
+  height,
+  sidebarHeaderActions,
+}: {
+  type: DatasetType;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+  height?: string;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   return (
     <NuqsAdapter>
-      <ExplorerInner type={type} />
+      <ExplorerInner
+        type={type}
+        datasourceId={datasourceId}
+        lockDatasource={lockDatasource}
+        height={height}
+        sidebarHeaderActions={sidebarHeaderActions}
+      />
     </NuqsAdapter>
   );
 }
 
-function ExplorerInner({ type }: { type: DatasetType }) {
+function ExplorerInner({
+  type,
+  datasourceId: lockedDatasourceId,
+  lockDatasource = false,
+  height,
+  sidebarHeaderActions,
+}: {
+  type: DatasetType;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+  height?: string;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   const router = useRouter();
   const defaultDataSourceId = useDefaultDataSourceId();
   const {
@@ -393,7 +435,8 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const rawParam = getQueryParam(router.query.config);
   const metricId = getQueryParam(router.query.metricId);
   const factTableId = getQueryParam(router.query.factTableId);
-  const datasourceId = getQueryParam(router.query.datasourceId);
+  const datasourceId =
+    lockedDatasourceId ?? getQueryParam(router.query.datasourceId);
   const funnelMetricId = getQueryParam(router.query.funnelMetricId);
   const seedId =
     type === "metric"
@@ -404,29 +447,35 @@ function ExplorerInner({ type }: { type: DatasetType }) {
           ? funnelMetricId
           : datasourceId;
 
-  const configError = deriveConfigError(urlConfig, rawParam, type);
+  const configError = deriveConfigError(
+    urlConfig,
+    rawParam,
+    type,
+    lockDatasource ? lockedDatasourceId : undefined,
+  );
 
   const [configErrorModal, setConfigErrorModal] = useState<string | null>(
     () => configError,
   );
 
-  // Funnels seed their first step in createEmptyDataset. SQL starts without a
-  // value so running raw SQL does not also trigger an exploration query.
+  // Funnels/journeys seed their own shape in createEmptyDataset. SQL starts
+  // without a value so running raw SQL does not also trigger an exploration
+  // query. Those types also don't start with a date dimension.
   const defaultDataset = createEmptyDataset(type);
+  const seedsValues = datasetTypeHasValues(type) && type !== "sql";
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
-    dataset:
-      type === "funnel" || type === "sql"
-        ? defaultDataset
-        : { ...defaultDataset, values: [createEmptyValue(type)] },
-    // Funnels don't render time-series charts, so the default date dimension
-    // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
-    // let the user add one explicitly via "Group By".
-    // SQL starts in the unaggregated result view after the query is tested.
-    ...(type === "funnel" || type === "sql" ? { dimensions: [] } : {}),
-    ...(type === "sql" ? { chartType: "rawTable" as const } : {}),
+    dataset: seedsValues
+      ? { ...defaultDataset, values: [createEmptyValue(type)] }
+      : defaultDataset,
+    ...(seedsValues ? {} : { dimensions: [] }),
+    ...(type === "journey"
+      ? { chartType: "bar" as const }
+      : type === "sql"
+        ? { chartType: "rawTable" as const }
+        : {}),
   } as ExplorerDraftConfig;
 
   let seedError: string | null = null;
@@ -489,13 +538,18 @@ function ExplorerInner({ type }: { type: DatasetType }) {
           dataset: {
             ...createEmptyDataset("fact_table"),
             factTableId: factTable.id,
-            values: [createEmptyValue("fact_table")],
+            values: [
+              {
+                ...createEmptyValue("fact_table"),
+                rowFilters: getInitialInlineFilters(factTable),
+              },
+            ],
           },
         } as ExplorerDraftConfig;
       } else if (ready) {
         seedError = "Could not find the requested Fact Table.";
       }
-    } else if (type === "data_source" && datasourceId) {
+    } else if ((type === "data_source" || type === "sql") && datasourceId) {
       const datasource = getDatasourceById(datasourceId);
       if (datasource) {
         seededConfig = {
@@ -524,6 +578,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     urlConfig && !configError ? urlConfig : (seededConfig ?? defaultDraftState);
   const initialConfig: ExplorerDraftConfig = {
     ...baseConfig,
+    // A rejected config skips seeding
+    ...(lockDatasource && lockedDatasourceId
+      ? { datasource: lockedDatasourceId }
+      : {}),
     ...(urlPreviousTimeFrame
       ? {
           previousTimeFrame: urlPreviousTimeFrame,
@@ -563,6 +621,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         initialLinkedFunnelMetricId={
           type === "funnel" ? (funnelMetricId ?? null) : null
         }
+        autoSubmitOnLoad={
+          type === "funnel" &&
+          getQueryParam(router.query[EXPLORER_AUTO_RUN_QUERY]) === "1"
+        }
         trackingSource="manual-explorer"
       >
         {datasources.length === 0 ? (
@@ -581,7 +643,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
               setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
               setUrlComparisonMode={setUrlComparisonMode}
             />
-            <ExplorerContent />
+            <ExplorerContent
+              hideDataSourceSelector={lockDatasource}
+              height={height}
+              sidebarHeaderActions={sidebarHeaderActions}
+            />
           </>
         )}
       </ExplorerProvider>

@@ -1,6 +1,6 @@
 import { lookupSdkConnectionByKeyValidator } from "shared/validators";
 import {
-  findSDKConnectionByKey,
+  findSDKConnectionByKeyForOrg,
   toApiSDKConnectionInterface,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -8,7 +8,10 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 export const lookupSdkConnectionByKey = createApiRequestHandler(
   lookupSdkConnectionByKeyValidator,
 )(async (req) => {
-  const sdkConnection = await findSDKConnectionByKey(req.params.key);
+  const sdkConnection = await findSDKConnectionByKeyForOrg(
+    req.context,
+    req.params.key,
+  );
   if (!sdkConnection) {
     throw new Error("Could not find sdkConnection with that key");
   }

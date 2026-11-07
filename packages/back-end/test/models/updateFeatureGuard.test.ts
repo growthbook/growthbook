@@ -75,7 +75,12 @@ describe("updateFeature's landing guard", () => {
 
   it("refuses a stale pre-image and leaves the winner's write whole", async () => {
     const preImage = await load();
-    await updateFeature(context, preImage, { defaultValue: "winner" });
+    await updateFeature(
+      context,
+      preImage,
+      { defaultValue: "winner" },
+      { casOnDateUpdated: preImage.dateUpdated },
+    );
 
     await expect(
       updateFeature(

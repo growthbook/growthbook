@@ -24,13 +24,15 @@ export async function toEnhancedExperimentApiResponse(
     context,
     experiment,
   );
+  const metricGroups = await context.models.metricGroups.getAll();
 
-  const { status, detailedStatus } = getStatusIndicatorData(
-    experiment,
-    false,
+  const { status, detailedStatus } = getStatusIndicatorData({
+    experimentData: experiment,
+    skipArchived: false,
     healthSettings,
     decisionCriteria,
-  );
+    metricGroups,
+  });
   const enhancedStatus = { status, detailedStatus };
 
   const apiExperiment = await resolveOwnerEmail(

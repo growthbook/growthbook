@@ -1,18 +1,20 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
-import { ReactNode, useMemo, useState } from "react";
-import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
-import { startCase } from "lodash";
+import { ReactNode, useEffect, useMemo, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
   conditionFromLeafClauses,
   getMetricLink,
+  isActiveVariation,
+  isDeactivatedVariation,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
   ContextualLeafClause,
 } from "shared/experiments";
+import { getUnitDisplayName } from "@/services/experiments";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -20,12 +22,15 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
 import VariationNumber from "@/ui/VariationNumber";
+import OutdatedBadge from "@/components/OutdatedBadge";
 import Tooltip from "@/ui/Tooltip";
+import SegmentedControl from "@/ui/SegmentedControl";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useContextualBanditResults } from "@/hooks/useContextualBandits";
+import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
+import StatusErrorCallout from "@/components/ContextualBandit/StatusErrorCallout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
@@ -167,8 +172,20 @@ export default function ContextualBanditResultsTable({
     results,
     latest,
     refresh,
+    cancel,
     refreshError,
-  } = useContextualBanditResults(cb.id);
+    statusError,
+    mutate: refetchSnapshot,
+    refreshStatus,
+  } = useContextualBanditSnapshot();
+
+  // Radix unmounts inactive tabs, so this runs each time the Results tab opens.
+  // Refresh the cheap status to catch a run that completed while idle (the
+  // provider only polls while a run is in progress); a newer success then
+  // triggers the heavy results fetch automatically.
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const { contextualBanditQueriesMap } = useContextualBanditQueries(
@@ -177,9 +194,7 @@ export default function ContextualBanditResultsTable({
   const userIdType = contextualBanditQueriesMap.get(
     cb.contextualBanditQueryId,
   )?.userIdType;
-  const unitDisplayName = userIdType
-    ? startCase(userIdType.split("_").join(" ")) + "s"
-    : "Units";
+  const unitDisplayName = getUnitDisplayName(userIdType);
 
   const goalMetric = cb.decisionMetric
     ? getExperimentMetricById(cb.decisionMetric)
@@ -210,9 +225,6 @@ export default function ContextualBanditResultsTable({
     permissionsUtil.canRunExperimentQueries(datasource) &&
     allExpandedMetrics.length > 0;
 
-  const variations = cb.variations;
-  const numVariations = variations.length;
-
   const leaves = useMemo(() => results?.leaves ?? [], [results?.leaves]);
   const hasTableData = leaves.length > 0;
 
@@ -237,29 +249,68 @@ export default function ContextualBanditResultsTable({
     () => results?.overall.variations ?? [],
     [results?.overall.variations],
   );
-  const overallVariationWeights = useMemo(
+  const snapshotIds = useMemo(
+    () => new Set(overallVariations.map((v) => v.variationId)),
+    [overallVariations],
+  );
+  const pendingActiveVariations = useMemo(
     () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.weight ?? null,
+      cb.variations.filter(
+        (v) => isActiveVariation(v) && !snapshotIds.has(v.id),
       ),
-    [numVariations, overallVariations],
+    [cb.variations, snapshotIds],
+  );
+  const variations = useMemo(
+    () => [
+      ...overallVariations.map((v, i) => {
+        const canonical = cb.variations.findIndex(
+          (c) => c.id === v.variationId,
+        );
+        const current = canonical >= 0 ? cb.variations[canonical] : undefined;
+        return {
+          id: v.variationId,
+          name: current?.name ?? v.variationName ?? "Removed variation",
+          index: canonical >= 0 ? canonical : i,
+        };
+      }),
+      ...pendingActiveVariations.map((v) => ({
+        id: v.id,
+        name: v.name,
+        index: cb.variations.findIndex((c) => c.id === v.id),
+      })),
+    ],
+    [overallVariations, cb.variations, pendingActiveVariations],
+  );
+  const isOutdated = useMemo(
+    () =>
+      pendingActiveVariations.length > 0 ||
+      overallVariations.some((v) => {
+        const current = cb.variations.find((c) => c.id === v.variationId);
+        return !current || isDeactivatedVariation(current);
+      }),
+    [overallVariations, cb.variations, pendingActiveVariations],
+  );
+  const numVariations = variations.length;
+  const overallVariationWeights = useMemo(
+    () => [
+      ...overallVariations.map((v) => v.weight ?? null),
+      ...pendingActiveVariations.map(() => null),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
   const overallVariationMeans = useMemo(
-    () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.mean ?? null,
-      ),
-    [numVariations, overallVariations],
+    () => [
+      ...overallVariations.map((v) => v.mean ?? null),
+      ...pendingActiveVariations.map(() => null),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
   const overallVariationUnits = useMemo(
-    () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.users ?? 0,
-      ),
-    [numVariations, overallVariations],
+    () => [
+      ...overallVariations.map((v) => v.users ?? 0),
+      ...pendingActiveVariations.map(() => 0),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
 
   const totalUnits = useMemo(
@@ -279,11 +330,11 @@ export default function ContextualBanditResultsTable({
 
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
-      variations.map((v, index) => ({
+      variations.map((v) => ({
         key: v.id,
         header: (
           <Tooltip content={v.name} side="top">
-            <VariationNumber number={index} />
+            <VariationNumber number={v.index} />
           </Tooltip>
         ),
         align: "center",
@@ -343,8 +394,12 @@ export default function ContextualBanditResultsTable({
       ) : null}
       <QueriesLastRun
         status={status}
-        dateCreated={queryLatest?.dateCreated}
-        latestQueryDate={queryLatest?.dateCreated}
+        dateCreated={
+          queryLatest ? getValidDate(queryLatest.dateCreated) : undefined
+        }
+        latestQueryDate={
+          queryLatest ? getValidDate(queryLatest.dateCreated) : undefined
+        }
         nextUpdate={
           cb.nextSnapshotAttempt
             ? getValidDate(cb.nextSnapshotAttempt)
@@ -364,6 +419,13 @@ export default function ContextualBanditResultsTable({
           showQueries ? () => setQueriesModalOpen(true) : undefined
         }
       />
+      {isOutdated && hasTableData ? (
+        <OutdatedBadge
+          reasons={[
+            "The Contextual Bandit's variations have changed since the last results were computed. Update results to reflect the current variation set.",
+          ]}
+        />
+      ) : null}
       {canRunQueries ? (
         <RunQueriesButton
           cta="Update results"
@@ -372,7 +434,7 @@ export default function ContextualBanditResultsTable({
             queries: queryLatest?.queries ?? [],
             runStarted: queryLatest?.runStarted ?? null,
           }}
-          cancelEndpoint={`/api/v1/contextual-bandits/${cb.id}/cancel`}
+          onCancel={cancel}
           mutate={mutate}
           onSubmit={async () => {
             await refresh();
@@ -419,6 +481,13 @@ export default function ContextualBanditResultsTable({
         </Callout>
       ) : null}
 
+      {statusError ? (
+        <StatusErrorCallout
+          error={statusError}
+          onRetry={() => refetchSnapshot()}
+        />
+      ) : null}
+
       {hasTableData ? (
         <>
           <SectionHeading
@@ -441,7 +510,7 @@ export default function ContextualBanditResultsTable({
 
           <SectionHeading
             title="Attribute Importance"
-            description="Attributes ranked by proportion of total error removed."
+            description="Attributes ranked by proportion of error removed."
           />
           {hasSplitMetadata ? (
             <Box mb="5">
@@ -471,20 +540,17 @@ export default function ContextualBanditResultsTable({
                 sizes by bandit group.
               </Text>
             </Box>
-            <SegmentedControl.Root
-              size="1"
-              value={mode}
-              onValueChange={(value) => setMode(value as ComparisonMode)}
+            <SegmentedControl
+              size="sm"
               aria-label="Comparison value type"
-            >
-              <SegmentedControl.Item value="weights">
-                Weights
-              </SegmentedControl.Item>
-              <SegmentedControl.Item value="means">Means</SegmentedControl.Item>
-              <SegmentedControl.Item value="units">
-                {unitDisplayName}
-              </SegmentedControl.Item>
-            </SegmentedControl.Root>
+              value={mode}
+              setValue={setMode}
+              options={[
+                { value: "weights", label: "Weights" },
+                { value: "means", label: "Means" },
+                { value: "units", label: unitDisplayName },
+              ]}
+            />
           </Flex>
 
           <Heatmap

@@ -73,13 +73,15 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   "experiments-status": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "experiment-dimension": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-time-series": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
-  "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "metric-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "metric-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "fact-table-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "data-source-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "sql-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
-  "funnel-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
+  // Tables and charts sized to the block: room for a few rows under their
+  // controls.
+  "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "metric-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "fact-table-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "data-source-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "sql-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
+  "funnel-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 6 },
 };
 
 export function getBlockSizeBounds(
@@ -361,25 +363,18 @@ export type CompletedExperimentsBlockFilters = {
 };
 
 /**
- * Effective filters for a "Completed Experiments" block. Today these come
- * straight from the block; the `dashboard` arg is the forward-compat seam for a
- * future dashboard-wide filter bar (project / date range) that would take
- * precedence — mirrors resolveBlockComparison so render code never changes.
- * The date range is resolved with the same helper Metric Explorer uses.
+ * Effective filters for a "Completed Experiments" block. Callers pass the block
+ * that getEffectiveExperimentBlock already overlaid the dashboard-wide filters
+ * onto, so the values here are final. The date range is resolved with the same
+ * helper Metric Explorer uses.
  */
 export function resolveCompletedExperimentsFilters(
   block: CompletedExperimentsBlockFilters,
-  dashboard?: { projects?: string[] } | null,
 ): { startDate: Date; endDate: Date; projects: string[] } {
-  const projects =
-    dashboard?.projects && dashboard.projects.length > 0
-      ? dashboard.projects
-      : block.projects;
-
   const { startDate, endDate } = calculateProductAnalyticsDateRange(
     block.dateRange,
   );
-  return { startDate, endDate, projects };
+  return { startDate, endDate, projects: block.projects };
 }
 
 const experimentDimensionBlockInterface = baseBlockInterface
@@ -683,6 +678,22 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   sqlExplorationBlockInterface.omit(createOmits),
   funnelExplorationBlockInterface.omit(createOmits),
 ]);
+// Optional here: an API caller can send `config` alone and let the write run it.
+const apiCreateExplorationOmits = {
+  ...createOmits,
+  explorerAnalysisId: true,
+} as const;
+
+const optionalExplorerAnalysisId = {
+  explorerAnalysisId: z
+    .string()
+    .optional()
+    .describe(
+      "The exploration run this block renders. Omit it to send `config` alone " +
+        "and have the query run when the dashboard is written.",
+    ),
+};
+
 export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
   experimentMetadataBlockInterface.omit(createOmits),
@@ -696,10 +707,21 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
   apiMetricExplorerBlockInterface.omit(createOmits),
-  metricExplorationBlockInterface.omit(createOmits),
-  factTableExplorationBlockInterface.omit(createOmits),
-  dataSourceExplorationBlockInterface.omit(createOmits),
-  sqlExplorationBlockInterface.omit(createOmits),
+  metricExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  factTableExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  dataSourceExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  funnelExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  sqlExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface
@@ -707,6 +729,14 @@ export type CreateDashboardBlockInterface = z.infer<
 export type ApiCreateDashboardBlockInterface = z.infer<
   typeof apiCreateDashboardBlockInterface
 >;
+
+/** The same block with its analysis id settled. Distributes; only `config` types change. */
+export type DashboardBlockWithAnalysisId<T> = T extends {
+  config: unknown;
+  explorerAnalysisId?: string;
+}
+  ? Omit<T, "explorerAnalysisId"> & { explorerAnalysisId: string }
+  : T;
 
 // Allow templates to specify a partial of the individual block fields
 export const dashboardBlockPartial = z.discriminatedUnion("type", [

@@ -3,43 +3,44 @@ import { isCloud } from "@/services/env";
 
 type PylonApi = (command: string, ...args: unknown[]) => void;
 
-const getPylon = (): PylonApi | undefined =>
-  (window as unknown as { Pylon?: PylonApi }).Pylon;
+// Always read at call time: the bootstrap shim is swapped out once the real script loads.
+const pylon: PylonApi = (...args) =>
+  (window as unknown as { Pylon?: PylonApi }).Pylon?.(...args);
+
+const isLoaded = () => !!(window as unknown as { Pylon?: PylonApi }).Pylon;
 
 export default function PylonChatVisibility({ hidden }: { hidden: boolean }) {
   useEffect(() => {
     if (!isCloud()) return;
 
     if (!hidden) {
-      getPylon()?.("showChatBubble");
+      pylon("showChatBubble");
       return;
     }
 
-    const hide = (pylon: PylonApi) => {
+    const hide = () => {
       pylon("hide");
       pylon("hideChatBubble");
       pylon("onShow", () => pylon("hide"));
     };
 
-    const restore = (pylon: PylonApi) => {
+    const restore = () => {
       pylon("onShow", null);
       pylon("showChatBubble");
     };
 
-    const pylon = getPylon();
-    if (pylon) {
-      hide(pylon);
-      return () => restore(pylon);
+    if (isLoaded()) {
+      hide();
+      return restore;
     }
 
     // Pylon's script may not have loaded yet; poll until it appears.
-    let resolved: PylonApi | null = null;
+    let resolved = false;
     const intervalId = window.setInterval(() => {
-      const p = getPylon();
-      if (p) {
+      if (isLoaded()) {
         window.clearInterval(intervalId);
-        resolved = p;
-        hide(p);
+        resolved = true;
+        hide();
       }
     }, 250);
     const timeoutId = window.setTimeout(
@@ -50,7 +51,7 @@ export default function PylonChatVisibility({ hidden }: { hidden: boolean }) {
     return () => {
       window.clearInterval(intervalId);
       window.clearTimeout(timeoutId);
-      if (resolved) restore(resolved);
+      if (resolved) restore();
     };
   }, [hidden]);
 

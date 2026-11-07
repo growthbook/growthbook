@@ -5,6 +5,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -53,7 +54,7 @@ const MetricGroupModal: FC<{
       trackingEventModalType=""
       header={existingMetricGroup ? "Edit Metric Group" : "Add Metric Group"}
       open={true}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         if (edit) {
           // update
           const results = await apiCall<{ metricGroup: MetricGroupInterface }>(
@@ -159,10 +160,10 @@ const MetricGroupModal: FC<{
           </p>
           <MetricsSelector
             datasource={form.watch("datasource")}
-            projects={form.watch("projects")}
+            requiredProjects={form.watch("projects")}
             includeFacts={true}
             includeGroups={false}
-            preserveSelectedMetrics={true}
+            preserveSelectedUnavailableMetrics={true}
             selected={form.watch("metrics")}
             onChange={(value) => {
               form.setValue("metrics", value);

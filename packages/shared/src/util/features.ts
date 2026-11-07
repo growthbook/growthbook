@@ -1,6 +1,6 @@
-import Ajv from "ajv";
-import { subMonths, subWeeks } from "date-fns";
-import dJSON from "dirty-json";
+import Ajv, { ValidateFunction } from "ajv";
+import { differenceInDays, subMonths, subWeeks } from "date-fns";
+import { jsonrepair } from "jsonrepair";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
@@ -9,6 +9,7 @@ import {
   ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
+  RevisionChanges,
   ApiFeature,
 } from "shared/validators";
 import {
@@ -37,11 +38,12 @@ import { GroupMap } from "shared/types/saved-group";
 // Direct file import (not the `shared/validators` barrel) to avoid a runtime
 // import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
 import { assertValidExtendsEntries } from "../validators/constant";
-import { RampScheduleInterface } from "../validators/ramp-schedule";
+import { RampScheduleInterface, RampTarget } from "../validators/ramp-schedule";
+import { hasTargetingConfigured } from "../experiments/targeting";
 import { getValidDate } from "../dates";
 import {
-  conditionHasSavedGroupErrors,
-  expandNestedSavedGroups,
+  createV1SavedGroupsOperatorHandler,
+  describeSavedGroupError,
   EXTENDS_KEY,
 } from "../sdk-versioning";
 import {
@@ -92,6 +94,7 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
     const schemaDateUpdated = feature?.jsonSchema.date;
     return {
       jsonSchema,
+      schemaString,
       validationEnabled,
       schemaDateUpdated,
       simpleSchema:
@@ -229,6 +232,21 @@ export function getJSONValidator() {
   });
 }
 
+// Ajv compiles are expensive; cache by schema text. Each compile gets its own
+// Ajv instance so schemas sharing an `$id` never collide in a registry.
+const compiledValidators = new Map<string, ValidateFunction>();
+const MAX_COMPILED_VALIDATORS = 1000;
+export function getCompiledValidator(schemaString: string): ValidateFunction {
+  const cached = compiledValidators.get(schemaString);
+  if (cached) return cached;
+  const validate = getJSONValidator().compile(JSON.parse(schemaString));
+  if (compiledValidators.size >= MAX_COMPILED_VALIDATORS) {
+    compiledValidators.clear();
+  }
+  compiledValidators.set(schemaString, validate);
+  return validate;
+}
+
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
@@ -236,13 +254,12 @@ export function validateJSONFeatureValue(
   // Non-json flags hold a raw scalar; coerce instead of JSON-parsing (default keeps json behavior).
   valueType?: FeatureValueType,
 ) {
-  const { jsonSchema, validationEnabled } = getValidation(feature);
-  if (!validationEnabled) {
+  const { schemaString, validationEnabled } = getValidation(feature);
+  if (!validationEnabled || !schemaString) {
     return { valid: true, enabled: validationEnabled, errors: [] };
   }
   try {
-    const ajv = getJSONValidator();
-    const validate = ajv.compile(jsonSchema);
+    const validate = getCompiledValidator(schemaString);
     let parsedValue;
     if (valueType === "string") {
       parsedValue = value;
@@ -252,9 +269,9 @@ export function validateJSONFeatureValue(
       try {
         parsedValue = JSON.parse(value);
       } catch (e) {
-        // If the JSON is invalid, try to parse it with 'dirty-json' instead
+        // If the JSON is invalid, try repairing it instead
         try {
-          parsedValue = dJSON.parse(value);
+          parsedValue = parseLooseJSON(value);
         } catch (e) {
           return {
             valid: false,
@@ -295,6 +312,15 @@ export function validateJSONFeatureValue(
   }
 }
 
+// Rule values are stored as strings ("false", "10", '{"a":1}'); the SDK
+// payload builder parses that string per the feature's value type. Anything
+// that can carry a value as a raw JSON type (a ramp patch's `force` is typed
+// that way) is brought to this form before it reaches a rule: strings pass
+// through, anything else becomes its JSON text.
+export function stringifyFeatureValue(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 export function validateFeatureValue(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,
@@ -304,7 +330,7 @@ export function validateFeatureValue(
   const prefix = label ? label + ": " : "";
   if (type === "boolean") {
     if (!["true", "false"].includes(value)) {
-      return value ? "true" : "false";
+      throw new Error(prefix + 'Must be "true" or "false"');
     }
   } else if (type === "number") {
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
@@ -328,15 +354,18 @@ export function validateFeatureValue(
       throw new Error(prefix + errors.join(", "));
     }
   } else if (type === "json") {
+    if (value.trim() === "") {
+      throw new Error(prefix + "A JSON value is required");
+    }
     let parsedValue;
     let validJSON = true;
     try {
       parsedValue = JSON.parse(value);
     } catch (e) {
-      // If the JSON is invalid, try to parse it with 'dirty-json' instead
+      // If the JSON is invalid, try repairing it instead
       validJSON = false;
       try {
-        parsedValue = dJSON.parse(value);
+        parsedValue = parseLooseJSON(value);
       } catch (e) {
         throw new Error(prefix + (e instanceof Error ? e.message : String(e)));
       }
@@ -352,13 +381,19 @@ export function validateFeatureValue(
     // directive (≥1 ref/inline object), so a pre-existing flag that used
     // `$extends` as a plain data key still saves.
     assertValidExtendsEntries(parsedValue, prefix, true);
-    // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
+    // If the JSON was invalid but could be repaired, return the fixed JSON
     if (!validJSON) {
       return stringify(parsedValue);
     }
   }
 
   return value;
+}
+
+// Repairs and parses JSON a user hand-wrote (single quotes, unquoted keys,
+// trailing commas, comments). Throws when the input is too broken to repair.
+export function parseLooseJSON(value: string): unknown {
+  return JSON.parse(jsonrepair(value));
 }
 
 // Parses a string into a plain JSON object. Returns null when it doesn't parse
@@ -530,6 +565,83 @@ export function expandSparseToFull(
   return serializeExtendsObject(mergedRefs, ownKeys);
 }
 
+type RampRulePatch = {
+  ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
+};
+type RampTargetAction = { targetId?: string | null; patch?: object | null };
+
+// A partial-coverage patch for `ruleId` with no patch naming a hash attribute;
+// on a force rule such a plan is refused at write and at fire time.
+export function rampPlanLacksHashAttribute(
+  plan: {
+    startActions?: { patch?: RampRulePatch }[] | null;
+    steps?: { actions?: { patch?: RampRulePatch }[] | null }[] | null;
+    endActions?: { patch?: RampRulePatch }[] | null;
+  },
+  ruleId: string,
+): boolean {
+  const patches = [
+    ...(plan.startActions ?? []),
+    ...(plan.steps ?? []).flatMap((s) => s.actions ?? []),
+    ...(plan.endActions ?? []),
+  ]
+    .map((a) => a.patch)
+    .filter((p): p is RampRulePatch => !!p && (p.ruleId ?? ruleId) === ruleId);
+  return (
+    patches.some((p) => (p.coverage ?? 1) < 1) &&
+    !patches.some((p) => p.hashAttribute)
+  );
+}
+
+// Patch fields in rule terms; `force` is the rule's `value`.
+export const RAMP_PATCH_RULE_FIELDS: Record<string, string> = {
+  coverage: "coverage",
+  condition: "condition",
+  savedGroups: "savedGroups",
+  prerequisites: "prerequisites",
+  allEnvironments: "allEnvironments",
+  environments: "environments",
+  force: "value",
+  enabled: "enabled",
+};
+
+// Rule fields a plan's steps or end state set on one target, with where each is
+// first set ("step 2", "end state"). A publish refuses direct edits to these.
+export function rampPlanControlledFields(
+  plan: {
+    steps?: { actions?: RampTargetAction[] | null }[] | null;
+    endActions?: RampTargetAction[] | null;
+  },
+  targetId: string,
+): Map<string, string> {
+  const controlled = new Map<string, string>();
+  const collect = (action: RampTargetAction, where: string) => {
+    if (action.targetId !== targetId) return;
+    for (const key of Object.keys(action.patch ?? {})) {
+      const field = RAMP_PATCH_RULE_FIELDS[key];
+      if (field && !controlled.has(field)) controlled.set(field, where);
+    }
+  };
+  (plan.steps ?? []).forEach((step, i) =>
+    (step.actions ?? []).forEach((a) => collect(a, `step ${i + 1}`)),
+  );
+  (plan.endActions ?? []).forEach((a) => collect(a, "end state"));
+  return controlled;
+}
+
+// The attribute a new rollout buckets on when none is chosen: `id` when it is
+// marked as a hash attribute, else the first marked one, else `id`.
+export function getDefaultHashAttribute(
+  attributeSchema: SDKAttributeSchema | undefined,
+): string {
+  const marked = (attributeSchema ?? [])
+    .filter((a) => a.hashAttribute)
+    .map((a) => a.property);
+  return marked.includes("id") ? "id" : marked[0] || "id";
+}
+
 // Validate the values a revert restores against the value type / JSON schema
 // that will be live afterward. Returns one warning per value that no longer
 // parses/validates; callers surface these as a bypassable soft warning.
@@ -661,14 +773,26 @@ export function assertSchemaMatchesValueType(
 }
 
 // Helper function to validate ISO timestamp format
+// RFC 3339 date-time: what the API schemas accept. Storage is canonicalized to
+// `toISOString()` at write time (addIdsToFlatRules), so the check here only has
+// to reject garbage, not enforce one spelling.
+const RFC3339_DATETIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/i;
 function isValidISOTimestamp(timestamp: string): boolean {
-  // Validate that it's a proper date and parses correctly
-  try {
-    const date = new Date(timestamp);
-    return !isNaN(date.getTime()) && date.toISOString() === timestamp;
-  } catch {
-    return false;
-  }
+  return (
+    RFC3339_DATETIME.test(timestamp) && !isNaN(new Date(timestamp).getTime())
+  );
+}
+
+// A rule that already carries a schedule of either shape; plan gates treat
+// changes to such a rule as edits, not as newly introduced scheduling.
+export function isScheduledRule(
+  rule: Pick<FeatureRule, "scheduleRules" | "scheduleType"> | undefined,
+): boolean {
+  if (!rule) return false;
+  return (
+    (rule.scheduleType ?? "none") !== "none" || !!rule.scheduleRules?.length
+  );
 }
 
 // Validate scheduleRules business logic
@@ -707,7 +831,7 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   for (const rule of scheduleRules) {
     if (rule.timestamp !== null && !isValidISOTimestamp(rule.timestamp)) {
       throw new Error(
-        `Invalid timestamp format: "${rule.timestamp}". Must be in ISO format (e.g., "2025-06-23T16:09:37.769Z")`,
+        `Invalid timestamp format: "${rule.timestamp}". Must be an ISO 8601 date-time (e.g., "2025-06-23T16:09:37Z")`,
       );
     }
   }
@@ -724,12 +848,37 @@ export type StaleFeatureReason =
   | "has-dependents"
   | "toggled-off"
   | "active-experiment"
+  | "temp-rollout"
+  | "old-temp-rollout"
   | "has-rules";
+
+export const OLD_TEMP_ROLLOUT_DAYS = 30;
+
+export type TempRolloutStaleReason = Extract<
+  StaleFeatureReason,
+  "temp-rollout" | "old-temp-rollout"
+>;
+
+export function getTempRolloutStaleReason(
+  exp: { phases?: { dateEnded?: string | Date }[] },
+  now: Date = new Date(),
+): TempRolloutStaleReason {
+  const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
+  if (
+    dateEnded &&
+    differenceInDays(now, getValidDate(dateEnded)) > OLD_TEMP_ROLLOUT_DAYS
+  ) {
+    return "old-temp-rollout";
+  }
+  return "temp-rollout";
+}
 
 export type EnvStaleResult = {
   stale: boolean;
   reason?: StaleFeatureReason;
   evaluatesTo?: string; // set when all users receive the same value; same format as feature.defaultValue
+  // Cleanup signal, independent of staleness. Most severe tier when several.
+  tempRollout?: TempRolloutStaleReason;
 };
 
 export type IsFeatureStaleResult = {
@@ -750,33 +899,58 @@ const isContextualBanditRefRule = (
 ): rule is ContextualBanditRefRule => rule.type === "contextual-bandit-ref";
 
 // A rule that unconditionally matches all users, blocking any rules after it.
-const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
-  if (!hasNoCondition(rule)) return false;
-  if ((rule.savedGroups ?? []).length > 0) return false;
-  if ((rule.prerequisites ?? []).length > 0) return false;
+const matchesEveryone = (rule: FeatureRule): boolean =>
+  !hasTargetingConfigured(rule) && !rule.scheduleRules?.length;
+
+export const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
+  if (!matchesEveryone(rule)) return false;
   if (isForceRule(rule)) return true;
-  if (isRolloutRule(rule)) return rule.coverage >= 1;
+  if (isRolloutRule(rule)) return (rule.coverage ?? 1) >= 1;
   return false;
 };
 
-const hasNoCondition = (rule: FeatureRule): boolean =>
-  !rule.condition || rule.condition === "{}";
+// The SDK payload keeps the phase's targeting on a temp rollout's force rule,
+// so it only serves everyone when neither the rule nor the phase targets.
+const isUnconditionalTempRollout = (
+  rule: FeatureRule,
+  exp: ExperimentInterfaceStringDates,
+): boolean => {
+  if (!matchesEveryone(rule)) return false;
+  const phase = exp.phases?.[exp.phases.length - 1];
+  if (!phase) return true;
+  if (hasTargetingConfigured(phase)) return false;
+  if ((phase.coverage ?? 1) < 1) return false;
+  if (phase.namespace?.enabled) return false;
+  return true;
+};
 
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
 ) => {
+  // Bandits, safe rollouts and inline experiments split traffic. When unsure,
+  // a flag is not called stale.
+  if (
+    rules.some(
+      (r) =>
+        r.type === "contextual-bandit-ref" ||
+        r.type === "safe-rollout" ||
+        r.type === "experiment",
+    )
+  ) {
+    return false;
+  }
   const rolloutRules = rules.filter(isRolloutRule);
   const forceRules = rules.filter(isForceRule);
 
+  // Prerequisites target too: the rule serves only when the parent passes.
   const rolloutRulesOnesided =
     !rolloutRules.length ||
     rolloutRules.every(
-      (r) => r.coverage === 1 && hasNoCondition(r) && !r.savedGroups?.length,
+      (r) => (r.coverage ?? 1) === 1 && !hasTargetingConfigured(r),
     );
 
   const forceRulesOnesided =
-    !forceRules.length ||
-    forceRules.every((r) => hasNoCondition(r) && !r.savedGroups?.length);
+    !forceRules.length || forceRules.every((r) => !hasTargetingConfigured(r));
 
   return rolloutRulesOnesided && forceRulesOnesided;
 };
@@ -799,6 +973,7 @@ const REASON_PRIORITY: StaleFeatureReason[] = [
   "abandoned-draft",
   "no-rules",
   "rules-one-sided",
+  "old-temp-rollout",
 ];
 
 function pickOverallReason(
@@ -852,7 +1027,7 @@ function buildEnvResults(
       ? []
       : ((envSetting as unknown as { rules?: FeatureRule[] }).rules ?? []);
     const rules = (v2RulesForEnv.length ? v2RulesForEnv : legacyRules).filter(
-      (r) => r.enabled,
+      (r) => r.enabled !== false,
     );
 
     const hasDependentsInEnv =
@@ -893,42 +1068,98 @@ function buildEnvResults(
     }
 
     // Walk rules in order; an unconditional catcher shadows everything after it.
-    let hasActiveExperiment = false;
-    for (const rule of rules) {
+    // A running experiment does not: users it skips fall through to later rules.
+    // A recent temp rollout keeps the env non-stale (grace period). An old one
+    // serves a constant, so it counts as one-sided. Either way it is reported
+    // in `tempRollout` so it can be cleaned up.
+    let activeExperimentReason: "active-experiment" | "temp-rollout" | null =
+      null;
+    let tempRollout: TempRolloutStaleReason | undefined;
+    // First reachable unconditional temp rollout's released value, for `evaluatesTo`.
+    let rolloutValue: { index: number; value: string } | undefined;
+    // An old rollout that still targets a subset is real logic, not a constant.
+    let hasTargetedOldRollout = false;
+    for (const [index, rule] of rules.entries()) {
       if (isUnconditionalCatcher(rule)) break;
       if (isExperimentRefRule(rule)) {
         const exp = experimentMap.get(rule.experimentId);
         if (exp && includeExperimentInPayload(exp)) {
-          hasActiveExperiment = true;
-          break;
+          if (exp.status === "stopped") {
+            const tier = getTempRolloutStaleReason(exp);
+            if (!tempRollout || tier === "old-temp-rollout") tempRollout = tier;
+            const unconditional = isUnconditionalTempRollout(rule, exp);
+            if (tier === "temp-rollout") activeExperimentReason ??= tier;
+            else if (!unconditional) hasTargetedOldRollout = true;
+            if (unconditional && !rolloutValue) {
+              const released = rule.variations.find(
+                (v) => v.variationId === exp.releasedVariationId,
+              );
+              if (released) rolloutValue = { index, value: released.value };
+            }
+          } else {
+            activeExperimentReason = "active-experiment";
+          }
         }
       }
     }
-    if (hasActiveExperiment) {
-      envResults[envId] = { stale: false, reason: "active-experiment" };
-      continue;
-    }
-
-    if (areRulesOneSided(rules)) {
-      const firstValueRule = rules.find(
+    const withTempRollout = (result: EnvStaleResult): EnvStaleResult =>
+      tempRollout ? { ...result, tempRollout } : result;
+    const oneSided = areRulesOneSided(rules);
+    const oneSidedValue = (): string => {
+      const firstValueRuleIndex = rules.findIndex(
         (r): r is ForceRule | RolloutRule =>
           r.type === "force" || r.type === "rollout",
       );
-      envResults[envId] = hasDependentsInEnv
-        ? {
-            stale: false,
-            reason: "has-dependents",
-            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
-          }
-        : {
-            stale: true,
-            reason: "rules-one-sided",
-            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
-          };
+      const firstValueRule = rules[firstValueRuleIndex] as
+        | ForceRule
+        | RolloutRule
+        | undefined;
+      return rolloutValue &&
+        (firstValueRuleIndex === -1 || rolloutValue.index < firstValueRuleIndex)
+        ? rolloutValue.value
+        : (firstValueRule?.value ?? feature.defaultValue);
+    };
+
+    if (activeExperimentReason) {
+      envResults[envId] = withTempRollout({
+        stale: false,
+        reason: activeExperimentReason,
+        ...(activeExperimentReason === "temp-rollout" &&
+        oneSided &&
+        rolloutValue &&
+        !hasTargetedOldRollout
+          ? { evaluatesTo: oneSidedValue() }
+          : {}),
+      });
       continue;
     }
 
-    envResults[envId] = { stale: false, reason: "has-rules" };
+    if (hasTargetedOldRollout) {
+      envResults[envId] = withTempRollout({
+        stale: false,
+        reason: "has-rules",
+      });
+      continue;
+    }
+
+    if (oneSided) {
+      const evaluatesTo = oneSidedValue();
+      envResults[envId] = withTempRollout(
+        hasDependentsInEnv
+          ? { stale: false, reason: "has-dependents", evaluatesTo }
+          : {
+              stale: true,
+              reason:
+                tempRollout === "old-temp-rollout"
+                  ? "old-temp-rollout"
+                  : "rules-one-sided",
+              evaluatesTo,
+            },
+      );
+      continue;
+    }
+
+    envResults[envId] = withTempRollout({ stale: false, reason: "has-rules" });
   }
 
   return envResults;
@@ -956,6 +1187,7 @@ export function isFeatureStale({
     );
 
   const visitedFeatures = new Set<string>();
+  const rootId = feature.id;
 
   const visit = (feature: FeatureInterface): IsFeatureStaleResult => {
     if (visitedFeatures.has(feature.id)) {
@@ -980,13 +1212,17 @@ export function isFeatureStale({
         const f = featuresMap.get(id);
         return !f || !visit(f).stale;
       });
-      dependentExperiments =
-        dependentExperiments ??
+      // The caller's dependents and draft date describe the requested
+      // feature only; every dependent the walk visits is looked up on its own.
+      const isRoot = feature.id === rootId;
+      const featureDependentExperiments =
+        (isRoot ? dependentExperiments : undefined) ??
         getDependentExperiments(
           feature,
           experiments,
           experimentDependencyIndex,
         );
+      const draftDate = isRoot ? mostRecentDraftDate : undefined;
 
       const envResults = buildEnvResults(
         feature,
@@ -994,7 +1230,7 @@ export function isFeatureStale({
         experimentMap,
         nonStaleDependentFeatureIds,
         featuresMap,
-        dependentExperiments,
+        featureDependentExperiments,
       );
 
       if (feature.neverStale)
@@ -1010,8 +1246,8 @@ export function isFeatureStale({
       // Active drafts block stale. Abandoned drafts (>1 month) don't force
       // stale on their own — they surface as the reason only if envs are also stale.
       let hasAbandonedDraft = false;
-      if (mostRecentDraftDate !== undefined && mostRecentDraftDate !== null) {
-        if (mostRecentDraftDate >= subMonths(new Date(), 1)) {
+      if (draftDate !== undefined && draftDate !== null) {
+        if (draftDate >= subMonths(new Date(), 1)) {
           return { stale: false, reason: "active-draft", envResults };
         }
         hasAbandonedDraft = true;
@@ -1020,10 +1256,13 @@ export function isFeatureStale({
       if (nonStaleDependentFeatureIds.length) {
         return { stale: false, reason: "has-dependents", envResults };
       }
-      const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
-        includeExperimentInPayload(e),
+      const hasNonStaleDependentExperiments = featureDependentExperiments.some(
+        (e) => includeExperimentInPayload(e),
       );
-      if (dependentExperiments.length && hasNonStaleDependentExperiments) {
+      if (
+        featureDependentExperiments.length &&
+        hasNonStaleDependentExperiments
+      ) {
         return { stale: false, reason: "has-dependents", envResults };
       }
 
@@ -1119,6 +1358,18 @@ export function getRevertTargetHoldout(
   return revision.holdout ?? null;
 }
 
+// The archived state a revert restores. Revisions only record `archived` since
+// they became full snapshots; a published revision from before that carries no
+// value, and restoring it restores an active flag rather than carrying the live
+// value forward. Same reasoning as the holdout above: carrying forward makes an
+// archive published after this revision un-revertable — the revert reports
+// nothing to revert, or lands with the flag still archived.
+export function getRevertTargetArchived(
+  revision: Pick<RevisionFields, "archived">,
+): boolean {
+  return revision.archived ?? false;
+}
+
 // An open draft that is already the feature's live version: a publish advanced
 // the feature but never marked the revision published. Publishing it reconciles.
 export function isStrandedLiveRevision({
@@ -1158,8 +1409,10 @@ export function featureMetadataEnvelope(
     description: feature.description ?? "",
     owner: feature.owner ?? "",
     project: feature.project ?? "",
-    targetingAllProjects: feature.targetingAllProjects,
-    targetingProjects: feature.targetingProjects,
+    // Persist defaults so a stored snapshot cannot inherit a later expansion
+    // of live targeting when the revision is edited or published.
+    targetingAllProjects: feature.targetingAllProjects ?? false,
+    targetingProjects: feature.targetingProjects ?? [],
     tags: feature.tags ?? [],
     neverStale: feature.neverStale,
     customFields: feature.customFields,
@@ -1549,11 +1802,13 @@ export function evaluatePublishGovernance({
 // the specific file (not a barrel) to avoid a runtime import cycle.
 export {
   isScheduledPublishPending,
+  pendingScheduleWarning,
   isScheduledPublishDue,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
   findPublishLockingScheduledRevision,
 } from "../revisions/scheduledPublish";
+export { getFeaturePageDefaultVersion } from "../revisions/featurePageVersion";
 
 // True if publishing the draft would change anything outside the target
 // ref rule(s) matched by `isTargetRef`. Compares effective post-publish state
@@ -1910,6 +2165,75 @@ export function pruneOrphanedRampActions<T extends { ruleId?: string }>(
   return { kept, pruned };
 }
 
+// The record fields a rebase rewrites; a failed publish restores exactly these.
+export const REBASED_REVISION_FIELDS = [
+  "baseVersion",
+  "defaultValue",
+  "rules",
+  "environmentsEnabled",
+  "prerequisites",
+  "archived",
+  "metadata",
+  "holdout",
+] as const;
+
+export type RebasedRevisionChanges = Required<
+  Pick<RevisionChanges, (typeof REBASED_REVISION_FIELDS)[number]>
+> &
+  Pick<RevisionChanges, "rampActions">;
+
+// A draft re-expressed on top of live, the way a rebase records it. A draft
+// that goes on being edited also drops ramp actions whose rule the merge removed.
+export function rebasedRevisionChanges({
+  feature,
+  revision,
+  liveVersion,
+  result,
+  environmentIds,
+  pruneRampActions = true,
+}: {
+  feature: FeatureInterface;
+  revision: Pick<FeatureRevisionInterface, "rampActions">;
+  liveVersion: number;
+  result: MergeResultChanges;
+  environmentIds: string[];
+  pruneRampActions?: boolean;
+}): { changes: RebasedRevisionChanges; logValue: string } {
+  const rules = result.rules ?? feature.rules ?? [];
+  const environmentsEnabled: Record<string, boolean> = {};
+  environmentIds.forEach((env) => {
+    environmentsEnabled[env] =
+      result.environmentsEnabled?.[env] ??
+      feature.environmentSettings?.[env]?.enabled ??
+      false;
+  });
+  const liveMetadata = featureMetadataEnvelope(feature);
+  const { kept, pruned } = pruneRampActions
+    ? pruneOrphanedRampActions(revision.rampActions, rules)
+    : { kept: revision.rampActions, pruned: [] };
+  return {
+    changes: {
+      baseVersion: liveVersion,
+      defaultValue: result.defaultValue ?? feature.defaultValue,
+      rules,
+      environmentsEnabled,
+      prerequisites: result.prerequisites ?? feature.prerequisites ?? [],
+      archived: result.archived ?? feature.archived ?? false,
+      metadata: result.metadata
+        ? { ...liveMetadata, ...result.metadata }
+        : liveMetadata,
+      holdout:
+        "holdout" in result
+          ? (result.holdout ?? null)
+          : (feature.holdout ?? null),
+      ...(pruned.length > 0 ? { rampActions: kept } : {}),
+    },
+    logValue: JSON.stringify(
+      pruned.length > 0 ? { ...result, prunedRampActions: pruned } : result,
+    ),
+  };
+}
+
 export function autoMerge(
   live: RevisionFields,
   base: RevisionFields,
@@ -2260,13 +2584,28 @@ export function validateCondition(
       return { success: false, empty: false, error: "Must be object" };
     }
 
+    const structureError = findMalformedConditionOperator(res);
+    if (structureError) {
+      return { success: false, empty: false, error: structureError };
+    }
+
     const scrubbed = cloneDeep(res);
-    recursiveWalk(scrubbed, expandNestedSavedGroups(groupMap || new Map()));
-    if (conditionHasSavedGroupErrors(scrubbed, skipSavedGroupCycleCheck)) {
+    recursiveWalk(
+      scrubbed,
+      createV1SavedGroupsOperatorHandler(groupMap || new Map()),
+    );
+    const savedGroupError = describeSavedGroupError(
+      scrubbed,
+      skipSavedGroupCycleCheck,
+    );
+    if (savedGroupError) {
       return {
         success: false,
         empty: false,
-        error: "Condition includes invalid or cyclic saved group reference",
+        // Without the groups, every referenced group would read as missing
+        error: groupMap
+          ? savedGroupError
+          : "Saved Groups cannot be referenced inside this condition. Use Saved Group targeting instead.",
       };
     }
 
@@ -2274,9 +2613,9 @@ export function validateCondition(
     return { success: true, empty: false };
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    // Try parsing with dJSON and see if it can be fixed automatically
+    // See if it can be repaired automatically
     try {
-      const fixed = dJSON.parse(condition);
+      const fixed = parseLooseJSON(condition);
       return {
         success: false,
         empty: false,
@@ -2287,6 +2626,92 @@ export function validateCondition(
       return { success: false, empty: false, error: errMsg };
     }
   }
+}
+
+// Prerequisite conditions run against {"value": <flag_value>}, never the
+// user's attributes, so a Saved Group's targeting has nothing to match there.
+export function validatePrerequisiteCondition(
+  condition?: string,
+): ValidateConditionReturn {
+  let usesSavedGroups = false;
+  try {
+    recursiveWalk(JSON.parse(condition || "{}"), ([key]) => {
+      if (key === "$savedGroups") usesSavedGroups = true;
+    });
+  } catch {
+    // validateCondition reports the syntax error
+  }
+  if (usesSavedGroups) {
+    return {
+      success: false,
+      empty: false,
+      error:
+        '$savedGroups cannot be used in prerequisite conditions, which are evaluated against {"value": <flag_value>} rather than attributes. Use $inGroup to match the value against a Saved Group\'s list.',
+    };
+  }
+  return validateCondition(condition);
+}
+
+const isNonNullObject = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object";
+
+// Shapes that make evalCondition throw rather than return false: a null
+// operand under a logical operator or $elemMatch.
+function findMalformedConditionOperator(condition: unknown): string | null {
+  if (!isNonNullObject(condition)) return null;
+  for (const [key, value] of Object.entries(condition)) {
+    if (key === "$and" || key === "$or" || key === "$nor") {
+      if ((value ?? null) === null) return `${key} cannot be null`;
+      if (!Array.isArray(value)) continue;
+      for (const item of value) {
+        if ((item ?? null) === null) return `${key} cannot contain null`;
+        const err = findMalformedConditionOperator(item);
+        if (err) return err;
+      }
+    } else if (key === "$not") {
+      if ((value ?? null) === null) return "$not cannot be null";
+      const err = findMalformedConditionOperator(value);
+      if (err) return err;
+    } else if (!key.startsWith("$")) {
+      const err = findMalformedOperatorValue(value);
+      if (err) return err;
+    }
+  }
+  return null;
+}
+
+const isOperatorObject = (v: unknown): v is Record<string, unknown> => {
+  if (!isNonNullObject(v) || Array.isArray(v)) return false;
+  const keys = Object.keys(v);
+  return keys.length > 0 && keys.every((k) => k.startsWith("$"));
+};
+
+function findMalformedOperatorValue(value: unknown): string | null {
+  if (!isOperatorObject(value)) return null;
+  for (const [op, operand] of Object.entries(value)) {
+    if (op === "$elemMatch") {
+      if ((operand ?? null) === null) return "$elemMatch cannot be null";
+      // As in the SDK, $or, $and, $nor, or $savedGroup make it a condition on
+      // each item's fields rather than operators on each item
+      const err =
+        isOperatorObject(operand) &&
+        !Object.keys(operand).some((k) =>
+          ["$or", "$and", "$nor", "$savedGroup"].includes(k),
+        )
+          ? findMalformedOperatorValue(operand)
+          : findMalformedConditionOperator(operand);
+      if (err) return err;
+    } else if (op === "$not" || op === "$size") {
+      const err = findMalformedOperatorValue(operand);
+      if (err) return err;
+    } else if ((op === "$all" || op === "$alli") && Array.isArray(operand)) {
+      for (const item of operand) {
+        const err = findMalformedOperatorValue(item);
+        if (err) return err;
+      }
+    }
+  }
+  return null;
 }
 
 export function validateAndFixCondition(
@@ -2538,7 +2963,11 @@ export function evaluatePrerequisiteState(
       return { state: "cyclic", value: null };
   }
 
+  // Guard recursion even when payload generation skips the full cycle check.
+  const visiting = new Set<string>();
   const visit = (feature: FeatureInterface): PrerequisiteStateResult => {
+    if (visiting.has(feature.id)) return { state: "cyclic", value: null };
+
     // 1. Current environment toggles take priority
     if (!feature.environmentSettings[env]) {
       return { state: "deterministic", value: null };
@@ -2592,6 +3021,7 @@ export function evaluatePrerequisiteState(
     //  - if any are "conditional", the feature is "conditional"
     isTopLevel = false;
     const prerequisites = feature.prerequisites || [];
+    visiting.add(feature.id);
     for (const prerequisite of prerequisites) {
       const prerequisiteFeature = featuresMap.get(prerequisite.id);
       if (!prerequisiteFeature) {
@@ -2602,6 +3032,9 @@ export function evaluatePrerequisiteState(
       }
       const { state: prerequisiteState, value: prerequisiteValue } =
         visit(prerequisiteFeature);
+      if (prerequisiteState === "cyclic") {
+        return { state: "cyclic", value: null };
+      }
       if (prerequisiteState === "deterministic") {
         const evaled = evalDeterministicPrereqValue(
           prerequisiteValue ?? null,
@@ -2618,6 +3051,7 @@ export function evaluatePrerequisiteState(
         value = undefined;
       }
     }
+    visiting.delete(feature.id);
 
     return { state, value };
   };
@@ -2628,12 +3062,17 @@ export function evalDeterministicPrereqValue(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
   condition: string,
+  onError?: (e: unknown) => void,
 ): "pass" | "fail" {
   const parsedCondition = getParsedPrereqCondition(condition);
   if (!parsedCondition) return "fail";
   const evalObj = { value: value };
-  const pass = evalCondition(evalObj, parsedCondition);
-  return pass ? "pass" : "fail";
+  try {
+    return evalCondition(evalObj, parsedCondition) ? "pass" : "fail";
+  } catch (e) {
+    onError?.(e);
+    return "fail";
+  }
 }
 
 /** Maps each feature ID to the set of features that depend on it as a prerequisite. */
@@ -2744,7 +3183,13 @@ export function getDependentExperiments(
   });
 }
 
-// Simplified version of getParsedCondition() from: back-end/src/util/features.ts
+export function getMalformedPrereqConditionError(
+  condition: string,
+): string | null {
+  return findMalformedConditionOperator(getParsedPrereqCondition(condition));
+}
+
+// Simplified version of mergeConditionAndSavedGroups() from: back-end/src/util/features.ts
 export function getParsedPrereqCondition(condition: string) {
   if (condition && condition !== "{}") {
     try {
@@ -3288,6 +3733,23 @@ export function isRampScheduleServing(
 }
 
 /**
+ * Active rule targets with no start action to roll back to. Full rollback and
+ * restart apply `startActions` to return the rule to its pre-ramp state, so an
+ * unanchored target silently keeps whatever step it was on. Targets without a
+ * `ruleId` are inert to the engine and need no anchor.
+ */
+export function unanchoredRampTargets(
+  schedule: Pick<RampScheduleInterface, "targets" | "startActions">,
+): RampTarget[] {
+  const anchored = new Set(
+    (schedule.startActions ?? []).map((a) => a.targetId),
+  );
+  return schedule.targets.filter(
+    (t) => t.status === "active" && !!t.ruleId && !anchored.has(t.id),
+  );
+}
+
+/**
  * Every patch a schedule aims at one target. Exported for the control gate,
  * which needs the patches' own `ruleId`s (see `rampTargetRuleIds`).
  */
@@ -3554,6 +4016,14 @@ export type PolicyRule = { requiredApproverTeams?: string[] };
 export type ReviewRequirement = {
   required: boolean;
   rules: PolicyRule[];
+  // Feature Flags only: strict-mode targeting projects whose OWN review rule
+  // fired. Each must be signed off by one of its own reviewers, not only the
+  // primary project's.
+  approverProjects?: string[];
+  // Feature Flags only: every governing project whose rule fired, with that
+  // rule, so a rule's required teams are judged against approvals that count
+  // for the project that imposed it.
+  governing?: { project: string; rule: PolicyRule }[];
 };
 
 // Primary + strict targeting over current+staged, so adds and removes are both
@@ -3589,6 +4059,41 @@ export function governingReviewProjectsForFeature({
   );
 }
 
+// Every project whose reviewers might be eligible to review this flag's
+// drafts: the primary plus strict-mode targeting projects with a review rule
+// of their own. With a revision, current and staged targeting both count.
+// Without one (coarse gates that run before the revision is loaded) any such
+// project might be staged, so all of them qualify; the precise, per-draft
+// answer is `getRevisionReviewRequirement(...).approverProjects`.
+export function featureReviewCandidateProjects(
+  feature: Pick<
+    FeatureInterface,
+    "project" | "targetingAllProjects" | "targetingProjects"
+  >,
+  settings?: OrganizationSettings,
+  revision?: Pick<FeatureRevisionInterface, "metadata">,
+): string[] {
+  const primary = feature.project ?? "";
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return [primary];
+  const ownRule = projectsWithOwnRule(requireReviews).filter(
+    (project) =>
+      project &&
+      project !== primary &&
+      !!getReviewSetting(requireReviews, { project })?.requireReviewOn,
+  );
+  const targeting = revision
+    ? governingReviewProjectsForFeature({ feature, revision, settings }).filter(
+        (project) => ownRule.includes(project),
+      )
+    : ownRule.filter(
+        (project) =>
+          getTargetingReviewMode(settings?.targetingReviewMode, project) ===
+          "strict",
+      );
+  return [primary, ...targeting];
+}
+
 export function getRevisionReviewRequirement({
   feature,
   baseRevision,
@@ -3612,11 +4117,17 @@ export function getRevisionReviewRequirement({
     orgEnvironments,
     feature,
   ).map((e) => e.id);
-  const none: ReviewRequirement = { required: false, rules: [] };
+  const none: ReviewRequirement = {
+    required: false,
+    rules: [],
+    approverProjects: [],
+  };
   if (!requireApprovalsLicensed) return none;
   const requireReviews = settings?.requireReviews;
   if (!Array.isArray(requireReviews)) {
-    return requireReviews ? { required: true, rules: [] } : none;
+    return requireReviews
+      ? { required: true, rules: [], approverProjects: [] }
+      : none;
   }
 
   const reviewSettings = governingReviewProjectsForFeature({
@@ -3624,8 +4135,14 @@ export function getRevisionReviewRequirement({
     revision,
     settings,
   })
-    .map((project) => getReviewSetting(requireReviews, { project }))
-    .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
+    .map((project) => ({
+      project,
+      setting: getReviewSetting(requireReviews, { project }),
+    }))
+    .filter(
+      (entry): entry is { project: string; setting: RequireReview } =>
+        !!entry.setting?.requireReviewOn,
+    );
   if (!reviewSettings.length) return none;
 
   const affected = getDraftAffectedEnvironments(
@@ -3725,16 +4242,48 @@ export function getRevisionReviewRequirement({
     return false;
   };
 
-  const triggering = reviewSettings.filter(needsReviewForSetting);
+  const triggering = reviewSettings.filter((entry) =>
+    needsReviewForSetting(entry.setting),
+  );
   // By content: merged rules are distinct objects, so identity would not dedupe.
   const seen = new Set<string>();
-  const rules = triggering.filter((r) => {
-    const key = JSON.stringify(r);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  return { required: rules.length > 0, rules };
+  const rules = triggering
+    .map((entry) => entry.setting)
+    .filter((r) => {
+      const key = JSON.stringify(r);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  // Inherited org-wide rules give a targeting project no say of its own.
+  const ownRule = new Set(projectsWithOwnRule(requireReviews));
+  const primary = feature.project ?? "";
+  const approverProjects = triggering
+    .map((entry) => entry.project)
+    .filter((project) => project !== primary && ownRule.has(project));
+  return {
+    required: rules.length > 0,
+    rules,
+    approverProjects,
+    governing: triggering.map((entry) => ({
+      project: entry.project,
+      rule: entry.setting,
+    })),
+  };
+}
+
+// Whether review is required anywhere in the org: the legacy boolean, or any
+// rule with its own switch on. Used to decide when writes that would skip the
+// revision review flow altogether must be reserved for approval-bypass callers.
+export function orgRequiresAnyReview(
+  settings: Pick<OrganizationSettings, "requireReviews"> | undefined,
+  requireApprovalsLicensed = true,
+): boolean {
+  if (!requireApprovalsLicensed) return false;
+  const requireReviews = settings?.requireReviews;
+  return Array.isArray(requireReviews)
+    ? requireReviews.some((rule) => !!rule.requireReviewOn)
+    : !!requireReviews;
 }
 
 // Boolean form, for callers that only ask whether review is needed.
@@ -4575,7 +5124,7 @@ export type ReviewAuthorityFootprint =
 export const ANY_REVIEW_FOOTPRINT: ReviewAuthorityFootprint = { scope: "any" };
 
 // Per governing project: an unrelated rule must not widen a metadata change.
-function requiresMetadataReview(
+export function requiresMetadataReview(
   settings?: OrganizationSettings,
   governingProjects?: string[],
 ): boolean {

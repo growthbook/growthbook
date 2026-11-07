@@ -18,6 +18,7 @@ import {
   encryptAIKey,
   getKeyLast4,
 } from "back-end/src/services/aiCredentials";
+import { reencryptSlackBotToken } from "back-end/src/util/slackToken";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
@@ -143,6 +144,39 @@ async function run() {
     } catch (e) {
       recordFailure(
         `could not migrate the ${provider} AI key for organization ${organization}`,
+        e,
+      );
+    }
+  }
+
+  const slackConnections = getCollection("slackworkspaceconnections");
+  for await (const connection of slackConnections.find({})) {
+    const { _id, organization, teamId, encryptedBotAccessToken } = connection;
+    try {
+      if (
+        typeof encryptedBotAccessToken !== "string" ||
+        !encryptedBotAccessToken
+      ) {
+        throw new Error("Missing Slack bot token ciphertext");
+      }
+      const rotated = reencryptSlackBotToken(
+        encryptedBotAccessToken,
+        oldEncryptionKey || "dev",
+      );
+      if (rotated === encryptedBotAccessToken) continue;
+      // Preserve any reconnect that replaces the token during migration.
+      const result = await slackConnections.updateOne(
+        { _id, encryptedBotAccessToken },
+        { $set: { encryptedBotAccessToken: rotated, dateUpdated: new Date() } },
+      );
+      if (result.matchedCount !== 1) {
+        recordFailure(
+          `the Slack token for workspace ${teamId} in organization ${organization} changed during migration; re-run to verify it`,
+        );
+      }
+    } catch (e) {
+      recordFailure(
+        `could not migrate the Slack token for workspace ${teamId} in organization ${organization}`,
         e,
       );
     }

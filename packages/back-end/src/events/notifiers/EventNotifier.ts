@@ -29,10 +29,16 @@ export class EventNotifier implements Notifier {
     private agenda: Agenda = getAgendaInstance(),
   ) {
     this.eventId = eventId;
+    EventNotifier.defineJob(this.agenda);
+  }
 
+  /**
+   * Registers the "eventCreated" job with Agenda. Safe to call repeatedly.
+   */
+  static defineJob(agenda: Agenda): void {
     if (jobDefined) return;
 
-    this.agenda.define<EventNotificationData>(
+    agenda.define<EventNotificationData>(
       "eventCreated",
       EventNotifier.jobHandler,
     );

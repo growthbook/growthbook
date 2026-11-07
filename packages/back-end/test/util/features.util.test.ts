@@ -1,4 +1,9 @@
-import { applyEnvironmentInheritance } from "../../src/util/features";
+import type { LegacyFeatureInterface } from "shared/types/feature";
+import {
+  applyEnvironmentInheritance,
+  indexRevisions,
+  toFeatureMetaInfo,
+} from "../../src/util/features";
 
 describe("feature utils", () => {
   describe("applyEnvironmentInheritance", () => {
@@ -277,5 +282,98 @@ describe("feature utils", () => {
         expect(result.staging).toEqual({ enabled: true });
       });
     });
+  });
+});
+
+describe("toFeatureMetaInfo", () => {
+  const date = new Date("2026-01-01T00:00:00Z");
+  const prerequisite = { id: "parent", condition: '{"value": true}' };
+  const stored = (doc: Record<string, unknown>) =>
+    ({
+      id: "f",
+      project: "",
+      owner: "o",
+      description: "",
+      valueType: "boolean",
+      defaultValue: "true",
+      archived: false,
+      version: 1,
+      dateCreated: date,
+      dateUpdated: date,
+      ...doc,
+    }) as unknown as LegacyFeatureInterface;
+
+  it("summarizes a bare flag, defaulting the lists a lean read leaves out", () => {
+    expect(toFeatureMetaInfo(stored({}), false)).toEqual({
+      id: "f",
+      project: "",
+      targetingProjects: [],
+      targetingAllProjects: undefined,
+      archived: false,
+      description: "",
+      dateCreated: date,
+      dateUpdated: date,
+      tags: [],
+      owner: "o",
+      valueType: "boolean",
+      version: 1,
+      linkedExperiments: [],
+      neverStale: undefined,
+      hasPrerequisites: false,
+      hasSavedGroups: false,
+      configBackingKey: null,
+      revision: undefined,
+    });
+  });
+
+  it.each([
+    ["flag", { prerequisites: [prerequisite] }],
+    ["rule", { rules: [{ id: "r", prerequisites: [prerequisite] }] }],
+    [
+      "environment",
+      { environmentSettings: { dev: { prerequisites: [prerequisite] } } },
+    ],
+  ])("finds prerequisites on the %s", (level, doc) => {
+    expect(toFeatureMetaInfo(stored(doc), false).hasPrerequisites).toBe(true);
+  });
+
+  it("flags saved groups and config backing, and adds the default value when asked", () => {
+    const meta = toFeatureMetaInfo(
+      stored({
+        baseConfig: "cfg_1",
+        rules: [{ id: "r", savedGroups: [{ ids: ["g"] }] }],
+      }),
+      true,
+    );
+    expect(meta).toMatchObject({
+      hasSavedGroups: true,
+      hasPrerequisites: false,
+      configBackingKey: "cfg_1",
+      defaultValue: "true",
+    });
+  });
+});
+
+describe("indexRevisions", () => {
+  it("returns an empty map for null or empty input", () => {
+    expect(indexRevisions(null).size).toBe(0);
+    expect(indexRevisions([]).size).toBe(0);
+  });
+
+  it("keys revisions by featureId and version", () => {
+    const a1 = { featureId: "a", version: 1 };
+    const a2 = { featureId: "a", version: 2 };
+    const b1 = { featureId: "b", version: 1 };
+    const map = indexRevisions([a1, a2, b1]);
+    expect(map.get("a:1")).toBe(a1);
+    expect(map.get("a:2")).toBe(a2);
+    expect(map.get("b:1")).toBe(b1);
+    expect(map.get("b:2")).toBeUndefined();
+  });
+
+  it("keeps the first revision when two share a key", () => {
+    const first = { featureId: "a", version: 1, id: "first" };
+    const second = { featureId: "a", version: 1, id: "second" };
+    expect(indexRevisions([first, second]).get("a:1")).toBe(first);
   });
 });

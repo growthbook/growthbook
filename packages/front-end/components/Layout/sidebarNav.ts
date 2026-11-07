@@ -1,4 +1,5 @@
 import { BsFlag, BsCodeSlash, BsHouse } from "react-icons/bs";
+import { PiShieldCheck } from "react-icons/pi";
 import {
   GBDatabase,
   GBExperiment,
@@ -6,6 +7,7 @@ import {
   GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
+import { isInterleavingEnabled } from "@/services/interleaving";
 import type { SidebarLinkFilterProps, SidebarLinkProps } from "./SidebarLink";
 import styles from "./Layout.module.scss";
 
@@ -65,8 +67,16 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Contextual Bandits",
         href: "/contextual-bandits",
         path: /^contextual-bandits?($|\/)/,
+        // Default ON; the remote flag only turns this off for specific orgs.
+        filter: ({ gb }) =>
+          gb?.getFeatureValue("contextual-bandits", true) ?? true,
+      },
+      {
+        name: "Interleaving",
+        href: "/interleavings",
+        path: /^interleavings?($|\/)/,
+        filter: ({ gb }) => isInterleavingEnabled(gb),
         beta: true,
-        filter: ({ gb }) => !!gb?.isOn("contextual-bandits"),
       },
       {
         name: "Holdouts",
@@ -104,12 +114,18 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore(\/(?!funnel|sql).*)?$/,
+        path: /^product-analytics\/explore(\/(?!funnel|journey|sql).*)?$/,
       },
       {
         name: "Funnels",
         href: "/product-analytics/explore/funnel",
         path: /^product-analytics\/explore\/funnel/,
+      },
+      {
+        name: "User Journeys",
+        href: "/product-analytics/explore/journey",
+        path: /^product-analytics\/explore\/journey/,
+        beta: true,
       },
       {
         name: "SQL Explorer",
@@ -133,7 +149,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|populations)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
@@ -146,6 +162,12 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Fact Tables",
         href: "/fact-tables",
         path: /^fact-tables/,
+      },
+      {
+        name: "Populations",
+        href: "/populations",
+        path: /^populations/,
+        filter: ({ gb }) => !!gb?.isOn("populations"),
       },
       {
         name: "Segments",
@@ -251,8 +273,9 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin|projects|integrations)/,
+    path: /^(settings|projects?|integrations|events|importing)/,
     autoClose: true,
+    hideSubLinks: true,
     subLinks: [
       {
         name: "General",
@@ -260,6 +283,13 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^settings$/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageOrgSettings(),
+      },
+      {
+        name: "Projects",
+        href: "/projects",
+        path: /^project/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Members",
@@ -276,39 +306,33 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canDeleteTag(),
       },
       {
-        name: "Projects",
-        href: "/projects",
-        path: /^project/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewProjectsPage(),
-      },
-      {
         name: "Custom Fields",
         href: "/settings/customfields",
         path: /^settings\/customfields/,
       },
       {
-        name: "Custom Markdown",
-        href: "/settings/custom-markdown",
-        path: /^settings\/custom-markdown/,
-      },
-      {
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
+        filter: ({ permissionsUtils }) => permissionsUtils.canViewApiKeys(),
+      },
+      {
+        name: "Manage PATs",
+        href: "/settings/personal-access-tokens",
+        path: /^settings\/personal-access-tokens/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canCreateApiKey() ||
-          permissionsUtils.canDeleteApiKey(),
+          permissionsUtils.canManageOrgSettings() ||
+          permissionsUtils.canManagePersonalAccessTokens(),
       },
       {
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewEventWebhook(),
+          permissionsUtils.canManageSomeEventWebhooks(),
       },
       {
-        name: "Logs",
+        name: "Events Log",
         href: "/events",
         path: /^events/,
         filter: ({ permissionsUtils }) => permissionsUtils.canViewAuditLogs(),
@@ -321,10 +345,12 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageIntegrations(),
       },
       {
-        name: "Import your data",
+        // The importer lives in General; this reaches it for roles that can't see General.
+        name: "Import Your Data",
         href: "/importing",
         path: /^importing/,
         filter: ({ permissionsUtils }) =>
+          !permissionsUtils.canManageOrgSettings() &&
           permissionsUtils.canViewFeatureModal() &&
           permissionsUtils.canCreateEnvironment({
             projects: [],
@@ -352,16 +378,22 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^settings\/billing/,
         filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
       },
-      {
-        name: "Admin",
-        href: "/admin",
-        path: /^admin/,
-        divider: true,
-        filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
-      },
     ],
   },
+  {
+    name: "Admin",
+    href: "/admin",
+    Icon: PiShieldCheck,
+    path: /^admin/,
+    filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
+  },
 ];
+
+export const settingsNavLink = navlinks.find((l) => l.name === "Settings")!;
+
+export function isSettingsRoute(route: string): boolean {
+  return settingsNavLink.path.test(route.replace(/^\//, ""));
+}
 
 export type FlatNavItem = {
   name: string;

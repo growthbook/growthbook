@@ -1,66 +1,80 @@
 import { Flex } from "@radix-ui/themes";
 import { RowFilter } from "shared/types/fact-table";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { ReactNode, useState, useEffect, useCallback, useRef } from "react";
+import { isEqual } from "lodash";
 import Text from "@/ui/Text";
-import {
-  ExplorerFilterRow,
-  type ExplorerRowFilter,
-  type FilterColumnSource,
-} from "./ExplorerFilterRow";
+import { type FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
+import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
+import { ExplorerFilterRow, type ExplorerRowFilter } from "./ExplorerFilterRow";
 
-/** Strip front-end-only fields for setValue (commit). */
 function toRowFilter(f: ExplorerRowFilter): RowFilter {
   const { disabled: _d, collapsed: _c, _localId: _id, ...rest } = f;
   return rest;
+}
+
+function withLocalChrome(
+  filter: RowFilter,
+  localId: number,
+): ExplorerRowFilter {
+  return {
+    ...filter,
+    _localId: localId,
+    disabled: false,
+    collapsed: false,
+  };
 }
 
 export function ExplorerRowFilterInput({
   value,
   setValue,
   columnSource,
+  children,
+  showSqlFilter = true,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   columnSource: FilterColumnSource;
+  children?: ReactNode;
+  showSqlFilter?: boolean;
 }) {
   const nextIdRef = useRef(0);
   const assignId = () => nextIdRef.current++;
 
   const [localFilters, setLocalFilters] = useState<ExplorerRowFilter[]>(() =>
-    value.map((f) => ({
-      ...f,
-      _localId: assignId(),
-      disabled: false,
-      collapsed: false,
-    })),
+    value.map((f) => withLocalChrome(f, assignId())),
   );
 
-  const validFilters = useMemo(
-    () => localFilters.filter((f) => !f.disabled),
-    [localFilters],
-  );
+  // Ignore our own commits; any other value change is a wholesale replace.
+  const lastCommittedRef = useRef<RowFilter[]>(value);
 
   useEffect(() => {
-    if (value.length > validFilters.length) {
-      setLocalFilters((prev) => [
-        ...prev,
-        ...value.slice(validFilters.length).map((f) => ({
-          ...f,
-          _localId: assignId(),
-          disabled: false,
-          collapsed: false,
-        })),
-      ]);
-    }
-  }, [value, validFilters.length]);
+    if (isEqual(value, lastCommittedRef.current)) return;
+    lastCommittedRef.current = value;
+    // Keep ids for surviving rows so they don't remount and steal focus
+    setLocalFilters((prev) => {
+      const unused = [...prev];
+      return value.map((f) => {
+        const idx = unused.findIndex((lf) => isEqual(toRowFilter(lf), f));
+        if (idx === -1) return withLocalChrome(f, assignId());
+        const [match] = unused.splice(idx, 1);
+        return { ...match, ...f };
+      });
+    });
+  }, [value]);
 
   const commit = useCallback(
     (filters: ExplorerRowFilter[]) => {
-      const valid = filters.filter((f) => !f.disabled);
-      setValue(valid.map(toRowFilter));
+      const valid = filters.filter((f) => !f.disabled).map(toRowFilter);
+      lastCommittedRef.current = valid;
+      setValue(valid);
     },
     [setValue],
   );
+
+  const replaceLocal = (filters: ExplorerRowFilter[]) => {
+    setLocalFilters(filters);
+    commit(filters);
+  };
 
   return (
     <Flex direction="column" gap="2" width="100%">
@@ -80,12 +94,18 @@ export function ExplorerRowFilterInput({
             if (shouldCommit) commit(newFilters);
           }}
           onDelete={() => {
-            const newFilters = localFilters.filter((_, idx) => idx !== i);
-            setLocalFilters(newFilters);
-            commit(newFilters);
+            replaceLocal(localFilters.filter((_, idx) => idx !== i));
           }}
         />
       ))}
+      <RowFilterActions
+        showSqlFilter={showSqlFilter}
+        onAdd={(filter) =>
+          replaceLocal([...localFilters, withLocalChrome(filter, assignId())])
+        }
+      >
+        {children}
+      </RowFilterActions>
     </Flex>
   );
 }

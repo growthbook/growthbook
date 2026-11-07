@@ -1,4 +1,8 @@
+import { z } from "zod";
 import { ContextualBanditInterface } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
+import { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
+import { getVisibleVariations } from "shared/experiments";
 import {
   ContextualBanditRefRule,
   FeatureInterface,
@@ -6,6 +10,11 @@ import {
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  featureDraftActions,
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
@@ -24,7 +33,9 @@ export async function loadContextualBanditForRead(
   }
   const contextualBandit = await context.models.contextualBandits.getById(id);
   if (!contextualBandit) {
-    return context.throwNotFoundError();
+    return context.throwNotFoundError(
+      `Contextual Bandit ${id} not found or not accessible`,
+    );
   }
   if (
     !context.permissions.canReadSingleProjectResource(contextualBandit.project)
@@ -32,6 +43,33 @@ export async function loadContextualBanditForRead(
     context.permissions.throwPermissionError();
   }
   return { contextualBandit };
+}
+
+type ApiContextualBanditLatestStatus = z.infer<
+  typeof contextualBanditEndpoints.getContextualBanditStatus.responseSchema
+>["latest"];
+
+/**
+ * Serializes a CB run status summary into the `latest` field that the results
+ * and status endpoints both return. Both responses are typed by the shared
+ * `contextualBanditLatestStatusSchema`, so the mapping lives here instead of
+ * being duplicated per handler.
+ */
+export function toApiContextualBanditLatestStatus(
+  summary: SnapshotStatusSummary | null,
+): ApiContextualBanditLatestStatus {
+  if (!summary) return null;
+  return {
+    id: summary.id,
+    status: summary.status,
+    error: summary.error ?? "",
+    queries: summary.queries,
+    runStarted: summary.runStarted ? summary.runStarted.toISOString() : null,
+    dateCreated: summary.dateCreated.toISOString(),
+    multipleExposures: summary.multipleExposures,
+    type: summary.type ?? "standard",
+    triggeredBy: summary.triggeredBy ?? "manual",
+  };
 }
 
 type VariationInput = {
@@ -44,7 +82,9 @@ export function assertVariationsCoverBandit(
   contextualBandit: ContextualBanditInterface,
   variations: VariationInput[],
 ): void {
-  const banditIds = contextualBandit.variations.map((v) => v.id);
+  const banditIds = getVisibleVariations(contextualBandit.variations).map(
+    (v) => v.id,
+  );
   const seen = new Set<string>();
 
   for (const v of variations) {
@@ -159,4 +199,28 @@ export function buildContextualBanditRefRule(
           : v.value,
     })),
   };
+}
+
+// Publishing the rule change now holds as landing its draft; staging it is draft
+// work, and all a landing can do when that draft is armed.
+export async function holdLinkedFeatureWrite(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  autoPublish: boolean | undefined,
+  draftVersion: number | string | undefined,
+) {
+  await requireConfirmation(context, {
+    actions: await featureDraftActions(
+      context,
+      feature.id,
+      draftVersion,
+      !!autoPublish,
+    ),
+    project: feature.project,
+    summary: autoPublish
+      ? `Publish the contextual bandit rule on ${feature.id}`
+      : `Draft the contextual bandit rule on ${feature.id}`,
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
 }

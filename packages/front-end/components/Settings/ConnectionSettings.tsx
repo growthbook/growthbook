@@ -1,14 +1,18 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ChangeEventHandler, ReactNode } from "react";
+import { ChangeEventHandler, ReactNode, useState } from "react";
+import { Box } from "@radix-ui/themes";
+import { isCloud } from "@/services/env";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
+import Text from "@/ui/Text";
 import AthenaForm from "./AthenaForm";
-import BigQueryForm from "./BigQueryForm";
+import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
 import GoogleAnalyticsForm from "./GoogleAnalyticsForm";
 import MixpanelForm from "./MixpanelForm";
 import MysqlForm from "./MysqlForm";
 import PostgresForm from "./PostgresForm";
 import PrestoForm from "./PrestoForm";
-import SnowflakeForm from "./SnowflakeForm";
+import SnowflakeForm, { KeyPairGenerator } from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
 import AdobeExperiencePlatformQueryServiceForm from "./AdobeExperiencePlatformQueryServiceForm";
@@ -21,6 +25,18 @@ export interface Props {
   setDirty?: (dirty: boolean) => void;
   setDatasource: (newVal: Partial<DataSourceInterfaceWithParams>) => void;
   beforeAdvancedSettings?: ReactNode;
+  /**
+   * Collect credentials only. The connection test lives outside this form and
+   * no SQL is generated on save, so BigQuery hides its Default Dataset field
+   * and inline Test Connection button.
+   */
+  connectionOnly?: boolean;
+  /** Snowflake only: offer to generate the key pair instead of uploading one. */
+  keyPairGenerator?: KeyPairGenerator;
+  /** Snowflake Event Forwarder: the schema lives on the Event Destination. */
+  hideSnowflakeSchema?: boolean;
+  /** Password-authenticated warehouses get a generated password on create. */
+  generatedPassword?: boolean;
 }
 
 export default function ConnectionSettings({
@@ -30,7 +46,22 @@ export default function ConnectionSettings({
   setDirty,
   hasError,
   beforeAdvancedSettings,
+  connectionOnly = false,
+  keyPairGenerator,
+  hideSnowflakeSchema = false,
+  generatedPassword = false,
 }: Props) {
+  const bigQueryParams =
+    datasource.type === "bigquery" ? datasource.params : undefined;
+  const [advancedOpen, setAdvancedOpen] = useState(
+    !!datasource.settings?.maxConcurrentQueries ||
+      !!datasource.settings?.queryCacheTTLMins ||
+      !!bigQueryParams?.apiEndpoint ||
+      !!bigQueryParams?.reservation ||
+      (!!bigQueryParams?.defaultProject &&
+        bigQueryParams.defaultProject !== bigQueryParams.projectId),
+  );
+
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
     params: { [key: string]: string | boolean },
@@ -91,6 +122,7 @@ export default function ConnectionSettings({
           onManualParamChange={onManualParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -101,6 +133,7 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -111,6 +144,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          generatedPassword={generatedPassword}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -121,6 +156,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          generatedPassword={generatedPassword}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -131,6 +168,7 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -141,6 +179,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          generatedPassword={generatedPassword}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -151,6 +191,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          generatedPassword={generatedPassword}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -172,7 +214,10 @@ export default function ConnectionSettings({
           existing={storedCredentials}
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
+          setParams={setParams}
           params={datasource?.params || {}}
+          keyPairGenerator={keyPairGenerator}
+          hideSchema={hideSnowflakeSchema}
         />
       );
       break;
@@ -183,6 +228,7 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -191,9 +237,11 @@ export default function ConnectionSettings({
         <BigQueryForm
           existing={storedCredentials}
           datasourceId={storedCredentials ? datasource.id : undefined}
+          projects={datasource.projects}
           setParams={setParams}
           params={datasource?.params || {}}
           onParamChange={onParamChange}
+          connectionOnly={connectionOnly}
         />
       );
       break;
@@ -224,11 +272,38 @@ export default function ConnectionSettings({
     <>
       {datasourceComponent}
       {beforeAdvancedSettings}
-      <SharedConnectionSettings
-        type={datasource.type}
-        onSettingChange={onSettingChange}
-        settings={datasource?.settings || {}}
-      />
+      <Box mb="3">
+        <CollapseTrigger
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+          caret="start"
+        >
+          <Text weight="semibold">Advanced Settings</Text>
+        </CollapseTrigger>
+        <Collapse open={advancedOpen}>
+          <Box
+            mt="2"
+            px="3"
+            pt="3"
+            pb="1"
+            className="bg-highlight"
+            style={{ borderRadius: "var(--radius-2)" }}
+          >
+            {datasource.type === "bigquery" && (
+              <BigQueryAdvancedSettings
+                params={datasource.params || {}}
+                onParamChange={onParamChange}
+                showProjectId={isCloud() || bigQueryParams?.authType !== "auto"}
+              />
+            )}
+            <SharedConnectionSettings
+              type={datasource.type}
+              onSettingChange={onSettingChange}
+              settings={datasource?.settings || {}}
+            />
+          </Box>
+        </Collapse>
+      </Box>
     </>
   );
 }

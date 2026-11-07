@@ -1,5 +1,6 @@
 import React, { forwardRef, useRef, useState } from "react";
 import * as RadixPopover from "@radix-ui/react-popover";
+import clsx from "clsx";
 import { IconButton } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiX } from "react-icons/pi";
@@ -8,6 +9,9 @@ import Button from "./Button";
 import styles from "./Popover.module.scss";
 
 type AllowedChildren = string | React.ReactNode;
+
+// Radix's default arrow height
+const ARROW_HEIGHT = 5;
 
 type ControlledPopoverProps = {
   open: boolean;
@@ -24,10 +28,14 @@ type UncontrolledPopoverProps = {
 type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   trigger: React.ReactNode;
   triggerAsChild?: boolean;
+  /** Positions the popover against this element. The trigger still opens it. */
+  anchor?: React.ReactNode;
   content: AllowedChildren;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
   sideOffset?: number;
+  /** Shift along the alignment axis, for anchors whose edge is not their box. */
+  alignOffset?: number;
   showCloseButton?: boolean;
   showArrow?: boolean;
   disableDismiss?: boolean;
@@ -46,6 +54,13 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onOpenAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onOpenAutoFocus"];
+  // e.preventDefault() leaves focus where it went (e.g. a modal it opened)
+  // instead of returning it to the trigger.
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onCloseAutoFocus"];
+  // False pins the popover to `side` instead of flipping it when space runs out.
+  avoidCollisions?: boolean;
   // Open on hover of the trigger (and stay open while hovering the content)
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
@@ -55,10 +70,12 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
 export function Popover({
   trigger,
   triggerAsChild = true,
+  anchor,
   content,
   side = "bottom",
   align = "center",
   sideOffset,
+  alignOffset,
   showCloseButton = false,
   showArrow = true,
   disableDismiss = false,
@@ -68,7 +85,9 @@ export function Popover({
   onFocusOutside,
   onInteractOutside,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   openOnHover = false,
+  avoidCollisions,
   ...props
 }: PopoverProps) {
   const {
@@ -106,6 +125,31 @@ export function Popover({
       }
     : {};
 
+  // Sizes the strip that bridges the gap to the trigger (.HoverBridge). Radix
+  // starts the open animation once it has placed the popover. Content that
+  // scrolls would clip the strip, so it gets none.
+  const triggerNode = useRef<HTMLElement | null>(null);
+  const setTriggerNode = (node: HTMLElement | null) => {
+    triggerNode.current = node;
+  };
+  const fitBridge = (e: React.AnimationEvent<HTMLDivElement>) => {
+    const content = e.currentTarget;
+    const trigger = triggerNode.current;
+    if (e.target !== content || !trigger) return;
+    if (getComputedStyle(content).overflowY !== "visible") return;
+    const t = trigger.getBoundingClientRect();
+    const c = content.getBoundingClientRect();
+    // Above or below, it spans the whole edge so any path from the trigger
+    // lands on it. Beside (menus), only the trigger, clear of other options.
+    const [start, end] = ["top", "bottom"].includes(content.dataset.side ?? "")
+      ? [Math.min(t.left - c.left, 0), Math.max(t.right - c.left, c.width)]
+      : [t.top - c.top, t.bottom - c.top];
+    const gap = (sideOffset ?? 0) + (showArrow ? ARROW_HEIGHT : 0);
+    content.style.setProperty("--hover-bridge", `${gap}px`);
+    content.style.setProperty("--hover-bridge-start", `${start}px`);
+    content.style.setProperty("--hover-bridge-length", `${end - start}px`);
+  };
+
   const rootProps = openOnHover
     ? { open: hoverOpen, onOpenChange: setHoverOpen }
     : {
@@ -132,8 +176,12 @@ export function Popover({
 
   return (
     <RadixPopover.Root {...marginProps} {...rootProps}>
+      {anchor ? (
+        <RadixPopover.Anchor asChild>{anchor}</RadixPopover.Anchor>
+      ) : null}
       {anchorOnly ? (
         <RadixPopover.Anchor
+          ref={setTriggerNode}
           asChild={triggerAsChild}
           className={styles.UnstyledTrigger}
           {...hoverHandlers}
@@ -141,7 +189,11 @@ export function Popover({
           {clonedTrigger}
         </RadixPopover.Anchor>
       ) : (
-        <RadixPopover.Trigger asChild={triggerAsChild} {...hoverHandlers}>
+        <RadixPopover.Trigger
+          ref={setTriggerNode}
+          asChild={triggerAsChild}
+          {...hoverHandlers}
+        >
           {clonedTrigger}
         </RadixPopover.Trigger>
       )}
@@ -153,12 +205,20 @@ export function Popover({
               side={side}
               align={align}
               sideOffset={sideOffset}
-              className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
+              alignOffset={alignOffset}
+              avoidCollisions={avoidCollisions}
+              className={clsx(
+                styles.Content,
+                openOnHover && styles.HoverBridge,
+                contentClassName,
+              )}
               style={appliedContentStyle}
               {...hoverHandlers}
+              onAnimationStart={openOnHover ? fitBridge : undefined}
               onOpenAutoFocus={
                 openOnHover ? (e) => e.preventDefault() : onOpenAutoFocus
               }
+              onCloseAutoFocus={onCloseAutoFocus}
               onEscapeKeyDown={
                 disableDismiss ? (e) => e.preventDefault() : undefined
               }

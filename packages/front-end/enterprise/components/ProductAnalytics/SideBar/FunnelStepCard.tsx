@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Box, Flex, TextField } from "@radix-ui/themes";
+import { reconcileInlineFilterPrompts } from "shared/experiments";
+import { Box, Flex, IconButton, TextField } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretRight,
@@ -7,7 +8,6 @@ import {
   PiPencilSimple,
   PiPlus,
   PiUserFill,
-  PiX,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import {
@@ -22,6 +22,8 @@ import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import FunnelStepDragHandle from "@/components/FactTables/FunnelStepDragHandle";
+import FunnelStepActionsMenu from "@/components/FactTables/FunnelStepActionsMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Field from "@/components/Forms/Field";
@@ -30,9 +32,12 @@ import {
   getFunnelStepPreview,
   getInitialInlineFilters,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { factTableToColumnSource } from "./ExplorerFilterRow";
+import { factTableToColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
+
+// Undo Radix ghost negative margins so the 4px gap shows.
+const HEADER_BUTTON_STYLE: React.CSSProperties = { margin: 0 };
 
 const CONVERSION_WINDOW_UNITS: ConversionWindow["unit"][] = [
   "minutes",
@@ -70,6 +75,9 @@ interface Props {
   /** Delete handler lives in the parent so it can keep the per-step
    *  collapse state aligned with the underlying steps array. */
   onDelete: (index: number) => void;
+  onInsert: (atIndex: number) => void;
+  canAddStep: boolean;
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
   /** Intersection of user id types across all steps; step 1 shows the unit
    *  picker beside Add Filter when non-empty. */
   funnelUnitOptions: string[];
@@ -85,6 +93,9 @@ export default function FunnelStepCard({
   isCollapsed,
   onToggleCollapsed,
   onDelete,
+  onInsert,
+  canAddStep,
+  dragHandleProps,
   funnelUnitOptions,
   collapsibleTransitionMs = 100,
 }: Props) {
@@ -123,7 +134,12 @@ export default function FunnelStepCard({
 
   const handleFiltersChange = (filters: RowFilter[]) => {
     setDraftExploreState((prev) =>
-      updateStep(prev, index, (s) => ({ ...s, rowFilters: filters })),
+      updateStep(prev, index, (s) => ({
+        ...s,
+        rowFilters: factTable
+          ? reconcileInlineFilterPrompts(factTable, s.rowFilters, filters)
+          : filters,
+      })),
     );
   };
 
@@ -215,13 +231,17 @@ export default function FunnelStepCard({
         backgroundColor: "var(--color-panel-translucent)",
       }}
     >
-      <Flex justify="between" align="center">
+      <Flex justify="between" align="center" gap="1">
         <Flex
           align="center"
           gap="2"
           className={styles.titleGroup}
           style={{ minWidth: 0, flex: 1 }}
         >
+          <FunnelStepDragHandle
+            handleProps={dragHandleProps}
+            label={step.name}
+          />
           <Box style={{ flexShrink: 0 }}>
             <Text size="sm" color="text-low">
               {index + 1}.
@@ -259,36 +279,43 @@ export default function FunnelStepCard({
                   {step.name}
                 </Text>
               </Box>
-              <Button
+              <IconButton
                 className={styles.editBtn}
                 variant="ghost"
-                size="sm"
+                size="1"
+                radius="full"
+                style={HEADER_BUTTON_STYLE}
                 onClick={handleStartNameEdit}
+                aria-label="Edit name"
                 title="Edit name"
               >
                 <PiPencilSimple size={14} />
-              </Button>
+              </IconButton>
             </>
           )}
         </Flex>
-        <Flex align="center" style={{ flexShrink: 0 }}>
-          <Button
+        <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
+          <IconButton
             variant="ghost"
-            size="sm"
+            size="1"
+            radius="full"
+            style={HEADER_BUTTON_STYLE}
             onClick={onToggleCollapsed}
+            aria-label={isCollapsed ? "Expand" : "Collapse"}
             title={isCollapsed ? "Expand" : "Collapse"}
           >
             {isCollapsed ? <PiCaretDown size={14} /> : <PiCaretUp size={14} />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={steps.length === 1}
-            onClick={() => onDelete(index)}
-            title="Delete step"
-          >
-            <PiX size={14} />
-          </Button>
+          </IconButton>
+          <FunnelStepActionsMenu
+            rowFilters={step.rowFilters}
+            canInsertAbove={canAddStep && index > 0}
+            canInsertBelow={canAddStep}
+            canDelete={steps.length > 1}
+            onInsertAbove={() => onInsert(index)}
+            onInsertBelow={() => onInsert(index + 1)}
+            onDelete={() => onDelete(index)}
+            triggerStyle={HEADER_BUTTON_STYLE}
+          />
         </Flex>
       </Flex>
       {isCollapsed && collapsedSubline && (
@@ -377,37 +404,18 @@ export default function FunnelStepCard({
                 columnSource={columnSource}
                 value={step.rowFilters}
                 setValue={handleFiltersChange}
-              />
-              <Flex
-                justify={showFunnelUnitOnFilterRow ? "between" : "start"}
-                align="center"
-                mt="2"
               >
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    handleFiltersChange([
-                      ...step.rowFilters,
-                      { column: "", operator: "=", values: [] },
-                    ]);
-                  }}
-                >
-                  <Flex align="center" gap="2">
-                    <PiPlus size={14} />
-                    Add Filter
-                  </Flex>
-                </Button>
                 {showFunnelUnitOnFilterRow && (
                   <DropdownMenu
                     open={unitDropdownOpen}
                     onOpenChange={setUnitDropdownOpen}
                     trigger={
-                      <Button size="sm" variant="ghost">
-                        <Flex align="center" gap="2">
-                          <PiUserFill size={14} />
-                          {funnelUnit ?? funnelUnitOptions[0]}
-                        </Flex>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<PiUserFill size={14} />}
+                      >
+                        {funnelUnit ?? funnelUnitOptions[0]}
                       </Button>
                     }
                   >
@@ -430,7 +438,7 @@ export default function FunnelStepCard({
                     ))}
                   </DropdownMenu>
                 )}
-              </Flex>
+              </ExplorerRowFilterInput>
             </Box>
           )}
 

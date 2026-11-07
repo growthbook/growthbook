@@ -28,6 +28,10 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "pro",
       displayName: "Cloud Proxy",
     },
+    "cluster-experiments": {
+      plan: "pro",
+      displayName: "Cluster Experiments",
+    },
     "code-references": {
       plan: "pro",
       displayName: "Code References",
@@ -103,6 +107,10 @@ export const CommercialFeature = ({ feature, description }) => {
     "incremental-refresh": {
       plan: "enterprise",
       displayName: "Incremental Refresh",
+    },
+    interleaving: {
+      plan: "enterprise",
+      displayName: "Interleaving",
     },
     "json-validation": {
       plan: "enterprise",
@@ -260,10 +268,6 @@ export const CommercialFeature = ({ feature, description }) => {
       plan: "pro",
       displayName: "Sequential Testing",
     },
-    "share-product-analytics-dashboards": {
-      plan: "enterprise",
-      displayName: "Share Product Analytics Dashboards",
-    },
     simulate: {
       plan: "pro",
       displayName: "Simulate",
@@ -290,7 +294,7 @@ export const CommercialFeature = ({ feature, description }) => {
     },
     "visual-editor": {
       plan: "pro",
-      displayName: "Visual Editor",
+      displayName: "AI Visual Editor",
     },
   };
 

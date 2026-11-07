@@ -86,6 +86,7 @@ const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
         id: "user_id",
         name: "Logged-in User Experiments",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         query:
           "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id,\nbrowser\nFROM experiment_viewed",
         dimensions: ["browser"],
@@ -194,8 +195,6 @@ const DEMO_RATIO_METRIC: Pick<
 
 const DEMO_FACT_METRIC_DEFAULTS: Pick<
   FactMetricInterface,
-  | "winRisk"
-  | "loseRisk"
   | "regressionAdjustmentOverride"
   | "regressionAdjustmentEnabled"
   | "metricAutoSlices"
@@ -209,8 +208,6 @@ const DEMO_FACT_METRIC_DEFAULTS: Pick<
   | "quantileSettings"
   | "funnelSettings"
 > = {
-  winRisk: 0.0025,
-  loseRisk: 0.0125,
   regressionAdjustmentOverride: false,
   regressionAdjustmentEnabled: false,
   metricAutoSlices: [],

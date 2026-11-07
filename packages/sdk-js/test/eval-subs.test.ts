@@ -1,4 +1,4 @@
-import { GrowthBook } from "../src";
+import { Experiment, GrowthBook, GrowthBookClient } from "../src";
 
 describe("eval subscriptions", () => {
   describe("_subscribeFeatureUsage", () => {
@@ -197,6 +197,97 @@ describe("eval subscriptions", () => {
       expect(good).toHaveBeenCalledTimes(1);
 
       gb.destroy();
+    });
+  });
+
+  describe("_subscribeExperimentViewed", () => {
+    const exp: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+    };
+
+    it("fires once per deduped experiment with correct args", () => {
+      const cb = jest.fn();
+      const gb = new GrowthBook({ attributes: { id: "123" } });
+      gb._subscribeExperimentViewed(cb);
+
+      const res = gb.run(exp);
+      gb.run(exp);
+
+      expect(cb).toHaveBeenCalledTimes(1);
+      expect(cb).toHaveBeenCalledWith(exp, res, {
+        attributes: { id: "123" },
+        url: expect.any(String),
+      });
+
+      gb.destroy();
+    });
+
+    it("unsubscribe stops callbacks", () => {
+      const cb = jest.fn();
+      const gb = new GrowthBook({ attributes: { id: "123" } });
+      const unsub = gb._subscribeExperimentViewed(cb);
+
+      gb.run(exp);
+      expect(cb).toHaveBeenCalledTimes(1);
+
+      unsub();
+      gb.run({ ...exp, key: "another-experiment" });
+      expect(cb).toHaveBeenCalledTimes(1);
+
+      gb.destroy();
+    });
+
+    it("a throwing subscriber does not break trackingCallback or other subscribers", () => {
+      const bad = jest.fn(() => {
+        throw new Error("boom");
+      });
+      const good = jest.fn();
+      const trackingCallback = jest.fn();
+      const gb = new GrowthBook({
+        attributes: { id: "123" },
+        trackingCallback,
+      });
+      gb._subscribeExperimentViewed(bad);
+      gb._subscribeExperimentViewed(good);
+
+      const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+      gb.run(exp);
+      spy.mockRestore();
+
+      expect(bad).toHaveBeenCalledTimes(1);
+      expect(good).toHaveBeenCalledTimes(1);
+      expect(trackingCallback).toHaveBeenCalledTimes(1);
+
+      gb.destroy();
+    });
+
+    it("does not fire after destroy", () => {
+      const cb = jest.fn();
+      const gb = new GrowthBook({ attributes: { id: "123" } });
+      gb._subscribeExperimentViewed(cb);
+      gb.destroy();
+
+      gb.run(exp);
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    it("works on user-scoped instances from GrowthBookClient", () => {
+      const cb = jest.fn();
+      const client = new GrowthBookClient();
+      const user = client.createScopedInstance({ attributes: { id: "1" } });
+      user._subscribeExperimentViewed(cb);
+
+      const res = user.runInlineExperiment(exp);
+      user.runInlineExperiment(exp);
+
+      expect(cb).toHaveBeenCalledTimes(1);
+      expect(cb).toHaveBeenCalledWith(exp, res, {
+        attributes: { id: "1" },
+        url: undefined,
+      });
+
+      client.destroy();
     });
   });
 

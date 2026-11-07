@@ -9,15 +9,19 @@ import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getDefaultHashAttribute,
   filterEnvironmentsByFeature,
   generateVariationId,
   isAvailableInProject,
   getReviewSetting,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getTargetingProjectIds,
+  getRuleTargetingProjectIds,
+  rampTargetMatchesRule,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -26,12 +30,14 @@ import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
+  ACTIVE_DRAFT_STATUSES,
   CreateSafeRolloutInterface,
-  SafeRolloutInterface,
-  SafeRolloutRule,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  SafeRolloutInterface,
+  SafeRolloutRule,
+  stripUnknownRuleFields,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
@@ -42,6 +48,7 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import { withStagedTargeting } from "shared/permissions";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import {
@@ -56,6 +63,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useAuth } from "@/services/auth";
 import { useLocalAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -67,14 +75,23 @@ import {
   stringifyForRawDiff,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { normalizeFeatureRules } from "@/components/Features/FeatureDiffRenders";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
+import {
+  countRampFallthroughRules,
+  getRampStartImpact,
+  type RampStartImpact,
+} from "@/components/Features/RuleModal/rampStartImpact";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
+import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
+import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import {
   ConflictCalloutRow,
   WholeConflictCallout,
@@ -96,7 +113,6 @@ import { scheduleAutoName } from "@/components/Features/RuleModal/ScheduleInputs
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Page from "@/components/Modal/Page";
-import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
@@ -105,7 +121,6 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
@@ -195,6 +210,64 @@ export interface RampToNewValueSeed {
   ramp: RampSectionState;
 }
 
+// Full-bleed amber strip above the modal CTAs: warns that saving this ramp
+// takes traffic away from an already-published rule, and gates Save behind an
+// explicit acknowledgment.
+function RampImpactBanner({
+  impact,
+  fallthroughPhrase,
+  acknowledged,
+  setAcknowledged,
+  onRampToNewValue,
+}: {
+  impact: NonNullable<RampStartImpact>;
+  fallthroughPhrase: string;
+  acknowledged: boolean;
+  setAcknowledged: (value: boolean) => void;
+  onRampToNewValue?: () => void;
+}) {
+  return (
+    <ModalWarningBanner
+      controls={
+        <>
+          {onRampToNewValue && (
+            <Tooltip
+              content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
+              side="top"
+            >
+              <Button variant="outline" size="md" onClick={onRampToNewValue}>
+                Ramp to new value
+              </Button>
+            </Tooltip>
+          )}
+          <Box style={{ color: "var(--violet-11)" }}>
+            <Checkbox
+              value={acknowledged}
+              setValue={setAcknowledged}
+              label="Acknowledge"
+              weight="medium"
+              align="center"
+            />
+          </Box>
+        </>
+      }
+    >
+      This ramp-up will override an already-published rule.{" "}
+      {impact.kind === "coverage-drop" ? (
+        <>
+          Unenrolled users ({100 - impact.toPct}%) will fall through to{" "}
+          {fallthroughPhrase}.
+        </>
+      ) : (
+        <>
+          This rule will be disabled until the ramp-up starts; until then, all
+          traffic will fall through to {fallthroughPhrase}.
+        </>
+      )}
+    </ModalWarningBanner>
+  );
+}
+
 export interface Props {
   close: () => void;
   // Merged feature (base + draft changes). Use baseFeature to check live/published state.
@@ -270,6 +343,12 @@ const RULE_FIELD_LABELS: Record<string, string> = {
   experimentId: "Experiment",
 };
 
+// null (all projects) absorbs every other set.
+const unionProjectIds = (...sets: (string[] | null)[]): string[] | null =>
+  sets.some((s) => s === null)
+    ? null
+    : Array.from(new Set(sets.flat() as string[]));
+
 export default function RuleModal({
   close,
   feature,
@@ -293,11 +372,34 @@ export default function RuleModal({
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
+  const flatRules = feature.rules ?? [];
+  const rule: FeatureRule | undefined = ruleId
+    ? flatRules.find((r) => r.id === ruleId)
+    : undefined;
+
+  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
+  // means "all projects"; `allProjects === false` with a `projects` list scopes
+  // the rule. On duplicate/edit, seed from the existing rule.
+  const existingRuleAllProjects =
+    rule === undefined || rule.allProjects !== false;
+  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
+    () => existingRuleAllProjects,
+  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
+  );
+
   // `feature` is the merged view where staged targeting REPLACES current, so
-  // union the published `baseFeature` with the draft's staged metadata.
+  // union the published `baseFeature` with the draft's staged metadata, then
+  // narrow to the projects this rule itself targets — the scope the server
+  // validates against.
   const attributeScopeProjects = useMemo(
-    () => getAttributeScopeProjectIds(baseFeature, draftRevision?.metadata),
-    [baseFeature, draftRevision],
+    () =>
+      getRuleAttributeScopeProjectIds(baseFeature, draftRevision?.metadata, {
+        allProjects: scopeAllProjects,
+        projects: selectedProjects,
+      }),
+    [baseFeature, draftRevision, scopeAllProjects, selectedProjects],
   );
   const { effectiveAttributeProjects, attributeScopeToggle } =
     useLocalAttributeScopePicker(baseFeature.project, attributeScopeProjects);
@@ -306,11 +408,6 @@ export default function RuleModal({
   // truly-unknown attributes and attributes that exist but aren't scoped to
   // this project, so the client-side error wording matches the server.
   const allAttributesSchema = useAttributeSchema(false);
-
-  const flatRules = feature.rules ?? [];
-  const rule: FeatureRule | undefined = ruleId
-    ? flatRules.find((r) => r.id === ruleId)
-    : undefined;
   // Published version of the rule being edited. Never set for duplicates —
   // they create a new rule even though `ruleId` points at a published one.
   const liveRule =
@@ -368,9 +465,7 @@ export default function RuleModal({
   // still resolve to the same schedule as their bare stem (fr_abc).
   const ruleRampSchedule = rule?.id
     ? rampSchedules.find((rs) =>
-        rs.targets.some(
-          (t) => t.ruleId && stemRuleId(t.ruleId) === stemRuleId(rule.id),
-        ),
+        rs.targets.some((t) => rampTargetMatchesRule(t, rule.id)),
       )
     : undefined;
 
@@ -502,13 +597,22 @@ export default function RuleModal({
   // a holdout added in that same draft is picked up. Falls back to the merged
   // feature's holdout when the target revision isn't in context (e.g. a new
   // draft branched from the viewed version carries that holdout forward).
-  const revisionsCtx = useFeatureRevisionsContext();
-  const targetHoldoutId = useMemo(() => {
-    const targetRev = revisionsCtx?.revisions.find(
-      (r) => r.version === targetVersion,
-    );
-    return (targetRev ? targetRev.holdout : feature.holdout)?.id;
-  }, [revisionsCtx, targetVersion, feature.holdout]);
+  // The draft the rule is written into (it may differ from the viewed one) and
+  // the revision that draft was created from. Only an active draft counts: a
+  // discarded or published revision's envelope is not what the save lands in.
+  const targetRevisions = useFeatureRevisions(feature.id, [
+    targetVersion,
+    revisionList.find((r) => r.version === targetVersion)?.baseVersion,
+  ]);
+  const isActiveDraft = (r: FeatureRevisionInterface | null | undefined) =>
+    !!r && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
+  const targetRevision = targetRevisions.get(targetVersion);
+  const targetDraft = [targetRevision, draftRevision].find(isActiveDraft);
+  const targetDraftBase = targetRevisions.get(targetDraft?.baseVersion);
+  const baseRule = targetDraftBase?.rules.find((r) => r.id === ruleId);
+  const targetHoldoutId = (
+    targetRevision ? targetRevision.holdout : feature.holdout
+  )?.id;
 
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
@@ -542,7 +646,21 @@ export default function RuleModal({
     if (rule.type === "safe-rollout") {
       return {
         ...rule,
-        safeRolloutFields: safeRollout,
+        /**
+         * Rollouts saved before identifiers were stored analyze on their
+         * query's original one; fill it in so the required field isn't blank.
+         */
+        safeRolloutFields: safeRollout && {
+          ...safeRollout,
+          exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+            datasources
+              .find((d) => d.id === safeRollout.datasourceId)
+              ?.settings?.queries?.exposure?.find(
+                (q) => q.id === safeRollout.exposureQueryId,
+              ),
+            safeRollout.exposureQueryIdentifierType,
+          ),
+        },
       };
     }
     if (rule.type === "rollout") {
@@ -664,10 +782,7 @@ export default function RuleModal({
       setValue: (value) => form.setValue("customFields", value),
     });
 
-  // On edit/duplicate, seed scope from the existing rule. Legacy rules with
-  // `environments === undefined` are treated as permissive (= all envs). On
-  // create, seed from org default ("all envs") or fall back to the current
-  // env tab.
+  // Edit/duplicate seed scope from the rule (legacy `environments` unset = all).
   const existingRuleAllEnvs = rule?.allEnvironments === true;
   const existingRuleEnvList = Array.isArray(rule?.environments)
     ? (rule?.environments ?? [])
@@ -711,17 +826,21 @@ export default function RuleModal({
       return environment ? [environment] : [];
     },
   );
-
-  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
-  // means "all projects"; `allProjects === false` with a `projects` list scopes
-  // the rule. On duplicate/edit, seed from the existing rule.
-  const existingRuleAllProjects =
-    rule === undefined || rule.allProjects !== false;
-  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
-    () => existingRuleAllProjects,
-  );
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
-    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate(
+    {
+      allEnvironments: scopeAllEnvs,
+      environments: selectedEnvironments,
+      allProjects: scopeAllProjects,
+      projects: selectedProjects,
+    },
+    mode === "edit"
+      ? [rule, targetRevision?.rules?.find((r) => r.id === ruleId) ?? liveRule]
+      : [],
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
@@ -869,8 +988,62 @@ export default function RuleModal({
   const isRampType = scheduleType === "ramp";
   const hasRampPage =
     isRampType && (ruleType === "force" || ruleType === "rollout");
+  const onRampPage = hasRampPage && step === 1;
+  const onSavePage = !hasRampPage || step === 1;
   const rampIsEditable =
     !ruleRampSchedule || ruleRampSchedule.status !== "running";
+
+  // Ramping an already-live rule takes traffic away from it: block the ramp
+  // page's submit until that's acknowledged. Moot once the ramp has started.
+  const rampNotYetStarted =
+    !ruleRampSchedule || ["pending", "ready"].includes(ruleRampSchedule.status);
+  const rampStartImpact =
+    hasRampPage && rampNotYetStarted && rampSectionState.mode !== "off"
+      ? getRampStartImpact({
+          liveRule,
+          firstStepCoveragePct: rampSectionState.steps.find(
+            (s) => s.patch.coverage !== undefined,
+          )?.patch.coverage,
+          hasDelayedStart:
+            (!!rampSectionState.startDate &&
+              new Date(rampSectionState.startDate) > new Date()) ||
+            rampSectionState.requiresStartApproval,
+        })
+      : null;
+  // Acknowledgment binds to the impact's signature, so editing the ramp into
+  // a different impact re-arms the gate. A ramp that arrived already saved
+  // (pending schedule or draft action) starts acknowledged — its impact was
+  // accepted when it was first saved.
+  const rampImpactKey = rampStartImpact
+    ? rampStartImpact.kind === "coverage-drop"
+      ? `drop:${rampStartImpact.fromPct}:${rampStartImpact.toPct}`
+      : `delayed:${rampStartImpact.liveCoveragePct}:${rampSectionState.startDate}:${rampSectionState.requiresStartApproval}`
+    : "";
+  const [rampAcknowledgedKey, setRampAcknowledgedKey] = useState(() =>
+    ruleRampSchedule || pendingCreateActionTyped ? rampImpactKey : "",
+  );
+  const rampImpactAcknowledged =
+    rampImpactKey !== "" && rampAcknowledgedKey === rampImpactKey;
+  const rampImpactBlocksSubmit = !!rampStartImpact && !rampImpactAcknowledged;
+  const rampFallthroughPhrase =
+    rampStartImpact && countRampFallthroughRules(feature, ruleId) > 0
+      ? "the next matching rule, or the default value"
+      : "the default value";
+  // Hidden when the draft already has a pending ramp — publish would ramp
+  // both the source and the clone.
+  const switchToRampToNewValue =
+    mode === "edit" &&
+    isLiveRule &&
+    !ruleRampSchedule &&
+    !pendingCreateActionTyped &&
+    ruleId &&
+    onSwitchToRampToNewValue
+      ? () =>
+          onSwitchToRampToNewValue(ruleId, {
+            rule: pick(formValues(), RAMP_TO_NEW_VALUE_CARRIED_FIELDS),
+            ramp: rampSectionState,
+          })
+      : undefined;
 
   // Reset to page 1 when the ramp page disappears (user switched away from ramp).
   // Only applies to rollout/force rules — experiment rules have their own valid pages.
@@ -936,11 +1109,10 @@ export default function RuleModal({
       // When auto-promoting to rollout, ensure hashAttribute has a sensible value
       if (targetType === "rollout") {
         if (!form.getValues("hashAttribute")) {
-          const defaultHash =
-            attributeSchema?.find((a) => a.hashAttribute)?.property ||
-            attributeSchema?.[0]?.property ||
-            "id";
-          form.setValue("hashAttribute", defaultHash);
+          form.setValue(
+            "hashAttribute",
+            getDefaultHashAttribute(attributeSchema),
+          );
         }
       }
     }
@@ -1132,6 +1304,8 @@ export default function RuleModal({
       values = { ...values, allProjects: false, projects: selectedProjects };
     }
 
+    checkUnscopedRule();
+
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
     if (values.scheduleRules?.length) {
       values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
@@ -1274,6 +1448,7 @@ export default function RuleModal({
           disableStickyBucketing,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
+          exposureQueryIdentifierType: values.exposureQueryIdentifierType,
           goalMetrics: values.goalMetrics || [],
           secondaryMetrics: values.secondaryMetrics || [],
           guardrailMetrics: values.guardrailMetrics || [],
@@ -1286,7 +1461,9 @@ export default function RuleModal({
           owner: "",
           status: "draft",
           tags: feature.tags || [],
-          trackingKey: values.trackingKey || feature.id,
+          trackingKey:
+            values.trackingKey ||
+            (settings.experimentKeyRegexValidator ? "" : feature.id),
           description: values.description,
           hypothesis: values.hypothesis,
           linkedFeatures: [feature.id],
@@ -1442,6 +1619,7 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
+        delete (values as { fallbackAttribute?: string }).fallbackAttribute;
       } else if (values.type === "rollout") {
         // An empty seed means "stamp this rule's own id" (the default for
         // duplicates) — omit it rather than submitting "".
@@ -1449,6 +1627,7 @@ export default function RuleModal({
           // eslint-disable-next-line
           delete (values as any).seed;
         }
+        if (!values.fallbackAttribute) delete values.fallbackAttribute;
       }
       if (
         values.scheduleRules &&
@@ -1456,6 +1635,13 @@ export default function RuleModal({
         !rule?.scheduleRules
       ) {
         delete values.scheduleRules;
+      }
+
+      // Only inline experiment rules store disableStickyBucketing; on every
+      // other type it's a stray form default
+      if (values.type !== "experiment") {
+        delete (values as { disableStickyBucketing?: boolean })
+          .disableStickyBucketing;
       }
 
       const correctedRule = validateFeatureRule(
@@ -1510,6 +1696,9 @@ export default function RuleModal({
         hasDescription: values.description && values.description.length > 0,
         numEnvironments: selectedEnvironments.length,
       });
+      // The form carries widget-only fields for every rule type; drop the ones
+      // this type doesn't store, or they read as changes in every later diff.
+      values = stripUnknownRuleFields(values);
       let res: { version: number } | undefined;
 
       if (mode === "edit") {
@@ -1788,6 +1977,7 @@ export default function RuleModal({
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
+                allowUnscopedRules,
               } as PutFeatureRuleBody),
             },
             (responseData) => {
@@ -1911,6 +2101,7 @@ export default function RuleModal({
               // Land the clone directly above its source rule.
               insertBeforeRuleId:
                 mode === "duplicate" && rampToNewValue ? ruleId : undefined,
+              allowUnscopedRules,
             } as PostFeatureRuleBody),
           },
         );
@@ -2256,8 +2447,24 @@ export default function RuleModal({
     setAllProjects: setScopeAllProjects,
     selectedProjects,
     setSelectedProjects,
-    // Limit scoping to the feature's delivery set (null = all projects).
-    allowedProjectIds: getTargetingProjectIds(feature),
+    // The delivery set (null = all projects) of the viewed feature, the live
+    // feature, the target draft, and the revision that draft began from, plus
+    // this rule's scope live and in that revision, so a removed scope can be
+    // put back.
+    allowedProjectIds: unionProjectIds(
+      getTargetingProjectIds(feature),
+      getTargetingProjectIds(baseFeature),
+      getTargetingProjectIds(
+        withStagedTargeting(baseFeature, targetDraft?.metadata),
+      ),
+      targetDraftBase
+        ? getTargetingProjectIds(
+            withStagedTargeting(baseFeature, targetDraftBase.metadata),
+          )
+        : [],
+      liveRule?.projects ?? [],
+      baseRule?.projects ?? [],
+    ),
   };
 
   // Resolved env list used by child components that care about which envs the
@@ -2266,6 +2473,15 @@ export default function RuleModal({
   const effectiveEnvList = scopeAllEnvs
     ? environments.map((e) => e.id)
     : selectedEnvironments;
+
+  const savedGroupProjects = settings.enforceSavedGroupProjectScope
+    ? getRuleTargetingProjectIds(
+        targetDraft
+          ? withStagedTargeting(baseFeature, targetDraft.metadata)
+          : feature,
+        { allProjects: scopeAllProjects, projects: selectedProjects },
+      )
+    : undefined;
 
   const modalContent = (
     <FormProvider {...form}>
@@ -2289,14 +2505,43 @@ export default function RuleModal({
             ? ruleType !== undefined
             : hasRampPage && step === 0
               ? !isCyclic && !prerequisiteTargetingSdkIssues
-              : canSubmit && conflictResolved
+              : canSubmit &&
+                conflictResolved &&
+                !rampImpactBlocksSubmit &&
+                !unscopedRuleBlocksSubmit &&
+                !targetRevisions.loading
         }
         disabledMessage={
           hasRampPage && step === 0
             ? undefined
             : !conflictResolved
               ? "Resolve the conflicting edits above, or save to a new draft."
-              : (monitoringError ?? undefined)
+              : !canSubmit
+                ? (monitoringError ?? undefined)
+                : rampImpactBlocksSubmit
+                  ? "Acknowledge the traffic warning to save"
+                  : unscopedRuleBlocksSubmit
+                    ? "Acknowledge the warning to save"
+                    : undefined
+        }
+        aboveFooterContent={
+          (onRampPage && rampStartImpact) ||
+          (onSavePage && unscopedRuleBanner) ? (
+            <>
+              {onRampPage && rampStartImpact ? (
+                <RampImpactBanner
+                  impact={rampStartImpact}
+                  fallthroughPhrase={rampFallthroughPhrase}
+                  acknowledged={rampImpactAcknowledged}
+                  setAcknowledged={(v) =>
+                    setRampAcknowledgedKey(v ? rampImpactKey : "")
+                  }
+                  onRampToNewValue={switchToRampToNewValue}
+                />
+              ) : null}
+              {onSavePage ? unscopedRuleBanner : null}
+            </>
+          ) : undefined
         }
         header={headerText}
         docSection={
@@ -2341,6 +2586,7 @@ export default function RuleModal({
               ruleType={ruleType}
               feature={feature}
               attributeProjects={effectiveAttributeProjects}
+              savedGroupProjects={savedGroupProjects}
               attributeSelectIndicator={attributeScopeToggle}
               environments={effectiveEnvList}
               defaultValues={defaultValues}
@@ -2379,6 +2625,7 @@ export default function RuleModal({
               hideNameField={true}
               feature={feature}
               attributeProjects={effectiveAttributeProjects}
+              savedGroupProjects={savedGroupProjects}
               attributeSelectIndicator={attributeScopeToggle}
               environments={environments.map((e) => e.id)}
               hashAttribute={form.watch("hashAttribute") as string}
@@ -2391,26 +2638,6 @@ export default function RuleModal({
               ruleId={form.watch("id") as string}
               featureId={feature.id}
               sparse={!!form.watch("sparse")}
-              liveRule={liveRule}
-              onRampToNewValue={
-                // Hidden when the draft already has a pending ramp —
-                // publish would ramp both the source and the clone.
-                mode === "edit" &&
-                isLiveRule &&
-                !ruleRampSchedule &&
-                !pendingCreateActionTyped &&
-                ruleId &&
-                onSwitchToRampToNewValue
-                  ? () =>
-                      onSwitchToRampToNewValue(ruleId, {
-                        rule: pick(
-                          formValues(),
-                          RAMP_TO_NEW_VALUE_CARRIED_FIELDS,
-                        ),
-                        ramp: rampSectionState,
-                      })
-                  : undefined
-              }
             />
           </Page>
         )}
@@ -2419,6 +2646,7 @@ export default function RuleModal({
           <SafeRolloutFields
             feature={feature}
             attributeProjects={effectiveAttributeProjects}
+            savedGroupProjects={savedGroupProjects}
             attributeSelectIndicator={attributeScopeToggle}
             environment={environment}
             defaultValues={defaultValues}
@@ -2441,6 +2669,7 @@ export default function RuleModal({
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "experiment" ? (
           <ExperimentRefFields
+            kind="experiment"
             feature={feature}
             existingRule={mode === "edit"}
             defaultValues={defaultValues}
@@ -2455,7 +2684,8 @@ export default function RuleModal({
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "bandit" ? (
-          <BanditRefFields
+          <ExperimentRefFields
+            kind="bandit"
             feature={feature}
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
@@ -2475,6 +2705,7 @@ export default function RuleModal({
                   feature={feature}
                   project={feature.project}
                   attributeProjects={effectiveAttributeProjects}
+                  savedGroupProjects={savedGroupProjects}
                   attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   defaultValues={defaultValues}
@@ -2546,6 +2777,7 @@ export default function RuleModal({
                   feature={feature}
                   project={feature.project}
                   attributeProjects={effectiveAttributeProjects}
+                  savedGroupProjects={savedGroupProjects}
                   attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}
@@ -2591,6 +2823,11 @@ export default function RuleModal({
                   disableBanditConversionWindow={disableBanditConversionWindow}
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
+                  }
+                  customFields={customFields}
+                  customFieldValues={customFieldValues}
+                  setCustomFields={(value) =>
+                    form.setValue("customFields", value)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
                   projectScope={i === 0 ? projectScopeProps : undefined}

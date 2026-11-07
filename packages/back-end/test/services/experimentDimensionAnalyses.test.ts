@@ -36,6 +36,10 @@ jest.mock("back-end/src/services/experimentDimensionTimeSeries", () => ({
   getOrCreatePrecomputedDimensionTimeSeriesAnalyses: jest.fn(),
 }));
 
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("back-end/src/util/logger", () => ({
   logger: {
     error: jest.fn(),

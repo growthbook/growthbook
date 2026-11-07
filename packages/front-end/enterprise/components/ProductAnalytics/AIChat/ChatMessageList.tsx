@@ -20,7 +20,6 @@ import {
   AssistantBubble,
   UserBubble,
   ErrorBubble,
-  ThinkingBubble,
   ToolStatusIcon,
   AIAnalystLabel,
 } from "@/enterprise/components/AIChat/AIChatPrimitives";
@@ -41,6 +40,10 @@ export const TOOL_STATUS_LABELS: Record<string, string> = {
   search: "Searching...",
   getAvailableColumns: "Inspecting data shape...",
   getColumnValues: "Inspecting values...",
+  searchTables: "Searching tables...",
+  getTableSchema: "Reading table schema...",
+  previewColumnValues: "Previewing values...",
+  runQuery: "Running SQL query...",
 };
 
 function groupIntoBlocks(
@@ -90,7 +93,8 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
     if (msg.role === "tool") {
       const hasChart = msg.content.some(
         (part) =>
-          part.toolName === "runExploration" &&
+          (part.toolName === "runExploration" ||
+            part.toolName === "runQuery") &&
           chartDataFromToolResult(part.result) !== null,
       );
       if (hasChart) {
@@ -163,6 +167,56 @@ export default function ChatMessageList({
         chartDataFromRecord(item.toolResultData) !== null,
     },
   );
+  const latestActivityItem = [...visibleItems]
+    .reverse()
+    .find(
+      (item) =>
+        item.kind === "thinking" ||
+        (item.kind === "tool-status" &&
+          !(
+            item.status === "done" &&
+            item.toolResultData &&
+            chartDataFromRecord(item.toolResultData)
+          )),
+    );
+  const foldLatestActivity =
+    waitingForNextStep && latestActivityItem?.kind === "tool-status";
+  const activityItems = foldLatestActivity
+    ? [...collapsedItems, latestActivityItem]
+    : collapsedItems;
+  const activeStatus = waitingForNextStep
+    ? {
+        key: "reviewing-results",
+        label: "Reviewing results…",
+        status: "running" as const,
+      }
+    : latestActivityItem?.kind === "tool-status"
+      ? {
+          key: latestActivityItem.toolCallId,
+          label: latestActivityItem.label,
+          status: latestActivityItem.status,
+        }
+      : latestActivityItem?.kind === "thinking"
+        ? {
+            key: latestActivityItem.id,
+            label: "Thinking…",
+            status: "running" as const,
+          }
+        : loading && activeTurnItems.length === 0
+          ? {
+              key: isLoadingConversation
+                ? "loading-conversation"
+                : isRemoteStream
+                  ? "still-generating"
+                  : "thinking",
+              label: isLoadingConversation
+                ? "Loading conversation…"
+                : isRemoteStream
+                  ? "Still generating…"
+                  : "Thinking…",
+              status: "running" as const,
+            }
+          : null;
 
   // Preserve the user's expanded/collapsed toggle across the active→persisted
   // transition so it doesn't snap shut when the turn ends. The active
@@ -308,7 +362,7 @@ export default function ChatMessageList({
     }
 
     if (item.kind === "thinking") {
-      return <ThinkingBubble key={item.id} label="Thinking..." />;
+      return null;
     }
 
     return null;
@@ -369,7 +423,10 @@ export default function ChatMessageList({
       return msg.content.map((part, i) => {
         const pairedCall = findToolCallPart(messages, part);
 
-        if (part.toolName === "runExploration") {
+        if (
+          part.toolName === "runExploration" ||
+          part.toolName === "runQuery"
+        ) {
           const chartData = chartDataFromToolResult(part.result);
           if (chartData) {
             return (
@@ -414,6 +471,8 @@ export default function ChatMessageList({
 
     return null;
   };
+
+  const activeStepItems = activeItemsToSteps(activityItems);
 
   return (
     <Flex
@@ -526,45 +585,28 @@ export default function ChatMessageList({
         (loading && activeTurnItems.length === 0)) &&
         !lastBlockIsAssistant && <AIAnalystLabel />}
 
-      {collapsedItems.length > 0 && (
+      {(activeStepItems.length > 0 || activeStatus) && (
         <CollapsedSteps
-          count={collapsedItems.length}
-          items={activeItemsToSteps(collapsedItems)}
+          count={activeStepItems.length}
+          items={activeStepItems}
+          active={activeStatus}
           onToggle={(v) => {
             stepsExpandedRef.current = v;
           }}
         />
       )}
 
-      {visibleItems.map(({ item, phase }) => {
+      {visibleItems.map((item) => {
+        if (item === latestActivityItem) return null;
         const key = item.kind === "tool-status" ? item.toolCallId : item.id;
         const rendered = renderActiveTurnItem(item);
         if (!rendered) return null;
         return (
-          <div
-            key={key}
-            className={`${aiChatStyles.activeTurnItemWrapper}${phase === "fading" ? ` ${aiChatStyles.collapsingItem}` : ""}`}
-          >
+          <div key={key} className={aiChatStyles.activeTurnItemWrapper}>
             {rendered}
           </div>
         );
       })}
-
-      {loading && activeTurnItems.length === 0 && (
-        <ThinkingBubble
-          label={
-            isLoadingConversation
-              ? "Loading conversation..."
-              : isRemoteStream
-                ? "Still generating..."
-                : "Thinking..."
-          }
-        />
-      )}
-
-      {loading && !isRemoteStream && waitingForNextStep && (
-        <ThinkingBubble label="Planning next step..." />
-      )}
 
       {error && (
         <ErrorBubble>

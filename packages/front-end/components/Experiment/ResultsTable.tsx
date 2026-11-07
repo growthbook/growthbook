@@ -35,8 +35,9 @@ import {
   SetExperimentSortBy,
   funnelStepMetricId,
   isFactMetric,
+  isSubUnitClusterMetric,
+  SampleSizeSource,
 } from "shared/experiments";
-import { PiPencilSimpleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
@@ -46,11 +47,13 @@ import {
   RowResults,
   useDomain,
 } from "@/services/experiments";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
+import QuickEditButton from "@/components/Experiment/TabbedPage/QuickEditButton";
 import TimeSeriesButton from "@/components/TimeSeriesButton";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -145,9 +148,10 @@ export type ResultsTableProps = {
   // rollouts), render CIs as one-sided: a single bound + open side, with the
   // domain/range anchored at 0 rather than the fake (±Infinity) bound.
   oneSided?: boolean;
+  sampleSizeFrom?: SampleSizeSource;
 };
 
-const ROW_HEIGHT = 46;
+export const ROW_HEIGHT = 46;
 const METRIC_LABEL_ROW_HEIGHT = 56;
 const LABEL_ONLY_ROW_HEIGHT = 36;
 const SPACER_ROW_HEIGHT = 6;
@@ -220,6 +224,7 @@ export default function ResultsTable({
   valueColumnWidth = 130,
   labelMaxWidth = 75,
   oneSided = false,
+  sampleSizeFrom,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -335,6 +340,7 @@ export default function ResultsTable({
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
+  const overflowing = useIsOverflowingX(tableContainerRef);
 
   const { isAuthenticated } = useAuth();
 
@@ -398,11 +404,14 @@ export default function ResultsTable({
       globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
 
-  // Watch for table container resizes (e.g., sidebar opening/closing)
+  // Watch for table container resizes (e.g., sidebar opening/closing), and the
+  // table's own once its graph column is resized to fit.
   useEffect(() => {
     if (!tableContainerRef.current) return;
     const resizeObserver = new ResizeObserver(() => onResize());
     resizeObserver.observe(tableContainerRef.current);
+    const table = tableContainerRef.current.querySelector("table");
+    if (table) resizeObserver.observe(table);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -433,7 +442,13 @@ export default function ResultsTable({
   );
   const compactResults = filteredVariations.length <= 2;
 
-  const domain = useDomain(filteredVariations, rows, differenceType, oneSided);
+  const domain = useDomain(
+    filteredVariations,
+    rows,
+    differenceType,
+    oneSided,
+    sampleSizeFrom,
+  );
 
   const rowsResults: (RowResults | "query error" | RowError | null)[][] =
     useMemo(() => {
@@ -500,6 +515,8 @@ export default function ResultsTable({
             phaseStartDate: getValidDate(startDate),
             isLatestPhase,
             experimentStatus: status,
+            sampleSizeFrom,
+            clusterSettings: snapshot?.settings,
           });
           rr[i].push(rowResults);
         });
@@ -524,6 +541,8 @@ export default function ResultsTable({
       queryStatusData,
       ssrPolyfills,
       getExperimentMetricById,
+      sampleSizeFrom,
+      snapshot?.settings,
     ]);
 
   const noRows = rows.length === 0;
@@ -546,7 +565,10 @@ export default function ResultsTable({
         onClick: onRowClick_,
       }) => (
         <div className="position-relative">
-          <div ref={tableContainerRef} className="experiment-results-wrapper">
+          <div
+            ref={tableContainerRef}
+            className={clsx("experiment-results-wrapper", { overflowing })}
+          >
             <div className="w-100" style={{ minWidth: 700 }}>
               <table id="main-results" className="experiment-results table-sm">
                 <thead>
@@ -574,16 +596,13 @@ export default function ResultsTable({
                           </div>
                           {editMetrics ? (
                             <div className="col d-flex align-items-end px-0">
-                              <a
-                                role="button"
-                                className="cursor-pointer link-purple"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  editMetrics();
-                                }}
-                              >
-                                <PiPencilSimpleFill size={15} />
-                              </a>
+                              <QuickEditButton
+                                label="Edit metrics"
+                                onClick={editMetrics}
+                                labelTooltip={false}
+                                dimmed
+                                inline
+                              />
                             </div>
                           ) : null}
                         </div>
@@ -780,8 +799,14 @@ export default function ResultsTable({
                   let alreadyShownQuantileError = false;
                   let alreadyShownComputeError = false;
 
+                  // In a dimension breakdown the same slice repeats under
+                  // every dimension value, so the value is part of its id.
                   const rowId = row.sliceId
-                    ? `${id}-${row.metric.id}-${row.sliceId}`
+                    ? `${id}-${row.metric.id}-${
+                        row.dimensionValue !== undefined
+                          ? `${row.dimensionValue}-`
+                          : ""
+                      }${row.sliceId}`
                     : `${id}-${row.metric.id}-${i}`;
 
                   const funnelStepId =
@@ -1053,6 +1078,17 @@ export default function ResultsTable({
                                 const hideScaledImpact =
                                   !rowResults.hasScaledImpact &&
                                   differenceType === "scaled";
+                                // These are often means or proportions, which
+                                // scale elsewhere, so say why they don't here.
+                                const noScaledImpactMessage =
+                                  hideScaledImpact &&
+                                  snapshot?.settings &&
+                                  isSubUnitClusterMetric(
+                                    row.metric,
+                                    snapshot.settings,
+                                  )
+                                    ? "No scaled impact for subunit metrics in cluster experiments"
+                                    : undefined;
 
                                 const resultsHighlightClassname = clsx(
                                   rowResults.resultsStatus,
@@ -1187,6 +1223,9 @@ export default function ResultsTable({
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
+                                              noScaledImpactMessage={
+                                                noScaledImpactMessage
+                                              }
                                               className={clsx(
                                                 "results-ctw",
                                                 resultsHighlightClassname,
@@ -1203,7 +1242,6 @@ export default function ResultsTable({
                                           ) : (
                                             <PValueColumn
                                               stats={stats}
-                                              baseline={baseline}
                                               rowResults={rowResults}
                                               pValueCorrection={
                                                 row.resultGroup === "goal"
@@ -1216,6 +1254,9 @@ export default function ResultsTable({
                                               showUnadjustedPValue={false}
                                               hideScaledImpact={
                                                 hideScaledImpact
+                                              }
+                                              noScaledImpactMessage={
+                                                noScaledImpactMessage
                                               }
                                               className={clsx(
                                                 "results-pval",
@@ -1292,6 +1333,9 @@ export default function ResultsTable({
                                             ssrPolyfills={ssrPolyfills}
                                             suspiciousChange={
                                               rowResults.suspiciousChange
+                                            }
+                                            suspiciousThreshold={
+                                              rowResults.suspiciousThreshold
                                             }
                                             notEnoughData={
                                               !rowResults.enoughData
@@ -1389,6 +1433,7 @@ export default function ResultsTable({
                                           experimentId={experimentId}
                                           pValueThreshold={pValueThreshold}
                                           phase={phase}
+                                          snapshotSettings={snapshot?.settings}
                                           metric={row.metric}
                                           differenceType={differenceType}
                                           variations={timeSeriesVariations}

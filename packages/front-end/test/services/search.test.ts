@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ariaSort,
   buildFilterUrl,
   filterSearchTerm,
   tagFilterOnClick,
@@ -437,10 +438,10 @@ describe("useSearch", () => {
       });
 
       expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "e",
         "b",
         "a",
         "d",
-        "e",
       ]);
 
       const header = result.current.SortableTH({
@@ -539,10 +540,10 @@ describe("useSearch", () => {
 
       // Removing free-text falls back to the last selected manual column sort.
       expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "e",
         "b",
         "a",
         "d",
-        "e",
       ]);
       expect(
         getSortLinkClass(
@@ -552,6 +553,30 @@ describe("useSearch", () => {
           }) as React.ReactElement,
         ),
       ).toBe("activesort");
+    });
+  });
+
+  describe("sorting numbers", () => {
+    it("sorts zero values like any other number", () => {
+      const items = [
+        { id: "zero", bytes: 0 },
+        { id: "small", bytes: 5 },
+        { id: "large", bytes: 50 },
+      ];
+      const { result } = renderHook(() =>
+        useSearch({
+          items,
+          searchFields: ["id"],
+          localStorageKey: "search-service-test-zero-sort",
+          defaultSortField: "bytes",
+          defaultSortDir: -1,
+        }),
+      );
+      expect(result.current.items.map((i) => i.id)).toEqual([
+        "large",
+        "small",
+        "zero",
+      ]);
     });
   });
 
@@ -785,5 +810,20 @@ describe("useSearch", () => {
       expect(filterSearchTerm(30, "~", "3")).toEqual(true);
       expect(filterSearchTerm(30, "~", "0")).toEqual(true);
     });
+  });
+});
+
+describe("ariaSort", () => {
+  it("is none when the column isn't the sorted one", () => {
+    expect(ariaSort(false, 1)).toBe("none");
+    expect(ariaSort(false, -1)).toBe("none");
+  });
+
+  it("is ascending for a positive direction", () => {
+    expect(ariaSort(true, 1)).toBe("ascending");
+  });
+
+  it("is descending for a negative direction", () => {
+    expect(ariaSort(true, -1)).toBe("descending");
   });
 });

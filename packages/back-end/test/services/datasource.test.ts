@@ -7,12 +7,11 @@ const mockDataSourceIntegration: SourceIntegrationInterface = {
   runTestQuery: jest.fn(),
 };
 
-// Mock integration that supports LIMIT 0 column validation (like BigQuery/Snowflake)
+// Mock integration whose test queries report the output columns
 // @ts-expect-error - we are not testing all the properties of the integration
-const mockLimitZeroIntegration: SourceIntegrationInterface = {
+const mockSchemaIntegration: SourceIntegrationInterface = {
   getTestValidityQuery: jest.fn(),
   runTestQuery: jest.fn(),
-  supportsLimitZeroColumnValidation: jest.fn().mockReturnValue(true),
 };
 
 describe("testQueryValidity", () => {
@@ -25,6 +24,7 @@ describe("testQueryValidity", () => {
       id: "user_id",
       name: "Logged in Users",
       userIdType: "user_id",
+      userIdTypes: ["user_id"],
       dimensions: ["country"],
       hasNameCol: true,
       query: "SELECT * FROM experiments",
@@ -36,12 +36,13 @@ describe("testQueryValidity", () => {
     expect(result).toBeUndefined();
   });
 
-  describe("datasources without LIMIT 0 support (row-based validation)", () => {
+  describe("integrations that report no column metadata (row-based validation)", () => {
     it('should return "No rows returned" if test query returns no results', async () => {
       const query = {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -63,7 +64,8 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
+        null,
       );
     });
 
@@ -72,6 +74,7 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id", "anonymous_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -93,7 +96,7 @@ describe("testQueryValidity", () => {
       const result = await testQueryValidity(mockDataSourceIntegration, query);
 
       expect(result).toBe(
-        "Missing required columns in response: user_id, country, experiment_name, variation_name",
+        "Missing required columns in response: user_id, anonymous_id, country, experiment_name, variation_name",
       );
       expect(
         mockDataSourceIntegration.getTestValidityQuery,
@@ -101,7 +104,8 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
+        null,
       );
     });
 
@@ -110,6 +114,7 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
@@ -141,16 +146,18 @@ describe("testQueryValidity", () => {
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
-        "testQuery",
+        "exposureQueryValidation",
+        null,
       );
     });
   });
 
-  describe("datasources with LIMIT 0 support (column metadata validation)", () => {
+  describe("integrations that report column metadata", () => {
     const camelCaseQuery = {
       id: "user_id",
       name: "Logged in Users",
       userIdType: "user_id",
+      userIdTypes: ["user_id"],
       dimensions: ["browserFamily"],
       hasNameCol: false,
       query: "SELECT * FROM experiments",
@@ -170,19 +177,20 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
       };
 
-      mockLimitZeroIntegration.getTestValidityQuery = jest
+      mockSchemaIntegration.getTestValidityQuery = jest
         .fn()
         .mockReturnValue("SELECT * FROM experiments LIMIT 0");
-      mockLimitZeroIntegration.runTestQuery = jest
+      mockSchemaIntegration.runTestQuery = jest
         .fn()
         .mockResolvedValue({ results: [], columns: [] });
 
-      const result = await testQueryValidity(mockLimitZeroIntegration, query);
+      const result = await testQueryValidity(mockSchemaIntegration, query);
 
       expect(result).toBe("Unable to determine columns from query");
     });
@@ -192,15 +200,16 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
       };
 
-      mockLimitZeroIntegration.getTestValidityQuery = jest
+      mockSchemaIntegration.getTestValidityQuery = jest
         .fn()
         .mockReturnValue("SELECT * FROM experiments LIMIT 0");
-      mockLimitZeroIntegration.runTestQuery = jest.fn().mockResolvedValue({
+      mockSchemaIntegration.runTestQuery = jest.fn().mockResolvedValue({
         results: [],
         columns: [
           { name: "experiment_id" },
@@ -209,7 +218,7 @@ describe("testQueryValidity", () => {
         ],
       });
 
-      const result = await testQueryValidity(mockLimitZeroIntegration, query);
+      const result = await testQueryValidity(mockSchemaIntegration, query);
 
       expect(result).toBe(
         "Missing required columns in response: user_id, country, experiment_name, variation_name",
@@ -221,15 +230,16 @@ describe("testQueryValidity", () => {
         id: "user_id",
         name: "Logged in Users",
         userIdType: "user_id",
+        userIdTypes: ["user_id"],
         dimensions: ["country"],
         hasNameCol: true,
         query: "SELECT * FROM experiments",
       };
 
-      mockLimitZeroIntegration.getTestValidityQuery = jest
+      mockSchemaIntegration.getTestValidityQuery = jest
         .fn()
         .mockReturnValue("SELECT * FROM experiments LIMIT 0");
-      mockLimitZeroIntegration.runTestQuery = jest.fn().mockResolvedValue({
+      mockSchemaIntegration.runTestQuery = jest.fn().mockResolvedValue({
         results: [],
         columns: [
           { name: "user_id" },
@@ -242,7 +252,7 @@ describe("testQueryValidity", () => {
         ],
       });
 
-      const result = await testQueryValidity(mockLimitZeroIntegration, query);
+      const result = await testQueryValidity(mockSchemaIntegration, query);
 
       expect(result).toBeUndefined();
     });
@@ -282,15 +292,15 @@ describe("testQueryValidity", () => {
         expected: missingCamelCaseDimension,
       },
     ])("$name", async ({ queryResult, expected }) => {
-      mockLimitZeroIntegration.getTestValidityQuery = jest
+      mockSchemaIntegration.getTestValidityQuery = jest
         .fn()
         .mockReturnValue("SELECT * FROM experiments LIMIT 0");
-      mockLimitZeroIntegration.runTestQuery = jest
+      mockSchemaIntegration.runTestQuery = jest
         .fn()
         .mockResolvedValue(queryResult);
 
       const result = await testQueryValidity(
-        mockLimitZeroIntegration,
+        mockSchemaIntegration,
         camelCaseQuery,
       );
 
@@ -324,6 +334,7 @@ describe("testQueryValidity", () => {
       id: "user_id",
       name: "Logged in Users",
       userIdType: "user_id",
+      userIdTypes: ["user_id"],
       dimensions: ["country"],
       hasNameCol: true,
       query: "SELECT * FROM experiments",
@@ -348,7 +359,8 @@ describe("testQueryValidity", () => {
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
       "SELECT * FROM experiments",
       undefined,
-      "testQuery",
+      "exposureQueryValidation",
+      null,
     );
   });
 });

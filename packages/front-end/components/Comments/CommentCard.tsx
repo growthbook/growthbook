@@ -39,6 +39,8 @@ export interface CommentCardProps {
    */
   leading?: React.ReactNode;
   avatarSize?: Size;
+  /** For narrow surfaces: tighter spacing, and the header drops the email. */
+  compact?: boolean;
 }
 
 /**
@@ -56,15 +58,23 @@ export default function CommentCard({
   stripeColor = "violet",
   leading,
   avatarSize = "sm",
+  compact = false,
 }: CommentCardProps) {
   return (
-    <Flex align="start" gap="3">
-      <Box flexShrink="0" pt="2">
+    <Flex align="start" gap={compact ? "2" : "3"}>
+      <Box flexShrink="0" pt={compact ? "1" : "2"}>
         {leading ?? (
           <EventUser user={user} display="avatar" size={avatarSize} />
         )}
       </Box>
-      <Card size="1" style={{ overflow: "hidden", flexGrow: 1 }}>
+      <Card
+        size="1"
+        style={{
+          overflow: "hidden",
+          flexGrow: 1,
+          ...(compact ? { padding: "var(--space-2)" } : {}),
+        }}
+      >
         <div
           style={{
             position: "absolute",
@@ -76,15 +86,34 @@ export default function CommentCard({
           }}
         />
         <Box px="1">
-          <Flex justify="between" align="center" mb={body ? "2" : "0"} gap="2">
-            <Flex align="center" gap="2" wrap="wrap">
-              <EventUser user={user} display="name-email" size="sm" />
+          {/* Start-aligned so the action stays on the first line when the
+              header wraps. */}
+          <Flex
+            justify="between"
+            align="start"
+            mb={body ? (compact ? "1" : "2") : "0"}
+            gap="2"
+          >
+            <Flex
+              align="center"
+              gapX="2"
+              gapY={compact ? "0" : "2"}
+              wrap="wrap"
+            >
+              <Text as="div" size={compact ? "sm" : "md"}>
+                <EventUser
+                  user={user}
+                  display={compact ? "name" : "name-email"}
+                  size="sm"
+                />
+              </Text>
               <Text color="text-low" size="sm">
                 {metadata}
               </Text>
               {metadataExtra}
             </Flex>
-            {actions}
+            {/* Cancels the px="1" inset so the action sits in the corner. */}
+            {actions ? <Box mr="-1">{actions}</Box> : null}
           </Flex>
           {body && <Box pt="1">{body}</Box>}
         </Box>

@@ -1,23 +1,32 @@
 import type { OrganizationInterface } from "shared/types/organization";
+import type { JSONSchemaDef } from "shared/types/feature";
+import { normalizeTargetingInUpdates } from "shared/util";
 import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
+import {
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { stampApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
+import { stagingTargetingBase } from "back-end/src/revisions/featureDraftAuthority";
 import {
   discardIfJustCreated,
   isDraftStatus,
   validateCustomFields,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertConfigSchemaCompat, assertValidProjectIds } from "./v2Shared";
 
 export type RevisionMetadataBody = {
   comment?: string;
@@ -25,9 +34,12 @@ export type RevisionMetadataBody = {
   description?: string;
   owner?: unknown;
   project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
   tags?: string[];
   neverStale?: boolean;
   customFields?: Record<string, unknown>;
+  jsonSchema?: Omit<JSONSchemaDef, "date"> & { date?: Date };
   [k: string]: unknown;
 };
 
@@ -86,6 +98,25 @@ export async function setRevisionMetadata(
     );
   }
 
+  if (metadataFields.jsonSchema) {
+    if (
+      metadataFields.jsonSchema.enabled &&
+      !context.hasPremiumFeature("json-validation")
+    ) {
+      context.throwPlanDoesNotAllowError(
+        "JSON schema validation requires a premium plan.",
+      );
+    }
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: metadataFields.jsonSchema.enabled,
+      baseConfig: feature.baseConfig,
+    });
+    metadataFields.jsonSchema = stampApiJsonSchema(
+      metadataFields.jsonSchema,
+      feature.valueType,
+    );
+  }
+
   const { revision, created } = await resolveOrCreateRevision(
     context,
     organization.id,
@@ -100,6 +131,18 @@ export async function setRevisionMetadata(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+
+    const draft = created ? null : revision;
+    const stagedTargeting = withStagedTargeting(feature, draft?.metadata);
+    normalizeTargetingInUpdates(metadataFields, stagedTargeting);
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: await stagingTargetingBase(context, feature, draft),
+      proposed: withStagedTargeting(stagedTargeting, metadataFields),
+      optedOut: await context.getTargetingOptOutProjectIds(),
+    });
+    // After the gate so an unreadable id cannot be probed for existence.
+    await assertValidProjectIds(metadataFields.targetingProjects, context);
 
     const changes: RevisionChanges = {};
     if (comment !== undefined) changes.comment = comment;

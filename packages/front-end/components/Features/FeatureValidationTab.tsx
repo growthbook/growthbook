@@ -17,7 +17,11 @@ import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import JSONValidation from "@/components/Features/JSONValidation";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
-import CustomHooksTable from "@/components/CustomHooks/CustomHooksTable";
+import CustomHooksTable, {
+  HookScope,
+  hookScopeColumn,
+  isHookScopedTo,
+} from "@/components/CustomHooks/CustomHooksTable";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Text from "@/ui/Text";
 import LinkButton from "@/ui/LinkButton";
@@ -92,6 +96,12 @@ function CustomHooksSection({
     [data, feature.id, feature.project],
   );
 
+  const scope: HookScope = {
+    entityType: "feature",
+    entityId: feature.id,
+    label: "Feature",
+  };
+
   let disableReason = "";
   if (!hasAccessToCustomHooks) {
     disableReason = "Custom Hooks require an Enterprise plan.";
@@ -137,6 +147,7 @@ function CustomHooksSection({
             </Heading>
             <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
               <Button
+                mb="2"
                 onClick={() => setModalData(true)}
                 disabled={!hasAccessToCustomHooks || !canManage}
               >
@@ -146,11 +157,10 @@ function CustomHooksSection({
           </Flex>
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !!hook.entityId)}
-            entityType="feature"
-            entityId={feature.id}
-            scopeLabel="Feature"
-            canManage={canManage}
-            setModalData={setModalData}
+            column={hookScopeColumn(scope)}
+            showIncremental
+            canManage={(hook) => canManage && isHookScopedTo(hook, scope)}
+            onEdit={setModalData}
             mutate={mutate}
           />
 
@@ -169,11 +179,9 @@ function CustomHooksSection({
 
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !hook.entityId)}
-            entityType="feature"
-            entityId={feature.id}
-            scopeLabel="Feature"
-            canManage={canManage}
-            setModalData={setModalData}
+            column={hookScopeColumn(scope)}
+            showIncremental
+            canManage={() => false}
             mutate={mutate}
           />
         </>

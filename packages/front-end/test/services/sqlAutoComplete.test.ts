@@ -73,7 +73,7 @@ vi.mock("@/services/sqlKeywords", () => ({
 
 /** This test suite tests the sqlAutoComplete logic - throughout the file you'll see different sql formats, especially with backticks
  * e.g. you'll see `analytics.public.table-users-123` and `analytics`.`public`.`table-events-456, and even analytics.public.table-users-123
- * Some of our data sources support backtics (e.g. BigQuery) and some support backticks around each part of the path (e.g. Postgres)
+ * Some of our data sources support backticks (e.g. BigQuery) and some support backticks around each part of the path (e.g. Postgres)
  * So the test suite uses all of these formats to ensure that the sqlAutoComplete logic is correct for all cases
  */
 

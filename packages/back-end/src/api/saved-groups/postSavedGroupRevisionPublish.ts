@@ -31,6 +31,12 @@ import {
 } from "back-end/src/revisions/util";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
+import {
+  confirmationLink,
+  gateNotices,
+  landingActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -102,13 +108,13 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   );
 
   const gates: PublishGate[] = [
-    ...collectRevisionGovernanceGates({
+    ...(await collectRevisionGovernanceGates({
       context: req.context,
       adapter,
       targetType: "saved-group",
       entity: savedGroup as unknown as Record<string, unknown>,
       revision,
-    }),
+    })),
     ...(await collectSavedGroupArchiveDependentsGate(
       req.context,
       savedGroup,
@@ -116,7 +122,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     )),
   ];
 
-  const { bypassed } = resolveEntityPublishGates({
+  const { bypassed, skipped } = resolveEntityPublishGates({
     entityType: "saved-group",
     req,
     gates,
@@ -200,6 +206,20 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       }
     }
   }
+
+  await requireConfirmation(req.context, {
+    actions: landingActions(
+      "savedGroup",
+      desiredState.archived === true && !savedGroup.archived,
+    ),
+    bypassing: bypassed,
+    notices: gateNotices(skipped),
+    summary: `Publish revision ${revision.version} of ${savedGroup.groupName}`,
+    links: [
+      confirmationLink("savedGroup", savedGroup.id, savedGroup.groupName),
+    ],
+    pin: revision.dateUpdated,
+  });
 
   // Keep no-op publishes on the shared gated path.
   const merged = await publishRevision(

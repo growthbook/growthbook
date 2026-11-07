@@ -103,6 +103,7 @@ export default function AIUsageWidget() {
   }
 
   const { numTokensUsed, dailyLimit } = data;
+  if (dailyLimit === null) return null;
   const pct = Math.min((numTokensUsed / dailyLimit) * 100, 100);
 
   return (

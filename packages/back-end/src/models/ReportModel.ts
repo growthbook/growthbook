@@ -106,6 +106,7 @@ export async function getReportById(
   organization: string,
   id: string,
 ): Promise<ReportInterface | null> {
+  if (id && typeof id !== "string") return null;
   const report = await ReportModel.findOne({
     organization,
     id,
@@ -117,6 +118,7 @@ export async function getReportById(
 export async function getReportByUid(
   uid: string,
 ): Promise<ReportInterface | null> {
+  if (uid && typeof uid !== "string") return null;
   const report = await ReportModel.findOne({
     uid,
   });
@@ -194,6 +196,20 @@ export async function updateReport(
       },
     },
   );
+}
+
+/** Sets report.snapshot only while it still points at `expected`. */
+export async function updateReportSnapshotIfUnchanged(
+  organization: string,
+  id: string,
+  expected: string,
+  snapshot: string,
+): Promise<boolean> {
+  const { modifiedCount } = await ReportModel.updateOne(
+    { organization, id, snapshot: expected },
+    { $set: { snapshot, dateUpdated: new Date() } },
+  );
+  return modifiedCount > 0;
 }
 
 export async function deleteReportById(organization: string, id: string) {

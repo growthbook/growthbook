@@ -155,6 +155,37 @@ export async function sendExperimentChangesEmail(
   );
 }
 
+export async function sendSdkPayloadSizeEmail({
+  emails,
+  connectionId,
+  connectionName,
+  message,
+  recommendations,
+}: {
+  emails: string[];
+  connectionId: string;
+  connectionName: string;
+  message: string;
+  recommendations: string[];
+}) {
+  const connectionUrl =
+    APP_ORIGIN + (APP_ORIGIN.endsWith("/") ? "" : "/") + "sdks/" + connectionId;
+  const html = nunjucks.render("sdk-payload-size.jinja", {
+    connectionName,
+    connectionUrl,
+    message,
+    recommendations,
+  });
+  const subject = `Large SDK payload for: ${noHyperlink(connectionName)}`;
+  const text = [
+    message,
+    ...recommendations.map((r) => `- ${r}`),
+    `See more details at ${connectionUrl}`,
+  ].join("\n\n");
+
+  await Promise.all(emails.map((to) => sendMail({ html, subject, to, text })));
+}
+
 export async function sendResetPasswordEmail(email: string, resetUrl: string) {
   const html = nunjucks.render("reset-password.jinja", {
     resetUrl,

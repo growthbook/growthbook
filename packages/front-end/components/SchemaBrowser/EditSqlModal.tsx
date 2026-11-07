@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import { TemplateVariables } from "shared/types/sql";
+import type { TestQueryType } from "shared/types/query";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiPlayFill, PiWarningFill } from "react-icons/pi";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import { parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -13,7 +14,6 @@ import { validateSQL } from "@/services/datasources";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Modal from "@/components/Modal";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import {
   usesEventName,
@@ -22,7 +22,11 @@ import {
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { formatSql, canFormatSql } from "@/services/sqlFormatter";
+import {
+  formatSql,
+  canFormatSql,
+  getFormatSqlShortcutLabel,
+} from "@/services/sqlFormatter";
 import {
   Panel,
   PanelGroup,
@@ -48,6 +52,7 @@ export interface Props {
   save: (sql: string) => Promise<void>;
   close: () => void;
   requiredColumns: Set<string>;
+  timestampColumn?: string;
   placeholder?: string;
   validateResponseOverride?: (response: TestQueryRow) => void;
   setTemplateVariables?: (templateVariables: TemplateVariables) => void;
@@ -62,6 +67,7 @@ export interface Props {
       | "Identity Join"
       | "Experiment Assignment Query"
       | "Contextual Bandit Assignment Query"
+      | "Interleaving Exposure Query"
       | "Metric"
       | "Segment"
       | "Feature Usage Query";
@@ -69,11 +75,28 @@ export interface Props {
   };
 }
 
+// Each editor's test runs get their own query type in the query log
+const TEST_QUERY_TYPES: Record<
+  Props["sqlObjectInfo"]["objectType"],
+  TestQueryType
+> = {
+  Dimension: "dimensionTest",
+  "Fact Table": "factTableTest",
+  "Identity Join": "identityJoinTest",
+  "Experiment Assignment Query": "exposureQueryTest",
+  "Contextual Bandit Assignment Query": "contextualBanditQueryTest",
+  "Interleaving Exposure Query": "interleavingExposureQueryTest",
+  Metric: "metricTest",
+  Segment: "segmentTest",
+  "Feature Usage Query": "featureUsageQueryTest",
+};
+
 export default function EditSqlModal({
   value,
   save,
   close,
   requiredColumns,
+  timestampColumn,
   placeholder = "",
   datasourceId,
   validateResponseOverride,
@@ -137,9 +160,10 @@ export default function EditSqlModal({
           datasourceId: datasourceId,
           templateVariables: templateVariables,
           limit: apply5RowLimit ? 5 : undefined,
-          timestampColumn: requiredColumns.has("timestamp")
-            ? "timestamp"
-            : undefined,
+          timestampColumn:
+            timestampColumn ??
+            (requiredColumns.has("timestamp") ? "timestamp" : undefined),
+          queryType: TEST_QUERY_TYPES[modalInfo.objectType],
         }),
       });
 
@@ -160,6 +184,8 @@ export default function EditSqlModal({
       validateRequiredColumns,
       validateResponseOverride,
       apply5RowLimit,
+      timestampColumn,
+      modalInfo.objectType,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
     ],
@@ -188,8 +214,10 @@ export default function EditSqlModal({
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
 
-  const handleFormatClick = () => {
-    const result = formatSql(form.watch("sql"), datasource?.type);
+  const handleFormat = () => {
+    const sql = form.watch("sql");
+    if (!sql || !canFormat) return;
+    const result = formatSql(sql, datasource?.type);
     if (result.error) {
       setFormatError(result.error);
     } else if (result.formattedSql) {
@@ -204,7 +232,6 @@ export default function EditSqlModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open
       header={
@@ -246,22 +273,17 @@ export default function EditSqlModal({
       cta="Confirm Changes"
       closeCta="Back"
       secondaryCTA={
-        <Tooltip
-          body="You do not have permission to run test queries"
-          shouldDisplay={!canRunQueries}
-          tipPosition="top"
-        >
-          <label className="mx-4 mb-0">
-            <input
-              type="checkbox"
-              disabled={!canRunQueries}
-              className="form-check-input"
-              checked={testQueryBeforeSaving}
-              onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
-            />
-            Test query before confirming
-          </label>
-        </Tooltip>
+        <Box style={{ marginLeft: 16, marginRight: 24 }}>
+          <Checkbox
+            value={testQueryBeforeSaving}
+            setValue={setTestQueryBeforeSaving}
+            label="Test query before confirming"
+            weight="medium"
+            align="center"
+            disabled={!canRunQueries}
+            disabledMessage="You do not have permission to run test queries"
+          />
+        </Box>
       }
     >
       <Box p="2" style={{ height: "calc(93vh - 140px)" }}>
@@ -281,7 +303,7 @@ export default function EditSqlModal({
                       <Flex gap="3" align="center">
                         {formatError && (
                           <Tooltip body={formatError}>
-                            <FaExclamationTriangle className="text-danger" />
+                            <PiWarningFill style={{ color: "var(--red-11)" }} />
                           </Tooltip>
                         )}
 
@@ -302,32 +324,33 @@ export default function EditSqlModal({
                           />
                         </Tooltip>
                         {canFormat ? (
-                          <RadixButton
-                            size="md"
-                            variant="ghost"
-                            onClick={handleFormatClick}
-                            disabled={!form.watch("sql")}
+                          <Tooltip
+                            body={`Format SQL (${getFormatSqlShortcutLabel()})`}
                           >
-                            Format
-                          </RadixButton>
+                            <RadixButton
+                              size="md"
+                              variant="ghost"
+                              onClick={handleFormat}
+                              disabled={!form.watch("sql")}
+                            >
+                              Format
+                            </RadixButton>
+                          </Tooltip>
                         ) : null}
                         <Tooltip
                           body="You do not have permission to run test queries"
                           shouldDisplay={!canRunQueries}
                         >
-                          <Button
-                            color="primary"
-                            className="btn-sm"
+                          <RadixButton
+                            size="md"
                             onClick={handleTestQuery}
                             loading={testingQuery}
                             disabled={!canRunQueries}
                             type="button"
+                            icon={<PiPlayFill />}
                           >
-                            <span className="pr-2">
-                              <FaPlay />
-                            </span>
                             Test Query
-                          </Button>
+                          </RadixButton>
                         </Tooltip>
                         <DropdownMenu
                           trigger={
@@ -452,6 +475,7 @@ export default function EditSqlModal({
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={handleTestQuery}
+                      onFormatShortcut={handleFormat}
                       completions={autoCompletions}
                     />
                   </Box>

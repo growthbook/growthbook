@@ -71,7 +71,6 @@ const DimensionForm: FC<{
         />
       )}
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         open={true}

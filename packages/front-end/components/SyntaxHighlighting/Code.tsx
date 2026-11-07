@@ -9,13 +9,10 @@ import React, {
 } from "react";
 import { FaCompressAlt, FaExpandAlt } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  ghcolors as light,
-  tomorrow as dark,
-} from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { CODE_FONT_SIZE, CODE_LINE_HEIGHT, getCodeTheme } from "./codeTheme";
 import PrismFallback from "./PrismFallback";
 import styles from "./Code.module.scss";
 
@@ -61,6 +58,7 @@ export default function Code({
   className = "",
   style: _style,
   expandable = false,
+  collapsedLines,
   containerClassName,
   filename,
   errorLine,
@@ -74,6 +72,8 @@ export default function Code({
   className?: string;
   style?: CSSProperties;
   expandable?: boolean;
+  /** Lines to show while collapsed. Defaults to the stylesheet's ~10em. */
+  collapsedLines?: number;
   containerClassName?: string;
   filename?: string | ReactElement;
   errorLine?: number;
@@ -95,13 +95,10 @@ export default function Code({
 
   const { theme } = useAppearanceUITheme();
 
-  const enoughLines = code.split("\n").length > 8;
+  const enoughLines = code.split("\n").length > (collapsedLines ?? 8);
 
   const style = useMemo(() => {
-    const style = cloneDeep(theme === "dark" ? dark : light);
-    style['code[class*="language-"]'].fontSize = "0.85rem";
-    style['code[class*="language-"]'].lineHeight = 1.5;
-    style['code[class*="language-"]'].fontWeight = 600;
+    const style = cloneDeep(getCodeTheme(theme));
 
     const codeBackgrounds = {
       dark: "transparent",
@@ -112,10 +109,15 @@ export default function Code({
 
     if (maxHeight) {
       style['pre[class*="language-"]'].maxHeight = maxHeight;
+    } else if (collapsedLines !== undefined && !isExpanded) {
+      // Each line is the code font size times its line height, plus the 1em
+      // of padding Prism puts above and below
+      style['pre[class*="language-"]'].maxHeight =
+        `calc(${collapsedLines} * ${CODE_FONT_SIZE} * ${CODE_LINE_HEIGHT} + 2em)`;
     }
 
     return style;
-  }, [theme, maxHeight]);
+  }, [theme, maxHeight, collapsedLines, isExpanded]);
 
   const shouldRenderPrism =
     hasExpanded ||

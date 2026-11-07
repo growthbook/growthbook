@@ -1,13 +1,18 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useRouter } from "next/router";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useMemo, useState } from "react";
+import { canEditContextualBanditVisualChanges } from "shared/experiments";
+import { canRunContextualBanditControl } from "shared/permissions";
+import { useRestApiCall } from "@/services/restApi";
+import { useAuth } from "@/services/auth";
 import {
   useContextualBandit,
   useContextualBanditLinkedFeatures,
+  useContextualBanditVisualChangesets,
 } from "@/hooks/useContextualBandits";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import ContextualBanditForm from "@/enterprise/components/ContextualBandit/ContextualBanditForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -18,12 +23,18 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import ContextualBanditDetailPage from "@/components/ContextualBandit/ContextualBanditDetailPage";
+import ContextualBanditSnapshotProvider from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import ContextualBanditDescriptionModal from "@/components/ContextualBandit/ContextualBanditDescriptionModal";
 import ContextualBanditOverviewModal from "@/components/ContextualBandit/ContextualBanditOverviewModal";
 import ContextualBanditAnalysisMetricsModal from "@/components/ContextualBandit/ContextualBanditAnalysisMetricsModal";
 import ContextualBanditTrafficTargetingModal from "@/components/ContextualBandit/ContextualBanditTrafficTargetingModal";
 import ContextualBanditVariationsModal from "@/components/ContextualBandit/ContextualBanditVariationsModal";
 import LinkFeatureToContextualBanditModal from "@/components/Features/FeatureModal/LinkFeatureToContextualBanditModal";
+import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
+import {
+  getBrowserDevice,
+  openVisualEditor,
+} from "@/components/OpenVisualEditorLink";
 
 const ContextualBanditPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -32,7 +43,12 @@ const ContextualBanditPage = (): ReactElement => {
   const { organization, hasCommercialFeature } = useUser();
   const hasContextualBanditFeature = hasCommercialFeature("contextual-bandits");
   const environments = useEnvironments();
+  const restApiCall = useRestApiCall();
   const { apiCall } = useAuth();
+  const { browser, deviceType } = useMemo(() => {
+    const ua = navigator.userAgent;
+    return getBrowserDevice(ua);
+  }, []);
 
   const [overviewModalOpen, setOverviewModalOpen] = useState(false);
   const [analysisMetricsModalOpen, setAnalysisMetricsModalOpen] =
@@ -45,6 +61,8 @@ const ContextualBanditPage = (): ReactElement => {
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [featureModalOpen, setFeatureModalOpen] = useState(false);
+  const [visualChangesetModalOpen, setVisualChangesetModalOpen] =
+    useState(false);
 
   const rawId = typeof cbid === "string" ? cbid : "";
   const {
@@ -54,6 +72,12 @@ const ContextualBanditPage = (): ReactElement => {
   } = useContextualBandit(rawId || undefined);
   const { linkedFeatures, mutate: mutateLinkedFeatures } =
     useContextualBanditLinkedFeatures(rawId || undefined);
+  const {
+    visualChangesets,
+    loading: visualChangesetsLoading,
+    error: visualChangesetsError,
+    mutate: mutateVisualChangesets,
+  } = useContextualBanditVisualChangesets(rawId || undefined);
 
   const orgId = organization.id ?? "";
   useSwitchOrg(cb?.id && orgId ? orgId : null);
@@ -87,12 +111,40 @@ const ContextualBanditPage = (): ReactElement => {
     );
   }
 
-  const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
   const canEdit =
     permissionsUtil.canViewContextualBanditModal(cb.project) && !cb.archived;
-  const canRun =
-    !cb.archived &&
-    permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
+  const canEditVariations = canEdit && cb.status !== "stopped";
+  const canUpdate = permissionsUtil.canUpdateContextualBandit(
+    { project: cb.project },
+    { project: cb.project },
+  );
+  const canAddLinkedChanges = canEditVariations && canUpdate;
+  const canAddVisualChanges =
+    canAddLinkedChanges &&
+    permissionsUtil.canCreateVisualChange({ project: cb.project });
+  const canChangeServing = canRunContextualBanditControl(
+    permissionsUtil,
+    cb,
+    envs,
+  );
+  const canRun = canChangeServing && !cb.archived;
+  const canEditVisualChangesets =
+    canEditContextualBanditVisualChanges(cb) &&
+    permissionsUtil.canUpdateVisualChange({ project: cb.project }) &&
+    (cb.status !== "running" || canRun);
+  const canRemoveVisualChangesets =
+    canRun && canUpdate && canEditContextualBanditVisualChanges(cb);
+  const mutateLinkedChanges = () => {
+    mutate();
+    mutateLinkedFeatures();
+    mutateVisualChangesets();
+  };
+  const canArchive =
+    permissionsUtil.canViewContextualBanditModal(cb.project) &&
+    canUpdate &&
+    (cb.status !== "running" ||
+      permissionsUtil.canRunContextualBandit({ project: cb.project }, envs));
+  const canDelete = permissionsUtil.canDeleteContextualBandit(cb);
 
   return (
     <>
@@ -104,33 +156,52 @@ const ContextualBanditPage = (): ReactElement => {
       />
 
       <div className="contents container-fluid pagecontents">
-        <ContextualBanditDetailPage
-          cb={cb}
-          mutate={mutate}
-          canRun={canRun}
-          editOverview={canEdit ? () => setOverviewModalOpen(true) : undefined}
-          editAnalysisMetrics={
-            canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined
-          }
-          editVariations={
-            canEdit ? () => setVariationsModalOpen(true) : undefined
-          }
-          editTrafficTargeting={
-            canEdit ? () => setTrafficTargetingModalOpen(true) : undefined
-          }
-          editTags={canEdit ? () => setTagsModalOpen(true) : undefined}
-          editProject={canEdit ? () => setProjectModalOpen(true) : undefined}
-          editDescription={
-            canEdit ? () => setDescriptionModalOpen(true) : undefined
-          }
-          duplicate={canEdit ? () => setDuplicateModalOpen(true) : undefined}
-          linkedFeatures={linkedFeatures}
-          linkedFeaturesMutate={mutateLinkedFeatures}
-          canAddFeature={canEdit}
-          setFeatureModal={
-            canEdit ? (open) => setFeatureModalOpen(open) : undefined
-          }
-        />
+        <ContextualBanditSnapshotProvider cbId={cb.id}>
+          <ContextualBanditDetailPage
+            cb={cb}
+            mutate={mutate}
+            canRun={canRun}
+            canStop={canChangeServing}
+            canArchive={canArchive}
+            canDelete={canDelete}
+            editOverview={
+              canEdit ? () => setOverviewModalOpen(true) : undefined
+            }
+            editAnalysisMetrics={
+              canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined
+            }
+            editVariations={
+              canEditVariations ? () => setVariationsModalOpen(true) : undefined
+            }
+            editTrafficTargeting={
+              canEdit ? () => setTrafficTargetingModalOpen(true) : undefined
+            }
+            editTags={canEdit ? () => setTagsModalOpen(true) : undefined}
+            editProject={canEdit ? () => setProjectModalOpen(true) : undefined}
+            editDescription={
+              canEdit ? () => setDescriptionModalOpen(true) : undefined
+            }
+            duplicate={canEdit ? () => setDuplicateModalOpen(true) : undefined}
+            linkedFeatures={linkedFeatures}
+            linkedChangesMutate={mutateLinkedChanges}
+            setFeatureModal={
+              canAddLinkedChanges
+                ? (open) => setFeatureModalOpen(open)
+                : undefined
+            }
+            visualChangesets={visualChangesets}
+            visualChangesetsLoading={visualChangesetsLoading}
+            visualChangesetsError={visualChangesetsError}
+            canAddLinkedChanges={canAddLinkedChanges}
+            canEditVisualChangesets={canEditVisualChangesets}
+            canRemoveVisualChangesets={canRemoveVisualChangesets}
+            setVisualChangesetModal={
+              canAddVisualChanges
+                ? (open) => setVisualChangesetModalOpen(open)
+                : undefined
+            }
+          />
+        </ContextualBanditSnapshotProvider>
       </div>
 
       {overviewModalOpen && (
@@ -157,7 +228,8 @@ const ContextualBanditPage = (): ReactElement => {
       {variationsModalOpen && (
         <ContextualBanditVariationsModal
           cb={cb}
-          mutate={mutate}
+          linkedFeatures={linkedFeatures}
+          mutate={mutateLinkedChanges}
           close={() => setVariationsModalOpen(false)}
         />
       )}
@@ -172,10 +244,10 @@ const ContextualBanditPage = (): ReactElement => {
         <EditTagsForm
           tags={cb.tags}
           save={async (tags) => {
-            await apiCall(updateEndpoint, {
-              method: "PUT",
-              body: JSON.stringify({ tags }),
-            });
+            await restApiCall(
+              contextualBanditEndpoints.updateContextualBandit,
+              { params: { id: cb.id }, body: { tags } },
+            );
           }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
@@ -203,8 +275,12 @@ const ContextualBanditPage = (): ReactElement => {
           }
           mutate={mutate}
           current={cb.project}
-          apiEndpoint={updateEndpoint}
-          method="PUT"
+          save={(project) =>
+            restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+              params: { id: cb.id },
+              body: { project },
+            })
+          }
           source="cbid"
         />
       )}
@@ -219,6 +295,24 @@ const ContextualBanditPage = (): ReactElement => {
             mutateLinkedFeatures();
           }}
           close={() => setFeatureModalOpen(false)}
+          source="cbid"
+        />
+      )}
+      {visualChangesetModalOpen && (
+        <VisualChangesetModal
+          mode="add"
+          create={(body) =>
+            restApiCall(
+              contextualBanditEndpoints.postContextualBanditVisualChangesets,
+              { params: { id: cb.id }, body },
+            )
+          }
+          onCreate={async (vc) => {
+            await openVisualEditor({ vc, apiCall, browser, deviceType });
+          }}
+          cta="Open AI Visual Editor"
+          mutate={mutateLinkedChanges}
+          close={() => setVisualChangesetModalOpen(false)}
           source="cbid"
         />
       )}

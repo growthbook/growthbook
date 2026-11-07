@@ -3,6 +3,25 @@ import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
+/**
+ * The three ways Saved Groups can be written into an SDK payload.
+ *
+ * - `inline`: put each group's values straight into the conditions, using
+ *   `$in` and `$nin`. The payload has no `savedGroups` field. For SDKs that
+ *   cannot look up a reference at all.
+ * - `referencesV1`: ID list groups become `$inGroup` or `$notInGroup`, looked
+ *   up in a map of plain value arrays. Condition groups have no reference form
+ *   here, so their conditions still go inline.
+ * - `referencesV2`: every group becomes a `$savedGroup` reference, looked up in
+ *   a map of typed entries.
+ */
+export const savedGroupFormatValidator = z.enum([
+  "inline",
+  "referencesV1",
+  "referencesV2",
+]);
+export type SavedGroupFormat = z.infer<typeof savedGroupFormatValidator>;
+
 // Corresponds to schemas/SdkConnection.yaml
 export const apiSdkConnectionValidator = namedSchema(
   "SdkConnection",
@@ -47,7 +66,15 @@ export const apiSdkConnectionValidator = namedSchema(
       sseEnabled: z.boolean().optional(),
       hashSecureAttributes: z.boolean().optional(),
       remoteEvalEnabled: z.boolean().optional(),
-      savedGroupReferencesEnabled: z.boolean().optional(),
+      savedGroupReferencesEnabled: z
+        .boolean()
+        .optional()
+        .describe("Deprecated. Use `savedGroupFormat`."),
+      savedGroupFormat: savedGroupFormatValidator
+        .optional()
+        .describe(
+          "How Saved Groups are written into this connection's payload. `referencesV2` needs an SDK version that supports it; the payload steps down to `referencesV1` if not.",
+        ),
       includeReferencedPrerequisites: z.boolean().optional(),
     })
     .strict(),
@@ -58,7 +85,11 @@ export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z
   .object({
-    name: z.string(),
+    name: z
+      .string()
+      .describe(
+        "Short display name, usually app and platform (e.g. `Web app`).",
+      ),
     language: z.string(),
     sdkVersion: z.string().optional(),
     environment: z.string(),
@@ -84,7 +115,11 @@ const postSdkConnectionBody = z
     proxyHost: z.string().optional(),
     hashSecureAttributes: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
-    savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupReferencesEnabled: z
+      .boolean()
+      .optional()
+      .describe("Deprecated. Use `savedGroupFormat`."),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z
       .boolean()
       .optional()
@@ -137,6 +172,7 @@ export const postSdkConnectionValidator = {
     })
     .strict(),
   summary: "Create a single sdk connection",
+  confirmation: ["sdkConnection.create"] as const,
   operationId: "postSdkConnection",
   tags: ["sdk-connections"],
   method: "post" as const,
@@ -170,6 +206,7 @@ export const putSdkConnectionValidator = {
     })
     .strict(),
   summary: "Update a single sdk connection",
+  confirmation: ["sdkConnection.edit"] as const,
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
   method: "put" as const,
@@ -186,6 +223,7 @@ export const deleteSdkConnectionValidator = {
     })
     .strict(),
   summary: "Deletes a single SDK connection",
+  confirmation: ["sdkConnection.delete"] as const,
   operationId: "deleteSdkConnection",
   tags: ["sdk-connections"],
   method: "delete" as const,

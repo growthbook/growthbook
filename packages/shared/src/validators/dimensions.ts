@@ -4,6 +4,7 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { GENERIC_NAME_DESCRIPTION } from "./api-field-descriptions";
 
 // Corresponds to schemas/Dimension.yaml
 export const apiDimensionValidator = namedSchema(
@@ -35,7 +36,7 @@ export type ApiDimension = z.infer<typeof apiDimensionValidator>;
 // Corresponds to payload-schemas/PostDimensionPayload.yaml
 const postDimensionBody = z
   .object({
-    name: z.string().describe("Name of the dimension"),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
@@ -99,6 +100,7 @@ export const postDimensionValidator = {
     })
     .strict(),
   summary: "Create a single dimension",
+  confirmation: ["dimension.create"] as const,
   operationId: "postDimension",
   tags: ["dimensions"],
   method: "post" as const,
@@ -140,6 +142,7 @@ export const updateDimensionValidator = {
     })
     .strict(),
   summary: "Update a single dimension",
+  confirmation: ["dimension.edit"] as const,
   operationId: "updateDimension",
   tags: ["dimensions"],
   method: "post" as const,
@@ -163,6 +166,7 @@ export const deleteDimensionValidator = {
     })
     .strict(),
   summary: "Deletes a single dimension",
+  confirmation: ["dimension.delete"] as const,
   operationId: "deleteDimension",
   tags: ["dimensions"],
   method: "delete" as const,

@@ -10,7 +10,6 @@ const QueryModal: FC<{
 }> = ({ queries, language, close }) => {
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header="View Query"

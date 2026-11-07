@@ -8,11 +8,13 @@ const ClickHouseForm: FC<{
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   setParams: (params: { [key: string]: string }) => void;
-}> = ({ params, existing, onParamChange, setParams }) => {
+  showAllowlist?: boolean;
+}> = ({ params, existing, onParamChange, setParams, showAllowlist }) => {
   return (
     <>
       <HostWarning
         host={params.url}
+        showAllowlist={showAllowlist}
         setHost={(url) => {
           setParams({
             url,
@@ -31,7 +33,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Port</label>
           <input
             type="number"
@@ -42,7 +44,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Database</label>
           <input
             type="text"
@@ -52,7 +54,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Username</label>
           <input
             type="text"
@@ -62,7 +64,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Password</label>
           <input
             type="text"

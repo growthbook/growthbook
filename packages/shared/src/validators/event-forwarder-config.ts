@@ -1,8 +1,13 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
-const eventForwarderSinkTypeValidator = z.enum(["bigquery", "snowflake"]);
+const eventForwarderSinkTypeValidator = z.enum([
+  "bigquery",
+  "snowflake",
+  "databricks",
+]);
 const eventForwarderStatusValidator = z.enum([
+  "unconfigured",
   "pending",
   "ready",
   "paused",
@@ -17,7 +22,8 @@ export const eventForwarderConfigValidator = baseSchema
     projects: z.array(z.string()), // Initial values should be derived from the data source this was created from
     /** Kafka topic name — pinned at creation; teardown must use this value (not derived from env). */
     topic: z.string(),
-    schemaId: z.number(), // The confluent schema registry schema id
+    /** Confluent schema registry schema id; absent for JSON (databricks) sinks. */
+    schemaId: z.number().optional(),
     sinkType: eventForwarderSinkTypeValidator,
     /** AWS region hosting this forwarder's Kafka/Confluent resources. Set once at creation; absent means `us-east-1`. */
     region: z.enum(["us-east-1", "eu-west-1"]).optional(),

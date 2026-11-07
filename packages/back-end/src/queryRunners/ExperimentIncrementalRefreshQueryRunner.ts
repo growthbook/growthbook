@@ -1,11 +1,15 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
+  getClusterSubUnit,
   getFactMetricFactTableIds,
+  getIsolatedDimensionIds,
   isFactMetric,
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
+import { PRECOMPUTED_DIMENSION_PREFIX } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -15,6 +19,8 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentDimensionWithSpecifiedSlices,
+  ExperimentClusterHealthQueryResponseRows,
   ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
@@ -24,7 +30,10 @@ import {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  resolveExposureQueryForAnalysis,
+  buildUnitsQuerySettingsFromSnapshot,
+} from "shared/util";
 import {
   ExperimentQueryMetadata,
   Queries,
@@ -43,6 +52,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
+  analyzeExperimentClusterHealth,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -69,11 +79,17 @@ import {
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
+import {
+  resolveClusterMetricGrain,
+  getClusterMetricCacheLevel,
+} from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  CLUSTER_HEALTH_QUERY_NAME,
+  CLUSTER_TRAFFIC_QUERY_NAME,
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
@@ -85,6 +101,7 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
@@ -95,6 +112,43 @@ const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
 function tableNameFromFullName(fullName: string) {
   const segments = fullName.replace(/`/g, "").split(".");
   return segments[segments.length - 1];
+}
+
+export function getStatisticsQueryVariants({
+  baseName,
+  breakdownsDisabled,
+  parentFanOutDisabled,
+  parentPrecomputedDimensions,
+  isolatedPrecomputedDimensions,
+}: {
+  baseName: string;
+  breakdownsDisabled: boolean;
+  parentFanOutDisabled: boolean;
+  parentPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[];
+  isolatedPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[];
+}): {
+  name: string;
+  dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
+}[] {
+  if (breakdownsDisabled) {
+    return [{ name: baseName, dimensionsForPrecomputation: [] }];
+  }
+  const parentDimensions = parentFanOutDisabled
+    ? []
+    : parentPrecomputedDimensions;
+  return [
+    {
+      name: baseName,
+      dimensionsForPrecomputation: parentDimensions,
+    },
+    ...isolatedPrecomputedDimensions.map((d) => ({
+      name: getUnitDimQueryName(
+        `${PRECOMPUTED_DIMENSION_PREFIX}${d.id}`,
+        baseName,
+      ),
+      dimensionsForPrecomputation: [d],
+    })),
+  ];
 }
 
 export type ExperimentIncrementalRefreshQueryParams = {
@@ -147,12 +201,24 @@ export function getIncrementalRefreshMetricSources({
   // Fan-out determines each metric's fact tables; this only chunks their caches.
   const fanOut = planMetricFanOut(overriddenMetrics);
 
+  // Cluster-level metrics can't share a cache with user-level metrics even on
+  // the same fact table. Mirrors the `cluster:${group}` partitioning in
+  // experimentQueries.
+  const clusterLevelMetricIds = new Set(
+    getClusterSubUnit(snapshotSettings)
+      ? (snapshotSettings.clusterLevelMetricIds ?? [])
+      : [],
+  );
+
   // One cache per table (except quantiles which have their own cache).
-  // Mirrors experimentQueries grouping rules
+  // Mirrors experimentQueries grouping rules.
   const getMetricGroupKey = (
     factTableId: string,
     metric: FactMetricInterface,
-  ) => `${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
+  ) =>
+    `${
+      clusterLevelMetricIds.has(metric.id) ? "cluster_" : ""
+    }${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
 
   // Metrics that map to a pre-existing cache table — keyed by that source's
   // groupId. Matching is done by (factTableId, metric id): a cross-FT ratio
@@ -278,7 +344,7 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const settings = integration.datasource.settings;
 
-  // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
+  // Only include metrics tied to this experiment, which is governed by the snapshotSettings.metricSettings
   // after the introduction of metric slices
   // TODO(bryce): refactor the source of truth for metrics so that the expandedMetricMap isn't used to add
   // metrics to an experiment
@@ -386,6 +452,7 @@ const startExperimentIncrementalRefreshQueries = async (
         metricSettings: snapshotSettings.metricSettings.find(
           (ms) => ms.id === m.id,
         ),
+        clusterMetricLevel: getClusterMetricCacheLevel(snapshotSettings, m.id),
       }),
     );
   });
@@ -415,10 +482,11 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
-  const resolvedExposureQuery = {
-    query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
-  };
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
+  const exposureUserIdType = resolvedExposureQuery.identifierType;
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
     snapshotSettings,
@@ -436,6 +504,22 @@ const startExperimentIncrementalRefreshQueries = async (
     incrementalRefreshModel,
     nVariations: params.variationNames.length,
   });
+
+  const isClusterExperiment = getClusterSubUnit(snapshotSettings) !== null;
+  const isolatedDimensionIds = new Set(
+    getIsolatedDimensionIds(snapshotSettings),
+  );
+  const parentPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[] =
+    isClusterExperiment ? [] : eligibleDimensionsWithSlicesUnderMaxCells;
+  // Only breakdowns that a corresponding analysis actually requests (those in
+  // snapshotSettings.dimensions, surfaced via getIsolatedDimensionIds) get an
+  // isolated query.
+  const isolatedPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[] =
+    isClusterExperiment
+      ? eligibleDimensionsWithSlicesUnderMaxCells.filter((d) =>
+          isolatedDimensionIds.has(`${PRECOMPUTED_DIMENSION_PREFIX}${d.id}`),
+        )
+      : [];
 
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
@@ -564,7 +648,10 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsMaxTimestamp: watermark.maxTimestamp,
             unitsMaxTimestampRaw: watermark.maxTimestampRaw,
             experimentSettingsHash:
-              getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+              getExperimentSettingsHashForIncrementalRefresh(
+                snapshotSettings,
+                integration.datasource.settings.queries?.exposure ?? [],
+              ),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
           },
         );
@@ -696,6 +783,7 @@ const startExperimentIncrementalRefreshQueries = async (
             queryMetadata,
           ),
         ),
+        metadata: { factTableIds: [group.factTableId] },
         queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
       });
       queries.push(createMetricsSourceQuery);
@@ -729,6 +817,7 @@ const startExperimentIncrementalRefreshQueries = async (
           setExternalId,
           queryMetadata,
         ),
+      metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
     });
     queries.push(insertMetricsSourceDataQuery);
@@ -779,6 +868,7 @@ const startExperimentIncrementalRefreshQueries = async (
           run: fenced((query, setExternalId, queryMetadata) =>
             integration.runDropTableQuery(query, setExternalId, queryMetadata),
           ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
         });
         queries.push(dropMetricCovariateTableQuery);
@@ -801,17 +891,24 @@ const startExperimentIncrementalRefreshQueries = async (
               queryMetadata,
             ),
           ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshCreateMetricsCovariateTable",
         });
         queries.push(createMetricCovariateTableQuery);
       }
 
       // Pre-aggregated read when the whole group validates, else legacy scan.
+      const { baseIdType: covariateGrainIdType } = resolveClusterMetricGrain({
+        settings: snapshotSettings,
+        metrics: group.metrics,
+        exposureIdentifierType: exposureUserIdType,
+      });
+
       const covariatePath = await resolveCovariateInsertPath({
         context,
         factTable,
         datasourceId: integration.datasource.id,
-        exposureUserIdType: exposureQuery.userIdType,
+        exposureUserIdType: covariateGrainIdType,
         regressionAdjustedMetrics,
         settings: snapshotSettings,
         activationMetric,
@@ -922,6 +1019,7 @@ const startExperimentIncrementalRefreshQueries = async (
                 idType: covariatePath.idType,
               },
             ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType:
             "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated",
         });
@@ -930,12 +1028,13 @@ const startExperimentIncrementalRefreshQueries = async (
           ...covariateInsertBaseParams,
           query: integration.getInsertMetricSourceCovariateDataQuery({
             ...commonCovariateQueryParams,
-            // Align to daily grain whenever the exposure id type is materialized,
+            // Align to daily grain whenever the grain id type is materialized,
             // so the fallback window always matches the pre-aggregated path.
             alignLegacyScanToDailyGrain: (
               factTable?.aggregatedFactTableSettings?.idTypes ?? []
-            ).includes(exposureQuery.userIdType),
+            ).includes(covariateGrainIdType),
           }),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
         });
       }
@@ -995,6 +1094,10 @@ const startExperimentIncrementalRefreshQueries = async (
                     metricSettings: insertParams.settings.metricSettings.find(
                       (ms) => ms.id === m.id,
                     ),
+                    clusterMetricLevel: getClusterMetricCacheLevel(
+                      insertParams.settings,
+                      m.id,
+                    ),
                   }),
                 })),
                 tableFullName: metricSourceTableFullName,
@@ -1021,6 +1124,7 @@ const startExperimentIncrementalRefreshQueries = async (
           );
         }
       },
+      metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
     });
     queries.push(maxTimestampMetricsSourceQuery);
@@ -1048,64 +1152,73 @@ const startExperimentIncrementalRefreshQueries = async (
       );
       for (const partition of partitions) {
         // Quantiles only run overall stats. Recheck per partition so a mixed
-        // quantile/mean group only disables precomputation on the quantile slice.
+        // quantile/mean group only disables breakdowns on the quantile slice.
         const runOverallQuantileAnalysis =
           partition.metrics.some(quantileMetricType);
-        const dimensionsForPrecomputation =
-          org.settings?.disablePrecomputedDimensions ||
-          runOverallQuantileAnalysis
-            ? []
-            : eligibleDimensionsWithSlicesUnderMaxCells;
 
-        const statisticsQuery = await startQuery({
-          name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`,
-          displayTitle: `Compute Statistics ${sourceName}`,
-          query: integration.getIncrementalRefreshStatisticsQuery({
-            settings: snapshotSettings,
-            exposureQuery: resolvedExposureQuery,
-            activationMetric: activationMetric,
-            factTableMap: params.factTableMap,
-            unitsSourceTableFullName: unitsTableFullName,
-            metrics: partition.metrics,
-            lastMaxTimestamp: existingSource?.maxTimestamp || null,
-            dimensionsForPrecomputation,
-            dimensionsForAnalysis: [],
-            metricSources: [
-              {
-                factTableId: group.factTableId,
-                tableFullName: metricSourceTableFullName,
-                ...(anyMetricHasCuped && metricSourceCovariateTableFullName
-                  ? {
-                      covariateTableFullName:
-                        metricSourceCovariateTableFullName,
-                    }
-                  : {}),
-              },
-            ],
-          }),
-          dependencies: [
-            insertMetricsSourceDataQuery.query,
-            ...(insertMetricCovariateDataQuery
-              ? [insertMetricCovariateDataQuery.query]
-              : []),
-          ],
-          run: (query, setExternalId, queryMetadata) =>
-            integration.runIncrementalRefreshStatisticsQuery(
-              query,
-              setExternalId,
-              queryMetadata,
-            ),
-          queryType: "experimentIncrementalRefreshStatistics",
-        });
-        queries.push(statisticsQuery);
+        const metricSources = [
+          {
+            factTableId: group.factTableId,
+            tableFullName: metricSourceTableFullName,
+            ...(anyMetricHasCuped && metricSourceCovariateTableFullName
+              ? {
+                  covariateTableFullName: metricSourceCovariateTableFullName,
+                }
+              : {}),
+          },
+        ];
+        const statisticsDependencies = [
+          insertMetricsSourceDataQuery.query,
+          ...(insertMetricCovariateDataQuery
+            ? [insertMetricCovariateDataQuery.query]
+            : []),
+        ];
+        const baseStatisticsName = `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`;
+
+        for (const variant of getStatisticsQueryVariants({
+          baseName: baseStatisticsName,
+          breakdownsDisabled: runOverallQuantileAnalysis,
+          parentFanOutDisabled: !!org.settings?.disablePrecomputedDimensions,
+          parentPrecomputedDimensions,
+          isolatedPrecomputedDimensions,
+        })) {
+          const statisticsQuery = await startQuery({
+            name: variant.name,
+            displayTitle: `Compute Statistics ${sourceName}`,
+            query: integration.getIncrementalRefreshStatisticsQuery({
+              settings: snapshotSettings,
+              exposureQuery: resolvedExposureQuery,
+              activationMetric: activationMetric,
+              factTableMap: params.factTableMap,
+              unitsSourceTableFullName: unitsTableFullName,
+              metrics: partition.metrics,
+              lastMaxTimestamp: existingSource?.maxTimestamp || null,
+              asOf: params.incrementalRefreshStartTime,
+              dimensionsForPrecomputation: variant.dimensionsForPrecomputation,
+              dimensionsForAnalysis: [],
+              metricSources,
+            }),
+            dependencies: statisticsDependencies,
+            run: (query, setExternalId, queryMetadata) =>
+              integration.runIncrementalRefreshStatisticsQuery(
+                query,
+                setExternalId,
+                queryMetadata,
+              ),
+            metadata: { factTableIds: [group.factTableId] },
+            queryType: "experimentIncrementalRefreshStatistics",
+          });
+          queries.push(statisticsQuery);
+        }
       }
     }
   }
 
-  // Multi-source pass: for every group of metrics that needs 2+ fact table
-  // caches joined (cross-FT ratios, multi-FT funnels, or both), schedule a
-  // single stats query. Metrics sharing the same sorted FT set are grouped
-  // together so they share one joined query.
+  // Multi-source pass: for metrics that need 2+ fact table caches joined
+  // (cross-FT ratios, multi-FT funnels, or both), schedule one stats query per
+  // set of cache tables. Metrics over the same FT set share a joined query
+  // only when they resolve to the same cache table for every FT; a fact table
+  // chunked into several caches yields one query per chunk combination in use.
   const multiSourceSubGroups = buildMultiSourceSubGroups<SourcePipeline>({
     multiSourceGroups: desiredFanOut.multiSourceGroups,
     metricSourceGroups,
@@ -1136,47 +1249,59 @@ const startExperimentIncrementalRefreshQueries = async (
       .map((p) => p.group.groupId)
       .join("__");
 
-    const dimensionsForPrecomputation = org.settings
-      ?.disablePrecomputedDimensions
-      ? []
-      : eligibleDimensionsWithSlicesUnderMaxCells;
+    const baseStatisticsName = `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`;
+    const metricSources = subGroup.pipelines.map((p) => ({
+      factTableId: p.group.factTableId,
+      tableFullName: p.tableFullName,
+      ...(p.covariateTableFullName
+        ? { covariateTableFullName: p.covariateTableFullName }
+        : {}),
+    }));
+    const statisticsDependencies = [
+      ...subGroup.pipelines.map((p) => p.insertQuery.query),
+      ...subGroup.pipelines.flatMap((p) =>
+        p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
+      ),
+    ];
 
-    const multiSourceStatsQuery = await startQuery({
-      name: `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
-      displayTitle: `Compute Multi-Source Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery({
-        settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
-        activationMetric: activationMetric,
-        factTableMap: params.factTableMap,
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: subGroup.metrics,
-        lastMaxTimestamp: null,
-        dimensionsForPrecomputation,
-        dimensionsForAnalysis: [],
-        metricSources: subGroup.pipelines.map((p) => ({
-          factTableId: p.group.factTableId,
-          tableFullName: p.tableFullName,
-          ...(p.covariateTableFullName
-            ? { covariateTableFullName: p.covariateTableFullName }
-            : {}),
-        })),
-      }),
-      dependencies: [
-        ...subGroup.pipelines.map((p) => p.insertQuery.query),
-        ...subGroup.pipelines.flatMap((p) =>
-          p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
-        ),
-      ],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runIncrementalRefreshStatisticsQuery(
-          query,
-          setExternalId,
-          queryMetadata,
-        ),
-      queryType: "experimentIncrementalRefreshStatistics",
-    });
-    queries.push(multiSourceStatsQuery);
+    for (const variant of getStatisticsQueryVariants({
+      baseName: baseStatisticsName,
+      // Multi-source stats never run the quantile overall-only path.
+      breakdownsDisabled: false,
+      parentFanOutDisabled: !!org.settings?.disablePrecomputedDimensions,
+      parentPrecomputedDimensions,
+      isolatedPrecomputedDimensions,
+    })) {
+      const multiSourceStatsQuery = await startQuery({
+        name: variant.name,
+        displayTitle: `Compute Multi-Source Statistics ${sourceName}`,
+        query: integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
+          activationMetric: activationMetric,
+          factTableMap: params.factTableMap,
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: subGroup.metrics,
+          lastMaxTimestamp: null,
+          asOf: params.incrementalRefreshStartTime,
+          dimensionsForPrecomputation: variant.dimensionsForPrecomputation,
+          dimensionsForAnalysis: [],
+          metricSources,
+        }),
+        dependencies: statisticsDependencies,
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalRefreshStatisticsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        metadata: {
+          factTableIds: subGroup.pipelines.map((p) => p.group.factTableId),
+        },
+        queryType: "experimentIncrementalRefreshStatistics",
+      });
+      queries.push(multiSourceStatsQuery);
+    }
   }
 
   const runTrafficQuery = shouldRunHealthTrafficQuery({
@@ -1204,6 +1329,47 @@ const startExperimentIncrementalRefreshQueries = async (
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
+
+    if (snapshotSettings.isClusterExperiment) {
+      const clusterTrafficQuery = await startQuery({
+        name: CLUSTER_TRAFFIC_QUERY_NAME,
+        query: integration.getExperimentAggregateUnitsQuery({
+          ...unitQueryParams,
+          unitsSettings,
+          dimensions: eligibleDimensionsWithSlices,
+          useUnitsTable: true,
+          clusterGrain: true,
+        }),
+        dependencies: [alterUnitsTableQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentAggregateUnitsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterTrafficQuery);
+
+      const clusterHealthQuery = await startQuery({
+        name: CLUSTER_HEALTH_QUERY_NAME,
+        query: integration.getExperimentClusterHealthQuery({
+          ...unitQueryParams,
+          unitsSettings,
+          dimensions: eligibleDimensionsWithSlices,
+          useUnitsTable: true,
+        }),
+        dependencies: [alterUnitsTableQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentClusterHealthQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentTraffic",
+      });
+      queries.push(clusterHealthQuery);
+    }
   }
   return queries;
 };
@@ -1233,11 +1399,20 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
   }
 
+  prepareAnalysisData(
+    params: Pick<
+      ExperimentIncrementalRefreshQueryParams,
+      "metricMap" | "variationNames"
+    >,
+  ): void {
+    this.metricMap = params.metricMap;
+    this.variationNames = params.variationNames;
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshQueryParams,
   ): Promise<Queries> {
-    this.metricMap = params.metricMap;
-    this.variationNames = params.variationNames;
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -1335,6 +1510,36 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       result.multipleExposures =
         trafficHealth.multipleExposures ?? result.multipleExposures;
 
+      const clusterTrafficQuery = queryMap.get(CLUSTER_TRAFFIC_QUERY_NAME);
+      if (clusterTrafficQuery) {
+        result.health.clusterTraffic = analyzeExperimentTraffic({
+          rows: clusterTrafficQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+          error: clusterTrafficQuery.error,
+          variations: this.model.settings.variations,
+        });
+      }
+
+      const clusterHealthQuery = queryMap.get(CLUSTER_HEALTH_QUERY_NAME);
+      if (clusterHealthQuery) {
+        const clusterHealth = analyzeExperimentClusterHealth({
+          rows: clusterHealthQuery.result as ExperimentClusterHealthQueryResponseRows,
+          error: clusterHealthQuery.error,
+          variations: this.model.settings.variations,
+        });
+        result.health.clusterUnits = clusterHealth.clusterUnits;
+        result.health.clusterAssignment = clusterHealth.clusterAssignment;
+        result.health.clusterSubUnitMapping =
+          clusterHealth.clusterSubUnitMapping;
+        result.health.subUnitMultipleExposures =
+          clusterHealth.subUnitMultipleExposures;
+        // The traffic query drops any cluster containing a multi-exposed
+        // sub-unit, so its count is always 0 here; use the pre-filter count.
+        if (!clusterHealth.subUnitMultipleExposures.error) {
+          result.multipleExposures =
+            clusterHealth.subUnitMultipleExposures.multipleExposedSubUnits;
+        }
+      }
+
       // TODO(incremental-refresh): ensure power calculations work
       // const _relativeAnalysis = this.model.analyses.find(
       //   (a) => a.settings.differenceType === "relative",
@@ -1408,13 +1613,15 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
     const wrote = await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
-      {
-        queries: this.model.queries,
-        error,
-      },
+      { queries: this.model.queries, error },
+      "unknown",
+      { concludedBy: this.concludedBy },
+      this.experimentUpdateExecutionLogger,
     );
     if (wrote) {
       await this.context.models.incrementalRefresh
@@ -1434,12 +1641,14 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause,
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const snapshotStatus =
       status === "running"
@@ -1459,6 +1668,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
+      conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

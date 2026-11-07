@@ -1,4 +1,10 @@
 import { ExperimentInterface } from "shared/types/experiment";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import {
+  expandMetricGroups,
+  snapshotColumnVariationIds,
+  withScheduledBy,
+} from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
   ExperimentType,
@@ -57,13 +63,12 @@ async function getTiebreakerLiftMap(
 
   const metric = await getExperimentMetricById(context, metricId);
 
-  // Key by the snapshot's own variation ids (index-aligned with the analysis
-  // results); experiment.variations may have been reordered since.
-  const snapshotVariationIds = snapshot.settings.variations.map((v) => v.id);
-
   return buildTiebreakerLiftMap({
     variations: dimension.variations,
-    snapshotVariationIds,
+    variationIds: snapshotColumnVariationIds(
+      experiment,
+      snapshot.settings.variations,
+    ),
     metricId,
     inverse: metric?.inverse,
   });
@@ -86,6 +91,7 @@ async function computeScheduledVerdict(
   context: Context,
   experiment: ExperimentInterface,
   tiebreakerMetricId: string | undefined,
+  metricGroups: MetricGroupInterface[],
 ): Promise<ScheduledVerdict | null> {
   if (!canAutoShip(context)) return null;
 
@@ -101,18 +107,25 @@ async function computeScheduledVerdict(
   };
 
   const resultsStatus = experiment.analysisSummary?.resultsStatus;
-  if (!experiment.goalMetrics.length || !resultsStatus) return inconclusive;
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups,
+  );
+  if (!expandedGoalMetrics.length || !resultsStatus) return inconclusive;
 
   const overallStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings: getHealthSettings(context.org.settings, true),
     decisionCriteria,
+    metricGroups,
   });
   if (
     overallStatus?.status === "unhealthy" &&
     (overallStatus.unhealthyData.srm ||
       overallStatus.unhealthyData.multipleExposures ||
-      overallStatus.unhealthyData.covariateImbalance)
+      overallStatus.unhealthyData.covariateImbalance ||
+      overallStatus.unhealthyData.clusterAssignment ||
+      overallStatus.unhealthyData.clusterMapping)
   ) {
     return inconclusive;
   }
@@ -122,8 +135,11 @@ async function computeScheduledVerdict(
   const resultStatus = getDecisionFrameworkStatus({
     resultsStatus,
     decisionCriteria,
-    goalMetrics: experiment.goalMetrics,
-    guardrailMetrics: experiment.guardrailMetrics,
+    goalMetrics: expandedGoalMetrics,
+    guardrailMetrics: expandMetricGroups(
+      experiment.guardrailMetrics,
+      metricGroups,
+    ),
     scheduledEndPassed: true,
   });
   if (!resultStatus) return inconclusive;
@@ -189,9 +205,11 @@ const resolveForceShipTarget = (
 export async function applyScheduledExperimentStop({
   context,
   experiment,
+  metricGroups,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  metricGroups: MetricGroupInterface[];
 }): Promise<ScheduledStopOutcome> {
   const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
   const mode = plan?.mode ?? "notify";
@@ -206,6 +224,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     if (verdict?.results === "won" && verdict.winnerVariationId) {
       await stopExperiment({
@@ -274,6 +293,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     await stopExperiment({
       context,
@@ -299,6 +319,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     await stopExperiment({
       context,
@@ -319,6 +340,7 @@ export async function applyScheduledExperimentStop({
     context,
     experiment,
     tiebreakerMetricId,
+    metricGroups,
   );
   logger.info(
     `Scheduled end reached; keeping experiment ${experiment.id} running (notify).`,
@@ -575,7 +597,7 @@ export async function setExperimentSchedule({
     statusUpdateSchedule: schedule,
     // Running experiments stage the stop now; drafts stage nothing here. Either
     // way any previously-staged action is reset to match the new schedule.
-    nextScheduledStatusUpdate: stagedStop,
+    nextScheduledStatusUpdate: withScheduledBy(stagedStop, context.armer),
   };
 
   const updated = await updateExperiment({ context, experiment, changes });

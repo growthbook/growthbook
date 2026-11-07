@@ -1,7 +1,12 @@
 import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getLatestPhaseVariations,
+} from "shared/experiments";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   DecisionCriteriaAction,
+  DecisionCriteriaCondition,
   DecisionCriteriaData,
   DecisionCriteriaRule,
   DecisionFrameworkExperimentRecommendationStatus,
@@ -21,6 +26,7 @@ import {
 import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import { OrganizationSettings } from "shared/types/organization";
 import {
+  DEFAULT_CLUSTER_ISSUE_THRESHOLD,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
@@ -30,14 +36,54 @@ import {
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
 import { daysBetween, getValidDate, hoursBetween } from "../../dates";
-import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
+import {
+  getClusterIssueHealthData,
+  getMultipleExposureHealthData,
+  getSRMHealthData,
+} from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "./constants";
 
-// Evaluate a single rule on a variation result
-// Returns the action if the rule is met, otherwise undefined
+export type MatchResult = "matched" | "not-matched" | "indeterminate";
+
+// Errored metrics make a condition indeterminate unless known metrics decide it.
+function evaluateConditionMatch({
+  values,
+  desiredStatus,
+  match,
+}: {
+  values: (string | undefined)[];
+  desiredStatus: string;
+  match: DecisionCriteriaCondition["match"];
+}): MatchResult {
+  const known = values.filter((v) => v !== "errored");
+  const anyErrored = values.some((v) => v === "errored");
+
+  switch (match) {
+    case "all":
+      if (known.some((v) => v !== desiredStatus)) {
+        return "not-matched";
+      }
+      return anyErrored ? "indeterminate" : "matched";
+
+    case "any":
+      if (known.some((v) => v === desiredStatus)) {
+        return "matched";
+      }
+      return anyErrored ? "indeterminate" : "not-matched";
+
+    case "none":
+      if (known.some((v) => v === desiredStatus)) {
+        return "not-matched";
+      }
+      return anyErrored ? "indeterminate" : "matched";
+  }
+}
+
+// A rule matches when every condition holds. A definite non-match wins over
+// an unresolved condition elsewhere in the rule.
 export function evaluateDecisionRuleOnVariation({
   rule,
   variationStatus,
@@ -50,62 +96,136 @@ export function evaluateDecisionRuleOnVariation({
   goalMetrics: string[];
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
-}): DecisionCriteriaAction | undefined {
-  const { conditions, action } = rule;
+}): MatchResult {
+  const { conditions } = rule;
 
-  const allConditionsMet = conditions.every((condition) => {
+  let hasIndeterminateCondition = false;
+  for (const condition of conditions) {
     const desiredStatus =
       condition.direction === "statsigWinner"
         ? "won"
         : condition.direction === "statsigLoser"
           ? "lost"
           : "neutral";
-    if (condition.metrics === "goals") {
-      const metrics = goalMetrics;
-      const metricResults = variationStatus.goalMetrics;
 
-      const fieldToCheck = requireSuperStatSig
-        ? "superStatSigStatus"
-        : "status";
-
-      if (condition.match === "all") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
+    let values: (string | undefined)[];
+    switch (condition.metrics) {
+      case "goals": {
+        const fieldToCheck = requireSuperStatSig
+          ? "superStatSigStatus"
+          : "status";
+        values = goalMetrics.map(
+          (m) => variationStatus.goalMetrics?.[m]?.[fieldToCheck],
         );
-      } else if (condition.match === "any") {
-        return metrics.some(
-          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
-        );
-      } else if (condition.match === "none") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.[fieldToCheck] !== desiredStatus,
-        );
+        break;
       }
-    } else if (condition.metrics === "guardrails") {
-      const metrics = guardrailMetrics;
-      const metricResults = variationStatus.guardrailMetrics;
 
-      if (condition.match === "all") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.status === desiredStatus,
+      case "guardrails":
+        values = guardrailMetrics.map(
+          (m) => variationStatus.guardrailMetrics?.[m]?.status,
         );
-      } else if (condition.match === "any") {
-        return metrics.some(
-          (m) => metricResults?.[m]?.status === desiredStatus,
-        );
-      } else if (condition.match === "none") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.status !== desiredStatus,
-        );
-      }
+        break;
     }
-  });
 
-  if (allConditionsMet) {
-    return action;
+    const result = evaluateConditionMatch({
+      values,
+      desiredStatus,
+      match: condition.match,
+    });
+
+    switch (result) {
+      case "matched":
+        continue;
+
+      case "not-matched":
+        return "not-matched";
+
+      case "indeterminate":
+        hasIndeterminateCondition = true;
+        continue;
+    }
   }
 
-  return undefined;
+  return hasIndeterminateCondition ? "indeterminate" : "matched";
+}
+
+type UndecidedVariation = DecisionFrameworkVariation & { decidingRule: null };
+
+export type VariationDecision =
+  | {
+      status: "decided";
+      variation: DecisionFrameworkVariation;
+      decisionCriteriaAction: DecisionCriteriaAction;
+    }
+  | { status: "pending"; variation: UndecidedVariation }
+  | { status: "indeterminate"; variation: UndecidedVariation };
+
+// Rollback takes priority; an unresolved higher rule blocks ship and review.
+function decideVariation({
+  variation,
+  rules,
+  goalMetrics,
+  guardrailMetrics,
+  requireSuperStatSig,
+  fallbackAction,
+}: {
+  variation: ExperimentAnalysisSummaryVariationStatus;
+  rules: DecisionCriteriaRule[];
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+  requireSuperStatSig: boolean;
+  fallbackAction: DecisionCriteriaAction | null;
+}): VariationDecision {
+  let hasIndeterminateRule = false;
+  const undecided: UndecidedVariation = {
+    variationId: variation.variationId,
+    decidingRule: null,
+  };
+
+  for (const rule of rules) {
+    const outcome = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: variation,
+      goalMetrics,
+      guardrailMetrics,
+      requireSuperStatSig,
+    });
+
+    switch (outcome) {
+      case "not-matched":
+        continue;
+
+      case "indeterminate":
+        hasIndeterminateRule = true;
+        continue;
+
+      case "matched":
+        if (rule.action === "rollback" || !hasIndeterminateRule) {
+          return {
+            status: "decided",
+            variation: {
+              variationId: variation.variationId,
+              decidingRule: rule,
+            },
+            decisionCriteriaAction: rule.action,
+          };
+        }
+        return { status: "indeterminate", variation: undecided };
+    }
+  }
+
+  if (hasIndeterminateRule) {
+    return { status: "indeterminate", variation: undecided };
+  }
+
+  if (fallbackAction !== null) {
+    return {
+      status: "decided",
+      variation: undecided,
+      decisionCriteriaAction: fallbackAction,
+    };
+  }
+  return { status: "pending", variation: undecided };
 }
 
 // Get the decision for each variation based on the decision criteria
@@ -121,68 +241,22 @@ export function getVariationDecisions({
   powerReached: boolean;
   goalMetrics: string[];
   guardrailMetrics: string[];
-}): {
-  variation: DecisionFrameworkVariation;
-  decisionCriteriaAction: DecisionCriteriaAction | null;
-}[] {
-  const results: {
-    variation: DecisionFrameworkVariation;
-    decisionCriteriaAction: DecisionCriteriaAction | null;
-  }[] = [];
-
-  const { rules } = decisionCriteria;
-
-  resultsStatus.variations.forEach((variation) => {
-    let decisionReached = false;
-    for (const rule of rules) {
-      const action = evaluateDecisionRuleOnVariation({
-        rule,
-        variationStatus: variation,
-        goalMetrics,
-        guardrailMetrics,
-        requireSuperStatSig: false,
-      });
-      if (action) {
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: rule,
-          },
-          decisionCriteriaAction: action,
-        });
-        decisionReached = true;
-        break;
-      }
-    }
-    if (!decisionReached) {
-      // if no decision was reached and power was reached, return the default action
-      if (powerReached) {
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: null,
-          },
-          decisionCriteriaAction: decisionCriteria.defaultAction,
-        });
-      } else {
-        // if no decision was reached and power was not reached (sequential testing), return null
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: null,
-          },
-          decisionCriteriaAction: null,
-        });
-      }
-    }
-  });
-
-  return results;
+}): VariationDecision[] {
+  return resultsStatus.variations.map((variation) =>
+    decideVariation({
+      variation,
+      rules: decisionCriteria.rules,
+      goalMetrics,
+      guardrailMetrics,
+      requireSuperStatSig: false,
+      // Without power (sequential testing) an unmatched variation stays pending.
+      fallbackAction: powerReached ? decisionCriteria.defaultAction : null,
+    }),
+  );
 }
 
-// Early stopping decision criteria requires "super stat sig" status
-// and does not use the fallback action, instead preferring to render
-// no result
+// Early stopping requires "super stat sig" status and never falls back to the
+// default action: only stop early on an explicitly met rule.
 export function getEarlyStoppingVariationDecisions({
   resultsStatus,
   decisionCriteria,
@@ -193,55 +267,17 @@ export function getEarlyStoppingVariationDecisions({
   decisionCriteria: DecisionCriteriaData;
   goalMetrics: string[];
   guardrailMetrics: string[];
-}): {
-  variation: DecisionFrameworkVariation;
-  decisionCriteriaAction: DecisionCriteriaAction | null;
-}[] {
-  const results: {
-    variation: DecisionFrameworkVariation;
-    decisionCriteriaAction: DecisionCriteriaAction | null;
-  }[] = [];
-
-  const { rules } = decisionCriteria;
-
-  resultsStatus.variations.forEach((variation) => {
-    let decisionReached = false;
-    for (const rule of rules) {
-      const action = evaluateDecisionRuleOnVariation({
-        rule,
-        variationStatus: variation,
-        goalMetrics,
-        guardrailMetrics,
-        requireSuperStatSig: true,
-      });
-      if (action) {
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: rule,
-          },
-          decisionCriteriaAction: action,
-        });
-        decisionReached = true;
-        break;
-      }
-    }
-    // If no decision was reached, return null, ignoring the fallback
-    // action since we only want to prematurely stop if the experiment has
-    // met one of the explicitly stated criteria with a clear level of
-    // evidence
-    if (!decisionReached) {
-      results.push({
-        variation: {
-          variationId: variation.variationId,
-          decidingRule: null,
-        },
-        decisionCriteriaAction: null,
-      });
-    }
-  });
-
-  return results;
+}): VariationDecision[] {
+  return resultsStatus.variations.map((variation) =>
+    decideVariation({
+      variation,
+      rules: decisionCriteria.rules,
+      goalMetrics,
+      guardrailMetrics,
+      requireSuperStatSig: true,
+      fallbackAction: null,
+    }),
+  );
 }
 export function getHealthSettings(
   settings?: OrganizationSettings,
@@ -258,7 +294,36 @@ export function getHealthSettings(
     multipleExposureMinPercent:
       settings?.multipleExposureMinPercent ??
       DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+    clusterIssueMinPercent:
+      settings?.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD,
   };
+}
+
+function getErroredMetricIds({
+  resultsStatus,
+  goalMetrics,
+  guardrailMetrics,
+}: {
+  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+}): string[] {
+  const errored = new Set<string>();
+  for (const variation of resultsStatus.variations) {
+    for (const m of goalMetrics) {
+      const goal = variation.goalMetrics?.[m];
+      if (
+        goal?.status === "errored" ||
+        goal?.superStatSigStatus === "errored"
+      ) {
+        errored.add(m);
+      }
+    }
+    for (const m of guardrailMetrics) {
+      if (variation.guardrailMetrics?.[m]?.status === "errored") errored.add(m);
+    }
+  }
+  return [...errored];
 }
 
 export function getDecisionFrameworkStatus({
@@ -271,6 +336,8 @@ export function getDecisionFrameworkStatus({
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   decisionCriteria: DecisionCriteriaData;
+  // Member metric ids with any metric groups already expanded; resultsStatus
+  // is keyed by them.
   goalMetrics: string[];
   guardrailMetrics: string[];
   daysNeeded?: number;
@@ -305,6 +372,15 @@ export function getDecisionFrameworkStatus({
       : ""
   }`;
 
+  const dataIncomplete = (): ExperimentResultStatusData => ({
+    status: "data-incomplete",
+    erroredMetrics: getErroredMetricIds({
+      resultsStatus,
+      goalMetrics,
+      guardrailMetrics,
+    }),
+  });
+
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
       resultsStatus,
@@ -316,7 +392,10 @@ export function getDecisionFrameworkStatus({
 
     const allRollbackNow =
       variationDecisions.length > 0 &&
-      variationDecisions.every((d) => d.decisionCriteriaAction === "rollback");
+      variationDecisions.every(
+        (d) =>
+          d.status === "decided" && d.decisionCriteriaAction === "rollback",
+      );
     if (allRollbackNow) {
       return {
         status: "rollback-now",
@@ -328,8 +407,12 @@ export function getDecisionFrameworkStatus({
       };
     }
 
+    if (variationDecisions.some((d) => d.status === "indeterminate")) {
+      return dataIncomplete();
+    }
+
     const shipVariations = variationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "ship",
+      (d) => d.status === "decided" && d.decisionCriteriaAction === "ship",
     );
     if (shipVariations.length > 0) {
       return {
@@ -346,7 +429,7 @@ export function getDecisionFrameworkStatus({
     // sequential results
     if (powerReached || scheduledEndPassed) {
       const reviewVariations = variationDecisions.filter(
-        (d) => d.decisionCriteriaAction === "review",
+        (d) => d.status === "decided" && d.decisionCriteriaAction === "review",
       );
       if (reviewVariations.length > 0) {
         return {
@@ -374,7 +457,8 @@ export function getDecisionFrameworkStatus({
     const allRollbackNow =
       superStatSigVariationDecisions.length > 0 &&
       superStatSigVariationDecisions.every(
-        (d) => d.decisionCriteriaAction === "rollback",
+        (d) =>
+          d.status === "decided" && d.decisionCriteriaAction === "rollback",
       );
     if (allRollbackNow) {
       return {
@@ -389,6 +473,12 @@ export function getDecisionFrameworkStatus({
       };
     }
 
+    if (
+      superStatSigVariationDecisions.some((d) => d.status === "indeterminate")
+    ) {
+      return dataIncomplete();
+    }
+
     // Early stopping should only say ship if one variation is a clear winner
     // and all other variations are clearly not winners
     // So only early stop if you have met shipping criteria with stat sig
@@ -399,11 +489,11 @@ export function getDecisionFrameworkStatus({
     // if you have many arms, where it requires more logic to determine if you have
     // a clear winner
     const shipVariations = superStatSigVariationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "ship",
+      (d) => d.status === "decided" && d.decisionCriteriaAction === "ship",
     );
     const onlyOneShip = shipVariations.length === 1;
     const numberOfRollbackVariations = superStatSigVariationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "rollback",
+      (d) => d.status === "decided" && d.decisionCriteriaAction === "rollback",
     ).length;
 
     const restRollback =
@@ -437,14 +527,90 @@ function getDaysLeftStatus({
   }
 }
 
+// A cluster experiment checks SRM on clusters and multiple exposures on
+// subunits; each check is skipped rather than run on the other grain's count.
+function computeSrmAndMultipleExposuresUnhealthyData({
+  srm,
+  multipleExposures,
+  totalUsers,
+  srmTotalUnits,
+  subUnitMultipleExposures,
+  isClusterExperiment,
+  numOfVariations,
+  minUsersPerVariation,
+  healthSettings,
+}: {
+  srm: number;
+  multipleExposures: number;
+  totalUsers: number | null;
+  srmTotalUnits?: number | null;
+  subUnitMultipleExposures?: {
+    totalSubUnits: number;
+    multipleExposedSubUnits: number;
+  } | null;
+  isClusterExperiment: boolean;
+  numOfVariations: number;
+  minUsersPerVariation: number;
+  healthSettings: ExperimentHealthSettings;
+}): Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> {
+  const result: Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> = {};
+
+  const srmUnits = isClusterExperiment
+    ? srmTotalUnits
+    : (srmTotalUnits ?? totalUsers);
+  if (
+    srmUnits &&
+    getSRMHealthData({
+      srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: srmUnits,
+      numOfVariations,
+      minUsersPerVariation,
+    }) === "unhealthy"
+  ) {
+    result.srm = true;
+  }
+
+  const exposures = isClusterExperiment
+    ? subUnitMultipleExposures
+      ? {
+          count: subUnitMultipleExposures.multipleExposedSubUnits,
+          total: subUnitMultipleExposures.totalSubUnits,
+        }
+      : null
+    : totalUsers
+      ? { count: multipleExposures, total: totalUsers }
+      : null;
+  if (exposures) {
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: exposures.count,
+      totalUsersCount: exposures.total,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      result.multipleExposures = {
+        rawDecimal: multipleExposuresHealthData.rawDecimal,
+        multipleExposedUsers: exposures.count,
+      };
+    }
+  }
+
+  return result;
+}
+
 export function getExperimentResultStatus({
   experimentData,
   healthSettings,
   decisionCriteria,
+  metricGroups,
 }: {
   experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
   decisionCriteria: DecisionCriteriaData;
+  // Goal/guardrail lists may hold metric-group ids; resultsStatus is keyed by
+  // member id.
+  metricGroups: MetricGroupInterface[];
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
@@ -493,15 +659,23 @@ export function getExperimentResultStatus({
         )
       : null;
 
+  const expandedGoalMetrics = expandMetricGroups(
+    experimentData.goalMetrics,
+    metricGroups,
+  );
+
   // Fully skip decision framework if there are no goal metrics
   // TODO @dmf-experiment: Add front-end information about this
   let decisionStatus: ExperimentResultStatusData | undefined = undefined;
-  if (experimentData.goalMetrics.length && resultsStatus) {
+  if (expandedGoalMetrics.length && resultsStatus) {
     decisionStatus = getDecisionFrameworkStatus({
       resultsStatus,
       decisionCriteria,
-      goalMetrics: experimentData.goalMetrics,
-      guardrailMetrics: experimentData.guardrailMetrics,
+      goalMetrics: expandedGoalMetrics,
+      guardrailMetrics: expandMetricGroups(
+        experimentData.guardrailMetrics,
+        metricGroups,
+      ),
       daysNeeded,
       scheduledEndPassed,
     });
@@ -511,38 +685,40 @@ export function getExperimentResultStatus({
     ? getDaysLeftStatus({ daysNeeded })
     : undefined;
 
+  const isClusterSummary = !!(
+    healthSummary?.clusterAssignment ||
+    healthSummary?.clusterSubUnitMapping ||
+    healthSummary?.subUnitMultipleExposures
+  );
+  // The summary alone can miss a cluster experiment whose cluster checks
+  // failed, and the flag alone can be newer than the summary.
+  const isClusterExperiment =
+    !!experimentData.isClusterExperiment || isClusterSummary;
+
+  if (healthSummary) {
+    Object.assign(
+      unhealthyData,
+      computeSrmAndMultipleExposuresUnhealthyData({
+        srm: healthSummary.srm,
+        multipleExposures: healthSummary.multipleExposures,
+        totalUsers: healthSummary.totalUsers,
+        srmTotalUnits: healthSummary.srmTotalUnits,
+        subUnitMultipleExposures:
+          healthSummary.subUnitMultipleExposures ?? null,
+        isClusterExperiment,
+        numOfVariations: getLatestPhaseVariations(experimentData).length,
+        minUsersPerVariation:
+          experimentData.type === "multi-armed-bandit"
+            ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+            : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+        healthSettings,
+      }),
+    );
+  }
+
   if (healthSummary?.totalUsers) {
-    const srmHealthData = getSRMHealthData({
-      srm: healthSummary.srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: getLatestPhaseVariations(experimentData).length,
-      minUsersPerVariation:
-        experimentData.type === "multi-armed-bandit"
-          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-    });
-
-    if (srmHealthData === "unhealthy") {
-      unhealthyData.srm = true;
-    }
-
     if (healthSummary.covariateImbalance?.isImbalanced) {
       unhealthyData.covariateImbalance = true;
-    }
-
-    const multipleExposuresHealthData = getMultipleExposureHealthData({
-      multipleExposuresCount: healthSummary.multipleExposures,
-      totalUsersCount: healthSummary.totalUsers,
-      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-      minPercentThreshold: healthSettings.multipleExposureMinPercent,
-    });
-
-    if (multipleExposuresHealthData.status === "unhealthy") {
-      unhealthyData.multipleExposures = {
-        rawDecimal: multipleExposuresHealthData.rawDecimal,
-        multipleExposedUsers: healthSummary.multipleExposures,
-      };
     }
 
     if (
@@ -562,11 +738,46 @@ export function getExperimentResultStatus({
     }
   }
 
+  if (healthSummary?.clusterAssignment) {
+    const { mixedClusters, totalClusters } = healthSummary.clusterAssignment;
+    const clusterAssignmentHealth = getClusterIssueHealthData({
+      affectedCount: mixedClusters,
+      totalCount: totalClusters,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    if (clusterAssignmentHealth.status === "unhealthy") {
+      unhealthyData.clusterAssignment = {
+        rawDecimal: clusterAssignmentHealth.rawDecimal,
+        mixedClusters,
+      };
+    }
+  }
+
+  if (healthSummary?.clusterSubUnitMapping) {
+    const { multiClusterUnits, totalUnits } =
+      healthSummary.clusterSubUnitMapping;
+    const clusterMappingHealth = getClusterIssueHealthData({
+      affectedCount: multiClusterUnits,
+      totalCount: totalUnits,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    if (clusterMappingHealth.status === "unhealthy") {
+      unhealthyData.clusterMapping = {
+        rawDecimal: clusterMappingHealth.rawDecimal,
+        multiClusterUnits,
+      };
+    }
+  }
+
   const unhealthyStatuses = [
     ...(unhealthyData.srm ? ["SRM"] : []),
-    ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
+    ...(unhealthyData.multipleExposures
+      ? [isClusterSummary ? "Subunit multiple exposures" : "Multiple exposures"]
+      : []),
     ...(unhealthyData.lowPowered ? ["Low powered"] : []),
     ...(unhealthyData.covariateImbalance ? ["Pre-exposure bias"] : []),
+    ...(unhealthyData.clusterAssignment ? ["Mixed cluster assignment"] : []),
+    ...(unhealthyData.clusterMapping ? ["Units in multiple clusters"] : []),
   ];
   // 1. Always show unhealthy status if they exist
   if (unhealthyStatuses.length > 0) {
@@ -622,7 +833,7 @@ export function getExperimentResultStatus({
   // 5. The scheduled end has passed but there is no recommendation. Explain why
   // and prompt a manual review. Not gated on the Decision Framework.
   if (scheduledEndPassed) {
-    const reason = !experimentData.goalMetrics.length
+    const reason = !expandedGoalMetrics.length
       ? "No goal metrics are configured, so no recommendation can be made."
       : !resultsStatus
         ? "Results are not available yet."
@@ -651,6 +862,69 @@ export function getExperimentResultStatus({
   if (healthSettings.decisionFrameworkEnabled && daysLeftStatus) {
     return daysLeftStatus;
   }
+}
+
+export function getContextualBanditResultStatus({
+  srm,
+  totalUsers,
+  multipleExposures = 0,
+  numOfVariations,
+  healthSettings,
+}: {
+  srm: number | null;
+  totalUsers: number;
+  multipleExposures?: number;
+  numOfVariations: number;
+  healthSettings: ExperimentHealthSettings;
+}): ExperimentResultStatusData | undefined {
+  if (totalUsers === 0) {
+    return {
+      status: "no-data",
+    };
+  }
+
+  const unhealthyData: ExperimentUnhealthyData = {};
+
+  const srmHealthData = getSRMHealthData({
+    // A missing SRM p-value can't be unhealthy; Infinity keeps it "healthy".
+    srm: srm ?? Infinity,
+    srmThreshold: healthSettings.srmThreshold,
+    totalUsersCount: totalUsers,
+    numOfVariations,
+    // Bandits reweight frequently, so use the bandit-specific minimum.
+    minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  });
+  if (srmHealthData === "unhealthy") {
+    unhealthyData.srm = true;
+  }
+
+  const multipleExposuresHealthData = getMultipleExposureHealthData({
+    multipleExposuresCount: multipleExposures,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+    minPercentThreshold: healthSettings.multipleExposureMinPercent,
+  });
+  if (multipleExposuresHealthData.status === "unhealthy") {
+    unhealthyData.multipleExposures = {
+      rawDecimal: multipleExposuresHealthData.rawDecimal,
+      multipleExposedUsers: multipleExposures,
+    };
+  }
+
+  if (unhealthyData.srm || unhealthyData.multipleExposures) {
+    return {
+      status: "unhealthy",
+      unhealthyData,
+      tooltip: [
+        unhealthyData.srm ? "SRM" : null,
+        unhealthyData.multipleExposures ? "Multiple exposures" : null,
+      ]
+        .filter(Boolean)
+        .join(", "),
+    };
+  }
+
+  return undefined;
 }
 
 export function getSafeRolloutDaysLeft({
@@ -751,6 +1025,7 @@ export function getSafeRolloutResultStatus({
         resultsStatus,
         decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
         goalMetrics: [],
+        // Safe rollouts do not expand metric-group guardrails yet.
         guardrailMetrics: safeRollout.guardrailMetricIds,
         daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
       })
@@ -773,6 +1048,10 @@ export function getSafeRolloutResultStatus({
       powerReached: false,
       scheduledEndPassed: false,
     };
+  }
+
+  if (decisionStatus?.status === "data-incomplete") {
+    return decisionStatus;
   }
 
   // If no decision status, return days left status
@@ -813,14 +1092,16 @@ export function getPresetDecisionCriteriaForOrg(
 // Pure mapping of a snapshot dimension's variations to their tiebreaker-metric
 // relative lift, keyed by the snapshot's own variation ids (index-aligned with
 // the analysis results). Callers own loading the snapshot/metric.
+// `variationIds` names each of `variations` as the decision status does;
+// `snapshotColumnVariationIds` gives them for a snapshot's columns.
 export function buildTiebreakerLiftMap({
   variations,
-  snapshotVariationIds,
+  variationIds,
   metricId,
   inverse,
 }: {
   variations: SnapshotVariation[];
-  snapshotVariationIds: string[];
+  variationIds: string[];
   metricId: string;
   inverse?: boolean;
 }): Record<string, number> | null {
@@ -830,11 +1111,42 @@ export function buildTiebreakerLiftMap({
   const sign = inverse ? -1 : 1;
   const map: Record<string, number> = {};
   variations.forEach((dv, i) => {
-    const id = snapshotVariationIds[i];
+    const id = variationIds[i];
     const expected = dv?.metrics?.[metricId]?.expected;
     if (id && typeof expected === "number") map[id] = expected * sign;
   });
   return Object.keys(map).length > 0 ? map : null;
+}
+
+/**
+ * Of ship winners tied on the criteria, the one clearly ahead on a metric: its
+ * lift interval wholly above each other's (below, for a lower-is-better
+ * metric). Null when none is, or any lacks an interval.
+ */
+export function clearLeader({
+  variations,
+  variationIds,
+  tiedVariationIds,
+  metricId,
+  inverse,
+}: {
+  variations: SnapshotVariation[];
+  variationIds: string[];
+  tiedVariationIds: string[];
+  metricId: string;
+  inverse?: boolean;
+}): string | null {
+  const intervals = tiedVariationIds.flatMap((id) => {
+    const ci = variations[variationIds.indexOf(id)]?.metrics?.[metricId]?.ci;
+    return ci ? [{ id, ci: inverse ? [-ci[1], -ci[0]] : ci }] : [];
+  });
+  if (intervals.length < 2 || intervals.length < tiedVariationIds.length) {
+    return null;
+  }
+  const leader = intervals.find((v) =>
+    intervals.every((other) => other === v || v.ci[0] > other.ci[1]),
+  );
+  return leader?.id ?? null;
 }
 
 export type ScheduledShipDecision =

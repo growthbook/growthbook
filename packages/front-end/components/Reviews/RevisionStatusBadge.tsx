@@ -11,6 +11,7 @@ import type { RevisionStatus, ActiveDraftStatus } from "shared/validators";
 import type { EventUser } from "shared/types/events/event-types";
 import Badge from "@/ui/Badge";
 import { RadixColor } from "@/ui/HelperText";
+import StatusDot from "@/components/Experiment/StatusDot";
 
 // Entity-agnostic revision identity — enough to render status badges, labels,
 // and icons without depending on FeatureRevisionInterface.
@@ -105,42 +106,6 @@ export function draftStatusDotColor(status: string): string {
   }
 }
 
-// Priority order for picking the dot color when multiple statuses exist.
-// Higher index = shown first.
-const DRAFT_STATUS_PRIORITY: ActiveDraftStatus[] = [
-  "draft",
-  "approved",
-  "pending-review",
-  "changes-requested",
-];
-
-/** Returns the highest-priority status present in the counts map. */
-export function topDraftStatus(
-  counts: Partial<Record<string, number>>,
-): string | null {
-  for (let i = DRAFT_STATUS_PRIORITY.length - 1; i >= 0; i--) {
-    const s = DRAFT_STATUS_PRIORITY[i];
-    if ((counts[s] ?? 0) > 0) return s;
-  }
-  return null;
-}
-
-/**
- * Returns the distinct visual dot colors to show in the column cell.
- * "pending-review" and "changes-requested" both map to red, so they
- * collapse into a single dot. Result is ordered: red, green, amber.
- */
-export function draftStatusDots(
-  counts: Partial<Record<string, number>>,
-): string[] {
-  const dots: string[] = [];
-  if ((counts["changes-requested"] ?? 0) + (counts["pending-review"] ?? 0) > 0)
-    dots.push("var(--red-9)");
-  if ((counts["approved"] ?? 0) > 0) dots.push("var(--green-9)");
-  if ((counts["draft"] ?? 0) > 0) dots.push("var(--amber-9)");
-  return dots;
-}
-
 /** Builds a tooltip ReactNode from a counts map — one line per status. */
 export function draftStatusTooltip(
   counts: Partial<Record<string, number>>,
@@ -171,16 +136,7 @@ export function draftStatusTooltip(
           key={status}
           style={{ display: "flex", alignItems: "center", gap: 6 }}
         >
-          <span
-            style={{
-              display: "block",
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              flexShrink: 0,
-              background: draftStatusDotColor(status),
-            }}
-          />
+          <StatusDot color={draftStatusDotColor(status)} />
           <span>{text}</span>
         </div>
       ))}

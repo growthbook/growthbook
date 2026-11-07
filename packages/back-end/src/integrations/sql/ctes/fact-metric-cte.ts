@@ -1,5 +1,6 @@
 import {
   getColumnRefWhereClause,
+  getFactTableIdColumnExpression,
   getFactTableTemplateVariables,
   getFactTableTimestampColumn,
   isFactFunnelMetric,
@@ -61,12 +62,17 @@ export function getFactMetricCTE(
   let userIdCol = "";
   const userIdTypes = factTable.userIdTypes;
   if (userIdTypes.includes(baseIdType)) {
-    userIdCol = baseIdType;
+    userIdCol = getFactTableIdColumnExpression(factTable, baseIdType, dialect);
   } else if (userIdTypes.length > 0) {
     for (let i = 0; i < userIdTypes.length; i++) {
       const userIdType: string = userIdTypes[i];
       if (userIdType in idJoinMap) {
-        const metricUserIdCol = `m.${userIdType}`;
+        const metricUserIdCol = getFactTableIdColumnExpression(
+          factTable,
+          userIdType,
+          dialect,
+          "m",
+        );
         join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
         userIdCol = `i.${baseIdType}`;
         break;
@@ -74,8 +80,6 @@ export function getFactMetricCTE(
     }
   }
 
-  // The fact table's timestamp column, aliased to `timestamp` on the way out so
-  // downstream SQL never has to know its real name.
   const timestampColumn = `m.${getFactTableTimestampColumn(factTable)}`;
 
   // BQ datetime cast for SELECT statements (do not use for where)
@@ -114,6 +118,9 @@ export function getFactMetricCTE(
       // A funnel has no value column. Each step instead projects the row's
       // timestamp when the row matches that step's filters, so the resolution
       // CTEs downstream can collect per-step timestamps per user.
+      const sliceInfo = parseSliceMetricId(m.id, {
+        [factTable.id]: factTable,
+      });
       m.funnelSettings.steps.forEach((step, stepIndex) => {
         if (step.factTableId !== factTable.id) return;
 
@@ -129,6 +136,7 @@ export function getFactMetricCTE(
           jsonExtract: dialect.jsonExtract,
           evalBoolean: dialect.evalBoolean,
           castToTimestamp: dialect.castToTimestamp,
+          sliceInfo,
           identifierQuote: dialect.identifierQuote,
         });
 

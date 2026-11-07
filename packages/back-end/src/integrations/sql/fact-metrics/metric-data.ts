@@ -1,10 +1,12 @@
 import {
+  isSubUnitClusterMetric,
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
   getFactMetricPrimaryFactTableId,
   isFactFunnelMetric,
   isFactMetric,
-  isPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
+  isLowerPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
@@ -17,6 +19,7 @@ import type {
 } from "shared/types/fact-table";
 import type { FactMetricData } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { getSnapshotCutoffDate } from "shared/util";
 
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { applyDailyParticipationTransformation } from "back-end/src/integrations/sql/processing/apply-daily-participation-transformation";
@@ -50,7 +53,13 @@ export function getMetricData(
   metricWithIndex: { metric: FactMetricInterface; index: number },
   settings: Pick<
     ExperimentSnapshotSettings,
-    "attributionModel" | "regressionAdjustmentEnabled" | "startDate"
+    | "attributionModel"
+    | "regressionAdjustmentEnabled"
+    | "startDate"
+    | "isClusterExperiment"
+    | "clusterSubUnitIdentifier"
+    | "clusterLevelMetricIds"
+    | "endDateIsCutoff"
   > & { endDate?: Date },
   activationMetric: ExperimentMetricInterface | null,
   factTablesWithIndices: { factTable: FactTableInterface; index: number }[],
@@ -63,6 +72,10 @@ export function getMetricData(
   flattenSources: boolean = false,
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
+  const isClusterRatioConversion =
+    isClusterMetric &&
+    ["mean", "proportion", "retention"].includes(metric.metricType);
   const ratioMetric = isRatioMetric(metric);
   const funnelMetric = isFactFunnelMetric(metric);
   const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
@@ -84,7 +97,8 @@ export function getMetricData(
     settings.attributionModel === "experimentDuration" ||
     settings.attributionModel === "lookbackOverride";
 
-  const isPercentileCapped = isPercentileCappedMetric(metric);
+  const isUpperPercentileCapped = isUpperPercentileCappedMetric(metric);
+  const isLowerPercentileCapped = isLowerPercentileCappedMetric(metric);
   const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
   const sourceIndexForFactTable = (factTableId: string | undefined): number =>
@@ -113,6 +127,7 @@ export function getMetricData(
     metric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
+    lowerCapValueCol: `${alias}_value_cap_lower`,
     columnRef: metric.numerator,
   });
   const capCoalesceDenominator = capCoalesceValue(dialect, {
@@ -120,6 +135,7 @@ export function getMetricData(
     metric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
+    lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
   const capCoalesceCovariate = capCoalesceValue(dialect, {
@@ -127,6 +143,7 @@ export function getMetricData(
     metric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
+    lowerCapValueCol: `${alias}_value_cap_lower`,
     columnRef: metric.numerator,
   });
   const capCoalesceDenominatorCovariate = capCoalesceValue(dialect, {
@@ -134,6 +151,7 @@ export function getMetricData(
     metric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
+    lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
   const uncappedMetric = {
@@ -142,12 +160,14 @@ export function getMetricData(
       type: "" as const,
       value: 0,
     },
+    lowerCappingSettings: null,
   };
   const uncappedCoalesceMetric = capCoalesceValue(dialect, {
     valueCol: `m${numeratorValueAlias}.${alias}_value`,
     metric: uncappedMetric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
+    lowerCapValueCol: `${alias}_value_cap_lower`,
     columnRef: metric.numerator,
   });
   const uncappedCoalesceDenominator = capCoalesceValue(dialect, {
@@ -155,6 +175,7 @@ export function getMetricData(
     metric: uncappedMetric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
+    lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
   const uncappedCoalesceCovariate = capCoalesceValue(dialect, {
@@ -162,6 +183,7 @@ export function getMetricData(
     metric: uncappedMetric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
+    lowerCapValueCol: `${alias}_value_cap_lower`,
     columnRef: metric.numerator,
   });
   const uncappedCoalesceDenominatorCovariate = capCoalesceValue(dialect, {
@@ -169,6 +191,7 @@ export function getMetricData(
     metric: uncappedMetric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
+    lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
 
@@ -181,10 +204,12 @@ export function getMetricData(
     minMetricDelay,
     regressionAdjustmentHours,
   );
+  const cutoffDate = getSnapshotCutoffDate(settings);
   const metricEnd = getMetricEnd(
     orderedMetrics,
     settings.endDate,
     overrideConversionWindows,
+    cutoffDate,
   );
 
   const raMetricPhaseStartSettings = getRaMetricPhaseStartSettings({
@@ -239,6 +264,7 @@ export function getMetricData(
             analysisEndDate,
             metric,
             overrideConversionWindows,
+            cutoffDate,
           })
       : ({ column }: { column: string }) => column;
 
@@ -248,13 +274,15 @@ export function getMetricData(
     metric,
     metricIndex,
     ratioMetric,
+    isClusterRatioConversion,
     funnelMetric,
     quantileMetric,
     metricQuantileSettings,
     regressionAdjusted,
     regressionAdjustmentHours,
     overrideConversionWindows,
-    isPercentileCapped,
+    isUpperPercentileCapped,
+    isLowerPercentileCapped,
     computeUncappedMetric,
     numeratorSourceIndex,
     denominatorSourceIndex,

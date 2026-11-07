@@ -1,0 +1,28 @@
+import express from "express";
+import { z } from "zod";
+import { stringRowFilterValidator } from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import * as rawController from "./experiment-exposures.controller";
+
+const router = express.Router();
+const controller = wrapController(rawController);
+router.post(
+  "/experiment/:id/exposures",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }),
+    body: z
+      .object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+        rollingWindow: z.boolean().optional(),
+        rowFilters: z.array(stringRowFilterValidator).optional(),
+        phase: z.number().int().min(0).optional(),
+        cache: z.enum(["preferred", "required", "never"]).optional(),
+      })
+      .strict(),
+  }),
+  controller.postExposures,
+);
+
+export { router as experimentExposuresRouter };

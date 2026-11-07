@@ -3,7 +3,7 @@ import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import {
   customFieldValuesEqual,
-  filterCustomFieldsForSectionAndProject,
+  filterCustomFieldsForSectionAndProjects,
   normalizeCustomFieldValues,
   reconcileCustomFieldValues,
 } from "@/services/customFields";
@@ -12,11 +12,14 @@ import { useUser } from "@/services/UserContext";
 export function useReconciledCustomFields({
   section,
   project,
+  projects,
   value,
   setValue,
 }: {
   section: CustomFieldSection;
-  project: string | undefined;
+  project?: string | undefined;
+  /** For entities scoped to several projects at once, such as attributes. */
+  projects?: string[] | undefined;
   value: Record<string, unknown> | string | null | undefined;
   setValue: (value: Record<string, string>) => void;
 }): { availableFields: CustomField[]; value: Record<string, string> } {
@@ -24,16 +27,23 @@ export function useReconciledCustomFields({
   const enabled = hasCommercialFeature("custom-metadata");
   const allCustomFields = useCustomFields();
 
+  // Depend on the joined string, not the array: callers pass a fresh array
+  // (e.g. react-hook-form's watch) on every render.
+  const projectsKey = (projects ?? (project === undefined ? [] : [project]))
+    .slice()
+    .sort()
+    .join(",");
+
   const availableFields = useMemo(
     () =>
       enabled
-        ? (filterCustomFieldsForSectionAndProject(
+        ? (filterCustomFieldsForSectionAndProjects(
             allCustomFields,
             section,
-            project,
+            projectsKey ? projectsKey.split(",") : [],
           ) ?? [])
         : [],
-    [allCustomFields, section, project, enabled],
+    [allCustomFields, section, projectsKey, enabled],
   );
 
   const normalizedValue = useMemo(

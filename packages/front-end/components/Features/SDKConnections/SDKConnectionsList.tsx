@@ -1,31 +1,40 @@
 import React, { useState } from "react";
-import { FaAngleRight, FaExclamationTriangle, FaLock } from "react-icons/fa";
-import { useRouter } from "next/router";
-import { BsLightningFill } from "react-icons/bs";
-import { RxDesktop } from "react-icons/rx";
-import { PiShuffle } from "react-icons/pi";
+import { PiWarningFill } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
 } from "shared/util";
-import clsx from "clsx";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
+import EmptyState from "@/components/EmptyState";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useSDKWebhooks from "@/hooks/useSDKWebhooks";
-import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
+import { Popover } from "@/ui/Popover";
+import Tooltip from "@/ui/Tooltip";
+import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import SDKLanguageLogo from "./SDKLanguageLogo";
+import EnvironmentProjectsBadge from "./EnvironmentProjectsBadge";
+import WebhookErrorDetails from "./WebhookErrorDetails";
 import SDKConnectionForm from "./SDKConnectionForm";
+import { PayloadSizeRowWarning } from "./PayloadSizeNotices";
+
+const webhookCount = (n: number) => `${n} webhook${n === 1 ? "" : "s"}`;
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -37,7 +46,6 @@ export default function SDKConnectionsList() {
   const environments = useEnvironments();
   const { projects, project } = useDefinitions();
 
-  const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
 
   const canCreateSDKConnections =
@@ -51,7 +59,7 @@ export default function SDKConnectionsList() {
   }
 
   return (
-    <div>
+    <>
       {modalOpen && (
         <SDKConnectionForm
           initialValue={{
@@ -67,69 +75,62 @@ export default function SDKConnectionsList() {
         />
       )}
 
-      <div className="row align-items-center mb-4">
-        <div className="col-auto">
-          <h1 className="mb-0">SDK Connections</h1>
-        </div>
+      <Flex align="center" justify="between" gap="3" mt="4" mb="2">
+        <Box style={{ flex: 1 }}>
+          <h1>SDK Connections</h1>
+        </Box>
         {canCreateSDKConnections && connections.length > 0 ? (
-          <div className="col-auto ml-auto">
-            <Button onClick={() => setModalOpen(true)}>
-              Add SDK Connection
-            </Button>
-          </div>
+          <Button onClick={() => setModalOpen(true)}>Add SDK Connection</Button>
         ) : null}
-      </div>
+      </Flex>
 
       {connections.length === 0 ? (
-        <>
-          {!canCreateSDKConnections ? (
-            <div className="appbox p-5 text-center">
-              <p>
-                You do not have permission to create SDK connections. Please
-                contact your account administrator
-              </p>
-            </div>
-          ) : (
-            <div className="appbox p-5 text-center">
-              <p>
-                <strong>SDK Connections</strong> make it easy to integrate
-                GrowthBook into your front-end, back-end, or mobile application.
-              </p>
-              <button
-                className="btn btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalOpen(true);
-                }}
-              >
-                <GBAddCircle /> Create New SDK Connection
-              </button>
-            </div>
-          )}
-        </>
+        <EmptyState
+          title="Connect your apps"
+          description={
+            canCreateSDKConnections
+              ? "SDK Connections make it easy to integrate GrowthBook into your front-end, back-end, or mobile application."
+              : "You don't have permission to create SDK Connections. Contact your account administrator."
+          }
+          leftButton={null}
+          rightButton={
+            canCreateSDKConnections ? (
+              <Button onClick={() => setModalOpen(true)}>
+                Add SDK Connection
+              </Button>
+            ) : null
+          }
+        />
       ) : null}
 
       {connections.length > 0 && (
-        <table className="table mb-3 appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th style={{ width: 25 }}></th>
-              <th>Name</th>
-              {projects.length > 0 && <th>Projects</th>}
-              <th>Environment</th>
-              <th>Webhooks</th>
-              <th className="text-center">Supported Features</th>
-              <th>Language</th>
-              <th style={{ width: 25 }}></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table variant="list" stickyHeader roundedCorners>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader style={{ width: 40 }} />
+              <TableColumnHeader style={{ width: "30%" }}>
+                Name
+              </TableColumnHeader>
+              {projects.length > 0 && (
+                <TableColumnHeader style={{ width: "20%" }}>
+                  Projects
+                </TableColumnHeader>
+              )}
+              <TableColumnHeader>Environment</TableColumnHeader>
+              <TableColumnHeader>Webhooks</TableColumnHeader>
+              <TableColumnHeader>Language</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {connections.map((connection) => {
               const hasProxy =
                 connection.proxy.enabled && !!connection.proxy.host;
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
+              const connectionStatus = connected
+                ? "Connected successfully"
+                : "Could not verify the connection";
 
               const environment = environments.find(
                 (e) => e.id === connection.environment,
@@ -158,60 +159,46 @@ export default function SDKConnectionsList() {
               const webhooksWithErrors = webhooks?.filter((w) => w.error);
 
               return (
-                <tr
-                  key={connection.id}
-                  className="cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push(`/sdks/${connection.id}`);
-                  }}
-                >
-                  <td style={{ verticalAlign: "middle", width: 20 }}>
-                    <Tooltip
-                      body={
-                        connected
-                          ? "Connected successfully"
-                          : "Could not verify the connection"
-                      }
-                    >
-                      {connected ? (
-                        <StatusCircle className="bg-success" />
-                      ) : (
-                        <FaExclamationTriangle className="text-warning" />
-                      )}
+                <TableRow key={connection.id}>
+                  <TableCell>
+                    <Tooltip content={connectionStatus}>
+                      <Flex
+                        align="center"
+                        justify="center"
+                        role="img"
+                        aria-label={connectionStatus}
+                      >
+                        <ExperimentDot color={connected ? "green" : "amber"} />
+                      </Flex>
                     </Tooltip>
-                  </td>
-                  <td className="text-break">
-                    <Link href={`/sdks/${connection.id}`}>
+                  </TableCell>
+                  <TableCell style={{ wordBreak: "break-word" }}>
+                    <Link
+                      href={`/sdks/${connection.id}`}
+                      style={{ color: "var(--gray-12)" }}
+                    >
                       {connection.name}
                     </Link>
+                    <PayloadSizeRowWarning connection={connection} />
                     {connection.managedBy?.type ? (
-                      <div>
+                      <Box mt="1">
                         <Badge
                           label={`Managed by ${capitalizeFirstLetter(
                             connection.managedBy.type,
                           )}`}
                         />
-                      </div>
+                      </Box>
                     ) : null}
-                  </td>
+                  </TableCell>
                   {projects.length > 0 && (
-                    <td>
-                      {showAllEnvironmentProjects && (
-                        <Badge
-                          key="All env projects"
-                          color="teal"
-                          variant="solid"
-                          label={`All env projects (${envProjects.length})`}
+                    <TableCell>
+                      {showAllEnvironmentProjects ? (
+                        <EnvironmentProjectsBadge
+                          environment={connection.environment}
+                          projectIds={envProjects}
                         />
-                      )}
-                      <div
-                        className={clsx("d-flex flex-wrap align-items-center", {
-                          "small mt-1": showAllEnvironmentProjects,
-                        })}
-                        style={{ gap: "0.5rem" }}
-                      >
-                        {!showAllEnvironmentProjects && (
+                      ) : (
+                        <Flex wrap="wrap" align="center" gap="2">
                           <ProjectBadges
                             projectIds={
                               filteredProjectIdsWithDisallowed.length
@@ -223,142 +210,66 @@ export default function SDKConnectionsList() {
                             resourceType="sdk connection"
                             skipMargin={true}
                           />
-                        )}
-                      </div>
-                    </td>
+                        </Flex>
+                      )}
+                    </TableCell>
                   )}
-                  <td>{connection.environment}</td>
-                  <td>
-                    {webhooks?.length ? (
-                      <div className="nowrap">
-                        {webhooks.length} webhook{webhooks.length !== 1 && "s"}
-                        {webhooksWithErrors?.length ? (
-                          <Tooltip
-                            className="ml-1"
-                            innerClassName="pb-3"
-                            usePortal={true}
-                            body={
-                              <>
-                                {webhooksWithErrors.map((webhook) => (
-                                  <Callout
-                                    key={webhook.id}
-                                    status="error"
-                                    my="4"
-                                  >
-                                    <div>
-                                      <strong>{webhook.name}:</strong>
-                                    </div>
-                                    <div style={{ wordBreak: "break-all" }}>
-                                      {webhook.error}
-                                    </div>
-                                  </Callout>
-                                ))}
-                              </>
-                            }
+                  <TableCell>{connection.environment}</TableCell>
+                  <TableCell>
+                    {webhooksWithErrors?.length ? (
+                      <Popover
+                        openOnHover
+                        side="bottom"
+                        contentStyle={{ maxWidth: 420 }}
+                        trigger={
+                          <Flex
+                            display="inline-flex"
+                            align="center"
+                            gap="1"
+                            style={{ whiteSpace: "nowrap", cursor: "default" }}
                           >
-                            <FaExclamationTriangle className="text-danger ml-1" />
-                          </Tooltip>
-                        ) : null}
-                      </div>
+                            <PiWarningFill color="var(--red-11)" />
+                            {webhookCount(webhooks?.length ?? 0)}
+                          </Flex>
+                        }
+                        content={
+                          <Flex direction="column" gap="3">
+                            {webhooksWithErrors.map((webhook) => (
+                              <WebhookErrorDetails
+                                key={webhook.id}
+                                name={webhook.name}
+                                error={webhook.error}
+                              />
+                            ))}
+                          </Flex>
+                        }
+                      />
+                    ) : webhooks?.length ? (
+                      webhookCount(webhooks.length)
                     ) : null}
-                  </td>
-                  <td className="text-center">
-                    {connection.remoteEvalEnabled && (
-                      <Tooltip
-                        body={
-                          <>
-                            <strong>Remote Evaluation</strong> is enabled
-                          </>
-                        }
-                      >
-                        <GBRemoteEvalIcon className="mx-1 text-purple" />
-                      </Tooltip>
-                    )}
-                    {connection.hashSecureAttributes && (
-                      <Tooltip
-                        body={
-                          <>
-                            <strong>Secure Attribute Hashing</strong> is enabled
-                            for this connection&apos;s SDK payload
-                          </>
-                        }
-                      >
-                        <GBHashLock className="mx-1 text-blue" />
-                      </Tooltip>
-                    )}
-                    {connection.encryptPayload && (
-                      <Tooltip
-                        body={
-                          <>
-                            <strong>Encryption</strong> is enabled for this
-                            connection&apos;s SDK payload
-                          </>
-                        }
-                      >
-                        <FaLock className="mx-1 text-purple" />
-                      </Tooltip>
-                    )}
-                    {hasProxy && (
-                      <Tooltip
-                        body={
-                          <>
-                            <BsLightningFill className="text-warning" />
-                            <strong>GB Proxy</strong> is enabled
-                          </>
-                        }
-                      >
-                        <BsLightningFill className="mx-1 text-warning" />
-                      </Tooltip>
-                    )}
-                    {connection.includeVisualExperiments && (
-                      <Tooltip
-                        body={
-                          <>
-                            <strong>Visual Experiments</strong> are supported
-                          </>
-                        }
-                      >
-                        <RxDesktop className="mx-1 text-blue" />
-                      </Tooltip>
-                    )}
-                    {connection.includeRedirectExperiments && (
-                      <Tooltip
-                        body={
-                          <>
-                            <strong>URL Redirects</strong> are supported
-                          </>
-                        }
-                      >
-                        <PiShuffle className="mx-1 text-blue" />
-                      </Tooltip>
-                    )}
-                  </td>
-                  <td style={{ maxWidth: 200 }}>
-                    <div className="d-flex flex-wrap">
+                  </TableCell>
+                  <TableCell>
+                    <Flex wrap="wrap" gap="2">
                       {connection.languages.map((language) => (
-                        <span className="mx-1" key={language}>
-                          <SDKLanguageLogo
-                            language={language}
-                            hideExtra={true}
-                            version={
-                              connection.languages?.length === 1
-                                ? connection.sdkVersion
-                                : undefined
-                            }
-                          />
-                        </span>
+                        <SDKLanguageLogo
+                          key={language}
+                          language={language}
+                          hideExtra={true}
+                          version={
+                            connection.languages?.length === 1
+                              ? connection.sdkVersion
+                              : undefined
+                          }
+                        />
                       ))}
-                    </div>
-                  </td>
-                  <td style={{ width: 25 }}>
-                    <FaAngleRight />
-                  </td>
-                </tr>
+                    </Flex>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
-    </div>
+    </>
   );
 }

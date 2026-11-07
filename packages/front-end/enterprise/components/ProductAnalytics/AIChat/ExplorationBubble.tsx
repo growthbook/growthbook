@@ -5,15 +5,19 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { z } from "zod";
 import { encodeExplorationConfig } from "shared/enterprise";
+import { parseToolResult } from "shared/ai-chat";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import { AssistantBubble } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import SimpleExplorationTable from "@/enterprise/components/ProductAnalytics/MainSection/SimpleExplorationTable";
+import SaveToDashboardModal, {
+  canSaveToDashboard,
+} from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
-import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import { isTableChartType } from "@/enterprise/components/ProductAnalytics/util";
 
 export interface ChartData {
@@ -21,30 +25,20 @@ export interface ChartData {
   exploration: ProductAnalyticsExploration | null;
 }
 
-const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
+// Null until that type has an Explorer page.
+const EXPLORER_PATHS: Record<ExplorationConfig["type"], string | null> = {
   metric: "/product-analytics/explore/metrics",
   fact_table: "/product-analytics/explore/fact-table",
   data_source: "/product-analytics/explore/data-source",
   sql: "/product-analytics/explore/sql",
   funnel: "/product-analytics/explore/funnel",
+  journey: "/product-analytics/explore/journey",
+  population: null,
 };
 
 export function chartDataFromToolResult(result: unknown): ChartData | null {
-  if (typeof result === "string") {
-    try {
-      const parsed = JSON.parse(result) as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return chartDataFromRecord(parsed as Record<string, unknown>);
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  }
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    return null;
-  }
-  return chartDataFromRecord(result as Record<string, unknown>);
+  const record = parseToolResult(result, z.record(z.string(), z.unknown()));
+  return record ? chartDataFromRecord(record) : null;
 }
 
 export function chartDataFromRecord(
@@ -64,19 +58,26 @@ interface ExplorationBubbleProps {
   chartData: ChartData;
   toolTransparency?: React.ReactNode;
   animate?: boolean;
+  compact?: boolean;
+  showSaveAction?: boolean;
 }
 
 export default function ExplorationBubble({
   chartData,
   toolTransparency,
   animate = true,
+  compact = false,
+  showSaveAction = true,
 }: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
+  const explorerPath = EXPLORER_PATHS[chartData.config.type];
+  const explorerUrl = explorerPath
+    ? `${explorerPath}?config=${encodeExplorationConfig(chartData.config)}`
+    : null;
   const isTable = isTableChartType(chartData.config.chartType);
 
   return (
-    <AssistantBubble wide>
+    <AssistantBubble variant="artifact">
       {showSaveModal && (
         <SaveToDashboardModal
           close={() => setShowSaveModal(false)}
@@ -84,32 +85,47 @@ export default function ExplorationBubble({
           exploration={chartData.exploration}
         />
       )}
-      <Flex align="center" gap="2" mb="2">
-        <PiSparkle size={12} />
-        <Text size="sm" weight="medium">
-          {isTable ? "Generated table" : "Generated chart"}
-        </Text>
-        <Flex ml="auto" gap="1">
-          <Button
-            variant="ghost"
-            size="sm"
-            color="violet"
-            onClick={() => setShowSaveModal(true)}
-          >
-            Save to Dashboard
-          </Button>
-          <LinkButton
-            href={explorerUrl}
-            variant="ghost"
-            size="sm"
-            color="violet"
-          >
-            Open in Explorer
-          </LinkButton>
+      <Flex align="center" gap="2" mb="2" wrap="wrap" style={{ minWidth: 0 }}>
+        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+          <PiSparkle size={12} style={{ flexShrink: 0 }} />
+          <Text size="sm" weight="medium" truncate>
+            {isTable ? "Generated table" : "Generated chart"}
+          </Text>
+        </Flex>
+        <Flex ml="auto" gap="1" wrap="wrap">
+          {showSaveAction &&
+            canSaveToDashboard(chartData.config.dataset.type) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                color="violet"
+                onClick={() => setShowSaveModal(true)}
+              >
+                Save to Dashboard
+              </Button>
+            )}
+          {explorerUrl && (
+            <LinkButton
+              href={explorerUrl}
+              variant="ghost"
+              size="sm"
+              color="violet"
+            >
+              Open in Explorer
+            </LinkButton>
+          )}
         </Flex>
       </Flex>
       {chartData.config.chartType === "rawTable" ? (
-        <Flex style={{ height: 360, minHeight: 260 }}>
+        <Flex
+          style={{
+            height: compact ? 280 : 360,
+            minHeight: compact ? 240 : 260,
+            minWidth: 0,
+            width: "100%",
+            overflow: "hidden",
+          }}
+        >
           <ExplorerDataTable
             exploration={chartData.exploration}
             error={chartData.exploration?.error ?? null}
@@ -121,9 +137,18 @@ export default function ExplorationBubble({
         <SimpleExplorationTable
           exploration={chartData.exploration}
           config={chartData.config}
+          maxHeight={compact ? 240 : 360}
         />
       ) : (
-        <Flex style={{ height: 360, minHeight: 260 }}>
+        <Flex
+          style={{
+            height: compact ? 280 : 360,
+            minHeight: compact ? 240 : 260,
+            minWidth: 0,
+            width: "100%",
+            overflow: "hidden",
+          }}
+        >
           <ExplorerChart
             exploration={chartData.exploration}
             error={chartData.exploration?.error ?? null}

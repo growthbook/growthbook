@@ -10,6 +10,7 @@ import {
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
 import { UserInterface } from "shared/types/user";
+import { SuperAdmin } from "shared/validators";
 import { AppFeatures } from "shared/types/app-features";
 
 export type PermissionFunctions = {
@@ -47,7 +48,7 @@ export type AuthRequest<
   authSubject?: string;
   name?: string;
   vercelInstallationId?: string;
-  superAdmin?: boolean;
+  superAdmin?: SuperAdmin;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
   // Ids of restrictAccess projects, loaded with the org for permission resolution

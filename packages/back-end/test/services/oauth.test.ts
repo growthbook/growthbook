@@ -7,6 +7,7 @@ import {
 } from "back-end/src/util/oauth-token.util";
 import {
   exchangeRefreshToken,
+  mintAuthorizationCode,
   OAuthError,
   revokeToken,
 } from "back-end/src/services/oauth";
@@ -471,6 +472,46 @@ describe("exchangeRefreshToken reuse detection + revoke race", () => {
     });
   }
 
+  it("mints each refreshed access token with the permissions consented to", async () => {
+    mockValidClientAndToken();
+    const confirmRules = [{ actions: ["recommended"] }];
+    const { createApiKey } = mockOrgContext({
+      ensureGrant: jest.fn().mockResolvedValue({
+        clientId: "client-a",
+        userId: "user-1",
+        revoked: false,
+        permissions: { scopedRole: "readonly", confirmRules },
+      }),
+    });
+
+    await refresh();
+
+    expect(createApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "readonly",
+        scoped: true,
+        limitAccessByEnvironment: false,
+        environments: [],
+        confirmRules,
+      }),
+    );
+  });
+
+  it("mints a grant from before consent asked with the user's own permissions", async () => {
+    mockValidClientAndToken();
+    const { createApiKey } = mockOrgContext();
+
+    await refresh();
+
+    expect(createApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "user",
+        scoped: false,
+        confirmRules: null,
+      }),
+    );
+  });
+
   it("tears down the whole grant when a consumed token is replayed", async () => {
     mockValidClientAndToken();
     const { deleteForGrant, markRevoked, createRefresh, createApiKey } =
@@ -533,5 +574,36 @@ describe("exchangeRefreshToken reuse detection + revoke race", () => {
     expect(createRefresh).toHaveBeenCalledTimes(1);
     expect(markRevoked).toHaveBeenCalledWith("client-a", "user-1");
     expect(deleteForGrant).toHaveBeenCalledWith("client-a", "user-1");
+  });
+});
+
+describe("mintAuthorizationCode redirect scheme", () => {
+  it("refuses a script-scheme redirect_uri on a client registered before DCR rejected it", async () => {
+    const { context } = mockOrgContext();
+    mockGetOAuthClientById.mockResolvedValue({
+      clientId: "client-a",
+      redirectUris: ["javascript:alert(1)//"],
+      tokenEndpointAuthMethod: "none",
+      grantTypes: ["authorization_code"],
+      responseTypes: ["code"],
+      dateCreated: new Date(),
+    });
+
+    await expect(
+      mintAuthorizationCode({
+        clientId: "client-a",
+        redirectUri: "javascript:alert(1)//",
+        codeChallenge: "challenge",
+        codeChallengeMethod: "S256",
+        userId: "user-1",
+        organization: "org-1",
+        permissions: null,
+      }),
+    ).rejects.toMatchObject({
+      error: "invalid_request",
+      errorDescription: "redirect_uri is not allowed",
+    } satisfies Partial<OAuthError>);
+
+    expect(context.models.oauthAuthCodes.create).not.toHaveBeenCalled();
   });
 });

@@ -25,8 +25,11 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgainForPrompt,
+  secondsUntilAICanBeUsedAgainForSTT,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import { runAIEnabledGates } from "back-end/src/enterprise/services/ai-access";
+import { transcribeAudio } from "back-end/src/enterprise/services/stt";
 import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
@@ -34,7 +37,8 @@ type GetTokenUsageResponse = {
   status: 200;
   tokenUsage: {
     numTokensUsed: number;
-    dailyLimit: number;
+    // null when the org has no cap
+    dailyLimit: number | null;
     nextResetAt: number;
   };
 };
@@ -44,10 +48,13 @@ export async function getTokenUsage(
   res: Response<GetTokenUsageResponse>,
 ) {
   const { org } = getContextFromReq(req);
-  const tokenUsage = await getTokensUsedByOrganization(org);
+  const { dailyLimit, ...tokenUsage } = await getTokensUsedByOrganization(org);
   return res.status(200).json({
     status: 200,
-    tokenUsage,
+    tokenUsage: {
+      ...tokenUsage,
+      dailyLimit: Number.isFinite(dailyLimit) ? dailyLimit : null,
+    },
   });
 }
 
@@ -311,4 +318,31 @@ export async function postReformat(
       output: aiResults,
     },
   });
+}
+
+/** Transcribe a dictated clip. Raw audio body, so no Zod validator applies. */
+export async function postTranscribe(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  if (!(await runAIEnabledGates(context, res))) return;
+
+  const audio = req.body;
+  if (!Buffer.isBuffer(audio) || !audio.length) {
+    return res.status(400).json({
+      status: 400,
+      message: "No audio was uploaded",
+    });
+  }
+
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForSTT(context);
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+  }
+
+  const contentType = req.headers["content-type"] || "audio/webm";
+  const text = await transcribeAudio(context, audio, contentType);
+  return res.status(200).json({ status: 200, text });
 }

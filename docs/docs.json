@@ -76,9 +76,18 @@
                     "pages": [
                       "features/rules",
                       "features/targeting",
+                      {
+                        "group": "Remote Groups",
+                        "root": "features/remote-saved-groups",
+                        "pages": [
+                          "features/remote-saved-groups-proxy",
+                          "features/remote-saved-groups-custom"
+                        ]
+                      },
                       "features/safe-rollouts",
                       "features/ramp-schedules",
-                      "features/prerequisites"
+                      "features/prerequisites",
+                      "features/feature-flag-experiments"
                     ]
                   },
                   {
@@ -132,9 +141,11 @@
                       "event-trackers/heap",
                       "event-trackers/jitsu",
                       "event-trackers/keenio",
+                      "event-trackers/langfuse",
                       "guide/matomo",
                       "guide/mixpanel",
                       "event-trackers/mparticle",
+                      "event-trackers/phoenix",
                       "guide/rudderstack",
                       "event-trackers/segment",
                       "event-trackers/snowplow",
@@ -162,55 +173,53 @@
                 "group": "Experimentation",
                 "root": "experiments",
                 "pages": [
-                  "feature-flag-experiments",
                   {
-                    "group": "Visual Editor",
-                    "root": "app/visual",
+                    "group": "Creating Experiments",
+                    "expanded": true,
                     "pages": [
-                      "app/visual/install-and-connect",
-                      "app/visual/ai-mode",
-                      "app/visual/manual-mode",
-                      "app/visual/images",
-                      "app/visual/design-import",
-                      "app/visual/running-on-your-site",
-                      "app/visual/preview-and-qa",
-                      "app/visual/troubleshooting",
-                      "app/visual/legacy"
+                      "app/experiment-configuration",
+                      "running-experiments/experiment-templates",
+                      "app/pre-launch-checklist",
+                      "statistics/power",
+                      "app/importing-experiments"
                     ]
                   },
-                  "app/url-redirects",
-                  "app/experiment-configuration",
-                  "running-experiments/experiment-templates",
-                  "app/experiment-results",
-                  "app/experiment-time-series",
-                  "app/experiment-decisions",
-                  "app/making-experiment-changes",
                   {
-                    "group": "Bandits",
+                    "group": "Delivery Methods",
+                    "expanded": true,
                     "pages": [
-                      "bandits/overview",
-                      "bandits/config",
-                      "bandits/results",
+                      "features/feature-flag-experiments",
                       {
-                        "group": "Contextual Bandits",
-                        "tag": "BETA",
+                        "group": "AI Visual Editor",
+                        "root": "app/visual",
                         "pages": [
-                          "bandits/contextual",
-                          "bandits/contextual-config",
-                          "bandits/contextual-via-api"
+                          "app/visual/install-and-connect",
+                          "app/visual/ai-mode",
+                          "app/visual/manual-mode",
+                          "app/visual/images",
+                          "app/visual/design-import",
+                          "app/visual/running-on-your-site",
+                          "app/visual/preview-and-qa",
+                          "app/visual/troubleshooting"
                         ]
-                      }
+                      },
+                      "app/url-redirects"
                     ]
                   },
-                  "app/holdouts",
-                  "app/sticky-bucketing",
-                  "experimentation-analysis/cluster-experiments",
-                  "app/dimensions",
-                  "app/pre-launch-checklist",
-                  "app/experiment-dashboards",
-                  "app/importing-experiments",
                   {
-                    "group": "Statistics",
+                    "group": "Analysis & Decisions",
+                    "expanded": true,
+                    "pages": [
+                      "app/making-experiment-changes",
+                      "app/experiment-results",
+                      "app/experiment-time-series",
+                      "app/experiment-decisions",
+                      "app/experiment-dashboards",
+                      "app/dimensions"
+                    ]
+                  },
+                  {
+                    "group": "Advanced & Statistics",
                     "pages": [
                       "statistics/overview",
                       "statistics/details",
@@ -219,10 +228,38 @@
                       "statistics/sequential",
                       "statistics/multiple-corrections",
                       "statistics/aggregation",
-                      "statistics/power",
-                      "statistics/contextual-bandit-technical"
+                      "statistics/contextual-bandit-technical",
+                      "app/sticky-bucketing",
+                      "experimentation-analysis/cluster-experiments"
                     ]
-                  }
+                  },
+                  {
+                    "group": "Bandits",
+                    "pages": [
+                      "bandits/overview",
+                      "bandits/config",
+                      "bandits/results"
+                    ]
+                  },
+                  {
+                    "group": "Contextual Bandits",
+                    "tag": "BETA",
+                    "pages": [
+                      "bandits/contextual",
+                      "bandits/contextual-config",
+                      "bandits/contextual-via-api"
+                    ]
+                  },
+                  {
+                    "group": "Interleaving",
+                    "tag": "BETA",
+                    "pages": [
+                      "experimentation-analysis/interleaving",
+                      "experimentation-analysis/interleaving/setup",
+                      "experimentation-analysis/interleaving/results"
+                    ]
+                  },
+                  "app/holdouts"
                 ]
               },
               "insights",
@@ -271,22 +308,34 @@
                     "group": "AI Agents",
                     "root": "integrations/ai-agents",
                     "pages": [
+                      "integrations/ai-agents/wizard",
                       "integrations/mcp",
-                      "integrations/ai-agents/agent-skills"
+                      "integrations/ai-agents/agent-skills",
+                      "integrations/ai-agents/api-keys"
                     ]
                   },
                   "integrations/vercel",
                   "integrations/framer",
-                  "integrations/slack",
+                  {
+                    "group": "Slack",
+                    "root": "integrations/slack",
+                    "pages": [
+                      "integrations/slack/ai-assistant",
+                      "integrations/slack/self-hosted",
+                      "integrations/slack/legacy-webhooks"
+                    ]
+                  },
                   "integrations/discord",
                   "integrations/datadog",
                   "integrations/github-metrics",
+                  "integrations/dbt",
                   "tools/chrome-extension",
                   "tools/vscode-extension",
                   "tools/cli",
                   "integrations/clarity",
                   "integrations/jira",
-                  "integrations/ai"
+                  "integrations/ai",
+                  "integrations/llm-tracing"
                 ]
               },
               {
@@ -296,6 +345,7 @@
                   "sso",
                   "integrations/scim",
                   "compliance",
+                  "ip-addresses",
                   "account/audit-logs"
                 ]
               },
@@ -347,6 +397,10 @@
                     "group": "Metrics",
                     "pages": ["kb/metrics/fact-metric-optimization"]
                   },
+                  {
+                    "group": "SDKs",
+                    "pages": ["kb/sdks/sticky-bucket-cookie-encoding"]
+                  },
                   "kb/glossary"
                 ]
               },
@@ -362,6 +416,17 @@
                   "using/growthbook-best-practices",
                   "using/security",
                   "using/programs"
+                ]
+              },
+              {
+                "group": "Guides for Agents",
+                "pages": [
+                  "guides-for-agents/start-here",
+                  "guides-for-agents/nextjs-app-router-production-feature-flags",
+                  "guides-for-agents/free-ab-test-javascript",
+                  "guides-for-agents/migrate-diy-feature-flags",
+                  "guides-for-agents/test-llm-prompt-model-change",
+                  "guides-for-agents/self-host-growthbook-kubernetes"
                 ]
               }
             ]
@@ -574,6 +639,8 @@
                   "api/ramp-schedules/operation/updateRampScheduleLockdown",
                   "api/ramp-schedules/operation/updateRampScheduleSteps",
                   "api/ramp-schedules/operation/refreshMonitoringRampSchedule",
+                  "api/ramp-schedules/operation/rollbackMatchingRampSchedules",
+                  "api/ramp-schedules/operation/pauseMatchingRampSchedules",
                   "api/ramp-schedules/operation/getRampSchedule",
                   "api/ramp-schedules/operation/updateRampSchedule",
                   "api/ramp-schedules/operation/deleteRampSchedule"
@@ -585,6 +652,10 @@
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/searchWarehouseTables",
+                  "api/data-sources/operation/getWarehouseTableSchema",
+                  "api/data-sources/operation/previewWarehouseColumnValues",
+                  "api/data-sources/operation/runSqlQuery",
                   "api/data-sources/operation/getInformationSchemaTable"
                 ]
               },
@@ -643,8 +714,11 @@
                   "api/experiments/operation/listExperimentResults",
                   "api/experiments/operation/getExperiment",
                   "api/experiments/operation/updateExperiment",
+                  "api/experiments/operation/deleteExperiment",
                   "api/experiments/operation/getExperimentStartChecklist",
                   "api/experiments/operation/getExperimentResults",
+                  "api/experiments/operation/postExperimentArchive",
+                  "api/experiments/operation/postExperimentUnarchive",
                   "api/experiments/operation/postExperimentStart",
                   "api/experiments/operation/postExperimentStartChecklistManualComplete",
                   "api/experiments/operation/postExperimentStop",
@@ -653,7 +727,8 @@
                   "api/experiments/operation/postExperimentSnapshot",
                   "api/experiments/operation/postVariationImageUpload",
                   "api/experiments/operation/deleteVariationScreenshot",
-                  "api/experiments/operation/getExperimentNames"
+                  "api/experiments/operation/getExperimentNames",
+                  "api/experiments/operation/postExperimentComment"
                 ]
               },
               {
@@ -735,7 +810,13 @@
                   "api/saved-groups/operation/deleteSavedGroup",
                   "api/saved-groups/operation/archiveSavedGroup",
                   "api/saved-groups/operation/unarchiveSavedGroup",
-                  "api/saved-groups/operation/getSavedGroupReferences"
+                  "api/saved-groups/operation/getSavedGroupReferences",
+                  "api/saved-groups/operation/listSavedGroupUploads",
+                  "api/saved-groups/operation/postSavedGroupUpload",
+                  "api/saved-groups/operation/postSavedGroupUploadUrl",
+                  "api/saved-groups/operation/postSavedGroupUploadLoad",
+                  "api/saved-groups/operation/getSavedGroupUpload",
+                  "api/saved-groups/operation/deleteSavedGroupUpload"
                 ]
               },
               {
@@ -749,6 +830,7 @@
                   "api/saved-group-revisions/operation/putSavedGroupRevisionMetadata",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionCondition",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionValues",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionUploadVersion",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionArchive",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsAdd",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsRemove",
@@ -932,7 +1014,10 @@
               },
               {
                 "group": "Meta",
-                "pages": ["api/meta/operation/getVersion"]
+                "pages": [
+                  "api/meta/operation/getVersion",
+                  "api/meta/operation/getConfirmation"
+                ]
               },
               {
                 "group": "Contextual Bandits",
@@ -944,18 +1029,23 @@
                   "api/ContextualBandits/operation/listContextualBanditEvents",
                   "api/ContextualBandits/operation/getContextualBanditEvent",
                   "api/ContextualBandits/operation/getContextualBanditResults",
+                  "api/ContextualBandits/operation/getContextualBanditStatus",
                   "api/ContextualBandits/operation/getContextualBanditLinkedFeatures",
                   "api/ContextualBandits/operation/addContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/updateContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/deleteContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/getContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBandit",
+                  "api/ContextualBandits/operation/deleteContextualBandit",
                   "api/ContextualBandits/operation/listContextualBandits",
                   "api/ContextualBandits/operation/createContextualBandit",
                   "api/ContextualBandits/operation/startContextualBandit",
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
-                  "api/ContextualBandits/operation/cancelContextualBandit"
+                  "api/ContextualBandits/operation/updateContextualBanditVariations",
+                  "api/ContextualBandits/operation/cancelContextualBandit",
+                  "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
+                  "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
                 ]
               },
               {
@@ -966,6 +1056,7 @@
                   "api/Dashboards/operation/deleteDashboard",
                   "api/Dashboards/operation/listDashboards",
                   "api/Dashboards/operation/createDashboard",
+                  "api/Dashboards/operation/createDashboardV2",
                   "api/Dashboards/operation/getDashboardsForExperiment"
                 ]
               },
@@ -978,6 +1069,33 @@
                   "api/ContextualBanditQueries/operation/deleteContextualBanditQuery",
                   "api/ContextualBanditQueries/operation/listContextualBanditQueries",
                   "api/ContextualBanditQueries/operation/createContextualBanditQuery"
+                ]
+              },
+              {
+                "group": "Interleaving Exposure Queries",
+                "pages": [
+                  "api/InterleavingExposureQueries/operation/getInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/updateInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/deleteInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/listInterleavingExposureQueries",
+                  "api/InterleavingExposureQueries/operation/createInterleavingExposureQuery"
+                ]
+              },
+              {
+                "group": "Interleaving Experiments",
+                "pages": [
+                  "api/Interleavings/operation/getInterleaving",
+                  "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/deleteInterleaving",
+                  "api/Interleavings/operation/listInterleavings",
+                  "api/Interleavings/operation/createInterleaving",
+                  "api/Interleavings/operation/startInterleaving",
+                  "api/Interleavings/operation/stopInterleaving",
+                  "api/Interleavings/operation/refreshInterleaving",
+                  "api/Interleavings/operation/getInterleavingResults",
+                  "api/Interleavings/operation/getInterleavingStatus",
+                  "api/Interleavings/operation/listInterleavingSnapshots",
+                  "api/Interleavings/operation/getInterleavingSnapshot"
                 ]
               },
               {
@@ -1030,7 +1148,12 @@
                   "api/AnalyticsExplorations/operation/postFactTableExploration",
                   "api/AnalyticsExplorations/operation/postDataSourceExploration",
                   "api/AnalyticsExplorations/operation/postSqlExploration",
-                  "api/AnalyticsExplorations/operation/postFunnelExploration"
+                  "api/AnalyticsExplorations/operation/postFunnelExploration",
+                  "api/AnalyticsExplorations/operation/postJourneyExploration",
+                  "api/AnalyticsExplorations/operation/searchProductAnalyticsResources",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsColumns",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsColumnValues",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsExploration"
                 ]
               },
               {
@@ -1065,6 +1188,27 @@
                   "api/Holdouts/operation/startHoldoutAnalysis",
                   "api/Holdouts/operation/stopHoldout"
                 ]
+              },
+              {
+                "group": "Auto Runs",
+                "pages": [
+                  "api/AutoRuns/operation/listAutoRuns",
+                  "api/AutoRuns/operation/createAutoRun",
+                  "api/AutoRuns/operation/getAutoRun",
+                  "api/AutoRuns/operation/updateAutoRun",
+                  "api/AutoRuns/operation/appendAutoRunArtifact"
+                ]
+              },
+              {
+                "group": "Populations",
+                "tag": "BETA",
+                "pages": [
+                  "api/Populations/operation/listPopulations",
+                  "api/Populations/operation/createPopulation",
+                  "api/Populations/operation/getPopulation",
+                  "api/Populations/operation/updatePopulation",
+                  "api/Populations/operation/deletePopulation"
+                ]
               }
             ]
           },
@@ -1075,6 +1219,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
               "api/ConfigKeyUsage_model",
@@ -1088,6 +1233,8 @@
               "api/ConfigSchemaSource_model",
               "api/ConfigSchemaVerify_model",
               "api/ConfigSchemaWarning_model",
+              "api/Confirmation_model",
+              "api/ConfirmationHeld_model",
               "api/Constant_model",
               "api/ConstantReferences_model",
               "api/ConstantRevision_model",
@@ -1140,6 +1287,10 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Interleaving_model",
+              "api/InterleavingExposureQuery_model",
+              "api/InterleavingSnapshot_model",
+              "api/InterleavingSnapshotStatus_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
@@ -1151,6 +1302,7 @@
               "api/NamespaceExperimentMember_model",
               "api/Organization_model",
               "api/PaginationFields_model",
+              "api/Population_model",
               "api/Project_model",
               "api/Query_model",
               "api/RampSchedule_model",
@@ -1162,20 +1314,24 @@
               "api/Safe Rollout Rule_model",
               "api/SavedGroup_model",
               "api/SavedGroupApprovalRule_model",
+              "api/SavedGroupReferenceResource_model",
               "api/SavedGroupReferences_model",
               "api/SavedGroupRevision_model",
               "api/SavedGroupRevisionActivityLogEntry_model",
               "api/SavedGroupRevisionRef_model",
               "api/SavedGroupRevisionReview_model",
+              "api/SavedGroupUpload_model",
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
+              "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
-              "api/VisualChangeset_model"
+              "api/VisualChangeset_model",
+              "api/VisualEditorCbExperimentStub_model"
             ]
           }
         ]
@@ -1185,8 +1341,17 @@
       "anchors": []
     }
   },
+  "banner": {
+    "content": "**New:** See what we've shipped lately on our [Product Updates](https://growthbook.io/product-updates) page.",
+    "dismissible": true
+  },
   "navbar": {
     "links": [
+      {
+        "label": "Product Updates",
+        "icon": "bullhorn",
+        "href": "https://growthbook.io/product-updates"
+      },
       {
         "label": "Github",
         "type": "github",
@@ -1195,7 +1360,7 @@
     ],
     "primary": {
       "type": "button",
-      "label": "Log in",
+      "label": "Open App",
       "href": "https://app.growthbook.io/"
     }
   },
@@ -1234,7 +1399,7 @@
           },
           {
             "label": "Blog",
-            "href": "https://blog.growthbook.io"
+            "href": "https://www.growthbook.io/blog"
           }
         ]
       }
@@ -1257,8 +1422,8 @@
       "destination": "/static/open-guide-to-ab-testing.v1.0.pdf"
     },
     {
-      "source": "/features/feature-flag-experiments",
-      "destination": "/feature-flag-experiments"
+      "source": "/feature-flag-experiments",
+      "destination": "/features/feature-flag-experiments"
     },
     {
       "source": "/app/experiments",
@@ -1275,6 +1440,330 @@
     {
       "source": "/integrations/ai-agents/agent-skills/experiments",
       "destination": "/integrations/ai-agents/agent-skills"
+    },
+    {
+      "source": "/docs",
+      "destination": "/"
+    },
+    {
+      "source": "/docs/api",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/api-reference",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/rest-api",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/api-reference",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/api-reference",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/rest",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/api/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/docs/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/docs/auth",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/docs/api-keys",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/api-keys",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/keys",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/en/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/en-us/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/en-us/api-keys",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/reference/authentication",
+      "destination": "/api/introduction#authentication"
+    },
+    {
+      "source": "/docs/api/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/error-handling",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/api/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/en/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/en-us/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/reference/errors",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/versioning",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/docs/version",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/docs/versions",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/en/docs/versioning",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/en/rest/about-the-rest-api/api-versions",
+      "destination": "/api/introduction#versioning"
+    },
+    {
+      "source": "/docs/api/rate-limits",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/rate-limiting",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/en-us/rate-limits",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/reference/rate-limits",
+      "destination": "/api/introduction#errors"
+    },
+    {
+      "source": "/docs/webhooks",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/webhooks",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/en/webhooks",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/en-us/webhooks",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/docs/sdks",
+      "destination": "/lib"
+    },
+    {
+      "source": "/docs/libraries",
+      "destination": "/lib"
+    },
+    {
+      "source": "/libraries",
+      "destination": "/lib"
+    },
+    {
+      "source": "/guide/rudder",
+      "destination": "/guide/rudderstack"
+    },
+    {
+      "source": "/guide/sanity/schemaTypes",
+      "destination": "/guide/sanity"
+    },
+    {
+      "source": "/cloud/jira/platform/oauth-2-3lo-apps",
+      "destination": "/integrations/jira"
+    },
+    {
+      "source": "/v1/product-analytics/columns",
+      "destination": "/api/AnalyticsExplorations/operation/getProductAnalyticsColumns"
+    },
+    {
+      "source": "/v1/projects/{id}",
+      "destination": "/api/projects/operation/getProject"
+    },
+    {
+      "source": "/v1/code-refs",
+      "destination": "/api/code-references/operation/listCodeRefs"
+    },
+    {
+      "source": "/v1/constants-revisions/{key}",
+      "destination": "/api/constant-revisions/operation/getConstantRevision"
+    },
+    {
+      "source": "/v1/fact-tables/{id}",
+      "destination": "/api/fact-tables/operation/getFactTable"
+    },
+    {
+      "source": "/v1/saved-groups-revisions/{savedGroupId}/{version}",
+      "destination": "/api/saved-group-revisions/operation/getSavedGroupRevision"
+    },
+    {
+      "source": "/v1/saved-groups-revisions/{savedGroupId}/{version}/reopen",
+      "destination": "/api/saved-group-revisions/operation/postSavedGroupRevisionReopen"
+    },
+    {
+      "source": "/api/v1/bulk-import/facts",
+      "destination": "/api/fact-tables/operation/postBulkImportFacts"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/api/export",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/reference/export",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/export",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/data-export",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/idempotency",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/idempotent-requests",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/reference/idempotency",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/idempotency",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en-us/idempotency",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/retries",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/sandbox",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en/sandbox",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/en-us/sandbox",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/testing",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/test-mode",
+      "destination": "/api/introduction"
+    },
+    {
+      "source": "/docs/notifications",
+      "destination": "/app/webhooks"
+    },
+    {
+      "source": "/changelog",
+      "destination": "/"
+    },
+    {
+      "source": "/docs/changelog",
+      "destination": "/"
+    },
+    {
+      "source": "/docs/whats-new",
+      "destination": "/"
+    },
+    {
+      "source": "/docs/release-notes",
+      "destination": "/"
+    },
+    {
+      "source": "/updates",
+      "destination": "/"
+    },
+    {
+      "source": "/contextual-bandits",
+      "destination": "/bandits/contextual"
+    },
+    {
+      "source": "/contextual-bandits/overview",
+      "destination": "/bandits/contextual"
+    },
+    {
+      "source": "/contextual-bandits/config",
+      "destination": "/bandits/contextual-config"
+    },
+    {
+      "source": "/contextual-bandits/contextual-bandit-via-api",
+      "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/bandits/contextual-bandit-via-api",
+      "destination": "/bandits/contextual-via-api"
+    },
+    {
+      "source": "/event-trackers/missing-event-tracker-docs",
+      "destination": "/event-trackers/custom"
+    },
+    {
+      "source": "/app/visual/legacy",
+      "destination": "/app/visual"
     }
   ]
 }

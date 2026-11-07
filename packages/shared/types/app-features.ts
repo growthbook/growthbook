@@ -10,8 +10,15 @@
  * GrowthBook's own account (Pricing Phase 1, P0). JSON flags are typed as
  * Record<string, unknown> here; the pricing config is schema-validated with
  * zod at the read site (back-end services/plan-limits.ts).
+ *
+ * Exception: "interleave-exp" gates the in-development interleaving UI.
+ *
+ * Exception: "trace-ingest" gates the "Accept traces" SDK connection setting
+ * and the traces usage notice. Target it by cloudOrgId.
  */
 export type AppFeatures = {
+  // Added ahead of the flag's creation in GrowthBook's own account
+  "eppo-importer": boolean;
   "papercups-config": Record<string, unknown>;
   "show-experiment-groups": boolean;
   "show-experiment-targeting": boolean;
@@ -29,6 +36,7 @@ export type AppFeatures = {
   "stats-engine-setting": boolean;
   "proxy-cloud": boolean;
   "slack-integration": boolean;
+  "slack-workspace-ui": boolean;
   "new-experiment-modal": boolean;
   "visual-editor-ui": boolean;
   "proxy-cloud-sse": boolean;
@@ -51,6 +59,7 @@ export type AppFeatures = {
   "show-3.0-release": boolean;
   "improve-h1-heading-feature-flag": boolean;
   "apply-saved-group-id-list-size-limit": boolean;
+  "remote-saved-groups": boolean;
   "use-new-setup-flow": boolean;
   bandits: boolean;
   "gb-ax5-bandit": boolean;
@@ -130,8 +139,6 @@ export type AppFeatures = {
   "slackbot-enabled": boolean;
   "slackbot-config": Record<string, unknown>;
   "oe-general-agent-gate": boolean;
-  "event-forwarder-multi-step": string;
-  "events-forwarder-multi-step": string;
   "ai-visual-editor-callout": boolean;
   "nps-survey": boolean;
   "home-marketing-banner": Record<string, unknown>;
@@ -143,4 +150,8 @@ export type AppFeatures = {
   "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
+  populations: boolean;
+  "trace-ingest": boolean;
+  "new-metric-creation-flow": boolean;
+  "interleave-exp": boolean;
 };

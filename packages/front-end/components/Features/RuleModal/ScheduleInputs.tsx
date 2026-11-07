@@ -3,6 +3,7 @@
 // no presets. Under the hood it writes into RampSectionState so the save path is
 // identical to the ramp schedule path.
 
+import { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import SelectField from "@/components/Forms/SelectField";
@@ -65,7 +66,7 @@ const END_OPTIONS = [
 ];
 
 function formatOptionLabel(
-  option: { label: string; tooltip?: string },
+  option: { label: string; tooltip?: ReactNode },
   meta: { context: string },
 ) {
   if (meta.context === "value") return <>{option.label}</>;
@@ -142,6 +143,7 @@ export default function ScheduleInputs({
             date={state.startDate || undefined}
             setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
             precision="datetime"
+            timeZone="local"
             containerClassName="mb-0"
             scheduleEndDate={state.endScheduleAt || undefined}
             disabled={startDisabled}
@@ -169,6 +171,7 @@ export default function ScheduleInputs({
               patchState({ endScheduleAt: d ? d.toISOString() : "" })
             }
             precision="datetime"
+            timeZone="local"
             containerClassName="mb-0"
             scheduleStartDate={state.startDate || undefined}
             disableBefore={

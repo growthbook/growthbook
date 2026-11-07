@@ -25,7 +25,7 @@ export const filterEventForEnvironments = ({
   event,
   environments,
 }: {
-  event: NotificationEvent | LegacyNotificationEvent;
+  event: Pick<NotificationEvent | LegacyNotificationEvent, "environments">;
   environments: string[];
 }): boolean => {
   // if the environments are not specified, notify for all environments

@@ -17,10 +17,14 @@ import {
   LicenseMetaData,
   LicenseUserCodes,
   makeOrgLimits,
+  DEFAULT_ORG_LIMITS,
+  OrgLimits,
   OrgLimitsAccessor,
+  planTierFor,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
+import { EventForwarderSinkType } from "shared/types/event-forwarder";
 import {
   OrganizationInterface,
   OrgMemberInfo,
@@ -124,7 +128,7 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 
-// This returns the actual plan the organzation is on.  If you would prefer to know
+// This returns the actual plan the organization is on.  If you would prefer to know
 // what plan the organization is effectively on (taking into account downgrades)
 // use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
@@ -416,6 +420,22 @@ export async function getPortalUrlFromServer(
     url,
     body: JSON.stringify({
       organizationId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postNpsResponseToLicenseServer(response: {
+  email: string;
+  score: number;
+  feedback: string;
+  respondedAt: string;
+}) {
+  const url = `${LICENSE_SERVER_URL}nps/response`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...response,
       cloudSecret: process.env.CLOUD_SECRET,
     }),
   });
@@ -808,7 +828,7 @@ export async function licenseInit(
         new Date(mongoCache.dateUpdated) < oneWeekAgo
       ) {
         // It is time to update the license data from the server.
-        // However when hitting a page we often make many simulataneous requests
+        // However when hitting a page we often make many simultaneous requests
         // By acquiring a lock we make sure to only call the license server once, the remaining
         // calls will be able to read from the cache.
         await lock.acquire(key, async () => {
@@ -1064,13 +1084,20 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
 // Raw plan limits only — does NOT honor the pricing-limits flag's kill switch.
 // Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts).
 export function getOrgLimits(
-  org: MinimalOrganization & Pick<OrganizationInterface, "limits">,
+  org: MinimalOrganization &
+    Pick<OrganizationInterface, "limits" | "dateCreated">,
+  planLimitsOverride?: OrgLimits,
 ): OrgLimitsAccessor {
+  const effectivePlan = getEffectiveAccountPlan(org);
+  const tier = planTierFor(effectivePlan);
   return makeOrgLimits({
-    effectivePlan: getEffectiveAccountPlan(org),
+    effectivePlan,
     orgLimits: org.limits,
+    orgDateCreated: org.dateCreated,
     licenseLimits: getLicense(org.licenseKey || process.env.LICENSE_KEY)
       ?.limits,
+    planLimits:
+      planLimitsOverride ?? (tier ? DEFAULT_ORG_LIMITS[tier] : undefined),
   });
 }
 
@@ -1164,7 +1191,14 @@ export type EventForwarderLicenseProvisionParams =
         role?: string;
         warehouse?: string;
       };
-    });
+    })
+  // Zerobus sink: no Confluent resources, creds stay in the encrypted config doc.
+  | {
+      sinkType: "databricks";
+      organizationId: string;
+      datasourceId: string;
+      region: "us-east-1" | "eu-west-1";
+    };
 
 export async function postProvisionEventForwarderToLicenseServer(
   params: EventForwarderLicenseProvisionParams,
@@ -1182,7 +1216,7 @@ export async function postProvisionEventForwarderToLicenseServer(
 export async function postTeardownEventForwarderToLicenseServer(params: {
   organizationId: string;
   datasourceId: string;
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderSinkType;
   topic?: string;
   connectorName?: string;
   connectorId?: string;
@@ -1234,7 +1268,8 @@ export type EventForwarderLicenseConnectorPhase =
   | "paused";
 
 export type EventForwarderLicenseConnectorStatus = {
-  confluentState: string;
+  /** Absent for databricks, which has no Confluent connector. */
+  confluentState?: string;
   phase: EventForwarderLicenseConnectorPhase;
   message?: string;
   taskErrors?: { id: number; state: string; trace?: string }[];
@@ -1299,6 +1334,12 @@ export type EventForwarderLicenseUpdateCredentialsParams =
         role?: string;
         warehouse?: string;
       };
+    }
+  | {
+      organizationId: string;
+      datasourceId: string;
+      connectorName: string;
+      sinkType: "databricks";
     };
 
 export async function postUpdateEventForwarderCredentialsToLicenseServer(

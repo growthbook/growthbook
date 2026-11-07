@@ -1,6 +1,9 @@
 import md5 from "md5";
+import { isEqual } from "lodash";
 import {
+  ClusterMetricAnalysisLevel,
   ExperimentMetricInterface,
+  getAggregateFilters,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,
@@ -22,6 +25,16 @@ import {
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
+import { ExposureQuery } from "shared/types/datasource";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getIdentifierTypeForSettingsHash,
+  getSnapshotCutoffDate,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   FactMetricInterface,
@@ -39,7 +52,7 @@ import type { MetricFanOut } from "back-end/src/services/experimentQueries/planM
  * Preconditions for running the incremental refresh query runner on a snapshot.
  * Throws when incremental refresh is unsupported for this configuration, or when
  * an incremental update would reuse a units table built under different
- * experiment-level settings.
+ * experiment-level settings or holding data past the snapshot's cutoff.
  *
  * Does not validate metric-source cache drift. See getFactTablesNeedingRebuild.
  */
@@ -94,12 +107,28 @@ export async function assertIncrementalRefreshPrerequisites({
   // rebuilds only that metric's fact-table cache, leaving the units table and
   // every unaffected metric cache on the incremental path.
   if (analysisType === "main-update" && incrementalRefreshModel) {
-    const currentSettingsHash =
-      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+    const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
+      snapshotSettings,
+      integration.datasource.settings.queries?.exposure ?? [],
+    );
     const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
     if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
       throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
         "The experiment configuration is outdated. Please run a Full Refresh.",
+      );
+    }
+
+    // The tables only grow, so an update can't analyze through a cutoff
+    // earlier than rows they already hold, such as rows a refresh loaded
+    // before it failed.
+    const cutoff = getSnapshotCutoffDate(snapshotSettings);
+    const tablesEnd = [
+      incrementalRefreshModel.unitsMaxTimestamp,
+      ...incrementalRefreshModel.metricSources.map((s) => s.maxTimestamp),
+    ];
+    if (cutoff && tablesEnd.some((end) => !!end && end > cutoff)) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        "The Incremental Refresh tables hold data past the analysis end date. Please run a Full Refresh.",
       );
     }
   }
@@ -107,13 +136,85 @@ export async function assertIncrementalRefreshPrerequisites({
 
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
+type HashExposureQuery = Pick<
+  ExposureQuery,
+  "id" | "userIdType" | "userIdTypes" | "columnMapping"
+>;
+
+// The assignment query columns an incremental units table is built from.
+// Cluster experiments key the table on the sub-unit, so its column counts too.
+const getUnitsTableColumns = (
+  query: Pick<ExposureQuery, "columnMapping">,
+  identifierType: string,
+  subUnitIdentifierType?: string,
+) => ({
+  identifier: getExposureQueryIdentifierColumn(query, identifierType),
+  ...(subUnitIdentifierType
+    ? {
+        subUnitIdentifier: getExposureQueryIdentifierColumn(
+          query,
+          subUnitIdentifierType,
+        ),
+      }
+    : {}),
+  timestamp: getExposureQueryTimestampColumn(query),
+  experimentId: getExposureQueryExperimentIdColumn(query),
+  variationId: getExposureQueryVariationIdColumn(query),
+});
+
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
+  exposureQueries: HashExposureQuery[],
 ): string {
   const settingsForHash: Record<string, unknown> = {};
 
   for (const field of INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS) {
     settingsForHash[field] = snapshotSettings[field];
+  }
+
+  const identifierType = getIdentifierTypeForSettingsHash(
+    snapshotSettings.exposureQueryId,
+    snapshotSettings.exposureQueryIdentifierType,
+    exposureQueries,
+  );
+  if (identifierType) {
+    settingsForHash.exposureQueryIdentifierType = identifierType;
+  }
+
+  if (snapshotSettings.isClusterExperiment) {
+    settingsForHash.isClusterExperiment = true;
+    settingsForHash.clusterSubUnitIdentifier =
+      snapshotSettings.clusterSubUnitIdentifier ?? null;
+  }
+
+  // Remapping a column the units table reads means rebuilding it. Other
+  // mapped columns (names, other identifiers) don't touch it, and while every
+  // units column keeps its standard name the hash is unchanged, so existing
+  // pipelines don't trigger a full refresh.
+  const exposureQuery = exposureQueries.find(
+    (q) => q.id === snapshotSettings.exposureQueryId,
+  );
+  if (exposureQuery?.columnMapping) {
+    const analysisIdentifierType = resolveAnalysisIdentifierType(
+      exposureQuery,
+      snapshotSettings.exposureQueryIdentifierType,
+    );
+    const subUnitIdentifierType = snapshotSettings.isClusterExperiment
+      ? (snapshotSettings.clusterSubUnitIdentifier ?? undefined)
+      : undefined;
+    const unitsColumns = getUnitsTableColumns(
+      exposureQuery,
+      analysisIdentifierType,
+      subUnitIdentifierType,
+    );
+    if (
+      !isEqual(
+        unitsColumns,
+        getUnitsTableColumns({}, analysisIdentifierType, subUnitIdentifierType),
+      )
+    ) {
+      settingsForHash.unitsColumns = unitsColumns;
+    }
   }
 
   // Incremental units SQL used to ignore segment and queryFilter before #6711.
@@ -132,15 +233,20 @@ export function getExperimentSettingsHashForIncrementalRefresh(
 export function legacyDocDescribesPhase({
   legacyDoc,
   snapshotSettings,
+  exposureQueries,
 }: {
   legacyDoc: IncrementalRefreshInterface;
   snapshotSettings: ExperimentSnapshotSettings;
+  exposureQueries: HashExposureQuery[];
 }): boolean {
   const storedHash = legacyDoc.experimentSettingsHash;
   if (!storedHash) return false;
   return (
     storedHash ===
-    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings)
+    getExperimentSettingsHashForIncrementalRefresh(
+      snapshotSettings,
+      exposureQueries,
+    )
   );
 }
 
@@ -189,10 +295,12 @@ export function getMetricSettingsHashForIncrementalRefresh({
   factMetric,
   factTableMap,
   metricSettings,
+  clusterMetricLevel,
 }: {
   factMetric: FactMetricInterface;
   factTableMap: Map<string, FactTableInterface>;
   metricSettings?: MetricForSnapshot;
+  clusterMetricLevel?: ClusterMetricAnalysisLevel;
 }): string {
   const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
   const numeratorFactTable = numeratorFactTableId
@@ -224,6 +332,8 @@ export function getMetricSettingsHashForIncrementalRefresh({
     ...(isFactFunnelMetric(factMetric)
       ? { funnelSettings: factMetric.funnelSettings }
       : {}),
+    // Only present for cluster experiments, so non-cluster hashes are unchanged.
+    ...(clusterMetricLevel ? { clusterMetricLevel } : {}),
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,
@@ -333,17 +443,28 @@ export function getMetricSettingsHashForAggregatedFactTable({
     factMetric.denominator.factTableId === factTableId;
 
   // Only the column-ref parts that change stored data type / column name. The
-  // aggregate-filter threshold is omitted (it changes values, not schema).
+  // aggregate-filter threshold is omitted (it changes values, not schema); the
+  // filter column is what gets summed and stored, so it's included while a
+  // filter is active and left undefined otherwise to keep older hashes stable.
   const schemaBreakingColumnRef = (
     ref: FactMetricInterface["numerator"] | null | undefined,
-  ) =>
-    ref
-      ? {
-          factTableId: ref.factTableId,
-          column: ref.column,
-          aggregation: ref.aggregation,
-        }
-      : null;
+  ) => {
+    if (!ref) return null;
+    const hasAggregateFilter =
+      getAggregateFilters({
+        columnRef: ref,
+        column: ref.column,
+        ignoreInvalid: true,
+      }).length > 0;
+    return {
+      factTableId: ref.factTableId,
+      column: ref.column,
+      aggregation: ref.aggregation,
+      aggregateFilterColumn: hasAggregateFilter
+        ? ref.aggregateFilterColumn
+        : undefined,
+    };
+  };
 
   return hashObject({
     metricType: factMetric.metricType,
@@ -364,6 +485,12 @@ export function getFactTableSettingsHashForAggregatedFactTable(
   factTable: FactTableInterface,
 ): string {
   const timestampColumn = getFactTableTimestampColumn(factTable);
+  // Sorted entries rather than the raw object: Mongo doesn't guarantee key
+  // order, and only mappings that actually rename a column are included so
+  // hashes stored before this field existed stay byte-identical.
+  const idColumnEntries = Object.entries(factTable.userIdColumns ?? {})
+    .filter(([idType, column]) => column && column !== idType)
+    .sort(([a], [b]) => a.localeCompare(b));
   return hashObject({
     sql: factTable.sql,
     // Omitted when it resolves to the default (JSON.stringify drops undefined),
@@ -371,6 +498,7 @@ export function getFactTableSettingsHashForAggregatedFactTable(
     // table that spells out "timestamp" doesn't force a restate either.
     timestampColumn:
       timestampColumn === "timestamp" ? undefined : timestampColumn,
+    userIdColumns: idColumnEntries.length ? idColumnEntries : undefined,
     eventName: factTable.eventName,
     filters: (factTable.filters ?? [])
       .map((f) => ({ id: f.id, value: f.value }))
@@ -515,15 +643,19 @@ export function getAggregatedFactTableRestateReason({
 // experiment-level settings.
 export function exploratoryOverallRequiresFullRefresh({
   snapshotSettings,
+  exposureQueries,
   incrementalRefreshModel,
   latestOverallSnapshotId,
 }: {
   snapshotSettings: ExperimentSnapshotSettings;
+  exposureQueries: HashExposureQuery[];
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {
-  const currentSettingsHash =
-    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+  const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
+    snapshotSettings,
+    exposureQueries,
+  );
   const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
   if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
     return true;

@@ -31,6 +31,7 @@ import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
+import MarkdownLinks from "@/components/Markdown/MarkdownLinks";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -565,7 +566,6 @@ export default function ConfigJsonEditor({
       type="json"
       showFullscreenButton
       fullStyle={{ maxHeight: 320, overflowY: "auto", maxWidth: "100%" }}
-      fontSize="0.75rem"
     />
   );
 
@@ -585,7 +585,6 @@ export default function ConfigJsonEditor({
             additionalProperties: extensible,
             projection,
           })}
-          fontSize="0.75rem"
         />
       </Box>
     );
@@ -856,7 +855,6 @@ export default function ConfigJsonEditor({
         setValue={setProjectionText}
         minLines={12}
         maxLines={40}
-        fontSize="0.75em"
         showCopyButton
         showFullscreenButton
       />
@@ -891,7 +889,7 @@ export default function ConfigJsonEditor({
       )}
       {saveError && (
         <Callout status="error" mb="3">
-          {saveError}
+          <MarkdownLinks text={saveError} />
         </Callout>
       )}
       {twoColumns(
@@ -909,7 +907,6 @@ export default function ConfigJsonEditor({
             value={valueText}
             setValue={setValueText}
             valueType="json"
-            useCodeInput
             showFullscreenButton
             codeInputDefaultHeight={320}
             constantContext={constantContext}
@@ -942,7 +939,6 @@ export default function ConfigJsonEditor({
                   setValue={setSchemaText}
                   minLines={12}
                   maxLines={40}
-                  fontSize="0.75em"
                   showCopyButton
                   showFullscreenButton
                   helpText={schemaCtas}

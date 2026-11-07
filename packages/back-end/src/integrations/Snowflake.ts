@@ -1,5 +1,4 @@
 import { snowflakeCreateTableOptions } from "shared/enterprise";
-import { SqlDialect } from "shared/types/sql";
 import { QueryResponse, ExternalIdCallback } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { RunQueryMetadata } from "shared/types/query";
@@ -11,7 +10,6 @@ import {
 } from "back-end/src/services/snowflake";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
-import { snowflakeDialect } from "./dialects/snowflake";
 
 export default class Snowflake extends SqlIntegration {
   params!: SnowflakeConnectionParams;
@@ -19,9 +17,6 @@ export default class Snowflake extends SqlIntegration {
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<SnowflakeConnectionParams>(encryptedParams);
-  }
-  getSqlDialect(): SqlDialect {
-    return snowflakeDialect;
   }
   isWritingTablesSupported(): boolean {
     return true;

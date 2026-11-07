@@ -10,10 +10,13 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
+  getInlineFilterPromptColumns,
+  reconcileInlineFilterPrompts,
   getAggregateFilters,
   getColumnExpression,
   expandVirtualColumnsInSql,
   sqlReferencesColumn,
+  sqlReferencesColumnAllowingQualified,
   validateVirtualColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
@@ -25,11 +28,21 @@ import {
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
   isFactMetricJoinable,
+  getFactTableIdsForMetrics,
   parseSliceQueryString,
   parseSliceMetricId,
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
+  isAutoSnapshotScheduled,
+  getClusterMetricAnalysisLevel,
+  getClusterExperimentMetricEligibility,
   ExperimentMetricInterface,
+  withScheduledBy,
+  areVariationWeightsValid,
+  getMetricSampleSize,
+  getMetricResultStatus,
+  hasEnoughData,
+  getDefaultRegressionAdjustmentDays,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -1411,6 +1424,27 @@ describe("Experiments", () => {
             }),
           ).toStrictEqual(`(${column.column} LIKE '%f\\_o''o\\%%')`);
         });
+        it.each(["matches_pattern", "not_matches_pattern"] as const)(
+          "supports %s row filters",
+          (operator) => {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: column.column,
+                  operator,
+                  values: ["/items/*/detail?"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+              }),
+            ).toBe(
+              `(${column.column} ${operator === "matches_pattern" ? "LIKE" : "NOT LIKE"} '/items/%/detail_')`,
+            );
+          },
+        );
         // Dialects like BigQuery/Snowflake treat backslash as a string-literal
         // escape character. The wildcard-escaping backslash must be inserted
         // before escapeStringLiteral runs so it gets doubled into a valid
@@ -2638,6 +2672,68 @@ describe("Virtual Columns", () => {
     });
   });
 
+  describe("sqlReferencesColumnAllowingQualified", () => {
+    it("detects a bare identifier reference", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified("margin_vc / price", "margin_vc"),
+      ).toBe(true);
+    });
+
+    it("detects a table-qualified reference", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "SELECT e.bandit_version FROM exposures e",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects a qualified reference with whitespace around the dot", () => {
+      expect(sqlReferencesColumnAllowingQualified("e . price", "price")).toBe(
+        true,
+      );
+      expect(sqlReferencesColumnAllowingQualified("e.\n  price", "price")).toBe(
+        true,
+      );
+      expect(sqlReferencesColumnAllowingQualified('e . "price"', "price")).toBe(
+        true,
+      );
+      expect(
+        sqlReferencesColumnAllowingQualified("`e` . `price`", "price", "`"),
+      ).toBe(true);
+    });
+
+    it("does not match a name inside a string literal", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "status = 'bandit_version'",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("does not match a partial identifier", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified("e.gross_margin_vc", "margin_vc"),
+      ).toBe(false);
+    });
+
+    it("does not match a name inside a comment", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "e.price -- e.margin_vc\n",
+          "margin_vc",
+        ),
+      ).toBe(false);
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "e.price /* e.margin_vc */",
+          "margin_vc",
+        ),
+      ).toBe(false);
+    });
+  });
+
   describe("validateVirtualColumnExpression", () => {
     const ok = (sql: string, quote?: "`" | '"') =>
       validateVirtualColumnExpression(sql, quote);
@@ -2861,5 +2957,566 @@ describe("isFactMetricJoinable", () => {
         },
       ),
     ).toBe(true);
+  });
+});
+
+describe("conditional inline filter prompts", () => {
+  const col = (column: string, extra: Partial<ColumnInterface> = {}) => ({
+    column,
+    name: column,
+    datatype: "string" as const,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    description: "",
+    numberFormat: "" as const,
+    deleted: false,
+    ...extra,
+  });
+  const factTable = {
+    userIdTypes: ["user_id"],
+    columns: [
+      col("user_id"),
+      col("event_name", {
+        alwaysInlineFilter: true,
+        conditionalInlineFilters: {
+          "Page View": "path",
+          "Modal Open": "properties.modalType",
+        },
+      }),
+      col("path"),
+      col("properties", { datatype: "json" }),
+    ],
+  };
+  const pageView = {
+    column: "event_name",
+    operator: "=" as const,
+    values: ["Page View"],
+  };
+
+  describe("getInlineFilterPromptColumns", () => {
+    it("prompts for the base columns only until a mapped value is chosen", () => {
+      expect(getInlineFilterPromptColumns(factTable, [])).toEqual([
+        "event_name",
+      ]);
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "=", values: ["Purchase"] },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+    it("adds the mapped column (including JSON paths) for a single pinned value", () => {
+      expect(getInlineFilterPromptColumns(factTable, [pageView])).toEqual([
+        "event_name",
+        "path",
+      ]);
+      // `in` with one value is equivalent to `=`
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "in", values: ["Modal Open"] },
+        ]),
+      ).toEqual(["event_name", "properties.modalType"]);
+    });
+    it("does not prompt for a multi-value in: the mapped column would exclude the other events", () => {
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          {
+            column: "event_name",
+            operator: "in",
+            values: ["Page View", "Order"],
+          },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+    it("ignores other operators and blank placeholders", () => {
+      expect(
+        getInlineFilterPromptColumns(factTable, [
+          { column: "event_name", operator: "!=", values: ["Page View"] },
+          { column: "event_name", operator: "=", values: [""] },
+        ]),
+      ).toEqual(["event_name"]);
+    });
+  });
+
+  describe("reconcileInlineFilterPrompts", () => {
+    it("appends a placeholder when a mapped value is chosen", () => {
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [{ column: "event_name", operator: "=", values: [""] }],
+          [pageView],
+        ),
+      ).toEqual([pageView, { column: "path", operator: "=", values: [""] }]);
+    });
+    it("drops the still-empty placeholder when the value changes", () => {
+      const order = {
+        column: "event_name",
+        operator: "=" as const,
+        values: ["Order"],
+      };
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [pageView, { column: "path", operator: "=", values: [""] }],
+          [order, { column: "path", operator: "=", values: [""] }],
+        ),
+      ).toEqual([order]);
+    });
+    it("keeps a filled-in filter and does not re-add a removed prompt", () => {
+      const path = { column: "path", operator: "=" as const, values: ["/x"] };
+      const order = {
+        column: "event_name",
+        operator: "=" as const,
+        values: ["Order"],
+      };
+      expect(
+        reconcileInlineFilterPrompts(
+          factTable,
+          [pageView, path],
+          [order, path],
+        ),
+      ).toEqual([order, path]);
+      expect(
+        reconcileInlineFilterPrompts(factTable, [pageView], [pageView]),
+      ).toEqual([pageView]);
+    });
+  });
+});
+
+describe("isAutoSnapshotScheduled", () => {
+  const on = {
+    autoSnapshots: true,
+    disableAutoSnapshots: false,
+    archived: false,
+  };
+
+  it("is scheduled only when every flag allows it", () => {
+    expect(isAutoSnapshotScheduled(on)).toBe(true);
+    expect(isAutoSnapshotScheduled({ ...on, autoSnapshots: false })).toBe(
+      false,
+    );
+    expect(isAutoSnapshotScheduled({ ...on, disableAutoSnapshots: true })).toBe(
+      false,
+    );
+    expect(isAutoSnapshotScheduled({ ...on, archived: true })).toBe(false);
+  });
+
+  it("treats a missing user override as not disabled", () => {
+    expect(
+      isAutoSnapshotScheduled({ autoSnapshots: true, archived: false }),
+    ).toBe(true);
+  });
+});
+
+describe("getClusterExperimentMetricEligibility", () => {
+  const factMetric = (
+    metricType: string,
+    factTableId = "ft_subunit",
+    aggregation: string | undefined = "sum",
+  ) =>
+    ({
+      metricType,
+      numerator: { factTableId, column: "value", aggregation },
+      denominator:
+        metricType === "ratio"
+          ? { factTableId, column: "value", aggregation }
+          : null,
+    }) as unknown as ExperimentMetricInterface;
+
+  // Fact tables: one exposes the sub-unit id (user_id), one only the cluster id.
+  const factTables: Record<string, { userIdTypes: string[] }> = {
+    ft_subunit: { userIdTypes: ["user_id", "region_id"] },
+    ft_cluster_only: { userIdTypes: ["region_id"] },
+    ft_anon: { userIdTypes: ["anonymous_id"] },
+  };
+  const getFactTable = (id: string) => factTables[id];
+
+  it("rejects non-fact, quantile, and unsupported-type metrics", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        {
+          type: "binomial",
+        } as unknown as ExperimentMetricInterface,
+        { clusterSubUnitIdentifier: "user_id", getFactTable },
+      ).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("quantile"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("funnel"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }).allowed,
+    ).toBe(false);
+  });
+
+  it("allows metrics whose fact table exposes the sub-unit identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("mean", "ft_subunit"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }),
+    ).toEqual({ allowed: true, level: "subunit" });
+  });
+
+  it("allows metrics whose fact table only has the cluster identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_cluster_only"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "cluster" });
+  });
+
+  it("allows max and hll merge aggregations at the sub-unit grain", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "max"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "subunit" });
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "hll merge"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "subunit" });
+    // A max metric whose fact table reaches neither identifier is still
+    // rejected, now with the generic identifier message (not an aggregation
+    // message, since max is no longer special-cased).
+    const result = getClusterExperimentMetricEligibility(
+      factMetric("mean", "ft_anon", "max"),
+      {
+        clusterIdentifier: "region_id",
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      },
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toContain("user_id");
+      expect(result.reason).toContain("region_id");
+    }
+  });
+
+  it("rejects metrics whose fact table has neither identifier", () => {
+    const result = getClusterExperimentMetricEligibility(
+      factMetric("mean", "ft_anon"),
+      {
+        clusterIdentifier: "region_id",
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      },
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toContain("user_id");
+      expect(result.reason).toContain("region_id");
+    }
+  });
+
+  it("allows a fact table that reaches the sub-unit via an identity join", () => {
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("mean", "ft_anon"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+        datasourceSettings: {
+          queries: {
+            identityJoins: [{ ids: ["user_id", "anonymous_id"] }],
+          },
+        } as never,
+      }),
+    ).toEqual({ allowed: true, level: "subunit" });
+  });
+
+  it("keeps a cluster-grained fact table at the cluster level despite a cluster↔sub-unit identity join", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_cluster_only"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+          datasourceSettings: {
+            queries: {
+              identityJoins: [{ ids: ["region_id", "user_id"] }],
+            },
+          } as never,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "cluster" });
+  });
+});
+
+describe("getClusterMetricAnalysisLevel", () => {
+  const factTables: Record<string, { userIdTypes: string[] }> = {
+    ft_both: { userIdTypes: ["user_id", "region_id"] },
+    ft_user_only: { userIdTypes: ["user_id"] },
+    ft_region_only: { userIdTypes: ["region_id"] },
+  };
+  const options = {
+    clusterIdentifier: "region_id",
+    clusterSubUnitIdentifier: "user_id",
+    getFactTable: (id: string) => factTables[id],
+  };
+  const ratio = (numerator: string, denominator: string) =>
+    ({
+      metricType: "ratio",
+      numerator: { factTableId: numerator, column: "value" },
+      denominator: { factTableId: denominator, column: "value" },
+    }) as unknown as FactMetricInterface;
+
+  it("prefers the sub-unit when the metric is joinable at both levels", () => {
+    expect(
+      getClusterMetricAnalysisLevel(ratio("ft_both", "ft_both"), options),
+    ).toBe("subunit");
+  });
+
+  it("falls back to the cluster when a fact table lacks the sub-unit", () => {
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_region_only", "ft_region_only"),
+        options,
+      ),
+    ).toBe("cluster");
+    // Mixed ratio: the numerator reaches user_id, the denominator only region_id.
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_both", "ft_region_only"),
+        options,
+      ),
+    ).toBe("cluster");
+  });
+
+  it("routes max and hll merge like summable aggregations", () => {
+    const meanWithAggregation = (factTableId: string, aggregation: string) =>
+      ({
+        metricType: "mean",
+        numerator: { factTableId, column: "value", aggregation },
+        denominator: null,
+      }) as unknown as FactMetricInterface;
+    // max/hll merge reduce to a per-sub-unit scalar, so they roll up at the
+    // sub-unit grain whenever the sub-unit id is reachable, and only fall back
+    // to the cluster grain when it isn't.
+    for (const aggregation of ["max", "hll merge"]) {
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_both", aggregation),
+          options,
+        ),
+      ).toBe("subunit");
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_user_only", aggregation),
+          options,
+        ),
+      ).toBe("subunit");
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_region_only", aggregation),
+          options,
+        ),
+      ).toBe("cluster");
+    }
+  });
+
+  it("returns null when no single identifier reaches every fact table", () => {
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_user_only", "ft_region_only"),
+        options,
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("withScheduledBy", () => {
+  const staged = { type: "start" as const, date: new Date(0) };
+  it.each([
+    ["a user", { userId: "u_1", apiKey: "key_1" }, { scheduledBy: "u_1" }],
+    ["a key", { apiKey: "key_1" }, { scheduledByApiKey: "key_1" }],
+    ["nobody", undefined, staged],
+  ])("stamps %s", (_who, by, expected) => {
+    expect(withScheduledBy(staged, by)).toEqual({ ...staged, ...expected });
+  });
+});
+
+describe("getFactTableIdsForMetrics", () => {
+  const metric = (m: object) => m as unknown as FactMetricInterface;
+  const mean = (factTableId: string) =>
+    metric({ metricType: "mean", numerator: { factTableId } });
+  const ratio = (numerator: string, denominator: string) =>
+    metric({
+      metricType: "ratio",
+      numerator: { factTableId: numerator },
+      denominator: { factTableId: denominator },
+    });
+  const funnel = (steps: string[]) =>
+    metric({
+      metricType: "funnel",
+      numerator: null,
+      funnelSettings: { steps: steps.map((factTableId) => ({ factTableId })) },
+    });
+
+  it("returns nothing for no metrics", () => {
+    expect(getFactTableIdsForMetrics([])).toEqual([]);
+  });
+
+  it("dedupes ids shared across metrics", () => {
+    expect(
+      getFactTableIdsForMetrics([mean("ft_a"), mean("ft_a"), mean("ft_b")]),
+    ).toEqual(["ft_a", "ft_b"]);
+  });
+
+  it("includes ratio denominators and every funnel step", () => {
+    expect(
+      getFactTableIdsForMetrics([
+        ratio("ft_a", "ft_b"),
+        funnel(["ft_b", "ft_c", "ft_d"]),
+      ]),
+    ).toEqual(["ft_a", "ft_b", "ft_c", "ft_d"]);
+  });
+});
+
+describe("areVariationWeightsValid", () => {
+  it.each([
+    [[0.5, 0.5]],
+    [[1, 0]],
+    [[1]],
+    [[0.333, 0.333, 0.334]],
+    [[0.5, 0.505]],
+  ])("accepts %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(true);
+  });
+
+  it.each([
+    [[0.33, 0.4, 0.3]],
+    [[0.2, 0.2]],
+    [[50, 50]],
+    [[2, -1]],
+    [[1.5, -0.5]],
+    [[]],
+  ])("rejects %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(false);
+  });
+});
+
+describe("sample size source", () => {
+  // Only quantileMetricType is consulted, so a plain mean metric is enough.
+  const metric = {
+    id: "m",
+    metricType: "mean",
+  } as unknown as ExperimentMetricInterface;
+  const defaults = { minimumSampleSize: 150 };
+
+  it("sizes by metric value by default", () => {
+    const baseline = { value: 40, cr: 0.4, users: 100, denominator: 200 };
+    const stats = { value: 60, cr: 0.6, users: 100, denominator: 200 };
+    expect(getMetricSampleSize(baseline, stats, metric)).toEqual({
+      baselineValue: 40,
+      variationValue: 60,
+    });
+  });
+
+  it("sizes by denominator when asked", () => {
+    const baseline = { value: 40, cr: 0.4, users: 100, denominator: 200 };
+    const stats = { value: 60, cr: 0.6, users: 100, denominator: 200 };
+    expect(getMetricSampleSize(baseline, stats, metric, "denominator")).toEqual(
+      { baselineValue: 200, variationValue: 200 },
+    );
+  });
+
+  it("stops a unanimous split reading as no data", () => {
+    // A preference row: 200 non-tied users, all preferring one ranker.
+    const baseline = { value: 0, cr: 0, users: 300, denominator: 200 };
+    const stats = { value: 200, cr: 1, users: 300, denominator: 200 };
+
+    expect(hasEnoughData(baseline, stats, metric, defaults)).toBe(false);
+    expect(
+      hasEnoughData(baseline, stats, metric, defaults, "denominator"),
+    ).toBe(true);
+  });
+
+  it("lets a unanimous row reach a won/lost status", () => {
+    // 200 non-tied users all preferring treatment: 0 wins for control is a
+    // real result, so the row must not be treated as empty.
+    const baseline = { value: 0, cr: 0, users: 300, denominator: 200 };
+    const stats = {
+      value: 200,
+      cr: 1,
+      users: 300,
+      denominator: 200,
+      expected: 1,
+      pValue: 0.0000001,
+    };
+    const args = {
+      metric,
+      metricDefaults: defaults,
+      baseline,
+      stats,
+      ciLower: 0.05,
+      ciUpper: 0.95,
+      pValueThreshold: 0.05,
+      statsEngine: "frequentist" as const,
+      differenceType: "absolute" as const,
+    };
+
+    expect(getMetricResultStatus(args).resultsStatus).toBe("");
+    expect(
+      getMetricResultStatus({ ...args, sampleSizeFrom: "denominator" })
+        .resultsStatus,
+    ).toBe("won");
+  });
+
+  it("still applies the minimum to the non-tied user count", () => {
+    // 65 non-tied users is below the 150 minimum, win counts notwithstanding.
+    const baseline = { value: 5, cr: 0.08, users: 300, denominator: 65 };
+    const stats = { value: 60, cr: 0.92, users: 300, denominator: 65 };
+    expect(
+      hasEnoughData(baseline, stats, metric, defaults, "denominator"),
+    ).toBe(false);
+  });
+});
+
+describe("getDefaultRegressionAdjustmentDays", () => {
+  const metric = { regressionAdjustmentOverride: false };
+
+  it("uses the organization's lookback only while CUPED is on there", () => {
+    expect(
+      getDefaultRegressionAdjustmentDays(metric, {
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 7,
+      }),
+    ).toBe(7);
+    expect(
+      getDefaultRegressionAdjustmentDays(metric, {
+        regressionAdjustmentEnabled: false,
+        regressionAdjustmentDays: 7,
+      }),
+    ).toBe(14);
+  });
+
+  it("prefers a metric's own lookback", () => {
+    expect(
+      getDefaultRegressionAdjustmentDays(
+        { regressionAdjustmentOverride: true, regressionAdjustmentDays: 21 },
+        { regressionAdjustmentEnabled: true, regressionAdjustmentDays: 7 },
+      ),
+    ).toBe(21);
   });
 });

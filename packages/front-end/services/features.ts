@@ -20,14 +20,13 @@ import {
   ComputedFeatureInterface,
 } from "shared/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import dJSON from "dirty-json";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  getDefaultHashAttribute,
   featureHasEnvironment,
   filterEnvironmentsByFeature,
-  generateVariationId,
   getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
   validateAndFixCondition,
@@ -36,6 +35,7 @@ import {
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
   formatJsonMultilineObjects,
+  parseLooseJSON,
   getTargetingProjectIds,
   type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
@@ -44,6 +44,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   HoldoutInterface,
   RevisionRampAction,
+  RampScheduleInterface,
   SafeRolloutRule,
 } from "shared/validators";
 import {
@@ -55,6 +56,10 @@ import {
 } from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
+import {
+  getFeatureHealthSearchTokens,
+  getFeatureStaleSearchTokens,
+} from "@/services/health";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -103,6 +108,7 @@ export const STRING_VERSION_OPERATORS = Object.values(
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
+  exposureQueryIdentifierType?: string;
 } & Omit<ExperimentRule, "type">;
 
 // Sentinel for the "All environments" tab; a non-empty string keeps Radix
@@ -150,35 +156,17 @@ export function useFeatureRulesEnv(): [
   return [stored === FEATURE_RULES_ALL_ENVS ? null : stored, setEnv];
 }
 
-export function useEnvironmentState() {
-  const [state, setState] = useLocalStorage("currentEnvironment", "dev");
-  const { settings } = useUser();
-  const environments = useEnvironments();
-  const hasAppliedPreferredEnv = useRef(false);
-
-  // Apply any preferred environment on first load
-  useEffect(() => {
-    if (hasAppliedPreferredEnv.current) return;
-    if (!settings) return;
-
-    const preferredEnv = settings.preferredEnvironment;
-    if (!preferredEnv) {
-      hasAppliedPreferredEnv.current = true;
-      return;
-    }
-
-    const isValidEnv = environments.some((e) => e.id === preferredEnv);
-    if (isValidEnv) {
-      setState(preferredEnv);
-    }
-    hasAppliedPreferredEnv.current = true;
-  }, [settings, state, setState, environments]);
-
-  if (!environments.map((e) => e.id).includes(state)) {
-    return [environments[0]?.id || "production", setState] as const;
-  }
-
-  return [state, setState] as const;
+// With scoped rules required, a new rule starts in the org's preferred
+// environment instead of all of them. Null when there's no usable preference.
+export function useScopedRuleDefaultEnvironment(
+  environments: { id: string }[],
+): string | null {
+  const { requireScopedFeatureRules, preferredEnvironment } = useOrgSettings();
+  return requireScopedFeatureRules &&
+    preferredEnvironment &&
+    environments.some((e) => e.id === preferredEnvironment)
+    ? preferredEnvironment
+    : null;
 }
 
 export function useEnvironments() {
@@ -212,10 +200,9 @@ export function useFeatureSearch({
   localStorageKey = "features",
   environmentStatus,
   draftStates,
-  staleStates,
+  healthStates,
   rampStates,
   dependencyIndex,
-  experimentStates,
   contentSearchPrefixes = [],
 }: {
   allFeatures: FeatureInterface[];
@@ -231,17 +218,19 @@ export function useFeatureSearch({
   localStorageKey?: string;
   environmentStatus?: Record<string, Record<string, boolean>>;
   draftStates?: Record<string, unknown>;
-  staleStates?: Record<
+  healthStates?: Record<
     string,
     {
       stale: boolean;
       neverStale: boolean;
-      envResults?: Record<string, { stale: boolean }>;
+      envResults?: Record<
+        string,
+        { stale: boolean; reason?: string; tempRollout?: string }
+      >;
     }
   >;
   rampStates?: Record<string, unknown>;
   dependencyIndex?: Set<string> | null;
-  experimentStates?: Record<string, { hasTempRollout: boolean }>;
   contentSearchPrefixes?: string[];
 }) {
   const syntaxFilterPassthrough = useCallback(
@@ -283,10 +272,9 @@ export function useFeatureSearch({
     searchTermFilterDeps: [
       environmentStatus,
       draftStates,
-      staleStates,
+      healthStates,
       rampStates,
       dependencyIndex,
-      experimentStates,
       projects,
       getProjectById,
     ],
@@ -299,26 +287,18 @@ export function useFeatureSearch({
         if (item.valueType === "string") is.push("string");
         if (item.valueType === "number") is.push("number");
         if (item.valueType === "boolean") is.push("boolean");
-        // item.neverStale is authoritative — overrides staleStates cache immediately
-        if (item.neverStale) {
-          is.push("stale-disabled");
-        } else {
-          const s = staleStates?.[item.id];
-          if (s?.stale) is.push("stale");
-        }
+        is.push(
+          ...getFeatureStaleSearchTokens(
+            healthStates?.[item.id],
+            item.neverStale,
+          ),
+        );
         return is;
       },
       has: (item) => {
         const has: string[] = [];
         if (item.project) has.push("project");
         if (draftStates?.[item.id]) has.push("draft", "drafts");
-        if (!item.neverStale) {
-          const s = staleStates?.[item.id];
-          const hasSomeStaleEnvs = Object.values(s?.envResults ?? {}).some(
-            (e) => e.stale,
-          );
-          if (hasSomeStaleEnvs) has.push("stale-env");
-        }
         const meta = item as FeatureInterface & {
           hasPrerequisites?: boolean;
           hasSavedGroups?: boolean;
@@ -328,10 +308,9 @@ export function useFeatureSearch({
         if (item.linkedExperiments?.length) has.push("experiments");
         if (rampStates?.[item.id]) has.push("ramp-schedule");
         if (dependencyIndex?.has(item.id)) has.push("dependents");
-        const expState = experimentStates?.[item.id];
-        if (expState?.hasTempRollout) has.push("temp-rollout");
         return has;
       },
+      health: (item) => getFeatureHealthSearchTokens(healthStates?.[item.id]),
       key: (item) => item.id,
       // Match the governance project plus any targeting projects (all
       // projects when targetingAllProjects), by id and resolved name, so
@@ -385,9 +364,6 @@ export function getPrerequisites(feature: FeatureInterface) {
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
 }
-export function getTotalVariationWeight(weights: number[]): number {
-  return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
-}
 
 export function getVariationDefaultName(
   val: ExperimentValue,
@@ -408,40 +384,19 @@ export function getVariationDefaultName(
   return val.value;
 }
 
-// File size constants for JSON formatting
-export const MEDIUM_FILE_SIZE = 1 * 1024; // 1KB - disable dirty-json parsing
-export const LARGE_FILE_SIZE = 1024 * 1024; // 1MB - default to text editor
-
-// Format JSON string with pretty-printing, handling malformed JSON gracefully
+// Tries a plain parse first, so only broken input pays for a repair.
 export function formatJSON(value: string): string | undefined {
-  const isMediumOrLargerJSON = value.length > MEDIUM_FILE_SIZE;
-
-  let formatted: string | undefined;
-  if (!isMediumOrLargerJSON) {
-    // Use dirty-json for small files to handle malformed JSON
-    try {
-      const parsed = dJSON.parse(value);
-      formatted = formatJsonMultilineObjects(parsed);
-    } catch (e) {
-      // Fallback to native JSON.parse if dirty-json fails
-      try {
-        const parsed = JSON.parse(value);
-        formatted = formatJsonMultilineObjects(parsed);
-      } catch (e2) {
-        // Ignore
-      }
-    }
-  } else {
-    // For medium+ files, only use native JSON.parse (much faster)
-    try {
-      const parsed = JSON.parse(value);
-      formatted = formatJsonMultilineObjects(parsed);
-    } catch (e) {
-      // Invalid JSON - skip formatting to avoid blocking UI
-    }
+  try {
+    return formatJsonMultilineObjects(JSON.parse(value));
+  } catch {
+    // Not valid JSON - fall through and try repairing it
   }
 
-  return formatted;
+  try {
+    return formatJsonMultilineObjects(parseLooseJSON(value));
+  } catch {
+    return undefined;
+  }
 }
 
 export function isRuleInactive(
@@ -903,16 +858,6 @@ export function getEnabledEnvironments(
   });
 }
 
-export function getAffectedEnvs(
-  feature: FeatureInterface,
-  changedEnvs: string[],
-): string[] {
-  const settings = feature.environmentSettings;
-  if (!settings) return [];
-
-  return changedEnvs.filter((e) => settings?.[e]?.enabled);
-}
-
 export function getDefaultValue(valueType: FeatureValueType): string {
   if (valueType === "boolean") {
     return "false";
@@ -936,6 +881,7 @@ export function getRevisionPublishEnvs({
   environments,
   holdoutsMap,
   rampActions,
+  rampSchedules,
 }: {
   liveFeature: FeatureInterface;
   changes: MergeResultChanges;
@@ -943,6 +889,8 @@ export function getRevisionPublishEnvs({
   holdoutsMap: Map<string, HoldoutInterface>;
   /** Revision ramp actions, which are not part of the merge result. */
   rampActions?: RevisionRampAction[];
+  /** The feature's ramp schedules, so a detach is sized by what it removes. */
+  rampSchedules?: RampScheduleInterface[];
 }): string[] {
   const environmentIds = environments.map((e) => e.id);
   const holdout = holdoutEnvsForChange({
@@ -966,6 +914,7 @@ export function getRevisionPublishEnvs({
     rampActions,
     liveRules: liveFeature.rules ?? [],
     environmentIds,
+    schedules: rampSchedules,
   });
   return rampEnvs === "all"
     ? [...environmentIds]
@@ -1068,13 +1017,7 @@ export function getDefaultRuleValue({
   /** Safe default hash version for new rules — pass `hasSDKWithNoBucketingV2 ? 1 : 2` at the call site. Defaults to 1 (safest). */
   defaultHashVersion?: 1 | 2;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
-  const hashAttributes =
-    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
-    [];
-
-  const hashAttribute = hashAttributes.includes("id")
-    ? "id"
-    : hashAttributes[0] || "id";
+  const hashAttribute = getDefaultHashAttribute(attributeSchema);
   let defaultDataSource = settings?.defaultDataSource;
   if (datasources && !defaultDataSource && datasources.length === 1) {
     defaultDataSource = datasources[0].id;
@@ -1675,61 +1618,6 @@ export function useAttributeMap(
 
     return map;
   }, [attributeSchema]);
-}
-
-export function getExperimentDefinitionFromFeature(
-  feature: FeatureInterface,
-  expRule: ExperimentRule,
-) {
-  const trackingKey = expRule?.trackingKey || feature.id;
-  if (!trackingKey) {
-    return null;
-  }
-
-  const variations = expRule.values.map((v, i) => {
-    let name = i ? `Variation ${i}` : "Control";
-    if (v?.name) {
-      name = v.name;
-    } else if (feature.valueType === "boolean") {
-      name = v.value === "true" ? "On" : "Off";
-    }
-    return {
-      name,
-      key: i + "",
-      id: generateVariationId(),
-      screenshots: [],
-      description: v.value,
-    };
-  });
-  const variationWeights = expRule.values.map((v) => v.weight);
-  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
-    trackingKey: trackingKey,
-    name: trackingKey + " experiment",
-    hypothesis: expRule.description || "",
-    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations,
-    phases: [
-      {
-        coverage: expRule.coverage ?? 1,
-        variationWeights,
-        variations: variations.map((v) => ({
-          id: v.id,
-          status: "active" as const,
-        })),
-        name: "Main",
-        reason: "",
-        dateStarted: new Date().toISOString(),
-        condition: expRule.condition || "",
-        namespace: expRule.namespace || {
-          enabled: false,
-          name: "",
-          range: [0, 0],
-        },
-        seed: trackingKey,
-      },
-    ],
-  };
-  return expDefinition;
 }
 
 export function useRealtimeData(

@@ -14,6 +14,7 @@ const ExperimentSearchFilters: FC<
     experiments: ExperimentInterfaceStringDates[];
     allowDrafts?: boolean;
     showStatusFilter?: boolean;
+    includeTempRollouts?: boolean;
   }
 > = ({
   searchInputProps,
@@ -22,6 +23,7 @@ const ExperimentSearchFilters: FC<
   setSearchValue,
   allowDrafts = true,
   showStatusFilter = true,
+  includeTempRollouts = false,
 }) => {
   const {
     dropdownFilterOpen,
@@ -43,7 +45,12 @@ const ExperimentSearchFilters: FC<
     resultItems,
     statusItems,
     typeItems,
-  } = useExperimentFilterCategories({ experiments, allowDrafts });
+    healthItems,
+  } = useExperimentFilterCategories({
+    experiments,
+    allowDrafts,
+    includeTempRollouts,
+  });
 
   return (
     <Flex gap="5" align="center">
@@ -122,6 +129,15 @@ const ExperimentSearchFilters: FC<
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
         items={typeItems}
+        updateQuery={updateQuery}
+      />
+      <FilterDropdown
+        filter="health"
+        heading="Health"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={healthItems}
         updateQuery={updateQuery}
       />
       {/*<DropdownMenu*/}

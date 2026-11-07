@@ -2,13 +2,17 @@ import router from "next/router";
 import React, { FC, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { reviewScopesRequiringTeam } from "shared/util";
+import { holdsGlobalAdmin } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
-import { RoleRulesSummary } from "@/components/Settings/Team/RoleRulesSummary";
+import {
+  projectRuleRows,
+  RoleRuleLines,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -18,7 +22,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
-import PageHead from "@/components/Layout/PageHead";
+import SettingsPage from "@/components/Layout/SettingsPage";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -46,14 +50,30 @@ const TeamPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
+  // Organization lands on Projects, so only link it for users who can open it.
+  const orgCrumb = {
+    display: "Organization",
+    ...(permissionsUtil.canViewProjectsPage() ? { href: "/projects" } : {}),
+  };
 
-  const { teams, refreshOrganization, settings } = useUser();
+  const { teams, refreshOrganization, settings, organization } = useUser();
 
   // Which review rules demand this team's sign-off, described by their scope, so
   // the team page answers "what does this team gate?".
   const approvalScopes = reviewScopesRequiringTeam(tid, settings);
+  const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
+  const scopeLabel = (project: string | null) =>
+    project
+      ? getProjectById(project)?.name || project
+      : approvalScopes.length > 1
+        ? "All other Projects"
+        : "All Projects";
 
   const team = teams?.find((team) => team.id === tid);
+  // Narrow managers arrive from a Project and can't open the Teams list.
+  const crumbProject = getProjectById(
+    team?.defaultProject || team?.projectRoles?.[0]?.project || "",
+  );
   const isEditable = !team?.managedByIdp;
 
   const project = getProjectById(team?.defaultProject || "");
@@ -62,15 +82,33 @@ const TeamPage: FC = () => {
 
   if (!team) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage
+        title="Team"
+        breadcrumb={[
+          orgCrumb,
+          { display: "Teams", href: "/settings/team#teams" },
+          { display: String(tid ?? "") },
+        ]}
+      >
         <Callout status="error">
-          Team <code>{tid}</code> does not exist.
+          Team{" "}
+          <Text as="span" size="inherit" mono>
+            {tid}
+          </Text>{" "}
+          does not exist.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   const memberCount = team.members?.length ?? 0;
+  // A global admin team's project rules have no effect, so they sit behind
+  // Admin's chip instead of in their own rows.
+  const adminEverywhere = holdsGlobalAdmin(team, []);
+  const projectRoles = adminEverywhere ? [] : (team.projectRoles ?? []);
+  // Membership follows the team predicate, so a Project Admin who administers
+  // every project a project-scoped team covers can manage its members here.
+  const canManageMembers = permissionsUtil.canManageTeamMembership(team);
 
   return (
     <>
@@ -94,14 +132,27 @@ const TeamPage: FC = () => {
         onSuccess={() => refreshOrganization()}
       />
 
-      <PageHead
-        breadcrumb={[
-          { display: "Teams", href: "/settings/team#teams" },
-          { display: team.name },
-        ]}
-      />
-
-      <div className="container pagecontents">
+      <SettingsPage
+        title={team.name}
+        hideHeader
+        breadcrumb={
+          canManageTeam
+            ? [
+                orgCrumb,
+                { display: "Teams", href: "/settings/team#teams" },
+                { display: team.name },
+              ]
+            : [
+                {
+                  display: crumbProject?.name ?? "Projects",
+                  href: crumbProject
+                    ? `/project/${crumbProject.id}`
+                    : "/projects",
+                },
+                { display: team.name },
+              ]
+        }
+      >
         {!isEditable && (
           <Callout status="info" mb="4">
             This team is managed by an idP. To make changes to the{" "}
@@ -134,6 +185,7 @@ const TeamPage: FC = () => {
                     radius="full"
                     size="3"
                     highContrast
+                    aria-label="Team actions"
                   >
                     <BsThreeDotsVertical size={18} />
                   </IconButton>
@@ -161,7 +213,11 @@ const TeamPage: FC = () => {
             <Tooltip
               body={
                 <>
-                  Project <code>{team.defaultProject}</code> not found
+                  Project{" "}
+                  <Text as="span" size="inherit" mono>
+                    {team.defaultProject}
+                  </Text>{" "}
+                  not found
                 </>
               }
             >
@@ -174,27 +230,57 @@ const TeamPage: FC = () => {
 
         <Frame px="4" py="4" mb="5">
           <Flex align="start" justify="between" gap="3">
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="3">
               <Heading as="h2" size="md" mb="0">
                 Permissions
               </Heading>
-              <RoleRulesSummary
-                size="md"
-                value={{
-                  role: team.role,
-                  limitAccessByEnvironment: team.limitAccessByEnvironment,
-                  environments: team.environments,
-                  additionalRoles: team.additionalRoles,
-                  projectRoles: team.projectRoles,
-                }}
-              />
+              <Flex direction="column" gap="2">
+                <Flex align="start" gap="3" wrap="wrap">
+                  <Box style={{ minWidth: 160 }}>
+                    <Text weight="medium">
+                      {projectRoles.length
+                        ? "All other Projects"
+                        : "All Projects"}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <RoleRuleLines
+                      scope={team}
+                      organization={organization}
+                      shadowedProjects={
+                        adminEverywhere
+                          ? projectRuleRows(
+                              team.projectRoles ?? [],
+                              getProjectById,
+                              organization,
+                            )
+                          : undefined
+                      }
+                    />
+                  </Box>
+                </Flex>
+                {projectRoles.map((rule) => (
+                  <Flex key={rule.project} align="start" gap="3" wrap="wrap">
+                    <Box style={{ minWidth: 160 }}>
+                      <Link href={`/project/${rule.project}`}>
+                        {getProjectById(rule.project)?.name || rule.project}
+                      </Link>
+                    </Box>
+                    <Box>
+                      <RoleRuleLines scope={rule} organization={organization} />
+                    </Box>
+                  </Flex>
+                ))}
+              </Flex>
             </Flex>
-            <Button
-              variant="outline"
-              onClick={() => setPermissionModalOpen(true)}
-            >
-              Edit team permissions
-            </Button>
+            {canManageTeam && (
+              <Button
+                variant="outline"
+                onClick={() => setPermissionModalOpen(true)}
+              >
+                Edit team permissions
+              </Button>
+            )}
           </Flex>
           {approvalScopes.length > 0 && (
             <>
@@ -203,6 +289,10 @@ const TeamPage: FC = () => {
                 <Heading as="h2" size="md" mb="0">
                   Required Approver
                 </Heading>
+                <Text size="sm" color="text-low">
+                  Approval rules that need this team&apos;s sign-off, managed in
+                  the organization&apos;s Approval Flows.
+                </Text>
                 {approvalScopes.map((scope) => (
                   <Flex
                     key={scope.project ?? "all"}
@@ -210,16 +300,22 @@ const TeamPage: FC = () => {
                     gap="2"
                     wrap="wrap"
                   >
-                    {scope.project ? (
-                      <Link href={`/project/${scope.project}`}>
-                        {getProjectById(scope.project)?.name || scope.project}
+                    {canManageOrgSettings ? (
+                      <Link
+                        href={
+                          scope.project
+                            ? `/settings?approvalProject=${scope.project}#approval-flow`
+                            : "/settings#approval-flow"
+                        }
+                      >
+                        {scopeLabel(scope.project)}
+                      </Link>
+                    ) : scope.project ? (
+                      <Link href={`/project/${scope.project}#approvals`}>
+                        {scopeLabel(scope.project)}
                       </Link>
                     ) : (
-                      <Text>
-                        {approvalScopes.length > 1
-                          ? "All other Projects"
-                          : "All Projects"}
-                      </Text>
+                      <Text>{scopeLabel(scope.project)}</Text>
                     )}
                     {scope.environments.length > 0 && (
                       <Text color="text-low">
@@ -237,7 +333,7 @@ const TeamPage: FC = () => {
           <Heading as="h2" size="md" mb="0">
             Team Members ({memberCount})
           </Heading>
-          {isEditable && canManageTeam && (
+          {isEditable && canManageMembers && (
             <Button onClick={() => setMemberModalOpen(true)}>
               Add members
             </Button>
@@ -268,7 +364,7 @@ const TeamPage: FC = () => {
                   {member.dateCreated && date(member.dateCreated)}
                 </TableCell>
                 <TableCell>
-                  {canManageTeam && isEditable && (
+                  {canManageMembers && isEditable && (
                     <DropdownMenu
                       trigger={
                         <IconButton
@@ -277,6 +373,7 @@ const TeamPage: FC = () => {
                           radius="full"
                           size="2"
                           highContrast
+                          aria-label="Member actions"
                         >
                           <BsThreeDotsVertical size={18} />
                         </IconButton>
@@ -316,7 +413,7 @@ const TeamPage: FC = () => {
             )}
           </TableBody>
         </Table>
-      </div>
+      </SettingsPage>
     </>
   );
 };

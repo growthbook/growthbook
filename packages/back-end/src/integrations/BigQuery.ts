@@ -1,10 +1,14 @@
-import * as bq from "@google-cloud/bigquery";
+import {
+  BigQueryDate,
+  BigQueryDatetime,
+  BigQueryTimestamp,
+  type TableField,
+} from "@google-cloud/bigquery";
 import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
 import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { SqlDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
@@ -19,17 +23,25 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { toOptionalNumber } from "back-end/src/util/integration";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
   sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import SqlIntegration from "./SqlIntegration";
-import { bigQueryDialect } from "./dialects/bigquery";
+
+const GA4_DATASET_RE = /^analytics_\d+$/;
+const GA4_EVENTS_SHARD_RE = /^events_(intraday_)?\d{8}$/;
+// Each dataset is one table-listing call. Cap how many a connection test
+// checks, and list them a few at a time to stay under BigQuery rate limits.
+const MAX_GA4_DATASETS = 25;
+const GA4_DATASET_LIST_CONCURRENCY = 5;
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -41,23 +53,9 @@ export default class BigQuery extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  getSqlDialect(): SqlDialect {
-    return bigQueryDialect;
-  }
 
   private getClient() {
-    // If pull credentials from env or the metadata server
-    if (!IS_CLOUD && this.params.authType === "auto") {
-      return new bq.BigQuery();
-    }
-
-    return new bq.BigQuery({
-      projectId: this.params.projectId,
-      credentials: {
-        client_email: this.params.clientEmail,
-        private_key: this.params.privateKey,
-      },
-    });
+    return createBigQueryClient(this.params);
   }
 
   async cancelQuery(
@@ -156,20 +154,26 @@ export default class BigQuery extends SqlIntegration {
 
     const rowsInserted =
       metadata?.statistics?.query?.statementType === "INSERT"
-        ? Number(metadata?.statistics?.query?.numDmlAffectedRows)
+        ? toOptionalNumber(metadata?.statistics?.query?.numDmlAffectedRows)
         : undefined;
+    const partitionsScanned = toOptionalNumber(
+      metadata?.statistics?.query?.totalPartitionsProcessed,
+    );
     const statistics = {
-      executionDurationMs: Number(
+      executionDurationMs: toOptionalNumber(
         metadata?.statistics?.finalExecutionDurationMs,
       ),
-      totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
-      bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
-      bytesBilled: Number(metadata?.statistics?.query?.totalBytesBilled),
+      totalSlotMs: toOptionalNumber(metadata?.statistics?.totalSlotMs),
+      bytesProcessed: toOptionalNumber(
+        metadata?.statistics?.totalBytesProcessed,
+      ),
+      bytesBilled: toOptionalNumber(
+        metadata?.statistics?.query?.totalBytesBilled,
+      ),
       warehouseCachedResult: metadata?.statistics?.query?.cacheHit,
       partitionsUsed:
-        metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
-          ? metadata.statistics.query.totalPartitionsProcessed > 0
-          : undefined,
+        partitionsScanned !== undefined ? partitionsScanned > 0 : undefined,
+      partitionsScanned,
       ...(rowsInserted !== undefined && { rowsInserted }),
     };
 
@@ -181,11 +185,11 @@ export default class BigQuery extends SqlIntegration {
     for (const row of rows) {
       for (const key in row) {
         const value = row[key];
-        if (value instanceof bq.BigQueryDatetime) {
+        if (value instanceof BigQueryDatetime) {
           row[key] = value.value + "Z"; // Convert to ISO date
         } else if (
-          value instanceof bq.BigQueryTimestamp ||
-          value instanceof bq.BigQueryDate
+          value instanceof BigQueryTimestamp ||
+          value instanceof BigQueryDate
         ) {
           row[key] = value.value; // Already in ISO format
         }
@@ -211,9 +215,6 @@ export default class BigQuery extends SqlIntegration {
   hasQuantileSketch(): boolean {
     return true;
   }
-  supportsLimitZeroColumnValidation(): boolean {
-    return true;
-  }
   getDefaultDatabase() {
     return this.params.projectId || "";
   }
@@ -223,6 +224,9 @@ export default class BigQuery extends SqlIntegration {
       schema,
       database,
     );
+  }
+  getPartitionColumnCondition(): string {
+    return "is_partitioning_column = 'YES'";
   }
 
   async listDatasets(): Promise<string[]> {
@@ -237,6 +241,40 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return datasetNames;
+  }
+
+  // GA4's BigQuery export: an analytics_<property id> dataset of daily
+  // events_YYYYMMDD shards. Table metadata isn't billed and doesn't wait on
+  // the information schema, so this is quick enough for a connection test.
+  async listGoogleAnalytics4Exports(): Promise<string[]> {
+    // The project GrowthBook queries, which can differ from the service
+    // account's own project. Auto-discovery only has this one.
+    const projectId = this.params.defaultProject || this.params.projectId;
+    const [datasets] = await this.getClient().getDatasets({ projectId });
+    const paths = await promiseAllChunks(
+      datasets
+        .filter((dataset) => dataset.id && GA4_DATASET_RE.test(dataset.id))
+        .slice(0, MAX_GA4_DATASETS)
+        .map((dataset) => async () => {
+          // Catch inside: promiseAllChunks skips later chunks after a rejection.
+          try {
+            // Tables list by name, so any events_ shards are on the first page.
+            const [tables] = await dataset.getTables({
+              maxResults: 100,
+              autoPaginate: false,
+            });
+            if (!tables.some((t) => t.id && GA4_EVENTS_SHARD_RE.test(t.id))) {
+              return null;
+            }
+            return `\`${projectId}.${dataset.id}.events_*\``;
+          } catch (e) {
+            logger.warn(e, `Could not list tables in ${dataset.id}`);
+            return null;
+          }
+        }),
+      GA4_DATASET_LIST_CONCURRENCY,
+    );
+    return paths.filter((path): path is string => path !== null);
   }
 
   async getInformationSchema(): Promise<InformationSchema[]> {
@@ -286,10 +324,28 @@ export default class BigQuery extends SqlIntegration {
     return formatInformationSchema(results as RawInformationSchema[]);
   }
 
+  async estimateQueryCost(
+    sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }> {
+    const client = this.getClient();
+    const [job] = await client.createQueryJob({
+      query: sql,
+      useLegacySql: false,
+      dryRun: true,
+    });
+    const metadata = job.metadata;
+    const bytes = Number(metadata?.statistics?.totalBytesProcessed ?? 0);
+    const TIB = 1024 ** 4;
+    return {
+      bytesProcessed: bytes,
+      costEstimateUsd: (bytes / TIB) * 6.25,
+    };
+  }
+
   getQueryResultResponseColumns(
     bqQueryResultsResponse: QueryResultsResponse,
   ): QueryResponseColumnData[] | undefined {
-    const mapField = (field: bq.TableField): QueryResponseColumnData => {
+    const mapField = (field: TableField): QueryResponseColumnData => {
       let childFields: QueryResponseColumnData[] | undefined = undefined;
       if (field.type === "RECORD" || field.type === "STRUCT") {
         childFields = field.fields

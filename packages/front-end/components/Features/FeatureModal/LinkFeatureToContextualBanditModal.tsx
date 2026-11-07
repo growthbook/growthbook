@@ -12,6 +12,7 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   ensureConfigBacking,
+  getApplicableEnvIds,
   setConfigBacking,
   valueHasConfigExtends,
 } from "shared/util";
@@ -21,11 +22,14 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
   getDefaultValue,
   useEnvironments,
+  useScopedRuleDefaultEnvironment,
   getDefaultVariationValue,
   validateFeatureRule,
 } from "@/services/features";
@@ -37,6 +41,10 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import {
+  isUnsetFeatureValue,
+  unsetFeatureValueMessage,
+} from "@/components/Features/EmptyStringConfirm";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -131,7 +139,14 @@ export default function LinkFeatureToContextualBanditModal({
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const selectedProject = cb.project ?? project;
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const applicableEnvIds = getApplicableEnvIds(
+    allEnvironments,
+    selectedProject,
+  );
+  const environments = allEnvironments.filter((env) =>
+    applicableEnvIds.includes(env.id),
+  );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
@@ -167,12 +182,28 @@ export default function LinkFeatureToContextualBanditModal({
     !!cb.description && cb.description.length > 0,
   );
 
-  const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
+  const [emptyStringConfirmed, setEmptyStringConfirmed] = useState<
+    Record<string, boolean>
+  >({});
+  const [showValueErrors, setShowValueErrors] = useState(false);
+
+  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(environments);
+  const [ruleAllEnvironments, setRuleAllEnvironments] =
+    useState<boolean>(!scopedRuleDefaultEnv);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
     string[]
-  >([]);
+  >(scopedRuleDefaultEnv ? [scopedRuleDefaultEnv] : []);
 
   const { apiCall } = useAuth();
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate({
+    allEnvironments: ruleAllEnvironments,
+    environments: ruleSelectedEnvironments,
+  });
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
@@ -201,7 +232,7 @@ export default function LinkFeatureToContextualBanditModal({
     });
   }, [isConfigBacked, defaultConfigKey, form]);
 
-  let ctaEnabled = true;
+  let ctaEnabled = !unscopedRuleBlocksSubmit;
   let disabledMessage: string | undefined;
 
   if (
@@ -252,7 +283,8 @@ export default function LinkFeatureToContextualBanditModal({
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
-      submit={form.handleSubmit(async (values) => {
+      aboveFooterContent={unscopedRuleBanner}
+      submit={validatedSubmit(form, async (values) => {
         const { variations, existing, ...feature } = values;
 
         const newFeatureEnvSettings: Record<string, FeatureEnvironment> = {};
@@ -290,6 +322,18 @@ export default function LinkFeatureToContextualBanditModal({
           variations,
         };
 
+        const unsetVariation = variations.find((v) =>
+          isUnsetFeatureValue({
+            valueType,
+            value: v.value ?? "",
+            emptyStringConfirmed: !!emptyStringConfirmed[v.variationId],
+          }),
+        );
+        if (unsetVariation) {
+          setShowValueErrors(true);
+          throw new Error("Set a value for every variation before saving");
+        }
+
         const newRule = validateFeatureRule(
           rule,
           featureToCreate ?? { valueType, project: selectedProject },
@@ -303,6 +347,8 @@ export default function LinkFeatureToContextualBanditModal({
             "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
+
+        checkUnscopedRule();
 
         let targetFeatureId: string;
 
@@ -341,6 +387,7 @@ export default function LinkFeatureToContextualBanditModal({
             rule,
             autoPublish: false,
             forceNewDraft: true,
+            allowUnscopedRules,
           }),
         });
 
@@ -396,27 +443,38 @@ export default function LinkFeatureToContextualBanditModal({
         <>
           <FeatureKeyField keyField={form.register("id")} />
 
-          {showTags ? (
-            <TagsField
-              value={form.watch("tags") || []}
-              onChange={(tags) => form.setValue("tags", tags)}
-            />
-          ) : (
-            <Link onClick={() => setShowTags(true)}>+ tags</Link>
-          )}
-
-          {showDescription ? (
-            <div className="form-group">
-              <label>Description</label>
-              <MarkdownInput
-                value={form.watch("description") || ""}
-                setValue={(value) => form.setValue("description", value)}
-                autofocus={true}
+          <Flex direction="column" mt="3">
+            {showTags && (
+              <TagsField
+                value={form.watch("tags") || []}
+                onChange={(tags) => form.setValue("tags", tags)}
+                autoFocus={!cb.tags?.length}
               />
-            </div>
-          ) : (
-            <Link onClick={() => setShowDescription(true)}>+ description</Link>
-          )}
+            )}
+            {showDescription && (
+              <div className="form-group" style={{ width: "100%" }}>
+                <label>Description</label>
+                <Box mt="1">
+                  <MarkdownInput
+                    value={form.watch("description") || ""}
+                    setValue={(value) => form.setValue("description", value)}
+                    autofocus={!cb.description}
+                  />
+                </Box>
+              </div>
+            )}
+
+            <Flex gap="4" mb="4">
+              {!showTags && (
+                <Link onClick={() => setShowTags(true)}>+ tags</Link>
+              )}
+              {!showDescription && (
+                <Link onClick={() => setShowDescription(true)}>
+                  + description
+                </Link>
+              )}
+            </Flex>
+          </Flex>
 
           <ValueTypeField
             value={valueType}
@@ -478,28 +536,48 @@ export default function LinkFeatureToContextualBanditModal({
         <Text as="label" weight="semibold" mb="0">
           Variation Values
         </Text>
-        {variations.map((v, i) => (
-          <Box key={v.id}>
-            <Box mb="3">
-              <VariationLabel number={i} name={v.name} />
+        {variations.map((v, i) => {
+          const currentValue = form.watch(`variations.${i}.value`) || "";
+          const isMissing = isUnsetFeatureValue({
+            valueType,
+            value: currentValue,
+            emptyStringConfirmed: !!emptyStringConfirmed[v.id],
+          });
+          return (
+            <Box key={v.id}>
+              <Box mb="3">
+                <VariationLabel number={i} name={v.name} />
+              </Box>
+              {showValueErrors && isMissing && (
+                <HelperText status="error">
+                  {unsetFeatureValueMessage(valueType)}
+                </HelperText>
+              )}
+              <FeatureValueField
+                id={v.id}
+                value={currentValue}
+                setValue={(val) => form.setValue(`variations.${i}.value`, val)}
+                valueType={valueType}
+                feature={existing ? existingFeature : undefined}
+                showFullscreenButton={true}
+                sparse={isConfigBacked}
+                allowConfigBacking={isConfigBacked}
+                configBackingOptionKeys={configBackingOptionKeys}
+                configBackingShowPatch={isConfigBacked}
+                lockConfigBacking={isConfigBacked}
+                confirmEmptyString
+                emptyStringConfirmed={!!emptyStringConfirmed[v.id]}
+                setEmptyStringConfirmed={(checked) =>
+                  setEmptyStringConfirmed((prev) => ({
+                    ...prev,
+                    [v.id]: checked,
+                  }))
+                }
+              />
+              {i < variations.length - 1 && <Separator size="4" my="4" />}
             </Box>
-            <FeatureValueField
-              id={v.id}
-              value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(val) => form.setValue(`variations.${i}.value`, val)}
-              valueType={valueType}
-              feature={existing ? existingFeature : undefined}
-              useCodeInput={true}
-              showFullscreenButton={true}
-              sparse={isConfigBacked}
-              allowConfigBacking={isConfigBacked}
-              configBackingOptionKeys={configBackingOptionKeys}
-              configBackingShowPatch={isConfigBacked}
-              lockConfigBacking={isConfigBacked}
-            />
-            {i < variations.length - 1 && <Separator size="4" my="4" />}
-          </Box>
-        ))}
+          );
+        })}
       </Flex>
     </ModalStandard>
   );
