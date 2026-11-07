@@ -34,7 +34,8 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { getRevisionStatus } from "@/services/revisionStatus";
 
-// Room for a normal-sized button with even padding.
+// Room for a normal-sized button with even padding. A message that wraps
+// grows it.
 export const REVISION_STATUS_BAR_HEIGHT_PX = 48;
 
 /**
@@ -221,20 +222,26 @@ export default function RevisionStatusBar({
     <>
       <div
         style={{
-          height: REVISION_STATUS_BAR_HEIGHT_PX,
           backgroundColor: `var(--${tint}-a3)`,
           // The tab row's underline, above it.
           boxShadow: "inset 0 1px 0 0 var(--gray-a5)",
         }}
       >
         <Flex
-          // The header's page column and gutter, so the two line up.
+          // The header's page column, so the two line up.
           className="container-fluid pagecontents"
-          style={{ paddingInline: "var(--space-5)" }}
+          style={{
+            // Inset as the cards' content is below: the page gutter, a card's
+            // padding, and a border as wide as the card's, which zoom rounds
+            // the same way. Its actions end under the revision picker.
+            paddingInline: "calc(2 * var(--space-5))",
+            borderInline: "1px solid transparent",
+            paddingBlock: "var(--space-2)",
+            minHeight: REVISION_STATUS_BAR_HEIGHT_PX,
+          }}
           align="center"
           justify="between"
           gap="4"
-          height="100%"
         >
           <Flex align="center" gap="3" minWidth="0">
             <Flex
@@ -255,9 +262,7 @@ export default function RevisionStatusBar({
                 />
               </Flex>
             ) : null}
-            <Text color="text-mid" truncate>
-              {message}
-            </Text>
+            <Text color="text-mid">{message}</Text>
           </Flex>
           {actions ? (
             <Flex align="center" gap="4" flexShrink="0">

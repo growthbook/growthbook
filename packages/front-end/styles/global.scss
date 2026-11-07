@@ -577,7 +577,7 @@ pre {
     // NB: Keep top and height in sync with components/Layout/constants.ts
     // also, make sure shared reports & shared experiments look good
     top: 55px;
-    height: 40px;
+    height: 45px;
     transition: 150ms all;
     // The underline belongs to the whole row, so it runs the page's full
     // width, past the tab list and under anything beside it.
@@ -585,8 +585,17 @@ pre {
     .rt-BaseTabList {
       box-shadow: none;
     }
+    > .container-fluid {
+      height: 100%;
+    }
     .header-tabs {
       flex-wrap: nowrap;
+      height: 100%;
+      // Tabs as tall as the row, so their labels centre with what's beside
+      // them and the active underline lands on the row's.
+      .rt-BaseTabList {
+        --tab-height: 45px;
+      }
       .date-dropdown {
         text-align: right;
         .dropdown-toggle {
@@ -678,7 +687,12 @@ pre {
     // A revision status bar may follow the row.
     height: auto;
     .header-tabs {
-      height: 40px;
+      height: 45px;
+      // Tabs as tall as the row, so their labels centre with what's beside
+      // them and the active underline lands on the row's.
+      .rt-BaseTabList {
+        --tab-height: 45px;
+      }
     }
     // The underline belongs to the whole row, so it meets the details panel's
     // border, past the tab list and under anything beside it.
@@ -813,7 +827,7 @@ pre {
     &.axis-col {
       &:not(.noStickyHeader) {
         position: sticky;
-        top: 95px;
+        top: 100px;
         // A scrolling wrapper would pin it to the wrapper, not the page.
         .overflowing & {
           position: static;
@@ -953,7 +967,7 @@ main.main {
   }
   &.public.experiment {
     .experiment-results th.axis-col {
-      top: 95px;
+      top: 100px;
     }
   }
   .select-dropdown-underline {

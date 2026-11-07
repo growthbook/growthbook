@@ -57,9 +57,9 @@ import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 
-// The details panel's default width, less the page gutter (24px) and the
-// menu button and its gap beside the CTA (34px).
-const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 58;
+// From the details panel's default edge to where the cards' content ends: the
+// page gutter, a card's padding and border (49px).
+const REVISION_SELECTOR_WIDTH_PX = PANEL_WIDTH_PX - 49;
 
 export default function FeaturesHeaderNew({
   feature,
@@ -239,7 +239,14 @@ export default function FeaturesHeaderNew({
         />
       ) : null}
       <DropdownMenu
-        trigger={<MoreMenuTrigger label="More actions" size="lg" />}
+        trigger={
+          <MoreMenuTrigger
+            label="More actions"
+            size="lg"
+            // Above the details toggle, past the row's end.
+            style={{ marginLeft: 0, marginRight: -16 }}
+          />
+        }
         open={dropdownOpen}
         onOpenChange={setDropdownOpen}
         menuPlacement="end"
@@ -518,10 +525,15 @@ export default function FeaturesHeaderNew({
                 </TabsList>
               </Tabs>
               {/* Beside the tab list, not in it: the list folds tabs that
-                  don't fit into its More menu. Runs from the details panel's
-                  default edge to the CTA's right edge above it, which sits
-                  2px right of where the toggle's margin ends the row. */}
-              <Box flexShrink="0" ml="4" mr="-2px">
+                  don't fit into its More menu. Ends where the cards' content
+                  does below: into the toggle's margin, then back by a border
+                  as wide as a card's, which zoom rounds the same way. */}
+              <Box
+                flexShrink="0"
+                ml="4"
+                mr="-12px"
+                style={{ borderRight: "1px solid transparent" }}
+              >
                 <RevisionDropdown
                   feature={feature}
                   revisions={revisions}

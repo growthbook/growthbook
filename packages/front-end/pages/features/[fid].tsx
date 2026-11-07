@@ -169,6 +169,20 @@ export default function FeaturePage() {
     homeTab: "overview",
   });
 
+  // Its message wraps, so what sticks beneath it reads its real height.
+  const [statusBarEl, setStatusBarEl] = useState<HTMLDivElement | null>(null);
+  const [statusBarHeight, setStatusBarHeight] = useState(
+    REVISION_STATUS_BAR_HEIGHT_PX,
+  );
+  useEffect(() => {
+    if (!statusBarEl) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setStatusBarHeight(entry.borderBoxSize[0].blockSize),
+    );
+    observer.observe(statusBarEl);
+    return () => observer.disconnect();
+  }, [statusBarEl]);
+
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
@@ -191,7 +205,7 @@ export default function FeaturePage() {
   const stickyTop =
     TABS_HEADER_HEIGHT_PX +
     TABS_BAR_HEIGHT_PX +
-    (showsStatusBar ? REVISION_STATUS_BAR_HEIGHT_PX : 0);
+    (showsStatusBar ? statusBarHeight : 0);
   const isReadOnly =
     revision.status === "discarded" ||
     (revision.status === "published" && !viewingLive);
@@ -344,14 +358,16 @@ export default function FeaturePage() {
         setDetailsOpen={details.toggle}
         statusBar={
           showsStatusBar ? (
-            <RevisionStatusBar
-              baseFeature={baseFeature}
-              revision={revision}
-              revisionList={data.revisionList || []}
-              setTab={setTabAndScroll}
-              setVersion={setVersion}
-              mutate={refreshData}
-            />
+            <div ref={setStatusBarEl}>
+              <RevisionStatusBar
+                baseFeature={baseFeature}
+                revision={revision}
+                revisionList={data.revisionList || []}
+                setTab={setTabAndScroll}
+                setVersion={setVersion}
+                mutate={refreshData}
+              />
+            </div>
           ) : null
         }
       />

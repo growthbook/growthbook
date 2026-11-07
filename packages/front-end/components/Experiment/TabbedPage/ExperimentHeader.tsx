@@ -1159,7 +1159,12 @@ export default function ExperimentHeader({
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
                 trigger={
-                  <MoreMenuTrigger label="More actions" size="lg" ml="2" />
+                  <MoreMenuTrigger
+                    label="More actions"
+                    size="lg"
+                    // Above the details toggle, past the row's end.
+                    style={{ marginLeft: 8, marginRight: -16 }}
+                  />
                 }
                 open={dropdownOpen}
                 onOpenChange={(o) => {
