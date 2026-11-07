@@ -1,18 +1,22 @@
 import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
-import { PiInfo } from "react-icons/pi";
+import { SDKAttribute } from "shared/types/organization";
+import { PiInfo, PiMagnifyingGlass } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
+import IdentifierModal from "@/components/Features/IdentifierModal";
 import AttributeRowMenu from "@/components/Features/AttributeRowMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import TextField from "@/ui/TextField";
+import Pagination from "@/ui/Pagination";
+import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import Field from "@/components/Forms/Field";
 import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
 import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
@@ -55,6 +59,10 @@ const RESERVED_FILTER_KEYS = new Set([
   "identifier",
   "tag",
 ]);
+
+const PAGE_SIZE = 10;
+// Same widths as the attributes table's defaults; the row menu column is last.
+const IDENTIFIER_COLUMN_WIDTHS = [200, 360, 170, 130, 130, 130, 40];
 
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
@@ -119,6 +127,41 @@ const ClampedCell: FC<{
   );
 };
 
+const EmptySection: FC<{
+  title: string;
+  body: string;
+  cta: string | null;
+  onClick: () => void;
+}> = ({ title, body, cta, onClick }) => (
+  <Flex
+    direction="column"
+    align="center"
+    gap="2"
+    py="7"
+    px="6"
+    style={{
+      background: "var(--color-panel-solid)",
+      border: "1px solid var(--gray-a5)",
+      borderRadius: "var(--radius-3)",
+      textAlign: "center",
+    }}
+  >
+    <Text weight="semibold" align="center">
+      {title}
+    </Text>
+    <Box style={{ maxWidth: 460 }}>
+      <Text as="div" color="text-low" align="center">
+        {body}
+      </Text>
+    </Box>
+    {cta && (
+      <Box mt="2">
+        <Button onClick={onClick}>{cta}</Button>
+      </Box>
+    )}
+  </Flex>
+);
+
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const { project, projects, getProjectById } = useDefinitions();
@@ -130,6 +173,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
 
   const [modalData, setModalData] = useState<null | string>(null);
+  const [identifierModal, setIdentifierModal] = useState<{
+    existing?: SDKAttribute;
+  } | null>(null);
 
   // Column ids are namespaced `custom:<fieldId>`. Those ids are org-unique, so a
   // saved layout carried into another org just resolves away instead of breaking.
@@ -186,6 +232,19 @@ const FeatureAttributesPage = (): React.ReactElement => {
     [getProjectById, attributeCustomFields],
   );
 
+  const identifiers = useMemo(
+    () =>
+      attributesWithComputedFields
+        .filter((a) => a.hashAttribute)
+        // Creation order, so the org's primary identifier stays first.
+        .map((a, order) => ({ ...a, order })),
+    [attributesWithComputedFields],
+  );
+  const targetingAttributes = useMemo(
+    () => attributesWithComputedFields.filter((a) => !a.hashAttribute),
+    [attributesWithComputedFields],
+  );
+
   // Archived rows are hidden until an `archived:` filter asks for them, mirroring
   // the features list. Synced from the parsed query below, as there.
   const [showArchived, setShowArchived] = useState(false);
@@ -205,12 +264,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
     syntaxFilters,
     isFiltered,
     SortableTableColumnHeader,
-    pagination,
+    unpaginatedItems: sortedAttributes,
+    page: attributePage,
+    setPage: setAttributePage,
   } = useSearch({
-    items: attributesWithComputedFields,
+    items: targetingAttributes,
     localStorageKey: "attributes",
     defaultSortField: "property",
-    pageSize: 50,
+    pageSize: PAGE_SIZE,
     filterResults: archivedFilter,
     searchFields: [
       "property^3",
@@ -231,8 +292,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
       },
       datatype: (item) => item.datatype,
       project: (item) => item.projectNames || [],
-      identifier: (item) =>
-        item.hashAttribute ? ["yes", "true"] : ["no", "false"],
       tag: (item) => item.tags || [],
       // parseQuery lowercases the field, so the filter keys must match.
       ...Object.fromEntries(
@@ -248,10 +307,78 @@ const FeatureAttributesPage = (): React.ReactElement => {
   useEffect(() => {
     setShowArchived(
       syntaxFilters.some(
-        (f) => f.field === "is" && !f.negated && f.values.includes("archived"),
+        (f) =>
+          f.field === "is" &&
+          !f.negated &&
+          f.values.some((v) => v.toLowerCase() === "archived"),
       ),
     );
   }, [syntaxFilters]);
+
+  const { references: identifierReferences } = useAttributeReferences(
+    identifiers.map((i) => i.property),
+  );
+  // Separate from the attributes search, which only filters that table.
+  const [showArchivedIdentifiers, setShowArchivedIdentifiers] = useState(false);
+  const identifierRows = useMemo(
+    () =>
+      identifiers.map((i) => ({
+        ...i,
+        usedIn: identifierReferences?.[i.property]?.experiments.length,
+      })),
+    [identifiers, identifierReferences],
+  );
+  const archivedIdentifierFilter = useMemo(
+    () =>
+      showArchivedIdentifiers
+        ? undefined
+        : (items: typeof identifierRows) => items.filter((i) => !i.archived),
+    [showArchivedIdentifiers],
+  );
+  const {
+    items: pagedIdentifiers,
+    unpaginatedItems: sortedIdentifiers,
+    page: identifierPage,
+    setPage: setIdentifierPage,
+    SortableTableColumnHeader: SortableIdentifierHeader,
+    searchInputProps: identifierSearchInputProps,
+    setSearchValue: setIdentifierSearchValue,
+    syntaxFilters: identifierSyntaxFilters,
+    isFiltered: identifiersFiltered,
+  } = useSearch({
+    items: identifierRows,
+    localStorageKey: "identifiers",
+    defaultSortField: "order",
+    persistSort: false,
+    disableUrlSearchTerm: true,
+    pageSize: PAGE_SIZE,
+    filterResults: archivedIdentifierFilter,
+    searchFields: [
+      "property^3",
+      "description",
+      "datatype",
+      "projectNamesSearch",
+      "tagsSearch",
+    ],
+    searchTermFilters: {
+      is: (item) =>
+        item.archived ? [item.datatype, "archived"] : [item.datatype],
+      datatype: (item) => item.datatype,
+      project: (item) => item.projectNames || [],
+      tag: (item) => item.tags || [],
+    },
+  });
+
+  useEffect(() => {
+    setShowArchivedIdentifiers(
+      identifierSyntaxFilters.some(
+        (f) =>
+          f.field === "is" &&
+          !f.negated &&
+          f.values.some((v) => v.toLowerCase() === "archived"),
+      ),
+    );
+  }, [identifierSyntaxFilters]);
 
   type AttributeRow = (typeof attributesWithComputedFields)[number];
 
@@ -264,32 +391,29 @@ const FeatureAttributesPage = (): React.ReactElement => {
         hideable: false,
         defaultWidth: 200,
         minWidth: 120,
-        cellProps: () => ({ className: "text-gray font-weight-bold" }),
         render: (v, width) => (
-          <>
+          <Flex align="center" gap="2">
             <Link
               href={`/attributes/${encodeURIComponent(v.property)}`}
               style={{ color: "var(--gray-12)" }}
             >
-              <TruncateMiddleWithTooltip
-                text={v.property}
-                maxChars={truncateCharsForWidth(width)}
-                maxWidth="100%"
-              />
-            </Link>{" "}
-            {v.archived && (
-              <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
-                archived
-              </span>
-            )}
-          </>
+              <Text mono weight="medium">
+                <TruncateMiddleWithTooltip
+                  text={v.property}
+                  maxChars={truncateCharsForWidth(width)}
+                  maxWidth="100%"
+                />
+              </Text>
+            </Link>
+            {v.archived && <Badge label="Archived" color="gray" />}
+          </Flex>
         ),
       },
       {
         id: "description",
         label: "Description",
         sortField: "description",
-        defaultWidth: 240,
+        defaultWidth: 360,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
@@ -298,7 +422,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <ClampedCell tooltip={v.description} clampLines={2}>
               <Markdown className="mb-0">{v.description}</Markdown>
             </ClampedCell>
-          ) : null,
+          ) : (
+            <Text color="text-low">—</Text>
+          ),
       },
       {
         id: "datatype",
@@ -365,27 +491,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
               truncateTagChars={15}
             />
           </div>
-        ),
-      },
-      {
-        id: "hashAttribute",
-        label: "Identifier",
-        header: (
-          <>
-            Identifier{" "}
-            <Tooltip
-              body="Any attribute that uniquely identifies a user, account, device, or similar."
-              popperStyle={{ textAlign: "left" }}
-            >
-              <PiInfo style={{ position: "relative", top: "-1px" }} />
-            </Tooltip>
-          </>
-        ),
-        align: "center",
-        defaultWidth: 110,
-        cellProps: () => ({ className: "text-gray" }),
-        render: (v) => (
-          <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
         ),
       },
       // Hidden by default so existing users see no change until they opt in.
@@ -528,139 +633,374 @@ const FeatureAttributesPage = (): React.ReactElement => {
     <>
       <Box className="contents container-fluid pagecontents">
         <Box mb="5">
-          <Flex direction="column" gap="2" mb="3">
-            <Flex justify="between" align="center" mb="1">
-              <Heading as="h1" size="xl">
-                Targeting Attributes
-              </Heading>
-              {canCreateAttributes && (
+          <Heading as="h1" size="xl" mb="2">
+            Attributes
+          </Heading>
+          <Text as="div" color="text-low">
+            The user properties your SDK passes in: identifiers for experiment
+            assignment, and attributes for targeting.
+          </Text>
+        </Box>
+        <Flex direction="column" gap="7" mb="5">
+          <Flex direction="column" gap="3">
+            <Flex justify="between" align="end" gap="3">
+              <Box>
+                <Flex align="center" gap="2" mb="1">
+                  <Heading as="h2" size="md" mb="0">
+                    Identifiers
+                  </Heading>
+                  <Badge label={String(identifiers.length)} color="gray" />
+                </Flex>
+                <Text as="div" color="text-low">
+                  Used to assign users to experiment variations.
+                </Text>
+              </Box>
+              {canCreateAttributes && identifiers.length > 0 && (
+                <Button onClick={() => setIdentifierModal({})}>
+                  Add Identifier
+                </Button>
+              )}
+            </Flex>
+            {identifiers.length > 0 ? (
+              <>
+                <Flex justify="between" gap="3" align="center">
+                  <Box style={{ width: "40%", minWidth: 240 }}>
+                    <TextField
+                      placeholder="Search identifiers"
+                      type="search"
+                      aria-label="Search identifiers"
+                      prepend={<PiMagnifyingGlass aria-hidden="true" />}
+                      {...identifierSearchInputProps}
+                    />
+                  </Box>
+                  <AttributeSearchFilters
+                    attributes={identifiers}
+                    searchInputProps={identifierSearchInputProps}
+                    setSearchValue={setIdentifierSearchValue}
+                    syntaxFilters={identifierSyntaxFilters}
+                    noun="identifiers"
+                  />
+                </Flex>
+                <Table
+                  variant="list"
+                  roundedCorners
+                  layout="fixed"
+                  scrollX
+                  minTableWidth={IDENTIFIER_COLUMN_WIDTHS.reduce(
+                    (sum, w) => sum + w,
+                    0,
+                  )}
+                >
+                  <colgroup>
+                    {/* The spacer takes the leftover so description doesn't. */}
+                    {IDENTIFIER_COLUMN_WIDTHS.slice(0, -1).map((w, i) => (
+                      <col key={i} style={{ width: w }} />
+                    ))}
+                    <col />
+                    <col style={{ width: IDENTIFIER_COLUMN_WIDTHS.at(-1) }} />
+                  </colgroup>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableIdentifierHeader field="property">
+                        Identifier
+                      </SortableIdentifierHeader>
+                      <SortableIdentifierHeader field="description">
+                        Description
+                      </SortableIdentifierHeader>
+                      <SortableIdentifierHeader field="datatype">
+                        Data Type
+                      </SortableIdentifierHeader>
+                      <TableColumnHeader>Projects</TableColumnHeader>
+                      <TableColumnHeader>Tags</TableColumnHeader>
+                      <SortableIdentifierHeader field="usedIn">
+                        Used in
+                      </SortableIdentifierHeader>
+                      <TableColumnHeader />
+                      <TableColumnHeader />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pagedIdentifiers.map((v) => {
+                      const experiments = v.usedIn;
+                      return (
+                        <TableRow key={v.property}>
+                          <TableCell>
+                            <Flex align="center" gap="2">
+                              <Link
+                                href={`/attributes/${encodeURIComponent(v.property)}`}
+                                style={{ color: "var(--gray-12)" }}
+                              >
+                                <Text mono weight="medium">
+                                  <TruncateMiddleWithTooltip
+                                    text={v.property}
+                                    maxChars={truncateCharsForWidth(200)}
+                                    maxWidth="100%"
+                                  />
+                                </Text>
+                              </Link>
+                              {v.archived && (
+                                <Badge label="Archived" color="gray" />
+                              )}
+                            </Flex>
+                          </TableCell>
+                          <TableCell>
+                            {v.description ? (
+                              <ClampedCell
+                                tooltip={v.description}
+                                clampLines={2}
+                              >
+                                <Markdown className="mb-0">
+                                  {v.description}
+                                </Markdown>
+                              </ClampedCell>
+                            ) : (
+                              <Text color="text-low">—</Text>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Text color="text-mid">{v.datatype}</Text>
+                          </TableCell>
+                          <TableCell>
+                            <ProjectBadges
+                              resourceType="attribute"
+                              projectIds={
+                                (v.projects || []).length > 0
+                                  ? v.projects
+                                  : undefined
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div
+                              className="tags-cell-content"
+                              style={{
+                                minWidth: 0,
+                                maxWidth: "100%",
+                                overflow: "hidden",
+                              }}
+                            >
+                              <SortedTags
+                                tags={v.tags || []}
+                                useFlex={true}
+                                maxVisibleTags={1}
+                                truncateTagChars={15}
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {experiments === undefined ? null : experiments ===
+                              0 ? (
+                              <Text color="text-low">Not used</Text>
+                            ) : (
+                              <Text color="text-mid">
+                                {experiments}{" "}
+                                {experiments === 1
+                                  ? "experiment"
+                                  : "experiments"}
+                              </Text>
+                            )}
+                          </TableCell>
+                          <TableCell />
+                          <TableCell
+                            style={{ paddingLeft: 4, paddingRight: 4 }}
+                          >
+                            <Flex justify="center">
+                              <AttributeRowMenu
+                                attribute={v}
+                                onEdit={() =>
+                                  setIdentifierModal({ existing: v })
+                                }
+                              />
+                            </Flex>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {pagedIdentifiers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8}>
+                          <Text color="text-low">
+                            {identifiersFiltered
+                              ? "No identifiers match this search."
+                              : "All identifiers are archived. Show them with More > Archived identifiers."}
+                          </Text>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                {sortedIdentifiers.length > PAGE_SIZE && (
+                  <Box mt="3">
+                    <Pagination
+                      numItemsTotal={sortedIdentifiers.length}
+                      perPage={PAGE_SIZE}
+                      currentPage={identifierPage}
+                      onPageChange={setIdentifierPage}
+                    />
+                  </Box>
+                )}
+              </>
+            ) : (
+              <EmptySection
+                title="No identifiers yet"
+                body="Experiments need at least one identifier, such as a user ID or device ID, to assign variations consistently."
+                cta={canCreateAttributes ? "Add Identifier" : null}
+                onClick={() => setIdentifierModal({})}
+              />
+            )}
+          </Flex>
+
+          <Flex direction="column" gap="3">
+            <Flex justify="between" align="end" gap="3">
+              <Box>
+                <Flex align="center" gap="2" mb="1">
+                  <Heading as="h2" size="md" mb="0">
+                    Targeting Attributes
+                  </Heading>
+                  <Badge
+                    label={String(targetingAttributes.length)}
+                    color="gray"
+                  />
+                </Flex>
+                <Text as="div" color="text-low">
+                  Used in targeting conditions for feature flags and
+                  experiments. Attributes must also be passed in through the
+                  SDK.
+                </Text>
+              </Box>
+              {canCreateAttributes && targetingAttributes.length > 0 && (
                 <Button onClick={() => setModalData("")}>Add Attribute</Button>
               )}
             </Flex>
-            <Text as="p" color="text-low">
-              These attributes can be used when targeting feature flags and
-              experiments. Attributes set here must also be passed in through
-              the SDK.
-            </Text>
-          </Flex>
-          {attributeSchema?.length > 0 && (
-            <Box mb="3">
-              <Flex justify="between" gap="3" align="center">
-                <Box
-                  className="relative"
-                  style={{ width: "40%", minWidth: 240 }}
-                >
-                  <Field
-                    size="legacy"
-                    placeholder="Search..."
-                    type="search"
-                    {...searchInputProps}
-                  />
+            {targetingAttributes.length > 0 ? (
+              <Box>
+                <Box mb="3">
+                  <Flex justify="between" gap="3" align="center">
+                    <Box style={{ width: "40%", minWidth: 240 }}>
+                      <TextField
+                        placeholder="Search attributes"
+                        type="search"
+                        aria-label="Search attributes"
+                        prepend={<PiMagnifyingGlass aria-hidden="true" />}
+                        {...searchInputProps}
+                      />
+                    </Box>
+                    <AttributeSearchFilters
+                      attributes={targetingAttributes}
+                      searchInputProps={searchInputProps}
+                      setSearchValue={setSearchValue}
+                      syntaxFilters={syntaxFilters}
+                      customFields={filterableCustomFields}
+                    />
+                  </Flex>
                 </Box>
-                <AttributeSearchFilters
-                  attributes={attributesWithComputedFields}
-                  searchInputProps={searchInputProps}
-                  setSearchValue={setSearchValue}
-                  syntaxFilters={syntaxFilters}
-                  customFields={filterableCustomFields}
-                />
-              </Flex>
-            </Box>
-          )}
-          <Table
-            variant="list"
-            stickyHeader
-            roundedCorners
-            layout="fixed"
-            scrollX
-            stickyLastColumn
-            minTableWidth={minTableWidth}
-          >
-            <ColGroup />
-            <TableHeader>
-              <TableRow>
-                {visibleColumns.map((col) =>
-                  col.sortField ? (
-                    <SortableTableColumnHeader
-                      key={col.id}
-                      field={col.sortField}
-                      className={col.headerProps?.className}
-                      style={{
-                        textAlign: col.align,
-                        ...col.headerProps?.style,
-                      }}
-                      endAdornment={renderResizeHandle(col)}
-                    >
-                      {renderHeader(col)}
-                    </SortableTableColumnHeader>
-                  ) : (
-                    <TableColumnHeader
-                      key={col.id}
-                      className={col.headerProps?.className}
-                      style={{
-                        textAlign: col.align,
-                        ...col.headerProps?.style,
-                      }}
-                    >
-                      {renderHeader(col)}
-                      {renderResizeHandle(col)}
-                    </TableColumnHeader>
-                  ),
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {attributeSchema?.length > 0 ? (
-                <>
-                  {filteredAttributes.map((v) => (
-                    <TableRow
-                      className={v.archived ? "disabled" : ""}
-                      key={"attr-row-" + v.property}
-                    >
-                      {visibleColumns.map((col) => {
-                        const { className, style } = col.cellProps?.(v) ?? {};
-                        return (
-                          <TableCell
-                            key={col.id}
-                            className={className}
-                            style={style}
-                          >
-                            {col.render(v, col.width)}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                  {!filteredAttributes.length && isFiltered && (
+                <Table
+                  variant="list"
+                  stickyHeader
+                  roundedCorners
+                  layout="fixed"
+                  scrollX
+                  stickyLastColumn
+                  minTableWidth={minTableWidth}
+                >
+                  <ColGroup />
+                  <TableHeader>
                     <TableRow>
-                      <TableCell
-                        colSpan={colSpan}
-                        className="text-center text-gray"
-                      >
-                        No matching attributes found.
-                      </TableCell>
+                      {visibleColumns.map((col) =>
+                        col.sortField ? (
+                          <SortableTableColumnHeader
+                            key={col.id}
+                            field={col.sortField}
+                            className={col.headerProps?.className}
+                            style={{
+                              textAlign: col.align,
+                              ...col.headerProps?.style,
+                            }}
+                            endAdornment={renderResizeHandle(col)}
+                          >
+                            {renderHeader(col)}
+                          </SortableTableColumnHeader>
+                        ) : (
+                          <TableColumnHeader
+                            key={col.id}
+                            className={col.headerProps?.className}
+                            style={{
+                              textAlign: col.align,
+                              ...col.headerProps?.style,
+                            }}
+                          >
+                            {renderHeader(col)}
+                            {renderResizeHandle(col)}
+                          </TableColumnHeader>
+                        ),
+                      )}
                     </TableRow>
-                  )}
-                </>
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={colSpan}
-                    className="text-center text-gray"
-                  >
-                    <em>No attributes defined.</em>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          {pagination}
-        </Box>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAttributes.map((v) => (
+                      <TableRow key={"attr-row-" + v.property}>
+                        {visibleColumns.map((col) => {
+                          const { className, style } = col.cellProps?.(v) ?? {};
+                          return (
+                            <TableCell
+                              key={col.id}
+                              className={className}
+                              style={style}
+                            >
+                              {col.render(v, col.width)}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                    {!filteredAttributes.length && isFiltered && (
+                      <TableRow>
+                        <TableCell colSpan={colSpan}>
+                          <Text color="text-low">
+                            No attributes match this search.
+                          </Text>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                {sortedAttributes.length > PAGE_SIZE && (
+                  <Box mt="3">
+                    <Pagination
+                      numItemsTotal={sortedAttributes.length}
+                      perPage={PAGE_SIZE}
+                      currentPage={attributePage}
+                      onPageChange={setAttributePage}
+                    />
+                  </Box>
+                )}
+              </Box>
+            ) : (
+              <EmptySection
+                title="No targeting attributes yet"
+                body="Add the user properties your SDK passes in, like country, plan, or browser, to use them in targeting conditions."
+                cta={canCreateAttributes ? "Add Attribute" : null}
+                onClick={() => setModalData("")}
+              />
+            )}
+          </Flex>
+        </Flex>
       </Box>
       {modalData !== null && (
         <AttributeModal
           close={() => setModalData(null)}
-          attribute={modalData}
+          attribute={modalData || undefined}
+          onAddIdentifier={() => {
+            setModalData(null);
+            setIdentifierModal({});
+          }}
+        />
+      )}
+      {identifierModal && (
+        <IdentifierModal
+          source="attributes-page"
+          existing={identifierModal.existing}
+          close={() => setIdentifierModal(null)}
         />
       )}
     </>

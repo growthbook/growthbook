@@ -487,14 +487,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/AttributeModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "packages/front-end/components/Features/CodeSnippetModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1678,11 +1670,6 @@
   },
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/attributes.tsx": {
-    "no-restricted-syntax": {
       "count": 1
     }
   },

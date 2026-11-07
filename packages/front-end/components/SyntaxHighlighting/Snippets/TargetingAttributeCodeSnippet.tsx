@@ -5,18 +5,39 @@ import { SDKAttributeSchema } from "shared/types/organization";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
-import Code from "@/components/SyntaxHighlighting/Code";
+import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import { DocLink } from "@/components/DocLink";
 
-function phpArrayFormat(json: unknown) {
-  return stringify(json)
-    .replace(/\{/g, "[")
-    .replace(/\}/g, "]")
-    .replace(/:/g, " =>");
+function phpArrayFormat(json: string) {
+  return json.replace(/\{/g, "[").replace(/\}/g, "]").replace(/:/g, " =>");
 }
 
-function swiftArrayFormat(json: unknown) {
-  return stringify(json).replace(/\{/, "[").replace(/\}/g, "]");
+function swiftArrayFormat(json: string) {
+  return json.replace(/\{/g, "[").replace(/\}/g, "]");
+}
+
+// Nested attribute values as literals in languages where JSON isn't valid code.
+// Scalars and arrays stay JSON, as before.
+function nestedLiteral(
+  value: unknown,
+  language: "kotlin" | "java" | "csharp" | "elixir",
+): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+  const entries = Object.entries(value).map(
+    ([k, v]) => [JSON.stringify(k), nestedLiteral(v, language)] as const,
+  );
+  switch (language) {
+    case "kotlin":
+      return `mapOf(${entries.map(([k, v]) => `${k} to ${v}`).join(", ")})`;
+    case "java":
+      return `new JSONObject()${entries.map(([k, v]) => `.put(${k}, ${v})`).join("")}`;
+    case "csharp":
+      return `new JObject { ${entries.map(([k, v]) => `[${k}] = ${v}`).join(", ")} }`;
+    case "elixir":
+      return `%{${entries.map(([k, v]) => `${k} => ${v}`).join(", ")}}`;
+  }
 }
 
 function indentLines(code: string, indent: number | string = 2) {
@@ -30,14 +51,15 @@ function replaceAttributeValues(
 ) {
   Object.entries(values).forEach(([key, value]) => {
     attributesStr = attributesStr.replace(
-      new RegExp(`"${key}": [^\n,]+`, "g"),
+      // Scalars only: a nested object or array keeps its own lines.
+      new RegExp(`"${key}": (?![{\\[])[^\n,]+`, "g"),
       `"${key}": ${value}`,
     );
   });
   return attributesStr;
 }
 
-function getExampleAttributes({
+export function getExampleAttributes({
   attributeSchema,
   hashSecureAttributes = false,
   secureAttributeSalt = "",
@@ -86,6 +108,285 @@ function getExampleAttributes({
   return exampleAttributes;
 }
 
+export type SetAttributesCodeSnippet = {
+  code: string;
+  language: Language;
+  filename?: string;
+};
+
+// The SDK call that sets `attributes`, or null for SDKs that set them another
+// way (no-code script tags, edge workers). `onePerLine` keeps every attribute
+// on its own line so a single one can be highlighted.
+export function getSetAttributesCode(
+  language: SDKLanguage,
+  exampleAttributes: Record<string, unknown>,
+  {
+    version,
+    onePerLine = false,
+  }: { version?: string; onePerLine?: boolean } = {},
+): SetAttributesCodeSnippet | null {
+  const format = (json: unknown) =>
+    stringify(json, onePerLine ? { maxLength: 0 } : undefined);
+
+  if (language === "javascript" || language === "react") {
+    return {
+      language: "javascript",
+      code: `growthbook.setAttributes(${format(exampleAttributes)});`,
+    };
+  }
+  if (language === "nodejs") {
+    const useMultiUser =
+      paddedVersionString(version) >= paddedVersionString("1.3.1");
+
+    if (useMultiUser) {
+      const attributes = replaceAttributeValues(format(exampleAttributes), {
+        id: "req.user.id",
+        email: "req.user.email",
+        url: "req.originalUrl",
+        path: "req.path",
+        host: "req.hostname",
+        query: "req.query",
+      });
+      return {
+        language: "javascript",
+        code: `
+app.use((req, res, next) => {
+  const userContext = {
+    attributes: ${indentLines(attributes, 4)}
+  }
+  
+  req.growthbook = client.createScopedInstance(userContext);
+});
+          `.trim(),
+      };
+    }
+    return {
+      language: "javascript",
+      code: `
+app.use(function(req, res, next) {
+  req.growthbook.setAttributes(${indentLines(format(exampleAttributes), 2)});
+  next();
+})
+`.trim(),
+    };
+  }
+  if (language === "nextjs") {
+    return {
+      language: "typescript",
+      filename: "lib/identify.ts",
+      code: `
+import type { Attributes } from '@flags-sdk/growthbook';
+import type { Identify } from 'flags';
+import { dedupe } from 'flags/next';
+
+export const identify = dedupe(async () => {
+  // Your own logic to identify the user
+  const user = await getUser(headers, cookies);
+
+  return ${indentLines(format(exampleAttributes), 2)};
+}) satisfies Identify<Attributes>;
+`.trim(),
+    };
+  }
+  if (language === "android") {
+    return {
+      language: "kotlin",
+      code: `
+val attrs = HashMap<String, Any>()
+${Object.keys(exampleAttributes)
+  .map((k) => {
+    return `attrs.put("${k}", ${nestedLiteral(exampleAttributes[k], "kotlin")})`;
+  })
+  .join("\n")}
+
+gb.setAttributes(attrs)
+`.trim(),
+    };
+  }
+  if (language === "ios") {
+    return {
+      language: "swift",
+      code: `
+var attrs = ${swiftArrayFormat(format(exampleAttributes))}
+gb.setAttributes(attrs)
+    `.trim(),
+    };
+  }
+  if (language === "go") {
+    return {
+      language: "go",
+      code: `
+data := []byte(\`${JSON.stringify(exampleAttributes, null, " ")}\`)
+var jsonMap map[string]any
+if err := json.Unmarshal(data, &jsonMap); err != nil {
+  log.Fatal("Invalid JSON")
+}
+client,err := client.WithAttributes(gb.Attributes(jsonMap))
+        `.trim(),
+    };
+  }
+  if (language === "ruby") {
+    return {
+      language: "ruby",
+      code: `gb.attributes=${format(exampleAttributes).replace(
+        /: null/g,
+        ": nil",
+      )}`,
+    };
+  }
+  if (language === "php") {
+    return {
+      language: "php",
+      code: `$growthbook->withAttributes(${phpArrayFormat(
+        format(exampleAttributes),
+      )});`,
+    };
+  }
+  if (language === "python") {
+    return {
+      language: "python",
+      code: `gb.set_attributes(${format(exampleAttributes)
+        .replace(/: true/g, ": True")
+        .replace(/: false/g, ": False")
+        .replace(/: null/g, ": None")})`,
+    };
+  }
+  if (language === "java") {
+    return {
+      language: "java",
+      code: `
+JSONObject userAttributesObj = new JSONObject();
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `userAttributesObj.put(${JSON.stringify(key)}, ${nestedLiteral(
+      value,
+      "java",
+    )});`;
+  })
+  .join("\n")}
+String userAttributesJson = userAttributesObj.toString();
+growthBook.setAttributes(userAttributesJson);
+            `.trim(),
+    };
+  }
+  if (language === "flutter") {
+    return {
+      language: "dart",
+      code: `
+val attrs = HashMap<String, Any>()
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `attrs.put(${JSON.stringify(key)}, ${JSON.stringify(value)})`;
+  })
+  .join("\n")}
+gb.setAttributes(attrs);
+`.trim(),
+    };
+  }
+  if (language === "csharp") {
+    return {
+      language: "csharp",
+      code: `
+var attrs = new JObject();
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `attrs.Add(${JSON.stringify(key)}, ${nestedLiteral(value, "csharp")});`;
+  })
+  .join("\n")}
+gb.SetAttributes(attrs);
+    `.trim(),
+    };
+  }
+  if (language === "elixir") {
+    return {
+      language: "elixir",
+      code: `
+attrs = %{
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `  ${JSON.stringify(key)} => ${nestedLiteral(value, "elixir")}`;
+  })
+  .join(",\n")}
+}
+
+context = %GrowthBook.Context{
+  features: features,
+  attributes: attrs
+}
+          `.trim(),
+    };
+  }
+  return null;
+}
+
+// Go is left out: its attributes sit in a JSON string, which can't hold a comment.
+const LINE_COMMENT: Partial<Record<Language, string>> = {
+  javascript: "//",
+  typescript: "//",
+  kotlin: "//",
+  swift: "//",
+  java: "//",
+  csharp: "//",
+  dart: "//",
+  php: "//",
+  python: "#",
+  ruby: "#",
+  elixir: "#",
+};
+
+// Sets only `property`, with a comment standing in for the attributes the app
+// already sets. `highlightLine` is the 1-based line `property` is on.
+export function getAddAttributeCode(
+  language: SDKLanguage,
+  property: string,
+  {
+    version,
+    value = "foo",
+    nested = false,
+  }: {
+    version?: string;
+    value?: unknown;
+    // Targeting reads dotted names as nested paths, but experiment assignment
+    // reads the hash attribute as a literal key, so identifiers stay flat.
+    nested?: boolean;
+  } = {},
+): { snippet: SetAttributesCodeSnippet; highlightLine: number } | null {
+  const path = nested ? property.split(".") : [property];
+  const attributes = path.reduceRight<unknown>(
+    (inner, key) => ({ [key]: inner }),
+    value,
+  );
+  const snippet = getSetAttributesCode(
+    language,
+    attributes as Record<string, unknown>,
+    { version, onePerLine: true },
+  );
+  if (!snippet) return null;
+
+  const lines = snippet.code.split("\n");
+  const index = lines.findIndex((line) =>
+    line.includes(JSON.stringify(path[0])),
+  );
+  const leaf =
+    index === -1
+      ? -1
+      : lines.findIndex(
+          (line, i) =>
+            i >= index && line.includes(JSON.stringify(path[path.length - 1])),
+        );
+  const comment = LINE_COMMENT[snippet.language];
+  if (index === -1 || !comment) {
+    return { snippet, highlightLine: leaf + 1 };
+  }
+
+  const indent = lines[index].match(/^\s*/)?.[0] ?? "";
+  lines.splice(index, 0, `${indent}${comment} ...your other attributes`);
+  return {
+    snippet: { ...snippet, code: lines.join("\n") },
+    highlightLine: leaf + 2,
+  };
+}
+
 export default function TargetingAttributeCodeSnippet({
   language,
   hashSecureAttributes = false,
@@ -129,6 +430,17 @@ export default function TargetingAttributeCodeSnippet({
 
   const attributesSnippets: JSX.Element[] = [];
 
+  const setAttributesCode = getSetAttributesCode(language, exampleAttributes, {
+    version,
+  });
+  const setAttributesSnippet = setAttributesCode ? (
+    <Code
+      language={setAttributesCode.language}
+      filename={setAttributesCode.filename}
+      code={setAttributesCode.code}
+    />
+  ) : null;
+
   // Start of the Language Specific Snippets
   if (language === "javascript" || language === "react") {
     const usePlugins =
@@ -169,15 +481,8 @@ export default function TargetingAttributeCodeSnippet({
           </>,
         );
       }
-    } else {
-      attributesSnippets.push(
-        <>
-          <Code
-            language="javascript"
-            code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
-          />
-        </>,
-      );
+    } else if (setAttributesSnippet) {
+      attributesSnippets.push(setAttributesSnippet);
     }
 
     if (eventTracker === "mixpanel") {
@@ -306,240 +611,11 @@ window.growthbook_config.attributes = ${stringify(
     }
   }
 
-  if (language === "nodejs") {
-    const useMultiUser =
-      paddedVersionString(version) >= paddedVersionString("1.3.1");
-
-    const attributes = replaceAttributeValues(stringify(exampleAttributes), {
-      id: "req.user.id",
-      email: "req.user.email",
-      url: "req.originalUrl",
-      path: "req.path",
-      host: "req.hostname",
-      query: "req.query",
-    });
-
-    if (useMultiUser) {
-      attributesSnippets.push(
-        <>
-          <Code
-            language="javascript"
-            code={`
-app.use((req, res, next) => {
-  const userContext = {
-    attributes: ${indentLines(attributes, 4)}
-  }
-  
-  req.growthbook = client.createScopedInstance(userContext);
-});
-          `.trim()}
-          />
-        </>,
-      );
-    } else {
-      attributesSnippets.push(
-        <>
-          <Code
-            language="javascript"
-            code={`
-app.use(function(req, res, next) {
-  req.growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
-  next();
-})
-`.trim()}
-          />
-        </>,
-      );
-    }
-  }
-  if (language === "nextjs") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="typescript"
-          filename="lib/identify.ts"
-          code={`
-import type { Attributes } from '@flags-sdk/growthbook';
-import type { Identify } from 'flags';
-import { dedupe } from 'flags/next';
-
-export const identify = dedupe(async () => {
-  // Your own logic to identify the user
-  const user = await getUser(headers, cookies);
-
-  return ${indentLines(stringify(exampleAttributes), 2)};
-}) satisfies Identify<Attributes>;
-`.trim()}
-        />
-      </>,
-    );
-  }
-  if (language === "android") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="kotlin"
-          code={`
-val attrs = HashMap<String, Any>()
-${Object.keys(exampleAttributes)
-  .map((k) => {
-    return `attrs.put("${k}", ${JSON.stringify(exampleAttributes[k])})`;
-  })
-  .join("\n")}
-
-gb.setAttributes(attrs)
-`.trim()}
-        />
-      </>,
-    );
-  }
-  if (language === "ios") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="swift"
-          code={`
-var attrs = ${swiftArrayFormat(exampleAttributes)}
-gb.setAttributes(attrs)
-    `.trim()}
-        />
-      </>,
-    );
-  }
-  if (language === "go") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="go"
-          code={`
-data := []byte(\`${JSON.stringify(exampleAttributes, null, " ")}\`)
-var jsonMap map[string]any
-if err := json.Unmarshal(data, &jsonMap); err != nil {
-  log.Fatal("Invalid JSON")
-}
-client,err := client.WithAttributes(gb.Attributes(jsonMap))
-        `.trim()}
-        />
-      </>,
-    );
-  }
-  if (language === "ruby") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="ruby"
-          code={`gb.attributes=${stringify(exampleAttributes).replace(
-            /: null/g,
-            ": nil",
-          )}`}
-        />
-      </>,
-    );
-  }
-  if (language === "php") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="php"
-          code={`$growthbook->withAttributes(${phpArrayFormat(
-            exampleAttributes,
-          )});`}
-        />
-      </>,
-    );
-  }
-  if (language === "python") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="python"
-          code={`gb.set_attributes(${stringify(exampleAttributes)
-            .replace(/: true/g, ": True")
-            .replace(/: false/g, ": False")
-            .replace(/: null/g, ": None")})`}
-        />
-      </>,
-    );
-  }
-  if (language === "java") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="java"
-          code={`
-JSONObject userAttributesObj = new JSONObject();
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
-      value,
-    )});`;
-  })
-  .join("\n")}
-String userAttributesJson = userAttributesObj.toString();
-growthBook.setAttributes(userAttributesJson);
-            `.trim()}
-        />
-      </>,
-    );
-  }
-  if (language === "flutter") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="dart"
-          code={`
-val attrs = HashMap<String, Any>()
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `attrs.put(${JSON.stringify(key)}, ${JSON.stringify(value)})`;
-  })
-  .join("\n")}
-gb.setAttributes(attrs);
-`.trim()}
-        />
-      </>,
-    );
-  }
-  if (language === "csharp") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="csharp"
-          code={`
-var attrs = new JObject();
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `attrs.Add(${JSON.stringify(key)}, ${JSON.stringify(value)});`;
-  })
-  .join("\n")}
-gb.SetAttributes(attrs);
-    `.trim()}
-        />
-      </>,
-    );
-  }
-  if (language === "elixir") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="elixir"
-          code={`
-attrs = %{
-${Object.entries(exampleAttributes)
-  .map(([key, value]) => {
-    return `  ${JSON.stringify(key)} => ${JSON.stringify(value)}`;
-  })
-  .join(",\n")}
-}
-
-context = %GrowthBook.Context{
-  features: features,
-  attributes: attrs
-}
-          `.trim()}
-        />
-      </>,
-    );
+  if (
+    !(language === "javascript" || language === "react") &&
+    setAttributesSnippet
+  ) {
+    attributesSnippets.push(setAttributesSnippet);
   }
 
   if (introText) {

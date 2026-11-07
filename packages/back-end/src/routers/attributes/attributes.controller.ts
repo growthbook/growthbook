@@ -1,6 +1,13 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import { extractConditionAttributeKeys } from "shared/util";
+import { DataSourceInterface, UserIdType } from "shared/types/datasource";
+import {
+  addAttributeToUserIdTypes,
+  extractConditionAttributeKeys,
+  isValidUserIdTypeName,
+  renameAttributeInUserIdTypes,
+  USER_ID_TYPE_NAME_RULE,
+} from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { parseIdsQuery } from "back-end/src/util/validation";
@@ -12,20 +19,30 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
+import { logger } from "back-end/src/util/logger";
+import { usingFileConfig } from "back-end/src/init/config";
+import {
+  _dangerourslyGetAllDatasourcesByOrganizations,
+  getDataSourcesByIds,
+  updateDataSource,
+} from "back-end/src/models/DataSourceModel";
+import { getEventForwarderForDatasource } from "back-end/src/services/eventForwarder/config";
+import { ReqContext } from "back-end/types/request";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSectionAndProjects,
 } from "back-end/src/util/custom-fields";
-export const postAttribute = async (
-  req: AuthRequest<SDKAttribute>,
-  res: Response<{ status: number }>,
-) => {
-  const { tags = [], ...attributeFields } = req.body;
-  const context = getContextFromReq(req);
+import {
+  IdentifierLink,
+  PostIdentifierBody,
+  PutIdentifierBody,
+} from "./attributes.validators";
 
-  if (!context.permissions.canCreateAttribute({ ...req.body })) {
-    context.permissions.throwPermissionError();
-  }
+async function createAttribute(
+  req: AuthRequest<unknown>,
+  context: ReqContext,
+  { tags = [], ...attributeFields }: SDKAttribute,
+) {
   const { org } = context;
 
   const attributeSchema = org.settings?.attributeSchema || [];
@@ -81,8 +98,264 @@ export const postAttribute = async (
       { settings: { attributeSchema: updatedAttributeSchema } },
     ),
   });
+}
+
+export const postAttribute = async (
+  req: AuthRequest<SDKAttribute>,
+  res: Response<{ status: number }>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canCreateAttribute({ ...req.body })) {
+    context.permissions.throwPermissionError();
+  }
+
+  await createAttribute(req, context, req.body);
+
   return res.status(200).json({
     status: 200,
+  });
+};
+
+// Checks every Data Source before anything is written, so a bad link doesn't
+// leave the attribute saved without it.
+async function getIdentifierLinkTargets(
+  context: ReqContext,
+  links: IdentifierLink[],
+) {
+  if (links.length > 0 && usingFileConfig()) {
+    context.throwBadRequestError(
+      "Data Sources are managed by config.yml and can't be updated here",
+    );
+  }
+
+  const datasources = await getDataSourcesByIds(
+    context,
+    links.map(({ id }) => id),
+  );
+  return Promise.all(
+    links.map(async ({ id, userIdType }) => {
+      const datasource = datasources.find((d) => d.id === id);
+      if (!datasource) {
+        return context.throwNotFoundError(`Data Source ${id} not found`);
+      }
+      if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+        context.permissions.throwPermissionError();
+      }
+      if (!isValidUserIdTypeName(userIdType)) {
+        context.throwBadRequestError(
+          `Invalid identifier type "${userIdType}" for ${datasource.name}. ${USER_ID_TYPE_NAME_RULE}`,
+        );
+      }
+      // These already sync their identifier types from the attribute schema.
+      if (await syncsIdentifiersAutomatically(context, datasource)) {
+        context.throwBadRequestError(
+          `${datasource.name} updates its identifiers automatically`,
+        );
+      }
+      // Its event tables have a fixed set of columns, so a new type would
+      // point at a column that doesn't exist.
+      if (
+        datasource.type === "growthbook_clickhouse" &&
+        !datasource.settings?.userIdTypes?.some(
+          (t) => t.userIdType === userIdType,
+        )
+      ) {
+        context.throwBadRequestError(
+          `${datasource.name} can only link to its existing identifier types`,
+        );
+      }
+      return { datasource, userIdType };
+    }),
+  );
+}
+
+async function syncsIdentifiersAutomatically(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+) {
+  // Managed Warehouses without JSON columns keep the types they were created with.
+  return (
+    (datasource.type === "growthbook_clickhouse" &&
+      !!datasource.settings?.useJsonColumns) ||
+    !!(await getEventForwarderForDatasource(context, datasource.id))
+  );
+}
+
+// The attribute is already saved when this runs, so it reports the Data
+// Sources that fail instead of failing the whole request.
+async function updateUserIdTypes(
+  context: ReqContext,
+  updates: {
+    datasource: DataSourceInterface;
+    update: (userIdTypes: UserIdType[]) => UserIdType[];
+  }[],
+): Promise<string[]> {
+  const failed: string[] = [];
+  for (const { datasource, update } of updates) {
+    try {
+      await updateDataSource(context, datasource, {
+        settings: {
+          ...datasource.settings,
+          userIdTypes: update(datasource.settings?.userIdTypes ?? []),
+        },
+      });
+    } catch (e) {
+      logger.error(e, "Failed to update identifier types in Data Source");
+      failed.push(datasource.name);
+    }
+  }
+  return failed;
+}
+
+export const postIdentifier = async (
+  req: AuthRequest<PostIdentifierBody>,
+  res: Response<{ status: number; failedDatasources: string[] }>,
+) => {
+  const { datasources: links, customFields, ...attributeFields } = req.body;
+  const { property, description } = attributeFields;
+  const context = getContextFromReq(req);
+
+  // Always set, so required custom fields are validated even when none were sent.
+  const attribute: SDKAttribute = {
+    ...attributeFields,
+    customFields: customFields ?? {},
+    hashAttribute: true,
+  };
+  if (!context.permissions.canCreateAttribute(attribute)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const targets = await getIdentifierLinkTargets(context, links);
+
+  await createAttribute(req, context, attribute);
+
+  const failedDatasources = await updateUserIdTypes(
+    context,
+    targets.map(({ datasource, userIdType }) => ({
+      datasource,
+      update: (types) =>
+        addAttributeToUserIdTypes(types, userIdType, property, description),
+    })),
+  );
+
+  return res.status(200).json({
+    status: 200,
+    failedDatasources,
+  });
+};
+
+// Links can only be added here. Changing or removing one happens on the Data
+// Source, since queries may already depend on it.
+export const putIdentifier = async (
+  req: AuthRequest<PutIdentifierBody>,
+  res: Response<{ status: number; failedDatasources: string[] }>,
+) => {
+  const { datasources: links, ...attributeFields } = req.body;
+  const { property, previousName, description } = attributeFields;
+  const context = getContextFromReq(req);
+
+  const existing = context.org.settings?.attributeSchema?.find(
+    (a) => a.property === (previousName ?? property),
+  );
+  if (!existing) {
+    return context.throwNotFoundError("Attribute not found");
+  }
+  if (!existing.hashAttribute) {
+    context.throwBadRequestError(`${existing.property} isn't an identifier`);
+  }
+
+  const targets = await getIdentifierLinkTargets(context, links);
+
+  // Links point at the attribute by name, so a rename moves them along.
+  const renamedFrom =
+    previousName && previousName !== property ? previousName : null;
+  const renamed: DataSourceInterface[] = [];
+  if (renamedFrom && !usingFileConfig()) {
+    // Includes Data Sources the user can't read, whose links would otherwise
+    // keep the old name without anyone noticing.
+    for (const d of await _dangerourslyGetAllDatasourcesByOrganizations([
+      context.org.id,
+    ])) {
+      if (
+        d.settings?.userIdTypes?.some((t) =>
+          t.attributes?.includes(renamedFrom),
+        ) &&
+        !(await syncsIdentifiersAutomatically(context, d))
+      ) {
+        renamed.push(d);
+      }
+    }
+  }
+  // Renaming without moving every link would leave those links pointing at a
+  // name that no longer exists.
+  if (
+    renamed.some(
+      (d) => !context.permissions.canReadMultiProjectResource(d.projects),
+    )
+  ) {
+    context.throwBadRequestError(
+      `Can't rename ${renamedFrom}: it's linked in a Data Source you don't have access to`,
+    );
+  }
+  const locked = renamed.filter(
+    (d) => !context.permissions.canUpdateDataSourceSettings(d),
+  );
+  if (locked.length > 0) {
+    context.throwBadRequestError(
+      `Can't rename ${renamedFrom}: it's linked in ${locked
+        .map((d) => d.name)
+        .join(", ")}, which you don't have permission to edit`,
+    );
+  }
+
+  await updateAttribute(req, context, {
+    ...attributeFields,
+    hashAttribute: true,
+    // String-only settings would otherwise survive a change to number and
+    // keep restricting its targeting operators.
+    ...(attributeFields.datatype !== "string" && {
+      format: "",
+      disableEqualityConditions: false,
+    }),
+  });
+
+  const updates = new Map<
+    string,
+    {
+      datasource: DataSourceInterface;
+      update: (userIdTypes: UserIdType[]) => UserIdType[];
+    }
+  >();
+  for (const datasource of renamed) {
+    if (!renamedFrom) continue;
+    updates.set(datasource.id, {
+      datasource,
+      update: (types) =>
+        renameAttributeInUserIdTypes(types, renamedFrom, property),
+    });
+  }
+  for (const { datasource, userIdType } of targets) {
+    const rename = updates.get(datasource.id)?.update;
+    updates.set(datasource.id, {
+      datasource,
+      update: (types) =>
+        addAttributeToUserIdTypes(
+          rename ? rename(types) : types,
+          userIdType,
+          property,
+          description,
+        ),
+    });
+  }
+
+  const failedDatasources = await updateUserIdTypes(context, [
+    ...updates.values(),
+  ]);
+
+  return res.status(200).json({
+    status: 200,
+    failedDatasources,
   });
 };
 
@@ -90,8 +363,24 @@ export const putAttribute = async (
   req: AuthRequest<SDKAttribute & { previousName?: string }>,
   res: Response<{ status: number }>,
 ) => {
-  const { previousName, tags, ...attributeFields } = req.body;
   const context = getContextFromReq(req);
+
+  await updateAttribute(req, context, req.body);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+async function updateAttribute(
+  req: AuthRequest<unknown>,
+  context: ReqContext,
+  {
+    previousName,
+    tags,
+    ...attributeFields
+  }: SDKAttribute & { previousName?: string },
+) {
   const { org } = context;
 
   const attributeSchema = org.settings?.attributeSchema || [];
@@ -191,10 +480,7 @@ export const putAttribute = async (
       },
     ),
   });
-  return res.status(200).json({
-    status: 200,
-  });
-};
+}
 
 export const deleteAttribute = async (
   req: AuthRequest<{ id: string }>,
@@ -343,6 +629,7 @@ export const getAttributeReferences = async (
     };
 
     addExp(experiment.hashAttribute);
+    if (experiment.fallbackAttribute) addExp(experiment.fallbackAttribute);
 
     const phase = experiment.phases?.slice(-1)?.[0];
     try {
