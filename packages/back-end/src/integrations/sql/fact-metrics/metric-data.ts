@@ -165,9 +165,9 @@ export function getMetricData(
     lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
-  // A compound metric's value is its pass test over per-component counts that
-  // may each sit on a different source, so every value reference is replaced
-  // by that test. Compound metrics are never capped.
+  // A compound metric's value is checking whether the unit passed every component, so it's a
+  // a test over per-component counts that may each sit on a different source.
+  // Therefore the `value` needs to repeat that `compoundPassExpression` for each source.
   const valueAliasForSource = (sourceIndex: number) =>
     flattenSources || sourceIndex === 0 ? "" : `${sourceIndex}`;
   const compoundRefs = (

@@ -155,12 +155,8 @@ export type FactMetricData = {
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
-  // Empty for non-funnel metrics.
   funnelStepSourceIndices: number[];
-  // Source index per compound component; empty for non-compound metrics.
   compoundComponentSourceIndices: number[];
-  // Per-unit match count reference per compound component, qualified by the
-  // source it is read from.
   compoundComponentRefs: string[];
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
