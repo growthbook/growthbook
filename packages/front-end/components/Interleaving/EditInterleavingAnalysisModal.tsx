@@ -6,6 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import Field from "@/components/Forms/Field";
 import AddEditInterleavingExposureQueryModal from "./AddEditInterleavingExposureQueryModal";
 import InterleavingAnalysisFields, {
   getAnalysisError,
@@ -25,16 +26,21 @@ export function analysisOf(
 
 export default function EditInterleavingAnalysisModal({
   interleaving: il,
+  canEditServing,
   mutate,
   close,
 }: {
   interleaving: ApiInterleavingInterface;
+  // The tracking key reaches the SDK payload, so the server wants run
+  // permission for it once this is serving.
+  canEditServing: boolean;
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
   const restApiCall = useRestApiCall();
   const { getDatasourceById } = useDefinitions();
   const [analysis, setAnalysis] = useState(() => analysisOf(il));
+  const [trackingKey, setTrackingKey] = useState(il.trackingKey);
   const [addingQuery, setAddingQuery] = useState(false);
   const { mutate: mutateQueries } = useInterleavingExposureQueries(
     analysis.datasourceId,
@@ -75,9 +81,16 @@ export default function EditInterleavingAnalysisModal({
       submit={async () => {
         const error = getAnalysisError(analysis);
         if (error) throw new Error(error);
+        const key = trackingKey.trim();
+        if (!key) throw new Error("Tracking key is required");
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },
-          body: analysis,
+          body: {
+            ...analysis,
+            // Only when changed: the server wants run permission for it once
+            // this is serving.
+            trackingKey: key !== il.trackingKey ? key : undefined,
+          },
         });
         await mutate();
       }}
@@ -88,6 +101,18 @@ export default function EditInterleavingAnalysisModal({
           next results refresh.
         </Callout>
       )}
+      <Field
+        label="Tracking key"
+        required
+        value={trackingKey}
+        onChange={(e) => setTrackingKey(e.target.value)}
+        disabled={!canEditServing}
+        helpText={
+          canEditServing
+            ? "Matched against experiment_id in your Interleaving Exposure Query."
+            : "Matched against experiment_id in your Interleaving Exposure Query. Changing it while this is running needs permission to run experiments."
+        }
+      />
       <InterleavingAnalysisFields
         value={analysis}
         setValue={setAnalysis}

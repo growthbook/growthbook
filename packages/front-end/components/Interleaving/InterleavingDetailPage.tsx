@@ -230,6 +230,7 @@ export default function InterleavingDetailPage({
       {analysisModal && (
         <EditInterleavingAnalysisModal
           interleaving={il}
+          canEditServing={canEditServing}
           mutate={mutate}
           close={() => setAnalysisModal(false)}
         />
