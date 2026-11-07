@@ -419,7 +419,16 @@ async function refreshInstance(
   instance: GrowthBook | GrowthBookClient,
   data: FeatureApiResponse | null,
 ): Promise<void> {
-  await instance.setPayload(data || instance.getPayload());
+  // Nothing awaits a background refresh, so a rejection here would be unhandled,
+  // which ends the process by default in Node.js. The instance keeps its features.
+  try {
+    await instance.setPayload(data || instance.getPayload());
+  } catch (e) {
+    process.env.NODE_ENV !== "production" &&
+      instance.log("Error refreshing features", {
+        error: e ? (e as Error).message : null,
+      });
+  }
 }
 
 // Fetch the features payload from helper function or from in-mem injected payload

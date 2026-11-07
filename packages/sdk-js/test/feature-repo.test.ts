@@ -1089,6 +1089,52 @@ describe("feature-repo", () => {
     cleanup();
   });
 
+  it("keeps refreshing after a background payload update fails", async () => {
+    let dateUpdated = "2026-11-01T00:00:00Z";
+    const features = { foo: { defaultValue: "initial" } };
+    const f = jest.fn(async (url: string) => ({
+      status: 200,
+      ok: true,
+      headers: { get: () => undefined },
+      url,
+      json: async () => ({ features: cloneDeep(features), dateUpdated }),
+    }));
+    setPolyfills({ fetch: f as unknown as typeof globalThis.fetch });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init({ pollingInterval: 20 });
+
+    // For example, a sticky bucket store that is briefly unreachable
+    const spy = jest
+      .spyOn(growthbook, "setPayload")
+      .mockRejectedValueOnce(new Error("Sticky bucket store unavailable"));
+    const log = jest.spyOn(growthbook, "log");
+
+    features.foo.defaultValue = "first update";
+    dateUpdated = "2026-11-02T00:00:00Z";
+    await sleep(60);
+
+    expect(spy).toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("Error refreshing features", {
+      error: "Sticky bucket store unavailable",
+    });
+    expect(growthbook.getFeatureValue("foo", "?")).toEqual("initial");
+
+    // The next published change still gets through
+    features.foo.defaultValue = "second update";
+    dateUpdated = "2026-11-03T00:00:00Z";
+    await sleep(60);
+    expect(growthbook.getFeatureValue("foo", "?")).toEqual("second update");
+
+    log.mockRestore();
+    spy.mockRestore();
+    growthbook.destroy();
+    setPolyfills({ fetch: undefined });
+  });
+
   it("keeps polling the right host when the client that started it is destroyed", async () => {
     const features = { foo: { defaultValue: "initial" } };
     const [f, cleanup] = mockApi({ features }, false, 0);
