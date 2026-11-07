@@ -10,6 +10,7 @@ import {
 } from "shared/util";
 import Text from "@/ui/Text";
 import {
+  CopyableKey,
   EmptyValue,
   OwnerField,
   ProjectField,
@@ -109,7 +110,13 @@ export function ExperimentDataFields({
           stacked
           label="Experiment key"
           action={fieldAction?.("trackingKey")}
-          value={experiment.trackingKey || <EmptyValue />}
+          value={
+            experiment.trackingKey ? (
+              <CopyableKey value={experiment.trackingKey} />
+            ) : (
+              <EmptyValue />
+            )
+          }
         />
       )}
       <Metadata

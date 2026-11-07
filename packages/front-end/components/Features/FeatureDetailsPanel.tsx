@@ -11,6 +11,7 @@ import DetailsPanel, {
   PanelSection,
 } from "@/components/DetailsPanel";
 import {
+  CopyableKey,
   CustomFieldRows,
   EmptyValue,
   HiddenProject,
@@ -174,7 +175,12 @@ export default function FeatureDetailsPanel({
         }}
       >
         <PanelSection title="General">
-          <Metadata size="sm" stacked label="Feature key" value={feature.id} />
+          <Metadata
+            size="sm"
+            stacked
+            label="Feature key"
+            value={<CopyableKey value={feature.id} />}
+          />
           <Metadata
             size="sm"
             stacked

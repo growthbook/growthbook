@@ -4,6 +4,7 @@ import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import Owner from "@/components/Avatar/Owner";
 import QuickEditButton from "@/components/Experiment/TabbedPage/QuickEditButton";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -50,6 +51,15 @@ export function PersonValue({ id }: { id: string }) {
       textSize="sm"
       truncate
     />
+  );
+}
+
+// A key or ID that copies on click, while the rest of its row still edits.
+export function CopyableKey({ value }: { value: string }) {
+  return (
+    <Text weight="regular" color="text-high" size="sm">
+      <CopyableCode value={value} plain />
+    </Text>
   );
 }
 
