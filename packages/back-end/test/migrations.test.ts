@@ -2280,15 +2280,65 @@ describe("Organization Migration", () => {
             id: "dev",
             description: "",
             toggleOnList: true,
+            isProduction: false,
           },
           {
             id: "production",
             description: "",
             toggleOnList: true,
+            isProduction: true,
           },
         ],
       },
     });
+  });
+
+  it("fills a missing isProduction from the environment id without mutating the input", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        environments: [
+          { id: "staging", description: "" },
+          { id: "john_dev", description: "" },
+          { id: "production", description: "", isProduction: false },
+        ],
+      },
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.environments).toEqual([
+      { id: "staging", description: "", isProduction: false },
+      { id: "john_dev", description: "", isProduction: true },
+      { id: "production", description: "", isProduction: false },
+    ]);
+    expect(testOrg.settings?.environments?.[0]).toEqual({
+      id: "staging",
+      description: "",
+    });
+  });
+
+  it("keeps the environments array when every isProduction is already set", () => {
+    const environments = [
+      { id: "dev", description: "", isProduction: false },
+      { id: "production", description: "", isProduction: true },
+    ];
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { environments },
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.environments).toBe(environments);
   });
 
   it("copies only the parts it upgrades and leaves the given document unchanged", () => {

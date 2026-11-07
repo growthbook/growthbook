@@ -5,6 +5,7 @@ import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
   ContextualBanditSnapshotInterface,
+  InterleavingInterface,
   InterleavingSnapshotInterface,
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
@@ -135,6 +136,14 @@ const INTERLEAVING_SNAPSHOTS: RawSnapshotFamily = {
   collection: "interleavingsnapshots",
   label: "interleaving snapshot",
   parentIdField: "interleavingId",
+  // updateInterleavingResults defers while a snapshot is running, and its next
+  // window can be up to a week out, so a reap without this waits that out.
+  scheduleRetry: async (snapshot) => {
+    await getCollection<InterleavingInterface>("interleavings").updateOne(
+      { id: snapshot.interleavingId, status: "running", autoSnapshots: true },
+      { $set: { nextSnapshotAttempt: new Date() } },
+    );
+  },
 };
 
 const RAW_SNAPSHOT_FAMILIES = [

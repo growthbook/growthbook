@@ -86,7 +86,10 @@ export default function EditInterleavingInfoModal({
           params: { id: il.id },
           body: {
             name: data.name.trim(),
-            trackingKey: data.trackingKey.trim(),
+            trackingKey:
+              data.trackingKey.trim() !== il.trackingKey
+                ? data.trackingKey.trim()
+                : undefined,
             // A stored owner who has left the org fails the server's membership
             // check, which would block an unrelated name or tag edit.
             owner: data.owner !== (il.owner ?? "") ? data.owner : undefined,

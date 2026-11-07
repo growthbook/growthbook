@@ -48,7 +48,9 @@ export async function resolveInterleavingMetrics(
     }
     const ref = `${label} "${metric.name}"`;
     if (metric.datasource !== datasourceId) {
-      throw new Error(`${ref} must belong to datasource ${datasourceId}`);
+      throw new Error(
+        `${ref} must belong to this experiment's Data Source: ${datasourceId}`,
+      );
     }
     const factTable = metric.numerator
       ? factTableMap.get(metric.numerator.factTableId)

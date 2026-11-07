@@ -12,6 +12,9 @@
  * zod at the read site (back-end services/plan-limits.ts).
  *
  * Exception: "interleave-exp" gates the in-development interleaving UI.
+ *
+ * Exception: "trace-ingest" gates the "Accept traces" SDK connection setting
+ * and the traces usage notice. Target it by cloudOrgId.
  */
 export type AppFeatures = {
   // Added ahead of the flag's creation in GrowthBook's own account
@@ -148,6 +151,7 @@ export type AppFeatures = {
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
   populations: boolean;
+  "trace-ingest": boolean;
   "new-metric-creation-flow": boolean;
   "interleave-exp": boolean;
 };
