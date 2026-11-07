@@ -23,32 +23,23 @@ A compound metric is a [Fact Table](/app/metrics) metric. Instead of a numerator
 
 </Note>
 
-## Creating a compound metric
-
-1. Go to **Metrics** and click **Add Metric**.
-2. Pick your **Data Source**, then choose **Compound** as the metric type.
-3. Select the first component's **Fact Table** and add a row filter that defines it, such as `event_name = view_pricing`.
-4. Click **Add component** for each additional action. New components start on the previous component's Fact Table and can use any Fact Table in the same Data Source.
-5. Save.
-
-A compound metric needs 2 to 20 components across at most 5 distinct Fact Tables, and no two components may be identical. In experiments, every component's Fact Table must share an identifier type with the assignment table (or reach it through a Join Table); otherwise the metric is excluded from analysis.
-
 ## How a unit passes
 
 A unit passes when it has at least one matching event for **every** component inside the [metric window](/app/metrics#metric-windows).
 
 - Order does not matter, and there is no co-occurrence window. Viewing pricing in week 1 and starting a trial in week 3 passes.
-- One event can satisfy several components.
-- Events before exposure do not count unless the [metric delay](/app/metrics#negative-metric-delays) is negative.
+- One event can satisfy several components if it matches all component's row filters (e.g. `event_name = view_pricing` and `plan = trial` could be satisfied by a single event).
 - Units with no matching events fail.
 
-Metric windows, metric delay, target MDE, and [Bayesian priors](/app/metrics#bayesian-priors) work as on a proportion metric. Capping and [Metric Slices](/app/metrics#metric-slices) are not supported.
+Metric windows, metric delay, target MDE, and [Bayesian priors](/app/metrics#bayesian-priors) work as on a proportion metric.
 
-## Where compound metrics can be used
+A compound metric needs 2 to 20 components across at most 5 distinct Fact Tables, and no two components may be identical. In experiments, every component's Fact Table must share an identifier type with the assignment table (or reach it through a Join Table); otherwise the metric is excluded from analysis.
 
-Compound metrics work as **goal**, **secondary**, and **guardrail** metrics on experiments and reports, including dimensions, date results, [CUPED](/statistics/cuped), Incremental Refresh, [Bandits](/bandits/overview), and cluster experiments, on every SQL data source.
+Not supported:
 
-Not supported: activation metrics, Metric Slices, standalone metric analysis, and the [Product Analytics Explorer](/app/product-analytics/explorer).
+- Use as activation metrics
+- [Metric Slices](/app/metrics#metric-slices) are not supported.
+- Standalone metric analysis or Product Analytics
 
 ## Compound metrics in experiment results
 
@@ -86,8 +77,3 @@ curl -X POST 'https://api.growthbook.io/api/v1/fact-metrics' \
 ```
 
 `compoundSettings.components` is a required array of 2 to 20 objects, each with `factTableId` and `rowFilters`. `GET` responses for compound metrics include `compoundSettings` and omit `numerator`. Listing fact metrics filtered by `factTableId` returns compound metrics with a component on that Fact Table.
-
-## What's next
-
-- [Metrics and Fact Tables](/app/metrics) for row filters, metric windows, and the other metric types.
-- [Funnel Metrics](/app/metrics/funnel) when order matters.
