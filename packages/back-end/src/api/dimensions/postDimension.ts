@@ -30,6 +30,7 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
     }
 
     await validateDimensionBeforeSave(req.context, datasourceDoc, {
+      datasource: req.body.datasourceId,
       sql: req.body.query,
       userIdType: req.body.identifierType,
       timing: req.body.timing,

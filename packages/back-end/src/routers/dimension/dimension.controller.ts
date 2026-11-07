@@ -100,6 +100,7 @@ export const postDimension = async (
   }
 
   await validateDimensionBeforeSave(context, datasourceDoc, {
+    datasource,
     sql,
     userIdType,
     timing,
@@ -191,11 +192,12 @@ export const putDimension = async (
     throw new Error("Invalid data source");
   }
 
-  await validateDimensionBeforeSave(context, datasourceDoc, {
-    sql,
-    userIdType,
-    timing,
-  });
+  await validateDimensionBeforeSave(
+    context,
+    datasourceDoc,
+    { datasource, sql, userIdType, timing },
+    dimension,
+  );
 
   await updateDimension(context, dimension, {
     datasource,

@@ -215,35 +215,51 @@ export function getExperimentUnitsQuery(
       "u.first_exposure_timestamp",
       `__dim_unit_${d.dimension.id}`,
     ),
+    joinIdType: getUnitDimensionJoinIdType(d),
+    // The core CTE stores the cluster key as a string (see coreColumns), so a
+    // cluster-keyed dimension's raw key must be cast to match
+    dimensionKey: isClusterKeyed(getUnitDimensionJoinIdType(d))
+      ? dialect.castToString(
+          `__dim_unit_${d.dimension.id}.${getUnitDimensionJoinIdType(d)}`,
+        )
+      : `__dim_unit_${d.dimension.id}.${getUnitDimensionJoinIdType(d)}`,
+    dimensionId: d.dimension.id,
+    name: d.dimension.name,
   }));
   const unitsColumnAliases = [
     ...coreColumns.map((c) => c.alias),
     ...timedColumns.map((c) => c.alias),
   ];
 
-  const timedUnitsCte =
-    timedUnitDimensions.length > 0
-      ? `, ${unitsCteName} AS (
-      -- Resolve time-aware dimensions against each unit's first exposure
+  // Timed dimensions resolve one at a time in a chain of one-row-per-unit
+  // CTEs. Each step reads the previous CTE once and joins a single history,
+  // so N histories cost |h1| + ... + |hN| rows per unit rather than their
+  // product, and no CTE is referenced twice (BigQuery may re-evaluate those).
+  const timedUnitsCte = timedColumns
+    .map((c, i) => {
+      const prevCte = i === 0 ? coreCteName : `__experimentUnitsTimed${i}`;
+      const cteName =
+        i === timedColumns.length - 1
+          ? unitsCteName
+          : `__experimentUnitsTimed${i + 1}`;
+      const carried = unitsColumnAliases
+        .slice(0, coreColumns.length + i)
+        .map((alias) => `u.${alias}`);
+      return `, ${cteName} AS (
+      -- Resolve ${c.name} against each unit's first exposure
       SELECT
-        ${coreColumns.map((c) => `u.${c.alias}`).join("\n        , ")}
-        ${timedColumns.map((c) => `\n        , ${c.expr} AS ${c.alias}`).join("")}
+        ${carried.join("\n        , ")}
+        , ${c.expr} AS ${c.alias}
       FROM
-        ${coreCteName} u
-        ${timedUnitDimensions
-          .map((d) => {
-            const joinIdType = getUnitDimensionJoinIdType(d);
-            return `
-            LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-              __dim_unit_${d.dimension.id}.${joinIdType} = u.${joinIdType}
-            )
-          `;
-          })
-          .join("\n")}
+        ${prevCte} u
+        LEFT JOIN __dim_unit_${c.dimensionId} __dim_unit_${c.dimensionId} ON (
+          ${c.dimensionKey} = u.${c.joinIdType}
+        )
       GROUP BY
-        ${coreColumns.map((c) => `u.${c.alias}`).join(", ")}
-    )`
-      : "";
+        ${carried.join(", ")}
+    )`;
+    })
+    .join("\n");
 
   // The bandit CTEs replace the raw attribute columns with bucketed ones
   const contextualBanditRawAliases = new Set(

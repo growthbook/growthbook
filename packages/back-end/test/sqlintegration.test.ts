@@ -2449,6 +2449,19 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     ]);
 
     const normalizedSql = sql.replace(/\s+/g, " ").trim();
+
+    // Histories resolve in a chain: the first step reads the core CTE, the
+    // second reads the first, and each joins exactly one history
+    expect(normalizedSql).toMatch(
+      /__experimentUnitsTimed1 AS \(.*FROM __experimentUnitsCore u LEFT JOIN __dim_unit_dim_plan_changes [^)]*\) GROUP BY u\.user_id, u\.variation, u\.first_exposure_timestamp \)/,
+    );
+    expect(normalizedSql).toMatch(
+      /__experimentUnits AS \(.*u\.dim_unit_dim_plan_changes, .*FROM __experimentUnitsTimed1 u LEFT JOIN __dim_unit_dim_region_history [^)]*\) GROUP BY u\.user_id, u\.variation, u\.first_exposure_timestamp, u\.dim_unit_dim_plan_changes \)/,
+    );
+    expect(normalizedSql.match(/FROM __experimentUnitsCore u/g)).toHaveLength(
+      1,
+    );
+
     expect(format(normalizedSql, "bigquery")).toMatchSnapshot();
   });
 
@@ -2512,6 +2525,8 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     expect(wrapperSection).toMatch(
       /GROUP BY\s+u\.user_id,\s+u\.variation,\s+u\.first_exposure_timestamp/,
     );
+    // A single timed dimension needs no intermediate CTE
+    expect(sql).not.toContain("__experimentUnitsTimed");
 
     // The dimension CTE normalizes the range columns
     expect(sql).toContain("AS start_timestamp");
@@ -2594,6 +2609,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     settings: typeof baseSettings & {
       clusterLevelMetricIds?: string[];
     } = baseSettings,
+    dimensions: Dimension[] = [],
   ): string =>
     getExperimentFactMetricsQuery(
       bigQueryDialect,
@@ -2606,7 +2622,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
           identifierType: "region_id",
         }),
         activationMetric: null,
-        dimensions: [],
+        dimensions,
         segment: null,
         metrics: [metric],
         factTableMap,
@@ -2677,6 +2693,44 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).not.toContain("m0_covariate_sum");
 
     expect(format(normalized, "bigquery")).toMatchSnapshot();
+  });
+
+  it("casts a cluster-keyed timed dimension's key to match the stringified cluster id", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_cluster_mean",
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const regionTier: DimensionInterface = {
+      id: "dim_region_tier",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "region_id",
+      name: "Region tier",
+      sql: "SELECT region_id, tier AS value, changed_at AS timestamp FROM region_tiers",
+      timing: "rowTimestamp",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+
+    const sql = buildClusterSql(metric, baseSettings, [
+      { type: "user", dimension: regionTier },
+    ]);
+    const normalized = sql.replace(/\s+/g, " ").trim();
+
+    // __experimentUnitsCore emits region_id as a string, so the raw dimension
+    // key is cast before the join and the result is still one row per sub-unit
+    expect(normalized).toContain(
+      "LEFT JOIN __dim_unit_dim_region_tier __dim_unit_dim_region_tier ON ( cast(__dim_unit_dim_region_tier.region_id as string) = u.region_id )",
+    );
+    expect(normalized).toMatch(
+      /__experimentUnits AS \(.*GROUP BY u\.user_id, u\.variation, u\.first_exposure_timestamp, u\.region_id \)/,
+    );
   });
 
   it("rolls a native ratio metric up to the cluster by summing capped per-sub-unit numerator and denominator", () => {

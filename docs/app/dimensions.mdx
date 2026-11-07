@@ -141,7 +141,7 @@ WHERE
   timestamp < '{{ startDate }}'
 ```
 
-**Timestamped rows** fits a daily snapshot table partitioned by date, where every partition holds every user's current value. Filter to the experiment window for performance; GrowthBook still picks the safe row, the latest one at or before each user's first exposure. The lower bound is safe only because each partition contains every user:
+**Timestamped rows** fits a daily snapshot table partitioned by date, where every partition holds every user's current value. Filter to the experiment window for performance; GrowthBook still picks the safe row, the latest one at or before each user's first exposure. The lower bound is safe only because each partition contains every user, and it must include the snapshot taken before the experiment started: `{{ startDate }}` carries a time of day, so a filter starting exactly there would drop the snapshot that covers users exposed later that same day.
 
 ```sql
 SELECT
@@ -151,7 +151,8 @@ SELECT
 FROM
   user_daily_snapshot
 WHERE
-  snapshot_date BETWEEN '{{ startDate }}' AND '{{ endDate }}'
+  snapshot_date >= DATE('{{ startDate }}') - INTERVAL '1 day'
+  AND snapshot_date <= '{{ endDate }}'
 ```
 
 **Validity ranges** fits a Type 2 slowly changing dimension (SCD2) table, where each row carries the period it was valid for and the current row has a `NULL` end:

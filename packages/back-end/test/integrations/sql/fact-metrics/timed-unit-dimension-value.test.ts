@@ -62,7 +62,10 @@ describe("getTimedUnitDimensionValue", () => {
       "__dim_unit_dim_1.start_timestamp <= u.first_exposure_timestamp",
     );
     expect(flat).toContain("__dim_unit_dim_1.end_timestamp IS NULL");
-    expect(flat).toContain("__dim_unit_dim_1.value");
+    // NULL values are labeled per row so the latest row still wins the MAX
+    expect(flat).toContain(
+      `COALESCE(${postgresDialect.castToString("__dim_unit_dim_1.value")}, '${NULL_DIMENSION_VALUE}')`,
+    );
     expect(flat).toContain("20, 99999");
     expect(flat).toContain(`'${NULL_DIMENSION_VALUE}'`);
     expect(flat).not.toContain("JOIN");

@@ -55,12 +55,12 @@ export const updateDimension = createApiRequestHandler(
   }
   updates.dateUpdated = new Date();
 
-  const merged = { ...dimension, ...updates };
-  await validateDimensionBeforeSave(req.context, datasourceDoc, {
-    sql: merged.sql,
-    userIdType: merged.userIdType,
-    timing: merged.timing,
-  });
+  await validateDimensionBeforeSave(
+    req.context,
+    datasourceDoc,
+    { ...dimension, ...updates },
+    dimension,
+  );
 
   await updateDimensionModel(req.context, dimension, updates);
 

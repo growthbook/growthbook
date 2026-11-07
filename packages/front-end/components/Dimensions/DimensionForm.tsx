@@ -129,6 +129,10 @@ const DimensionForm: FC<{
           }
           if (supportsSQL) {
             validateSQL(value.sql, getDimensionRequiredColumns(value));
+          } else {
+            // Timing is only editable for SQL sources; a stale timed setting
+            // would be rejected by the server after switching to e.g. Mixpanel
+            value.timing = "none";
           }
 
           await apiCall(

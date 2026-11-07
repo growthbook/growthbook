@@ -2998,21 +2998,23 @@ export default abstract class SqlIntegration
       },
     );
 
-    const unitDimensionCols = unitDimensions.map((d) => ({
-      // override value with an aggregate that will get one value per unit;
-      // the stored units table carries first_exposure_timestamp on every row
-      // as a native TIMESTAMP, so cast it to match the dimension CTE's
-      // castUserDateCol'd timestamp columns (DATETIME on BigQuery)
-      value: isTimedDimension(d.dimension)
-        ? getTimedUnitDimensionValue(
-            this.getSqlDialect(),
-            d.dimension,
-            this.getSqlDialect().castUserDateCol("e.first_exposure_timestamp"),
-            `__dim_unit_${d.dimension.id}`,
-          )
-        : getDimensionValuePerUnit(this.getSqlDialect(), d),
+    // Static dims join inside __experimentUnits; timed dims carry a history
+    // per unit and resolve afterwards, one per CTE (see timedUnitsCtes)
+    const staticUnitDimensions = unitDimensions.filter(
+      (d) => !isTimedDimension(d.dimension),
+    );
+    const timedUnitDimensions = unitDimensions.filter((d) =>
+      isTimedDimension(d.dimension),
+    );
+    const unitDimensionCols = staticUnitDimensions.map((d) => ({
+      // override value with an aggregate that will get one value per unit
+      value: getDimensionValuePerUnit(this.getSqlDialect(), d),
       alias: getDimensionCol(this.getSqlDialect(), d).alias,
     }));
+    const timedUnitDimensionCols = timedUnitDimensions.map((d) => {
+      const alias = getDimensionCol(this.getSqlDialect(), d).alias;
+      return { value: alias, alias };
+    });
 
     const experimentDimensionCols = experimentDimensions.map((d) =>
       getDimensionCol(this.getSqlDialect(), d),
@@ -3049,14 +3051,18 @@ export default abstract class SqlIntegration
       ...(dateCutoffDimensionCol ? [dateCutoffDimensionCol] : []),
       ...precomputedDimensionCols,
     ];
-    const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
+    const allDimensionCols = [
+      ...nonUnitDimensionCols,
+      ...unitDimensionCols,
+      ...timedUnitDimensionCols,
+    ];
     // When analyzing a combo, its constituents exist only to be materialized
-    // in __experimentUnits; the analysis groups by the combined column alone
+    // in the units CTEs; the analysis groups by the combined column alone
     const analysisDimensionCols = comboDimensionCol
       ? [{ value: comboDimensionCol.alias, alias: comboDimensionCol.alias }]
       : allDimensionCols;
 
-    const unitDimensionJoinsSQL = unitDimensions
+    const unitDimensionJoinsSQL = staticUnitDimensions
       .map(
         (
           d,
@@ -3065,9 +3071,60 @@ export default abstract class SqlIntegration
         )`,
       )
       .join("\n");
+
+    // Timed dimensions resolve one at a time in a chain of one-row-per-unit
+    // CTEs on top of __experimentUnits. Each step reads the previous CTE once
+    // and joins a single history, so N histories cost |h1| + ... + |hN| rows
+    // per unit rather than their product, and no CTE is referenced twice.
+    const unitsBaseColumns = [
+      baseIdType,
+      ...(clusterIdColumn ? [clusterIdColumn] : []),
+      "variation",
+      "first_exposure_timestamp",
+      ...nonUnitDimensionCols.map((c) => c.alias),
+      ...unitDimensionCols.map((c) => c.alias),
+    ];
+    const timedUnitsCteName =
+      timedUnitDimensions.length > 0
+        ? "__experimentUnitsTimed"
+        : "__experimentUnits";
+    const timedUnitsCtes = timedUnitDimensions
+      .map((d, i) => {
+        const prevCte =
+          i === 0 ? "__experimentUnits" : `__experimentUnitsTimed${i}`;
+        const cteName =
+          i === timedUnitDimensions.length - 1
+            ? timedUnitsCteName
+            : `__experimentUnitsTimed${i + 1}`;
+        const carried = [
+          ...unitsBaseColumns,
+          ...timedUnitDimensionCols.slice(0, i).map((c) => c.alias),
+        ].map((alias) => `u.${alias}`);
+        return `, ${cteName} AS (
+        -- Resolve ${d.dimension.name} against each unit's first exposure
+        SELECT
+          ${carried.join("\n          , ")}
+          , ${getTimedUnitDimensionValue(
+            this.getSqlDialect(),
+            d.dimension,
+            // the stored units table carries first_exposure_timestamp as a
+            // native TIMESTAMP, so cast it to match the dimension CTE's
+            // castUserDateCol'd timestamp columns (DATETIME on BigQuery)
+            this.getSqlDialect().castUserDateCol("u.first_exposure_timestamp"),
+            `__dim_unit_${d.dimension.id}`,
+          )} AS ${timedUnitDimensionCols[i].alias}
+        FROM ${prevCte} u
+        LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+          ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = u.${baseIdType}
+        )
+        GROUP BY
+          ${carried.join(", ")}
+      )`;
+      })
+      .join("\n");
     const unitsCteName = comboDimensionCol
       ? "__experimentUnitsFinal"
-      : "__experimentUnits";
+      : timedUnitsCteName;
 
     // Source-index → alias suffix conventions: source 0 is "" (so its table
     // alias is `m` and CTE name is `__metricSourceData`/`__metricDataAggregated`),
@@ -3206,13 +3263,14 @@ export default abstract class SqlIntegration
         FROM ${params.unitsSourceTableFullName} e
         ${unitsWhere}`
       })
+      ${timedUnitsCtes}
       ${
         comboDimensionCol
           ? `, __experimentUnitsFinal AS (
         SELECT
           u.*
           , ${comboDimensionCol.value} AS ${comboDimensionCol.alias}
-        FROM __experimentUnits u
+        FROM ${timedUnitsCteName} u
       )`
           : ""
       }

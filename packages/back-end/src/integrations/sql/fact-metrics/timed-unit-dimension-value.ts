@@ -43,9 +43,12 @@ export function getTimedUnitDimensionValue(
     getDimensionTiming(dimension) === "validityRange"
       ? DIMENSION_START_TIMESTAMP_COLUMN
       : DIMENSION_TIMESTAMP_COLUMN;
+  const nullValue = `'${dialect.escapeStringLiteral(
+    getDimensionNullValue(dimension, NULL_DIMENSION_VALUE),
+  )}'`;
   const keyed = concatSql(
     `SUBSTRING(${dialect.formatDateTimeString(`${dimAlias}.${timestampColumn}`)}, 1, 19)`,
-    dialect.castToString(`${dimAlias}.value`),
+    `COALESCE(${dialect.castToString(`${dimAlias}.value`)}, ${nullValue})`,
   );
   return `COALESCE(
         SUBSTRING(
@@ -59,8 +62,6 @@ export function getTimedUnitDimensionValue(
           20,
           99999
         ),
-        '${dialect.escapeStringLiteral(
-          getDimensionNullValue(dimension, NULL_DIMENSION_VALUE),
-        )}'
+        ${nullValue}
       )`;
 }

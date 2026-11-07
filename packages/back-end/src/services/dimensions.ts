@@ -395,18 +395,36 @@ export function getExposureQueryEligibleDimensions({
   };
 }
 
+type DimensionQueryFields = Pick<
+  DimensionInterface,
+  "datasource" | "sql" | "userIdType" | "timing"
+>;
+
 // Refuses the save when the SQL does not return the columns the timing
 // setting requires, so a broken dimension never reaches an experiment query.
+// Pass `existing` on update so metadata-only edits (name, owner, ...) skip the
+// warehouse round-trip and the runQueries permission it needs.
 export async function validateDimensionBeforeSave(
   context: ReqContext,
   datasource: DataSourceInterface,
-  dimension: Pick<DimensionInterface, "sql" | "userIdType" | "timing">,
+  dimension: DimensionQueryFields,
+  existing?: DimensionQueryFields,
 ): Promise<void> {
   const timing = dimensionTimingValidator.safeParse(
     dimension.timing ?? DEFAULT_DIMENSION_TIMING,
   );
   if (!timing.success) {
     throw new Error(`Invalid timing setting: ${String(dimension.timing)}`);
+  }
+
+  if (
+    existing &&
+    existing.datasource === dimension.datasource &&
+    existing.sql === dimension.sql &&
+    existing.userIdType === dimension.userIdType &&
+    (existing.timing ?? DEFAULT_DIMENSION_TIMING) === timing.data
+  ) {
+    return;
   }
 
   const integration = getSourceIntegrationObject(context, datasource, true);
