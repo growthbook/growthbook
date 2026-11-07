@@ -198,28 +198,41 @@ class TestComputeTheta(TestCase):
         # positive) variance: var / mean-of-squares is far below the numerical
         # floor, so theta = cov / var is unstable and CUPED must revert. The old
         # exact `== 0` check missed this because the variance is not exactly zero.
+        #
+        # The post metric is correlated with the tiny pre deviations, giving a
+        # genuine nonzero covariance. Without the guard theta = cov / var_pre
+        # would be ~1000; the scale-free guard reverts it to 0. (A zero-covariance
+        # fixture would return 0 regardless of the guard and would not test it.)
         n = 1000
-        pre_sum = 100.0 * n
-        pre_sum_squares = pre_sum**2 / n + 1e-3  # variance = 1e-3 / (n - 1) > 0
-        pre_stat = SampleMeanStatistic(n=n, sum=pre_sum, sum_squares=pre_sum_squares)
-        post_stat = SampleMeanStatistic(n=n, sum=3.0 * n, sum_squares=12.0 * n)
+        eps = np.where(np.arange(n) % 2 == 0, 1e-3, -1e-3)
+        pre = 100.0 + eps
+        post = 3.0 + 1000.0 * eps
+        pre_stat = SampleMeanStatistic(
+            n=n, sum=float(pre.sum()), sum_squares=float((pre**2).sum())
+        )
+        post_stat = SampleMeanStatistic(
+            n=n, sum=float(post.sum()), sum_squares=float((post**2).sum())
+        )
+        sum_of_products = float((pre * post).sum())
         ra_stat_a = RegressionAdjustedStatistic(
             post_statistic=post_stat,
             pre_statistic=pre_stat,
             n=n,
-            post_pre_sum_of_products=pre_sum * 3.0,
+            post_pre_sum_of_products=sum_of_products,
             theta=None,
         )
         ra_stat_b = RegressionAdjustedStatistic(
             post_statistic=post_stat,
             pre_statistic=pre_stat,
             n=n,
-            post_pre_sum_of_products=pre_sum * 3.0,
+            post_pre_sum_of_products=sum_of_products,
             theta=None,
         )
         # The variance is positive (the old `== 0` guard would not fire)...
         self.assertGreater(pre_stat.variance, 0)
-        # ...but it is negligible relative to its scale, so theta reverts to 0.
+        # ...and the pre/post covariance is nonzero, so without the guard theta
+        # would be large; it is negligible relative to its scale, so theta
+        # reverts to 0.
         self.assertEqual(compute_theta(ra_stat_a, ra_stat_b), 0)
 
 
