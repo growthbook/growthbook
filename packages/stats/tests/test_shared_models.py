@@ -224,7 +224,16 @@ class TestComputeTheta(TestCase):
 
 
 class TestCupedRatioNearZeroPreVariance(TestCase):
-    """Regression test for the CUPED near-zero-division bug on ratio metrics."""
+    """Regression test for the CUPED near-zero-division bug on ratio metrics.
+
+    The variation's pre-period covariate is static (near-constant), so the pooled
+    pre-period variance is ~1.58e-10: positive, so the old exact ``== 0`` guard
+    let it through. theta = -cov / var_pre then divided by that near-zero value
+    and exploded. Before the fix, this exact data produced theta ~= 2.92e3 and a
+    relative lift of ~= -102,564% (the same class of nonsense as the billions of
+    percent seen in production). After the fix, theta reverts to 0 and the lift is
+    the sensible unadjusted ratio lift of 3.593 / 2.846 - 1 = 26.3%.
+    """
 
     @staticmethod
     def _stat(
@@ -279,6 +288,8 @@ class TestCupedRatioNearZeroPreVariance(TestCase):
         self.assertLess(pooled_var_pre, 1e-6)
 
     def test_theta_reverts_to_zero(self):
+        # Before the fix this returned ~2.92e3 (cov / near-zero var_pre); the
+        # scale-free guard now reverts it to exactly 0.
         self.assertEqual(
             compute_theta_regression_adjusted_ratio(self.control, self.variation), 0
         )
