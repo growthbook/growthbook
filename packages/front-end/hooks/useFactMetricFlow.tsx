@@ -4,7 +4,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics } from "@/services/env";
@@ -60,7 +60,7 @@ export default function useFactMetricFlow(
       factTableId
         ? table.id === factTableId
         : (!target.datasource || table.datasource === target.datasource) &&
-          isProjectListValidForProject(table.projects, targetProject),
+          isAvailableInProject(table.projects, targetProject),
     );
     // Without a fact table, the metric editor has nothing to build on
     const mode = !ready

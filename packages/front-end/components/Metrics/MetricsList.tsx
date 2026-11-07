@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { flushSync } from "react-dom";
 import { date, datetime } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useRouter } from "next/router";
@@ -428,12 +428,12 @@ const MetricsList = (): React.ReactElement => {
     [getDatasourceById, getOwnerDisplay],
   );
   const filteredMetrics = project
-    ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
+    ? metrics.filter((m) => isAvailableInProject(m.projects, project))
     : metrics;
 
   const hasLegacyMetrics = legacyMetrics.some(
     (f) =>
-      isProjectListValidForProject(f.projects, project) &&
+      isAvailableInProject(f.projects, project) &&
       f.datasource !== demoDataSourceId,
   ); // Don't factor in demo datasource metrics
 

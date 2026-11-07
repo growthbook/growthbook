@@ -1,7 +1,7 @@
 import { populationEndpoints } from "shared/api-endpoints";
 import { useCallback, useMemo } from "react";
 import { ApiPopulation } from "shared/validators";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import useSWR, { useSWRConfig } from "swr";
 import { useAuth } from "@/services/auth";
 import {
@@ -70,10 +70,7 @@ export function usePopulations(
   );
 
   const populations = useMemo(
-    () =>
-      (data ?? []).filter((p) =>
-        isProjectListValidForProject(p.projects, project),
-      ),
+    () => (data ?? []).filter((p) => isAvailableInProject(p.projects, project)),
     [data, project],
   );
 

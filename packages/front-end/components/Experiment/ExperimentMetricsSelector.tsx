@@ -403,7 +403,7 @@ export default function ExperimentMetricsSelector({
               exposureQueryIdentifierType={exposureQueryIdentifierType}
               isClusterExperiment={isClusterExperiment}
               clusterSubUnitIdentifier={clusterSubUnitIdentifier}
-              project={project}
+              contextProject={project}
               autoFocus={autoFocus}
               includeFacts={true}
               forceSingleMetric={forceSingleGoalMetric}
@@ -454,7 +454,7 @@ export default function ExperimentMetricsSelector({
               exposureQueryIdentifierType={exposureQueryIdentifierType}
               isClusterExperiment={isClusterExperiment}
               clusterSubUnitIdentifier={clusterSubUnitIdentifier}
-              project={project}
+              contextProject={project}
               includeFacts={true}
               filterConversionWindowMetrics={filterConversionWindowMetrics}
               excludeQuantiles={excludeQuantiles}
@@ -491,7 +491,7 @@ export default function ExperimentMetricsSelector({
               exposureQueryIdentifierType={exposureQueryIdentifierType}
               isClusterExperiment={isClusterExperiment}
               clusterSubUnitIdentifier={clusterSubUnitIdentifier}
-              project={project}
+              contextProject={project}
               includeFacts={true}
               filterConversionWindowMetrics={filterConversionWindowMetrics}
               excludeQuantiles={excludeQuantiles}

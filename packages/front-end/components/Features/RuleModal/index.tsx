@@ -12,7 +12,7 @@ import {
   getDefaultHashAttribute,
   filterEnvironmentsByFeature,
   generateVariationId,
-  isProjectListValidForProject,
+  isAvailableInProject,
   getReviewSetting,
   getRuleAttributeScopeProjectIds,
   getTargetingProjectIds,
@@ -937,10 +937,7 @@ export default function RuleModal({
 
   const availableTemplates = currentProject
     ? allTemplates.filter((t) =>
-        isProjectListValidForProject(
-          t.project ? [t.project] : [],
-          currentProject,
-        ),
+        isAvailableInProject(t.project ? [t.project] : [], currentProject),
       )
     : allTemplates;
 

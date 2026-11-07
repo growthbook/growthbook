@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { useRouter } from "next/router";
 import DataSources from "@/components/Settings/DataSources";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -17,9 +17,7 @@ const DataSourcesPage: FC = () => {
   const router = useRouter();
 
   const filteredDatasources = project
-    ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project),
-      )
+    ? datasources.filter((ds) => isAvailableInProject(ds.projects, project))
     : // "All Projects" — hide the sample datasource so it doesn't muddle the view
       datasources.filter((ds) => !ds.projects?.includes(demoProjectId || ""));
 

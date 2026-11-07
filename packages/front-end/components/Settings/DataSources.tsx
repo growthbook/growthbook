@@ -2,7 +2,7 @@ import React, { FC } from "react";
 import { useRouter } from "next/router";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import Link from "@/ui/Link";
 import ProjectBadges from "@/components/ProjectBadges";
 import { hasFileConfig } from "@/services/env";
@@ -16,9 +16,7 @@ const DataSources: FC = () => {
 
   const { datasources, project, error, ready } = useDefinitions();
   const filteredDatasources = project
-    ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project),
-      )
+    ? datasources.filter((ds) => isAvailableInProject(ds.projects, project))
     : datasources;
 
   if (error) {

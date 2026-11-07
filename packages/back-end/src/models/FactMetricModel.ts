@@ -32,6 +32,7 @@ import {
   RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
+import { UpdateFilter } from "mongodb";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -47,6 +48,7 @@ import { validateAggregationSpecification } from "back-end/src/services/factMetr
 import { healPriorSettings } from "back-end/src/util/priors";
 import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { getFactTableMap } from "./FactTableModel";
 
 const BaseClass = MakeModelClass({
@@ -557,6 +559,14 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     }
 
     validateReplaces(data);
+
+    if (previousData) {
+      await context.models.metricGroups.validateMetricProjectChange(
+        data.id,
+        data.projects,
+        previousData.projects,
+      );
+    }
   }
 
   protected async customValidation(
@@ -881,6 +891,18 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       ),
       5,
     );
+  }
+
+  public async removeProjectIdFromAll(projectId: string): Promise<void> {
+    const pullOperation: UpdateFilter<FactMetricInterface> = {
+      projects: projectId,
+    };
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, projects: projectId },
+      { $pull: pullOperation, $set: { dateUpdated: new Date() } },
+    );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
   public static addLegacyFiltersToColumnRef(

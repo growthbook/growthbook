@@ -1,7 +1,7 @@
 import { FC } from "react";
 import {
   resolveAnalysisIdentifierType,
-  isProjectListValidForProject,
+  isAvailableInProject,
 } from "shared/util";
 import {
   getFactMetricFactTableIds,
@@ -168,10 +168,10 @@ const MetricSelector: FC<
       if (projects && !project) {
         return (
           !projects.length ||
-          projects.some((p) => isProjectListValidForProject(m.projects, p))
+          projects.some((p) => isAvailableInProject(m.projects, p))
         );
       }
-      return isProjectListValidForProject(m.projects, project);
+      return isAvailableInProject(m.projects, project);
     })
     .filter((m) => {
       if (filterConversionWindowMetrics) {

@@ -16,7 +16,7 @@ import {
   getExposureQueryIdentifierTypes,
   getExposureQueryProjects,
   isExposureQueryAvailableForProjects,
-  isProjectListValidForProject,
+  isAvailableInProject,
 } from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import {
@@ -1324,7 +1324,7 @@ export function getExposureQueriesForProject(
   datasourceProjects: string[] | undefined,
 ): ExposureQuery[] {
   return exposureQueries.filter((q) =>
-    isProjectListValidForProject(
+    isAvailableInProject(
       getExposureQueryProjects(q, datasourceProjects),
       project,
     ),
@@ -1664,7 +1664,7 @@ export function getNewExperimentDatasourceDefaults({
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project),
+      isAvailableInProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
@@ -1689,7 +1689,7 @@ export function getNewExperimentDatasourceDefaults({
   let outOfScopeIdentifierType: string | undefined;
   if (
     exposureQuery &&
-    !isProjectListValidForProject(
+    !isAvailableInProject(
       getExposureQueryProjects(exposureQuery, initialDatasource.projects),
       project,
     )

@@ -91,7 +91,6 @@ interface RefreshOrganizationOptions {
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
-  createMetricGroups: false,
   viewApiKeys: false,
   createApiKeys: false,
   editApiKeys: false,

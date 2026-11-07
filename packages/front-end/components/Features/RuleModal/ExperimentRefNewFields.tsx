@@ -13,7 +13,7 @@ import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import {
   getExposureQueryIdentifierTypes,
-  isProjectListValidForProject,
+  isAvailableInProject,
   parsePlainJSONObject,
   stripDefaultsForSparse,
   expandSparseToFull,
@@ -191,10 +191,7 @@ export default function ExperimentRefNewFields({
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
     .filter((t) =>
-      isProjectListValidForProject(
-        t.project ? [t.project] : [],
-        currentProject,
-      ),
+      isAvailableInProject(t.project ? [t.project] : [], currentProject),
     )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 

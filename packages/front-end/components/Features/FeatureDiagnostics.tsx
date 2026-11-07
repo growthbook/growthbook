@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
-  isProjectListValidForProject,
+  isAvailableInProject,
   isManagedWarehouseUnavailable,
   getActiveFeatureUsageQuery,
 } from "shared/util";
@@ -56,7 +56,7 @@ function getDatasourceInitialFormValue(
   project?: string,
 ): { datasourceId: string } {
   const validDatasources = datasources.filter((d) =>
-    isProjectListValidForProject(d.projects, project),
+    isAvailableInProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasourceId: "" };
@@ -105,8 +105,7 @@ export default function FeatureDiagnostics({
 
   const validDatasources = useMemo(() => {
     return datasources.filter((d) => {
-      if (!isProjectListValidForProject(d.projects, feature.project))
-        return false;
+      if (!isAvailableInProject(d.projects, feature.project)) return false;
       return true;
     });
   }, [datasources, feature.project]);

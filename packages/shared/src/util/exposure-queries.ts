@@ -12,7 +12,7 @@ import type {
   ApiAssignmentQueryRefInput,
   AssignmentQueryField,
 } from "../validators/assignment-query-field";
-import { isProjectListValidForProject } from ".";
+import { isAvailableInProject } from ".";
 
 type ExposureQueryIdentity = Pick<
   ExposureQuery,
@@ -269,7 +269,7 @@ function getAssignmentQueryScopeError(
   }
   if (
     project !== undefined &&
-    !isProjectListValidForProject(
+    !isAvailableInProject(
       getExposureQueryProjects(query, datasourceProjects),
       project,
     )

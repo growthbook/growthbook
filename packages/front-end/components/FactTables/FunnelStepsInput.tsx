@@ -23,7 +23,7 @@ import {
 } from "shared/types/fact-table";
 import { reconcileInlineFilterPrompts } from "shared/experiments";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import { getInitialInlineFilters } from "@/services/metrics";
@@ -387,7 +387,7 @@ export default function FunnelStepsInput({
         (allowChangingDatasource && !hasCommitted) ||
         t.datasource === effectiveDatasource,
     )
-    .filter((t) => isProjectListValidForProject(t.projects, project))
+    .filter((t) => isAvailableInProject(t.projects, project))
     .map((t) => ({
       label:
         allowChangingDatasource && !hasCommitted

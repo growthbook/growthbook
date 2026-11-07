@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
-import { isProjectListValidForProject, truncateString } from "shared/util";
+import { isAvailableInProject, truncateString } from "shared/util";
 import {
   SavedGroupInterface,
   SavedGroupWithoutValues,
@@ -64,7 +64,7 @@ export default function RemoteGroups({ groups, mutate }: Props) {
     () =>
       project
         ? remoteGroups.filter((list) =>
-            isProjectListValidForProject(list.projects, project),
+            isAvailableInProject(list.projects, project),
           )
         : remoteGroups,
     [remoteGroups, project],
