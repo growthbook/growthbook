@@ -70,6 +70,12 @@
     top: var(--metric-preview-top, 72px);
     max-height: calc(100dvh - var(--metric-preview-top, 72px) - 16px);
   }
+  // Below the form on a wide window too (MetricEditor's stacked): as below
+  // 1024px, it scrolls with the page.
+  &.stacked {
+    position: static;
+    max-height: none;
+  }
 }
 
 .tabRoot {

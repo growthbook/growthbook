@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useRouter } from "next/router";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import usePageAreaCrowded from "./usePageAreaCrowded";
 import { isSettingsRoute } from "./sidebarNav";
 import {
   SETTINGS_NAV_MIN_WIDTH_PX,
@@ -57,31 +58,11 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const narrowWindow = useMediaQuery(
     `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
   );
-  // Crowded: the docked AI panel leaves less page area than the wide layout
-  // needs. Only while it's docked, so without it nothing changes. The probe
-  // (below) is the page area itself, outside the Settings page, so Settings'
-  // own layout never changes what it measures, and it can't flip back and
-  // forth. It follows the panel's target width, not its slide.
-  const [crowded, setCrowded] = useState(false);
-  const probeRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = probeRef.current;
-    if (!inSettings || !el) {
-      setCrowded(false);
-      return;
-    }
-    const observer = new ResizeObserver(([entry]) => {
-      const docked =
-        document.documentElement.style.getPropertyValue(
-          "--agent-rail-width",
-        ) !== "";
-      setCrowded(
-        docked && entry.contentRect.width < SETTINGS_WIDE_MIN_PAGE_AREA_PX,
-      );
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [inSettings]);
+  // Or the docked AI panel leaves less page area than the wide layout needs.
+  const crowded = usePageAreaCrowded(
+    SETTINGS_WIDE_MIN_PAGE_AREA_PX,
+    inSettings,
+  );
   const narrow = narrowWindow || crowded;
   // For Settings' CSS, beside its narrow-window media queries.
   useIsomorphicLayoutEffect(() => {
@@ -127,21 +108,6 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
 
   return (
     <SettingsNavContext.Provider value={value}>
-      {inSettings ? (
-        <div
-          ref={probeRef}
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            height: 0,
-            width: "var(--page-area-width)",
-            visibility: "hidden",
-            pointerEvents: "none",
-          }}
-        />
-      ) : null}
       {children}
     </SettingsNavContext.Provider>
   );
