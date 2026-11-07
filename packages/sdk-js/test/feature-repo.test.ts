@@ -815,6 +815,37 @@ describe("feature-repo", () => {
     event.clear();
   });
 
+  it("refetches features when a paused stream resumes", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [fetch, cleanup] = mockApi(apiPayload, true, 0);
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook.init({ streaming: true });
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    onHidden();
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    onVisible();
+    await sleep(20);
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    growthbook.destroy();
+    cleanup();
+  });
+
   it("does not reconnect a channel that was dropped while backing off", async () => {
     const apiPayload = {
       features: {
