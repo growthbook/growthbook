@@ -9,6 +9,7 @@ import {
   isDimensionPrecomputed,
   getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   parseFunnelStepMetricId,
   parseSliceMetricId,
@@ -488,11 +489,12 @@ export function getFactMetricDefinitionForHash(
     ? factTableMap?.get(denominatorFactTableId)
     : undefined;
 
-  const extraFunnelFactTableIds = isFactFunnelMetric(factMetric)
-    ? getFactMetricFactTableIds(factMetric).filter(
-        (id) => id !== numeratorFactTableId,
-      )
-    : [];
+  const extraFunnelFactTableIds =
+    isFactFunnelMetric(factMetric) || isFactCompoundMetric(factMetric)
+      ? getFactMetricFactTableIds(factMetric).filter(
+          (id) => id !== numeratorFactTableId,
+        )
+      : [];
 
   return {
     metricType: factMetric.metricType,
@@ -505,6 +507,10 @@ export function getFactMetricDefinitionForHash(
       : undefined,
     quantileSettings: factMetric.quantileSettings,
     funnelSettings: factMetric.funnelSettings,
+    // Only present for compound metrics, so other hashes are unchanged.
+    ...(isFactCompoundMetric(factMetric)
+      ? { compoundSettings: factMetric.compoundSettings }
+      : {}),
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,
@@ -516,6 +522,14 @@ export function getFactMetricDefinitionForHash(
               [],
           )
         : undefined,
+      ...(isFactCompoundMetric(factMetric)
+        ? {
+            compoundFilters: factMetric.compoundSettings.components.flatMap(
+              (c) =>
+                getFiltersForHash(factTableMap?.get(c.factTableId), c) ?? [],
+            ),
+          }
+        : {}),
     },
     denominatorFactTable: {
       sql: denominatorFactTable?.sql,

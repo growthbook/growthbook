@@ -61,6 +61,11 @@ export interface SnapshotMetric {
   power?: MetricPowerResponseFromStatsEngine;
   realizedSettings?: RealizedSettings;
   supplementalResults?: SupplementalResults;
+  /**
+   * Compound metrics, overall result only: units that matched each component
+   * at least once, in component order. Descriptive, no stats.
+   */
+  componentUnits?: number[];
 }
 
 export interface SnapshotVariation {

@@ -7,6 +7,7 @@ import {
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,
+  isFactCompoundMetric,
   isFactFunnelMetric,
   isSliceMetric,
 } from "shared/experiments";
@@ -322,6 +323,23 @@ export function getMetricSettingsHashForIncrementalRefresh({
         )
       : {};
 
+  // A compound metric has no numerator, so `numeratorFactTable` below only
+  // sees the first component's table SQL and no saved filters. Each
+  // component's cache column is computed from its own table and filters, so
+  // hash every one of them. Only present for compound metrics, so other
+  // hashes are unchanged.
+  const compoundComponentFactTables = isFactCompoundMetric(factMetric)
+    ? factMetric.compoundSettings.components.map((component) => {
+        const factTable = factTableMap?.get(component.factTableId);
+        return {
+          factTableId: component.factTableId,
+          sql: factTable?.sql,
+          eventName: factTable?.eventName,
+          filters: getFiltersForHash(factTable, component),
+        };
+      })
+    : undefined;
+
   return hashObject({
     ...hashedComputedSettings,
     metricType: factMetric.metricType,
@@ -332,6 +350,10 @@ export function getMetricSettingsHashForIncrementalRefresh({
     ...(isFactFunnelMetric(factMetric)
       ? { funnelSettings: factMetric.funnelSettings }
       : {}),
+    ...(isFactCompoundMetric(factMetric)
+      ? { compoundSettings: factMetric.compoundSettings }
+      : {}),
+    ...(compoundComponentFactTables ? { compoundComponentFactTables } : {}),
     // Only present for cluster experiments, so non-cluster hashes are unchanged.
     ...(clusterMetricLevel ? { clusterMetricLevel } : {}),
     numeratorFactTable: {

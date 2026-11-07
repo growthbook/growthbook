@@ -190,6 +190,7 @@ export async function runProductAnalyticsExploration(
       factMetrics.push(
         factMetricValidator.parse({
           ...value.draftMetric,
+          compoundSettings: null,
           id: value.metricId,
           organization: context.org.id,
           dateCreated: new Date(0),
