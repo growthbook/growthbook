@@ -240,14 +240,19 @@ def _variance_is_near_zero(
     own scale (mean of squares).
 
     An exact ``== 0`` check misses the common failure mode where catastrophic
-    cancellation leaves a tiny positive -- or even negative -- roundoff value in
-    the variance, which makes ``theta = cov / var`` blow up. See
-    ``RELATIVE_VARIANCE_ZERO_TOL``.
+    cancellation leaves a tiny positive roundoff value in the variance, which
+    makes ``theta = cov / var`` blow up. See ``RELATIVE_VARIANCE_ZERO_TOL``.
+
+    A negative mean of squares is unphysical (a genuine data problem rather than a
+    near-zero variance), so we return False and let it flow to the downstream
+    negative-variance handling instead of silently reverting.
     """
     if stat.n <= 1:
         return True
     mean_of_squares = stat.sum_squares / stat.n
-    if mean_of_squares <= 0:
+    if mean_of_squares < 0:
+        return False
+    if mean_of_squares == 0:
         return True
     return stat.variance <= RELATIVE_VARIANCE_ZERO_TOL * mean_of_squares
 
@@ -262,9 +267,8 @@ def compute_theta(
     joint_pre_statistic = create_joint_statistic(
         a=a.pre_statistic, b=b.pre_statistic, n=n
     )
-    if (
-        _variance_is_near_zero(joint_pre_statistic)
-        or joint_post_statistic.variance == 0
+    if _variance_is_near_zero(joint_pre_statistic) or _variance_is_near_zero(
+        joint_post_statistic
     ):
         return 0
 
