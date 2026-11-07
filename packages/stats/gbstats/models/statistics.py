@@ -537,6 +537,13 @@ def compute_theta_regression_adjusted_ratio(
     a_one = replace(a, theta=1)
     b_one = replace(b, theta=1)
     var_pre = a_one.var_pre + b_one.var_pre
+    # Revert to unadjusted when the pooled pre-period variance is zero or
+    # negligible relative to its scale. Unlike
+    # _variance_is_near_zero (mean metrics), there is no single sum_squares to
+    # reference here: a ratio's variance comes from the delta method
+    # (nabla.T @ Lambda @ nabla), not a one-pass sum. We instead reconstruct the
+    # pooled mean-of-squares of the pre-period ratio via the second-moment
+    # identity E[X^2] = Var(X) + E[X]^2, summed over both arms.
     scale = var_pre + a_one.mean_pre**2 + b_one.mean_pre**2
     if scale <= 0 or var_pre <= RELATIVE_VARIANCE_ZERO_TOL * scale:
         return 0
