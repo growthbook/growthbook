@@ -7,6 +7,8 @@ import scipy.stats
 from pydantic.dataclasses import dataclass
 from gbstats.utils import variance_of_ratios
 
+RELATIVE_VARIANCE_ZERO_TOL = float(np.sqrt(np.finfo(np.float64).eps))
+
 
 @dataclass(frozen=True)
 class Statistic(ABC):
@@ -231,6 +233,25 @@ def compute_covariance(
         return (sum_of_products - stat_a.sum * stat_b.sum / n) / (n - 1)
 
 
+def _variance_is_near_zero(
+    stat: Union[SampleMeanStatistic, ProportionStatistic]
+) -> bool:
+    """Return True when ``stat``'s variance is zero or negligible relative to its
+    own scale (mean of squares).
+
+    An exact ``== 0`` check misses the common failure mode where catastrophic
+    cancellation leaves a tiny positive -- or even negative -- roundoff value in
+    the variance, which makes ``theta = cov / var`` blow up. See
+    ``RELATIVE_VARIANCE_ZERO_TOL``.
+    """
+    if stat.n <= 1:
+        return True
+    mean_of_squares = stat.sum_squares / stat.n
+    if mean_of_squares <= 0:
+        return True
+    return stat.variance <= RELATIVE_VARIANCE_ZERO_TOL * mean_of_squares
+
+
 def compute_theta(
     a: RegressionAdjustedStatistic, b: RegressionAdjustedStatistic
 ) -> float:
@@ -241,7 +262,10 @@ def compute_theta(
     joint_pre_statistic = create_joint_statistic(
         a=a.pre_statistic, b=b.pre_statistic, n=n
     )
-    if joint_pre_statistic.variance == 0 or joint_post_statistic.variance == 0:
+    if (
+        _variance_is_near_zero(joint_pre_statistic)
+        or joint_post_statistic.variance == 0
+    ):
         return 0
 
     joint = RegressionAdjustedStatistic(
@@ -512,9 +536,11 @@ def compute_theta_regression_adjusted_ratio(
     # set theta equal to 1, so the partial derivatives are unaffected by theta
     a_one = replace(a, theta=1)
     b_one = replace(b, theta=1)
-    if a_one.var_pre + b_one.var_pre == 0:
+    var_pre = a_one.var_pre + b_one.var_pre
+    scale = var_pre + a_one.mean_pre**2 + b_one.mean_pre**2
+    if scale <= 0 or var_pre <= RELATIVE_VARIANCE_ZERO_TOL * scale:
         return 0
-    return -(a_one.covariance + b_one.covariance) / (a_one.var_pre + b_one.var_pre)
+    return -(a_one.covariance + b_one.covariance) / var_pre
 
 
 @dataclass(frozen=True)
