@@ -410,9 +410,14 @@ function onNewFeatureData(
   // Update local storage (don't await this, just update asynchronously)
   updatePersistentCache();
 
-  // Update features for all subscribed GrowthBook instances
+  // Update features for the subscribed GrowthBook instances this payload is for.
+  // With remote eval it was evaluated for one user, so it's only valid for
+  // instances with the same cache key, not everything sharing a client key.
   const instances = subscribedInstances.get(key);
-  instances && instances.forEach((instance) => refreshInstance(instance, data));
+  instances &&
+    instances.forEach((instance) => {
+      if (getCacheKey(instance) === cacheKey) refreshInstance(instance, data);
+    });
 }
 
 async function refreshInstance(
@@ -648,18 +653,23 @@ function scheduleNextPoll(key: string, poller: Poller): void {
       : poller.interval;
 
   const timer = setTimeout(() => {
-    // Resolve a subscriber at poll time. The instance that started polling may have been
+    // Resolve subscribers at poll time. The instance that started polling may have been
     // destroyed, which clears its options and would send us to the wrong host.
     const subs = subscribedInstances.get(key);
-    const instance = subs && subs.values().next().value;
-    if (!instance) {
+    if (!subs || !subs.size) {
       destroyPoller(poller, key);
       return;
     }
 
-    // Bypass the cache so the interval, not staleTTL, decides how often we refresh
-    fetchFeatures(instance).then((res) => {
-      poller.errors = res.success ? 0 : poller.errors + 1;
+    // Bypass the cache so the interval, not staleTTL, decides how often we refresh.
+    // Instances with the same cache key share a request, so this is one fetch per
+    // poll unless remote eval needs a separate payload for each set of attributes.
+    Promise.all(
+      Array.from(subs).map((instance) => fetchFeatures(instance)),
+    ).then((responses) => {
+      poller.errors = responses.every((res) => res.success)
+        ? 0
+        : poller.errors + 1;
       // Don't reschedule if polling was stopped while the request was in flight
       if (pollers.get(key) === poller) {
         scheduleNextPoll(key, poller);
