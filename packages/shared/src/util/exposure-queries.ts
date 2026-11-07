@@ -493,6 +493,48 @@ export function getExposureQueryProjects(
 }
 
 /**
+ * The assignment queries whose projects the user can read. A data source
+ * response only includes these.
+ */
+export function getReadableExposureQueries<
+  Q extends Pick<ExposureQuery, "projects">,
+>(
+  queries: Q[],
+  datasourceProjects: string[] | undefined,
+  canReadProjects: (projects: string[]) => boolean,
+): Q[] {
+  return queries.filter((q) =>
+    canReadProjects(getExposureQueryProjects(q, datasourceProjects)),
+  );
+}
+
+/**
+ * A save only sends back the assignment queries the user was shown, so the
+ * saved ones they can't read are put back unchanged, each at its saved
+ * position. Returns `submitted` itself when there are none.
+ */
+export function withUnreadableExposureQueries<
+  Q extends Pick<ExposureQuery, "projects">,
+>(
+  saved: Q[],
+  submitted: Q[],
+  datasourceProjects: string[] | undefined,
+  canReadProjects: (projects: string[]) => boolean,
+): Q[] {
+  const unreadable = saved.flatMap((q, index) =>
+    canReadProjects(getExposureQueryProjects(q, datasourceProjects))
+      ? []
+      : [{ q, index }],
+  );
+  if (!unreadable.length) return submitted;
+  const merged = [...submitted];
+  for (const { q, index } of unreadable) {
+    merged.splice(Math.min(index, merged.length), 0, q);
+  }
+  return merged;
+}
+
+/**
  * For resources spanning several projects (holdouts): the query must be usable
  * by every one of them. A holdout with no projects covers all projects, so only
  * a query unrestricted on both itself and its data source qualifies.
