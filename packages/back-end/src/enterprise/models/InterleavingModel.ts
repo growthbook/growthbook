@@ -104,11 +104,6 @@ const LEGACY_TRACKING_KEY_INDEXES = [
   // Redundant once the unique index above covers the same reads.
   "organization_1_trackingKey_1",
 ];
-// Several experiments may share a code key, so this one is not unique. Renamed
-// off the auto-generated name so the stale unique index can be dropped without
-// the drop racing the rebuild.
-const KEY_LOOKUP_INDEX = "interleaving_organization_key";
-const LEGACY_UNIQUE_KEY_INDEX = "organization_1_key_1";
 const INTERLEAVING_AUTOSNAPSHOT_SCAN_INDEX = "interleaving_autosnapshot_scan";
 const INTERLEAVING_COLLECTION = "interleavings";
 const trackingKeyUniquenessIndex = {
@@ -165,10 +160,9 @@ const BaseClass = MakeModelClass({
   // updateIfUnchanged guards on) and write an audit row every tick.
   skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
-  indexesToRemove: [...LEGACY_TRACKING_KEY_INDEXES, LEGACY_UNIQUE_KEY_INDEX],
+  indexesToRemove: LEGACY_TRACKING_KEY_INDEXES,
   additionalIndexes: [
     {
-      name: KEY_LOOKUP_INDEX,
       fields: {
         organization: 1,
         key: 1,
