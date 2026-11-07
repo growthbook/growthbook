@@ -513,6 +513,11 @@
       "count": 3
     }
   },
+  "packages/front-end/components/Features/EditFeatureInfoModalNew.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Features/EditSchemaModal.tsx": {
     "no-restricted-syntax": {
       "count": 1

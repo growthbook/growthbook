@@ -11,12 +11,7 @@ import {
   getDefaultPrerequisiteCondition,
 } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import {
-  PiXBold,
-  PiPlusCircleBold,
-  PiTextAa,
-  PiCaretRightFill,
-} from "react-icons/pi";
+import { PiXBold, PiPlusCircleBold, PiCaretRightFill } from "react-icons/pi";
 import { RxInfoCircled } from "react-icons/rx";
 import {
   Box,
@@ -61,6 +56,8 @@ import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import CaseInsensitiveToggle from "@/components/Features/CaseInsensitiveToggle";
+import FormatJsonAction from "@/components/Features/FormatJsonAction";
 import Callout from "@/ui/Callout";
 import {
   datatypeSupportsCaseInsensitive,
@@ -608,92 +605,71 @@ export default function PrerequisiteInput({
                           />
                         }
                         operatorSlot={
-                          <Flex gap="3" align="start">
-                            <Box flexGrow="1">
-                              <SelectField
-                                size="legacy"
-                                disabled={locked}
-                                value={getDisplayOperator(
-                                  conds?.[0]?.[0]?.operator || "",
-                                )}
-                                options={getPrereqOperators(
-                                  parentFeatureMeta?.valueType,
-                                )}
-                                sort={false}
-                                formatOptionLabel={
-                                  formatOperatorLabel as FormatOptionLabelType
-                                }
-                                onChange={(op) => {
-                                  if (!conds?.[0]?.[0]) return;
-                                  const newConds = [...conds[0]];
-                                  newConds[0] = {
-                                    ...newConds[0],
-                                    operator: withOperatorCaseInsensitivity(
-                                      op,
-                                      isCaseInsensitiveOperator(
-                                        conds[0][0].operator,
-                                      ),
-                                    ),
-                                  };
-                                  updateCondition(
-                                    i,
-                                    condToJson([newConds], parentValueMap),
-                                  );
-                                }}
-                              />
-                            </Box>
-                            {conds?.[0]?.[0] &&
+                          <SelectField
+                            size="legacy"
+                            disabled={locked}
+                            value={getDisplayOperator(
+                              conds?.[0]?.[0]?.operator || "",
+                            )}
+                            options={getPrereqOperators(
+                              parentFeatureMeta?.valueType,
+                            )}
+                            sort={false}
+                            formatOptionLabel={
+                              formatOperatorLabel as FormatOptionLabelType
+                            }
+                            onChange={(op) => {
+                              if (!conds?.[0]?.[0]) return;
+                              const newConds = [...conds[0]];
+                              newConds[0] = {
+                                ...newConds[0],
+                                operator: withOperatorCaseInsensitivity(
+                                  op,
+                                  isCaseInsensitiveOperator(
+                                    conds[0][0].operator,
+                                  ),
+                                ),
+                              };
+                              updateCondition(
+                                i,
+                                condToJson([newConds], parentValueMap),
+                              );
+                            }}
+                            extraIndicator={
+                              conds?.[0]?.[0] &&
                               operatorSupportsCaseInsensitive(
                                 conds[0][0].operator,
                               ) &&
                               datatypeSupportsCaseInsensitive(
                                 parentFeatureMeta?.valueType,
-                              ) && (
-                                <Tooltip
-                                  body={`Case insensitive: ${isCaseInsensitiveOperator(conds[0][0].operator) ? "ON" : "OFF"}`}
-                                >
-                                  <IconButton
-                                    type="button"
-                                    disabled={locked}
-                                    variant={
-                                      isCaseInsensitiveOperator(
-                                        conds[0][0].operator,
-                                      )
-                                        ? "soft"
-                                        : "ghost"
-                                    }
-                                    size="1"
-                                    radius="medium"
-                                    onClick={() => {
-                                      const newConds = [...conds[0]];
-                                      newConds[0] = {
-                                        ...newConds[0],
-                                        operator: withOperatorCaseInsensitivity(
-                                          getDisplayOperator(
-                                            conds[0][0].operator,
-                                          ),
-                                          !isCaseInsensitiveOperator(
-                                            conds[0][0].operator,
-                                          ),
+                              ) ? (
+                                <CaseInsensitiveToggle
+                                  on={isCaseInsensitiveOperator(
+                                    conds[0][0].operator,
+                                  )}
+                                  disabled={locked}
+                                  onToggle={() => {
+                                    const newConds = [...conds[0]];
+                                    newConds[0] = {
+                                      ...newConds[0],
+                                      operator: withOperatorCaseInsensitivity(
+                                        getDisplayOperator(
+                                          conds[0][0].operator,
                                         ),
-                                      };
-                                      updateCondition(
-                                        i,
-                                        condToJson([newConds], parentValueMap),
-                                      );
-                                    }}
-                                    style={{
-                                      width: 24,
-                                      height: 24,
-                                      margin: "8px 0 0 0",
-                                      padding: 0,
-                                    }}
-                                  >
-                                    <PiTextAa />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                          </Flex>
+                                        !isCaseInsensitiveOperator(
+                                          conds[0][0].operator,
+                                        ),
+                                      ),
+                                    };
+                                    updateCondition(
+                                      i,
+                                      condToJson([newConds], parentValueMap),
+                                    );
+                                  }}
+                                />
+                              ) : undefined
+                            }
+                          />
                         }
                         valueSlot={
                           !conds?.[0]?.[0] ? null : ![
@@ -892,6 +868,14 @@ export default function PrerequisiteInput({
                         maxLines={6}
                         showCopyButton={!locked}
                         showFullscreenButton={!locked}
+                        actions={
+                          locked ? null : (
+                            <FormatJsonAction
+                              value={v.condition}
+                              setValue={(newVal) => updateCondition(i, newVal)}
+                            />
+                          )
+                        }
                       />
                       <Box>
                         <Text color="text-low" size="sm">

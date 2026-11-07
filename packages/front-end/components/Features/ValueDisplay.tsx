@@ -12,7 +12,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import stringify from "json-stringify-pretty-compact";
 import { IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
@@ -35,7 +34,7 @@ import ScrollArea from "@/ui/ScrollArea";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { useValueDiff } from "./ValueDiffContext";
-import { getFieldLineNumbers } from "./jsonFieldLines";
+import { formatJsonValue, getFieldLineNumbers } from "./jsonFieldLines";
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -53,6 +52,13 @@ function getSparseMerge(
     patchKeys: new Set(Object.keys(patch)),
   };
 }
+
+// A value as one of several in a list, kept short.
+export const LISTED_VALUE_STYLE: CSSProperties = {
+  maxHeight: 100,
+  overflowY: "auto",
+  maxWidth: "100%",
+};
 
 export default function ValueDisplay({
   value,
@@ -118,22 +124,30 @@ export default function ValueDisplay({
       sparse && type === "json" ? getSparseMerge(value, defaultValue) : null,
     [sparse, type, value, defaultValue],
   );
+  // Beside other values (an experiment's variations), what differs between
+  // them is tinted instead.
+  const shown = useMemo(
+    () =>
+      type === "json"
+        ? (sparseMerge?.merged ?? parsePlainJSONObject(value))
+        : null,
+    [type, sparseMerge, value],
+  );
+  const differingKeys = useValueDiff(isFullscreen ? null : shown);
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
     if (type === "number") return value || "null";
     if (type === "string") return '"' + value + '"';
     try {
       // Sparse rules display the expanded (merged) value, not the raw patch.
-      // Force one-key-per-line (maxLength: 0) so the overridden keys map to
-      // stable line numbers we can bold.
-      // Always break to one key/element per line (never compact short objects
-      // onto a single line) for consistent, scannable JSON.
-      if (sparseMerge) return stringify(sparseMerge.merged, { maxLength: 0 });
-      return stringify(JSON.parse(value), { maxLength: 0 });
+      // Bolded or tinted keys each keep their own lines.
+      return formatJsonValue(sparseMerge?.merged ?? JSON.parse(value), {
+        keysOnOwnLines: !!sparseMerge || !!differingKeys?.size,
+      });
     } catch (e) {
       return value;
     }
-  }, [value, type, sparseMerge]);
+  }, [value, type, sparseMerge, differingKeys]);
 
   // Long values highlight only the visible lines, inside a box that scrolls
   // even when the caller set no height limit
@@ -156,16 +170,6 @@ export default function ValueDisplay({
     [sparseMerge, formatted],
   );
 
-  // Beside other values (an experiment's variations), what differs between
-  // them is tinted instead.
-  const shown = useMemo(
-    () =>
-      type === "json"
-        ? (sparseMerge?.merged ?? parsePlainJSONObject(value))
-        : null,
-    [type, sparseMerge, value],
-  );
-  const differingKeys = useValueDiff(isFullscreen ? null : shown);
   const highlightLines = useMemo(
     () => (differingKeys ? getFieldLineNumbers(formatted, differingKeys) : []),
     [differingKeys, formatted],
@@ -243,6 +247,7 @@ export default function ValueDisplay({
     <>
       <CornerActions
         overlay={actionsOverlay}
+        oneLine={!formatted.includes("\n")}
         actions={
           isFullscreen ? null : (
             <>
@@ -292,6 +297,7 @@ export default function ValueDisplay({
         <ScrollArea
           ref={scrollBoxRef}
           gutter
+          edgeCue="fade"
           className={fullClassName}
           style={{
             maxHeight: boxStyle.maxHeight,

@@ -87,6 +87,32 @@ export default function ScrollAreaStories() {
           </table>
         </ScrollArea>
       </Example>
+      <Example title="Pinned footer, deep shadow">
+        <Flex direction="column" height="100%">
+          <ScrollArea
+            edgeCue="deep-shadow"
+            skipEdges={["bottom"]}
+            style={{ flex: 1, minHeight: 0 }}
+          >
+            {rows.map((row) => (
+              <Text as="div" key={row} style={{ padding: "4px 8px" }}>
+                {row}
+              </Text>
+            ))}
+          </ScrollArea>
+          <Box
+            className={pinnedTo.bottom}
+            p="2"
+            flexShrink="0"
+            style={{
+              position: "relative",
+              background: "var(--color-panel-solid)",
+            }}
+          >
+            <Text>Composer</Text>
+          </Box>
+        </Flex>
+      </Example>
     </Flex>
   );
 }

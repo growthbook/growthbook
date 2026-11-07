@@ -163,10 +163,8 @@ function OverrideValueInput({
             }
           }}
           valueType="json"
-          showFullscreenButton
           codeInputDefaultHeight={120}
           constantContext={constantContext}
-          inlineConstantButton
           disabled={disabled}
         />
         {jsonError && (
@@ -218,7 +216,6 @@ function OverrideValueInput({
       }}
       valueType="string"
       constantContext={constantContext}
-      inlineConstantButton
       disabled={disabled}
     />
   );
@@ -321,15 +318,14 @@ function OverrideRow({
   const nullable = fieldIsNullable(nf);
   const description = nf?.description?.trim();
   const isNull = overridden && value === null;
-  // A JSON override renders a code editor whose "Insert constant" button floats
-  // just above it; give the row extra headroom so the button doesn't crowd the
-  // row above.
-  const hasJsonEditor = overridden && !isNull && vt === "json";
-
   // Object patches deep-merge onto the base at resolve time, so the stored
   // patch isn't the delivered value. Preview the merged result when they differ.
   const merged =
-    hasJsonEditor && isPlainObject(base) && isPlainObject(value)
+    overridden &&
+    !isNull &&
+    vt === "json" &&
+    isPlainObject(base) &&
+    isPlainObject(value)
       ? deepMergePatch(base, value)
       : null;
   const showMerged = merged !== null && !isEqual(merged, value);
@@ -340,7 +336,7 @@ function OverrideRow({
       align="start"
       gapX="5"
       gapY="0"
-      pt={hasJsonEditor ? "6" : "2"}
+      pt="2"
       pb="2"
       style={{ borderTop: "1px solid var(--slate-a4)" }}
     >
@@ -811,7 +807,6 @@ export default function ConfigOverrideEditor({
             value={patch}
             setValue={setPatch}
             valueType="json"
-            showFullscreenButton
             constantContext={constantContext}
             disabled={disabled}
           />

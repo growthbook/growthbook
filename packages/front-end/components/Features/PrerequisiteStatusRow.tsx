@@ -10,20 +10,24 @@ import {
   FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { getPrerequisites } from "@/services/features";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { LockedRowMenu } from "@/components/Features/ScheduleLock";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
 import Text from "@/ui/Text";
+import {
+  revealedByQuickEdit,
+  revealsQuickEdit,
+} from "@/components/Experiment/TabbedPage/QuickEditButton";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -32,11 +36,13 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { featureStatusColors } from "./FeaturesOverview";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 interface Props {
   i: number;
@@ -50,6 +56,8 @@ interface Props {
   revisionList: MinimalFeatureRevisionInterface[];
   gatedEnvSet: Set<string> | "all" | "none";
   isLocked?: boolean;
+  // Shows the menu disabled rather than hiding it.
+  lockedBySchedule?: boolean;
   labelWidth?: number;
   colWidth?: number;
 }
@@ -66,12 +74,14 @@ export default function PrerequisiteStatusRow({
   revisionList,
   gatedEnvSet,
   isLocked = false,
+  lockedBySchedule = false,
   labelWidth = 200,
   colWidth = 120,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const { apiCall } = useAuth();
+  const redesign = useFeaturePageRedesign();
   const [open, setOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   // Pinned when the modal opens: `feature` is reactive, so reading the list at
@@ -84,9 +94,7 @@ export default function PrerequisiteStatusRow({
   const latestActiveDraft = useMemo(
     () =>
       revisionList
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
+        .filter((r) => isActiveDraftStatus(r.status))
         .sort((a, b) => b.version - a.version)[0] ?? null,
     [revisionList],
   );
@@ -163,19 +171,15 @@ export default function PrerequisiteStatusRow({
     </Modal>
   );
 
-  const menu = canEdit && !isLocked && (
+  const menu = !canEdit ? null : lockedBySchedule ? (
+    <LockedRowMenu style={{ margin: 0 }} />
+  ) : isLocked ? null : (
     <DropdownMenu
       trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
+        <MoreMenuTrigger
+          label="Prerequisite actions"
           style={{ marginRight: 0 }}
-        >
-          <BsThreeDotsVertical size={18} />
-        </IconButton>
+        />
       }
       open={open}
       onOpenChange={setOpen}
@@ -208,8 +212,17 @@ export default function PrerequisiteStatusRow({
   return (
     <>
       {deleteModal}
-      <Flex align="center" style={{ borderTop: "1px solid var(--gray-4)" }}>
-        <Box style={{ width: labelWidth, flexShrink: 0, minWidth: 0 }} py="2">
+      <Flex
+        align="center"
+        className={redesign ? revealsQuickEdit : undefined}
+        style={{ borderTop: "1px solid var(--gray-4)" }}
+      >
+        {/* Indented under the "Prerequisites" label above the rows. */}
+        <Box
+          style={{ width: labelWidth, flexShrink: 0, minWidth: 0 }}
+          py="2"
+          pl={redesign ? "3" : undefined}
+        >
           <Flex align="center" gap="1">
             <a
               href={`/features/${prerequisite.id}`}
@@ -229,7 +242,13 @@ export default function PrerequisiteStatusRow({
               condition={prerequisite.condition}
               iconOnly
             />
-            <Box style={{ flexShrink: 0 }}>{menu}</Box>
+            {/* Shows when the row is pointed at. */}
+            <Flex
+              className={redesign ? revealedByQuickEdit : undefined}
+              flexShrink="0"
+            >
+              {menu}
+            </Flex>
           </Flex>
         </Box>
         {envs.length > 0 && (

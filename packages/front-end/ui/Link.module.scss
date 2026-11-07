@@ -13,6 +13,14 @@
   }
 }
 
+.inheritLink {
+  color: inherit;
+
+  &:hover {
+    color: var(--accent-10);
+  }
+}
+
 .darkLink {
   color: var(--color-text-high);
 

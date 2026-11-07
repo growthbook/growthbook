@@ -5,7 +5,6 @@ import {
   ReactNode,
   useContext,
   useMemo,
-  useState,
 } from "react";
 import ReactSelect, {
   components,
@@ -34,10 +33,10 @@ import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
 import { PiCaretDown, PiX } from "react-icons/pi";
-import { Tooltip } from "@radix-ui/themes";
 import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
-import { CopyIcon } from "@/ui/ActionIcons";
+import { CopyFieldIndicator } from "@/ui/FieldIndicator";
+import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import {
   ReactSelectProps,
@@ -176,42 +175,6 @@ function GroupHeading(
   );
 }
 
-function CopyButton({ value }: { value: string[] }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const text = JSON.stringify(value);
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 750);
-    });
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  return (
-    <Tooltip
-      content={copied ? "Copied" : "Copy to clipboard"}
-      open={copied ? true : undefined}
-    >
-      <button
-        type="button"
-        className="gb-multi-select__copy-button"
-        onClick={handleCopy}
-        onMouseDown={handleMouseDown}
-      >
-        <CopyIcon />
-      </button>
-    </Tooltip>
-  );
-}
-
 function IndicatorsContainerWithExtras(
   props: React.ComponentProps<typeof components.IndicatorsContainer>,
 ) {
@@ -233,7 +196,12 @@ function IndicatorsContainerWithExtras(
   return (
     <components.IndicatorsContainer {...props}>
       {extra}
-      {showCopy ? <CopyButton value={values} /> : null}
+      {showCopy ? (
+        <CopyFieldIndicator
+          value={JSON.stringify(values)}
+          className="gb-multi-select__copy-button"
+        />
+      ) : null}
       {props.children}
     </components.IndicatorsContainer>
   );

@@ -1,14 +1,18 @@
 import clsx from "clsx";
-import { ReactNode, TransitionEvent, useState } from "react";
+import { CSSProperties, ReactNode, TransitionEvent, useState } from "react";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import Link from "./Link";
 import styles from "./Collapse.module.scss";
 
 /** Content that slides open and shut; mounted on first open, untabbable shut. */
 export default function Collapse({
   open,
+  duration,
   children,
 }: {
   open: boolean;
+  // In ms; 200 by default.
+  duration?: number;
   children: ReactNode;
 }) {
   const [opened, setOpened] = useState(open);
@@ -26,6 +30,11 @@ export default function Collapse({
   return (
     <div
       className={clsx(styles.collapse, !open && styles.closed)}
+      style={
+        duration === undefined
+          ? undefined
+          : ({ "--collapse-duration": `${duration}ms` } as CSSProperties)
+      }
       onTransitionEnd={onTransitionEnd}
     >
       <div className={clsx(styles.inner, open && settled && styles.unclipped)}>
@@ -75,5 +84,32 @@ export function CollapseTrigger({
       ) : null}
       {caret === "end" ? icon : null}
     </div>
+  );
+}
+
+/** A link that opens and shuts a Collapse, for where a row is too heavy. */
+export function CollapseLink({
+  open,
+  onOpenChange,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      size="sm"
+      aria-expanded={open}
+      onClick={(e) => {
+        e.preventDefault();
+        onOpenChange(!open);
+      }}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        {children}
+        {open ? <PiCaretDown /> : <PiCaretRight />}
+      </span>
+    </Link>
   );
 }

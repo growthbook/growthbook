@@ -1,6 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -14,7 +13,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import ChangesTable, {
   ChangesTableRow,
 } from "@/components/Reviews/ChangesTable";
-import Link from "@/ui/Link";
+import { CollapseLink } from "@/ui/Collapse";
 import Text from "@/ui/Text";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import SetupFieldRow, { SetupFieldGroup } from "./SetupFieldRow";
@@ -134,32 +133,6 @@ function useTargetingFields(
         hashVersion === 1 ? "V1 (Legacy)" : "V2 (Preferred)",
     },
   ];
-}
-
-function Disclosure({
-  open,
-  onToggle,
-  children,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  children: string;
-}) {
-  return (
-    <Link
-      size="sm"
-      aria-expanded={open}
-      onClick={(e) => {
-        e.preventDefault();
-        onToggle();
-      }}
-    >
-      <Flex align="center" gap="1">
-        {children}
-        {open ? <PiCaretDown /> : <PiCaretRight />}
-      </Flex>
-    </Link>
-  );
 }
 
 /** Who the experiment includes now. */
@@ -293,21 +266,18 @@ export function TargetingChanges({
           key: "release",
           rows: releaseRows,
           footer: releaseRows.some((row) => row.details) ? (
-            <Disclosure
-              open={showDetails}
-              onToggle={() => setShowDetails(!showDetails)}
-            >
+            <CollapseLink open={showDetails} onOpenChange={setShowDetails}>
               {showDetails ? "Hide details" : "Show details"}
-            </Disclosure>
+            </CollapseLink>
           ) : undefined,
         },
         {
           key: "targeting",
           rows: targetingRows,
           footer: (
-            <Disclosure open={showAll} onToggle={() => setShowAll(!showAll)}>
+            <CollapseLink open={showAll} onOpenChange={setShowAll}>
               {showAll ? "Show changes only" : "Show full targeting"}
-            </Disclosure>
+            </CollapseLink>
           ),
         },
       ]}

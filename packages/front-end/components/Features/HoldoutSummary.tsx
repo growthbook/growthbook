@@ -5,6 +5,7 @@ import Badge from "@/ui/Badge";
 import { coveragePercentFormatter } from "@/services/utils";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
+import RuleField from "./RuleField";
 
 export default function HoldoutSummary({
   value,
@@ -19,31 +20,28 @@ export default function HoldoutSummary({
 }) {
   return (
     <Box>
-      <Flex direction="row" gap="2" mb="3">
-        <Text weight="medium">HOLDOUT</Text>
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>
-              {coveragePercentFormatter.format(holdoutWeight)}
-            </Text>
-          }
-        />
-        of
-        <AttributeBadge attributeId={hashAttribute} />
-      </Flex>
-      <Flex gap="3">
-        <Box>
-          <Text weight="medium">SERVE</Text>
-        </Box>
-        <Box flexGrow="1">
-          <ValueDisplay
-            value={value}
-            type={feature.valueType}
-            showFullscreenButton={true}
+      <RuleField label="Holdout">
+        <Flex align="center" gap="2" wrap="wrap">
+          <Badge
+            color="gray"
+            label={
+              <Text style={{ color: "var(--slate-12)" }}>
+                {coveragePercentFormatter.format(holdoutWeight)}
+              </Text>
+            }
           />
-        </Box>
-      </Flex>
+          of
+          <AttributeBadge attributeId={hashAttribute} />
+        </Flex>
+      </RuleField>
+      <RuleField label="Serve" mb="0">
+        <ValueDisplay
+          value={value}
+          type={feature.valueType}
+          showFullscreenButton={true}
+          actionsOverlay={{ inline: true }}
+        />
+      </RuleField>
       <ValidateValue value={value} feature={feature} />
     </Box>
   );

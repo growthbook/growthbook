@@ -1043,6 +1043,10 @@ export default function ExperimentHeader({
               gapX="4"
               gapY="2"
               flexGrow="1"
+              // Ends where the feature page's revision picker does: into the
+              // menu button's gap, then back by a border as wide as a card's,
+              // which zoom rounds the same way.
+              style={{ marginRight: -10, borderRight: "1px solid transparent" }}
             >
               {/* Unwrapped, so the column never narrows past the buttons. */}
               <Flex
@@ -1159,7 +1163,12 @@ export default function ExperimentHeader({
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
                 trigger={
-                  <MoreMenuTrigger label="More actions" size="lg" ml="2" />
+                  <MoreMenuTrigger
+                    label="More actions"
+                    size="lg"
+                    // Above the details toggle, past the row's end.
+                    style={{ marginLeft: 8, marginRight: -16 }}
+                  />
                 }
                 open={dropdownOpen}
                 onOpenChange={(o) => {
@@ -1462,7 +1471,14 @@ export default function ExperimentHeader({
                 <Tabs
                   value={tab}
                   onValueChange={setTab}
-                  style={{ flex: 1, minWidth: 0 }}
+                  // Its dates end under the actions above: into the toggle's
+                  // margin, then back by a border as wide as a card's.
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    marginRight: -12,
+                    borderRight: "1px solid transparent",
+                  }}
                 >
                   <TabsList size="lg">
                     <Flex align="center" className="flex-1" minWidth="0">

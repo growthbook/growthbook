@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isActiveDraftStatus } from "shared/validators";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import { DraftMode } from "@/components/DraftSelector";
@@ -24,7 +24,7 @@ export function useDefaultDraft(
         .filter(
           (r) =>
             !isRampGenerated(r) &&
-            (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) &&
+            isActiveDraftStatus(r.status) &&
             (canWriteIntoDraft?.(r) ?? true),
         )
         .sort(

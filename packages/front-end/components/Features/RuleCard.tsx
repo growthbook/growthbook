@@ -1,12 +1,12 @@
 import React from "react";
+import clsx from "clsx";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { RiDraggable } from "react-icons/ri";
+import { PiDotsSixVertical } from "react-icons/pi";
 import Badge from "@/ui/Badge";
-
-// Shared visual chrome for `Rule` and `HoldoutRule`. Owns the outer
-// Card + colored side bar + drag-handle slot + index badge + content
-// flex column. Heading row, env badges, body, and modals stay in the
-// per-rule callers.
+import Tooltip from "@/ui/Tooltip";
+import cornerStyles from "./CornerActions.module.scss";
+import styles from "./RuleCard.module.scss";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 export type RuleCardSideColor =
   | "active"
@@ -15,14 +15,6 @@ export type RuleCardSideColor =
   | "unreachable"
   | "removed";
 
-const sideColorVar: Record<RuleCardSideColor, string> = {
-  active: "var(--green-9)",
-  skipped: "var(--amber-7)",
-  disabled: "var(--gray-5)",
-  unreachable: "var(--orange-7)",
-  removed: "var(--red-7)",
-};
-
 interface Props {
   index: number;
   sideColor: RuleCardSideColor;
@@ -30,6 +22,9 @@ interface Props {
   // listeners). When omitted, the column stays reserved but empty so
   // rule cards align in the same column whether draggable or not.
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
+  header: React.ReactNode;
+  // Callouts shown as a full-width strip under the header.
+  ribbon?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -37,48 +32,80 @@ export default function RuleCard({
   index,
   sideColor,
   dragHandleProps,
+  header,
+  ribbon,
   children,
 }: Props) {
+  const redesign = useFeaturePageRedesign();
+  const handle = dragHandleProps ? (
+    <Tooltip content="Drag and drop to re-order rules">
+      <div {...dragHandleProps} className={styles.grab}>
+        <PiDotsSixVertical size={16} />
+      </div>
+    </Tooltip>
+  ) : (
+    <Box aria-hidden className={styles.idleHandle}>
+      <PiDotsSixVertical size={16} />
+    </Box>
+  );
+  const indexBadge = (
+    <Badge
+      label={<>{index}</>}
+      radius="full"
+      color="gray"
+      className={styles.index}
+    />
+  );
+
+  // The page it's tested against: header and details in one column.
+  if (!redesign) {
+    return (
+      <Card>
+        <div className={clsx(styles.sideBar, styles[sideColor])} />
+        <Flex align="start" justify="between" gap="2" p="1">
+          <Box className={styles.handle}>{handle}</Box>
+          {indexBadge}
+          <Box flexGrow="1" pr="2" minWidth="0">
+            <Box mb="3">{header}</Box>
+            {ribbon ? <Box mb="3">{ribbon}</Box> : null}
+            {children}
+          </Box>
+        </Flex>
+      </Card>
+    );
+  }
+
+  // Its values' copy and fullscreen buttons show while it's hovered.
   return (
-    <Card>
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: "4px",
-          backgroundColor: sideColorVar[sideColor],
-        }}
-      />
-      <Flex align="start" justify="between" gap="2" p="1">
-        <Box style={{ width: 14 }}>
-          {dragHandleProps ? (
-            <div
-              {...dragHandleProps}
-              title="Drag and drop to re-order rules"
-              style={{ cursor: "grab" }}
+    <Card className={clsx(cornerStyles.hoverActions, styles.card)}>
+      <div className={clsx(styles.sideBar, styles[sideColor])} />
+      <Box px="2" pt="2" pb="4">
+        <Flex align="start" gap="2" mb="2">
+          <Flex align="center" gap="1" className={styles.leading}>
+            <Flex
+              align="center"
+              className={clsx(cornerStyles.actions, styles.handle)}
             >
-              <RiDraggable size={16} />
-            </div>
-          ) : (
-            <Box aria-hidden style={{ opacity: 0.25 }}>
-              <RiDraggable size={16} />
-            </Box>
-          )}
-        </Box>
-        <Box>
-          <Badge
-            label={<>{index}</>}
-            radius="full"
-            color="gray"
-            style={{ minWidth: 20 }}
-          />
-        </Box>
-        <Box flexGrow="1" pr="2" style={{ maxWidth: "100%" }}>
-          {children}
-        </Box>
-      </Flex>
+              {handle}
+            </Flex>
+            {indexBadge}
+          </Flex>
+          <Flex
+            align="center"
+            flexGrow="1"
+            minWidth="0"
+            className={styles.header}
+          >
+            <Box width="100%">{header}</Box>
+          </Flex>
+        </Flex>
+        {ribbon ? (
+          <div className={styles.ribbon}>{ribbon}</div>
+        ) : (
+          <div aria-hidden className={styles.divider} />
+        )}
+        <Box className={styles.body}>{children}</Box>
+      </Box>
     </Card>
   );
 }

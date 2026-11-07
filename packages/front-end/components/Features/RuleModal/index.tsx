@@ -30,7 +30,7 @@ import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
-  ACTIVE_DRAFT_STATUSES,
+  isActiveDraftStatus,
   CreateSafeRolloutInterface,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
@@ -84,9 +84,7 @@ import {
   getRampStartImpact,
   type RampStartImpact,
 } from "@/components/Features/RuleModal/rampStartImpact";
-import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
@@ -229,28 +227,19 @@ function RampImpactBanner({
   return (
     <ModalWarningBanner
       controls={
-        <>
-          {onRampToNewValue && (
-            <Tooltip
-              content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
-              side="top"
-            >
-              <Button variant="outline" size="md" onClick={onRampToNewValue}>
-                Ramp to new value
-              </Button>
-            </Tooltip>
-          )}
-          <Box style={{ color: "var(--violet-11)" }}>
-            <Checkbox
-              value={acknowledged}
-              setValue={setAcknowledged}
-              label="Acknowledge"
-              weight="medium"
-              align="center"
-            />
-          </Box>
-        </>
+        onRampToNewValue && (
+          <Tooltip
+            content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
+            side="top"
+          >
+            <Button variant="outline" size="md" onClick={onRampToNewValue}>
+              Ramp to new value
+            </Button>
+          </Tooltip>
+        )
       }
+      acknowledged={acknowledged}
+      setAcknowledged={setAcknowledged}
     >
       This ramp-up will override an already-published rule.{" "}
       {impact.kind === "coverage-drop" ? (
@@ -605,7 +594,7 @@ export default function RuleModal({
     revisionList.find((r) => r.version === targetVersion)?.baseVersion,
   ]);
   const isActiveDraft = (r: FeatureRevisionInterface | null | undefined) =>
-    !!r && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
+    !!r && isActiveDraftStatus(r.status);
   const targetRevision = targetRevisions.get(targetVersion);
   const targetDraft = [targetRevision, draftRevision].find(isActiveDraft);
   const targetDraftBase = targetRevisions.get(targetDraft?.baseVersion);
@@ -1435,23 +1424,28 @@ export default function RuleModal({
         // All looks good, create experiment
         const disableStickyBucketing =
           values.disableStickyBucketing ?? !settings.stickyBucketingOnByDefault;
+        // A template's data source and assignment query, else the defaults.
+        const datasourceDefaults = values.datasource
+          ? {
+              datasource: values.datasource,
+              exposureQueryId: values.exposureQueryId || "",
+              exposureQueryIdentifierType: values.exposureQueryIdentifierType,
+            }
+          : getNewExperimentDatasourceDefaults({
+              datasources,
+              settings,
+              project: feature.project || "",
+              initialHashAttribute: values.hashAttribute,
+            });
         const exp: Partial<ExperimentInterfaceStringDates> = {
           archived: false,
           autoSnapshots: true,
-          // Use template datasource/exposure query id if available
-          ...getNewExperimentDatasourceDefaults({
-            datasources,
-            settings,
-            project: feature.project || "",
-          }),
+          ...datasourceDefaults,
           hashAttribute: values.hashAttribute,
           fallbackAttribute: disableStickyBucketing
             ? ""
             : values.fallbackAttribute || "",
           disableStickyBucketing,
-          datasource: values.datasource || undefined,
-          exposureQueryId: values.exposureQueryId || "",
-          exposureQueryIdentifierType: values.exposureQueryIdentifierType,
           goalMetrics: values.goalMetrics || [],
           secondaryMetrics: values.secondaryMetrics || [],
           guardrailMetrics: values.guardrailMetrics || [],
@@ -2268,6 +2262,20 @@ export default function RuleModal({
   ) : null;
 
   if (newRuleOverviewPage) {
+    const newOrExisting = (noun: string) => (
+      <RadioCards
+        columns="2"
+        width="100%"
+        labelSize="md"
+        labelWeight="medium"
+        options={[
+          { value: "experiment-ref-new", label: `Create new ${noun}` },
+          { value: "experiment-ref", label: `Add existing ${noun}` },
+        ]}
+        value={overviewRuleType}
+        setValue={(v) => setOverviewRuleType(v as OverviewRuleType)}
+      />
+    );
     return (
       <Modal
         trackingEventModalType="feature-rule-overview"
@@ -2295,143 +2303,99 @@ export default function RuleModal({
           canAutoPublish={false}
           gatedEnvSet={gatedEnvSet}
         />
-        <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="xl" weight="semibold" as="div" mb="4">
-            Rule Type
-          </Text>
-          <RadioCards
-            mt="4"
-            mb="2"
-            width="100%"
-            options={[
-              {
-                value: "force",
-                label: "Targeting rule",
-                description:
-                  "Release a feature value with optional targeting, schedule, ramp-up, and monitoring",
-              },
-              {
-                value: "experiment",
-                label: "Experiment",
-                description:
-                  "Measure the impact of this feature on your key metrics",
-              },
-              {
-                value: "bandit",
-                disabled: !hasMultiArmedBanditFeature,
-                label: (
-                  <PremiumTooltip
-                    commercialFeature="multi-armed-bandits"
-                    usePortal={true}
-                  >
-                    Bandit
-                  </PremiumTooltip>
-                ),
-                description:
-                  "Find a winner among many variations on one goal metric",
-              },
-            ]}
-            value={overviewRadioSelectorRuleType}
-            setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
-              setOverviewRadioSelectorRuleType(v);
-              if (v === "force") {
-                setOverviewRuleType("force");
-              } else if (v === "rollout") {
-                setOverviewRuleType("rollout");
-              } else {
-                setOverviewRuleType("experiment-ref-new");
-              }
-            }}
-          />
-
-          <Callout status="wizard" mt="6" size="sm">
-            <Flex align="center" gap="2">
-              <Box flexGrow="1">
-                <Text as="div">
-                  Looking for <strong>Safe Rollouts</strong>?
-                </Text>
-                <Text as="div" size="sm" mt="1">
-                  Guardrail monitoring can now be added to a Targeting
-                  Rule&apos;s <strong>Ramp-up</strong> schedule
-                </Text>
-              </Box>
-              {hasCommercialFeature("safe-rollout") ? (
-                <Button
-                  color="inherit"
-                  variant="soft"
-                  size="sm"
-                  onClick={() => {
-                    setOverviewRadioSelectorRuleType("rollout");
-                    setOverviewRuleType("rollout");
-                    setNewRuleOverviewPage(false);
-                    changeRuleType("rollout");
-                    setScheduleType("ramp");
-                    setRampSectionState((prev) => ({
-                      ...prev,
-                      mode: prev.mode === "off" ? "create" : prev.mode,
-                      steps: prev.steps.map((s) => ({
-                        ...s,
-                        monitored: true,
-                      })),
-                    }));
-                  }}
-                >
-                  Show me
-                </Button>
-              ) : (
+        <Text size="xl" weight="semibold" as="div" mb="4">
+          Rule Type
+        </Text>
+        <RadioCards
+          mt="4"
+          mb="2"
+          width="100%"
+          options={[
+            {
+              value: "force",
+              label: "Targeting rule",
+              description:
+                "Release a feature value with optional targeting, schedule, ramp-up, and monitoring",
+            },
+            {
+              value: "experiment",
+              label: "Experiment",
+              description:
+                "Measure the impact of this feature on your key metrics",
+              selectedContent: newOrExisting("Experiment"),
+            },
+            {
+              value: "bandit",
+              disabled: !hasMultiArmedBanditFeature,
+              label: (
                 <PremiumTooltip
-                  commercialFeature="safe-rollout"
+                  commercialFeature="multi-armed-bandits"
                   usePortal={true}
                 >
-                  <Button color="inherit" variant="soft" size="sm" disabled>
-                    Show me
-                  </Button>
+                  Bandit
                 </PremiumTooltip>
-              )}
-            </Flex>
-          </Callout>
-        </div>
+              ),
+              description:
+                "Find a winner among many variations on one goal metric",
+              selectedContent: newOrExisting("Bandit"),
+            },
+          ]}
+          value={overviewRadioSelectorRuleType}
+          setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
+            setOverviewRadioSelectorRuleType(v);
+            if (v === "force") {
+              setOverviewRuleType("force");
+            } else if (v === "rollout") {
+              setOverviewRuleType("rollout");
+            } else {
+              setOverviewRuleType("experiment-ref-new");
+            }
+          }}
+        />
 
-        {overviewRadioSelectorRuleType === "experiment" && (
-          <>
-            <h5>Add Experiment</h5>
-            <RadioGroup
-              options={[
-                {
-                  value: "experiment-ref-new",
-                  label: "Create new Experiment",
-                },
-                {
-                  value: "experiment-ref",
-                  label: "Add existing Experiment",
-                },
-              ]}
-              value={overviewRuleType}
-              setValue={(v: OverviewRuleType) => setOverviewRuleType(v)}
-              mb="4"
-            />
-          </>
-        )}
-        {overviewRadioSelectorRuleType === "bandit" && (
-          <>
-            <h5>Add Bandit</h5>
-            <RadioGroup
-              options={[
-                {
-                  value: "experiment-ref-new",
-                  label: "Create new Bandit",
-                },
-                {
-                  value: "experiment-ref",
-                  label: "Add existing Bandit",
-                },
-              ]}
-              value={overviewRuleType}
-              setValue={(v: OverviewRuleType) => setOverviewRuleType(v)}
-              mb="4"
-            />
-          </>
-        )}
+        <Callout status="wizard" mt="6" size="sm">
+          <Flex align="center" gap="2">
+            <Box flexGrow="1">
+              <Text as="div">
+                Looking for <strong>Safe Rollouts</strong>?
+              </Text>
+              <Text as="div" size="sm" mt="1">
+                Guardrail monitoring can now be added to a Targeting Rule&apos;s{" "}
+                <strong>Ramp-up</strong> schedule
+              </Text>
+            </Box>
+            {hasCommercialFeature("safe-rollout") ? (
+              <Button
+                color="inherit"
+                variant="soft"
+                size="sm"
+                onClick={() => {
+                  setOverviewRadioSelectorRuleType("rollout");
+                  setOverviewRuleType("rollout");
+                  setNewRuleOverviewPage(false);
+                  changeRuleType("rollout");
+                  setScheduleType("ramp");
+                  setRampSectionState((prev) => ({
+                    ...prev,
+                    mode: prev.mode === "off" ? "create" : prev.mode,
+                    steps: prev.steps.map((s) => ({
+                      ...s,
+                      monitored: true,
+                    })),
+                  }));
+                }}
+              >
+                Show me
+              </Button>
+            ) : (
+              <PremiumTooltip commercialFeature="safe-rollout" usePortal={true}>
+                <Button color="inherit" variant="soft" size="sm" disabled>
+                  Show me
+                </Button>
+              </PremiumTooltip>
+            )}
+          </Flex>
+        </Callout>
       </Modal>
     );
   }

@@ -7,12 +7,14 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
+import RuleField from "@/components/Features/RuleField";
 import ValidateValue from "@/components/Features/ValidateValue";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import { EntityBadge } from "@/components/Features/EntityBadge";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
+import ForceSummary from "./ForceSummary";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -64,78 +66,67 @@ export default function SafeRolloutSummary({
 
   if (rolledBackOrReleased) {
     return (
-      <Box>
-        <Flex gap="3">
-          <Box>
-            <strong className="font-weight-semibold">SERVE</strong>
-          </Box>
-          <Box flexGrow="1">
-            <ValueDisplay
-              value={
-                rule.status === "rolled-back" ? controlValue : variationValue
-              }
-              type={type}
-              showFullscreenButton={true}
-            />
-          </Box>
-        </Flex>
-      </Box>
+      <ForceSummary
+        value={rule.status === "rolled-back" ? controlValue : variationValue}
+        feature={feature}
+      />
     );
   }
 
   return (
     <Flex direction="column" gap="3">
-      <Flex direction="row" gap="2">
-        <Text weight="medium">SAMPLE</Text> by{" "}
+      <RuleField label="Sample by" mb="0">
         <AttributeBadge attributeId={hashAttribute} />
-      </Flex>
-      <Flex direction="row" gap="2">
-        <Text weight="medium">MONITOR</Text>
-        <EntityBadge
-          label={
-            <Tooltip
-              content={metricNames.map(({ key, name }) => (
-                <Fragment key={key}>
-                  {name}
-                  <br />
-                </Fragment>
-              ))}
-            >
-              <Text style={{ color: "var(--slate-12)" }}>
-                {metricNames.length}
-              </Text>
-            </Tooltip>
-          }
-        />
-        metric{metricNames.length > 1 ? "s" : ""}
-      </Flex>
+      </RuleField>
+      <RuleField label="Monitor" mb="0">
+        <Flex direction="row" gap="2">
+          <EntityBadge
+            label={
+              <Tooltip
+                content={metricNames.map(({ key, name }) => (
+                  <Fragment key={key}>
+                    {name}
+                    <br />
+                  </Fragment>
+                ))}
+              >
+                <Text style={{ color: "var(--slate-12)" }}>
+                  {metricNames.length}
+                </Text>
+              </Tooltip>
+            }
+          />
+          metric{metricNames.length > 1 ? "s" : ""}
+        </Flex>
+      </RuleField>
       <ValidateValue value={controlValue} feature={feature} />
       <ValidateValue value={variationValue} feature={feature} />
-      <Text weight="medium">SERVE</Text>
-      <Box
-        px="3"
-        style={{
-          border: "1px solid var(--gray-a5)",
-          borderRadius: "var(--radius-2)",
-        }}
-      >
-        <Table>
-          <TableBody>
-            <ValueRow
-              label="Control"
-              value={controlValue}
-              valueType={type}
-              coverage={singleVariationCoverage}
-            />
-            <ValueRow
-              label="Rollout Value"
-              value={variationValue}
-              valueType={type}
-              coverage={singleVariationCoverage}
-            />
-          </TableBody>
-        </Table>
-      </Box>
+      <RuleField label="Serve" mb="0">
+        <Box
+          px="3"
+          style={{
+            border: "1px solid var(--gray-a5)",
+            borderRadius: "var(--radius-2)",
+          }}
+        >
+          <Table>
+            <TableBody>
+              <ValueRow
+                label="Control"
+                value={controlValue}
+                valueType={type}
+                coverage={singleVariationCoverage}
+              />
+              <ValueRow
+                label="Rollout Value"
+                value={variationValue}
+                valueType={type}
+                coverage={singleVariationCoverage}
+              />
+            </TableBody>
+          </Table>
+        </Box>
+      </RuleField>
     </Flex>
   );
 }

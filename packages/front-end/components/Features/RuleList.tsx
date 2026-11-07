@@ -50,6 +50,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Rule, SortableRule } from "./Rule";
 import { HoldoutRule } from "./HoldoutRule";
+import cornerStyles from "./CornerActions.module.scss";
+import { useFeaturePageRedesign } from "./FeaturePageRedesign";
 
 type CommonProps = {
   feature: FeatureInterface;
@@ -103,6 +105,7 @@ type RuleListProps = CommonProps &
   );
 
 export default function RuleList(props: RuleListProps) {
+  const redesign = useFeaturePageRedesign();
   const {
     feature,
     baseFeature,
@@ -459,7 +462,7 @@ export default function RuleList(props: RuleListProps) {
   }
 
   return (
-    <Flex direction="column" gap="4">
+    <Flex direction="column" gap={redesign ? "5" : "4"}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -497,6 +500,7 @@ export default function RuleList(props: RuleListProps) {
             revisionList={revisionList}
             setVersion={setVersion}
             isLocked={locked}
+            lockedBySchedule={lockedBySchedule}
             currentEnvironment={allEnvsView ? undefined : props.environment}
           />
         )}
@@ -601,7 +605,7 @@ export default function RuleList(props: RuleListProps) {
             );
           })}
         </SortableContext>
-        <DragOverlay>
+        <DragOverlay className={cornerStyles.showActions}>
           {activeRule ? (
             <Rule
               i={flatIndexOf(

@@ -8,7 +8,7 @@ import {
   mergeRevision,
 } from "shared/util";
 import {
-  ACTIVE_DRAFT_STATUSES,
+  isActiveDraftStatus,
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
@@ -229,23 +229,34 @@ export function useFeaturePageData(
   // change: the version on screen and any open drafts, so edits show up
   const refreshData = async () => {
     const changeable = Object.values(cachedRevisions)
-      .filter(
-        (r) =>
-          !inBaseSet(r.version) &&
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-      )
+      .filter((r) => !inBaseSet(r.version) && isActiveDraftStatus(r.status))
       .map((r) => r.version);
     const onScreen = [targetVersion, targetBaseVersion].filter(
       (v): v is number => v !== null && !inBaseSet(v),
     );
     const reload = [...new Set([...onScreen, ...changeable])];
-    await Promise.all([
+    const [fresh] = await Promise.all([
       mutateBase(),
       mutateRampSchedules(),
       reload.length
         ? loadRevisions(reload, { force: true })
         : Promise.resolve(),
     ]);
+    // A draft the response carried until now, and no longer does (discarded,
+    // say), keeps its copy from before unless it's reloaded too.
+    const dropped = [
+      ...[targetVersion, targetBaseVersion].filter(
+        (v): v is number => v !== null,
+      ),
+      ...Object.values(cachedRevisions)
+        .filter((r) => isActiveDraftStatus(r.status))
+        .map((r) => r.version),
+    ].filter(
+      (v) => inBaseSet(v) && !fresh?.revisions?.some((r) => r.version === v),
+    );
+    if (dropped.length) {
+      await loadRevisions([...new Set(dropped)], { force: true });
+    }
   };
 
   // When the ramp-schedule poll detects an advancement (step or status change),

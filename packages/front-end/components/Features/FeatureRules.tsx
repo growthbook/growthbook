@@ -361,7 +361,11 @@ export default function FeatureRules({
               minWidth: 0,
             }}
           >
-            <TabsList style={{ boxShadow: "none", flexWrap: "nowrap" }}>
+            {/* Its own overflow menu, as on main. */}
+            <TabsList
+              overflowMenu={false}
+              style={{ boxShadow: "none", flexWrap: "nowrap" }}
+            >
               <TabsTrigger
                 value={FEATURE_RULES_ALL_ENVS}
                 ref={setTriggerRef(FEATURE_RULES_ALL_ENVS)}
