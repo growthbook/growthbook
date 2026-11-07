@@ -113,6 +113,10 @@ export const contextualBanditSnapshotValidator = baseSchema
     // Set whenever the SRM query ran, even when too little data for a p-value.
     multipleExposures: z.number().int().nonnegative().optional(),
     traffic: contextualBanditTrafficValidator.optional(),
+    // Warehouse `variation_id` values returned by the assignment query that
+    // matched no configured variation key. Their rows are dropped during
+    // snapshot processing, so a non-empty list explains 0-user variations.
+    unknownVariations: z.array(z.string()).optional(),
   })
   .strict();
 

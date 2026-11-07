@@ -24,6 +24,7 @@ export const getContextualBanditResults = createApiRequestHandler(
     snapshotVariationIds,
     resultsRun,
     health,
+    unknownVariations,
   } = await getContextualBanditResultsForUi(req.context, contextualBandit);
 
   const snapshotVariations = resolveSnapshotVariations(
@@ -78,6 +79,7 @@ export const getContextualBanditResults = createApiRequestHandler(
           snapshotId: resultsRun.snapshotId,
           dateCreated: resultsRun.dateCreated.toISOString(),
           health: healthView,
+          unknownVariations,
         }
       : null;
 

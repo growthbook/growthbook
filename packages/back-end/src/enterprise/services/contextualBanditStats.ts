@@ -118,6 +118,24 @@ export function buildContextualBanditObservations(
   return observations;
 }
 
+export function detectUnknownContextualVariations(
+  rows: ExperimentMetricQueryResponseRows,
+  variations: ContextualBanditVariationRef[],
+  ignoreIds: ReadonlySet<string> = new Set(["__multiple__"]),
+): string[] {
+  const keys = new Set(variations.map((v) => v.key));
+  const unknown = new Set<string>();
+  for (const row of prepareRowsForContextualStats(rows)) {
+    const value = String(row.variation ?? "");
+    if (ignoreIds.has(value) || keys.has(value)) {
+      continue;
+    }
+    unknown.add(value);
+  }
+  const MAX_UNKNOWN_VARIATIONS = 20;
+  return [...unknown].sort().slice(0, MAX_UNKNOWN_VARIATIONS);
+}
+
 export async function runContextualStatsEngine(
   settings: ContextualBanditStatsSettings,
   rows: ExperimentMetricQueryResponseRows,
