@@ -18,3 +18,11 @@ export const MEMBER_COLUMN_WIDTHS = {
   teamDate: "14%",
   actions: "4%",
 } as const;
+
+/**
+ * Narrower than this, a member table scrolls sideways in its frame rather than
+ * squeezing its columns (e.g. beside the docked AI panel). Measured: at 654px
+ * the Name header breaks mid-word, then headers run into each other. Shared,
+ * so the tables stay lined up.
+ */
+export const MEMBER_TABLE_MIN_WIDTH = 664;

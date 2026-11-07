@@ -27,7 +27,10 @@ import RoleRuleLabel, {
 } from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
-import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
+import {
+  MEMBER_COLUMN_WIDTHS,
+  MEMBER_TABLE_MIN_WIDTH,
+} from "@/components/Settings/Team/memberTableWidths";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -337,8 +340,17 @@ const MemberList: FC<{
       )}
 
       <div className="my-4">
-        <Flex align="center" justify="between" gap="3" mt="4" mb="2">
-          <Flex align="center" gap="3">
+        {/* Wraps onto more lines where it doesn't fit (e.g. beside the
+            docked AI panel), rather than running off the page. */}
+        <Flex
+          align="center"
+          justify="between"
+          gap="3"
+          wrap="wrap"
+          mt="4"
+          mb="2"
+        >
+          <Flex align="center" gap="3" wrap="wrap">
             <Heading as="h5" size="md" mb="0">
               {project ? "Members" : "Active Members"}
               {` (${membersList.length})`}
@@ -387,10 +399,17 @@ const MemberList: FC<{
             {filters}
           </Flex>
           {canInviteMembers && (
-            <Button onClick={onInvite}>Invite member</Button>
+            // Stays on the right when it wraps onto its own line.
+            <Button onClick={onInvite} ml="auto">
+              Invite member
+            </Button>
           )}
         </Flex>
-        <Table variant="surface" layout="fixed">
+        <Table
+          variant="surface"
+          layout="fixed"
+          minTableWidth={MEMBER_TABLE_MIN_WIDTH}
+        >
           <TableHeader>
             <TableRow>
               <SortableTableColumnHeader

@@ -9,7 +9,10 @@ import {
   CollapsedRuleRows,
   memberRuleRows,
 } from "@/components/Settings/Team/RoleRuleLabel";
-import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
+import {
+  MEMBER_COLUMN_WIDTHS,
+  MEMBER_TABLE_MIN_WIDTH,
+} from "@/components/Settings/Team/memberTableWidths";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import { useUser } from "@/services/UserContext";
@@ -70,7 +73,11 @@ const PendingMemberList: FC<{
           }}
         />
       )}
-      <Table variant="surface" layout="fixed">
+      <Table
+        variant="surface"
+        layout="fixed"
+        minTableWidth={MEMBER_TABLE_MIN_WIDTH}
+      >
         <TableHeader>
           <TableRow>
             <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.name}>
