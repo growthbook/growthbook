@@ -89,6 +89,8 @@ export const ORG_PAGE_KEYWORDS: Record<string, string> = {
   "/projects": "project group organize",
   "/settings/team": "people users roles teams invite seats",
   "/settings/tags": "labels color",
+  "/settings/experiment-quality":
+    "score scoring checks hypothesis process ai weights override",
   "/settings/customfields": "metadata",
   "/settings/keys": "secret rest token",
   "/settings/personal-access-tokens": "personal access tokens pats",

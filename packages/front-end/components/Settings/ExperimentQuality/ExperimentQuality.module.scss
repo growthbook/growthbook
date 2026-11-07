@@ -1,0 +1,94 @@
+// One segment per included section, with a divider between each pair
+.weightBar {
+  position: relative;
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--slate-4);
+  touch-action: none;
+
+  span {
+    height: 100%;
+    transition: width 120ms ease;
+
+    &:first-child {
+      border-radius: 4px 0 0 4px;
+    }
+
+    &:last-of-type {
+      border-radius: 0 4px 4px 0;
+    }
+  }
+}
+
+.weightHandle {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-2);
+  background: var(--color-background);
+  box-shadow: 0 0 0 1px var(--gray-a7);
+  cursor: ew-resize;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 6px 4px;
+    border-inline: 1px solid var(--gray-a8);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+
+  &[aria-disabled="true"] {
+    cursor: default;
+  }
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sectionCard {
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-4);
+  overflow: hidden;
+  background: var(--color-panel-solid);
+}
+
+.sectionHeader {
+  padding: var(--space-3) var(--space-4);
+  background: var(--gray-a2);
+}
+
+.checkRow {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--gray-a4);
+}
+
+// Which experiments a check applies to
+.chip {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-2);
+  background: var(--gray-a3);
+  color: var(--color-text-mid);
+  font-size: var(--font-size-1);
+  white-space: nowrap;
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 840;
+  margin-top: var(--space-5);
+  padding: var(--space-3) 0;
+  background: var(--color-background);
+  border-top: 1px solid var(--gray-a5);
+}

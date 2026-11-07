@@ -327,7 +327,12 @@ export function ChecklistTodoHeading({
   );
 }
 
-export function PreLaunchChecklistPanel() {
+export function PreLaunchChecklistPanel({
+  extraItems = [],
+}: {
+  // Optional rows from outside the checklist, listed last and never counted
+  extraItems?: CheckListItem[];
+} = {}) {
   const { summary, loading, loadError, toggleManualItem, toggleError } =
     usePreLaunchChecklist();
   if (loading) return <LoadingSpinner />;
@@ -348,7 +353,17 @@ export function PreLaunchChecklistPanel() {
         </Callout>
       ) : null}
       <ChecklistItems
-        summary={summary}
+        summary={
+          extraItems.length
+            ? {
+                ...summary,
+                incomplete: {
+                  ...summary.incomplete,
+                  optional: [...summary.incomplete.optional, ...extraItems],
+                },
+              }
+            : summary
+        }
         size="sm"
         showCompleted
         onToggleManual={toggleManualItem}

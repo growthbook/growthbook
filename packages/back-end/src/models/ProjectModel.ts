@@ -13,6 +13,8 @@ import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
+import { queueExperimentQualityRecheck } from "back-end/src/jobs/experimentQualityScoreQueue";
+import { EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION } from "back-end/src/enterprise/models/ExperimentationHealthSettingsModel";
 import {
   pruneDefinitionsVersionProject,
   touchDefinitionsVersion,
@@ -144,12 +146,22 @@ export class ProjectModel extends BaseClass {
         },
         { $pull: { "permissions.projectRoles": { project: doc.id } } },
       ),
+      // Its experiments now follow the organization's quality settings
+      getCollection(EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION)
+        .deleteOne({ organization: this.context.org.id, project: doc.id })
+        .then(({ deletedCount }) =>
+          deletedCount
+            ? queueExperimentQualityRecheck({
+                organization: this.context.org.id,
+              })
+            : undefined,
+        ),
     ]);
     for (const result of cleanups) {
       if (result.status === "rejected") {
         logger.error(
           result.reason,
-          `Failed to remove project roles for deleted project ${doc.id}`,
+          `Failed to clean up references to deleted project ${doc.id}`,
         );
       }
     }

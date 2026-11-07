@@ -4,6 +4,10 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { DiscussionInterface } from "shared/types/discussion";
+import {
+  ExperimentQualityScoreResult,
+  getQualityImprovements,
+} from "shared/enterprise";
 import DiscussionThread from "@/components/DiscussionThread";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ScrollArea from "@/ui/ScrollArea";
@@ -31,11 +35,13 @@ import {
   todoTitle,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import Metadata from "@/ui/Metadata";
+import QualityPanel from "@/components/Experiment/Quality/QualityPanel";
+import { QualityFixTargets } from "@/components/Experiment/Quality/qualityFixes";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import { headerDates } from "./statusSchedule";
 import ExpandableBlock from "./ExpandableBlock";
 
-const DETAILS_PANEL_TABS = ["details", "comments"] as const;
+const DETAILS_PANEL_TABS = ["details", "comments", "quality"] as const;
 export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
 
 export interface Props {
@@ -47,6 +53,12 @@ export interface Props {
   disableEditing?: boolean;
   tab: DetailsPanelTab;
   setTab: (tab: DetailsPanelTab) => void;
+  // Null when quality scoring is off for the experiment
+  quality?: {
+    result: ExperimentQualityScoreResult;
+    targets: QualityFixTargets;
+    implementationId: string;
+  } | null;
 }
 
 export default function ExperimentDetailsPanel({
@@ -56,9 +68,15 @@ export default function ExperimentDetailsPanel({
   stagedHoldoutId = null,
   mutate,
   disableEditing,
-  tab,
+  tab: requestedTab,
   setTab,
+  quality = null,
 }: Props) {
+  const tab = requestedTab === "quality" && !quality ? "details" : requestedTab;
+  const qualityFixCount =
+    quality && experiment.status === "draft"
+      ? getQualityImprovements(quality.result).length
+      : 0;
   // Editors can't open over the page's unsaved edits; their buttons say why.
   const editsBlocked = useEditsBlockedReason();
   const { canEdit } = useExperimentEditing(experiment, disableEditing, holdout);
@@ -176,6 +194,25 @@ export default function ExperimentDetailsPanel({
                 />
               )}
             </TabsTrigger>
+            {quality ? (
+              <TabsTrigger value="quality">
+                Quality
+                {quality.result.score !== null &&
+                experiment.status !== "draft" ? (
+                  <span
+                    style={{
+                      marginLeft: "var(--space-1)",
+                      fontSize: 11,
+                      fontWeight: 500,
+                      color: "var(--gray-11)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {quality.result.score}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            ) : null}
           </TabsList>
         </Flex>
         <ScrollArea fill style={{ flex: 1, minHeight: 0 }}>
@@ -184,7 +221,22 @@ export default function ExperimentDetailsPanel({
               {showTodo ? (
                 <>
                   <PanelSection title={todoTitle(checklistItemsRemaining)}>
-                    <PreLaunchChecklistPanel />
+                    <PreLaunchChecklistPanel
+                      extraItems={
+                        qualityFixCount
+                          ? [
+                              {
+                                key: "improve-quality",
+                                display: `Improve quality (${qualityFixCount})`,
+                                action: { onClick: () => setTab("quality") },
+                                status: "incomplete",
+                                type: "manual",
+                                required: false,
+                              },
+                            ]
+                          : []
+                      }
+                    />
                   </PanelSection>
                   {/* Runs edge to edge, past the rail's padding. */}
                   <Box mx="-5">
@@ -244,6 +296,17 @@ export default function ExperimentDetailsPanel({
               projects={experiment.project ? [experiment.project] : []}
             />
           </TabsContent>
+          {quality ? (
+            <TabsContent value="quality">
+              <QualityPanel
+                experiment={experiment}
+                result={quality.result}
+                mutate={mutate}
+                targets={quality.targets}
+                implementationId={quality.implementationId}
+              />
+            </TabsContent>
+          ) : null}
         </ScrollArea>
       </Tabs>
     </>

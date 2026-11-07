@@ -70,6 +70,7 @@
     "@sentry/cli-linux-x64": "^2.58.4",
     "@sentry/node": "^10.76.1",
     "@stdlib/stats": "^0.1.1",
+    "@typesafe-ai/sdk": "0.7.0",
     "agenda": "^5.0.0",
     "ai": "^6.0.6",
     "asn1.js": "^5.4.1",
