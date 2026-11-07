@@ -402,11 +402,13 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
       )}
       {hasCompoundComponentUnits(metric, results) && (
         <TabsContent value="components">
-          <CompoundComponentCounts
-            metric={metric}
-            results={results}
-            variations={variations}
-          />
+          <Box mt="3">
+            <CompoundComponentCounts
+              metric={metric}
+              results={results}
+              variations={variations}
+            />
+          </Box>
         </TabsContent>
       )}
       <TabsContent value="slices">

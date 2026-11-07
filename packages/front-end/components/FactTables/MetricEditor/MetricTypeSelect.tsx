@@ -44,7 +44,7 @@ export const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
   retention:
     "Percent of units active again after a set time, e.g. week 2 retention.",
   compound:
-    "Percent of units that did all of several things, in any order, e.g. viewed pricing and started a trial.",
+    "Percent of units that did multiple actions in any order, e.g. viewed pricing and subscribed.",
   funnel:
     "Percent of units that completed steps in order, e.g. cart → checkout → purchase.",
   rowCount: "Average number of events per unit, e.g. orders per user.",

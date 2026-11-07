@@ -111,6 +111,11 @@ export default function MetricEditor({
   const [showTags, setShowTags] = useState(false);
   const [showCappingConversionNotice, setShowCappingConversionNotice] =
     useState(false);
+  // Funnel steps and compound components only have row filters, so a
+  // threshold's aggregate comparison can't come along. It stays in the form's
+  // stale numerator and returns if the user switches back to threshold.
+  const [showThresholdDroppedNotice, setShowThresholdDroppedNotice] =
+    useState(false);
   const cappingSettings = form.watch("cappingSettings");
 
   const metricType = form.watch("metricType");
@@ -267,6 +272,10 @@ export default function MetricEditor({
     setShowCappingConversionNotice(
       previousCapping.type === "absolute" &&
         result.cappingSettings?.type === "percentile",
+    );
+    setShowThresholdDroppedNotice(
+      formType === "threshold" &&
+        (newFormType === "compound" || newFormType === "funnel"),
     );
     // One atomic reset instead of a pile of setValues - safe because nothing
     // reads form.formState.isDirty. numerator is carried over as the old
@@ -507,6 +516,25 @@ export default function MetricEditor({
               percentile capping and reset the value to 0. Choose a percentile
               before saving in Advanced Settings → Analysis settings → &quot;Cap
               high values&quot; → &quot;Upper tail (ceiling percentile)&quot;.
+            </Callout>
+          )}
+
+        {canEdit &&
+          (formType === "compound" || formType === "funnel") &&
+          showThresholdDroppedNotice && (
+            <Callout
+              status="warning"
+              role="status"
+              action={
+                <Link onClick={() => setShowThresholdDroppedNotice(false)}>
+                  Dismiss
+                </Link>
+              }
+            >
+              Switching to {formType} dropped the threshold comparison. Each{" "}
+              {formType === "compound" ? "component" : "step"} counts a unit
+              that has at least one matching event; narrow it with row filters
+              instead.
             </Callout>
           )}
 

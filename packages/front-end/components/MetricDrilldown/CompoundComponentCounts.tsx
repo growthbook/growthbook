@@ -7,6 +7,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "shared/types/report";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, formatPercent } from "@/services/metrics";
 import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
@@ -32,6 +33,34 @@ export function hasCompoundComponentUnits(
   );
 }
 
+function UnitsCell({
+  result,
+  units,
+  weight,
+}: {
+  result?: SnapshotMetric;
+  units: (result: SnapshotMetric) => number | undefined;
+  weight?: "semibold";
+}) {
+  const count = result ? units(result) : undefined;
+  return (
+    <TableCell justify="end">
+      {count === undefined ? (
+        "-"
+      ) : (
+        <Flex direction="column" align="end">
+          <Text weight={weight}>{formatNumber(count)}</Text>
+          {!!result?.users && (
+            <Text size="sm" color="text-mid" weight={weight}>
+              {formatPercent(count / result.users)}
+            </Text>
+          )}
+        </Flex>
+      )}
+    </TableCell>
+  );
+}
+
 export default function CompoundComponentCounts({
   metric,
   results,
@@ -45,13 +74,24 @@ export default function CompoundComponentCounts({
   if (!isFactCompoundMetric(metric)) return null;
 
   return (
-    <Table variant="list">
+    // The list header sticks at a viewport offset meant for page tables; in
+    // the drilldown modal it slides over the first row.
+    <Table variant="list" stickyHeader={false}>
       <TableHeader>
         <TableRow>
           <TableColumnHeader>Component</TableColumnHeader>
           {variations.map((v) => (
             <TableColumnHeader key={v.index} justify="end">
-              <VariationLabel number={v.index} name={v.name} size="md" />
+              {/* The label fills its container, so pin it to the right and
+                  cap it; a long name truncates with a tooltip. */}
+              <Flex justify="end">
+                <VariationLabel
+                  number={v.index}
+                  name={v.name}
+                  size="md"
+                  maxWidth="160px"
+                />
+              </Flex>
             </TableColumnHeader>
           ))}
         </TableRow>
@@ -80,29 +120,30 @@ export default function CompoundComponentCounts({
                   )}
                 </Flex>
               </TableCell>
-              {variations.map((v) => {
-                const result = results?.variations[v.index]?.metrics[metric.id];
-                const units = result?.componentUnits?.[k];
-                return (
-                  <TableCell key={v.index} justify="end">
-                    {units === undefined ? (
-                      "-"
-                    ) : (
-                      <Flex direction="column" align="end">
-                        <Text>{formatNumber(units)}</Text>
-                        {!!result?.users && (
-                          <Text size="sm" color="text-mid">
-                            {formatPercent(units / result.users)}
-                          </Text>
-                        )}
-                      </Flex>
-                    )}
-                  </TableCell>
-                );
-              })}
+              {variations.map((v) => (
+                <UnitsCell
+                  key={v.index}
+                  result={results?.variations[v.index]?.metrics[metric.id]}
+                  units={(result) => result.componentUnits?.[k]}
+                />
+              ))}
             </TableRow>
           );
         })}
+        {/* The metric itself: units that matched every component. */}
+        <TableRow data-no-hover>
+          <TableCell>
+            <Text weight="semibold">All components</Text>
+          </TableCell>
+          {variations.map((v) => (
+            <UnitsCell
+              key={v.index}
+              result={results?.variations[v.index]?.metrics[metric.id]}
+              units={(result) => result.value}
+              weight="semibold"
+            />
+          ))}
+        </TableRow>
       </TableBody>
     </Table>
   );

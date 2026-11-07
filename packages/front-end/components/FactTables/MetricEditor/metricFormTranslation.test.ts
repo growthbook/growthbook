@@ -1402,6 +1402,64 @@ describe("applyFormType with compound", () => {
     });
   });
 
+  // The editor keeps the pre-compound numerator in the form while a compound
+  // metric is edited, so a threshold comparison from before the switch is
+  // still there on the way back. It follows the same rule as every other
+  // switch: only a threshold target keeps it, every other type clears it.
+  const thresholdThenCompound: MetricTypeSwitchState = {
+    ...compound,
+    numerator: {
+      factTableId: "stale",
+      column: "$$distinctUsers",
+      rowFilters: [],
+      aggregateFilterColumn: "revenue",
+      aggregateFilter: ">= 100",
+    },
+  };
+
+  it("clears a stale threshold comparison when going back to proportion", () => {
+    const result = applyFormType(
+      thresholdThenCompound,
+      "proportion",
+      factTable,
+      dialect,
+    );
+    expect(result.numerator).toMatchObject({
+      factTableId: "ft1",
+      rowFilters: plan("pro"),
+      aggregation: undefined,
+      aggregateFilterColumn: undefined,
+      aggregateFilter: undefined,
+    });
+  });
+
+  it("restores a stale threshold comparison when going back to threshold", () => {
+    const result = applyFormType(
+      thresholdThenCompound,
+      "threshold",
+      factTable,
+      dialect,
+    );
+    expect(result.numerator).toMatchObject({
+      factTableId: "ft1",
+      rowFilters: plan("pro"),
+      aggregateFilterColumn: "revenue",
+      aggregateFilter: ">= 100",
+    });
+  });
+
+  it("drops the threshold comparison when copying the numerator into a component", () => {
+    const threshold: MetricTypeSwitchState = {
+      metricType: "proportion",
+      numerator: thresholdThenCompound.numerator,
+    };
+    const result = applyFormType(threshold, "compound", factTable, dialect);
+    expect(result.compoundSettings?.components[0]).toEqual({
+      factTableId: "stale",
+      rowFilters: [],
+    });
+  });
+
   it("copies components to funnel steps and back", () => {
     const funnel = applyFormType(compound, "funnel", factTable, dialect);
     expect(funnel.metricType).toBe("funnel");
