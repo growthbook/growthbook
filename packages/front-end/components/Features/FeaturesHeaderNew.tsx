@@ -231,12 +231,16 @@ export default function FeaturesHeaderNew({
     <Flex align="center" gap="4" height="var(--space-6)">
       {/* A draft's way to review is on the status bar under the tabs. */}
       {viewingDraft ? null : canEditDrafts ? (
-        <NewDraftButton
-          feature={baseFeature}
-          revisionList={revisions}
-          mutate={mutate}
-          setVersion={setVersion}
-        />
+        // Ends over the revision picker: into the menu button's gap, then
+        // back by a border as wide as a card's, which zoom rounds the same way.
+        <Box style={{ marginRight: -10, borderRight: "1px solid transparent" }}>
+          <NewDraftButton
+            feature={baseFeature}
+            revisionList={revisions}
+            mutate={mutate}
+            setVersion={setVersion}
+          />
+        </Box>
       ) : null}
       <DropdownMenu
         trigger={
