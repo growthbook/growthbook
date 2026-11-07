@@ -189,10 +189,13 @@ export function getExperimentFactMetricsQuery(
   // A cluster-level query's units CTE stays keyed on the sub-unit, so it emits
   // its own identity joins against that base.
   if (params.unitsSource === "exposureQuery" && !isClusterLevelQuery) {
-    // A cluster-keyed segment joins through the exposure rows instead.
+    // Cluster-keyed dimensions and segments join through the exposure rows instead.
     const segmentIdType = segment ? segment.userIdType || "user_id" : null;
     idTypeObjects.push(
-      ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+      ...unitDimensions
+        .map((d) => d.dimension.userIdType || "user_id")
+        .filter((idType) => idType !== clusterIdColumn)
+        .map((idType) => [idType]),
       segmentIdType && segmentIdType !== clusterIdColumn ? [segmentIdType] : [],
       activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
     );

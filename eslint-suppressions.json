@@ -145,14 +145,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Dimensions/DimensionForm.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
   "packages/front-end/components/EmptyState.tsx": {
     "no-restricted-imports": {
       "count": 1

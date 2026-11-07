@@ -1,4 +1,5 @@
 export * from "./dimension-ids";
+export * from "./dimension-timing";
 export * from "./experiments";
 export * from "./metric-replacement";
 export * from "./outdated-reasons";

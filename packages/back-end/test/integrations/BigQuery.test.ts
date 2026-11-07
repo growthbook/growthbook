@@ -2134,6 +2134,53 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
     expect(statsSection).toContain("dim_combo");
     expect(statsSection).not.toContain("dim_exp_country");
   });
+
+  it("resolves a rowTimestamp user dimension against the stored first exposure in a wrapper CTE", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_plan",
+      organization: "org1",
+      owner: "",
+      datasource: "ds_1",
+      userIdType: "user_id",
+      name: "Plan",
+      sql: "SELECT user_id, plan AS value, changed_at AS timestamp FROM plan_changes",
+      timing: "rowTimestamp",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([{ type: "user", dimension: userDimension }]);
+
+    // __experimentUnits collapses the stored units table to one row per unit
+    // without touching the history
+    const unitsSection = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__experimentUnitsTimed AS"),
+    );
+    expect(unitsSection).toMatch(/FROM\s+proj\.ds\.units e/);
+    expect(unitsSection).not.toContain("__dim_unit_dim_plan");
+
+    // The wrapper joins the history onto that, casting the stored TIMESTAMP
+    // to DATETIME to match the dimension CTE's castUserDateCol'd column
+    const wrapperSection = sql.substring(
+      sql.indexOf("__experimentUnitsTimed AS"),
+      sql.indexOf("__metricDataAggregated"),
+    );
+    expect(wrapperSection).toMatch(/FROM\s+__experimentUnits u/);
+    expect(wrapperSection).toMatch(
+      /LEFT JOIN __dim_unit_dim_plan __dim_unit_dim_plan ON \(\s*cast\(__dim_unit_dim_plan\.user_id as string\) = u\.user_id\s*\)/,
+    );
+    expect(wrapperSection).toContain(
+      "__dim_unit_dim_plan.timestamp <= CAST(u.first_exposure_timestamp as DATETIME)",
+    );
+    expect(wrapperSection).toContain("AS dim_unit_dim_plan");
+    expect(wrapperSection).toMatch(
+      /GROUP BY\s+u\.user_id,\s+u\.variation,\s+u\.first_exposure_timestamp/,
+    );
+
+    // Downstream reads the wrapper, not __experimentUnits
+    expect(sql).toMatch(/FROM\s+__experimentUnitsTimed\s+u/);
+    expect(sql).not.toContain("__experimentUnitsCore");
+  });
 });
 
 describe("BigQuery listGoogleAnalytics4Exports", () => {
