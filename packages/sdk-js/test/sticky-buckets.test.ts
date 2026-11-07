@@ -577,6 +577,35 @@ describe("sticky-buckets", () => {
     redis.flushall();
   });
 
+  it("doesn't query redis when the payload has no experiments", async () => {
+    await clearCache();
+    const features = { flag: { defaultValue: "on" } };
+    const [, cleanup] = mockApi({ features });
+    // A real Redis server rejects MGET without keys. ioredis-mock doesn't.
+    const mget = jest.fn(async (...keys: string[]) => {
+      if (!keys.length) {
+        throw new Error("ERR wrong number of arguments for 'mget' command");
+      }
+      return keys.map(() => "");
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new RedisStickyBucketService({
+        redis: { mget, set: async () => "OK" },
+      }),
+      attributes: { id: "12345" },
+    });
+
+    await expect(growthbook.init()).resolves.toMatchObject({ success: true });
+    expect(mget).not.toHaveBeenCalled();
+    expect(growthbook.evalFeature("flag").value).toBe("on");
+
+    growthbook.destroy();
+    cleanup();
+  });
+
   it("performs remote evaluation with remote-stored sticky buckets", async () => {
     await clearCache();
     remoteEvalRedis.flushall();
