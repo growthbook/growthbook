@@ -1463,6 +1463,97 @@ describe("experiments API", () => {
       );
     });
 
+    it("rejects experiment creation when goal metrics exceed maxGoalMetricsPerExperiment", async () => {
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
+        },
+      });
+
+      const orgWithSetting = {
+        ...org,
+        settings: { maxGoalMetricsPerExperiment: 1 },
+      };
+
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        models: {
+          decisionCriteria: {
+            getById: jest.fn().mockResolvedValue(null),
+          },
+          projects: {
+            getById: jest.fn().mockResolvedValue(null),
+            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
+            getByIds: jest.fn().mockResolvedValue([]),
+          },
+          metricGroups: {
+            getAll: jest.fn().mockResolvedValue([]),
+            // Resolve the test metric ids as groups on the experiment's datasource
+            getById: jest.fn().mockImplementation(async (id: string) => ({
+              id,
+              datasource: "ds_123",
+            })),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+          },
+        },
+        permissions: {
+          canViewExperiment: () => true,
+          canCreateExperiment: () => true,
+          canUpdateExperiment: () => true,
+          canAddComment: () => true,
+        },
+      });
+
+      const createPayload = {
+        trackingKey: "exp_max_metrics",
+        name: "Max Metrics Test",
+        hypothesis: "",
+        datasourceId: "ds_123",
+        assignmentQueryId: "user_id",
+        metrics: ["metric_1", "metric_2"],
+        variations: [
+          {
+            key: "control",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            key: "treatment",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send(createPayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("message");
+      expect(res.body.message).toContain(
+        "Experiments can have a maximum of 1 goal metric",
+      );
+    });
+
     it("rejects a trackingKey that doesn't match experimentKeyRegexValidator", async () => {
       const orgWithSetting = {
         ...org,
@@ -2565,6 +2656,78 @@ describe("experiments API", () => {
       expect(res.body).toHaveProperty("message");
       expect(res.body.message).toContain(
         "requires unique experiment tracking keys",
+      );
+    });
+
+    it("rejects experiment update when goal metrics exceed maxGoalMetricsPerExperiment", async () => {
+      const existingExperiment = {
+        ...experiment,
+        id: "exp_123",
+        datasource: "ds_123",
+      };
+
+      (getExperimentById as jest.Mock).mockResolvedValue(existingExperiment);
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "user_id",
+                name: "User ID",
+                userIdType: "user_id",
+                userIdTypes: ["user_id"],
+              },
+            ],
+          },
+        },
+      });
+
+      const orgWithSetting = {
+        ...org,
+        settings: { maxGoalMetricsPerExperiment: 1 },
+      };
+
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        models: {
+          projects: {
+            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
+            getById: jest.fn().mockResolvedValue(null),
+            getByIds: jest.fn().mockResolvedValue([]),
+          },
+          metricGroups: {
+            getAll: jest.fn().mockResolvedValue([]),
+            // Resolve the test metric ids as groups on the experiment's datasource
+            getById: jest.fn().mockImplementation(async (id: string) => ({
+              id,
+              datasource: "ds_123",
+            })),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+          },
+        },
+        permissions: {
+          canUpdateExperiment: () => true,
+        },
+      });
+
+      const updatePayload = {
+        metrics: ["metric_1", "metric_2"],
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send(updatePayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("message");
+      expect(res.body.message).toContain(
+        "Experiments can have a maximum of 1 goal metric",
       );
     });
 

@@ -384,6 +384,29 @@ export default function ExperimentSettings() {
         </UnsavedMark>
 
         <SettingsField
+          name="maxGoalMetricsPerExperiment"
+          htmlFor="settings-maxGoalMetricsPerExperiment"
+          label="Maximum goal metrics per experiment"
+          help="Leave blank for unlimited. Additional outcomes can still be tracked as secondary or guardrail metrics."
+        >
+          <Box width="150px">
+            <Field
+              id="settings-maxGoalMetricsPerExperiment"
+              size="md"
+              type="number"
+              step="1"
+              min="1"
+              containerClassName="mb-0"
+              placeholder="Unlimited"
+              disabled={hasFileConfig()}
+              {...form.register("maxGoalMetricsPerExperiment", {
+                valueAsNumber: true,
+              })}
+            />
+          </Box>
+        </SettingsField>
+
+        <SettingsField
           name="pastExperimentsMinLength"
           htmlFor="settings-pastExperimentsMinLength"
           label="Minimum length for imported experiments"

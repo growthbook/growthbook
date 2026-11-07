@@ -354,6 +354,12 @@ function TabbedPageContents({
         setTab(fromHash.tab);
         setTabPath(fromHash.path);
       } else if (!hash) {
+        if (
+          typeof window !== "undefined" &&
+          !window.location.pathname.startsWith("/experiment/")
+        ) {
+          return;
+        }
         // If no hash in URL, add the current tab from state to the URL
         const newUrl =
           window.location.href.replace(/#.*/, "") + "#" + tabRef.current;
@@ -492,6 +498,12 @@ function TabbedPageContents({
     switchTab(tab, scrollToId);
   };
   const switchTab = (tab: ExperimentTab, scrollToId?: string) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/experiment/")
+    ) {
+      return;
+    }
     setTab(tab);
     setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
@@ -535,6 +547,12 @@ function TabbedPageContents({
 
   const persistTabPath = useCallback(
     (path: string) => {
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/experiment/")
+      ) {
+        return;
+      }
       setTabPath(path);
       const newUrl =
         window.location.href.replace(/#.*/, "") + "#" + tab + "/" + path;

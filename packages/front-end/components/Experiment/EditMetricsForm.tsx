@@ -10,6 +10,7 @@ import { OrganizationSettings } from "shared/types/organization";
 import {
   ExperimentMetricDefinition,
   getDefaultRegressionAdjustmentDays,
+  validateMaxGoalMetrics,
 } from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
 import { Box, Separator } from "@radix-ui/themes";
@@ -184,6 +185,7 @@ const EditMetricsForm: FC<{
       open={true}
       close={cancel}
       submit={validatedSubmit(form, async (value) => {
+        validateMaxGoalMetrics(settings, value.goalMetrics, experiment.type);
         const payload = cloneDeep<EditMetricsFormInterface>(value);
         fixMetricOverridesBeforeSaving(value.metricOverrides || []);
         await apiCall(`/experiment/${experiment.id}`, {

@@ -1,4 +1,7 @@
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  validateMaxGoalMetrics,
+} from "shared/experiments";
 import {
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
@@ -431,6 +434,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         incoming: payload.statusUpdateSchedule,
       });
     }
+
+    validateMaxGoalMetrics(
+      req.organization.settings,
+      newExperiment.goalMetrics,
+      newExperiment.type,
+    );
 
     await validateChangedPhaseReferences(newExperiment.phases, [], req.context);
     await assertValidExperimentPrerequisites(

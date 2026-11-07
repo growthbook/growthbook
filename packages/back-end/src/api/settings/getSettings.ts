@@ -38,6 +38,8 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
       ),
     },
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
+    maxGoalMetricsPerExperiment:
+      req.context.org.settings?.maxGoalMetricsPerExperiment ?? null,
     winRisk: DEFAULT_WIN_RISK_THRESHOLD,
     loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
     preferredEnvironment:

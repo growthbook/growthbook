@@ -78520,6 +78520,10 @@ components:
           anyOf:
             - type: number
             - type: 'null'
+        maxGoalMetricsPerExperiment:
+          anyOf:
+            - type: number
+            - type: 'null'
         preferredEnvironment:
           anyOf:
             - type: string

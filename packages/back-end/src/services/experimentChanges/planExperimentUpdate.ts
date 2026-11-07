@@ -11,6 +11,7 @@ import {
   isPhaseField,
   onlyTrafficFields,
   sameFieldValue,
+  validateMaxGoalMetrics,
 } from "shared/experiments";
 import type {
   ExperimentChangesBody,
@@ -377,6 +378,18 @@ export async function planExperimentUpdate(
       ) {
         data.activationMetric = "";
       }
+    }
+  }
+
+  if (data.goalMetrics !== undefined) {
+    try {
+      validateMaxGoalMetrics(
+        org.settings,
+        data.goalMetrics,
+        data.type ?? experiment.type,
+      );
+    } catch (e) {
+      throw new BadRequestError(e.message);
     }
   }
 

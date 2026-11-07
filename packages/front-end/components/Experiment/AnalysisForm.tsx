@@ -19,6 +19,7 @@ import { getScopedSettings, getUnsetAnalysisSettings } from "shared/settings";
 import {
   getClusterSubUnit,
   getLatestPhaseVariations,
+  validateMaxGoalMetrics,
 } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -605,6 +606,14 @@ const AnalysisForm: FC<{
               "Enter a conversion window override or disable the conversion window override",
             );
           }
+        }
+
+        if (body.goalMetrics) {
+          validateMaxGoalMetrics(
+            orgSettings,
+            body.goalMetrics,
+            experiment.type,
+          );
         }
 
         await apiCall(`/experiment/${experiment.id}`, {
