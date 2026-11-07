@@ -664,10 +664,14 @@ function scheduleNextPoll(key: string, poller: Poller): void {
     // Bypass the cache so the interval, not staleTTL, decides how often we refresh.
     // Instances with the same cache key share a request, so this is one fetch per
     // poll unless remote eval needs a separate payload for each set of attributes.
+    // The wait is bounded so one user's stalled request can't stop everyone's polls.
+    // A timeout isn't an error, since a late response still applies when it lands.
     Promise.all(
-      Array.from(subs).map((instance) => fetchFeatures(instance)),
+      Array.from(subs).map((instance) =>
+        promiseTimeout(fetchFeatures(instance), poller.interval),
+      ),
     ).then((responses) => {
-      poller.errors = responses.every((res) => res.success)
+      poller.errors = responses.every((res) => !res || res.success)
         ? 0
         : poller.errors + 1;
       // Don't reschedule if polling was stopped while the request was in flight

@@ -661,6 +661,48 @@ describe("remote-eval", () => {
     cleanup2();
   });
 
+  it("keeps polling for other users while one user's request stalls", async () => {
+    await clearCache();
+    const [, cleanup] = mockApi(sdkPayload, false, 0);
+
+    const options = {
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      remoteEval: true,
+    };
+    const healthy = new GrowthBook({ ...options, attributes: { uid: "5" } });
+    const stalled = new GrowthBook({ ...options, attributes: { uid: "1" } });
+    await healthy.init({ pollingInterval: 30 });
+    await stalled.init({ pollingInterval: 30 });
+
+    const [f2, cleanup2] = mockApi(sdkPayloadUpdated, false, 0);
+    const respond = f2.getMockImplementation();
+    // eslint-disable-next-line
+    f2.mockImplementation((url: string, resp: any) =>
+      JSON.parse(resp.body).attributes.uid === "1"
+        ? new Promise(() => {})
+        : (respond as NonNullable<typeof respond>)(url, resp),
+    );
+    await sleep(250);
+
+    const uids = f2.mock.calls.map(
+      ([, init]) => JSON.parse(init.body).attributes.uid,
+    );
+    expect(uids.filter((uid) => uid === "5").length).toBeGreaterThan(1);
+    // Its request is still in flight, so polls share it rather than adding more
+    expect(uids.filter((uid) => uid === "1").length).toEqual(1);
+    expect(healthy.evalFeature("bar").value).toEqual("changedForSSE");
+    expect(stalled.evalFeature("bar").value).toEqual("initial");
+
+    healthy.destroy();
+    stalled.destroy();
+    // Let a request still in flight land before clearing what it would cache
+    await sleep(10);
+    await clearCache();
+    cleanup();
+    cleanup2();
+  });
+
   it("uses localStorage cache", async () => {
     useFrozenClock();
     await clearCache();
