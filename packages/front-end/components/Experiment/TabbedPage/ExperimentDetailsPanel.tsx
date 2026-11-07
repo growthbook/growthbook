@@ -13,7 +13,10 @@ import DetailsPanel, {
   DetailsPanelTab,
   PanelSection,
 } from "@/components/DetailsPanel";
-import { CustomFieldRows } from "@/components/DetailsPanelFields";
+import {
+  CustomFieldRows,
+  PanelEditButton,
+} from "@/components/DetailsPanelFields";
 import ProjectTagBar, {
   ExperimentDataFields,
   QuickEditField,
@@ -30,7 +33,6 @@ import {
   todoTitle,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import Metadata from "@/ui/Metadata";
-import QuickEditButton from "./QuickEditButton";
 import { headerDates } from "./statusSchedule";
 
 export interface Props {
@@ -75,11 +77,10 @@ export default function ExperimentDetailsPanel({
 
   const pencil = (label: string, onClick: () => void) =>
     canEdit ? (
-      <QuickEditButton
+      <PanelEditButton
         label={label}
         onClick={onClick}
         blockedReason={editsBlocked}
-        labelTooltip={false}
       />
     ) : null;
 

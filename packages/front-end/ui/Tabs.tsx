@@ -174,7 +174,8 @@ export const TabsMoreTrigger = forwardRef<
         "rt-reset rt-BaseTabListTrigger rt-TabsTrigger",
         className,
       )}
-      style={{ flexShrink: 0, ...style }}
+      // Last in its bar, its pill sits on the bar's edge, not a padding in.
+      style={{ flexShrink: 0, paddingRight: 0, ...style }}
       {...props}
     >
       <span className="rt-BaseTabListTriggerInner">{label}</span>
@@ -196,6 +197,13 @@ type TabsListProps = Omit<
 
 // Until the More button has rendered and can be measured.
 const MORE_WIDTH_ESTIMATE_PX = 80;
+
+// A width in the list's own layout pixels, as clientWidth counts them, however
+// a transform or zoom around the list scales it on screen.
+export function layoutWidth(node: Element, list: HTMLElement) {
+  const scale = list.getBoundingClientRect().width / list.offsetWidth || 1;
+  return node.getBoundingClientRect().width / scale;
+}
 
 export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
   function TabsList(
@@ -237,17 +245,28 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
           : 1,
       );
       for (const [value, entry] of tabs) {
-        const w = entry.el.getBoundingClientRect().width;
+        const w = layoutWidth(entry.el, el);
         if (w > 0) widths.current.set(value, w);
       }
       const width = (value: string) => widths.current.get(value) ?? 0;
       const total = tabs.reduce((sum, [value]) => sum + width(value), 0);
+      // Anything else in the list, such as a button after the tabs, keeps its
+      // room; the tabs share what's left.
+      const others = Array.from(el.children).reduce(
+        (sum, child) =>
+          (more.current && child.contains(more.current)) ||
+          tabs.some(([, entry]) => child.contains(entry.el))
+            ? sum
+            : sum + layoutWidth(child, el),
+        0,
+      );
+      const available = el.clientWidth - others;
 
       const next: string[] = [];
       // 1px of slack for sub-pixel widths against the rounded clientWidth.
-      if (total > el.clientWidth + 1) {
+      if (total > available + 1) {
         let room =
-          el.clientWidth -
+          available -
           moreWidth.current -
           (active !== null && entries.current.has(active) ? width(active) : 0);
         // Once one tab doesn't fit, the rest go too, so the order holds.
@@ -273,7 +292,10 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
     }, [enabled, measure, registered]);
 
     useLayoutEffect(() => {
-      const w = more.current?.getBoundingClientRect().width;
+      const w =
+        more.current && list.current
+          ? layoutWidth(more.current, list.current)
+          : 0;
       if (w && Math.abs(w - moreWidth.current) > 1) {
         moreWidth.current = w;
         measure();

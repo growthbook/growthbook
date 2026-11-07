@@ -84,11 +84,16 @@ export function useDetailsPanel({
 // panel leaves the content alone.
 export function DetailsPanelLayout({
   details,
+  stickyTop = TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX,
   panel,
   footer,
   busy,
   children,
-}: { details: ReturnType<typeof useDetailsPanel> } & Pick<
+}: {
+  details: ReturnType<typeof useDetailsPanel>;
+  // Where the panel sticks: under the page's tabs and whatever they carry.
+  stickyTop?: number;
+} & Pick<
   CollapsiblePanelLayoutProps,
   "panel" | "footer" | "busy" | "children"
 >) {
@@ -100,7 +105,7 @@ export function DetailsPanelLayout({
     >
       <CollapsiblePanelLayout
         open={!!panel && details.open}
-        top={TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX}
+        top={stickyTop}
         width={details.width}
         onWidthChange={details.setWidth}
         onCollapse={() => details.setOpen(false)}
@@ -209,10 +214,13 @@ export default function DetailsPanel({
 
 export function PanelSection({
   title,
+  badge = null,
   action = null,
   children,
 }: {
   title: string;
+  // Beside the title, in its own case.
+  badge?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
 }) {
@@ -220,14 +228,17 @@ export function PanelSection({
   return (
     <Box className={action ? revealsQuickEdit : undefined}>
       <CollapseTrigger open={open} onOpenChange={setOpen} action={action}>
-        <Text
-          size="sm"
-          weight="medium"
-          color="text-low"
-          textTransform="uppercase"
-        >
-          {title}
-        </Text>
+        <Flex align="center" gap="2">
+          <Text
+            size="sm"
+            weight="medium"
+            color="text-low"
+            textTransform="uppercase"
+          >
+            {title}
+          </Text>
+          {badge}
+        </Flex>
       </CollapseTrigger>
       <Collapse open={open}>
         <Flex pt="4" direction="column" gap="3">
