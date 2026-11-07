@@ -6,6 +6,7 @@ import { resolveAnalysisIdentifierType } from "shared/util";
 import {
   ExperimentInterface,
   IncrementalRefreshInterface,
+  dimensionTimingValidator,
 } from "shared/validators";
 import { MAX_PRECOMPUTED_UNIT_DIMENSIONS } from "shared/constants";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
@@ -14,7 +15,10 @@ import { ReqContext } from "back-end/types/request";
 import { findDimensionsByIds } from "back-end/src/models/DimensionModel";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import {
+  getSourceIntegrationObject,
+  testDimensionQueryValidity,
+} from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 
 // Gets all Dimensions from the exposure query
@@ -388,4 +392,43 @@ export function getExposureQueryEligibleDimensions({
     eligibleDimensionsWithSlices,
     eligibleDimensionsWithSlicesUnderMaxCells,
   };
+}
+
+// Refuses the save when the SQL does not return the columns the timing
+// setting requires, so a broken dimension never reaches an experiment query.
+export async function validateDimensionBeforeSave(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  dimension: Pick<DimensionInterface, "sql" | "userIdType" | "timing">,
+): Promise<void> {
+  const timing = dimensionTimingValidator.safeParse(dimension.timing ?? "none");
+  if (!timing.success) {
+    throw new Error(`Invalid timing setting: ${String(dimension.timing)}`);
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+  const supportsSql = integration.getSourceProperties().queryLanguage === "sql";
+  if (!supportsSql) {
+    if (timing.data !== "none") {
+      throw new Error(
+        "Time-aware dimensions are only supported on SQL Data Sources",
+      );
+    }
+    return;
+  }
+
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    throw new Error(
+      "You do not have permission to run queries against this Data Source, which is required to validate the dimension SQL",
+    );
+  }
+
+  const error = await testDimensionQueryValidity(
+    integration,
+    dimension,
+    context.org.settings?.testQueryDays,
+  );
+  if (error) {
+    throw new Error(`Dimension SQL is invalid: ${error}`);
+  }
 }

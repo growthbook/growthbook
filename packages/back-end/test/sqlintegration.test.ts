@@ -2416,6 +2416,72 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     expect(sql).toContain("'Browser: '");
     expect(sql).toContain("'__NULL_DIMENSION'");
   });
+
+  it("keeps static user dimensions inside the units GROUP BY with no wrapper CTE", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_u1",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Browser",
+      sql: "SELECT user_id, browser AS value FROM users",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([{ type: "user", dimension: userDimension }]);
+
+    expect(sql).not.toContain("__experimentUnitsCore");
+    expect(sql).toContain("MAX(cast(__dim_unit_dim_u1.value as string))");
+  });
+
+  it("resolves a validityRange user dimension against first exposure in a wrapper CTE", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_plan",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Plan",
+      sql: "SELECT user_id, plan AS value, valid_from AS start_timestamp, valid_to AS end_timestamp FROM plan_history",
+      timing: "validityRange",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([{ type: "user", dimension: userDimension }]);
+
+    // Core CTE is today's units query without the timed dimension
+    const coreSection = sql.substring(
+      sql.indexOf("__experimentUnitsCore AS"),
+      sql.indexOf("__experimentUnits AS"),
+    );
+    expect(coreSection).not.toContain("__dim_unit_dim_plan");
+    expect(coreSection).toContain("first_exposure_timestamp");
+
+    // Wrapper joins the dimension on the id only and checks validity in the aggregate
+    const wrapperSection = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__distinctUsers"),
+    );
+    expect(wrapperSection).toMatch(
+      /LEFT JOIN __dim_unit_dim_plan __dim_unit_dim_plan ON \(\s*__dim_unit_dim_plan\.user_id = u\.user_id\s*\)/,
+    );
+    expect(wrapperSection).toContain(
+      "__dim_unit_dim_plan.start_timestamp <= u.first_exposure_timestamp",
+    );
+    expect(wrapperSection).toContain(
+      "__dim_unit_dim_plan.end_timestamp IS NULL",
+    );
+    expect(wrapperSection).toContain("AS dim_unit_dim_plan");
+    expect(wrapperSection).toMatch(/FROM\s+__experimentUnitsCore u/);
+    expect(wrapperSection).toMatch(
+      /GROUP BY\s+u\.user_id,\s+u\.variation,\s+u\.first_exposure_timestamp/,
+    );
+
+    // The dimension CTE normalizes the range columns
+    expect(sql).toContain("AS start_timestamp");
+    expect(sql).toContain("AS end_timestamp");
+  });
 });
 
 // Cluster experiment: randomize on the cluster (region_id) but run the

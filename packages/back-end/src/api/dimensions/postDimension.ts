@@ -10,6 +10,7 @@ import {
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { validateDimensionBeforeSave } from "back-end/src/services/dimensions";
 
 export const postDimension = createApiRequestHandler(postDimensionValidator)(
   async (req) => {
@@ -27,6 +28,12 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
       throw new Error("Invalid data source");
     }
 
+    await validateDimensionBeforeSave(req.context, datasourceDoc, {
+      sql: req.body.query,
+      userIdType: req.body.identifierType,
+      timing: req.body.timing,
+    });
+
     const dimension = await createDimension({
       datasource: req.body.datasourceId,
       userIdType: req.body.identifierType,
@@ -34,6 +41,8 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
       name: req.body.name,
       description: req.body.description || "",
       sql: req.body.query,
+      timing: req.body.timing ?? "none",
+      nullLabel: req.body.nullLabel ?? "",
       id: uniqid("dim_"),
       dateCreated: new Date(),
       dateUpdated: new Date(),

@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
 import { DimensionInterface } from "shared/types/dimension";
+import { DimensionTiming } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -16,6 +17,7 @@ import {
   getDataSourceById,
   getDataSourcesByOrganization,
 } from "back-end/src/models/DataSourceModel";
+import { validateDimensionBeforeSave } from "back-end/src/services/dimensions";
 
 // region GET /dimensions
 
@@ -63,6 +65,8 @@ type CreateDimensionRequest = AuthRequest<{
   name: string;
   sql: string;
   description: string;
+  timing?: DimensionTiming;
+  nullLabel?: string;
 }>;
 
 type CreateDimensionResponse = {
@@ -86,12 +90,19 @@ export const postDimension = async (
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const { datasource, name, sql, userIdType, description } = req.body;
+  const { datasource, name, sql, userIdType, description, timing, nullLabel } =
+    req.body;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
+
+  await validateDimensionBeforeSave(context, datasourceDoc, {
+    sql,
+    userIdType,
+    timing,
+  });
 
   const doc = await createDimension({
     datasource,
@@ -99,6 +110,8 @@ export const postDimension = async (
     owner: userId,
     name,
     sql,
+    timing: timing ?? "none",
+    nullLabel: nullLabel ?? "",
     id: uniqid("dim_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -125,6 +138,8 @@ type PutDimensionRequest = AuthRequest<
     sql: string;
     owner: string;
     description: string;
+    timing?: DimensionTiming;
+    nullLabel?: string;
   },
   { id: string },
   Record<string, never>
@@ -159,18 +174,35 @@ export const putDimension = async (
     throw new Error("You don't have access to this dimension");
   }
 
-  const { datasource, name, sql, userIdType, owner, description } = req.body;
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    owner,
+    description,
+    timing,
+    nullLabel,
+  } = req.body;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
+  await validateDimensionBeforeSave(context, datasourceDoc, {
+    sql,
+    userIdType,
+    timing,
+  });
+
   await updateDimension(context, dimension, {
     datasource,
     userIdType,
     name,
     sql,
+    timing: timing ?? "none",
+    nullLabel: nullLabel ?? "",
     owner,
     description,
     managedBy: "",

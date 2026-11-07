@@ -21,6 +21,8 @@ const dimensionSchema = new mongoose.Schema({
   description: String,
   name: String,
   sql: String,
+  timing: String,
+  nullLabel: String,
   dateCreated: Date,
   dateUpdated: Date,
 });
@@ -191,6 +193,8 @@ export function toDimensionApiInterface(
     owner: dimension.owner || "",
     identifierType: dimension.userIdType || "user_id",
     query: dimension.sql,
+    timing: dimension.timing || "none",
+    nullLabel: dimension.nullLabel || "",
     datasourceId: dimension.datasource || "",
     dateCreated: dimension.dateCreated?.toISOString() || "",
     dateUpdated: dimension.dateUpdated?.toISOString() || "",

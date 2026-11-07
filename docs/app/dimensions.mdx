@@ -115,7 +115,19 @@ FROM
   users
 ```
 
-If you need to use a dimension that can change over time, you should use the `{{ startDate }}` template variable to pin it to the value the user had before the experiment started:
+#### Time-aware dimensions
+
+Some attributes change over time, such as a subscription plan. By default, GrowthBook ignores time and picks the `MAX(value)` per user, which can leak values a user only acquired after they were exposed to the experiment. The **Query returns** setting on a dimension tells GrowthBook how to resolve the value each user had at the moment of their first exposure:
+
+| Setting                          | Query returns                                               | Value used per user                                                                                         |
+| -------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **One value per unit** (default) | `<identifier>`, `value`                                     | `MAX(value)`                                                                                                |
+| **Timestamped rows**             | `<identifier>`, `value`, `timestamp`                        | The row with the latest `timestamp` at or before first exposure                                             |
+| **Validity ranges**              | `<identifier>`, `value`, `start_timestamp`, `end_timestamp` | The row where `start_timestamp <= first exposure < end_timestamp`; `NULL` `end_timestamp` means still valid |
+
+When you save a dimension, GrowthBook runs the query against your warehouse to confirm it returns the columns the selected setting requires. Time-aware settings are only available on SQL Data Sources.
+
+**One value per unit** fits attributes that never change (`first_country`, `signup_cohort`), or attributes you pin to the experiment start yourself. Filtering to rows before `{{ startDate }}` keeps post-exposure changes out, at the cost of missing users who only got a value during the experiment:
 
 ```sql
 SELECT
@@ -126,6 +138,40 @@ FROM
 WHERE
   timestamp < '{{ startDate }}'
 ```
+
+**Timestamped rows** fits a daily snapshot table partitioned by date, where every partition holds every user's current value. Filter to the experiment window for performance; GrowthBook still picks the safe row, the latest one at or before each user's first exposure. The lower bound is safe only because each partition contains every user:
+
+```sql
+SELECT
+  user_id,
+  plan_type as value,
+  snapshot_date as timestamp
+FROM
+  user_daily_snapshot
+WHERE
+  snapshot_date BETWEEN '{{ startDate }}' AND '{{ endDate }}'
+```
+
+**Validity ranges** fits a Type 2 slowly changing dimension (SCD2) table, where each row carries the period it was valid for and the current row has a `NULL` end:
+
+```sql
+SELECT
+  user_id,
+  plan as value,
+  valid_from as start_timestamp,
+  valid_to as end_timestamp
+FROM
+  dim_user_plan_history
+```
+
+Edge cases worth knowing for validity ranges:
+
+- **Sentinel end dates** such as `9999-12-31` on the current row work as-is; there is no need to convert them to `NULL`.
+- **Inclusive end dates** (a `DATE` column holding the last day a row applies) need shifting by one day, for example `valid_to + INTERVAL '1 day' as end_timestamp`, since the end boundary is exclusive.
+- **Churned users** whose last range closed before their first exposure get no value and land in the null bucket. The same happens for users exposed before their first row. Rename that bucket with the dimension's **Missing/NULL value label** setting, which applies to every setting and also covers rows whose `value` is `NULL`.
+- **Do not filter to the current row** (`WHERE is_current = true`); that drops the history needed to look up the value at exposure.
+
+Timestamps are compared directly against the exposure timestamp, so they must be in the same timezone as your experiment assignment table. Rows whose `timestamp` or `start_timestamp` is `NULL` are ignored, and if two rows both qualify, the later one wins. Resolution always uses the first exposure, even when an activation metric is configured.
 
 <Tip>
 **SQL template variables**

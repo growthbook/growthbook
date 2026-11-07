@@ -1,7 +1,9 @@
 import {
+  contextualBanditRawAttrCol,
   getClusterSubUnit,
   getDelayWindowHours,
   getUserIdTypes,
+  isTimedDimension,
 } from "shared/experiments";
 import {
   getExposureQueryExperimentIdColumn,
@@ -20,6 +22,7 @@ import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
+import { getTimedUnitDimensionValue } from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getFirstVariationValuePerUnit } from "back-end/src/integrations/sql/columns/first-variation-value-per-unit";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -65,6 +68,15 @@ export function getExperimentUnitsQuery(
     params.dimensions,
     unitsSettings,
     activationMetric,
+  );
+
+  // Static dims join onto exposures inside the units GROUP BY as always; timed
+  // dims need first_exposure_timestamp first, so they join in a wrapper CTE.
+  const staticUnitDimensions = unitDimensions.filter(
+    (d) => !isTimedDimension(d.dimension),
+  );
+  const timedUnitDimensions = unitDimensions.filter((d) =>
+    isTimedDimension(d.dimension),
   );
 
   const exposureQuery = unitsSettings.exposureQuery;
@@ -166,6 +178,54 @@ export function getExperimentUnitsQuery(
         unitsCteName: "__experimentUnits",
         unitsBaseColumnRefs: "",
       };
+  const coreCteName =
+    timedUnitDimensions.length > 0 ? "__experimentUnitsCore" : unitsCteName;
+  const coreColumns = [
+    baseIdType,
+    "variation",
+    "first_exposure_timestamp",
+    ...(clusterIdColumn ? [clusterIdColumn] : []),
+    ...staticUnitDimensions.map((d) => `dim_unit_${d.dimension.id}`),
+    ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
+    ...(activationMetric ? ["first_activation_timestamp"] : []),
+    ...(contextualBanditCfg
+      ? contextualBanditCfg.aliases.map(contextualBanditRawAttrCol)
+      : []),
+  ];
+  const timedUnitsCte =
+    timedUnitDimensions.length > 0
+      ? `, ${unitsCteName} AS (
+      -- Resolve time-aware dimensions against each unit's first exposure
+      SELECT
+        ${coreColumns.map((c) => `u.${c}`).join("\n        , ")}
+        ${timedUnitDimensions
+          .map(
+            (d) => `
+        , ${getTimedUnitDimensionValue(
+          dialect,
+          d.dimension,
+          "u",
+          `__dim_unit_${d.dimension.id}`,
+        )} AS dim_unit_${d.dimension.id}`,
+          )
+          .join("\n")}
+      FROM
+        ${coreCteName} u
+        ${timedUnitDimensions
+          .map((d) => {
+            const joinIdType = getUnitDimensionJoinIdType(d);
+            return `
+            LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+              __dim_unit_${d.dimension.id}.${joinIdType} = u.${joinIdType}
+            )
+          `;
+          })
+          .join("\n")}
+      GROUP BY
+        ${coreColumns.map((c) => `u.${c}`).join(", ")}
+    )`
+      : "";
+
   const contextualAfterUnitsCtes = contextualBanditCfg
     ? getContextualBanditUnitsCTEs(dialect, {
         aliases: contextualBanditCfg.aliases,
@@ -287,10 +347,11 @@ export function getExperimentUnitsQuery(
             d.dimension,
             getUnitDimensionJoinIdType(d),
             idJoinMap,
+            dialect,
           )})`,
       )
       .join("\n")}
-    , ${unitsCteName} AS (
+    , ${coreCteName} AS (
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
@@ -305,7 +366,7 @@ export function getExperimentUnitsQuery(
               )} AS ${clusterIdColumn}`
             : ""
         }
-        ${unitDimensions
+        ${staticUnitDimensions
           .map(
             (d) => `
           , ${getDimensionValuePerUnit(dialect, d)} AS dim_unit_${d.dimension.id}`,
@@ -342,7 +403,7 @@ export function getExperimentUnitsQuery(
             ? `JOIN __segment s ON (s.${segmentJoinIdType} = e.${segmentJoinIdType})`
             : ""
         }
-        ${unitDimensions
+        ${staticUnitDimensions
           .map((d) => {
             const joinIdType = getUnitDimensionJoinIdType(d);
             return `
@@ -360,5 +421,5 @@ export function getExperimentUnitsQuery(
       ${segment ? `WHERE s.date <= e.timestamp` : ""}
       GROUP BY
         e.${baseIdType}
-    )${contextualAfterUnitsCtes}`;
+    )${timedUnitsCte}${contextualAfterUnitsCtes}`;
 }

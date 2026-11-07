@@ -2134,6 +2134,35 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
     expect(statsSection).toContain("dim_combo");
     expect(statsSection).not.toContain("dim_exp_country");
   });
+
+  it("resolves a rowTimestamp user dimension against the stored first exposure without an extra CTE", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_plan",
+      organization: "org1",
+      owner: "",
+      datasource: "ds_1",
+      userIdType: "user_id",
+      name: "Plan",
+      sql: "SELECT user_id, plan AS value, changed_at AS timestamp FROM plan_changes",
+      timing: "rowTimestamp",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([{ type: "user", dimension: userDimension }]);
+
+    const unitsSection = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__metricDataAggregated"),
+    );
+    expect(unitsSection).toMatch(
+      /LEFT JOIN __dim_unit_dim_plan __dim_unit_dim_plan ON \(\s*cast\(__dim_unit_dim_plan\.user_id as string\) = e\.user_id\s*\)/,
+    );
+    expect(unitsSection).toContain(
+      "__dim_unit_dim_plan.timestamp <= e.first_exposure_timestamp",
+    );
+    expect(unitsSection).toContain("AS dim_unit_dim_plan");
+    expect(sql).not.toContain("__experimentUnitsCore");
+  });
 });
 
 describe("BigQuery listGoogleAnalytics4Exports", () => {

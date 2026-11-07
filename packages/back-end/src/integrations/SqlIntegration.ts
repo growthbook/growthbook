@@ -15,6 +15,7 @@ import {
   isFactFunnelMetric,
   isRatioMetric,
   quantileMetricType,
+  isTimedDimension,
 } from "shared/experiments";
 import {
   DEFAULT_TEST_QUERY_DAYS,
@@ -169,6 +170,7 @@ import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getDimensionSlicesQuery as getDimensionSlicesQueryFromSql } from "back-end/src/integrations/sql/queries/dimension-slices-query";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
+import { getTimedUnitDimensionValue } from "back-end/src/integrations/sql/fact-metrics/timed-unit-dimension-value";
 import { getDropMetricSourceCovariateTableQuery } from "back-end/src/integrations/sql/queries/drop-metric-source-covariate-table-query";
 import { getCreateAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/create-aggregated-fact-table-query";
 import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
@@ -2997,9 +2999,16 @@ export default abstract class SqlIntegration
     );
 
     const unitDimensionCols = unitDimensions.map((d) => ({
-      // override value with the a MAX statement that will get one
-      // value per unit
-      value: getDimensionValuePerUnit(this.getSqlDialect(), d),
+      // override value with an aggregate that will get one value per unit;
+      // the stored units table carries first_exposure_timestamp on every row
+      value: isTimedDimension(d.dimension)
+        ? getTimedUnitDimensionValue(
+            this.getSqlDialect(),
+            d.dimension,
+            "e",
+            `__dim_unit_${d.dimension.id}`,
+          )
+        : getDimensionValuePerUnit(this.getSqlDialect(), d),
       alias: getDimensionCol(this.getSqlDialect(), d).alias,
     }));
 
@@ -3142,6 +3151,7 @@ export default abstract class SqlIntegration
               d.dimension,
               baseIdType,
               idJoinMap,
+              this.getSqlDialect(),
             )})`,
         )
         .join("\n")}
