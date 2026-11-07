@@ -10,7 +10,8 @@ export const SETTINGS_NAV_MIN_WIDTH_PX = 1024;
 /**
  * With the AI panel docked, the narrowest page area (the window less the side
  * nav and the panel) that holds the Settings nav column and two-column cards;
- * narrower, Settings takes its narrow layout too. Measured on General: at
- * 950px a card's select runs past its edge.
+ * narrower, Settings takes its narrow layout too. Measured across every
+ * Settings page, tab and search: at 1010px the Bandits card's "Day(s)" select
+ * starts to push into the card's padding.
  */
-export const SETTINGS_WIDE_MIN_PAGE_AREA_PX = 952;
+export const SETTINGS_WIDE_MIN_PAGE_AREA_PX = 1012;
