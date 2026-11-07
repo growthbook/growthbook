@@ -1,4 +1,5 @@
 import { useState } from "react";
+import isEqual from "lodash/isEqual";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { interleavingEndpoints } from "shared/api-endpoints";
@@ -81,14 +82,19 @@ export default function EditInterleavingAnalysisModal({
       cta="Save"
       size="lg"
       submit={async () => {
-        const error = getAnalysisError(analysis);
-        if (error) throw new Error(error);
+        // A new experiment has no analysis setup yet; a key-only edit
+        // shouldn't have to complete it.
+        const analysisChanged = !isEqual(analysis, analysisOf(il));
+        if (analysisChanged) {
+          const error = getAnalysisError(analysis);
+          if (error) throw new Error(error);
+        }
         const key = trackingKey.trim();
         if (!key) throw new Error("Tracking key is required");
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },
           body: {
-            ...analysis,
+            ...(analysisChanged ? analysis : {}),
             // Only when changed: the server wants run permission for it once
             // this is serving.
             trackingKey: key !== il.trackingKey ? key : undefined,
