@@ -17,9 +17,7 @@ const DataSourcesPage: FC = () => {
   const router = useRouter();
 
   const filteredDatasources = project
-    ? datasources.filter((ds) =>
-        isAvailableInProject(ds.projects, project),
-      )
+    ? datasources.filter((ds) => isAvailableInProject(ds.projects, project))
     : // "All Projects" — hide the sample datasource so it doesn't muddle the view
       datasources.filter((ds) => !ds.projects?.includes(demoProjectId || ""));
 

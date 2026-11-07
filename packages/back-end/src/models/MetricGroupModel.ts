@@ -9,6 +9,7 @@ import {
   getMetricGroupMetricsToValidate,
   doesMetricProjectChangeReduceGroupAvailability,
 } from "shared/util";
+import { UpdateFilter } from "mongodb";
 import { metricGroupApiSpec } from "back-end/src/api/specs/metric-group.spec";
 import { getMetricsByIds } from "./MetricModel";
 import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
@@ -148,13 +149,12 @@ export class MetricGroupModel extends BaseClass {
   }
 
   async removeProjectIdFromAllGroups(projectId: string): Promise<void> {
+    const pullOperation: UpdateFilter<MetricGroupInterface> = {
+      projects: projectId,
+    };
     await this._dangerousGetCollection().updateMany(
       { organization: this.context.org.id, projects: projectId },
-      {
-        // @ts-expect-error - not sure why $pull is complaining, but it works
-        $pull: { projects: projectId },
-        $set: { dateUpdated: new Date() },
-      },
+      { $pull: pullOperation, $set: { dateUpdated: new Date() } },
     );
     // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
     await touchDefinitionsVersion(this.context.org.id);

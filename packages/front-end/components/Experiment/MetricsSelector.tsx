@@ -939,11 +939,7 @@ const MetricsSelector: FC<{
           : undefined
       }
       disabled={selectorDisabled}
-      helpText={
-        <>
-          {helpText}
-        </>
-      }
+      helpText={helpText}
       extraIndicator={
         !disabled && Object.keys(tagCounts).length > 0 ? (
           <MetricTagPicker

@@ -32,6 +32,7 @@ import {
   RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
+import { UpdateFilter } from "mongodb";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -893,12 +894,12 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
   }
 
   public async removeProjectIdFromAll(projectId: string): Promise<void> {
+    const pullOperation: UpdateFilter<FactMetricInterface> = {
+      projects: projectId,
+    };
     await this._dangerousGetCollection().updateMany(
       { organization: this.context.org.id, projects: projectId },
-      {
-        $pull: { projects: projectId },
-        $set: { dateUpdated: new Date() },
-      },
+      { $pull: pullOperation, $set: { dateUpdated: new Date() } },
     );
     // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
     await touchDefinitionsVersion(this.context.org.id);

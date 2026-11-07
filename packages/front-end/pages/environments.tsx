@@ -1,9 +1,6 @@
 import { useState, FC, useMemo } from "react";
 import { Environment } from "shared/types/organization";
-import {
-  isProductionEnvironment,
-  isAvailableInProject,
-} from "shared/util";
+import { isProductionEnvironment, isAvailableInProject } from "shared/util";
 import { BiShow } from "react-icons/bi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { ImBlocked } from "react-icons/im";
@@ -56,9 +53,7 @@ const EnvironmentsPage: FC = () => {
 
   const environments = useEnvironments();
   const filteredEnvironments = project
-    ? environments.filter((env) =>
-        isAvailableInProject(env.projects, project),
-      )
+    ? environments.filter((env) => isAvailableInProject(env.projects, project))
     : environments;
 
   const { data: sdkConnectionData } = useSDKConnections();

@@ -771,10 +771,7 @@ const AnalysisForm: FC<{
                   .filter(
                     (ds) =>
                       ds.id === experiment.datasource ||
-                      isAvailableInProject(
-                        ds.projects,
-                        experiment.project,
-                      ),
+                      isAvailableInProject(ds.projects, experiment.project),
                   )
                   .map((d) => ({
                     value: d.id,

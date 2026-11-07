@@ -70,10 +70,7 @@ export function usePopulations(
   );
 
   const populations = useMemo(
-    () =>
-      (data ?? []).filter((p) =>
-        isAvailableInProject(p.projects, project),
-      ),
+    () => (data ?? []).filter((p) => isAvailableInProject(p.projects, project)),
     [data, project],
   );
 

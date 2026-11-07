@@ -621,9 +621,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .sort((a, b) =>
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
-    .filter((t) =>
-      isAvailableInProject(t.project ? [t.project] : [], project),
-    )
+    .filter((t) => isAvailableInProject(t.project ? [t.project] : [], project))
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
