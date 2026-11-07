@@ -2,6 +2,7 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceParams,
   DataSourceSettings,
+  DataSourceType,
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
@@ -168,6 +169,46 @@ export const getGA4ExposureTemplate = (
     getGA4ExposureSql(table.path, userIdTypes, rowFilterWhere),
 });
 
+// Where the io.growthbook/experiment_viewed self-describing event lands per warehouse:
+// https://docs.snowplow.io/docs/api-reference/loaders-storage-targets/schemas-in-warehouse/
+function getSnowplowExposureSql(
+  tablePrefix: string,
+  dataSourceType?: DataSourceType,
+): { experimentId: string; variationId: string; from: string } | null {
+  const column = "unstruct_event_io_growthbook_experiment_viewed_1";
+  // Snowflake keeps the schema's own (camelCase) keys inside a VARIANT object.
+  if (dataSourceType === "snowflake") {
+    return {
+      experimentId: `${column}:experimentId::varchar`,
+      variationId: `${column}:variationId::varchar`,
+      from: `${tablePrefix}events`,
+    };
+  }
+  // BigQuery Loader 2.x and the Lake Loader use a struct column with snake_case fields.
+  if (
+    dataSourceType === "bigquery" ||
+    dataSourceType === "databricks" ||
+    dataSourceType === "athena"
+  ) {
+    return {
+      experimentId: `${column}.experiment_id`,
+      variationId: `${column}.variation_id`,
+      from: `${tablePrefix}events`,
+    };
+  }
+  // Redshift and Postgres load each self-describing event into its own table.
+  if (dataSourceType === "redshift" || dataSourceType === "postgres") {
+    return {
+      experimentId: "ev.experiment_id",
+      variationId: "ev.variation_id",
+      from: `${tablePrefix}events
+  JOIN ${tablePrefix}io_growthbook_experiment_viewed_1 ev
+    ON ev.root_id = event_id AND ev.root_tstamp = collector_tstamp`,
+    };
+  }
+  return null;
+}
+
 const SnowplowSchema: SchemaInterface = {
   experimentDimensions: [
     "country",
@@ -178,22 +219,44 @@ const SnowplowSchema: SchemaInterface = {
     "os",
   ],
   getExperimentSQL: (tablePrefix, userIdTypes, options) => {
-    const actionName = options?.actionName || "Experiment Viewed";
     const ids = getExposureIdentifierSql(userIdTypes, (id) =>
       id === "user_id" ? "user_id" : "domain_userid",
     );
+    const dimensions = `dvce_type as device,
+  os_name as os,
+  geo_country as country,
+  mkt_source as source,
+  mkt_medium as medium,
+  br_family as browser`;
 
+    const exposure = getSnowplowExposureSql(
+      tablePrefix,
+      options?.dataSourceType,
+    );
+    if (exposure) {
+      return `SELECT
+  ${ids.select},
+  collector_tstamp as timestamp,
+  ${exposure.experimentId} as experiment_id,
+  ${exposure.variationId} as variation_id,
+  ${dimensions}
+FROM
+  ${exposure.from}
+WHERE
+  event_vendor = 'io.growthbook'
+  AND event_name = 'experiment_viewed'
+  AND ${ids.notNull}
+  `;
+    }
+
+    // Warehouses without a known Snowplow layout keep the structured-event query.
+    const actionName = options?.actionName || "Experiment Viewed";
     return `SELECT
   ${ids.select},
   collector_tstamp as timestamp,
   se_label as experiment_id,
   se_property as variation_id,
-  dvce_type as device,
-  os_name as os,
-  geo_country as country,
-  mkt_source as source,
-  mkt_medium as medium,
-  br_family as browser
+  ${dimensions}
 FROM
   ${tablePrefix}events
 WHERE
@@ -1031,9 +1094,11 @@ export function getInitialSettings(
   type: SchemaFormat,
   params: DataSourceParams,
   options?: Record<string, string | number>,
+  dataSourceType?: DataSourceType,
 ) {
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
+  const sqlOptions = dataSourceType ? { ...options, dataSourceType } : options;
   return {
     schemaFormat: type,
     userIdTypes: userIdTypes.map((type) => {
@@ -1050,7 +1115,11 @@ export function getInitialSettings(
         dimensions: schema.experimentDimensions,
         name: USER_ID_TYPE_META[id]?.exposureName ?? id,
         description: "",
-        query: schema.getExperimentSQL(getTablePrefix(params), [id], options),
+        query: schema.getExperimentSQL(
+          getTablePrefix(params),
+          [id],
+          sqlOptions,
+        ),
       })),
       identityJoins: schema.getIdentitySQL(getTablePrefix(params), options),
     },
@@ -1612,7 +1681,7 @@ export function getInitialExposureQuery(
   return getSchemaObject(datasource.settings?.schemaFormat).getExperimentSQL(
     getTablePrefix(datasource.params),
     getStarterIdentifierTypes(datasource, identifierTypes),
-    datasource.settings?.schemaOptions,
+    { ...datasource.settings?.schemaOptions, dataSourceType: datasource.type },
   );
 }
 
