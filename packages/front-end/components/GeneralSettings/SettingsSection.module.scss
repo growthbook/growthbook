@@ -82,6 +82,23 @@
   }
 }
 
+// The bar's summary, cut short with an ellipsis where space runs out (the
+// label is Button's Text).
+.unsavedSummary {
+  max-width: 100%;
+
+  :global(.rt-Text) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
 // Keeps the last card clear of the fixed bar.
 .unsavedBarSpacer {
   height: 64px;
