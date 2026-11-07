@@ -17,6 +17,7 @@ import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/Implementat
 import { ManagedFlagLink } from "@/components/Experiment/ManagedFlagName";
 import Text from "@/ui/Text";
 import {
+  CopyableKey,
   EmptyValue,
   OwnerField,
   ProjectField,
@@ -125,7 +126,13 @@ export function ExperimentDataFields({
           stacked
           label="Experiment key"
           action={fieldAction?.("trackingKey")}
-          value={experiment.trackingKey || <EmptyValue />}
+          value={
+            experiment.trackingKey ? (
+              <CopyableKey value={experiment.trackingKey} />
+            ) : (
+              <EmptyValue />
+            )
+          }
         />
       )}
       {!isHoldout && (
