@@ -5,7 +5,10 @@ import {
   DataSourceType,
 } from "shared/types/datasource";
 import { EventForwarderConfigWithMetadata } from "shared/types/event-forwarder";
-import { getEventForwarderSinkTypeForDatasource } from "shared/util";
+import {
+  getEventForwarderSinkTypeForDatasource,
+  getReadableExposureQueries,
+} from "shared/util";
 import type { DataSourceParamsForType } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -33,11 +36,32 @@ type DataSourceResponse<T extends DataSourceType> = Omit<
   eventForwarderConfig: EventForwarderConfigWithMetadata | null;
 };
 
+function withReadableExposureQueries(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+): DataSourceInterface["settings"] {
+  const { settings } = datasource;
+  if (!settings?.queries?.exposure) return settings;
+  return {
+    ...settings,
+    queries: {
+      ...settings.queries,
+      exposure: getReadableExposureQueries(
+        settings.queries.exposure,
+        datasource.projects,
+        context.permissions.canReadMultiProjectResource,
+      ),
+    },
+  };
+}
+
 function buildDataSourceWithParams<T extends DataSourceType>(
+  context: ReqContext,
   integration: SourceIntegrationInterface<T>,
   eventForwarderConfig?: EventForwarderConfigWithMetadata | null,
 ): DataSourceWithParamsByType[T];
 function buildDataSourceWithParams(
+  context: ReqContext,
   integration: SourceIntegrationInterface,
   eventForwarderConfig?: EventForwarderConfigWithMetadata | null,
 ): unknown {
@@ -46,6 +70,7 @@ function buildDataSourceWithParams(
 
   return {
     ...otherFields,
+    settings: withReadableExposureQueries(context, datasource),
     projects: datasource.projects || [],
     params: getNonSensitiveParams(integration),
     properties: integration.getSourceProperties(),
@@ -67,7 +92,7 @@ export async function getDataSourceWithParams(
       )
     : null;
 
-  return buildDataSourceWithParams(integration, eventForwarderConfig);
+  return buildDataSourceWithParams(context, integration, eventForwarderConfig);
 }
 
 export async function getDataSourcesWithParams(

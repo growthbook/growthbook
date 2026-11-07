@@ -15,6 +15,8 @@ import {
   getExposureQueryProjectScopeViolations,
   getExposureQueryProjectScopeError,
   isExposureQueryAvailableForProjects,
+  getReadableExposureQueries,
+  withUnreadableExposureQueries,
   getIdentifierTypeForSettingsHash,
   getPastExperimentQueryName,
   withKeptIdentifierType,
@@ -801,6 +803,66 @@ describe("isExposureQueryAvailableForProjects", () => {
         { holdoutProjects: ["prj_b"], datasourceProjects: dsProjects },
       ),
     ).toBe(true);
+  });
+});
+
+describe("assignment query read access", () => {
+  const canRead = (projects: string[]) =>
+    !projects.length || projects.includes("prj_a");
+  const own = { id: "eq_a", projects: ["prj_a"] };
+  const other = { id: "eq_b", projects: ["prj_b"] };
+  const shared = { id: "eq_ab", projects: ["prj_a", "prj_b"] };
+  const inherited = { id: "eq_inherit", projects: [] };
+
+  it("keeps queries in a project the user can read", () => {
+    expect(
+      getReadableExposureQueries([own, other, shared, inherited], [], canRead),
+    ).toEqual([own, shared, inherited]);
+  });
+
+  it("applies the data source's projects to an unscoped query", () => {
+    expect(
+      getReadableExposureQueries([own, inherited], ["prj_b"], canRead),
+    ).toEqual([own]);
+    expect(
+      getReadableExposureQueries([inherited], ["prj_a", "prj_b"], canRead),
+    ).toEqual([inherited]);
+  });
+
+  it("puts unreadable queries back at their saved positions", () => {
+    const third = { id: "eq_a2", projects: ["prj_a"] };
+    const saved = [other, own, shared, third];
+    expect(
+      withUnreadableExposureQueries(saved, [own, shared, third], [], canRead),
+    ).toEqual(saved);
+  });
+
+  it("keeps unreadable queries when visible ones are removed or added", () => {
+    const added = { id: "eq_new", projects: ["prj_a"] };
+    expect(
+      withUnreadableExposureQueries([own, other], [], [], canRead),
+    ).toEqual([other]);
+    expect(
+      withUnreadableExposureQueries([own, other], [own, added], [], canRead),
+    ).toEqual([own, other, added]);
+  });
+
+  it("returns the submitted list when every saved query is readable", () => {
+    const submitted = [shared];
+    expect(
+      withUnreadableExposureQueries([own, shared], submitted, [], canRead),
+    ).toBe(submitted);
+  });
+
+  it("uses the data source's projects to judge unscoped saved queries", () => {
+    expect(
+      withUnreadableExposureQueries(
+        [own, inherited],
+        [own],
+        ["prj_b"],
+        canRead,
+      ),
+    ).toEqual([own, inherited]);
   });
 });
 

@@ -12,6 +12,7 @@ import {
   assignServerIdsToAddedExposureQueries,
   getDataSourceSaveChanges,
   getSavedQueriesSharingId,
+  withUnreadableExposureQueries,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -486,6 +487,30 @@ function assertCanUpdateDataSource(
   }
 }
 
+// Responses leave out assignment queries the user can't read, so the client
+// can't send them back. Restoring them before the permission checks means a
+// save can't delete them.
+function withSavedUnreadableExposureQueries(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  body: PutDataSourceBody,
+): PutDataSourceBody {
+  const { settings } = body;
+  if (!settings) return body;
+  const submitted = settings.queries?.exposure ?? [];
+  const exposure = withUnreadableExposureQueries(
+    datasource.settings?.queries?.exposure ?? [],
+    submitted,
+    datasource.projects,
+    context.permissions.canReadMultiProjectResource,
+  );
+  if (exposure === submitted) return body;
+  return {
+    ...body,
+    settings: { ...settings, queries: { ...settings.queries, exposure } },
+  };
+}
+
 function withServerExposureQueryIds(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -655,7 +680,11 @@ export async function putDataSource(
     return;
   }
 
-  const body = withServerExposureQueryIds(context, datasource, req.body);
+  const body = withServerExposureQueryIds(
+    context,
+    datasource,
+    withSavedUnreadableExposureQueries(context, datasource, req.body),
+  );
   const { settings } = body;
   assertCanUpdateDataSource(context, datasource, body);
 

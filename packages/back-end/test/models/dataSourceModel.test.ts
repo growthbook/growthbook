@@ -531,7 +531,7 @@ describe("dataSourceModel", () => {
   });
 
   it("reports the frozen legacy identifier as the deprecated identifierType", () => {
-    const apiDatasource = toDataSourceApiInterface({
+    const apiDatasource = toDataSourceApiInterface(context, {
       ...datasource,
       settings: {
         ...datasource.settings,
@@ -558,7 +558,7 @@ describe("dataSourceModel", () => {
   });
 
   it("keeps reporting the frozen legacy identifier after the query drops it", () => {
-    const apiDatasource = toDataSourceApiInterface({
+    const apiDatasource = toDataSourceApiInterface(context, {
       ...datasource,
       settings: {
         ...datasource.settings,
