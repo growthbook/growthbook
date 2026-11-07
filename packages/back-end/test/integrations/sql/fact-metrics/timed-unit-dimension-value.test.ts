@@ -1,6 +1,6 @@
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import type { DimensionInterface } from "shared/types/dimension";
-import { postgresDialect } from "shared/dialects";
+import { bigQueryDialect, postgresDialect } from "shared/dialects";
 import {
   getTimedUnitDimensionCondition,
   getTimedUnitDimensionValue,
@@ -23,7 +23,7 @@ describe("getTimedUnitDimensionCondition", () => {
     expect(
       getTimedUnitDimensionCondition(
         { ...base, timing: "rowTimestamp" },
-        "u",
+        "u.first_exposure_timestamp",
         "d",
       ),
     ).toBe("d.timestamp <= u.first_exposure_timestamp");
@@ -33,7 +33,7 @@ describe("getTimedUnitDimensionCondition", () => {
     expect(
       getTimedUnitDimensionCondition(
         { ...base, timing: "validityRange" },
-        "u",
+        "u.first_exposure_timestamp",
         "d",
       ),
     ).toBe(
@@ -42,7 +42,9 @@ describe("getTimedUnitDimensionCondition", () => {
   });
 
   it("rejects static dimensions", () => {
-    expect(() => getTimedUnitDimensionCondition(base, "u", "d")).toThrow();
+    expect(() =>
+      getTimedUnitDimensionCondition(base, "u.first_exposure_timestamp", "d"),
+    ).toThrow();
   });
 });
 
@@ -51,7 +53,7 @@ describe("getTimedUnitDimensionValue", () => {
     const sql = getTimedUnitDimensionValue(
       postgresDialect,
       { ...base, timing: "validityRange" },
-      "u",
+      "u.first_exposure_timestamp",
       "__dim_unit_dim_1",
     );
     const flat = sql.replace(/\s+/g, " ");
@@ -70,7 +72,7 @@ describe("getTimedUnitDimensionValue", () => {
     const sql = getTimedUnitDimensionValue(
       postgresDialect,
       { ...base, timing: "rowTimestamp", nullLabel: "Didn't sign up" },
-      "u",
+      "u.first_exposure_timestamp",
       "d",
     );
     expect(sql).toContain("'Didn''t sign up'");
@@ -81,11 +83,25 @@ describe("getTimedUnitDimensionValue", () => {
     const sql = getTimedUnitDimensionValue(
       postgresDialect,
       { ...base, timing: "rowTimestamp" },
-      "e",
+      "e.first_exposure_timestamp",
       "d",
     );
     expect(sql).toContain(postgresDialect.formatDateTimeString("d.timestamp"));
     expect(sql).toContain("d.timestamp <= e.first_exposure_timestamp");
     expect(sql).not.toContain("start_timestamp");
+  });
+
+  it("uses the exposure expression verbatim so callers can cast stored timestamps", () => {
+    const exposure = bigQueryDialect.castUserDateCol(
+      "e.first_exposure_timestamp",
+    );
+    const sql = getTimedUnitDimensionValue(
+      bigQueryDialect,
+      { ...base, timing: "validityRange" },
+      exposure,
+      "d",
+    );
+    expect(sql).toContain(`d.start_timestamp <= ${exposure}`);
+    expect(sql).toContain(`${exposure} < d.end_timestamp`);
   });
 });

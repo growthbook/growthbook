@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { ApiDimension } from "shared/validators";
 import { DimensionInterface } from "shared/types/dimension";
+import { getDimensionTiming } from "shared/experiments";
 import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -193,7 +194,7 @@ export function toDimensionApiInterface(
     owner: dimension.owner || "",
     identifierType: dimension.userIdType || "user_id",
     query: dimension.sql,
-    timing: dimension.timing || "none",
+    timing: getDimensionTiming(dimension),
     nullLabel: dimension.nullLabel || "",
     datasourceId: dimension.datasource || "",
     dateCreated: dimension.dateCreated?.toISOString() || "",

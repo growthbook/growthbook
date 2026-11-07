@@ -5,6 +5,7 @@ export const DIMENSION_START_TIMESTAMP_COLUMN = "start_timestamp";
 export const DIMENSION_END_TIMESTAMP_COLUMN = "end_timestamp";
 
 export const DIMENSION_NULL_LABEL_MAX_LENGTH = 100;
+export const DEFAULT_DIMENSION_TIMING: DimensionTiming = "none";
 
 export function getDimensionNullValue(
   dimension: { nullLabel?: string },
@@ -17,7 +18,7 @@ export function getDimensionNullValue(
 export function getDimensionTiming(dimension: {
   timing?: DimensionTiming;
 }): DimensionTiming {
-  return dimension.timing ?? "none";
+  return dimension.timing ?? DEFAULT_DIMENSION_TIMING;
 }
 
 export function isTimedDimension(dimension: {

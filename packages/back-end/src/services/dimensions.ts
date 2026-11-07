@@ -8,6 +8,7 @@ import {
   IncrementalRefreshInterface,
   dimensionTimingValidator,
 } from "shared/validators";
+import { DEFAULT_DIMENSION_TIMING } from "shared/experiments";
 import { MAX_PRECOMPUTED_UNIT_DIMENSIONS } from "shared/constants";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
@@ -401,7 +402,9 @@ export async function validateDimensionBeforeSave(
   datasource: DataSourceInterface,
   dimension: Pick<DimensionInterface, "sql" | "userIdType" | "timing">,
 ): Promise<void> {
-  const timing = dimensionTimingValidator.safeParse(dimension.timing ?? "none");
+  const timing = dimensionTimingValidator.safeParse(
+    dimension.timing ?? DEFAULT_DIMENSION_TIMING,
+  );
   if (!timing.success) {
     throw new Error(`Invalid timing setting: ${String(dimension.timing)}`);
   }

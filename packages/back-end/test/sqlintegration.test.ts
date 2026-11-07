@@ -2417,6 +2417,41 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     expect(sql).toContain("'__NULL_DIMENSION'");
   });
 
+  it("snapshots a fact metric query with one of each timed unit dimension", () => {
+    const rowTimestampDimension: DimensionInterface = {
+      id: "dim_plan_changes",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Plan (change log)",
+      sql: "SELECT user_id, plan AS value, changed_at AS timestamp FROM plan_changes",
+      timing: "rowTimestamp",
+      nullLabel: "No plan",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const validityRangeDimension: DimensionInterface = {
+      id: "dim_region_history",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Region (SCD2)",
+      sql: "SELECT user_id, region AS value, valid_from AS start_timestamp, valid_to AS end_timestamp FROM dim_user_region",
+      timing: "validityRange",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([
+      { type: "user", dimension: rowTimestampDimension },
+      { type: "user", dimension: validityRangeDimension },
+    ]);
+
+    const normalizedSql = sql.replace(/\s+/g, " ").trim();
+    expect(format(normalizedSql, "bigquery")).toMatchSnapshot();
+  });
+
   it("keeps static user dimensions inside the units GROUP BY with no wrapper CTE", () => {
     const userDimension: DimensionInterface = {
       id: "dim_u1",

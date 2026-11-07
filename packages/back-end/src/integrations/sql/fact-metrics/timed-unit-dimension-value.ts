@@ -12,12 +12,13 @@ import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
 
 // Time checks live inside the aggregate (not the join) so the dimension join
 // stays an equi-join on every warehouse and units with no qualifying row are kept.
+// `exposure` must have the same type as the dimension's castUserDateCol'd
+// timestamp columns (callers reading a stored units table cast it first).
 export function getTimedUnitDimensionCondition(
   dimension: DimensionInterface,
-  unitsAlias: string,
+  exposure: string,
   dimAlias: string,
 ): string {
-  const exposure = `${unitsAlias}.first_exposure_timestamp`;
   switch (getDimensionTiming(dimension)) {
     case "rowTimestamp":
       return `${dimAlias}.${DIMENSION_TIMESTAMP_COLUMN} <= ${exposure}`;
@@ -35,7 +36,7 @@ export function getTimedUnitDimensionCondition(
 export function getTimedUnitDimensionValue(
   dialect: SqlDialect,
   dimension: DimensionInterface,
-  unitsAlias: string,
+  exposure: string,
   dimAlias: string,
 ): string {
   const timestampColumn =
@@ -50,7 +51,7 @@ export function getTimedUnitDimensionValue(
         SUBSTRING(
           MAX(
             ${dialect.ifElse(
-              getTimedUnitDimensionCondition(dimension, unitsAlias, dimAlias),
+              getTimedUnitDimensionCondition(dimension, exposure, dimAlias),
               keyed,
               "NULL",
             )}

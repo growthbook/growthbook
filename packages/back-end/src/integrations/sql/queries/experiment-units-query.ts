@@ -1,5 +1,4 @@
 import {
-  contextualBanditRawAttrCol,
   getClusterSubUnit,
   getDelayWindowHours,
   getUserIdTypes,
@@ -34,17 +33,10 @@ import { processDimensions } from "back-end/src/integrations/sql/processing/proc
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
 import {
   getContextualBanditExposureSelectCols,
-  getContextualBanditUnitsBaseSelectCols,
+  getContextualBanditUnitsBaseColumns,
   getContextualBanditUnitsCTEs,
   getContextualBanditUnitsSqlConfig,
 } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
-
-type ExperimentUnitsQueryContextualBanditStrings = {
-  contextualExposureSelectCols: string;
-  contextualUnitsBaseSelectCols: string;
-  unitsCteName: string;
-  unitsBaseColumnRefs: string;
-};
 
 export function getExperimentUnitsQuery(
   dialect: SqlDialect,
@@ -147,68 +139,95 @@ export function getExperimentUnitsQuery(
           "max(e.variation)",
         );
 
-  const {
-    contextualExposureSelectCols,
-    contextualUnitsBaseSelectCols,
-    unitsCteName,
-    unitsBaseColumnRefs,
-  }: ExperimentUnitsQueryContextualBanditStrings = contextualBanditCfg
-    ? {
-        contextualExposureSelectCols: getContextualBanditExposureSelectCols(
-          contextualBanditCfg.aliases,
-        ),
-        contextualUnitsBaseSelectCols: getContextualBanditUnitsBaseSelectCols(
-          dialect,
-          contextualBanditCfg.aliases,
-          timestampColumn,
-        ),
-        unitsCteName: "__experimentUnitsBase",
-        unitsBaseColumnRefs: [
-          `u.${baseIdType}`,
-          "u.variation",
-          "u.first_exposure_timestamp",
-          ...unitDimensions.map((d) => `u.dim_unit_${d.dimension.id}`),
-          ...experimentDimensions.map((d) => `u.dim_exp_${d.id}`),
-          ...(activationMetric ? ["u.first_activation_timestamp"] : []),
-        ].join("\n,"),
-      }
-    : {
-        contextualExposureSelectCols: "",
-        contextualUnitsBaseSelectCols: "",
-        unitsCteName: "__experimentUnits",
-        unitsBaseColumnRefs: "",
-      };
+  const contextualExposureSelectCols = contextualBanditCfg
+    ? getContextualBanditExposureSelectCols(contextualBanditCfg.aliases)
+    : "";
+  const contextualBanditRawColumns = contextualBanditCfg
+    ? getContextualBanditUnitsBaseColumns(
+        dialect,
+        contextualBanditCfg.aliases,
+        timestampColumn,
+      )
+    : [];
+  // Contextual bandits add CTEs after the units CTE and emit the final
+  // __experimentUnits themselves
+  const unitsCteName = contextualBanditCfg
+    ? "__experimentUnitsBase"
+    : "__experimentUnits";
   const coreCteName =
     timedUnitDimensions.length > 0 ? "__experimentUnitsCore" : unitsCteName;
-  const coreColumns = [
-    baseIdType,
-    "variation",
-    "first_exposure_timestamp",
-    ...(clusterIdColumn ? [clusterIdColumn] : []),
-    ...staticUnitDimensions.map((d) => `dim_unit_${d.dimension.id}`),
-    ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
-    ...(activationMetric ? ["first_activation_timestamp"] : []),
-    ...(contextualBanditCfg
-      ? contextualBanditCfg.aliases.map(contextualBanditRawAttrCol)
+
+  // Single source of truth for the per-unit columns: the core SELECT, the
+  // timed-dimension wrapper and the contextual bandit CTEs all derive from it
+  const coreColumns: { alias: string; expr: string }[] = [
+    { alias: baseIdType, expr: `e.${baseIdType}` },
+    { alias: "variation", expr: variationValuePerUnit },
+    {
+      alias: "first_exposure_timestamp",
+      expr: `MIN(${timestampColumn})`,
+    },
+    ...(clusterIdColumn
+      ? [
+          {
+            alias: clusterIdColumn,
+            expr: dialect.ifElse(
+              `count(distinct e.${clusterIdColumn}) > 1`,
+              `'${MULTIPLE_CLUSTER_SENTINEL}'`,
+              dialect.castToString(`max(e.${clusterIdColumn})`),
+            ),
+          },
+        ]
       : []),
+    ...staticUnitDimensions.map((d) => ({
+      alias: `dim_unit_${d.dimension.id}`,
+      expr: getDimensionValuePerUnit(dialect, d),
+    })),
+    ...experimentDimensions.map((d) => ({
+      alias: `dim_exp_${d.id}`,
+      expr: getDimensionValuePerUnit(dialect, d),
+    })),
+    ...(activationMetric
+      ? [
+          {
+            alias: "first_activation_timestamp",
+            expr: `MIN(${dialect.ifElse(
+              getConversionWindowClause(
+                dialect,
+                "e.timestamp",
+                "a.timestamp",
+                activationMetric,
+                unitsSettings.endDate,
+                overrideConversionWindows,
+              ),
+              "a.timestamp",
+              "NULL",
+            )})`,
+          },
+        ]
+      : []),
+    ...contextualBanditRawColumns,
   ];
+  const timedColumns = timedUnitDimensions.map((d) => ({
+    alias: `dim_unit_${d.dimension.id}`,
+    expr: getTimedUnitDimensionValue(
+      dialect,
+      d.dimension,
+      "u.first_exposure_timestamp",
+      `__dim_unit_${d.dimension.id}`,
+    ),
+  }));
+  const unitsColumnAliases = [
+    ...coreColumns.map((c) => c.alias),
+    ...timedColumns.map((c) => c.alias),
+  ];
+
   const timedUnitsCte =
     timedUnitDimensions.length > 0
       ? `, ${unitsCteName} AS (
       -- Resolve time-aware dimensions against each unit's first exposure
       SELECT
-        ${coreColumns.map((c) => `u.${c}`).join("\n        , ")}
-        ${timedUnitDimensions
-          .map(
-            (d) => `
-        , ${getTimedUnitDimensionValue(
-          dialect,
-          d.dimension,
-          "u",
-          `__dim_unit_${d.dimension.id}`,
-        )} AS dim_unit_${d.dimension.id}`,
-          )
-          .join("\n")}
+        ${coreColumns.map((c) => `u.${c.alias}`).join("\n        , ")}
+        ${timedColumns.map((c) => `\n        , ${c.expr} AS ${c.alias}`).join("")}
       FROM
         ${coreCteName} u
         ${timedUnitDimensions
@@ -222,16 +241,23 @@ export function getExperimentUnitsQuery(
           })
           .join("\n")}
       GROUP BY
-        ${coreColumns.map((c) => `u.${c}`).join(", ")}
+        ${coreColumns.map((c) => `u.${c.alias}`).join(", ")}
     )`
       : "";
 
+  // The bandit CTEs replace the raw attribute columns with bucketed ones
+  const contextualBanditRawAliases = new Set(
+    contextualBanditRawColumns.map((c) => c.alias),
+  );
   const contextualAfterUnitsCtes = contextualBanditCfg
     ? getContextualBanditUnitsCTEs(dialect, {
         aliases: contextualBanditCfg.aliases,
         maxRankedContexts: contextualBanditCfg.maxRankedContexts,
         unitsBaseCteName: unitsCteName,
-        baseColumnRefs: unitsBaseColumnRefs,
+        baseColumnRefs: unitsColumnAliases
+          .filter((alias) => !contextualBanditRawAliases.has(alias))
+          .map((alias) => `u.${alias}`)
+          .join("\n,"),
       })
     : "";
 
@@ -354,48 +380,7 @@ export function getExperimentUnitsQuery(
     , ${coreCteName} AS (
       -- One row per user
       SELECT
-        e.${baseIdType} AS ${baseIdType}
-        , ${variationValuePerUnit} AS variation
-        , MIN(${timestampColumn}) AS first_exposure_timestamp
-        ${
-          clusterIdColumn
-            ? `, ${dialect.ifElse(
-                `count(distinct e.${clusterIdColumn}) > 1`,
-                `'${MULTIPLE_CLUSTER_SENTINEL}'`,
-                dialect.castToString(`max(e.${clusterIdColumn})`),
-              )} AS ${clusterIdColumn}`
-            : ""
-        }
-        ${staticUnitDimensions
-          .map(
-            (d) => `
-          , ${getDimensionValuePerUnit(dialect, d)} AS dim_unit_${d.dimension.id}`,
-          )
-          .join("\n")}
-        ${experimentDimensions
-          .map(
-            (d) => `
-          , ${getDimensionValuePerUnit(dialect, d)} AS dim_exp_${d.id}`,
-          )
-          .join("\n")}
-        ${
-          activationMetric
-            ? `, MIN(${dialect.ifElse(
-                getConversionWindowClause(
-                  dialect,
-                  "e.timestamp",
-                  "a.timestamp",
-                  activationMetric,
-                  unitsSettings.endDate,
-                  overrideConversionWindows,
-                ),
-                "a.timestamp",
-                "NULL",
-              )}) AS first_activation_timestamp
-            `
-            : ""
-        }
-        ${contextualUnitsBaseSelectCols}
+        ${coreColumns.map((c) => `${c.expr} AS ${c.alias}`).join("\n        , ")}
       FROM
         __experimentExposures e
         ${

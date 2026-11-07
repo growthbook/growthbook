@@ -117,13 +117,15 @@ FROM
 
 #### Time-aware dimensions
 
-Some attributes change over time, such as a subscription plan. By default, GrowthBook ignores time and picks the `MAX(value)` per user, which can leak values a user only acquired after they were exposed to the experiment. The **Query returns** setting on a dimension tells GrowthBook how to resolve the value each user had at the moment of their first exposure:
+Some attributes change over time, such as a subscription plan. By default, GrowthBook ignores time and picks the `MAX(value)` per user, which can leak values a user only acquired after they were exposed to the experiment unless you follow our advice to filter to rows before the experiment start or use immutable dimensions.
 
-| Setting                          | Query returns                                               | Value used per user                                                                                         |
-| -------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **One value per unit** (default) | `<identifier>`, `value`                                     | `MAX(value)`                                                                                                |
-| **Timestamped rows**             | `<identifier>`, `value`, `timestamp`                        | The row with the latest `timestamp` at or before first exposure                                             |
-| **Validity ranges**              | `<identifier>`, `value`, `start_timestamp`, `end_timestamp` | The row where `start_timestamp <= first exposure < end_timestamp`; `NULL` `end_timestamp` means still valid |
+For dimensions which do change over time, there is a **Query returns** setting on a dimension that tells GrowthBook how to resolve the value each user had at the moment of their first exposure:
+
+| Setting                          | Query returns                                               | Value used per user                                                                                                                     |
+| -------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **One value per unit** (default) | `<identifier>`, `value`                                     | `MAX(value)`                                                                                                                            |
+| **Timestamped rows**             | `<identifier>`, `value`, `timestamp`                        | The row with the latest `timestamp` at or before first exposure                                                                         |
+| **Validity ranges**              | `<identifier>`, `value`, `start_timestamp`, `end_timestamp` | The latest row by `start_timestamp` where `start_timestamp <= first exposure < end_timestamp`; `NULL` `end_timestamp` means still valid |
 
 When you save a dimension, GrowthBook runs the query against your warehouse to confirm it returns the columns the selected setting requires. Time-aware settings are only available on SQL Data Sources.
 

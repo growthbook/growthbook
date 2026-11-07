@@ -2,10 +2,12 @@ import { FC, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "shared/types/dimension";
+import { NULL_DIMENSION_VALUE } from "shared/constants";
 import type { DimensionTiming } from "shared/validators";
 import {
   DIMENSION_NULL_LABEL_MAX_LENGTH,
   getDimensionRequiredColumns,
+  getDimensionTiming,
 } from "shared/experiments";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { isProjectListValidForProject } from "shared/util";
@@ -65,7 +67,7 @@ const DimensionForm: FC<{
       datasource:
         (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      timing: (current.timing || "none") as DimensionTiming,
+      timing: getDimensionTiming(current),
       nullLabel: current.nullLabel || "",
       owner: current.owner || (current.id ? "" : userId || ""),
     },
@@ -259,7 +261,7 @@ const DimensionForm: FC<{
         {supportsSQL && (
           <TextField
             label="Missing/NULL value label"
-            placeholder="__NULL__ (default)"
+            placeholder={`${NULL_DIMENSION_VALUE} (default)`}
             maxLength={DIMENSION_NULL_LABEL_MAX_LENGTH}
             helpText="Dimension label for units with NULL value or no matching value."
             mb="4"

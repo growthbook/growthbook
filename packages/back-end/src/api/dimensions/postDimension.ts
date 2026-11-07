@@ -1,5 +1,6 @@
 import uniqid from "uniqid";
 import { postDimensionValidator } from "shared/validators";
+import { DEFAULT_DIMENSION_TIMING } from "shared/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
@@ -41,7 +42,7 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
       name: req.body.name,
       description: req.body.description || "",
       sql: req.body.query,
-      timing: req.body.timing ?? "none",
+      timing: req.body.timing ?? DEFAULT_DIMENSION_TIMING,
       nullLabel: req.body.nullLabel ?? "",
       id: uniqid("dim_"),
       dateCreated: new Date(),

@@ -2,6 +2,7 @@ import type { Response } from "express";
 import uniqid from "uniqid";
 import { DimensionInterface } from "shared/types/dimension";
 import { DimensionTiming } from "shared/validators";
+import { DEFAULT_DIMENSION_TIMING } from "shared/experiments";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -110,7 +111,7 @@ export const postDimension = async (
     owner: userId,
     name,
     sql,
-    timing: timing ?? "none",
+    timing: timing ?? DEFAULT_DIMENSION_TIMING,
     nullLabel: nullLabel ?? "",
     id: uniqid("dim_"),
     dateCreated: new Date(),
@@ -201,7 +202,7 @@ export const putDimension = async (
     userIdType,
     name,
     sql,
-    timing: timing ?? "none",
+    timing: timing ?? DEFAULT_DIMENSION_TIMING,
     nullLabel: nullLabel ?? "",
     owner,
     description,

@@ -3001,11 +3001,13 @@ export default abstract class SqlIntegration
     const unitDimensionCols = unitDimensions.map((d) => ({
       // override value with an aggregate that will get one value per unit;
       // the stored units table carries first_exposure_timestamp on every row
+      // as a native TIMESTAMP, so cast it to match the dimension CTE's
+      // castUserDateCol'd timestamp columns (DATETIME on BigQuery)
       value: isTimedDimension(d.dimension)
         ? getTimedUnitDimensionValue(
             this.getSqlDialect(),
             d.dimension,
-            "e",
+            this.getSqlDialect().castUserDateCol("e.first_exposure_timestamp"),
             `__dim_unit_${d.dimension.id}`,
           )
         : getDimensionValuePerUnit(this.getSqlDialect(), d),

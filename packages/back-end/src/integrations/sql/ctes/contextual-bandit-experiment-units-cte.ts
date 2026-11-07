@@ -114,21 +114,15 @@ export function getAttributeValuePerUnit(
       )`;
 }
 
-export function getContextualBanditUnitsBaseSelectCols(
+export function getContextualBanditUnitsBaseColumns(
   dialect: SqlDialect,
   aliases: string[],
   timestampColumn: string,
-): string {
-  return aliases
-    .map(
-      (a) =>
-        `, ${getAttributeValuePerUnit(
-          dialect,
-          a,
-          timestampColumn,
-        )} AS ${contextualBanditRawAttrCol(a)}`,
-    )
-    .join("");
+): { alias: string; expr: string }[] {
+  return aliases.map((a) => ({
+    alias: contextualBanditRawAttrCol(a),
+    expr: getAttributeValuePerUnit(dialect, a, timestampColumn),
+  }));
 }
 
 /** CTEs after __experimentUnitsBase: context-tuple counts, top-N bucketing, final __experimentUnits. */
