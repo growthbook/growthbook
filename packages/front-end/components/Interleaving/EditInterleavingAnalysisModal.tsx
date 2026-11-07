@@ -1,4 +1,6 @@
 import { useState } from "react";
+import isEqual from "lodash/isEqual";
+import { Box } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
@@ -6,6 +8,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
+import Text from "@/ui/Text";
+import Field from "@/components/Forms/Field";
 import AddEditInterleavingExposureQueryModal from "./AddEditInterleavingExposureQueryModal";
 import InterleavingAnalysisFields, {
   getAnalysisError,
@@ -25,16 +30,25 @@ export function analysisOf(
 
 export default function EditInterleavingAnalysisModal({
   interleaving: il,
+  canEditServing,
   mutate,
   close,
 }: {
   interleaving: ApiInterleavingInterface;
+  // The tracking key reaches the SDK payload, so the server wants run
+  // permission for it once this is serving.
+  canEditServing: boolean;
   mutate: () => Promise<unknown>;
   close: () => void;
 }) {
   const restApiCall = useRestApiCall();
   const { getDatasourceById } = useDefinitions();
   const [analysis, setAnalysis] = useState(() => analysisOf(il));
+  const [trackingKey, setTrackingKey] = useState(il.trackingKey);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Stays open while the key is blank, so the required-field bubble has a
+  // visible target.
+  const showAdvanced = advancedOpen || !trackingKey.trim();
   const [addingQuery, setAddingQuery] = useState(false);
   const { mutate: mutateQueries } = useInterleavingExposureQueries(
     analysis.datasourceId,
@@ -73,11 +87,23 @@ export default function EditInterleavingAnalysisModal({
       cta="Save"
       size="lg"
       submit={async () => {
-        const error = getAnalysisError(analysis);
-        if (error) throw new Error(error);
+        // A new experiment has no analysis setup yet; a key-only edit
+        // shouldn't have to complete it.
+        const analysisChanged = !isEqual(analysis, analysisOf(il));
+        if (analysisChanged) {
+          const error = getAnalysisError(analysis);
+          if (error) throw new Error(error);
+        }
+        const key = trackingKey.trim();
+        if (!key) throw new Error("Tracking key is required");
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },
-          body: analysis,
+          body: {
+            ...(analysisChanged ? analysis : {}),
+            // Only when changed: the server wants run permission for it once
+            // this is serving.
+            trackingKey: key !== il.trackingKey ? key : undefined,
+          },
         });
         await mutate();
       }}
@@ -94,6 +120,31 @@ export default function EditInterleavingAnalysisModal({
         project={il.project}
         onAddExposureQuery={() => setAddingQuery(true)}
       />
+      <Box mt="4">
+        <CollapseTrigger
+          open={showAdvanced}
+          onOpenChange={setAdvancedOpen}
+          caret="start"
+        >
+          <Text weight="semibold">Advanced settings</Text>
+        </CollapseTrigger>
+        <Collapse open={showAdvanced}>
+          <Box pt="3">
+            <Field
+              label="Tracking key"
+              required
+              value={trackingKey}
+              onChange={(e) => setTrackingKey(e.target.value)}
+              disabled={!canEditServing}
+              helpText={
+                canEditServing
+                  ? "Matched against experiment_id in your Interleaving Exposure Query."
+                  : "Matched against experiment_id in your Interleaving Exposure Query. Changing it while this is running needs permission to run experiments."
+              }
+            />
+          </Box>
+        </Collapse>
+      </Box>
     </ModalStandard>
   );
 }
