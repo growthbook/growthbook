@@ -46,6 +46,9 @@ export default function EditInterleavingAnalysisModal({
   const [analysis, setAnalysis] = useState(() => analysisOf(il));
   const [trackingKey, setTrackingKey] = useState(il.trackingKey);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Stays open while the key is blank, so the required-field bubble has a
+  // visible target.
+  const showAdvanced = advancedOpen || !trackingKey.trim();
   const [addingQuery, setAddingQuery] = useState(false);
   const { mutate: mutateQueries } = useInterleavingExposureQueries(
     analysis.datasourceId,
@@ -119,13 +122,13 @@ export default function EditInterleavingAnalysisModal({
       />
       <Box mt="4">
         <CollapseTrigger
-          open={advancedOpen}
+          open={showAdvanced}
           onOpenChange={setAdvancedOpen}
           caret="start"
         >
           <Text weight="semibold">Advanced settings</Text>
         </CollapseTrigger>
-        <Collapse open={advancedOpen}>
+        <Collapse open={showAdvanced}>
           <Box pt="3">
             <Field
               label="Tracking key"
