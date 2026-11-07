@@ -267,8 +267,9 @@ def compute_theta(
     joint_pre_statistic = create_joint_statistic(
         a=a.pre_statistic, b=b.pre_statistic, n=n
     )
-    if _variance_is_near_zero(joint_pre_statistic) or _variance_is_near_zero(
-        joint_post_statistic
+    if (
+        _variance_is_near_zero(joint_pre_statistic)
+        or joint_post_statistic.variance == 0
     ):
         return 0
 
