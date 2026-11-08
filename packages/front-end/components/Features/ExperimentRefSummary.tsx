@@ -3,6 +3,7 @@ import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  experimentHasLinkedChanges,
   getTempRolloutStaleReason,
   includeExperimentInPayload,
   calculateNamespaceCoverage,
@@ -56,13 +57,21 @@ export function experimentRefSkipReason(
   isDraft: boolean,
 ): ReactNode {
   if (!experiment) return "The experiment could not be found.";
-  const noun =
-    experiment.type === "multi-armed-bandit" ? "Bandit" : "experiment";
-  const view = <Link href={`/experiment/${experiment.id}`}>View {noun}</Link>;
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const noun = isBandit ? "Bandit" : "experiment";
+  const href = `/${isBandit ? "bandit" : "experiment"}/${experiment.id}`;
+  const view = <Link href={href}>View {noun}</Link>;
   if (experiment.archived) {
     return (
       <>
         This {noun} is archived. {view}
+      </>
+    );
+  }
+  if (!experimentHasLinkedChanges(experiment)) {
+    return (
+      <>
+        This {noun} has no linked changes. {view}
       </>
     );
   }
@@ -80,7 +89,7 @@ export function experimentRefSkipReason(
     return (
       <>
         This {noun} is stopped without a temporary rollout.{" "}
-        <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
+        <Link href={`${href}#results`}>View results</Link>
       </>
     );
   }

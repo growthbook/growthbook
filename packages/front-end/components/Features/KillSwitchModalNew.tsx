@@ -4,7 +4,6 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { isActiveDraftStatus, eventUserPersonId } from "shared/validators";
 import {
-  getReviewSetting,
   liveRevisionFromFeature,
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
@@ -14,7 +13,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useEnvironments } from "@/services/features";
+import { getKillSwitchGatedEnvs, useEnvironments } from "@/services/features";
 import track from "@/services/track";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import DraftSelectorForChanges, {
@@ -60,11 +59,6 @@ export default function KillSwitchModalNew({
     liveDoc,
     "feature",
   );
-
-  const rawRequireReviews = settings?.requireReviews;
-  const reviewSetting = Array.isArray(rawRequireReviews)
-    ? getReviewSetting(rawRequireReviews, feature)
-    : null;
 
   const activeDrafts = useMemo(
     () => revisionList.filter((r) => isActiveDraftStatus(r.status)),
@@ -134,14 +128,7 @@ export default function KillSwitchModalNew({
     return baseEnvEnabled[envId] ?? false;
   };
 
-  // Environments gated by kill-switch approval policy.
-  const gatedEnvSet: Set<string> | "all" | "none" = (() => {
-    if (rawRequireReviews === true) return "all";
-    if (!reviewSetting?.requireReviewOn) return "none";
-    if (reviewSetting.featureRequireEnvironmentReview === false) return "none";
-    const gatedEnvs = reviewSetting.environments ?? [];
-    return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
-  })();
+  const gatedEnvSet = getKillSwitchGatedEnvs(settings?.requireReviews, feature);
 
   const liveEnvSettings = liveDoc.environmentSettings ?? {};
   const envIsGated =

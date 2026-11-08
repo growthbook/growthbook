@@ -19,6 +19,7 @@ function experiment(
     status: "running",
     archived: false,
     phases: [{}],
+    linkedFeatures: ["f1"],
     ...overrides,
   } as ExperimentInterfaceStringDates;
 }
@@ -37,6 +38,11 @@ describe("experimentRefSkipReason", () => {
   it.each([
     ["missing", undefined, "could not be found"],
     ["archived", experiment({ archived: true }), "is archived"],
+    [
+      "no linked changes",
+      experiment({ linkedFeatures: [] }),
+      "has no linked changes",
+    ],
     ["never started", experiment({ phases: [] }), "is not running"],
     [
       "stopped without a rollout",

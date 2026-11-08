@@ -37,6 +37,7 @@ import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModalNew";
 import {
   getFeatureDefaultValue,
+  getKillSwitchGatedEnvs,
   useEnvironments,
   getPrerequisites,
   getRules,
@@ -65,6 +66,10 @@ import {
 import SectionFrame from "@/components/SectionFrame";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
+import {
+  featureStatusColors,
+  NonLiveRevisionTooltipNote,
+} from "./FeaturesOverview";
 import FeatureRules from "./FeatureRulesNew";
 import cornerStyles from "./CornerActions.module.scss";
 
@@ -189,28 +194,6 @@ function environmentKillSwitchTooltipBody(
   );
 }
 
-export const featureStatusColors = {
-  on: "var(--green-10)",
-  off: "var(--red-11)",
-  offMuted: "var(--color-text-low)",
-  warning: "var(--amber-11)",
-  danger: "var(--red-9)",
-} as const;
-
-export function NonLiveRevisionTooltipNote({
-  kind,
-}: {
-  kind: "draft" | "inactive";
-}) {
-  return (
-    <Callout status="warning" size="sm" mt="2">
-      You are viewing a{" "}
-      <strong>{kind === "draft" ? "draft" : "inactive revision"}</strong>; it
-      may not reflect the actual state of the feature.
-    </Callout>
-  );
-}
-
 export default function FeaturesOverviewNew({
   baseFeature,
   feature,
@@ -291,7 +274,7 @@ export default function FeaturesOverviewNew({
     loading: prereqStatesLoading,
     mutate: mutatePrereqStates,
   } = usePrerequisiteStates({
-    featureId: feature?.id || "",
+    featureId: feature.id,
     environments: envs,
     enabled: !!feature,
     skipRootConditions: true,
@@ -372,8 +355,6 @@ export default function FeaturesOverviewNew({
     return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
   }, [safeRollouts]);
 
-  if (!baseFeature || !feature || !revision) return null;
-
   const hasConditionalState =
     prereqStates &&
     Object.values(prereqStates).some((s) => s.state === "conditional");
@@ -438,11 +419,23 @@ export default function FeaturesOverviewNew({
 
   const canToggleEnvironment = (envId: string) =>
     canOfferEnvironmentToggle(permissionsUtil, baseFeature, envId);
+  // Without draft rights, publishing is the only route, which review closes.
+  const killSwitchGated = getKillSwitchGatedEnvs(
+    settings?.requireReviews,
+    baseFeature,
+  );
+  const needsDraftToFlip = (envId: string) =>
+    !canEditDrafts &&
+    !permissionsUtil.canBypassFlagApprovalChecks(baseFeature, "feature") &&
+    (killSwitchGated === "all" ||
+      (killSwitchGated !== "none" && killSwitchGated.has(envId)));
   const envBlockedReason = (envId: string) =>
     lockReason ??
-    (canToggleEnvironment(envId)
-      ? null
-      : "You don't have permission to publish this environment.");
+    (!canToggleEnvironment(envId)
+      ? "You don't have permission to publish this environment."
+      : needsDraftToFlip(envId)
+        ? "This change needs review before it can be published, and you don't have permission to put it in a draft."
+        : null);
   const liveEnabled = (envId: string) =>
     baseFeature.environmentSettings?.[envId]?.enabled ?? false;
   // A draft that turns environments on or off, before it's published.
@@ -520,7 +513,7 @@ export default function FeaturesOverviewNew({
   });
   const seenRuleIds = new Set<string>();
   const ruleNumberOffset = holdout ? 2 : 1;
-  environments?.forEach((e) => {
+  environments.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     r.forEach((rule) => {
       if (rule.enabled === false || seenRuleIds.has(rule.id)) return;
@@ -615,13 +608,17 @@ export default function FeaturesOverviewNew({
               {canEditDrafts && showsControls ? (
                 lockReason ? (
                   <UITooltip content={lockReason}>
-                    <Link style={{ opacity: 0.5, cursor: "not-allowed" }}>
+                    <Link
+                      aria-disabled
+                      style={{ opacity: 0.5, cursor: "not-allowed" }}
+                    >
                       {addPrerequisiteLabel}
                     </Link>
                   </UITooltip>
                 ) : (
                   <PremiumTooltip commercialFeature="prerequisites">
                     <Link
+                      aria-disabled={!hasPrerequisitesCommercialFeature}
                       onClick={() => {
                         if (!hasPrerequisitesCommercialFeature) return;
                         setPrerequisiteModal({
@@ -748,7 +745,7 @@ export default function FeaturesOverviewNew({
                       mutate={mutate}
                       setVersion={setVersion}
                       setPrerequisiteModal={setPrerequisiteModal}
-                      revisionList={revisionList || []}
+                      revisionList={revisionList}
                       gatedEnvSet={gatedEnvSet}
                       isLocked={isReadOnly}
                       lockedBySchedule={editLockedBySchedule}
@@ -958,7 +955,7 @@ export default function FeaturesOverviewNew({
             isDraft={isDraft}
             safeRolloutsMap={safeRolloutsMap}
             holdout={holdout}
-            revisionList={revisionList || []}
+            revisionList={revisionList}
             rampSchedules={rampSchedules}
             draftRevision={revision}
             rulesEnv={rulesEnv}
@@ -982,7 +979,7 @@ export default function FeaturesOverviewNew({
           <EditDefaultValueModal
             close={() => setEdit(false)}
             feature={feature}
-            revisionList={revisionList || []}
+            revisionList={revisionList}
             mutate={mutate}
             setVersion={setVersion}
           />
@@ -990,7 +987,7 @@ export default function FeaturesOverviewNew({
         {prerequisiteModal !== null && (
           <PrerequisiteModal
             feature={feature}
-            revisionList={revisionList || []}
+            revisionList={revisionList}
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}
@@ -1004,7 +1001,7 @@ export default function FeaturesOverviewNew({
             environment={killSwitchTarget.envId}
             desiredState={killSwitchTarget.desiredState}
             currentVersion={currentVersion}
-            revisionList={revisionList || []}
+            revisionList={revisionList}
             mutate={mutate}
             setVersion={setVersion}
             close={() => setKillSwitchTarget(null)}

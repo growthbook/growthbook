@@ -82,9 +82,15 @@ const DiscussionThread: FC<{
     fit();
     window.addEventListener("scroll", fit, { passive: true });
     window.addEventListener("resize", fit);
+    // A composer growing as it's typed in, or a rail dragged wider or
+    // narrower, moves the overlap too.
+    const observer = new ResizeObserver(fit);
+    observer.observe(over);
+    observer.observe(scroller);
     return () => {
       window.removeEventListener("scroll", fit);
       window.removeEventListener("resize", fit);
+      observer.disconnect();
     };
   }, [composerOverThread]);
 

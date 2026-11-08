@@ -206,9 +206,9 @@ export default function FeaturePage() {
     TABS_HEADER_HEIGHT_PX +
     TABS_BAR_HEIGHT_PX +
     (showsStatusBar ? statusBarHeight : 0);
-  const isReadOnly =
-    revision.status === "discarded" ||
-    (revision.status === "published" && !viewingLive);
+  // Edits land on an open draft, or on a new one cut from live; any other
+  // revision (discarded, superseded, or held by a ramp schedule) is history.
+  const isReadOnly = !viewingDraft && !viewingLive;
 
   const compareRevisions =
     (data.revisionList?.length ?? 0) >= 2

@@ -286,12 +286,12 @@ export default function FeaturesHeaderNew({
             trigger={
               <Flex
                 align="center"
-                className={isWatching ? "font-weight-bold" : ""}
+                style={isWatching ? { fontWeight: "bold" } : undefined}
               >
                 <PiEye style={{ marginRight: "5px" }} size={18} />
-                <span className="pr-5">
+                <Box as="span" pr="8">
                   {isWatching ? "Watching" : "Not watching"}
-                </span>
+                </Box>
               </Flex>
             }
           >

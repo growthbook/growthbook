@@ -1523,7 +1523,9 @@ export function computeRevisionUpdate(
       )
     ) {
       throw new Error(
-        "This draft was already published or discarded, so it can no longer be edited.",
+        revision.status === "pending-parent"
+          ? "This revision is held by a ramp schedule, so it can't be edited."
+          : "This draft was already published or discarded, so it can no longer be edited.",
       );
     }
     // Reset changes-requested back to pending-review whenever any content changes.

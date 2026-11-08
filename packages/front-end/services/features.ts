@@ -37,6 +37,7 @@ import {
   formatJsonMultilineObjects,
   parseLooseJSON,
   getTargetingProjectIds,
+  getReviewSetting,
   type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
@@ -1836,4 +1837,20 @@ export function getAttributesWithVersionStringMismatches(
   return mismatchedAttributes.size > 0
     ? Array.from(mismatchedAttributes)
     : null;
+}
+
+// Environments where flipping a feature's kill switch needs review before it
+// can publish.
+export function getKillSwitchGatedEnvs(
+  requireReviews: OrganizationSettings["requireReviews"],
+  feature: FeatureInterface,
+): Set<string> | "all" | "none" {
+  if (requireReviews === true) return "all";
+  const reviewSetting = Array.isArray(requireReviews)
+    ? getReviewSetting(requireReviews, feature)
+    : null;
+  if (!reviewSetting?.requireReviewOn) return "none";
+  if (reviewSetting.featureRequireEnvironmentReview === false) return "none";
+  const gatedEnvs = reviewSetting.environments ?? [];
+  return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
 }

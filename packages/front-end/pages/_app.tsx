@@ -166,8 +166,10 @@ function App({
   }, [ready]);
 
   useEffect(() => {
-    // Load feature definitions JSON from GrowthBook API
-    growthbook.init({ streaming: true }).catch(() => {
+    // Load feature definitions JSON from GrowthBook API. The timeout settles a
+    // fetch that hangs, so pages waiting on flags (the feature page's A/B
+    // test) stop waiting once rather than on every visit.
+    growthbook.init({ streaming: true, timeout: 3000 }).catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
   }, []);

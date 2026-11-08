@@ -19,10 +19,19 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { MinimalFeatureRevisionInterface } from "shared/validators";
 import { canDiscardFeatureDraftControl } from "shared/permissions";
 import {
+  autoMerge,
+  fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
+  liveRevisionFromFeature,
+} from "shared/util";
+import {
   featureToFeatureRevisionDiffInput,
+  mergeResultToDiffInput,
   revisionToFeatureRevisionDiffInput,
   useFeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
+import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -67,18 +76,46 @@ export default function RevisionStatusBar({
   const liveVersion = baseFeature.version;
   const status = getRevisionStatus({ revision, liveVersion, revisionList });
 
-  // What publishing would change, counted as the review tab lists it.
+  // What publishing would change, counted as the review tab lists it: the
+  // draft merged onto live, so live's edits since the draft's base don't count
+  // as the draft's. The raw draft stands in until both revisions load.
+  const isDraft = status === "draft" || status === "scheduled";
+  const allEnvironments = useEnvironments();
+  const { get: getRevision } = useFeatureRevisions(
+    baseFeature.id,
+    isDraft ? [revision.baseVersion, liveVersion] : [],
+  );
+  const baseRevision = getRevision(revision.baseVersion);
+  const liveRevision = getRevision(liveVersion);
   const liveInput = useMemo(
     () => featureToFeatureRevisionDiffInput(baseFeature),
     [baseFeature],
   );
-  const draftInput = useMemo(
-    () =>
-      status === "draft" || status === "scheduled"
-        ? revisionToFeatureRevisionDiffInput(revision, liveInput)
-        : liveInput,
-    [status, revision, liveInput],
-  );
+  const draftInput = useMemo(() => {
+    if (!isDraft) return liveInput;
+    if (baseRevision && liveRevision) {
+      const merged = autoMerge(
+        liveRevisionFromFeature(liveRevision, baseFeature),
+        fillRevisionFromFeature(baseRevision, baseFeature),
+        revision,
+        filterEnvironmentsByFeature(allEnvironments, baseFeature).map(
+          (e) => e.id,
+        ),
+        {},
+      );
+      if (merged.success)
+        return mergeResultToDiffInput(merged.result, liveInput);
+    }
+    return revisionToFeatureRevisionDiffInput(revision, liveInput);
+  }, [
+    isDraft,
+    baseRevision,
+    liveRevision,
+    revision,
+    baseFeature,
+    allEnvironments,
+    liveInput,
+  ]);
   const changeCount = useFeatureRevisionDiff({
     current: liveInput,
     draft: draftInput,
@@ -86,7 +123,6 @@ export default function RevisionStatusBar({
 
   if (!status) return null;
 
-  const isDraft = status === "draft" || status === "scheduled";
   const inReview =
     revision.status === "pending-review" ||
     revision.status === "changes-requested";

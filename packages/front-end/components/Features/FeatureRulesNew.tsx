@@ -12,7 +12,7 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { Box, Flex, TextField } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import RuleModal, {
   type RampToNewValueSeed,
 } from "@/components/Features/RuleModal/index";
@@ -31,6 +31,7 @@ import Button from "@/ui/Button";
 import UITooltip from "@/ui/Tooltip";
 import { SCHEDULE_EDIT_LOCK_REASON } from "@/components/Features/ScheduleLock";
 import Badge from "@/ui/Badge";
+import TextField from "@/ui/TextField";
 import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsMoreTrigger, TabsTrigger } from "@/ui/Tabs";
 import {
@@ -59,8 +60,6 @@ export default function FeatureRulesNew({
   rampSchedules,
   draftRevision,
   baseRevision,
-  pendingRuleEdit,
-  onPendingRuleEditHandled,
   rulesEnv,
   setRulesEnv,
   stickyHeaderTop,
@@ -85,8 +84,6 @@ export default function FeatureRulesNew({
   // The revision the draft is based on — used to tell an intentional disable
   // from a stale-inherited one when live has diverged.
   baseRevision?: FeatureRevisionInterface | null;
-  pendingRuleEdit?: { environment: string; ruleId: string } | null;
-  onPendingRuleEditHandled?: () => void;
   // Selected env tab, lifted to the parent so the Default Value display can
   // resolve for the same environment. null = "All Environments" view.
   rulesEnv: string | null;
@@ -132,37 +129,6 @@ export default function FeatureRulesNew({
   }, [feature.rules, environments]);
   const hasOrphanedRules = orphanedRuleIds.size > 0;
 
-  // Externally triggered rule open (e.g. ramp timeline CTA). Switch to the
-  // requested env if it projects there, else any env that has it.
-  useEffect(() => {
-    if (!pendingRuleEdit) return;
-    const { environment, ruleId } = pendingRuleEdit;
-    const handled = () => onPendingRuleEditHandled?.();
-
-    const flatIdx = (feature.rules ?? []).findIndex((r) => r.id === ruleId);
-    if (flatIdx === -1) {
-      handled();
-      return;
-    }
-
-    const preferredHas =
-      getRules(feature, environment).findIndex((r) => r.id === ruleId) !== -1;
-    const projectedEnv = preferredHas
-      ? environment
-      : (environments.find(
-          (e) =>
-            getRules(feature, e.id).findIndex((r) => r.id === ruleId) !== -1,
-        )?.id ?? "");
-
-    setEnv(projectedEnv || null);
-    setRuleModal({
-      i: flatIdx,
-      environment: projectedEnv,
-      ruleId,
-      mode: "edit",
-    });
-    handled();
-  }, [pendingRuleEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ruleModal, setRuleModal] = useState<{
     i: number;
     environment: string;
@@ -293,7 +259,7 @@ export default function FeatureRulesNew({
     let cumulative = 0;
     for (const key of order) {
       const w = widthsRef.current.get(key);
-      if (w == null) continue;
+      if (w === undefined) continue;
       cumulative += w;
       if (cumulative > containerWidth) out.add(key);
     }
@@ -461,19 +427,15 @@ export default function FeatureRulesNew({
           {overflowLabels.length > 0 && <DropdownMenuSeparator />}
           {showOverflowSearch && (
             <Box px="3" pt="1" pb="2">
-              <TextField.Root
-                size="2"
+              <TextField
                 placeholder="Search..."
                 value={overflowSearch}
                 onChange={(e) => setOverflowSearch(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
                 autoFocus
-              >
-                <TextField.Slot>
-                  <PiMagnifyingGlass />
-                </TextField.Slot>
-              </TextField.Root>
+                prepend={<PiMagnifyingGlass />}
+              />
             </Box>
           )}
           {filteredOverflowLabels.map(({ key, label, count }) => (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 // Shared "rename revision" modal. Entity-agnostic like
@@ -30,7 +30,7 @@ export default function EditRevisionTitleModal({
         await onSubmit(value.trim());
       }}
     >
-      <Field
+      <TextField
         label="Title"
         autoFocus
         value={value}

@@ -8,10 +8,11 @@ import {
   isActiveDraftStatus,
 } from "shared/validators";
 import {
-  NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
+  canDiscardFeatureDraftControl,
   holdsFeatureMoveDestination,
   holdsTargetingDestination,
+  NO_ENVIRONMENT_BINDING,
   targetingRefusal,
   withStagedTargeting,
 } from "shared/permissions";
@@ -2463,7 +2464,13 @@ export default function ReviewAndPublish({
   // authorship. A narrow atom may land this draft or leave it, but not throw away
   // work that isn't its own — the same rule the generic tab applies.
   const canDiscardDraft =
-    permissionsUtil.canEditFeatureDrafts(feature) || authoredDraft;
+    !!revision &&
+    canDiscardFeatureDraftControl({
+      permissions: permissionsUtil,
+      feature,
+      draft: revision,
+      userId,
+    });
   const discardConfirmModal = confirmDiscard ? (
     <DiscardDraftModal
       trackingEventModalType="discard-feature-revision"

@@ -114,6 +114,16 @@ describe("computeRevisionUpdate", () => {
     ).toThrow("This draft was already published or discarded");
   });
 
+  it("names the ramp schedule for mutable changes on a held revision", () => {
+    const revision = makeRevision({ status: "pending-parent" });
+
+    expect(() =>
+      computeRevisionUpdate(mockContext(), FEATURE, revision, {
+        rules: [v2Rule("r1")],
+      }),
+    ).toThrow("held by a ramp schedule");
+  });
+
   it("allows non-mutable changes on a published revision", () => {
     const revision = makeRevision({ status: "published" });
 
