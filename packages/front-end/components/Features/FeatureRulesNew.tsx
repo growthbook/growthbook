@@ -357,6 +357,7 @@ export default function FeatureRulesNew({
       <TabsList
         // Its own More menu also holds the view toggles.
         overflowMenu={false}
+        alignText
         style={{ boxShadow: "none", flexWrap: "nowrap" }}
       >
         <Flex ref={tabsBarRef} flexGrow="1" minWidth="0">
