@@ -502,7 +502,7 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
                 errorMessage=None,
-                pValue=0.46316491943359384,
+                pValue=0.4630473577369483,
                 pValueErrorMessage=None,
             )
         )

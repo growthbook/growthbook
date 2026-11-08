@@ -361,99 +361,24 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         return None
 
     def compute_p_value(self) -> PValueResult:
-        rho = self.rho
-        difference_type = (
-            "relative" if self.relative else "scaled" if self.scaled else "absolute"
-        )
-        tol = 1e-6
-        max_iters = 100
         min_alpha = 1e-5
         max_alpha = 0.4999
-        this_config = SequentialConfig(
-            difference_type=difference_type, alpha=min_alpha, rho=rho
+        z = -self.critical_value if self.lesser else self.critical_value
+        p_value = max_alpha
+        if z > 0:
+            n_rho2 = self.n * self.rho**2
+            scale = np.sqrt(n_rho2 + 1) / 2
+            scaled_z = z * np.sqrt(n_rho2 / (2 * (n_rho2 + 1)))
+            # Invert Eq. 134 using the same moments and fixed rho as the CI.
+            # Check limits before squaring/exponentiating to avoid overflow.
+            if scaled_z >= np.sqrt(np.log1p(scale / min_alpha)):
+                p_value = min_alpha
+            elif scaled_z > np.sqrt(np.log1p(scale / max_alpha)):
+                p_value = float(scale / np.expm1(scaled_z**2))
+        return PValueResult(
+            p_value=p_value,
+            p_value_error_message=None,
         )
-        this_test = (
-            SequentialOneSidedTreatmentLesserTTest
-            if self.lesser
-            else SequentialOneSidedTreatmentGreaterTTest
-        )
-        ci_index = 1 if self.lesser else 0
-        this_ci_small = this_test(
-            [(self.stat_a, self.stat_b)], this_config
-        ).confidence_interval
-        # smaller alpha => bigger confidence interval;
-        ci_small_value = this_ci_small[ci_index]
-        if self.lesser and ci_small_value is not None:
-            if ci_small_value < 0:
-                return PValueResult(
-                    p_value=min_alpha,
-                    p_value_error_message=None,
-                )
-            this_config.alpha = max_alpha
-            # bigger alpha => smaller confidence interval;
-            this_ci_big = this_test(
-                [(self.stat_a, self.stat_b)], this_config
-            ).confidence_interval
-            ci_big_value = this_ci_big[ci_index]
-            if ci_big_value is not None and ci_big_value > 0:
-                return PValueResult(
-                    p_value=max_alpha,
-                    p_value_error_message=None,
-                )
-        else:
-
-            if ci_small_value is not None and ci_small_value > 0:
-                return PValueResult(
-                    p_value=min_alpha,
-                    p_value_error_message=None,
-                )
-            this_config.alpha = max_alpha
-            # bigger alpha => smaller confidence interval;
-            this_ci_big = this_test(
-                [(self.stat_a, self.stat_b)], this_config
-            ).confidence_interval
-            ci_big_value = this_ci_big[ci_index]
-            if ci_big_value is not None and ci_big_value < 0:
-                return PValueResult(
-                    p_value=max_alpha,
-                    p_value_error_message=None,
-                )
-        iters = 0
-        this_alpha = 0.5 * (min_alpha + max_alpha)
-        diff = 0
-        for _ in range(max_iters):
-            this_config.alpha = this_alpha
-            this_ci = this_test(
-                [(self.stat_a, self.stat_b)], this_config
-            ).confidence_interval
-            ci_value = this_ci[ci_index]
-            if ci_value is None:
-                break
-            diff = ci_value - 0
-            if self.lesser:
-                if diff > 0:
-                    min_alpha = this_alpha
-                else:
-                    max_alpha = this_alpha
-            else:
-                if diff < 0:
-                    min_alpha = this_alpha
-                else:
-                    max_alpha = this_alpha
-            this_alpha = 0.5 * (min_alpha + max_alpha)
-            if abs(diff) < tol:
-                break
-        converged = abs(diff) < tol and iters != max_iters
-        if converged:
-            return PValueResult(
-                p_value=this_alpha,
-                p_value_error_message=None,
-            )
-        else:
-            return PValueResult(
-                p_value=None,
-                p_value_error_message="NUMERICAL_PVALUE_NOT_CONVERGED",
-            )
 
 
 class SequentialOneSidedTreatmentGreaterTTest(SequentialOneSidedTreatmentLesserTTest):
