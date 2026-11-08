@@ -94,28 +94,31 @@ export default function ExperimentTextField({
   );
 
   return (
-    <SetupFieldRow
-      label={label}
-      labelSize="lg"
-      content={editable ? "control" : "text"}
-      // One line with its pencil, so the label centres on it.
-      labelAlign={!editable && !savedValue ? "center" : "top"}
-    >
-      {!editable && canEdit ? (
-        <Flex
-          align={savedValue ? "start" : "center"}
-          gap="2"
-          className={revealsQuickEdit}
-        >
-          <Box minWidth="0">{body}</Box>
-          <QuickEditButton
-            label={`Edit ${field}`}
-            onClick={() => setEditingOnDemand(true)}
-          />
-        </Flex>
-      ) : (
-        body
-      )}
-    </SetupFieldRow>
+    // An anchor for links that point at the field, like quality fixes
+    <div id={`experiment-${field}`} style={{ scrollMarginTop: "100px" }}>
+      <SetupFieldRow
+        label={label}
+        labelSize="lg"
+        content={editable ? "control" : "text"}
+        // One line with its pencil, so the label centres on it.
+        labelAlign={!editable && !savedValue ? "center" : "top"}
+      >
+        {!editable && canEdit ? (
+          <Flex
+            align={savedValue ? "start" : "center"}
+            gap="2"
+            className={revealsQuickEdit}
+          >
+            <Box minWidth="0">{body}</Box>
+            <QuickEditButton
+              label={`Edit ${field}`}
+              onClick={() => setEditingOnDemand(true)}
+            />
+          </Flex>
+        ) : (
+          body
+        )}
+      </SetupFieldRow>
+    </div>
   );
 }

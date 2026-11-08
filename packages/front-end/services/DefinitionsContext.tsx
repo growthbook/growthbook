@@ -26,7 +26,10 @@ import { ConfigWithoutValue } from "shared/types/config";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "shared/types/experiment";
-import { WebhookSecretFrontEndInterface } from "shared/validators";
+import {
+  ExperimentationHealthSettingsInterface,
+  WebhookSecretFrontEndInterface,
+} from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -57,6 +60,7 @@ type Definitions = {
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
   decisionCriteria: DecisionCriteriaInterface[];
+  experimentationHealthSettings: ExperimentationHealthSettingsInterface[];
   webhookSecrets: WebhookSecretFrontEndInterface[];
   eventIngestorRegion?: DataRegion;
   // Org-wide, including ones the viewer cannot read.
@@ -87,6 +91,10 @@ type DefinitionContextValue = Definitions & {
   getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
+  // "" is the organization default's record
+  getHealthSettingsForScope: (
+    project: string,
+  ) => null | ExperimentationHealthSettingsInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -122,6 +130,7 @@ const defaultValue: DefinitionContextValue = {
   factMetrics: [],
   _factMetricsIncludingArchived: [],
   decisionCriteria: [],
+  experimentationHealthSettings: [],
   webhookSecrets: [],
   hasManagedWarehouse: false,
   hasEventForwarder: false,
@@ -141,6 +150,7 @@ const defaultValue: DefinitionContextValue = {
   getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
   getDecisionCriteriaById: () => null,
+  getHealthSettingsForScope: () => null,
 };
 
 export const DefinitionsContext =
@@ -369,6 +379,12 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
 
   const getMetricGroupById = useGetById(data?.metricGroups);
   const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
+  const getHealthSettingsForScope = useMemo(() => {
+    const byProject = new Map(
+      (data?.experimentationHealthSettings || []).map((r) => [r.project, r]),
+    );
+    return (project: string) => byProject.get(project) ?? null;
+  }, [data?.experimentationHealthSettings]);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -414,6 +430,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       factMetrics: activeFactMetrics,
       _factMetricsIncludingArchived: allFactMetrics,
       decisionCriteria: decisionCriteria,
+      experimentationHealthSettings: data.experimentationHealthSettings || [],
       webhookSecrets: data.webhookSecrets,
       eventIngestorRegion: data.eventIngestorRegion,
       hasManagedWarehouse: data.hasManagedWarehouse ?? false,
@@ -435,6 +452,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getExperimentMetricById,
       getMetricGroupById,
       getDecisionCriteriaById,
+      getHealthSettingsForScope,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
