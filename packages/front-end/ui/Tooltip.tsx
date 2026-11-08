@@ -5,12 +5,21 @@ import {
   PointerEvent,
   useState,
 } from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import {
-  Tooltip as RadixTooltip,
+  Text as RadixText,
+  Theme,
   TooltipProps as RadixTooltipProps,
 } from "@radix-ui/themes";
+import clsx from "clsx";
 
-type TooltipProps = RadixTooltipProps & {
+type TooltipProps = Omit<
+  RadixTooltipProps,
+  "width" | "minWidth" | "maxWidth"
+> & {
+  width?: string;
+  minWidth?: string;
+  maxWidth?: string;
   enabled?: boolean;
   // Opens only over the trigger's own box, not a pseudo-element stretched
   // from it (e.g. one that makes a whole row click the trigger).
@@ -39,11 +48,22 @@ const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
   (
     {
       children,
+      content,
       enabled = true,
       confineToTrigger = true,
       open,
+      defaultOpen,
       onOpenChange,
-      ...props
+      delayDuration,
+      disableHoverableContent,
+      container,
+      forceMount,
+      width,
+      minWidth,
+      maxWidth = "360px",
+      className,
+      style,
+      ...contentProps
     },
     ref,
   ) => {
@@ -68,18 +88,39 @@ const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
           })
         : children;
 
+    // Radix Themes' Tooltip, but its text is a div rather than a p, so the
+    // content can hold blocks (rows, lists, paragraphs) without invalid
+    // nesting or a paragraph's trailing margin.
     return (
-      <RadixTooltip
-        {...props}
+      <TooltipPrimitive.Root
         open={open ?? shown}
+        defaultOpen={defaultOpen}
         onOpenChange={(next) => {
           setShown(next);
           onOpenChange?.(next);
         }}
-        ref={ref}
+        delayDuration={delayDuration}
+        disableHoverableContent={disableHoverableContent}
       >
-        {trigger}
-      </RadixTooltip>
+        <TooltipPrimitive.Trigger asChild>{trigger}</TooltipPrimitive.Trigger>
+        <TooltipPrimitive.Portal container={container} forceMount={forceMount}>
+          <Theme asChild>
+            <TooltipPrimitive.Content
+              sideOffset={4}
+              collisionPadding={10}
+              {...contentProps}
+              ref={ref}
+              className={clsx("rt-TooltipContent", className)}
+              style={{ width, minWidth, maxWidth, ...style }}
+            >
+              <RadixText as="div" size="1" className="rt-TooltipText">
+                {content}
+              </RadixText>
+              <TooltipPrimitive.Arrow className="rt-TooltipArrow" />
+            </TooltipPrimitive.Content>
+          </Theme>
+        </TooltipPrimitive.Portal>
+      </TooltipPrimitive.Root>
     );
   },
 );

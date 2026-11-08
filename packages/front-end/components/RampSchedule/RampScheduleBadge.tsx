@@ -39,10 +39,10 @@ export default function RampScheduleBadge({
     return (
       <Tooltip
         content={
-          <p>
+          <div>
             This rule&apos;s ramp schedule (<strong>{rs.name}</strong>) is
             queued to be removed. Publish the draft to complete the removal.
-          </p>
+          </div>
         }
       >
         <Badge
@@ -174,10 +174,10 @@ export default function RampScheduleBadge({
   );
 
   const contextLine = featureRuleContext && rs.status !== "completed" && (
-    <p>
+    <div>
       This feature rule is controlled by a Ramp Schedule (
       <strong>{rs.name}</strong>)
-    </p>
+    </div>
   );
   const rolledBackAt =
     rs.status === "rolled-back" && rs.lastRollbackAt
@@ -185,14 +185,16 @@ export default function RampScheduleBadge({
       : null;
   const statusLine =
     rs.status === "completed" ? (
-      <p>
-        {completedAt
-          ? dateRow("Completed", completedAt)
-          : "Schedule completed."}
-        {featureRuleContext && (
-          <>The ramp may be safely removed by editing this rule.</>
+      <div>
+        {completedAt ? (
+          dateRow("Completed", completedAt)
+        ) : (
+          <div>Schedule completed.</div>
         )}
-      </p>
+        {featureRuleContext && (
+          <div>The ramp may be safely removed by editing this rule.</div>
+        )}
+      </div>
     ) : rs.status === "rolled-back" ? (
       <div>
         {rolledBackAt && dateRow("Rolled back", rolledBackAt)}
