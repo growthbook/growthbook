@@ -175,7 +175,11 @@ export const TabsMoreTrigger = forwardRef<
         className,
       )}
       // Last in its bar, its pill sits on the bar's edge, not a padding in.
-      style={{ flexShrink: 0, paddingRight: 0, ...style }}
+      style={{
+        flexShrink: 0,
+        paddingRight: "var(--tabs-more-inset, 0)",
+        ...style,
+      }}
       {...props}
     >
       <span className="rt-BaseTabListTriggerInner">{label}</span>
@@ -193,7 +197,15 @@ type TabsListProps = Omit<
   // Tabs past the list's width fold into a More menu, all but the open one.
   // Off, the list scrolls sideways instead.
   overflowMenu?: boolean;
+  // Lines the first and last labels up with the edges around the list, rather
+  // than their underlines: the list reaches past its box by a tab's padding on
+  // each side. A More menu's pill still ends on the edge.
+  alignText?: boolean;
 };
+
+// A tab's padding around its label, at whatever size its list sets.
+const TAB_TEXT_INSET =
+  "calc(var(--tab-padding-x) + var(--tab-inner-padding-x))";
 
 // Until the More button has rendered and can be measured.
 const MORE_WIDTH_ESTIMATE_PX = 80;
@@ -207,7 +219,15 @@ export function layoutWidth(node: Element, list: HTMLElement) {
 
 export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
   function TabsList(
-    { children, size = "md", className, overflowMenu = true, ...props },
+    {
+      children,
+      size = "md",
+      className,
+      overflowMenu = true,
+      alignText = false,
+      style,
+      ...props
+    },
     ref,
   ) {
     // Radix tab lists stop at size "2", so lg is that step plus the
@@ -322,6 +342,15 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
         <RadixTabs.List
           className={clsx(classNameValue, className)}
           size={sizeValue}
+          style={
+            alignText
+              ? {
+                  marginInline: `calc(-1 * ${TAB_TEXT_INSET})`,
+                  ["--tabs-more-inset" as string]: TAB_TEXT_INSET,
+                  ...style,
+                }
+              : style
+          }
           {...props}
           ref={setListRef}
         >

@@ -157,17 +157,20 @@ export default function DetailsPanel({
       }}
     >
       {/* Above the scroll area, so it and the scrollbar start under it. */}
-      <Flex pt="2" align="center" gap="2" flexShrink="0">
-        {/* Padded inside, so its underline runs the rail's full width; less
-            its tabs' own padding, so the first label lines up with the
-            rail's content. */}
+      <Flex
+        px="5"
+        pt="2"
+        align="center"
+        gap="2"
+        flexShrink="0"
+        // The tab row's underline, run the rail's full width.
+        style={{ boxShadow: "inset 0 -1px 0 0 var(--gray-a5)" }}
+      >
+        {/* Its labels line up with the rail's content below. */}
         <TabsList
           size="sm"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            paddingInline: "calc(var(--space-5) - 2 * var(--space-1))",
-          }}
+          alignText
+          style={{ flex: 1, minWidth: 0, boxShadow: "none" }}
         >
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="comments">
