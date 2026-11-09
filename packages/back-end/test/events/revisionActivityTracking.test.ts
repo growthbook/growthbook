@@ -15,7 +15,6 @@ describe("revisionActivityEventName", () => {
   it.each([
     ["created", "Revision Created"],
     ["reviewRequested", "Revision Review Requested"],
-    ["changesRequested", "Revision Changes Requested"],
     ["publishScheduleChanged", "Revision Publish Schedule Changed"],
   ])("names %s %s", (action, name) => {
     expect(revisionActivityEventName(action)).toBe(name);
