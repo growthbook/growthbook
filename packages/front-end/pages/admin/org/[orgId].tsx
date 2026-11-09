@@ -418,7 +418,10 @@ function OrganizationDetail({
         >
           <Text as="p" mb="3">
             Each selected table is rebuilt and backfilled from raw events. This
-            may take several minutes. Queries keep working while it runs.
+            may take several minutes. Queries keep working while it runs. Track
+            progress on the{" "}
+            <Link href="/admin#managed-warehouses">Managed Warehouses</Link>{" "}
+            admin tab.
           </Text>
           <RecreateTablesCheckboxes
             value={recreateTables}

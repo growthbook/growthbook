@@ -401,7 +401,9 @@ export default function ManagedWarehouseRecreates({
                                   `/admin/managed-warehouse/recreates/${organization}`,
                                   { method: "DELETE" },
                                 );
-                                return `Removed the recreate for ${organization}.`;
+                                return request.status === "pending"
+                                  ? `Cancelled the recreate for ${organization}.`
+                                  : `Dismissed the failed recreate for ${organization}.`;
                               })
                             }
                           >
