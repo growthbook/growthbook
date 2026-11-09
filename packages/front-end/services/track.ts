@@ -104,13 +104,10 @@ export function getTrackingPageUrl(): string {
   return document.location.protocol + "//" + host + location.pathname;
 }
 
-// Identifies an entity, or one revision of it, in a product event, so a metric
-// can count them distinctly. Hashed the way the back end hashes its events.
-export function entityTrackingHash(
-  entityId: string,
-  version: number | null = null,
-): string {
-  return md5(entityTrackingKey(getCurrentUser()?.org ?? "", entityId, version));
+// Identifies an entity in a product event, hashed as the back end hashes its
+// events, so a metric can count them distinctly.
+export function entityTrackingHash(entityId: string): string {
+  return md5(entityTrackingKey(getCurrentUser()?.org ?? "", entityId));
 }
 
 export default function track(
