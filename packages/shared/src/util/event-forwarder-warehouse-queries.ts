@@ -319,10 +319,34 @@ export function reconcileEventForwarderManagedExposureQueries({
 export function buildEventForwarderFeatureUsageQuerySql({
   sinkType,
   tableRef,
+  pairs = [],
+  attributeSchema,
 }: {
   sinkType: EventForwarderQuerySinkType;
   tableRef: string;
+  /** Identifier types to return a column for, read from `attributes`. */
+  pairs?: EventForwarderUserIdTypePair[];
+  attributeSchema?: SDKAttributeSchema;
 }): string {
+  const quoteAlias =
+    sinkType === "bigquery" || sinkType === "databricks"
+      ? quoteBigQueryIdentifier
+      : (alias: string) => alias;
+  // Like the assignment queries: each identifier is read from `attributes`
+  const identifierCols = pairs
+    .map(
+      ({ attribute, userIdType }) =>
+        `,\n  ${buildEventForwarderAttributeValueSql({
+          sinkType,
+          userIdType: attribute,
+          attributeDatatype: findHashAttributeBySourceAttribute(
+            attribute,
+            attributeSchema,
+          )?.datatype,
+        })} AS ${quoteAlias(userIdType.userIdType)}`,
+    )
+    .join("");
+
   if (sinkType === "bigquery" || sinkType === "databricks") {
     return `SELECT
   timestamp AS timestamp,
@@ -331,7 +355,7 @@ export function buildEventForwarderFeatureUsageQuerySql({
   ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "value" })} AS value,
   ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "source" })} AS source,
   ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "ruleId" })} AS rule_id,
-  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "variationId" })} AS variation_id
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "variationId" })} AS variation_id${identifierCols}
 FROM ${tableRef}
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`;
   }
@@ -343,7 +367,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
   ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "value" })} AS value,
   ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "source" })} AS source,
   ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "ruleId" })} AS rule_id,
-  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "variationId" })} AS variation_id
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "variationId" })} AS variation_id${identifierCols}
 FROM ${tableRef}`;
 }
 
@@ -352,17 +376,55 @@ export type GenerateEventForwarderFeatureUsageQueryParams =
 
 export function buildEventForwarderFeatureUsageQuery(
   params: GenerateEventForwarderFeatureUsageQueryParams,
-): Pick<FeatureUsageQuery, "query" | "managedBy" | "description"> {
+  pairs: EventForwarderUserIdTypePair[] = [],
+  attributeSchema?: SDKAttributeSchema,
+): Pick<
+  FeatureUsageQuery,
+  "query" | "managedBy" | "description" | "userIdTypes"
+> {
   const tableRef = buildEventForwarderFeatureUsageTableReference(params);
 
   return {
     managedBy: "api",
     description: EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+    userIdTypes: pairs.map(({ userIdType }) => userIdType.userIdType),
     query: buildEventForwarderFeatureUsageQuerySql({
       sinkType: params.sinkType,
       tableRef,
+      pairs,
+      attributeSchema,
     }),
   };
+}
+
+/**
+ * Keeps a managed feature usage query current with the paired identifier
+ * types, like reconcileEventForwarderManagedExposureQueries. A query the user
+ * wrote is never touched.
+ */
+export function reconcileEventForwarderManagedFeatureUsageQueries({
+  existing,
+  pairs,
+  params,
+  attributeSchema,
+}: {
+  existing: FeatureUsageQuery[];
+  pairs: EventForwarderUserIdTypePair[];
+  params: GenerateEventForwarderFeatureUsageQueryParams;
+  attributeSchema?: SDKAttributeSchema;
+}): FeatureUsageQuery[] {
+  return existing.map((query) =>
+    isEventForwarderManaged(query)
+      ? {
+          ...query,
+          ...buildEventForwarderFeatureUsageQuery(
+            params,
+            pairs,
+            attributeSchema,
+          ),
+        }
+      : query,
+  );
 }
 
 export function getActiveFeatureUsageQuery(

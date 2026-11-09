@@ -1935,6 +1935,42 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
   });
 });
 
+describe("getFeatureEvalDiagnosticsQuery column mapping", () => {
+  it("filters and orders on the mapped feature key and timestamp columns", () => {
+    const datasource = {
+      type: "bigquery",
+      settings: {
+        queries: {
+          featureUsage: [
+            {
+              id: "fu1",
+              query: "SELECT ts, feature FROM t",
+              columnMapping: {
+                timestampColumn: "ts",
+                featureKeyColumn: "feature",
+              },
+            },
+          ],
+        },
+      },
+      params: "",
+    };
+    // @ts-expect-error -- context not needed for test
+    const bqIntegration = new BigQuery("", datasource);
+
+    const sql = getFeatureEvalDiagnosticsQuery(
+      bigQueryDialect,
+      bqIntegration.datasource,
+      { feature: "my-feature-key" },
+    );
+
+    expect(sql).toMatch(/feature\s*=\s*'my-feature-key'/);
+    expect(sql).toMatch(/AND\s+ts\s*>=/);
+    expect(sql).toMatch(/ORDER BY\s+ts\s+DESC/);
+    expect(sql).not.toMatch(/\bfeature_key\b|\btimestamp\b >=/);
+  });
+});
+
 describe("getExperimentExposuresQuery", () => {
   const params = {
     experimentId: "exp_123",

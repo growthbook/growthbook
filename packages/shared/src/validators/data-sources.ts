@@ -18,6 +18,23 @@ export const exposureQueryColumnMappingValidator = z.object({
   variationNameColumn: z.string().optional(),
 });
 
+// Like exposureQueryColumnMappingValidator: only remapped columns are stored,
+// the rest use their standard names
+export const featureUsageQueryColumnMappingValidator = z.object({
+  timestampColumn: z.string().optional(),
+  featureKeyColumn: z.string().optional(),
+  environmentColumn: z.string().optional(),
+  valueColumn: z.string().optional(),
+  ruleIdColumn: z.string().optional(),
+  variationIdColumn: z.string().optional(),
+  sourceColumn: z.string().optional(),
+  revisionColumn: z.string().optional(),
+  userIdColumns: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe("Column for each identifier type, keyed by type"),
+});
+
 // Corresponds to schemas/DataSource.yaml
 export const apiDataSourceValidator = namedSchema(
   "DataSource",

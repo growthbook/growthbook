@@ -2,6 +2,7 @@ import {
   EventForwarderDatasourceParams,
   getEventForwarderHashAttributes,
   reconcileEventForwarderManagedExposureQueries,
+  reconcileEventForwarderManagedFeatureUsageQueries,
   resolveEventForwarderManagedUserIdTypes,
 } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
@@ -11,7 +12,10 @@ import {
   getDataSourceById,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
-import { buildExposureQueryParams } from "back-end/src/services/eventForwarder/sinkParams";
+import {
+  buildExposureQueryParams,
+  buildFeatureUsageQueryParams,
+} from "back-end/src/services/eventForwarder/sinkParams";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -39,6 +43,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
 
   const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
   const existingExposure = datasource.settings?.queries?.exposure ?? [];
+  const existingFeatureUsage = datasource.settings?.queries?.featureUsage ?? [];
   const { userIdTypes: updatedUserIdTypes, pairs } =
     resolveEventForwarderManagedUserIdTypes(
       existingUserIdTypes,
@@ -49,6 +54,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
     .params as EventForwarderDatasourceParams;
   const sqlParams = buildExposureQueryParams(config, connectionParams);
   let updatedExposure = existingExposure;
+  let updatedFeatureUsage = existingFeatureUsage;
 
   if (!sqlParams) {
     logger.warn(
@@ -68,9 +74,23 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
     });
   }
 
+  const featureUsageParams = buildFeatureUsageQueryParams(
+    config,
+    connectionParams,
+  );
+  if (featureUsageParams) {
+    updatedFeatureUsage = reconcileEventForwarderManagedFeatureUsageQueries({
+      existing: existingFeatureUsage,
+      pairs,
+      params: featureUsageParams,
+      attributeSchema,
+    });
+  }
+
   if (
     hasChanges(existingUserIdTypes, updatedUserIdTypes) ||
-    hasChanges(existingExposure, updatedExposure)
+    hasChanges(existingExposure, updatedExposure) ||
+    hasChanges(existingFeatureUsage, updatedFeatureUsage)
   ) {
     await updateDataSource(
       context,
@@ -82,6 +102,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
           queries: {
             ...datasource.settings?.queries,
             exposure: updatedExposure,
+            featureUsage: updatedFeatureUsage,
           },
         },
       },

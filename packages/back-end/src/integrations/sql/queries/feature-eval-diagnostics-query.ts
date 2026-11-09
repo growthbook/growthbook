@@ -1,6 +1,10 @@
 import { subDays } from "date-fns";
 import { format } from "shared/sql";
-import { getActiveFeatureUsageQuery } from "shared/util";
+import {
+  getActiveFeatureUsageQuery,
+  getFeatureUsageFeatureKeyColumn,
+  getFeatureUsageTimestampColumn,
+} from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FeatureEvalDiagnosticsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -18,6 +22,13 @@ export function getFeatureEvalDiagnosticsQuery(
     datasource.settings?.queries?.featureUsage,
   );
   const featureEvalQuery = featureUsageQuery?.query ?? "";
+  // Mapped names are checked on save to need no quoting, like assignment queries
+  const featureKeyColumn = featureUsageQuery
+    ? getFeatureUsageFeatureKeyColumn(featureUsageQuery)
+    : "feature_key";
+  const timestampColumn = featureUsageQuery
+    ? getFeatureUsageTimestampColumn(featureUsageQuery)
+    : "timestamp";
 
   const compiledFeatureEvalQuery = compileSqlTemplate(
     featureEvalQuery,
@@ -33,8 +44,8 @@ export function getFeatureEvalDiagnosticsQuery(
         ${compiledFeatureEvalQuery}
       )
       SELECT * FROM __featureEvalQuery
-      WHERE feature_key = '${featureKey}' AND timestamp >= ${dialect.toTimestamp(oneWeekAgo)}
-      ORDER BY timestamp DESC
+      WHERE ${featureKeyColumn} = '${featureKey}' AND ${timestampColumn} >= ${dialect.toTimestamp(oneWeekAgo)}
+      ORDER BY ${timestampColumn} DESC
       LIMIT 100
       `,
     dialect.formatDialect,

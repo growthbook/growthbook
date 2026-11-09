@@ -14,6 +14,7 @@ import {
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
   findColumnsNeedingQuotes,
+  findFeatureUsageColumnsNeedingQuotes,
   getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
 } from "shared/util";
@@ -730,6 +731,15 @@ export async function validateExposureQueriesAndAddMissingIds(
   if (updatesCopy.queries?.featureUsage) {
     await Promise.all(
       updatesCopy.queries.featureUsage.map(async (featureUsage) => {
+        const quotedColumns = findFeatureUsageColumnsNeedingQuotes(
+          featureUsage,
+          getDataSourceSqlDialect(datasource.type)?.unquotedIdentifierFold,
+        );
+        if (quotedColumns.length) {
+          throw new Error(
+            `Feature usage query: ${getColumnsNeedingQuotesMessage(quotedColumns)}`,
+          );
+        }
         if (isManagedWarehouseUnavailable(datasource)) {
           featureUsage.error = undefined;
           return;

@@ -10,6 +10,7 @@ import {
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
   getActiveFeatureUsageQuery,
   reconcileEventForwarderManagedExposureQueries,
+  reconcileEventForwarderManagedFeatureUsageQueries,
 } from "../../src/util/event-forwarder-warehouse-queries";
 import { isEventForwarderManaged } from "../../src/util/event-forwarder-datasource";
 import {
@@ -545,6 +546,80 @@ describe("buildEventForwarderFeatureUsageQuerySql", () => {
     expect(sql).toContain('PROPERTIES:"variationId"::STRING AS variation_id');
     expect(sql).toContain("FROM MY_DB.PUBLIC.FEATURE_USAGE");
     expect(sql).not.toContain("WHERE");
+  });
+});
+
+describe("feature usage query identifier columns", () => {
+  const params = {
+    sinkType: "bigquery" as const,
+    projectId: "proj",
+    dataset: "ds",
+    tablePrefix: "gb",
+  };
+  const attributeSchema = [
+    { property: "user_id", datatype: "string" as const, hashAttribute: true },
+  ];
+  const pairs = [
+    {
+      attribute: "user_id",
+      userIdType: { userIdType: "user_id", managedBy: "api" as const },
+    },
+  ];
+
+  it("reads each identifier from attributes, like the assignment queries", () => {
+    const sql = buildEventForwarderFeatureUsageQuerySql({
+      sinkType: "bigquery",
+      tableRef: "`proj`.`ds`.`gb_feature_usage`",
+      pairs,
+      attributeSchema,
+    });
+    expect(sql).toContain(
+      `${buildEventForwarderAttributeValueSql({
+        sinkType: "bigquery",
+        userIdType: "user_id",
+        attributeDatatype: "string",
+      })} AS \`user_id\``,
+    );
+  });
+
+  it("leaves identifier aliases unquoted on Snowflake", () => {
+    const sql = buildEventForwarderFeatureUsageQuerySql({
+      sinkType: "snowflake",
+      tableRef: "MY_DB.PUBLIC.FEATURE_USAGE",
+      pairs,
+      attributeSchema,
+    });
+    expect(sql).toMatch(/ AS user_id\nFROM MY_DB\.PUBLIC\.FEATURE_USAGE/);
+  });
+
+  it("declares the identifier types on the managed query", () => {
+    expect(
+      buildEventForwarderFeatureUsageQuery(params, pairs, attributeSchema)
+        .userIdTypes,
+    ).toEqual(["user_id"]);
+  });
+
+  it("regenerates managed queries and leaves user-written ones alone", () => {
+    const managed = {
+      id: "fuq_managed",
+      managedBy: "api" as const,
+      query: "SELECT old",
+    };
+    const userWritten = { id: "fuq_user", query: "SELECT mine" };
+
+    const [updatedManaged, updatedUser] =
+      reconcileEventForwarderManagedFeatureUsageQueries({
+        existing: [managed, userWritten],
+        pairs,
+        params,
+        attributeSchema,
+      });
+
+    expect(updatedManaged).toEqual({
+      id: "fuq_managed",
+      ...buildEventForwarderFeatureUsageQuery(params, pairs, attributeSchema),
+    });
+    expect(updatedUser).toBe(userWritten);
   });
 });
 
