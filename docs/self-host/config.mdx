@@ -81,6 +81,21 @@ params:
   clientKey: "-----BEGIN CERTIFICATE-----\n..."
 ```
 
+ClickHouse supports optional paths to PEM files on the GrowthBook server. They require an `https://` URL. When `clientCertPath` and `clientKeyPath` are set, GrowthBook uses SSL certificate authentication and does not send the password. The files are read on every connection, so rotated certificates are picked up automatically.
+
+```yml
+type: clickhouse
+params:
+  url: https://clickhouse.example.com
+  port: 8443
+  username: growthbook
+  database: analytics
+  caCertPath: /etc/ssl/certs/ca.crt
+  # Omit both to use password authentication
+  clientCertPath: /etc/ssl/client/tls.crt
+  clientKeyPath: /etc/ssl/client/tls.key
+```
+
 #### Snowflake
 
 ```yml

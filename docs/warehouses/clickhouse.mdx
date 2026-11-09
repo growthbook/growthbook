@@ -16,3 +16,18 @@ are using something like Clickhouse Cloud, you can find the connection string in
 If you are making connection credentials just for GrowthBook, you can give it read-only access to the database.
 
 <CloudEgressIP />
+
+## TLS and client certificate authentication (self-hosted only)
+
+When self-hosting, you can point GrowthBook at PEM files on the GrowthBook server under **Advanced TLS Settings**. These settings require an `https://` URL.
+
+- **CA Certificate Path**: CA bundle used to verify the ClickHouse server certificate. Set this alone to keep using password authentication with a private CA.
+- **Client Certificate Path** and **Client Key Path**: certificate and key for [SSL certificate authentication](https://clickhouse.com/docs/concepts/features/security/ssl-user-auth). Both are required together, and a CA certificate path is also required. GrowthBook sends the username and the certificate, and does not send the password.
+
+The ClickHouse user must be configured to accept the certificate's common name, for example:
+
+```sql
+CREATE USER growthbook IDENTIFIED WITH ssl_certificate CN 'growthbook.example.com';
+```
+
+GrowthBook reads the files every time it opens a connection, so certificates that are rotated on disk are picked up without a restart.

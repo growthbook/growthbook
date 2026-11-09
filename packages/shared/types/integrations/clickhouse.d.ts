@@ -4,7 +4,12 @@ export interface ClickHouseConnectionParams {
   port: number;
   user?: string;
   username?: string;
-  password: string;
+  // Not sent when a client certificate is configured
+  password?: string;
   database: string;
   maxExecutionTime?: number;
+  // Self-hosted only. Paths to PEM files on the GrowthBook server.
+  caCertPath?: string;
+  clientCertPath?: string;
+  clientKeyPath?: string;
 }

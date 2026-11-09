@@ -1,6 +1,10 @@
-import { FC, ChangeEventHandler } from "react";
+import { FC, ChangeEventHandler, useState } from "react";
+import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
+import { isCloud } from "@/services/env";
+import Field from "@/components/Forms/Field";
+import Link from "@/ui/Link";
 import HostWarning from "./HostWarning";
 
 const ClickHouseForm: FC<{
@@ -10,6 +14,11 @@ const ClickHouseForm: FC<{
   setParams: (params: { [key: string]: string }) => void;
   showAllowlist?: boolean;
 }> = ({ params, existing, onParamChange, setParams, showAllowlist }) => {
+  const [showTls, setShowTls] = useState(
+    !!(params.caCertPath || params.clientCertPath || params.clientKeyPath),
+  );
+  const usesClientCert = !!(params.clientCertPath || params.clientKeyPath);
+
   return (
     <>
       <HostWarning
@@ -89,6 +98,46 @@ const ClickHouseForm: FC<{
             placeholder={"Default: 1800"}
           />
         </div>
+        {!isCloud() && (
+          <div className="col-md-12">
+            <div className="form-group">
+              <Link onClick={() => setShowTls(!showTls)}>
+                Advanced TLS Settings{" "}
+                {showTls ? <FaCaretDown /> : <FaCaretRight />}
+              </Link>
+            </div>
+            {showTls && (
+              <>
+                <Field
+                  label="CA Certificate Path"
+                  name="caCertPath"
+                  placeholder="/etc/ssl/certs/ca.crt"
+                  value={params.caCertPath || ""}
+                  onChange={onParamChange}
+                  required={usesClientCert}
+                  helpText="PEM file on the GrowthBook server used to verify the ClickHouse server. Requires an https:// URL."
+                />
+                <Field
+                  label="Client Certificate Path"
+                  name="clientCertPath"
+                  placeholder="/etc/ssl/client/tls.crt"
+                  value={params.clientCertPath || ""}
+                  onChange={onParamChange}
+                  required={usesClientCert}
+                />
+                <Field
+                  label="Client Key Path"
+                  name="clientKeyPath"
+                  placeholder="/etc/ssl/client/tls.key"
+                  value={params.clientKeyPath || ""}
+                  onChange={onParamChange}
+                  required={usesClientCert}
+                  helpText="With a client certificate, ClickHouse authenticates the user by certificate and the password is not sent. Files are read for each connection, so rotated certificates are picked up automatically."
+                />
+              </>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

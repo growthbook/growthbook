@@ -79,6 +79,11 @@ const CLICKHOUSE_FAMILY = {
   password: "secret",
   database: "public",
   maxExecutionTime: "public",
+  // File paths, not cert contents. A blank secret keeps the stored value, so
+  // classifying these as secret would make them impossible to clear.
+  caCertPath: "public",
+  clientCertPath: "public",
+  clientKeyPath: "public",
 } satisfies ParamClassification<DataSourceParamsForType<"clickhouse">>;
 
 const DATA_SOURCE_PARAM_SENSITIVITY = {
