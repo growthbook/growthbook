@@ -21,6 +21,7 @@ import {
   stripIncompatibleFields,
   detectColumnsFromQueryResult,
   buildColumnTypeMaps,
+  getTopValueFields,
 } from "back-end/src/util/factTable";
 import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
@@ -60,6 +61,35 @@ function makeStandardDatasource(
     settings: { userIdTypes },
   } as unknown as DataSourceInterface;
 }
+
+describe("getTopValueFields", () => {
+  const refreshedAt = new Date("2026-11-01T00:00:00Z");
+
+  it("derives the string list from the counts", () => {
+    const values = [
+      { value: "a", count: 3 },
+      { value: "b", count: 1 },
+    ];
+    expect(getTopValueFields({ values, refreshedAt })).toEqual({
+      topValues: ["a", "b"],
+      topValueCounts: values,
+      topValuesDate: refreshedAt,
+    });
+  });
+
+  it("stores no counts when any value is missing one", () => {
+    expect(
+      getTopValueFields({
+        values: [{ value: "a" }, { value: "b", count: 2 }],
+        refreshedAt,
+      }),
+    ).toEqual({
+      topValues: ["a", "b"],
+      topValueCounts: undefined,
+      topValuesDate: refreshedAt,
+    });
+  });
+});
 
 describe("columnsHaveAutoSlices", () => {
   it("returns false when columns is undefined", () => {

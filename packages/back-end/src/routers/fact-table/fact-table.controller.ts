@@ -40,6 +40,7 @@ import {
   getFactTablesByIds,
   createColumn,
   updateColumn,
+  updateColumnTopValues,
   deleteColumn as deleteColumnInDb,
   updateFactTable,
   updateFactTableColumns,
@@ -60,12 +61,12 @@ import {
   refreshColumnTopValues,
   runColumnsTopValueCountsQuery,
   populateAutoSlices,
-  getTopValueFields,
 } from "back-end/src/services/factTableColumns";
 import {
   applyColumnUpdates,
   buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
+  getTopValueFields,
   pruneAggregatedFactTableSettings,
   validateAggregatedFactTableSettings,
   validateColumnMappingTargets,
@@ -925,32 +926,24 @@ export const postColumnTopValues = async (
         [column],
       );
 
-      const topValueFields = getTopValueFields(
-        countsByColumn[column.column] || [],
-      );
-      values = topValueFields.topValueCounts;
+      const snapshot = {
+        values: countsByColumn[column.column] || [],
+        refreshedAt: new Date(),
+      };
+      const { topValues, topValueCounts } = getTopValueFields(snapshot);
+      values = topValueCounts;
       const maxSliceLevels =
         context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS;
 
-      const changes: Parameters<typeof updateColumn>[0]["changes"] = {
-        ...topValueFields,
-      };
-
-      if (column.isAutoSliceColumn) {
-        changes.autoSlices = populateAutoSlices(
-          column,
-          topValueFields.topValues,
-          maxSliceLevels,
-        );
-      }
-
-      // Update the column with new top values
-      await updateColumn({
+      await updateColumnTopValues({
         context,
         factTable,
         column: column.column,
-        changes,
+        snapshot,
+        autoSlices: column.isAutoSliceColumn
+          ? populateAutoSlices(column, topValues, maxSliceLevels)
+          : undefined,
       });
     } catch (e) {
       logger.error(
@@ -1053,10 +1046,10 @@ export const putColumn = async (
         .then(async (countsByColumn) => {
           const counts = countsByColumn[col.column] || [];
           if (!counts.length) return;
-          await updateColumn({
+          await updateColumnTopValues({
             factTable,
             column: col.column,
-            changes: getTopValueFields(counts),
+            snapshot: { values: counts, refreshedAt: new Date() },
           });
         })
         .catch((e) => {

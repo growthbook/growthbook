@@ -9,6 +9,7 @@ import {
   FactTableColumnType,
   FactTableInterface,
   JSONColumnFields,
+  TopValuesSnapshot,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -17,6 +18,24 @@ import {
   type DetectedJSONFields,
   determineColumnTypes,
 } from "back-end/src/util/sql";
+
+// The one writer for a column's stored top values. topValues is derived for
+// Auto Slices and filter pickers; counts are kept only when every value has one.
+export function getTopValueFields(snapshot: TopValuesSnapshot): {
+  topValues: string[];
+  topValueCounts: ColumnInterface["topValueCounts"];
+  topValuesDate: Date;
+} {
+  const { values } = snapshot;
+  const counts = values.flatMap((v) =>
+    v.count === undefined ? [] : [{ value: v.value, count: v.count }],
+  );
+  return {
+    topValues: values.map((v) => v.value),
+    topValueCounts: counts.length === values.length ? counts : undefined,
+    topValuesDate: snapshot.refreshedAt,
+  };
+}
 
 /**
  * Clears datatype-incompatible props. Empty datatype skips checks while

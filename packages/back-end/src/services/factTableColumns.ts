@@ -10,7 +10,11 @@ import {
   DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
 } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import {
+  ColumnInterface,
+  FactTableInterface,
+  TopValuesSnapshot,
+} from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -21,6 +25,7 @@ import {
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   buildColumnTypeMaps,
+  getTopValueFields,
   normalizePersistedColumn,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
@@ -94,23 +99,7 @@ export function selectColumnsForTopValues({
   return [...alwaysCaptured, ...newlyCaptured];
 }
 
-type TopValueCount = NonNullable<ColumnInterface["topValueCounts"]>[number];
-type RankedValue = { value: string; count?: number };
-
-// The one writer for a column's top values, so the string list can't drift
-// from the counts. Counts are only stored when every value has one.
-export function getTopValueFields(values: RankedValue[]): {
-  topValues: string[];
-  topValueCounts: TopValueCount[] | undefined;
-} {
-  const counts = values.flatMap((v) =>
-    v.count === undefined ? [] : [{ value: v.value, count: v.count }],
-  );
-  return {
-    topValues: values.map((v) => v.value),
-    topValueCounts: counts.length === values.length ? counts : undefined,
-  };
-}
+type RankedValue = TopValuesSnapshot["values"][number];
 
 export async function runColumnsTopValuesQuery(
   ...args: Parameters<typeof runColumnsTopValueCountsQuery>
@@ -444,17 +433,16 @@ export async function refreshColumnTopValues(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const { topValues, topValueCounts } = getTopValueFields(
-            countsByColumn[col.column] || [],
-          );
-          col.topValues = topValues;
-          col.topValueCounts = topValueCounts;
-          col.topValuesDate = new Date();
+          const fields = getTopValueFields({
+            values: countsByColumn[col.column] || [],
+            refreshedAt: new Date(),
+          });
+          Object.assign(col, fields);
 
           if (col.isAutoSliceColumn) {
             col.autoSlices = populateAutoSlices(
               col,
-              topValues,
+              fields.topValues,
               context.org.settings?.maxMetricSliceLevels,
             );
           }

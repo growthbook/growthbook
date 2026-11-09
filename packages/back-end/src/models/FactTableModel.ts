@@ -22,6 +22,7 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
   ColumnInterface,
+  TopValuesSnapshot,
 } from "shared/types/fact-table";
 import {
   ApiFactTable,
@@ -42,6 +43,7 @@ import {
 } from "back-end/src/models/DefinitionsVersionModel";
 import {
   ensureAutoSliceDefaults,
+  getTopValueFields,
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
 } from "back-end/src/util/factTable";
@@ -660,6 +662,31 @@ export async function cleanupMetricAutoSlices({
   }
 }
 
+// The one way to persist a top values snapshot on a column
+export async function updateColumnTopValues({
+  context,
+  factTable,
+  column,
+  snapshot,
+  autoSlices,
+}: {
+  context?: ReqContext | ApiReqContext;
+  factTable: FactTableInterface;
+  column: string;
+  snapshot: TopValuesSnapshot;
+  autoSlices?: string[];
+}) {
+  await updateColumn({
+    context,
+    factTable,
+    column,
+    changes: {
+      ...getTopValueFields(snapshot),
+      ...(autoSlices && { autoSlices }),
+    },
+  });
+}
+
 export async function updateColumn({
   context,
   factTable,
@@ -669,7 +696,7 @@ export async function updateColumn({
   context?: ReqContext | ApiReqContext;
   factTable: FactTableInterface;
   column: string;
-  // topValueCounts is internal-only; set it with getTopValueFields
+  // topValueCounts is internal-only; write it with updateColumnTopValues
   changes: UpdateColumnProps & Pick<ColumnInterface, "topValueCounts">;
 }) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);

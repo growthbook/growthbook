@@ -56,6 +56,13 @@ export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
 export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
 
+// One top values query result. A column stores it as topValues,
+// topValueCounts, and topValuesDate.
+export type TopValuesSnapshot = {
+  values: { value: string; count?: number }[];
+  refreshedAt: Date;
+};
+
 export interface ColumnInterface {
   dateCreated: Date;
   dateUpdated: Date;

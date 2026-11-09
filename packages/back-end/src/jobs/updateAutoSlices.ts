@@ -14,8 +14,8 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
+import { getTopValueFields } from "back-end/src/util/factTable";
 import {
-  getTopValueFields,
   runColumnsTopValueCountsQuery,
   TOP_VALUES_CHUNK_SIZE,
 } from "back-end/src/services/factTableColumns";
@@ -152,12 +152,12 @@ async function updateAutoSlicesForColumns(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const { topValues, topValueCounts } = getTopValueFields(
-            countsByColumn[col.column] ?? [],
-          );
-          col.topValues = topValues;
-          col.topValueCounts = topValueCounts;
-          col.topValuesDate = new Date();
+          const fields = getTopValueFields({
+            values: countsByColumn[col.column] ?? [],
+            refreshedAt: new Date(),
+          });
+          Object.assign(col, fields);
+          const { topValues } = fields;
 
           // Skip autoSlices update if no top values.
           // (empty response may be transient, not worth losing the slices)
