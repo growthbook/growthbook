@@ -8,6 +8,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import { GBEdit } from "@/components/Icons";
@@ -117,7 +118,12 @@ export default function PopulationPage() {
         <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
           {population.name}
         </Heading>
-        <Box pr="2">
+        <Flex align="center" gap="3" pr="2">
+          {canEdit && (
+            <LinkButton href={`/populations/${population.id}/edit`}>
+              Edit
+            </LinkButton>
+          )}
           <PopulationMoreMenu
             population={population}
             onDuplicated={async (copy) => {
@@ -130,7 +136,7 @@ export default function PopulationPage() {
             }}
             onAuditLog={() => setAuditLogOpen(true)}
           />
-        </Box>
+        </Flex>
       </Flex>
 
       <Flex gap="4" align="center" wrap="wrap" mb="3">
