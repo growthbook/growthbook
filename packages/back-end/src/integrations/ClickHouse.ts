@@ -1,5 +1,7 @@
+import { readFile } from "fs/promises";
 import { subDays } from "date-fns";
 import {
+  ClickHouseClientConfigOptions,
   ClickHouseError,
   ClickHouseLogLevel,
   createClient,
@@ -26,6 +28,8 @@ import { getHost } from "back-end/src/util/sql";
 import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
 import { metrics } from "back-end/src/util/metrics";
+import { getErrorMessage } from "back-end/src/util/errors";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import SqlIntegration from "./SqlIntegration";
 
 // Matches ClickHouse DateTime/DateTime64 column types with no explicit
@@ -64,6 +68,23 @@ function normalizeManagedWarehouseDatetimes(
   }
 }
 
+async function readPemFile(path: string, description: string) {
+  let contents: Buffer;
+  try {
+    contents = await readFile(path);
+  } catch (e) {
+    throw new Error(
+      `Unable to read ClickHouse ${description} file: ${getErrorMessage(e)}`,
+    );
+  }
+  if (!contents.includes("-----BEGIN ")) {
+    throw new Error(
+      `ClickHouse ${description} file ${path} is empty or not PEM-encoded.`,
+    );
+  }
+  return contents;
+}
+
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
   requiresDatabase = false;
@@ -90,6 +111,64 @@ export default class ClickHouse extends SqlIntegration {
     return super.testConnection();
   }
 
+  // Files are read for every new client so rotated certs are picked up
+  // without restarting GrowthBook.
+  private async getTlsOptions(
+    url: string | undefined,
+  ): Promise<ClickHouseClientConfigOptions["tls"]> {
+    const { caCertPath, clientCertPath, clientKeyPath, clientCertChainPath } =
+      this.params;
+    if (
+      !caCertPath &&
+      !clientCertPath &&
+      !clientKeyPath &&
+      !clientCertChainPath
+    ) {
+      return undefined;
+    }
+
+    if (IS_CLOUD) {
+      throw new Error(
+        "ClickHouse certificate file paths are only supported when self-hosting GrowthBook.",
+      );
+    }
+    if (!url?.startsWith("https://")) {
+      throw new Error(
+        "ClickHouse certificate file paths require an https:// URL.",
+      );
+    }
+    if (Boolean(clientCertPath) !== Boolean(clientKeyPath)) {
+      throw new Error(
+        "ClickHouse client certificate and client key paths must be set together.",
+      );
+    }
+    if (clientCertChainPath && !clientCertPath) {
+      throw new Error(
+        "A ClickHouse client certificate chain path requires a client certificate and key.",
+      );
+    }
+    if (!caCertPath) {
+      throw new Error(
+        "A CA certificate path is required when using a ClickHouse client certificate.",
+      );
+    }
+
+    const [ca_cert, leaf, chain, key] = await Promise.all([
+      readPemFile(caCertPath, "CA certificate"),
+      clientCertPath
+        ? readPemFile(clientCertPath, "client certificate")
+        : undefined,
+      clientCertChainPath
+        ? readPemFile(clientCertChainPath, "client certificate chain")
+        : undefined,
+      clientKeyPath ? readPemFile(clientKeyPath, "client key") : undefined,
+    ]);
+    // Node expects the leaf first, followed by its intermediates.
+    const cert =
+      leaf && chain ? Buffer.concat([leaf, Buffer.from("\n"), chain]) : leaf;
+    return cert && key ? { ca_cert, cert, key } : { ca_cert };
+  }
+
   async runQuery(
     sql: string,
     setExternalId: ExternalIdCallback | undefined,
@@ -104,15 +183,19 @@ export default class ClickHouse extends SqlIntegration {
     ) {
       throw new ManagedWarehousePendingError();
     }
+    const url = getHost(this.params.url, this.params.port);
+    const tls = await this.getTlsOptions(url);
     const client = createClient({
-      url: getHost(this.params.url, this.params.port),
+      url,
       username: this.params.username,
-      password: this.params.password,
+      // ClickHouse rejects a password sent alongside certificate auth
+      password: tls && "cert" in tls ? undefined : this.params.password,
       database: this.params.database,
       application: "GrowthBook",
       request_timeout: 3620_000,
       // The client warns per instance when request_timeout > 60s without progress headers; we create one per query.
       log: { level: ClickHouseLogLevel.ERROR },
+      tls,
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
