@@ -295,7 +295,7 @@ export const apiSavedQueryValidator = namedSchema(
       sql: z.string(),
       dataVizConfig: z.array(dataVizConfigValidator),
       linkedDashboardIds: z.array(z.string()),
-      dateLastRan: z.string().meta({ format: "date-time" }),
+      dateLastRan: z.iso.datetime(),
       lastRun: z.object({
         rowCount: z.number(),
         error: z.string().nullable(),

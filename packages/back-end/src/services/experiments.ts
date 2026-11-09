@@ -3395,7 +3395,10 @@ export async function createSnapshotAnalysis(
     // Record the failure so the analysis isn't left "running"
     analysis.status = "error";
     analysis.error = e instanceof Error ? e.message : String(e);
-    await updateSnapshotAnalysis({ context, id: snapshot.id, analysis });
+    await updateSnapshotAnalysis({ context, id: snapshot.id, analysis }).catch(
+      (updateError) =>
+        logger.error(updateError, "Failed to record a snapshot analysis error"),
+    );
     throw e;
   }
 
