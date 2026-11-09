@@ -81,8 +81,14 @@ export default function EditColumnModal({
           method: "PUT",
           body: JSON.stringify(data),
         });
-        // A new auto slice column takes its levels from its top values
-        if (canAutoSlice && autoSlice && !column.isAutoSliceColumn) {
+        // A new string auto slice column takes its levels from its top values;
+        // the server sets boolean levels itself
+        if (
+          canAutoSlice &&
+          autoSlice &&
+          !column.isAutoSliceColumn &&
+          datatype === "string"
+        ) {
           await apiCall(
             `/fact-tables/${factTable.id}/column/${column.column}/top-values`,
             { method: "POST" },

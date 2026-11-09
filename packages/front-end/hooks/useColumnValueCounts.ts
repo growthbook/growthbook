@@ -25,11 +25,18 @@ export default function useColumnValueCounts(factTableId: string) {
     setLoading((l) => ({ ...l, [column]: true }));
     setErrors((e) => ({ ...e, [column]: "" }));
     try {
-      const res = await apiCall<{ values: ValueCount[] }>(
+      // values is missing when the warehouse can only rank values
+      const res = await apiCall<{ values?: ValueCount[] }>(
         `/fact-tables/${factTableId}/column/${encodeURIComponent(column)}/top-values`,
         { method: "POST" },
       );
-      setCounts((c) => ({ ...c, [column]: res.values }));
+      const values = res.values;
+      setCounts((c) => {
+        const next = { ...c };
+        if (values) next[column] = values;
+        else delete next[column];
+        return next;
+      });
       await mutateDefinitions();
     } catch (e) {
       setErrors((err) => ({
