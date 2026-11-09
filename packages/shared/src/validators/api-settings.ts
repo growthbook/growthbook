@@ -145,6 +145,11 @@ const writableSettingsFields = {
   // The settings page allows both ends of the range for these two.
   srmThreshold: z.number().min(0).max(1),
   multipleExposureMinPercent: z.number().min(0).max(1),
+  clusterIssueMinPercent: z
+    .number()
+    .min(0)
+    .max(1)
+    .describe("Cluster experiment health warning threshold, e.g. 0.05"),
   attributionModel: z.enum([
     "firstExposure",
     "experimentDuration",
@@ -157,6 +162,13 @@ const writableSettingsFields = {
       type: z.enum(["cron", "never", "stale"]),
       cron: z.string().optional(),
       hours: z.number().positive().optional(),
+      analysisEndDateMode: z.enum(["runTime", "lag", "fixedTime"]).optional(),
+      analysisEndDateLagHours: z.number().int().min(1).max(168).optional(),
+      analysisEndDateTime: z
+        .string()
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+        .describe("Data cutoff time of day in UTC (HH:MM); cron schedules only")
+        .optional(),
     })
     .strict(),
   pastExperimentsMinLength: nonNegativeInt,
