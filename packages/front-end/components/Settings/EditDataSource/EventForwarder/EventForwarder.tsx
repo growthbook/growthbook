@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   databricksParamsSupportEventForwarder,
   getDatabricksEventForwarderAuthMessage,
@@ -602,6 +602,7 @@ function EventForwarderErrorMessage({ message }: { message: string }) {
   const [expanded, setExpanded] = useState(false);
   const [clipped, setClipped] = useState(false);
   const textRef = useRef<HTMLDivElement>(null);
+  const textId = useId();
   const firstLine = message.split("\n")[0];
   const isLong = firstLine !== message || clipped;
 
@@ -620,6 +621,7 @@ function EventForwarderErrorMessage({ message }: { message: string }) {
     <Box>
       <Box
         ref={textRef}
+        id={textId}
         style={
           expanded
             ? { whiteSpace: "pre-wrap" }
@@ -637,6 +639,7 @@ function EventForwarderErrorMessage({ message }: { message: string }) {
         <Link
           size="sm"
           aria-expanded={expanded}
+          aria-controls={textId}
           onClick={() => setExpanded((open) => !open)}
         >
           {expanded ? "Show less" : "Show more"}
@@ -797,6 +800,7 @@ export default function EventForwarder({
               iconPosition="left"
               loading={pauseResumeLoading}
               onClick={async () => {
+                setError(null);
                 setPauseResumeLoading(true);
                 try {
                   await apiCall(
