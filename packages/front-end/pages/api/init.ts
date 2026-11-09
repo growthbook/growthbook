@@ -76,7 +76,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     MISTRAL_API_KEY,
     GOOGLE_AI_API_KEY,
     UPLOAD_METHOD,
-    DISABLE_PAGE_LOAD_TIMING,
+    ENABLE_PAGE_LOAD_TIMING,
   } = process.env;
 
   // Use process.cwd() which returns the front-end directory (set via ecosystem.config.js cwd)
@@ -175,7 +175,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     hasMistralKey: !!MISTRAL_API_KEY || false,
     hasGoogleAIKey: !!GOOGLE_AI_API_KEY || false,
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
-    pageLoadTiming: !stringToBoolean(DISABLE_PAGE_LOAD_TIMING),
+    pageLoadTiming: stringToBoolean(ENABLE_PAGE_LOAD_TIMING),
   };
 
   const cacheControl =
