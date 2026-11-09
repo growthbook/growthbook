@@ -735,7 +735,11 @@ export async function getFeatureDefinitionsWithCache({
       // it, so filtering here too would only make the two disagree.
       savedGroupFormat: params.savedGroupFormat,
       includeReferencedPrerequisites: params.includeReferencedPrerequisites,
-      sdkConnectionId: params.sdkConnectionId,
+      // Callers pass either the params built by getPayloadParamsFromApiKey
+      // or a full SDKConnectionInterface (proxy updates, SDK webhooks).
+      sdkConnectionId:
+        params.sdkConnectionId ??
+        (params as Partial<SDKConnectionInterface>).id,
     });
 
     // Write back to cache to populate it for future reads (fire and forget)

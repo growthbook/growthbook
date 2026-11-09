@@ -8,6 +8,7 @@ import uniqBy from "lodash/uniqBy";
 import uniqWith from "lodash/uniqWith";
 import type { Request } from "express";
 import {
+  ConditionInterface,
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
   GrowthBook,
@@ -204,6 +205,7 @@ import {
   pairedWeightsToPositional,
   prerequisiteParentConditions,
   qaOverrideCondition,
+  qaOverridesExclusionCondition,
   qaOverrideWeights,
   buildPrerequisiteProjectReach,
   expandPayloadKeysForPrerequisites,
@@ -658,9 +660,29 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
+  // The condition a QA override's copy of `e` runs under: the experiment's own
+  // targeting for random assignment, the override's filters either way.
+  const qaAutoExperimentCondition = (
+    e: ExperimentInterface,
+    qaOverride: ExperimentQaOverrideInterface,
+  ): ConditionInterface | undefined => {
+    const phase = e.phases?.slice(-1)?.[0];
+    return qaOverrideCondition({
+      override: qaOverride,
+      experimentCondition: mergeConditionAndSavedGroups({
+        savedGroupStrategy,
+        condition: phase?.condition,
+        savedGroups: phase?.savedGroups,
+      }),
+      savedGroupStrategy,
+    });
+  };
+
   const buildAutoExperiment = (
     data: VisualExperiment | URLRedirectExperiment,
     qaOverride: ExperimentQaOverrideInterface | undefined,
+    // Requests already claimed by an earlier override; see the flatMap below.
+    excludeCondition?: ConditionInterface,
   ): AutoExperimentWithMetadata | null => {
     const { experiment: e } = data;
     if (e.status === "stopped" && e.excludeFromPayload) return null;
@@ -685,13 +707,13 @@ export function generateAutoExperimentsPayload({
       condition: phase?.condition,
       savedGroups: phase?.savedGroups,
     });
-    const condition = qaOverride
-      ? qaOverrideCondition({
-          override: qaOverride,
-          experimentCondition,
-          savedGroupStrategy,
-        })
+    const ownCondition = qaOverride
+      ? qaAutoExperimentCondition(e, qaOverride)
       : experimentCondition;
+    const condition =
+      excludeCondition && ownCondition
+        ? { $and: [ownCondition, excludeCondition] }
+        : (excludeCondition ?? ownCondition);
 
     const prerequisites = (qaForced ? [] : (phase?.prerequisites ?? []))
       ?.map((p) => {
@@ -729,7 +751,9 @@ export function generateAutoExperimentsPayload({
         }`,
         "",
       ),
-      status: e.status,
+      // The SDK skips drafts; the QA copy must run while the stored experiment
+      // stays a draft.
+      status: qaOverride ? "running" : e.status,
       variations: variations.map((v) => {
         if (data.type === "redirect") {
           const match = data.urlRedirect.destinationURLs.find(
@@ -820,18 +844,25 @@ export function generateAutoExperimentsPayload({
     });
   };
 
-  // A draft with QA overrides becomes one auto experiment per override. Unlike
-  // feature rules there is no first-match-wins here: the SDK evaluates each
-  // one, so overrides with overlapping filters can both apply.
+  // A draft with QA overrides becomes one auto experiment per override. The
+  // SDK evaluates every visual experiment, so to keep "first match wins" each
+  // copy also excludes the requests earlier overrides cover; once an override
+  // matches everyone, the ones after it can never apply and are left out.
   const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
     sortedAutoExperiments.flatMap((data) => {
       const { experiment: e } = data;
       const overrides =
         e.status === "draft" ? qaOverrides?.get(e.id) : undefined;
-      if (overrides?.length) {
-        return overrides.map((o) => buildAutoExperiment(data, o));
+      if (!overrides?.length) return [buildAutoExperiment(data, undefined)];
+      const out: Array<AutoExperimentWithMetadata | null> = [];
+      const earlier: (ConditionInterface | undefined)[] = [];
+      for (const override of overrides) {
+        const exclude = qaOverridesExclusionCondition(earlier);
+        if (exclude === null) break;
+        out.push(buildAutoExperiment(data, override, exclude));
+        earlier.push(qaAutoExperimentCondition(e, override));
       }
-      return [buildAutoExperiment(data, undefined)];
+      return out;
     });
 
   const cbSdkExperiments = generateCbVisualExperimentsPayload({
@@ -1685,6 +1716,14 @@ export async function refreshSDKPayloadCache({
     await context.models.interleavings.getAllPayloadInterleavings();
   // Holdouts, contextual bandits and interleavings carry targeting the
   // features and experiments do not.
+  const orgEnvironments = getEnvironments(context.org);
+  // QA overrides only serve non-production environments; skip the lookup
+  // entirely when there are none.
+  const allQaOverrides = orgEnvironments.some(
+    (e) => !isProductionEnvironment(e),
+  )
+    ? await context.models.experimentQaOverrides.getAllForPayload()
+    : [];
   const savedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
     experiments: [
@@ -1693,6 +1732,7 @@ export async function refreshSDKPayloadCache({
     ],
     bandits: cbMap.values(),
     interleavings,
+    qaOverrides: allQaOverrides.map((o) => o.filters),
   });
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const constants = await getResolvableValues(context);
@@ -1731,11 +1771,8 @@ export async function refreshSDKPayloadCache({
     rawData.projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
-  const orgEnvironments = getEnvironments(context.org);
-  if (orgEnvironments.some((e) => !isProductionEnvironment(e))) {
+  if (allQaOverrides.length) {
     const byEnvironment = new Map<string, ExperimentQaOverrideInterface[]>();
-    const allQaOverrides =
-      await context.models.experimentQaOverrides.getAllForPayload();
     allQaOverrides.forEach((o) => {
       byEnvironment.set(o.environment, [
         ...(byEnvironment.get(o.environment) ?? []),
@@ -1794,7 +1831,13 @@ export async function refreshSDKPayloadCache({
               connection.includeExperimentScheduleInMetadata,
             qaOverrides: qaOverridesForConnection({
               overrides: rawData.qaOverridesByEnvironment?.get(env),
-              connection,
+              // The projects the connection actually serves in this
+              // environment, the same scope the cold build uses.
+              connection: {
+                id: connection.id,
+                environment: env,
+                projects: filteredProjects,
+              },
               environments: orgEnvironments,
             }),
           },
@@ -2155,15 +2198,23 @@ export function qaOverridesForConnection({
   environments,
 }: {
   overrides: ExperimentQaOverrideInterface[] | undefined;
-  connection: Pick<SDKConnectionInterface, "id" | "environment" | "projects">;
+  // `projects` is the effective list for this environment (see
+  // filterProjectsByEnvironmentWithNull): [] serves every project, null none.
+  connection: {
+    id: string;
+    environment: string;
+    projects: string[] | null | undefined;
+  };
   environments: Environment[];
 }): Map<string, ExperimentQaOverrideInterface[]> | undefined {
   if (!overrides?.length) return undefined;
+  if (connection.projects === null) return undefined;
   const env = environments.find((e) => e.id === connection.environment);
   if (!env || isProductionEnvironment(env)) return undefined;
   const byExperiment = new Map<string, ExperimentQaOverrideInterface[]>();
+  const scope = { ...connection, projects: connection.projects ?? [] };
   sortQaOverrides(overrides)
-    .filter((o) => qaOverrideAppliesToConnection(o, connection))
+    .filter((o) => qaOverrideAppliesToConnection(o, scope))
     .forEach((o) => {
       byExperiment.set(o.experiment, [
         ...(byExperiment.get(o.experiment) ?? []),
@@ -2584,6 +2635,16 @@ export async function getFeatureDefinitions(
     cbVisualExperiments,
   );
 
+  const qaOverrides = args.sdkConnectionId
+    ? qaOverridesForConnection({
+        overrides:
+          await context.models.experimentQaOverrides.findByEnvironment(
+            environment,
+          ),
+        connection: { id: args.sdkConnectionId, environment, projects },
+        environments: getEnvironments(context.org),
+      })
+    : undefined;
   const allSavedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
     experiments: [
@@ -2592,22 +2653,11 @@ export async function getFeatureDefinitions(
     ],
     bandits: cbMap.values(),
     interleavings,
+    qaOverrides: [...(qaOverrides?.values() ?? [])]
+      .flat()
+      .map((o) => o.filters),
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
-  const qaOverrides = args.sdkConnectionId
-    ? qaOverridesForConnection({
-        overrides:
-          await context.models.experimentQaOverrides.findByEnvironment(
-            environment,
-          ),
-        connection: {
-          id: args.sdkConnectionId,
-          environment,
-          projects: projects ?? [],
-        },
-        environments: getEnvironments(context.org),
-      })
-    : undefined;
   return buildSDKPayloadForConnection({
     context,
     connection: {
