@@ -60,7 +60,7 @@ export function buildUnitsQuerySettingsFromCb(
       // Period weighting groups on the assignment query's `bandit_version`
       // column, so only enable it when the query actually emits that column.
       periodWeighting:
-        cbSettings.periodWeighting !== false &&
+        cbSettings.periodWeighting === true &&
         queryHasContextualBanditVersionColumn(
           cbSettings.query,
           identifierQuote,

@@ -150,29 +150,27 @@ describe("exposure query targeting attribute columns", () => {
         ),
       ).toBe(false);
     });
-
-    it("ignores required columns that are only filtered on, not selected", () => {
-      expect(
-        queryHasContextualBanditSrmColumns(
-          "SELECT leaf_id, variation_weights FROM exposures WHERE bandit_version >= 2",
-        ),
-      ).toBe(false);
-    });
   });
 
   describe("queryHasContextualBanditVersionColumn", () => {
-    it("detects the version column in the SELECT projection", () => {
+    it("detects a bare or qualified bandit_version reference", () => {
       expect(
         queryHasContextualBanditVersionColumn(
           "SELECT user_id, bandit_version FROM exposures",
         ),
       ).toBe(true);
-    });
-
-    it("does not treat a WHERE-only reference as an output column", () => {
       expect(
         queryHasContextualBanditVersionColumn(
-          "SELECT user_id FROM exposures WHERE bandit_version >= 2",
+          "SELECT e.user_id, e.bandit_version FROM exposures e",
+        ),
+      ).toBe(true);
+    });
+
+    it("is false for a missing query or a string-literal-only mention", () => {
+      expect(queryHasContextualBanditVersionColumn(undefined)).toBe(false);
+      expect(
+        queryHasContextualBanditVersionColumn(
+          "SELECT user_id, 'bandit_version' AS note FROM exposures",
         ),
       ).toBe(false);
     });

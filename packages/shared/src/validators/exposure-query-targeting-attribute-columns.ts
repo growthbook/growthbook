@@ -1,9 +1,9 @@
-import type { SDKAttributeSchema } from "shared/types/organization";
-import type { SqlIdentifierQuote } from "shared/types/sql";
 import {
   DEFAULT_IDENTIFIER_QUOTE,
-  sqlSelectsColumnAllowingQualified,
-} from "../experiments/experiments";
+  sqlReferencesColumnAllowingQualified,
+} from "shared/sql";
+import type { SDKAttributeSchema } from "shared/types/organization";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 
 export type TargetingColumnQuery = {
   id?: string;
@@ -41,7 +41,7 @@ export function queryHasContextualBanditSrmColumns(
     return false;
   }
   return CONTEXTUAL_BANDIT_SRM_REQUIRED_COLUMNS.every((col) =>
-    sqlSelectsColumnAllowingQualified(query, col, identifierQuote),
+    sqlReferencesColumnAllowingQualified(query, col, identifierQuote),
   );
 }
 
@@ -52,7 +52,7 @@ export function queryHasContextualBanditVersionColumn(
   if (!query) {
     return false;
   }
-  return sqlSelectsColumnAllowingQualified(
+  return sqlReferencesColumnAllowingQualified(
     query,
     CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
     identifierQuote,

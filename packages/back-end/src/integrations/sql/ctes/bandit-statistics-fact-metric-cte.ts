@@ -212,7 +212,7 @@ export function getBanditStatisticsFactMetricCTE(
         : ""
     }
     , __variationEligiblePeriods AS (
-      -- Periods a variation received traffic in across ANY context. Used to distinguish between variations that received no traffic in a period and variations added mid-bandit.
+      -- Periods a variation received traffic in across ANY context
       SELECT DISTINCT
         variation
         , bandit_period
@@ -220,8 +220,6 @@ export function getBanditStatisticsFactMetricCTE(
         __banditPeriodStatistics
     )
     , __variationPeriodWeightTotals AS (
-      -- Per-variation sum of the shared period weights over
-      -- the periods the variation was eligible in, per dimension.
       SELECT
         vep.variation AS variation
         ${dimensionCols.map((d) => `, bpw.${d.alias} AS ${d.alias}`).join("")}

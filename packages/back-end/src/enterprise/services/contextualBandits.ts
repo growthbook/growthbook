@@ -2124,7 +2124,7 @@ export function buildSnapshotSettingsForCb(
       currentWeights: cbSnapshotSettings.variations.map((v) => v.weight),
       historicalWeights: [],
       periodWeighting:
-        cbSnapshotSettings.periodWeighting !== false &&
+        cbSnapshotSettings.periodWeighting === true &&
         queryHasContextualBanditVersionColumn(
           cbSnapshotSettings.query,
           identifierQuote,

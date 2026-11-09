@@ -11,7 +11,7 @@ import {
   sqlExplorationConfigValidator,
   populationExplorationConfigValidator,
 } from "../../validators/product-analytics";
-import { sqlReferencesColumn } from "../../experiments/experiments";
+import { sqlReferencesColumn } from "../../sql";
 
 // The exploration config shape persisted by both saved explorations and
 // dashboard "exploration" blocks. Only fact_table and funnel configs reference
