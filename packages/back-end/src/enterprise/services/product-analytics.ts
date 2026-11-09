@@ -18,8 +18,7 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
-  getMetricExplorationPopulationViolations,
-  resolveMetricExplorationPopulation,
+  parseMetricExplorationPopulation,
   withRequestedDisplayConfig,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
@@ -199,7 +198,7 @@ export async function runProductAnalyticsExploration(
       const savedPopulation = await context.models.populations.getById(
         dataset.population.populationId,
       );
-      const populationViolations = getMetricExplorationPopulationViolations({
+      const parsedPopulation = parseMetricExplorationPopulation({
         population: dataset.population,
         savedPopulation,
         values: dataset.values,
@@ -208,16 +207,10 @@ export async function runProductAnalyticsExploration(
         metricMap,
         factTableMap,
       });
-      if (populationViolations.length) {
-        throw new BadRequestError(populationViolations.join(" "));
+      if (!parsedPopulation.ok) {
+        throw new BadRequestError(parsedPopulation.violations.join(" "));
       }
-      // Violations above cover a missing Population.
-      if (savedPopulation) {
-        population = resolveMetricExplorationPopulation(
-          dataset.population,
-          savedPopulation,
-        );
-      }
+      population = parsedPopulation.population;
     }
 
     for (const value of dataset.values) {

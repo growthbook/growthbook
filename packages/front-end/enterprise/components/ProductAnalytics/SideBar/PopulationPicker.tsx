@@ -4,7 +4,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { AppFeatures } from "shared/types/app-features";
 import type { ApiPopulation, MetricValue } from "shared/validators";
-import { getMetricExplorationPopulationViolations } from "shared/enterprise";
+import { parseMetricExplorationPopulation } from "shared/enterprise";
 import { isProjectListValidForProject } from "shared/util";
 import { getSinglePopulationStep } from "shared/populations";
 import Callout from "@/ui/Callout";
@@ -106,7 +106,7 @@ export default function PopulationPicker({
       const metric = getFactMetricById(value.metricId);
       if (metric) metricMap.set(metric.id, metric);
     }
-    return getMetricExplorationPopulationViolations({
+    const parsed = parseMetricExplorationPopulation({
       population,
       savedPopulation,
       values: chosenValues,
@@ -115,6 +115,7 @@ export default function PopulationPicker({
       metricMap,
       factTableMap: new Map(factTables.map((table) => [table.id, table])),
     });
+    return parsed.ok ? [] : parsed.violations;
   };
 
   const handlePopulationChange = (populationId: string) => {

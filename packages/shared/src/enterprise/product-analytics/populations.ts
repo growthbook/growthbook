@@ -26,27 +26,25 @@ function isSupportedWithPopulation(
   return POPULATION_METRIC_TYPES.has(metric.metricType);
 }
 
-/**
- * The definition an exploration runs for its Population: the saved
- * Population's single step, counted by the exploration's identifier type.
- */
-export function resolveMetricExplorationPopulation(
-  population: ExplorationPopulation,
-  savedPopulation: Pick<PopulationInterface, "steps">,
-): ResolvedExplorationPopulation {
-  const step = getSinglePopulationStep(savedPopulation);
-  // getMetricExplorationPopulationViolations rejects these first.
-  if (!step) {
-    throw new Error(
-      "Only Populations with a single step can be combined with metrics.",
-    );
-  }
-  return { ...step, unit: population.unit };
-}
+export type ParsedMetricExplorationPopulation =
+  | {
+      ok: true;
+      /** The saved Population's single step, counted by the chosen unit. */
+      population: ResolvedExplorationPopulation;
+    }
+  | {
+      ok: false;
+      /** Every problem at once, so an editor can show them together. */
+      violations: string[];
+    };
 
-// The population applies to every metric in the request, so one incompatible
-// metric rejects the request.
-export function getMetricExplorationPopulationViolations({
+/**
+ * Validates a metric exploration's Population against its saved definition
+ * and the request, and returns the definition the query runs. The Population
+ * applies to every metric in the request, so one incompatible metric rejects
+ * the request.
+ */
+export function parseMetricExplorationPopulation({
   population,
   savedPopulation,
   values,
@@ -66,27 +64,42 @@ export function getMetricExplorationPopulationViolations({
   datasource: string;
   metricMap: Map<string, FactMetricInterface>;
   factTableMap: Map<string, PopulationRuleFactTable>;
-}): string[] {
+}): ParsedMetricExplorationPopulation {
   if (!savedPopulation) {
-    return [`Population ${population.populationId} not found.`];
+    return {
+      ok: false,
+      violations: [`Population ${population.populationId} not found.`],
+    };
   }
   if (savedPopulation.datasource !== datasource) {
-    return ["The Population must use the same Data Source as the metrics."];
+    return {
+      ok: false,
+      violations: [
+        "The Population must use the same Data Source as the metrics.",
+      ],
+    };
   }
-  if (!getSinglePopulationStep(savedPopulation)) {
-    return [
-      "Only Populations with a single step can be combined with metrics.",
-    ];
+  const step = getSinglePopulationStep(savedPopulation);
+  if (!step) {
+    return {
+      ok: false,
+      violations: [
+        "Only Populations with a single step can be combined with metrics.",
+      ],
+    };
   }
   if (!savedPopulation.userIdTypes.includes(population.unit)) {
-    return [
-      `The Population doesn't support the identifier type "${population.unit}".`,
-    ];
+    return {
+      ok: false,
+      violations: [
+        `The Population doesn't support the identifier type "${population.unit}".`,
+      ],
+    };
   }
-  const resolved = resolveMetricExplorationPopulation(
-    population,
-    savedPopulation,
-  );
+  const resolved: ResolvedExplorationPopulation = {
+    ...step,
+    unit: population.unit,
+  };
 
   const violations: string[] = [];
   if (values.some((value) => value.draftMetric)) {
@@ -122,14 +135,16 @@ export function getMetricExplorationPopulationViolations({
   if (!values.length) {
     violations.push("Populations require at least one metric.");
   }
+  // Check the Population's own rules only once the metrics fit it.
+  if (violations.length) return { ok: false, violations };
 
-  // return early if there are metric incompatibility violations
-  if (violations.length) return violations;
-
-  return getPopulationRuleViolations({
+  const ruleViolations = getPopulationRuleViolations({
     datasource,
     userIdTypes: [resolved.unit],
     steps: [resolved],
     factTables: [...factTableMap.values()],
   });
+  if (ruleViolations.length) return { ok: false, violations: ruleViolations };
+
+  return { ok: true, population: resolved };
 }

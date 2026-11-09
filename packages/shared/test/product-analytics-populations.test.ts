@@ -4,7 +4,7 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  getMetricExplorationPopulationViolations,
+  parseMetricExplorationPopulation,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
@@ -270,7 +270,7 @@ function violations(
   const { population, values } = config.dataset;
   const resolved = resolvedPopulations.get(config);
   if (!population || !resolved) throw new Error("Expected a population");
-  return getMetricExplorationPopulationViolations({
+  const parsed = parseMetricExplorationPopulation({
     population,
     savedPopulation: savedPopulationFor(resolved),
     values,
@@ -278,7 +278,8 @@ function violations(
     datasource: config.datasource,
     metricMap: new Map(metrics.map((m) => [m.id, m])),
     factTableMap: new Map([[table.id, table]]),
-  }).join(" ");
+  });
+  return parsed.ok ? "" : parsed.violations.join(" ");
 }
 
 function generate(config: MetricExplorationConfig) {
@@ -567,7 +568,7 @@ describe("metric explorations with a population", () => {
       });
       const saved = savedPopulationFor(mobileUsers());
       const check = (savedPopulation: typeof saved | null) =>
-        getMetricExplorationPopulationViolations({
+        parseMetricExplorationPopulation({
           population: { populationId: POPULATION_ID, unit: "user_id" },
           savedPopulation,
           values: config.dataset.values,
@@ -577,8 +578,8 @@ describe("metric explorations with a population", () => {
           factTableMap: new Map([[table.id, table]]),
         });
 
-      it("passes when it fits the request", () => {
-        expect(check(saved)).toEqual([]);
+      it("returns the definition to run when it fits the request", () => {
+        expect(check(saved)).toEqual({ ok: true, population: mobileUsers() });
       });
 
       it.each<[string, typeof saved | null, string]>([
@@ -599,7 +600,10 @@ describe("metric explorations with a population", () => {
           'The Population doesn\'t support the identifier type "user_id".',
         ],
       ])("rejects %s", (_, savedPopulation, message) => {
-        expect(check(savedPopulation)).toEqual([message]);
+        expect(check(savedPopulation)).toEqual({
+          ok: false,
+          violations: [message],
+        });
       });
     });
 
