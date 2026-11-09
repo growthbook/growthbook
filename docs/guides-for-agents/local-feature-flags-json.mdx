@@ -121,7 +121,7 @@ npm install @growthbook/growthbook-react
 ```
 
 ```tsx
-import { useEffect } from "react";
+import { useMemo } from "react";
 import {
   GrowthBook,
   GrowthBookProvider,
@@ -131,8 +131,6 @@ import flags from "./flags.json";
 
 type Flags = typeof flags.features;
 
-const gb = new GrowthBook().initSync({ payload: flags });
-
 // Reads a flag, using its defaultValue in flags.json as the SDK fallback
 export function useFlag<K extends keyof Flags>(key: K) {
   const fallback = flags.features[key].defaultValue;
@@ -140,9 +138,14 @@ export function useFlag<K extends keyof Flags>(key: K) {
 }
 
 export function App({ user }) {
-  useEffect(() => {
-    gb.setAttributes({ id: user.id, plan: user.plan });
-  }, [user]);
+  // Create the instance with the user's attributes, so the first render uses them
+  const gb = useMemo(
+    () =>
+      new GrowthBook({
+        attributes: { id: user.id, plan: user.plan },
+      }).initSync({ payload: flags }),
+    [user.id, user.plan],
+  );
 
   return (
     <GrowthBookProvider growthbook={gb}>
@@ -175,7 +178,7 @@ npm install @growthbook/growthbook-react
 ```
 
 ```tsx
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { Text, View } from "react-native";
 import {
   GrowthBook,
@@ -186,8 +189,6 @@ import flags from "./flags.json";
 
 type Flags = typeof flags.features;
 
-const gb = new GrowthBook().initSync({ payload: flags });
-
 // Reads a flag, using its defaultValue in flags.json as the SDK fallback
 export function useFlag<K extends keyof Flags>(key: K) {
   const fallback = flags.features[key].defaultValue;
@@ -195,9 +196,14 @@ export function useFlag<K extends keyof Flags>(key: K) {
 }
 
 export default function App({ user }) {
-  useEffect(() => {
-    gb.setAttributes({ id: user.id, plan: user.plan });
-  }, [user]);
+  // Create the instance with the user's attributes, so the first render uses them
+  const gb = useMemo(
+    () =>
+      new GrowthBook({
+        attributes: { id: user.id, plan: user.plan },
+      }).initSync({ payload: flags }),
+    [user.id, user.plan],
+  );
 
   return (
     <GrowthBookProvider growthbook={gb}>
