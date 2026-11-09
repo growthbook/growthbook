@@ -176,3 +176,27 @@ export function getReadOnlyUnit(
     ? value.unit
     : null;
 }
+
+/**
+ * The Fact Table a Population must read from to be combined with these
+ * metrics, or null when they can't take one. Populations only support
+ * proportion metrics, and every metric must share the Population's Fact Table.
+ */
+export function getPopulationFactTableId(
+  values: MetricValue[],
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string | null {
+  let sharedFactTableId: string | null = null;
+  for (const value of values) {
+    const metric = getFactMetricById(value.metricId);
+    if (!metric || metric.metricType !== "proportion") return null;
+
+    const factTableId = metric.numerator.factTableId;
+    if (sharedFactTableId === null) {
+      sharedFactTableId = factTableId;
+    } else if (factTableId !== sharedFactTableId) {
+      return null;
+    }
+  }
+  return sharedFactTableId;
+}

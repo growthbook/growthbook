@@ -3,6 +3,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import type {
   InterleavingAnalysis,
   InterleavingVariationRole,
+  ResolvedExplorationPopulation,
 } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
@@ -689,6 +690,8 @@ export type MetricAnalysisParams = {
 export type ProductAnalyticsExplorationParams = {
   factTableMap: FactTableMap;
   factMetricMap: Map<string, FactMetricInterface>;
+  /** The saved Population behind a metric dataset's `population`, if any. */
+  population: ResolvedExplorationPopulation | null;
 };
 
 export type DimensionColumnData = {

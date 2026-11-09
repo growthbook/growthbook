@@ -15,7 +15,8 @@ import { sqlReferencesColumn } from "../../experiments/experiments";
 
 // The exploration config shape persisted by both saved explorations and
 // dashboard "exploration" blocks. Metric definitions are covered by the
-// fact-metric dependency scan; their dataset population is scanned here.
+// fact-metric dependency scan; their dataset population only references a
+// saved Population.
 type ExplorationConfig =
   | z.infer<typeof metricExplorationConfigValidator>
   | z.infer<typeof factTableExplorationConfigValidator>
@@ -98,19 +99,11 @@ export function explorationConfigReferencesColumn(
   identifierQuote: SqlIdentifierQuote,
   filters: SavedFilter[],
 ): boolean {
-  if (config.type === "metric") {
-    const population = config.dataset.population;
-    if (!population || population.source.factTableId !== factTableId) {
-      return false;
-    }
-    return (
-      population.unit === columnName ||
-      population.aggregateFilterColumn === columnName ||
-      population.rowFilters.some((f) =>
-        rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
-      )
-    );
-  }
+  // Metric definitions are covered by the fact-metric scan. The dataset
+  // population is a saved Population reference, which holds the columns.
+  // shortcut: saved Populations don't block column deletion yet; add a
+  // Population scan when they do.
+  if (config.type === "metric") return false;
 
   if (config.type === "fact_table") {
     if (config.dataset.factTableId !== factTableId) return false;

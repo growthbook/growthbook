@@ -243,7 +243,9 @@ export default function ExplorerChart({
     if (submittedExploreState.dataset?.type === "journey") return null;
     return renderOpts.values.map((opts, metricIndex) => {
       const cell = row?.values?.[metricIndex];
-      const value = cell ? getEffectiveMetricValue(cell, opts) : 0;
+      const value = cell
+        ? getEffectiveMetricValue(cell, opts, row.populationCount)
+        : 0;
       return { value, label: opts.seriesName };
     });
   }, [exploration?.result?.rows, submittedExploreState, renderOpts]);

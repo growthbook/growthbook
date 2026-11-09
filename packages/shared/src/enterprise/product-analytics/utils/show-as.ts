@@ -24,7 +24,8 @@ const NO_SHOW_AS_CHOICE_DEFAULT: ShowAs = "total";
  *   gives a real per-unit average.
  * - proportion / retention / dailyParticipation: not listed. They emit one row
  *   per qualifying unit, so the unit count equals the numerator and per unit
- *   would always be ~1.
+ *   would always be ~1. Proportions get options only with a population (see
+ *   `SHOW_AS_OPTIONS_WITH_POPULATION`).
  * - ratio / quantile: not listed. Ratios already divide by their own
  *   denominator, and quantiles emit no denominator.
  */
@@ -34,11 +35,34 @@ const SHOW_AS_OPTIONS_BY_METRIC_TYPE: Partial<
   mean: ["total", "per_unit"],
 };
 
+/**
+ * The Show as options a metric type offers when the dataset has a population.
+ * A proportion's converting units can then be shown as a share of the
+ * population's members.
+ */
+const SHOW_AS_OPTIONS_WITH_POPULATION: Partial<
+  Record<FactMetricType, readonly ShowAs[]>
+> = {
+  proportion: ["total", "percent_of_population"],
+};
+
 /** The Show as options a metric type offers; empty when it offers none. */
 export function getShowAsOptions(
   metricType: FactMetricType | undefined,
+  hasPopulation: boolean,
 ): readonly ShowAs[] {
-  return (metricType && SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType]) ?? [];
+  if (!metricType) return [];
+  if (hasPopulation) {
+    const populationOptions = SHOW_AS_OPTIONS_WITH_POPULATION[metricType];
+    if (populationOptions) return populationOptions;
+  }
+  return SHOW_AS_OPTIONS_BY_METRIC_TYPE[metricType] ?? [];
+}
+
+/** Whether a config's metric dataset has a population. */
+export function configHasPopulation(config: ExplorationConfig | null): boolean {
+  if (config?.dataset.type !== "metric") return false;
+  return config.dataset.population !== undefined;
 }
 
 /** How one dataset value renders, and which Show as options it offers. */
@@ -89,10 +113,11 @@ export function getShowAsChoice(
   value: ProductAnalyticsValue,
   legacyShowAs: ShowAs | undefined,
   getFactMetricById: (id: string) => FactMetricInterface | null,
+  hasPopulation: boolean,
 ): ShowAsChoice {
   if (value.type !== "metric") return NO_SHOW_AS_CHOICE;
   const metric = getDraftOrSavedMetric(value, getFactMetricById);
-  const options = getShowAsOptions(metric?.metricType);
+  const options = getShowAsOptions(metric?.metricType, hasPopulation);
   if (!options.length) return NO_SHOW_AS_CHOICE;
   const showAs =
     [value.showAs, legacyShowAs, inferShowAs(metric)].find(
@@ -122,6 +147,8 @@ export function normalizeShowAs<T extends ExplorationConfig>(
 
   const legacyShowAs = config.showAs;
   const hasLegacyShowAs = legacyShowAs !== undefined;
+  // Removing the population strips `percent_of_population` from its values.
+  const hasPopulation = configHasPopulation(config);
   let valuesChanged = false;
 
   const values = config.dataset.values.map((value): MetricValue => {
@@ -133,7 +160,8 @@ export function normalizeShowAs<T extends ExplorationConfig>(
     // are unknown, so keep the choice rather than lose it.
     const optionsAreUnknown = metric === null;
     const metricOffersShowAs =
-      metric !== null && getShowAsOptions(metric.metricType).includes(showAs);
+      metric !== null &&
+      getShowAsOptions(metric.metricType, hasPopulation).includes(showAs);
     const keepShowAs = optionsAreUnknown || metricOffersShowAs;
     const alreadyStored = value.showAs === showAs;
 

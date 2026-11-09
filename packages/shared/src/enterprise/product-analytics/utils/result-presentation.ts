@@ -7,7 +7,11 @@ import type {
   ProductAnalyticsValue,
   ShowAs,
 } from "../../../validators/product-analytics";
-import { getDraftOrSavedMetric, getShowAsChoice } from "./show-as";
+import {
+  configHasPopulation,
+  getDraftOrSavedMetric,
+  getShowAsChoice,
+} from "./show-as";
 import { getSharedUnit } from "./units";
 
 // ---- showAs inference & applicability ---------------------------------------
@@ -27,6 +31,7 @@ export function getDefaultValueAxisName({
 }: ExplorationRenderOpts): string {
   if (sharedShowAs === null) return "";
   if (sharedShowAs === "total") return "Total";
+  if (sharedShowAs === "percent_of_population") return "% of Population";
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
 }
 
@@ -62,6 +67,7 @@ function getAnnotatedName(
 ): string {
   const name = getValueName(value, index);
   if (showAs === "total") return `${name} (total)`;
+  if (showAs === "percent_of_population") return `${name} (% of Population)`;
   const unit =
     ("unit" in value && typeof value.unit === "string" ? value.unit : null) ||
     sharedUnit ||
@@ -74,10 +80,14 @@ function getAnnotatedName(
  * the effective showAs and whether the underlying metric is a ratio. Ratios
  * always render as N/D regardless of showAs. Without render settings (no
  * dataset value at that index) the raw numerator is used.
+ *
+ * `populationCount` is the result row's population member count, present only
+ * when the request has a population.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
   opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
+  populationCount?: number,
 ): number {
   const num = v.numerator ?? 0;
   if (opts?.isRatio) {
@@ -85,6 +95,11 @@ export function getEffectiveMetricValue(
   }
   if (opts?.showAs === "per_unit") {
     return v.denominator ? num / v.denominator : num;
+  }
+  if (opts?.showAs === "percent_of_population") {
+    if (!populationCount) return 0;
+    const shareOfPopulation = num / populationCount;
+    return shareOfPopulation * 100;
   }
   return num;
 }
@@ -137,8 +152,9 @@ export function getExplorationRenderOpts(
 ): ExplorationRenderOpts {
   if (!datasetHasValues(config?.dataset)) return NO_VALUES_RENDER_OPTS;
   const { values } = config.dataset;
+  const hasPopulation = configHasPopulation(config);
   const choices = values.map((v) =>
-    getShowAsChoice(v, config.showAs, getFactMetricById),
+    getShowAsChoice(v, config.showAs, getFactMetricById, hasPopulation),
   );
   const someValueOffersShowAs = choices.some(
     (choice) => choice.options.length > 0,
@@ -154,7 +170,9 @@ export function getExplorationRenderOpts(
   const hasCustomAxisTitle = config.chartSettings?.valueAxisLabel !== undefined;
   const axisTitleNamesTheUnit = !hasCustomAxisTitle && sharedUnit !== null;
   const annotateNames =
-    modesAreMixed || (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit);
+    modesAreMixed ||
+    (sharedShowAs === "per_unit" && !axisTitleNamesTheUnit) ||
+    (sharedShowAs === "percent_of_population" && hasCustomAxisTitle);
 
   return {
     values: values.map((v, i) => ({
@@ -277,8 +295,11 @@ export function buildExplorationColumns(
       return;
     }
 
-    // A plain header means total, unless per-unit columns sit beside it.
-    const annotate = showAs === "per_unit" || modesAreMixed;
+    // A plain header means total, unless other modes' columns sit beside it.
+    const annotate =
+      showAs === "per_unit" ||
+      showAs === "percent_of_population" ||
+      modesAreMixed;
     const singleLabel = annotate
       ? getAnnotatedName(v, metricIndex, showAs, sharedUnit)
       : name;
@@ -308,6 +329,7 @@ export function getExplorationCellValue(
     // shared schema for funnels is dimension-only (no metric columns), so
     // values is always undefined for funnel callers and treated as empty.
     values?: { numerator: number | null; denominator: number | null }[];
+    populationCount?: number;
   },
   col: ExplorationColumn,
   renderOpts: ExplorationRenderOpts,
@@ -325,7 +347,11 @@ export function getExplorationCellValue(
     return null;
   }
   if (v.numerator == null) return null;
-  return getEffectiveMetricValue(v, renderOpts.values[col.metricIndex]);
+  return getEffectiveMetricValue(
+    v,
+    renderOpts.values[col.metricIndex],
+    row.populationCount,
+  );
 }
 
 function getRowTotal(
@@ -333,7 +359,8 @@ function getRowTotal(
   opts: ExplorationRenderOpts,
 ): number {
   return (row.values ?? []).reduce(
-    (sum, v, i) => sum + getEffectiveMetricValue(v, opts.values[i]),
+    (sum, v, i) =>
+      sum + getEffectiveMetricValue(v, opts.values[i], row.populationCount),
     0,
   );
 }

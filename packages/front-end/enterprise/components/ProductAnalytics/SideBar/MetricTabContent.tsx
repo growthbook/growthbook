@@ -3,14 +3,16 @@ import { omit } from "lodash";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { FactMetricInterface } from "shared/types/fact-table";
-import type { MetricValue } from "shared/validators";
+import type { ApiPopulation, MetricValue } from "shared/validators";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
+import { getMetricPopulationViolations } from "shared/enterprise";
 import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -23,6 +25,7 @@ import {
   getLockedMixClass,
   getMetricValuesUnitState,
   getMixClassConflict,
+  getPopulationFactTableId,
   getReadOnlyUnit,
   getUnitConflict,
   getUnitPicker,
@@ -32,9 +35,13 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
+import { usePopulations } from "@/hooks/usePopulations";
 import ShowAsInput from "./ShowAsInput";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
+
+// Radix Select items can't use an empty string, so "no Population" needs a key.
+const NO_POPULATION = "__none__";
 
 export default function MetricTabContent() {
   const {
@@ -43,14 +50,25 @@ export default function MetricTabContent() {
     addValueToDataset,
     updateValueInDataset,
   } = useExplorerContext();
-  const { factMetrics, getFactTableById, getFactMetricById, project } =
-    useDefinitions();
+  const {
+    factMetrics,
+    factTables,
+    getFactTableById,
+    getFactMetricById,
+    project,
+  } = useDefinitions();
   const { permissionsUtil } = useUser();
+  const { populations } = usePopulations(project);
 
   const values: MetricValue[] =
     draftExploreState.dataset?.type === "metric"
       ? draftExploreState.dataset.values
       : [];
+  const population =
+    draftExploreState.dataset?.type === "metric"
+      ? draftExploreState.dataset.population
+      : undefined;
+  const hasPopulation = population !== undefined;
   const unitPicker = getUnitPicker(values, getFactMetricById, getFactTableById);
   const unitsAreMixed = getMetricValuesUnitState(
     values,
@@ -60,6 +78,49 @@ export default function MetricTabContent() {
   const addMetricConflict = getAddMetricConflict(
     values.map((v) => getFactMetricById(v.metricId ?? "")?.metricType),
   );
+
+  // Only offer Populations that read from the metrics' shared Fact Table.
+  const populationFactTableId = getPopulationFactTableId(
+    values,
+    getFactMetricById,
+  );
+  const populationCanBeCombined = (candidate: ApiPopulation) => {
+    const isOnThisDataSource =
+      candidate.datasource === draftExploreState.datasource;
+    const readsFromMetricsFactTable =
+      candidate.steps[0]?.source.factTableId === populationFactTableId;
+    const supportsChartUnit =
+      !unitPicker?.value || candidate.userIdTypes.includes(unitPicker.value);
+    return isOnThisDataSource && readsFromMetricsFactTable && supportsChartUnit;
+  };
+  const populationOptions = populations.filter(populationCanBeCombined);
+  // Keep the picker visible while a Population is set so it can be cleared.
+  const showPopulationPicker = populationFactTableId !== null || hasPopulation;
+  const savedPopulation = population
+    ? (populations.find((p) => p.id === population.populationId) ?? null)
+    : null;
+
+  const getPopulationViolations = (): string[] => {
+    if (!population) return [];
+    const metricMap = new Map<string, FactMetricInterface>();
+    const chosenValues: MetricValue[] = [];
+    for (const value of values) {
+      if (!value.metricId) continue;
+      chosenValues.push(value);
+      const metric = getFactMetricById(value.metricId);
+      if (metric) metricMap.set(metric.id, metric);
+    }
+    return getMetricPopulationViolations({
+      population,
+      savedPopulation,
+      values: chosenValues,
+      dimensions: draftExploreState.dimensions,
+      datasource: draftExploreState.datasource,
+      metricMap,
+      factTableMap: new Map(factTables.map((table) => [table.id, table])),
+    });
+  };
+  const populationViolations = getPopulationViolations();
 
   // Build the base grouped options list for this datasource. All metrics are
   // always shown; compat is enforced per-slot via isOptionDisabled so users
@@ -123,21 +184,44 @@ export default function MetricTabContent() {
     getUnitConflict(metric, lockedUnit, getFactTableById);
 
   const handleUnitChange = (unit: string) =>
-    setDraftExploreState((prev) =>
-      prev.type === "metric"
-        ? {
-            ...prev,
-            dataset: {
-              ...prev.dataset,
-              values: setMetricValuesUnit(
-                prev.dataset.values,
-                unit,
-                getFactMetricById,
-              ),
-            },
-          }
-        : prev,
-    );
+    setDraftExploreState((prev) => {
+      if (prev.type !== "metric") return prev;
+      const nextValues = setMetricValuesUnit(
+        prev.dataset.values,
+        unit,
+        getFactMetricById,
+      );
+      // The Population counts members by the chart's identifier type.
+      const nextDataset = { ...prev.dataset, values: nextValues };
+      if (prev.dataset.population) {
+        nextDataset.population = { ...prev.dataset.population, unit };
+      }
+      return { ...prev, dataset: nextDataset };
+    });
+
+  const handlePopulationChange = (populationId: string) =>
+    setDraftExploreState((prev) => {
+      if (prev.type !== "metric") return prev;
+      if (populationId === NO_POPULATION) {
+        return { ...prev, dataset: omit(prev.dataset, "population") };
+      }
+
+      const unit = unitPicker?.value;
+      if (!unit) return prev;
+
+      // Populations can only be grouped by date.
+      const dateDimensions = prev.dimensions.filter(
+        (d) => d.dimensionType === "date",
+      );
+      return {
+        ...prev,
+        dimensions: dateDimensions,
+        dataset: {
+          ...prev.dataset,
+          population: { populationId, unit },
+        },
+      };
+    });
 
   return (
     <Flex direction="column" gap="4">
@@ -160,6 +244,7 @@ export default function MetricTabContent() {
           v,
           draftExploreState.showAs,
           getFactMetricById,
+          hasPopulation,
         );
         return (
           <ValueCard
@@ -279,6 +364,28 @@ export default function MetricTabContent() {
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
+          {showPopulationPicker && (
+            <Select
+              label="Population"
+              labelWeight="medium"
+              value={population?.populationId ?? NO_POPULATION}
+              disabled={!unitPicker.value}
+              error={
+                unitPicker.value
+                  ? undefined
+                  : "Select an identifier type to add a Population."
+              }
+              errorLevel="warning"
+              setValue={handlePopulationChange}
+            >
+              <SelectItem value={NO_POPULATION}>None</SelectItem>
+              {populationOptions.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
           <Select
             label="Identifier type"
             labelWeight="medium"
@@ -295,6 +402,13 @@ export default function MetricTabContent() {
               </SelectItem>
             ))}
           </Select>
+          {populationViolations.length > 0 && (
+            <Callout status="warning">
+              {populationViolations.map((violation) => (
+                <div key={violation}>{violation}</div>
+              ))}
+            </Callout>
+          )}
         </Flex>
       )}
     </Flex>

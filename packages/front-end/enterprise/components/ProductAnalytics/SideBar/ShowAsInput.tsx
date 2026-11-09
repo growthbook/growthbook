@@ -10,6 +10,7 @@ import Text from "@/ui/Text";
 const getLabels = (unit: string | null): Record<ShowAs, string> => ({
   total: "Event totals",
   per_unit: unit ? `Per ${unit}` : "Per unit",
+  percent_of_population: "% of Population",
 });
 
 export default function ShowAsInput({
@@ -24,7 +25,7 @@ export default function ShowAsInput({
   setValue: (value: ShowAs) => void;
   /** The chart's identifier type, when every metric shares one. */
   unit: string | null;
-  /** Names the trigger, since every mean metric card has one. */
+  /** Names the trigger, since every metric card with options has one. */
   metricName: string;
 }) {
   const [open, setOpen] = useState(false);

@@ -6,6 +6,7 @@ import {
   ExplorationCacheQuery,
   factMetricValidator,
   PopulationStep,
+  ResolvedExplorationPopulation,
 } from "shared/validators";
 import {
   getPopulationFactTableIds,
@@ -18,6 +19,7 @@ import {
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
   getMetricPopulationViolations,
+  resolveExplorationPopulation,
   withRequestedDisplayConfig,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
@@ -118,6 +120,7 @@ export async function runProductAnalyticsExploration(
   // If no existing exploration, create a new one
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
+  let population: ResolvedExplorationPopulation | null = null;
 
   if (dataset.type === "fact_table") {
     if (!dataset.factTableId) {
@@ -192,8 +195,13 @@ export async function runProductAnalyticsExploration(
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
 
     if (dataset.population) {
+      // Returns null when the Population doesn't exist or can't be read.
+      const savedPopulation = await context.models.populations.getById(
+        dataset.population.populationId,
+      );
       const populationViolations = getMetricPopulationViolations({
         population: dataset.population,
+        savedPopulation,
         values: dataset.values,
         dimensions: config.dimensions,
         datasource: datasource.id,
@@ -202,6 +210,13 @@ export async function runProductAnalyticsExploration(
       });
       if (populationViolations.length) {
         throw new BadRequestError(populationViolations.join(" "));
+      }
+      // Violations above cover a missing Population.
+      if (savedPopulation) {
+        population = resolveExplorationPopulation(
+          dataset.population,
+          savedPopulation,
+        );
       }
     }
 
@@ -444,6 +459,7 @@ export async function runProductAnalyticsExploration(
     await queryRunner.startAnalysis({
       factTableMap,
       factMetricMap: metricMap,
+      population,
     });
     // If results aren't ready within the sync budget, return the in-progress
     // exploration (status "running") instead of blocking the request. The

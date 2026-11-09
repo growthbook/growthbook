@@ -386,7 +386,11 @@ export function buildComparisonOverlaySeriesMaps(
         bump(
           seriesKey,
           x,
-          getEffectiveMetricValue(cell, renderOpts.values[mi]),
+          getEffectiveMetricValue(
+            cell,
+            renderOpts.values[mi],
+            row.populationCount,
+          ),
         );
       }
       continue;
@@ -408,7 +412,15 @@ export function buildComparisonOverlaySeriesMaps(
       }
       const cell = row.values?.[0];
       if (!cell) continue;
-      bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts.values[0]));
+      bump(
+        seriesKey,
+        x,
+        getEffectiveMetricValue(
+          cell,
+          renderOpts.values[0],
+          row.populationCount,
+        ),
+      );
       continue;
     }
 
@@ -421,7 +433,11 @@ export function buildComparisonOverlaySeriesMaps(
     }
     const cell = row.values?.[0];
     if (!cell) continue;
-    bump(seriesKey, x, getEffectiveMetricValue(cell, renderOpts.values[0]));
+    bump(
+      seriesKey,
+      x,
+      getEffectiveMetricValue(cell, renderOpts.values[0], row.populationCount),
+    );
   }
 
   return { uniqueXValues, dataMap, seriesMeta };
@@ -906,10 +922,12 @@ export function computeBigNumberComparisonTrendForMetricIndex(
   const currentValue = getEffectiveMetricValue(
     currCell,
     renderOpts.values[metricIndex],
+    exploration.result.rows[0]?.populationCount,
   );
   const previousValue = getEffectiveMetricValue(
     prevCell,
     renderOpts.values[metricIndex],
+    comparisonExploration.result.rows[0]?.populationCount,
   );
 
   if (previousValue === 0) {

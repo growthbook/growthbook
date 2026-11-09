@@ -221,6 +221,19 @@ describe("draft metric explorations", () => {
     permissions,
     models: {
       factMetrics: { getByIds },
+      populations: {
+        getById: jest.fn(async () => ({
+          id: "pop_1",
+          datasource: "ds_1",
+          userIdTypes: ["user_id"],
+          steps: [
+            {
+              source: { type: "factTable", factTableId: "ft_1" },
+              rowFilters: [],
+            },
+          ],
+        })),
+      },
       analyticsExplorations: {
         create,
         findLatestByConfig,
@@ -245,11 +258,7 @@ describe("draft metric explorations", () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric");
-    testConfig.dataset.population = {
-      source: { type: "factTable", factTableId: "ft_1" },
-      rowFilters: [],
-      unit: "user_id",
-    };
+    testConfig.dataset.population = { populationId: "pop_1", unit: "user_id" };
     const run = runProductAnalyticsExploration(context, testConfig, {
       ...internal,
       cache: "preferred",
@@ -333,11 +342,16 @@ describe("draft metric explorations", () => {
 });
 
 describe("metric dataset population validation", () => {
-  const population = {
-    source: { type: "factTable" as const, factTableId: "ft_1" },
-    rowFilters: [],
-    unit: "user_id",
+  const population = { populationId: "pop_1", unit: "user_id" };
+  const savedPopulation = {
+    id: "pop_1",
+    datasource: "ds_1",
+    userIdTypes: ["user_id"],
+    steps: [
+      { source: { type: "factTable", factTableId: "ft_1" }, rowFilters: [] },
+    ],
   };
+  const getPopulationById = jest.fn();
   const metric = {
     id: "fact_1",
     datasource: "ds_1",
@@ -370,6 +384,7 @@ describe("metric dataset population validation", () => {
     permissions,
     models: {
       factMetrics: { getByIds: jest.fn(async () => [metric]) },
+      populations: { getById: getPopulationById },
       analyticsExplorations: { findLatestByConfig, create },
     },
   } as unknown as ReqContext;
@@ -381,6 +396,7 @@ describe("metric dataset population validation", () => {
       { ...makeFactTable("ft_1"), columns: [] },
     ]);
     findLatestByConfig.mockResolvedValue(null);
+    getPopulationById.mockResolvedValue(savedPopulation);
   });
   const run = (c = config) =>
     runProductAnalyticsExploration(context, c, { cache: "required" });
@@ -393,11 +409,7 @@ describe("metric dataset population validation", () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
-    testConfig.dataset.population = {
-      ...population,
-      aggregateFilter: ">2",
-      aggregateFilterColumn: "$$count",
-    };
+    testConfig.dataset.population = { ...population, populationId: "pop_2" };
     await run(testConfig);
     expect(findLatestByConfig.mock.calls[1][0]).toEqual(testConfig);
     expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
@@ -406,13 +418,23 @@ describe("metric dataset population validation", () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
-    testConfig.dataset.population = {
-      ...population,
-      source: { type: "factTable", factTableId: "other" },
-    };
-    const result = runUncached(testConfig);
+    getPopulationById.mockResolvedValue({
+      ...savedPopulation,
+      steps: [
+        { source: { type: "factTable", factTableId: "other" }, rowFilters: [] },
+      ],
+    });
+    const result = runUncached();
     await expect(result).rejects.toThrow(BadRequestError);
     await expect(result).rejects.toThrow("same Fact Table");
+    expect(getPopulationById).toHaveBeenCalledWith("pop_1");
+    expect(create).not.toHaveBeenCalled();
+  });
+  it("rejects a Population that doesn't exist or can't be read", async () => {
+    getPopulationById.mockResolvedValue(null);
+    const result = runUncached();
+    await expect(result).rejects.toThrow(BadRequestError);
+    await expect(result).rejects.toThrow("Population pop_1 not found.");
     expect(create).not.toHaveBeenCalled();
   });
   it("rejects the request when any metric is incompatible with the population", async () => {

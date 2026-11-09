@@ -23,6 +23,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import {
   normalizeShowAs,
   getShowAsOptions,
+  configHasPopulation,
   fillMissingUnits,
   getExplorationRenderOpts,
   buildExplorationColumns,
@@ -391,7 +392,9 @@ function buildResultCsv(
       const isRatioOrPerUnit =
         col.sub === "value" ||
         (col.sub === "single" &&
-          (valueOpts?.isRatio || valueOpts?.showAs === "per_unit"));
+          (valueOpts?.isRatio ||
+            valueOpts?.showAs === "per_unit" ||
+            valueOpts?.showAs === "percent_of_population"));
       return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
     }
     return String(raw);
@@ -831,6 +834,7 @@ async function normalizeConfigForExplorer(
   // isn't one of the metric's Show as options, so we never persist a mode that
   // disagrees with what the chart will actually render.
   const legacyShowAs = normalized.showAs;
+  const hasPopulation = configHasPopulation(normalized);
   const dropped =
     normalized.dataset.type === "metric"
       ? normalized.dataset.values.filter((v) => {
@@ -839,7 +843,7 @@ async function normalizeConfigForExplorer(
           return (
             asked !== undefined &&
             metric !== null &&
-            !getShowAsOptions(metric.metricType).includes(asked)
+            !getShowAsOptions(metric.metricType, hasPopulation).includes(asked)
           );
         })
       : [];
