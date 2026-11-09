@@ -1836,12 +1836,13 @@ export default abstract class SqlIntegration
       ...(factTableId && { factTableIds: [factTableId] }),
     });
 
+    const countsAreRanks = !!this.getSqlDialect().approxTopValuesCountsAreRanks;
     return {
       statistics,
       rows: rows.map((r) => ({
         column: r.column_name + "",
         value: r.value + "",
-        count: Number(r.count),
+        ...(!countsAreRanks && { count: Number(r.count) }),
       })),
     };
   }

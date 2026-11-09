@@ -251,4 +251,7 @@ export interface SqlDialect {
    */
   arrayElement: (arrayCol: string, index: number) => string;
   approxTopValuesCTEBody?: (params: ApproxTopValuesParams) => string;
+  // The approximate body's `count` only orders values (ClickHouse topK has no
+  // counts before 24.2), so it isn't returned as a row count
+  approxTopValuesCountsAreRanks?: boolean;
 }

@@ -872,7 +872,8 @@ export const postColumnTopValues = async (
     { id: string; column: string },
     { forceAutoSlice?: string }
   >,
-  res: Response<{ status: 200; values: { value: string; count: number }[] }>,
+  // values is missing when the warehouse can't count them
+  res: Response<{ status: 200; values?: { value: string; count: number }[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -909,7 +910,7 @@ export const postColumnTopValues = async (
       }
     : databaseColumn;
 
-  let values: { value: string; count: number }[] = [];
+  let values: { value: string; count: number }[] | undefined = [];
 
   if (
     forceAutoSlice ||
@@ -924,8 +925,10 @@ export const postColumnTopValues = async (
         [column],
       );
 
-      values = countsByColumn[column.column] || [];
-      const topValueFields = getTopValueFields(values);
+      const topValueFields = getTopValueFields(
+        countsByColumn[column.column] || [],
+      );
+      values = topValueFields.topValueCounts;
       const maxSliceLevels =
         context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS;

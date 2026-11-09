@@ -355,7 +355,8 @@ export type ColumnTopValuesParams = {
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
-  count: number;
+  // Missing when the warehouse can only rank values
+  count?: number;
 };
 
 export interface ExperimentUnitsQuerySettings {

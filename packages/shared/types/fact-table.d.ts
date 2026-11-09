@@ -73,7 +73,8 @@ export interface ColumnInterface {
   topValuesDate?: Date;
   // topValues with their row counts, written alongside topValues. Display-only:
   // filter pickers and Auto Slices read topValues. Missing on columns saved
-  // before counts existed until their next refresh.
+  // before counts existed until their next refresh, and on ClickHouse, whose
+  // topK only ranks values.
   topValueCounts?: { value: string; count: number }[];
   jsonFields?: JSONColumnFields;
   deleted: boolean;

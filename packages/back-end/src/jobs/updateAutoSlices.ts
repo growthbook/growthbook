@@ -153,7 +153,7 @@ async function updateAutoSlicesForColumns(
         // Process results for each column
         for (const col of columnChunk) {
           const { topValues, topValueCounts } = getTopValueFields(
-            countsByColumn[col.column],
+            countsByColumn[col.column] ?? [],
           );
           col.topValues = topValues;
           col.topValueCounts = topValueCounts;

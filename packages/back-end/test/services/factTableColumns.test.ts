@@ -84,9 +84,9 @@ describe("getTopValueFields", () => {
     });
   });
 
-  it("leaves both fields unset when there are no counts", () => {
-    expect(getTopValueFields(undefined)).toEqual({
-      topValues: undefined,
+  it("stores no counts when any value is missing one", () => {
+    expect(getTopValueFields([{ value: "a" }, { value: "b" }])).toEqual({
+      topValues: ["a", "b"],
       topValueCounts: undefined,
     });
   });

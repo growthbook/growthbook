@@ -95,17 +95,21 @@ export function selectColumnsForTopValues({
 }
 
 type TopValueCount = NonNullable<ColumnInterface["topValueCounts"]>[number];
+type RankedValue = { value: string; count?: number };
 
-// The one writer for a column's top values, so the string list can't drift from the counts
-export function getTopValueFields(counts: TopValueCount[]): {
+// The one writer for a column's top values, so the string list can't drift
+// from the counts. Counts are only stored when every value has one.
+export function getTopValueFields(values: RankedValue[]): {
   topValues: string[];
-  topValueCounts: TopValueCount[];
-};
-export function getTopValueFields(
-  counts: TopValueCount[] | undefined,
-): Pick<ColumnInterface, "topValues" | "topValueCounts">;
-export function getTopValueFields(counts: TopValueCount[] | undefined) {
-  return { topValues: counts?.map((c) => c.value), topValueCounts: counts };
+  topValueCounts: TopValueCount[] | undefined;
+} {
+  const counts = values.flatMap((v) =>
+    v.count === undefined ? [] : [{ value: v.value, count: v.count }],
+  );
+  return {
+    topValues: values.map((v) => v.value),
+    topValueCounts: counts.length === values.length ? counts : undefined,
+  };
 }
 
 export async function runColumnsTopValuesQuery(
@@ -135,7 +139,7 @@ export async function runColumnsTopValueCountsQuery(
     limit?: number;
     searchTerm?: string;
   },
-): Promise<Record<string, { value: string; count: number }[]>> {
+): Promise<Record<string, RankedValue[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
@@ -175,7 +179,7 @@ export async function runColumnsTopValueCountsQuery(
   const result = await integration.runColumnsTopValuesQuery(sql, factTable.id);
 
   // Group results by column name
-  const columnValues: Record<string, { value: string; count: number }[]> = {};
+  const columnValues: Record<string, RankedValue[]> = {};
   for (const row of result.rows) {
     if (!columnValues[row.column]) {
       columnValues[row.column] = [];
