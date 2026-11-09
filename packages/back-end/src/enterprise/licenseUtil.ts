@@ -18,6 +18,7 @@ import {
   LicenseUserCodes,
   makeOrgLimits,
   DEFAULT_ORG_LIMITS,
+  isOrbPaymentPastDue,
   OrgLimits,
   OrgLimitsAccessor,
   planTierFor,
@@ -72,18 +73,11 @@ export function getSubscriptionFromLicense(
 
   if (!sub) return null;
 
-  // Orb keeps the subscription active while a card is declining. Derive past due
-  // from the open payment failure instead of storing a status Orb does not own.
-  const paymentPastDue =
-    !!orbSub &&
-    !!license.paymentFailure?.invoiceId &&
-    orbSub.status === "active";
-
   return {
     billingPlatform: orbSub ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
-    status: paymentPastDue
+    status: isOrbPaymentPastDue(license)
       ? "past_due"
       : getStripeSubscriptionStatus(sub.status),
     hasPaymentMethod: !!sub.hasPaymentMethod,

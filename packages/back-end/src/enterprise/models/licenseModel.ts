@@ -121,6 +121,17 @@ export async function _dangerousGetLicenseRefsBySubscriptionStatus(
       "stripeSubscription.status": { $in: statuses },
     },
   ];
+  // Same check as isOrbPaymentPastDue
+  const orbPaymentPastDue = {
+    "orbSubscription.id": { $nin: [null, ""] },
+    "orbSubscription.status": "active",
+    "paymentFailure.invoiceId": { $nin: [null, ""] },
+  };
+  if (status === "past_due") {
+    return getLicenseRefs({
+      $or: [...subscriptionMatches([status]), orbPaymentPastDue],
+    });
+  }
   return getLicenseRefs({
     $or:
       status === "trialing"
@@ -129,7 +140,10 @@ export async function _dangerousGetLicenseRefsBySubscriptionStatus(
             // getAdminOrgSummary shows past_due and canceled over isTrial
             {
               isTrial: true,
-              $nor: subscriptionMatches(["past_due", "canceled"]),
+              $nor: [
+                ...subscriptionMatches(["past_due", "canceled"]),
+                orbPaymentPastDue,
+              ],
             },
           ]
         : subscriptionMatches([status]),

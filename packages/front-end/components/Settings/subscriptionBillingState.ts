@@ -89,7 +89,7 @@ function getActions(
   const isOrb = subscription?.billingPlatform === "orb";
   const isActive = subscription?.status === "active";
   const canUpdateOrbInvoice =
-    isOrb && (isActive || subscription?.status === "past_due") && !isEnterprise;
+    isOrb && (isActive || subscription?.status === "past_due");
 
   return {
     showStripeManageButton: subscription?.billingPlatform === "stripe",

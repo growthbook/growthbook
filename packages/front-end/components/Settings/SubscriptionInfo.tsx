@@ -7,6 +7,7 @@ import { type Team, useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
 import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
+import { useCanShowPaymentInfo } from "@/enterprise/components/Billing/PaymentInfo";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Modal from "@/components/Modal";
@@ -122,9 +123,11 @@ function NextBillDateRow({
 function BillingStatusSection({
   billing,
   actionLabel,
+  canAddPaymentMethod,
 }: {
   billing: SubscriptionBillingState;
   actionLabel: string;
+  canAddPaymentMethod: boolean;
 }) {
   switch (billing.kind) {
     case "canceled":
@@ -141,15 +144,28 @@ function BillingStatusSection({
           your billing period on {billing.pendingCancelDate}.
         </Callout>
       ) : null;
-    case "self_serve_past_due":
+    case "self_serve_past_due": {
+      const deadline = billing.downgradeDate
+        ? ` by ${billing.downgradeDate}`
+        : "";
       return (
         <Callout status="warning" mb="3">
-          We couldn&apos;t charge your card.
-          {billing.downgradeDate
-            ? ` Update your payment method by ${billing.downgradeDate} to keep your Pro plan.`
-            : " Update your payment method to keep your Pro plan."}
+          We couldn&apos;t charge your card.{" "}
+          {canAddPaymentMethod ? (
+            <>
+              Add a new card under <strong>Payment Methods</strong> below and
+              make it your default{deadline} to keep your Pro plan.
+            </>
+          ) : (
+            <>
+              Contact{" "}
+              <a href="mailto:support@growthbook.io">support@growthbook.io</a>{" "}
+              to update your payment method{deadline} to keep your Pro plan.
+            </>
+          )}
         </Callout>
       );
+    }
     case "self_serve_active":
     case "enterprise_active":
       return billing.nextBillDate ? (
@@ -236,6 +252,7 @@ export default function SubscriptionInfo() {
   const addPaymentMethodActionLabel = billing.showUpdateInvoiceButton
     ? "Update Invoice Details"
     : "View Plan Details";
+  const canAddPaymentMethod = useCanShowPaymentInfo();
 
   return (
     <div className="p-3">
@@ -357,8 +374,10 @@ export default function SubscriptionInfo() {
       <BillingStatusSection
         billing={billing}
         actionLabel={addPaymentMethodActionLabel}
+        canAddPaymentMethod={canAddPaymentMethod}
       />
-      {billing.invoiceBlocked ? (
+      {/* The past-due callout already gives the next step. */}
+      {billing.invoiceBlocked && billing.kind !== "self_serve_past_due" ? (
         <Box maxWidth="550px" mt="4" mb="3">
           <Callout status="info">
             To make changes to your subscription, please contact your account

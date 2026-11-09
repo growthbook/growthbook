@@ -139,14 +139,20 @@ export default function useAccountPlanNotices(): AppNotice[] {
       license?.message &&
       (license.message.showAllUsers || canManageBilling)
     ) {
+      const { className } = license.message;
+      const isPaymentFailure =
+        className === "payment-failure" ||
+        className === "payment-failure-downgraded";
       return {
         id: "license",
         // Grace-period copy is a warning. The downgrade notice, and any other
         // license message, stays an error.
-        severity:
-          license.message.className === "payment-failure" ? "warning" : "error",
+        severity: className === "payment-failure" ? "warning" : "error",
         title: license.message.text,
         details: license.message.tooltipText,
+        ...(isPaymentFailure && canManageBilling
+          ? { href: "/settings/billing" }
+          : {}),
       };
     }
     if (!license) return null;
