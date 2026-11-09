@@ -120,6 +120,7 @@ export const deleteRole = createApiRequestHandler(deleteRoleValidator)(async (
 ) => {
   assertCanManageCustomRoles(req.context);
   const { id } = req.params;
+  findRole(req.context, id);
   await removeCustomRole(req.context, id);
   await auditRoles(req, {
     customRoles: (req.context.org.customRoles ?? []).filter((r) => r.id !== id),

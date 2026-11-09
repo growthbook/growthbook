@@ -105,8 +105,8 @@ function toApiInvite(stored: Invite) {
 function toApiPendingMember(member: PendingMember) {
   return {
     id: member.id,
-    name: member.name,
-    email: member.email,
+    name: member.name ?? "",
+    email: member.email ?? "",
     role: member.role,
     limitAccessByEnvironment: member.limitAccessByEnvironment,
     environments: member.environments,
@@ -184,7 +184,7 @@ export const postInvite = createApiRequestHandler(postInviteValidator)(async (
     return {
       invite: toApiInvite(existing),
       inviteUrl: getInviteUrl(existing.key),
-      emailSent: true,
+      emailSent: false,
     };
   }
 

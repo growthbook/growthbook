@@ -95,7 +95,11 @@ const inviteLinkFields = {
   inviteUrl: z
     .string()
     .describe("Share this link if the email can't be delivered"),
-  emailSent: z.boolean(),
+  emailSent: z
+    .boolean()
+    .describe(
+      "False when an invite for this email already existed; it is returned unchanged. Use the resend endpoint to email it again.",
+    ),
 };
 
 export const listInvitesValidator = {
