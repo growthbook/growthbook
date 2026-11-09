@@ -10,6 +10,7 @@ import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import { useCanShowPaymentInfo } from "@/enterprise/components/Billing/PaymentInfo";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Modal from "@/components/Modal";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
@@ -154,12 +155,16 @@ function BillingStatusSection({
           {canAddPaymentMethod ? (
             <>
               Add a new card under <strong>Payment Methods</strong> below and
-              make it your default{deadline} to keep your Pro plan.
+              make it your default{deadline} to keep your Pro plan. We retry
+              failed charges automatically, and this message goes away once one
+              succeeds.
             </>
           ) : (
             <>
               Contact{" "}
-              <a href="mailto:support@growthbook.io">support@growthbook.io</a>{" "}
+              <Link href="mailto:support@growthbook.io">
+                support@growthbook.io
+              </Link>{" "}
               to update your payment method{deadline} to keep your Pro plan.
             </>
           )}
@@ -382,7 +387,10 @@ export default function SubscriptionInfo() {
           <Callout status="info">
             To make changes to your subscription, please contact your account
             executive or{" "}
-            <a href="mailto:support@growthbook.io">support@growthbook.io</a>.
+            <Link href="mailto:support@growthbook.io">
+              support@growthbook.io
+            </Link>
+            .
           </Callout>
         </Box>
       ) : null}
