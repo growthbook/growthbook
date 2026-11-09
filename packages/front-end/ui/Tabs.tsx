@@ -19,9 +19,9 @@ import {
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import { PiCaretDown } from "react-icons/pi";
 import useURLHash from "@/hooks/useURLHash";
+import { useTabsTop } from "@/components/Layout/pageTopOffset";
 import { radixSize, Size } from "@/ui/sizes";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
 
 /**
  * See more examples in design-system/index.tsx
@@ -390,6 +390,8 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
   function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
+    // Pinned 1px under the app header and any bar under it.
+    const pinnedTopPx = useTabsTop();
 
     useEffect(() => {
       const observer = new IntersectionObserver(
@@ -398,7 +400,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
         },
         {
           root: null, // Use the viewport as the root
-          rootMargin: `-${TABS_HEADER_HEIGHT_PX}px`,
+          rootMargin: `-${pinnedTopPx}px`,
           threshold: 0.01, // Trigger when first pixel leaves
         },
       );
@@ -406,12 +408,12 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
         observer.observe(tabsRef.current);
       }
       return () => observer.disconnect();
-    }, []);
+    }, [pinnedTopPx]);
 
     return (
       <Box
         className={`${headerPinned ? pinnedClass || "" : ""} tabwrap sticky`}
-        style={{ top: TABS_HEADER_HEIGHT_PX + "px" }}
+        style={{ top: "var(--tabs-top)" }}
       >
         {/* This is needed as for some reason the intersection observer doesn't work on the position:sticky element-even with the right margin offsets. */}
         <Box

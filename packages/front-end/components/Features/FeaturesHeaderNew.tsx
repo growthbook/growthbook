@@ -423,16 +423,17 @@ export default function FeaturesHeaderNew({
     </Flex>
   );
 
-  // White over the page's violet, which only the content column below shows.
+  // White over the page's violet, which only the content column below shows,
+  // from the side nav to the window, its content on the page's edges.
   return (
     <>
-      {/* Padding inline: container-fluid's own outranks Radix's props. */}
       <Box
-        className="container-fluid pagecontents"
+        className="page-bleed"
         position="relative"
         style={{
           background: "var(--color-panel-solid)",
-          padding: "var(--space-4) var(--space-5) var(--space-2)",
+          paddingTop: "var(--page-top-padding)",
+          paddingBottom: "var(--space-2)",
         }}
       >
         <Box>
@@ -488,15 +489,11 @@ export default function FeaturesHeaderNew({
           }}
         />
         <div
-          className={clsx("feature-tabs redesign d-print-none", {
+          className={clsx("feature-tabs redesign page-bleed d-print-none", {
             pinned: headerPinned,
           })}
         >
-          <Box
-            className="container-fluid pagecontents"
-            position="relative"
-            style={{ paddingInline: "var(--space-5)" }}
-          >
+          <Box position="relative">
             <Flex align="center" className="header-tabs">
               <Tabs
                 value={tab}

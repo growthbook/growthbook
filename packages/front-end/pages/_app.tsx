@@ -76,6 +76,10 @@ type ModAppProps = AppProps & {
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
     mainClassName?: string;
+    // Lays itself out to the window (canvases, its own scrolling or save
+    // bar): no page wrapper (global.scss) and its padding. Pages without the
+    // side nav (liteLayout) don't get one either.
+    noPageWrapper?: boolean;
   };
 };
 
@@ -264,12 +268,24 @@ function App({
                                             <OrgPageContent>
                                               <GuidedGetStartedBar />
                                               <DefinitionsGuard>
-                                                <Component
-                                                  {...{
-                                                    ...pageProps,
-                                                    envReady: ready,
-                                                  }}
-                                                />
+                                                {Component.noPageWrapper ||
+                                                liteLayout ? (
+                                                  <Component
+                                                    {...{
+                                                      ...pageProps,
+                                                      envReady: ready,
+                                                    }}
+                                                  />
+                                                ) : (
+                                                  <div className="page-wrapper">
+                                                    <Component
+                                                      {...{
+                                                        ...pageProps,
+                                                        envReady: ready,
+                                                      }}
+                                                    />
+                                                  </div>
+                                                )}
                                               </DefinitionsGuard>
                                             </OrgPageContent>
                                           </main>

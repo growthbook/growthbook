@@ -1,4 +1,3 @@
-import { FC } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -13,7 +12,7 @@ import { useAuth } from "@/services/auth";
 import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
-const EditDataSourceConnectPage: FC = () => {
+const EditDataSourceConnectPage = () => {
   const router = useRouter();
   const { did } = router.query as { did: string };
   const { orgId } = useAuth();
@@ -102,3 +101,5 @@ const EditDataSourceConnectPage: FC = () => {
 };
 
 export default EditDataSourceConnectPage;
+
+EditDataSourceConnectPage.noPageWrapper = true;

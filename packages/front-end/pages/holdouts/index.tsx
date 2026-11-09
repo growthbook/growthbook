@@ -196,7 +196,7 @@ const HoldoutsPage = (): React.ReactElement => {
     <>
       <Box className="contents container-fluid pagecontents" mb="3" mt="2">
         <Flex mb="3" mt="2" align="center" justify="between">
-          <h1 style={{ margin: 0 }}>Holdouts</h1>
+          <h1>Holdouts</h1>
           {canAdd && (
             <PremiumTooltip tipPosition="left" commercialFeature="holdouts">
               <Button

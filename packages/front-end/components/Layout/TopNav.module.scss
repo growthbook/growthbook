@@ -42,16 +42,6 @@ $sidebarwidth: 240px;
     padding: 0 8px;
   }
 }
-.guidedstepbar {
-  display: flex;
-  justify-content: space-between;
-  position: fixed;
-  top: 56px;
-  left: $sidebarwidth;
-  right: 0;
-  height: 56px;
-  z-index: 995;
-}
 .pagetitle {
   flex: 1;
   min-width: 0;

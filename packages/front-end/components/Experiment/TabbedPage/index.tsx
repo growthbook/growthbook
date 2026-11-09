@@ -720,6 +720,7 @@ function TabbedPageContents({
       />
       <DetailsPanelLayout
         details={details}
+        className="experiment-layout"
         // Only the content's edits stage; the panel's save as they're made.
         footer={<UnsavedEditsBar />}
         // So what a save judges as saved is what it sent.

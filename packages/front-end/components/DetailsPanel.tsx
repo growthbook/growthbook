@@ -9,11 +9,7 @@ import CollapsiblePanelLayout, {
   PANEL_WIDTH_PX,
   Props as CollapsiblePanelLayoutProps,
 } from "@/components/CollapsiblePanelLayout";
-import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
-  TABS_BAR_HEIGHT_PX,
-  TABS_HEADER_HEIGHT_PX,
-} from "@/components/Layout/constants";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import { revealsQuickEdit } from "@/components/Experiment/TabbedPage/QuickEditButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ScrollArea from "@/ui/ScrollArea";
@@ -84,15 +80,18 @@ export function useDetailsPanel({
 // panel leaves the content alone.
 export function DetailsPanelLayout({
   details,
-  stickyTop = TABS_HEADER_HEIGHT_PX + TABS_BAR_HEIGHT_PX,
+  stickyTop,
   panel,
   footer,
   busy,
+  className,
   children,
 }: {
   details: ReturnType<typeof useDetailsPanel>;
   // Where the panel sticks: under the page's tabs and whatever they carry.
   stickyTop?: number;
+  // For the page's own layout rules (global.scss).
+  className?: string;
 } & Pick<
   CollapsiblePanelLayoutProps,
   "panel" | "footer" | "busy" | "children"
@@ -101,11 +100,12 @@ export function DetailsPanelLayout({
     <Box
       mx="auto"
       width="100%"
+      className={className}
       style={{ maxWidth: "var(--page-content-max-width)" }}
     >
       <CollapsiblePanelLayout
         open={!!panel && details.open}
-        top={stickyTop}
+        top={stickyTop === undefined ? "var(--tabs-bottom)" : `${stickyTop}px`}
         width={details.width}
         onWidthChange={details.setWidth}
         onCollapse={() => details.setOpen(false)}

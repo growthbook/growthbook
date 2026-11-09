@@ -266,7 +266,8 @@ export default function RevisionStatusBar({
   return (
     <>
       <div
-        className={styles.bar}
+        // From the side nav to the window, past the tab row's padding.
+        className={clsx("page-bleed", styles.bar)}
         style={{
           backgroundColor: `var(--${tint}-a3)`,
           // The tab row's underline, above it.
@@ -274,13 +275,12 @@ export default function RevisionStatusBar({
         }}
       >
         <div
-          // The header's page column, so the two line up.
-          className={clsx("container-fluid pagecontents", styles.row)}
+          className={styles.row}
           style={{
-            // Inset as the cards' content is below: the page gutter, a card's
-            // padding, and a border as wide as the card's, which zoom rounds
-            // the same way. Its actions end under the revision picker.
-            paddingInline: "calc(2 * var(--space-5))",
+            // Inset as the cards' content is below: a card's padding, and a
+            // border as wide as the card's, which zoom rounds the same way.
+            // Its actions end under the revision picker.
+            paddingInline: "var(--space-5)",
             borderInline: "1px solid transparent",
             paddingBlock: "var(--space-2)",
             minHeight: REVISION_STATUS_BAR_HEIGHT_PX,

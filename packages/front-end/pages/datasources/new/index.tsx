@@ -6,7 +6,7 @@ import Heading from "@/ui/Heading";
 
 const NewDataSourcePage: FC = () => {
   return (
-    <Box p="15px" mx="auto" maxWidth="1340px">
+    <Box>
       <PageHead
         breadcrumb={[
           { display: "Data Sources", href: "/datasources" },
