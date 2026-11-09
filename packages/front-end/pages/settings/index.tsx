@@ -166,11 +166,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
   return (
     <>
       <SettingsPage
-        title="General Settings"
-        description="Organization-wide defaults. Projects can override some of these."
-        headerClassName={sectionStyles.wideHidden}
+        title="General settings"
+        headerClassName={sectionStyles.visuallyHidden}
         breadcrumb={[
-          { display: "General", href: "/settings" },
+          // Plain text: on this page it would only link back to itself.
+          { display: "General" },
           ...(activeTitle ? [{ display: activeTitle }] : []),
         ]}
         contentClassName={sectionStyles.generalContent}
