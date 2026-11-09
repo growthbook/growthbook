@@ -1,16 +1,11 @@
-import { createHash } from "crypto";
 import { EventEmitter } from "events";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   getRoutePath,
   parseContentLength,
-  revisionActivityEventName,
   trackEventForContext,
-  trackRevisionActivity,
   trackMcpRequestCompletion,
 } from "back-end/src/services/growthbook";
-
-const md5 = (value: string) => createHash("md5").update(value).digest("hex");
 
 const mockOrgClientLogEvent = jest.fn();
 const mockOrgClientInit = jest
@@ -130,66 +125,6 @@ describe("trackEventForContext", () => {
         attributes: expect.objectContaining({ cloudOrgId: expect.anything() }),
       },
     );
-  });
-});
-
-describe("revisionActivityEventName", () => {
-  it.each([
-    ["created", "Revision Created"],
-    ["reviewRequested", "Revision Review Requested"],
-    ["changesRequested", "Revision Changes Requested"],
-    ["publishScheduleChanged", "Revision Publish Schedule Changed"],
-  ])("names %s %s", (action, name) => {
-    expect(revisionActivityEventName(action)).toBe(name);
-  });
-});
-
-describe("trackRevisionActivity", () => {
-  const logEvent = jest.fn();
-  const context = {
-    org: { id: "org_123" },
-    auditUser: { type: "dashboard", id: "u_1" },
-    req: { gb: { logEvent } },
-  } as unknown as Parameters<typeof trackRevisionActivity>[0];
-
-  beforeEach(() => logEvent.mockClear());
-
-  it("logs a revision event with its resource, action, actor and hashed ids", () => {
-    trackRevisionActivity(context, "savedGroup", "revision.published", "sg_1", {
-      object: { version: 3 },
-    });
-    expect(logEvent).toHaveBeenCalledWith("Revision Published", {
-      resource: "savedGroup",
-      action: "published",
-      actor: "dashboard",
-      entity_id_hash: md5("org_123:sg_1"),
-      revision_id_hash: md5("org_123:sg_1:3"),
-      revision_version: 3,
-    });
-  });
-
-  it("leaves out what the event doesn't carry", () => {
-    trackRevisionActivity(context, "feature", "revision.created", "f1", {});
-    expect(logEvent).toHaveBeenCalledWith("Revision Created", {
-      resource: "feature",
-      action: "created",
-      actor: "dashboard",
-      entity_id_hash: md5("org_123:f1"),
-    });
-    logEvent.mockClear();
-    trackRevisionActivity(context, "feature", "revision.created", null, {
-      object: { version: 1 },
-    });
-    expect(logEvent).toHaveBeenCalledWith("Revision Created", {
-      resource: "feature",
-      action: "created",
-      actor: "dashboard",
-    });
-  });
-
-  it("ignores events that aren't about a revision", () => {
-    trackRevisionActivity(context, "feature", "updated", "f1", {});
-    expect(logEvent).not.toHaveBeenCalled();
   });
 });
 
