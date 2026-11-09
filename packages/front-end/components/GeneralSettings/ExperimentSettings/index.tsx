@@ -317,6 +317,57 @@ export default function ExperimentSettings() {
           </SettingsField>
         )}
 
+        <UnsavedMark name="disableResultsUpdateForStoppedExperiments">
+          <Checkbox
+            id="toggle-disableResultsUpdateForStoppedExperiments"
+            label="Disable updating results for stopped experiments"
+            description={
+              <>
+                Once an experiment is stopped, this setting disables updates
+                (overall and dimension breakdowns) to preserve the results at
+                the time the experiment was stopped. Custom reports remain
+                available for ad-hoc analysis. When on, you can set a grace
+                period to allow updates for a period of time after stopping.
+              </>
+            }
+            value={!!form.watch("disableResultsUpdateForStoppedExperiments")}
+            setValue={(v) =>
+              form.setValue("disableResultsUpdateForStoppedExperiments", v)
+            }
+          />
+          {form.watch("disableResultsUpdateForStoppedExperiments") && (
+            <Box ml="6" mt="3">
+              <SettingsField
+                name="disableResultsUpdateForStoppedExperimentGraceHours"
+                htmlFor="settings-disableResultsUpdateForStoppedExperimentGraceHours"
+                label="Grace period"
+                help="How long results can still be updated after an experiment stops."
+              >
+                <Box width="150px">
+                  <Field
+                    id="settings-disableResultsUpdateForStoppedExperimentGraceHours"
+                    size="md"
+                    append="hours"
+                    type="number"
+                    step="any"
+                    min={0}
+                    containerClassName="mb-0"
+                    disabled={hasFileConfig()}
+                    placeholder="0"
+                    {...form.register(
+                      "disableResultsUpdateForStoppedExperimentGraceHours",
+                      {
+                        valueAsNumber: true,
+                        min: 0,
+                      },
+                    )}
+                  />
+                </Box>
+              </SettingsField>
+            </Box>
+          )}
+        </UnsavedMark>
+
         <SettingsField
           name="attributionModel"
           label={

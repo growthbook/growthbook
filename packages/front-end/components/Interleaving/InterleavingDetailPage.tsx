@@ -69,7 +69,8 @@ export default function InterleavingDetailPage({
     !il.archived;
   // The server also demands run permission once a change reaches the SDK
   // payload, so payload-affecting edits must not be offered without it.
-  const canEditServing = canEdit && (!interleavingInSDKPayload(il) || canRun);
+  const isInSDKPayload = interleavingInSDKPayload(il);
+  const canEditServing = canEdit && (!isInSDKPayload || canRun);
 
   const start = async () => {
     await restApiCall(interleavingEndpoints.startInterleaving, {
@@ -230,6 +231,8 @@ export default function InterleavingDetailPage({
       {analysisModal && (
         <EditInterleavingAnalysisModal
           interleaving={il}
+          canEditServing={canEditServing}
+          isInSDKPayload={isInSDKPayload}
           mutate={mutate}
           close={() => setAnalysisModal(false)}
         />

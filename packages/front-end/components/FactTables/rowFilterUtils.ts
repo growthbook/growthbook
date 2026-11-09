@@ -1,7 +1,9 @@
 import {
+  getRowFilterSQL,
   isValidRowFilterDateValue,
   normalizeRowFilterDateValue,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { truncateString } from "shared/util";
 import {
@@ -276,6 +278,46 @@ export function getRowFilterDescription(
     "";
   const operator = operatorLabelMap[rowFilter.operator] ?? rowFilter.operator;
   return `${column} ${operator} ${values.join(", ")}`.trim();
+}
+
+// Display only: the operators here are not valid SQL in every warehouse.
+export function getRowFilterDisplaySQL(
+  rowFilter: RowFilter,
+  factTable: FactTableDefinition | null,
+): string {
+  if (!factTable) {
+    return [
+      rowFilter.column,
+      rowFilter.operator,
+      (rowFilter.values ?? []).join(", "),
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+  const escapeStringLiteral = (s: string) => s.replace(/'/g, "''");
+  return (
+    getRowFilterSQL({
+      rowFilter,
+      factTable,
+      escapeStringLiteral,
+      stringMatch: createLikeStringMatchFn({
+        escapeStringLiteral,
+        emitEscapeClause: false,
+      }),
+      evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+      jsonExtract: (col, path) => `${col}.${path}`,
+      showSourceComment: true,
+    }) ?? ""
+  );
+}
+
+export function getRowFiltersDisplaySQL(
+  rowFilters: RowFilter[],
+  factTable: FactTableDefinition | null,
+): string {
+  return `WHERE ${rowFilters
+    .map((rf) => getRowFilterDisplaySQL(rf, factTable))
+    .join("\nAND ")}`;
 }
 
 /**

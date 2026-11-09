@@ -18482,6 +18482,19 @@ paths:
                     experiment phase. Defaults to the latest phase.
                   type: integer
                   minimum: 0
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access. Only set this when a person
+                    has explicitly asked you to. If a check blocks you, stop and
+                    ask a person instead of working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -18496,6 +18509,8 @@ paths:
                 required:
                   - snapshot
                 additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
         '409':
           description: Conflict
           content:
@@ -21956,6 +21971,9 @@ paths:
                     An environment that the new environment should inherit
                     feature rules from. Requires an enterprise license
                   type: string
+                isProduction:
+                  description: Whether this is a production environment
+                  type: boolean
               required:
                 - id
               additionalProperties: false
@@ -22012,6 +22030,9 @@ paths:
                   type: array
                   items:
                     type: string
+                isProduction:
+                  description: Whether this is a production environment
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -74251,12 +74272,15 @@ components:
             type: string
         parent:
           type: string
+        isProduction:
+          type: boolean
       required:
         - id
         - description
         - toggleOnList
         - defaultState
         - projects
+        - isProduction
       additionalProperties: false
     Attribute:
       type: object
