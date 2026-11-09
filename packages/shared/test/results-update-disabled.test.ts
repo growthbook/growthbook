@@ -7,7 +7,7 @@ describe("isExperimentResultsUpdateDisabled", () => {
     status: "stopped",
     phases: [{ dateEnded: hoursAgo(1000) }, { dateEnded }],
   });
-  const on = { disableResultsRefreshForStoppedExperiments: true };
+  const on = { disableResultsUpdateForStoppedExperiments: true };
 
   it("is never disabled when the setting is off", () => {
     expect(
@@ -16,7 +16,7 @@ describe("isExperimentResultsUpdateDisabled", () => {
     expect(
       isExperimentResultsUpdateDisabled(
         stopped(hoursAgo(48)),
-        { disableResultsRefreshForStoppedExperiments: false },
+        { disableResultsUpdateForStoppedExperiments: false },
         now,
       ),
     ).toBe(false);
@@ -42,14 +42,17 @@ describe("isExperimentResultsUpdateDisabled", () => {
     expect(
       isExperimentResultsUpdateDisabled(
         stopped(hoursAgo(0)),
-        { ...on, stoppedExperimentResultsUpdateGraceHours: 0 },
+        { ...on, disableResultsUpdateForStoppedExperimentGraceHours: 0 },
         now,
       ),
     ).toBe(true);
   });
 
   it("stays enabled inside the grace window and disables after it", () => {
-    const settings = { ...on, stoppedExperimentResultsUpdateGraceHours: 24 };
+    const settings = {
+      ...on,
+      disableResultsUpdateForStoppedExperimentGraceHours: 24,
+    };
     expect(
       isExperimentResultsUpdateDisabled(stopped(hoursAgo(23.5)), settings, now),
     ).toBe(false);
@@ -61,8 +64,24 @@ describe("isExperimentResultsUpdateDisabled", () => {
     ).toBe(true);
   });
 
+  it("supports a fractional grace period", () => {
+    const settings = {
+      ...on,
+      disableResultsUpdateForStoppedExperimentGraceHours: 1.5,
+    };
+    expect(
+      isExperimentResultsUpdateDisabled(stopped(hoursAgo(1.25)), settings, now),
+    ).toBe(false);
+    expect(
+      isExperimentResultsUpdateDisabled(stopped(hoursAgo(1.5)), settings, now),
+    ).toBe(true);
+  });
+
   it("uses the last phase's end date, accepting ISO strings", () => {
-    const settings = { ...on, stoppedExperimentResultsUpdateGraceHours: 24 };
+    const settings = {
+      ...on,
+      disableResultsUpdateForStoppedExperimentGraceHours: 24,
+    };
     expect(
       isExperimentResultsUpdateDisabled(
         stopped(hoursAgo(1).toISOString()),

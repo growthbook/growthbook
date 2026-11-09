@@ -3,7 +3,7 @@ import { getValidDate } from "shared/dates";
 import { OrganizationSettings } from "shared/types/organization";
 
 export const EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE =
-  "Your organization has disabled updates on stopped experiments. For ad-hoc analysis, use custom reports.";
+  "Your organization has disabled updating results for stopped experiments. For ad-hoc analysis, use custom reports.";
 
 /**
  * True when the org setting freezes results for this stopped experiment: the
@@ -18,16 +18,17 @@ export function isExperimentResultsUpdateDisabled(
   },
   settings: Pick<
     OrganizationSettings,
-    | "disableResultsRefreshForStoppedExperiments"
-    | "stoppedExperimentResultsUpdateGraceHours"
+    | "disableResultsUpdateForStoppedExperiments"
+    | "disableResultsUpdateForStoppedExperimentGraceHours"
   >,
   now: Date = new Date(),
 ): boolean {
-  if (!settings.disableResultsRefreshForStoppedExperiments) return false;
+  if (!settings.disableResultsUpdateForStoppedExperiments) return false;
   if (experiment.status !== "stopped") return false;
   const dateEnded =
     experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
   if (!dateEnded) return false;
-  const graceHours = settings.stoppedExperimentResultsUpdateGraceHours ?? 0;
+  const graceHours =
+    settings.disableResultsUpdateForStoppedExperimentGraceHours ?? 0;
   return differenceInMinutes(now, getValidDate(dateEnded)) / 60 >= graceHours;
 }

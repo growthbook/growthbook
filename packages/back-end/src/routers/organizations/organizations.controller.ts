@@ -1841,13 +1841,14 @@ export async function putOrganization(
       }
     }
 
-    const updateGraceHours = settings?.stoppedExperimentResultsUpdateGraceHours;
+    const disableGraceHours =
+      settings?.disableResultsUpdateForStoppedExperimentGraceHours;
     if (
-      (updateGraceHours ?? null) !== null &&
-      (updateGraceHours as number) < 0
+      (disableGraceHours ?? null) !== null &&
+      (typeof disableGraceHours !== "number" || disableGraceHours < 0)
     ) {
       context.throwBadRequestError(
-        "Grace period for updating stopped experiments must be at least 0",
+        "Grace period for updating stopped experiments must be a number of hours, at least 0",
       );
     }
 

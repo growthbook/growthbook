@@ -3054,7 +3054,7 @@ export async function planExperimentSnapshot({
   type?: SnapshotType;
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
-  // Skip the org "disable updates on stopped experiments" setting.
+  // Skip the org "disable updating results for stopped experiments" setting.
   bypassResultsUpdateDisabled?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   if (
@@ -3062,10 +3062,9 @@ export async function planExperimentSnapshot({
     !context.ignoreWarnings &&
     isExperimentResultsUpdateDisabled(experiment, context.org.settings ?? {})
   ) {
-    throw new SoftWarningError(
-      "Your organization has disabled updates on stopped experiments.",
-      [EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE],
-    );
+    throw new SoftWarningError(EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE, [
+      EXPERIMENT_RESULTS_UPDATE_DISABLED_MESSAGE,
+    ]);
   }
 
   const snapshotType =
