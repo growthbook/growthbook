@@ -25,9 +25,9 @@ import {
   assertRoleChangeAllowed,
   getInviteUrl,
   inviteUser,
-  normalizeInviteEmail,
   revokeInvite,
 } from "back-end/src/services/organizations";
+import { normalizeInviteEmail } from "back-end/src/util/organization.util";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import {
   sendInviteEmail,

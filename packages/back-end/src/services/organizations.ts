@@ -1172,13 +1172,6 @@ export async function acceptInvite(key: string, userId: string, email: string) {
   return updatedOrganization;
 }
 
-export function normalizeInviteEmail(email: string) {
-  return email
-    .toLowerCase()
-    .replace(/^[\s;,]+/, "")
-    .replace(/[\s;,]+$/, "");
-}
-
 export async function inviteUser({
   organization,
   email,
