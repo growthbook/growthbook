@@ -89,21 +89,13 @@ export default function EditInterleavingAnalysisModal({
       submit={async () => {
         // A new experiment has no analysis setup yet; a key-only edit
         // shouldn't have to complete it.
-        const analysisChanged = !isEqual(analysis, analysisOf(il));
-        if (analysisChanged) {
+        if (!isEqual(analysis, analysisOf(il))) {
           const error = getAnalysisError(analysis);
           if (error) throw new Error(error);
         }
-        const key = trackingKey.trim();
-        if (!key) throw new Error("Tracking key is required");
         await restApiCall(interleavingEndpoints.updateInterleaving, {
           params: { id: il.id },
-          body: {
-            ...(analysisChanged ? analysis : {}),
-            // Only when changed: the server wants run permission for it once
-            // this is serving.
-            trackingKey: key !== il.trackingKey ? key : undefined,
-          },
+          body: { ...analysis, trackingKey: trackingKey.trim() },
         });
         await mutate();
       }}
