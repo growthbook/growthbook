@@ -742,11 +742,15 @@ export async function updateDashboardSavedQueries(
       try {
         // Queries saved in the app only had their first keyword checked
         assertReadOnlySql(savedQuery.sql);
-      } catch {
-        logger.warn(
-          { savedQueryId: savedQuery.id },
-          "Skipped a saved query that could write to the warehouse",
-        );
+      } catch (e) {
+        // Keep the last rows, but show the block why they weren't refreshed
+        await context.models.savedQueries
+          .update(savedQuery, {
+            results: { ...savedQuery.results, error: e.message },
+          })
+          .catch((updateError) =>
+            logger.error(updateError, "Failed to record a skipped saved query"),
+          );
         return;
       }
       if (savedQueryDataSource) {
