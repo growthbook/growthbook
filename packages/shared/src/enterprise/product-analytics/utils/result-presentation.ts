@@ -22,17 +22,25 @@ import { getSharedUnit } from "./units";
 // drift between what the chart renders and what the agent sees in its CSV.
 
 /**
- * Value-axis title when no custom `valueAxisLabel` is set. Empty unless every
- * value on the axis renders the same way (see `sharedShowAs`).
+ * Title of the (left) value axis when no custom `valueAxisLabel` is set. Empty
+ * unless every value on that axis renders the same way.
  */
 export function getDefaultValueAxisName({
-  sharedShowAs,
+  primaryAxisShowAs,
   sharedUnit,
 }: ExplorationRenderOpts): string {
-  if (sharedShowAs === null) return "";
-  if (sharedShowAs === "total") return "Total";
-  if (sharedShowAs === "percent_of_population") return "% of Population";
+  if (primaryAxisShowAs === null) return "";
+  if (primaryAxisShowAs === "total") return "Total";
+  if (primaryAxisShowAs === "percent_of_population") return "% of Population";
   return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+}
+
+/** Title of the right-hand value axis, or null when the chart has one axis. */
+export function getSecondaryValueAxisName(
+  renderOpts: ExplorationRenderOpts,
+): string | null {
+  if (!renderOpts.secondaryAxisValueIndexes.length) return null;
+  return "% of Population";
 }
 
 /**
@@ -131,6 +139,13 @@ export type ExplorationRenderOpts = {
   sharedShowAs: ShowAs | null;
   /** Some values render as totals and others per unit. */
   modesAreMixed: boolean;
+  /**
+   * Values drawn on a second, right-hand axis: "% of Population" values when
+   * other values use another mode. Empty when the chart has one value axis.
+   */
+  secondaryAxisValueIndexes: number[];
+  /** The mode every value on the left axis renders in; null when they differ. */
+  primaryAxisShowAs: ShowAs | null;
   /** See `getSharedUnit`. */
   sharedUnit: string | null;
 };
@@ -139,6 +154,8 @@ const NO_VALUES_RENDER_OPTS: ExplorationRenderOpts = {
   values: [],
   sharedShowAs: null,
   modesAreMixed: false,
+  secondaryAxisValueIndexes: [],
+  primaryAxisShowAs: null,
   sharedUnit: null,
 };
 
@@ -165,6 +182,24 @@ export function getExplorationRenderOpts(
   const modesAreMixed = someValueOffersShowAs && sharedShowAs === null;
   const sharedUnit = getSharedUnit(config, getFactMetricById);
 
+  // "% of Population" is on a different scale from every other mode, so when
+  // it's mixed with them it moves to its own axis. Then each axis keeps a title.
+  const percentIndexes: number[] = [];
+  const otherModes = new Set<ShowAs>();
+  for (let i = 0; i < choices.length; i++) {
+    if (choices[i].showAs === "percent_of_population") {
+      percentIndexes.push(i);
+    } else {
+      otherModes.add(choices[i].showAs);
+    }
+  }
+  const hasSecondAxis = percentIndexes.length > 0 && otherModes.size > 0;
+  const secondaryAxisValueIndexes = hasSecondAxis ? percentIndexes : [];
+  let primaryAxisShowAs = sharedShowAs;
+  if (hasSecondAxis) {
+    primaryAxisShowAs = otherModes.size === 1 ? [...otherModes][0] : null;
+  }
+
   // Annotate series names when the axis title can't tell readers how the
   // values are calculated.
   const hasCustomAxisTitle = config.chartSettings?.valueAxisLabel !== undefined;
@@ -184,6 +219,8 @@ export function getExplorationRenderOpts(
     })),
     sharedShowAs,
     modesAreMixed,
+    secondaryAxisValueIndexes,
+    primaryAxisShowAs,
     sharedUnit,
   };
 }

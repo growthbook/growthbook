@@ -4,6 +4,8 @@ import type {
 } from "shared/validators";
 import {
   alignComparisonOverlayToCategories,
+  assignSecondaryValueAxis,
+  buildValueAxes,
   buildExplorerChartTooltipFormatter,
   buildPopulationFractionLabels,
   computeBigNumberComparisonTrendForMetricIndex,
@@ -500,6 +502,8 @@ describe("population fraction tooltip labels", () => {
     ],
     sharedShowAs: null,
     modesAreMixed: true,
+    secondaryAxisValueIndexes: [0],
+    primaryAxisShowAs: "total" as const,
     sharedUnit: "user_id",
   };
   const rows = [
@@ -562,5 +566,77 @@ describe("population fraction tooltip labels", () => {
       'font-style:italic;opacity:0.6;margin-right:6px">1 / 100</span><b>1</b>',
     );
     expect(html).toContain("<b>5</b>");
+  });
+});
+
+describe("right-hand % of Population axis", () => {
+  const renderOpts = {
+    values: [
+      { showAs: "total" as const, isRatio: false, seriesName: "Signups" },
+      {
+        showAs: "percent_of_population" as const,
+        isRatio: false,
+        seriesName: "Purchases",
+      },
+    ],
+    sharedShowAs: null,
+    modesAreMixed: true,
+    secondaryAxisValueIndexes: [1],
+    primaryAxisShowAs: "total" as const,
+    sharedUnit: "user_id",
+  };
+
+  it("moves only the % of Population series onto the right axis", () => {
+    expect(
+      assignSecondaryValueAxis(
+        [{ name: "Signups" }, { name: "Purchases" }],
+        renderOpts,
+        null,
+      ),
+    ).toEqual([{ name: "Signups" }, { name: "Purchases", yAxisIndex: 1 }]);
+  });
+
+  it("moves both compare periods of a metric", () => {
+    const labels = { currentLabel: "C", previousLabel: "P" };
+    expect(
+      assignSecondaryValueAxis(
+        [
+          { name: "Signups (C)" },
+          { name: "Purchases (C)" },
+          { name: "Purchases (P)" },
+        ],
+        renderOpts,
+        labels,
+      ),
+    ).toEqual([
+      { name: "Signups (C)" },
+      { name: "Purchases (C)", yAxisIndex: 1 },
+      { name: "Purchases (P)", yAxisIndex: 1 },
+    ]);
+  });
+
+  it("leaves series alone when the chart has one axis", () => {
+    const series = [{ name: "Purchases" }];
+    expect(
+      assignSecondaryValueAxis(
+        series,
+        { ...renderOpts, secondaryAxisValueIndexes: [] },
+        null,
+      ),
+    ).toBe(series);
+  });
+
+  it("adds a titled right axis without its own grid lines", () => {
+    const primary = { type: "value", name: "Total", splitLine: { show: true } };
+    expect(buildValueAxes(primary, null)).toBe(primary);
+    expect(buildValueAxes(primary, { name: "% of Population" })).toEqual([
+      primary,
+      {
+        type: "value",
+        name: "% of Population",
+        position: "right",
+        splitLine: { show: false },
+      },
+    ]);
   });
 });

@@ -494,6 +494,58 @@ export function getPopulationFractionLabel(
   );
 }
 
+// --- Explorer chart: right-hand "% of Population" axis ---
+
+/**
+ * The chart's value axis option: the primary axis alone, or with a right-hand
+ * copy titled by `secondaryAxisTitle`. Grid lines follow the left axis only,
+ * so the two scales don't draw competing lines.
+ */
+export function buildValueAxes<T extends object>(
+  primaryAxis: T,
+  secondaryAxisTitle: object | null,
+): T | [T, T] {
+  if (!secondaryAxisTitle) return primaryAxis;
+  const secondaryAxis = {
+    ...primaryAxis,
+    ...secondaryAxisTitle,
+    position: "right" as const,
+    splitLine: { show: false },
+  };
+  return [primaryAxis, secondaryAxis];
+}
+
+/**
+ * Moves the series of values on the right-hand axis (see
+ * `secondaryAxisValueIndexes`) onto it. Compare-mode series are matched by
+ * their metric name, so both periods of a metric share an axis.
+ */
+export function assignSecondaryValueAxis(
+  seriesConfigs: unknown[],
+  renderOpts: RenderOpts,
+  comparisonPeriodLabels: {
+    currentLabel: string;
+    previousLabel: string;
+  } | null,
+): unknown[] {
+  const secondarySeriesNames = new Set<string>();
+  for (const valueIndex of renderOpts.secondaryAxisValueIndexes) {
+    secondarySeriesNames.add(renderOpts.values[valueIndex].seriesName);
+  }
+  if (!secondarySeriesNames.size) return seriesConfigs;
+
+  return seriesConfigs.map((config) => {
+    const seriesConfig = config as { name?: string };
+    const displayName = seriesConfig.name ?? "";
+    const metricName = comparisonPeriodLabels
+      ? parseComparisonTooltipSeriesName(displayName, comparisonPeriodLabels)
+          .baseName
+      : displayName;
+    if (!secondarySeriesNames.has(metricName)) return config;
+    return { ...seriesConfig, yAxisIndex: 1 };
+  });
+}
+
 // --- Explorer chart: ECharts compare overlay (constants + series builders) ---
 
 /** ECharts `z`: previous period draws under current bars/areas. */

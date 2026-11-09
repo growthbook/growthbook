@@ -15,6 +15,7 @@ import {
   extendDateBucketsForward,
   getComparisonAlignmentStrategy,
   getDateGranularity,
+  getSecondaryValueAxisName,
 } from "shared/enterprise";
 import {
   shouldChartSectionShow,
@@ -39,6 +40,8 @@ import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
   buildPopulationFractionLabels,
+  assignSecondaryValueAxis,
+  buildValueAxes,
   buildExplorerChartComparisonSeriesList,
   buildExplorerCompareSparseFlatBarSeries,
   computeBigNumberComparisonTrends,
@@ -564,6 +567,22 @@ export default function ExplorerChart({
       );
     }
 
+    // "% of Population" values mixed with other modes get a right-hand axis.
+    // shortcut: horizontal bars and sparse compare bars (whose series each
+    // mix metrics) keep one axis; add a top axis for them if needed.
+    const secondaryValueAxisName = getSecondaryValueAxisName(renderOpts);
+    const useSecondaryValueAxis =
+      secondaryValueAxisName !== null &&
+      !isHorizontalBar &&
+      !sparseFlatCompareBars;
+    if (useSecondaryValueAxis) {
+      seriesConfigs = assignSecondaryValueAxis(
+        seriesConfigs,
+        renderOpts,
+        comparisonPeriodLabels,
+      );
+    }
+
     const legendShow = seriesConfigs.length > 0;
 
     const axisPointerLabelFormatter =
@@ -629,7 +648,7 @@ export default function ExplorerChart({
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
-    const valueAxis = {
+    const primaryValueAxis = {
       type: "value" as const,
       scale: false,
       ...axisTitle(valueAxisName, valueNameMaxWidth),
@@ -638,6 +657,12 @@ export default function ExplorerChart({
       axisLabel: { color: textColor, formatter: formatNumber },
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
+    const valueAxis = buildValueAxes(
+      primaryValueAxis,
+      useSecondaryValueAxis && secondaryValueAxisName
+        ? axisTitle(secondaryValueAxisName, valueNameMaxWidth)
+        : null,
+    );
 
     // Compare-mode bars overlay the previous period on a second category axis
     // (same categories, hidden) so a wider previous bar stays centered behind

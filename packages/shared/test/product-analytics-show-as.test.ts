@@ -3,6 +3,7 @@ import {
   getExplorationCellValue,
   getDefaultValueAxisName,
   getEffectiveMetricValue,
+  getSecondaryValueAxisName,
   getExplorationRenderOpts,
   getShowAsChoice,
   getShowAsOptions,
@@ -635,6 +636,32 @@ describe("proportions with a population", () => {
     for (const column of columnsWithoutPopulation) {
       expect(column.kind).not.toBe("populationCount");
     }
+  });
+
+  it("moves % of Population to a right-hand axis when mixed with totals", () => {
+    const renderOpts = getExplorationRenderOpts(
+      populationConfig([
+        metricValue("converted", "total"),
+        metricValue("converted", "percent_of_population"),
+      ]),
+      getFactMetricById,
+    );
+    expect(renderOpts.secondaryAxisValueIndexes).toEqual([1]);
+    expect(getDefaultValueAxisName(renderOpts)).toBe("Total");
+    expect(getSecondaryValueAxisName(renderOpts)).toBe("% of Population");
+  });
+
+  it("keeps one axis when every value is a % of Population", () => {
+    const renderOpts = getExplorationRenderOpts(
+      populationConfig([
+        metricValue("converted", "percent_of_population"),
+        metricValue("converted", "percent_of_population"),
+      ]),
+      getFactMetricById,
+    );
+    expect(renderOpts.secondaryAxisValueIndexes).toEqual([]);
+    expect(getSecondaryValueAxisName(renderOpts)).toBeNull();
+    expect(getDefaultValueAxisName(renderOpts)).toBe("% of Population");
   });
 
   it("titles the value axis", () => {
