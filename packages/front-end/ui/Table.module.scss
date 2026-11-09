@@ -1,3 +1,11 @@
+// Where columns scroll under an edge (the pinned last column, a scroll box's
+// own edges), they fade into the table's surface over 12px instead of being
+// cut off. The same fade as content scrolling under the app header.
+$scroll-fade-width: 12px;
+@function scroll-fade($toward) {
+  @return linear-gradient(to $toward, transparent, var(--color-panel-solid));
+}
+
 :global(.rt-TableRootTable .rt-TableColumnHeaderCell) {
   font-weight: 500;
 }
@@ -13,6 +21,28 @@
 // slack <col>, whose min-width the CSS Tables spec doesn't honour.
 :global(.rt-TableRootTable) {
   min-width: var(--table-min-width, 0);
+}
+
+// A scroll box can't let its header stick to the window, so it doesn't.
+// The outline moves onto the box, so it stays whole as the table scrolls.
+.wrapper[data-table-list][data-auto-scroll="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12)) !important;
+  border-radius: var(--radius-4);
+
+  :global(.rt-TableRootTable) {
+    border: none;
+    border-radius: 0;
+  }
+
+  :global(.rt-TableHeader) {
+    position: static !important;
+  }
+
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+    box-shadow: inset 0 -1px 0 0 var(--slate-a5, rgba(0, 9, 50, 0.12));
+  }
 }
 
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
@@ -207,7 +237,7 @@
     // so the body scrolls instead of pushing what follows off screen.
     max-height: var(
       --table-max-height,
-      calc(100vh - var(--table-sticky-top, 56px) - 24px)
+      calc(100vh - var(--table-sticky-top, var(--page-top-offset)) - 24px)
     );
     // The frame moves onto the scroll container, so it stays put while the
     // content scrolls under it. No top edge: the header draws its own, as in
@@ -226,7 +256,7 @@
     }
 
     // Widths are authoritative here, so content clips at the column edge rather
-    // than spilling into its neighbour. The pinned last column keeps its shadow.
+    // than spilling into its neighbour. The pinned last column keeps its fade.
     :global(.rt-TableRow > :not(:last-child)) {
       overflow: hidden !important;
       text-overflow: ellipsis;
@@ -259,9 +289,10 @@
       background-image: linear-gradient(var(--accent-a2), var(--accent-a2));
     }
 
-    // Only once something is actually hidden behind it. A soft shadow rather
-    // than a rule: the neighbouring column's resize handle is already a crisp
-    // line, and two of those side by side read as a double border.
+    // Only once something is actually hidden behind it. A fade rather than a
+    // rule: the neighbouring column's resize handle is already a crisp line,
+    // and two of those side by side read as a double border. Drawn as the
+    // row's own color through a mask, so a hovered row fades in its tint.
     &[data-overflow-x="true"]
       :global(.rt-TableRow > *:last-child:not([colspan]))::before {
       content: "";
@@ -269,14 +300,20 @@
       top: 0;
       bottom: 0;
       left: 0;
-      // Narrow: the peak sets how dark the edge is, the width how much tint is
-      // laid down overall — too wide and it reads as a wash, not a shadow.
-      width: 6px;
+      width: $scroll-fade-width;
       transform: translateX(-100%);
       pointer-events: none;
-      // The same slate-alpha family as the table's own borders: it inverts for
-      // dark mode, where black leaves no cue and neutral grey doesn't blend.
-      background: linear-gradient(to right, transparent, var(--slate-a3));
+      background-color: var(--color-panel-solid);
+      mask-image: linear-gradient(to right, transparent, #000);
+    }
+
+    &[data-overflow-x="true"]
+      :global(
+        .rt-TableBody
+          .rt-TableRow:not([data-no-hover]):hover
+          > *:last-child:not([colspan])
+      )::before {
+      background-image: linear-gradient(var(--accent-a2), var(--accent-a2));
     }
 
     // The pinned column's own edge, drawn like a resize handle's line.
@@ -290,6 +327,38 @@
       border-radius: 1px;
       background-color: var(--gray-a5);
       pointer-events: none;
+    }
+  }
+
+  // A scroll box fades each edge that has columns hidden behind it, like the
+  // pinned column. Table.tsx sets the data-more-* flags and the box's
+  // visible height. Sticky, so it stays put while the table scrolls under it.
+  // The negative margin gives back its height, so it takes no room.
+  &[data-scroll-x="true"],
+  &[data-auto-scroll="true"] {
+    &::before {
+      content: "";
+      display: block;
+      position: sticky;
+      top: 0;
+      left: 0;
+      // Above the sticky header (900).
+      z-index: 901;
+      height: var(--table-scroll-height, 0px);
+      margin-bottom: calc(-1 * var(--table-scroll-height, 0px));
+      pointer-events: none;
+      background:
+        scroll-fade(left) left / var(--table-fade-start, 0px) 100% no-repeat,
+        scroll-fade(right) right / var(--table-fade-end, 0px) 100% no-repeat;
+    }
+
+    &[data-more-start] {
+      --table-fade-start: #{$scroll-fade-width};
+    }
+
+    // A pinned last column draws its own fade on this side.
+    &[data-more-end]:not([data-sticky-last-column="true"]) {
+      --table-fade-end: #{$scroll-fade-width};
     }
   }
 

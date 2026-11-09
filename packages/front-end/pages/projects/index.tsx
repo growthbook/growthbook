@@ -31,6 +31,13 @@ import HistoryTable from "@/components/HistoryTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SettingsPage from "@/components/Layout/SettingsPage";
 
+/**
+ * Narrower than this, the table scrolls sideways in its frame rather than
+ * squeezing its columns (e.g. on a narrow window). Measured: at 836px
+ * the Owner header breaks mid-word.
+ */
+const PROJECTS_TABLE_MIN_WIDTH = 838;
+
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
 
@@ -169,7 +176,11 @@ const ProjectsPage: FC = () => {
                 {filteredItems.length === 1 ? "" : "s"}
               </Text>
             </Flex>
-            <Table variant="surface" layout="fixed">
+            <Table
+              variant="surface"
+              layout="fixed"
+              minTableWidth={PROJECTS_TABLE_MIN_WIDTH}
+            >
               <TableHeader>
                 <TableRow>
                   <SortableTableColumnHeader

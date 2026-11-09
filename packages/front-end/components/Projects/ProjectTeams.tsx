@@ -47,6 +47,13 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 
+/**
+ * Narrower than this, the table scrolls sideways in its frame rather than
+ * squeezing its columns (e.g. on a narrow window). Measured: at 596px
+ * the Members header breaks mid-word.
+ */
+const TEAMS_TABLE_MIN_WIDTH = 598;
+
 // The team's role fields, as PUT /teams/:id expects them.
 const teamRoleInfo = (team: Team): MemberRoleWithProjects => ({
   role: team.role,
@@ -270,8 +277,10 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         />
       )}
 
-      <Flex align="end" justify="between" gap="3" mb="2">
-        <Box>
+      {/* The description wraps beside Create team; with too little room for
+          it there, the button moves below it. */}
+      <Flex align="end" justify="between" gap="3" wrap="wrap" mb="2">
+        <Box flexGrow="1" flexShrink="1" flexBasis="280px" minWidth="0">
           <Heading as="h5" size="sm" mb="1">
             Teams ({rows.length})
           </Heading>
@@ -281,34 +290,40 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
             global role for this Project.
           </Text>
         </Box>
-        <SplitButton
-          variant="outline"
-          menu={
-            addCandidates.length > 0 ? (
-              <DropdownMenu
-                trigger={
-                  <Button
-                    variant="outline"
-                    aria-label="More ways to add a team"
-                  >
-                    <PiCaretDownFill />
-                  </Button>
-                }
-                variant="soft"
-              >
-                <DropdownMenuItem onClick={() => setRuleModal("add")}>
-                  Add existing team
-                </DropdownMenuItem>
-              </DropdownMenu>
-            ) : undefined
-          }
-        >
-          <Button variant="outline" onClick={() => setRuleModal("create")}>
-            Create team
-          </Button>
-        </SplitButton>
+        <Box flexShrink="0">
+          <SplitButton
+            variant="outline"
+            menu={
+              addCandidates.length > 0 ? (
+                <DropdownMenu
+                  trigger={
+                    <Button
+                      variant="outline"
+                      aria-label="More ways to add a team"
+                    >
+                      <PiCaretDownFill />
+                    </Button>
+                  }
+                  variant="soft"
+                >
+                  <DropdownMenuItem onClick={() => setRuleModal("add")}>
+                    Add existing team
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              ) : undefined
+            }
+          >
+            <Button variant="outline" onClick={() => setRuleModal("create")}>
+              Create team
+            </Button>
+          </SplitButton>
+        </Box>
       </Flex>
-      <Table variant="surface" layout="fixed">
+      <Table
+        variant="surface"
+        layout="fixed"
+        minTableWidth={TEAMS_TABLE_MIN_WIDTH}
+      >
         <TableHeader>
           <TableRow>
             <TableColumnHeader width="30%">Team</TableColumnHeader>
