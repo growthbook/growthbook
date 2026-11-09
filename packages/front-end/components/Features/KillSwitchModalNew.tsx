@@ -14,7 +14,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getKillSwitchGatedEnvs, useEnvironments } from "@/services/features";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -190,6 +190,7 @@ export default function KillSwitchModalNew({
     );
 
     track("Feature Environment Toggle", {
+      entity_id_hash: entityTrackingHash(feature.id),
       environments,
       autoPublish: mode === "publish",
     });

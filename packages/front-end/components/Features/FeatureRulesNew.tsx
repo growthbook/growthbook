@@ -17,7 +17,7 @@ import RuleModal, {
   type RampToNewValueSeed,
 } from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import {
   getRules,
   isRuleInactive,
@@ -491,6 +491,7 @@ export default function FeatureRulesNew({
                     mode: "create",
                   });
                   track("Viewed Rule Modal", {
+                    entity_id_hash: entityTrackingHash(feature.id),
                     source: "add-rule",
                     type: "force",
                   });

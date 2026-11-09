@@ -22,6 +22,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { ExperimentReportInterface } from "shared/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { entityTrackingKey } from "shared/util";
 import { growthbook } from "@/services/utils";
 import { getCurrentUser } from "./UserContext";
 import {
@@ -101,6 +102,15 @@ const getHost = () => {
 export function getTrackingPageUrl(): string {
   const host = getHost();
   return document.location.protocol + "//" + host + location.pathname;
+}
+
+// Identifies an entity, or one revision of it, in a product event, so a metric
+// can count them distinctly. Hashed the way the back end hashes its events.
+export function entityTrackingHash(
+  entityId: string,
+  version: number | null = null,
+): string {
+  return md5(entityTrackingKey(getCurrentUser()?.org ?? "", entityId, version));
 }
 
 export default function track(

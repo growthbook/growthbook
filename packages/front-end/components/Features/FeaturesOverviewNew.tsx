@@ -31,7 +31,7 @@ import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import ForceSummary from "@/components/Features/ForceSummary";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import { useAuth } from "@/services/auth";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModalNew";
@@ -466,6 +466,7 @@ export default function FeaturesOverviewNew({
         }),
       });
       track("Feature Environment Toggle", {
+        entity_id_hash: entityTrackingHash(feature.id),
         environments: { [envId]: on },
         autoPublish: false,
       });
@@ -625,6 +626,7 @@ export default function FeaturesOverviewNew({
                           i: getPrerequisites(feature).length,
                         });
                         track("Viewed prerequisite feature modal", {
+                          entity_id_hash: entityTrackingHash(feature.id),
                           source: "add-prerequisite",
                         });
                       }}
