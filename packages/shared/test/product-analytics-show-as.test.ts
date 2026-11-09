@@ -352,7 +352,9 @@ describe("getEffectiveMetricValue", () => {
     );
     const cell = { numerator: 100, denominator: 4 };
     expect(
-      [0, 1, 2].map((i) => getEffectiveMetricValue(cell, opts.values[i])),
+      [0, 1, 2].map((i) =>
+        getEffectiveMetricValue(cell, opts.values[i], undefined),
+      ),
     ).toEqual([100, 25, 100]);
   });
 });
@@ -372,7 +374,11 @@ describe("getEffectiveMetricValue for ratios", () => {
       getFactMetricById,
     ).values;
     expect(
-      getEffectiveMetricValue({ numerator: 100, denominator: 4 }, opts),
+      getEffectiveMetricValue(
+        { numerator: 100, denominator: 4 },
+        opts,
+        undefined,
+      ),
     ).toBe(25);
   });
 });

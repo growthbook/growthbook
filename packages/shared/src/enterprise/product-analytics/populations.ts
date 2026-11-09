@@ -28,7 +28,7 @@ function isSupportedWithPopulation(
 /** The parts of a saved Population an exploration reads. */
 export type ExplorationSavedPopulation = Pick<
   PopulationInterface,
-  "id" | "datasource" | "userIdTypes" | "steps"
+  "datasource" | "userIdTypes" | "steps"
 >;
 
 /**

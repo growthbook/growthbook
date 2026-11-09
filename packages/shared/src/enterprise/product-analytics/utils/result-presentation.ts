@@ -89,13 +89,14 @@ function getAnnotatedName(
  * always render as N/D regardless of showAs. Without render settings (no
  * dataset value at that index) the raw numerator is used.
  *
- * `populationCount` is the result row's population member count, present only
- * when the request has a population.
+ * `populationCount` is the result row's population member count, undefined
+ * when the request has no population. Required so no caller can forget it and
+ * render every "% of Population" value as 0.
  */
 export function getEffectiveMetricValue(
   v: { numerator: number | null; denominator: number | null },
   opts: Pick<ValueRenderOpts, "showAs" | "isRatio"> | undefined,
-  populationCount?: number,
+  populationCount: number | undefined,
 ): number {
   const num = v.numerator ?? 0;
   if (opts?.isRatio) {
