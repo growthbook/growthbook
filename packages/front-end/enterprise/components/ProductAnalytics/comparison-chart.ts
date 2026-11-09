@@ -443,6 +443,57 @@ export function buildComparisonOverlaySeriesMaps(
   return { uniqueXValues, dataMap, seriesMeta };
 }
 
+// Matches the fraction under each value in experiment results.
+const fractionNumberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function populationFractionKey(seriesName: string, x: string): string {
+  return `${seriesName}\0${x}`;
+}
+
+/**
+ * The tooltip fraction behind each "% of Population" point, e.g. "12 / 200":
+ * members who converted over the Population's member count. Keyed by series
+ * name and x value; read with `getPopulationFractionLabel`.
+ */
+export function buildPopulationFractionLabels(
+  rows: ProductAnalyticsResultRow[],
+  renderOpts: RenderOpts,
+): Map<string, string> {
+  const labels = new Map<string, string>();
+  for (const row of rows) {
+    if (row.populationCount === undefined) continue;
+    const x = String(row.dimensions[0] ?? "");
+    const values = row.values ?? [];
+    for (let i = 0; i < values.length; i++) {
+      const opts = renderOpts.values[i];
+      if (opts?.showAs !== "percent_of_population") continue;
+      const numerator = values[i].numerator ?? 0;
+      const label = `${fractionNumberFormatter.format(numerator)} / ${fractionNumberFormatter.format(row.populationCount)}`;
+      labels.set(populationFractionKey(opts.seriesName, x), label);
+      // Time axes report the hovered x as epoch milliseconds.
+      const time = parseWarehouseDate(x).getTime();
+      if (!Number.isNaN(time)) {
+        labels.set(populationFractionKey(opts.seriesName, String(time)), label);
+      }
+    }
+  }
+  return labels;
+}
+
+/** The fraction label for a hovered point, or null when it has none. */
+export function getPopulationFractionLabel(
+  labels: Map<string, string>,
+  seriesName: string,
+  axisValue: string | number,
+): string | null {
+  return (
+    labels.get(populationFractionKey(seriesName, String(axisValue))) ?? null
+  );
+}
+
 // --- Explorer chart: ECharts compare overlay (constants + series builders) ---
 
 /** ECharts `z`: previous period draws under current bars/areas. */
@@ -1151,6 +1202,8 @@ type BuildExplorerChartTooltipFormatterArgs = {
   seriesConfigsLength: number;
   formatNumber: (value: number) => string;
   comparisonAlignment?: ComparisonAlignmentStrategy;
+  /** See `buildPopulationFractionLabels`; shown before each value. */
+  populationFractionLabels?: Map<string, string>;
 };
 
 export function buildExplorerChartTooltipFormatter({
@@ -1165,11 +1218,30 @@ export function buildExplorerChartTooltipFormatter({
   seriesConfigsLength,
   formatNumber,
   comparisonAlignment,
+  populationFractionLabels = new Map(),
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
   const useDateGranularityTooltip =
     Boolean(resolvedGranularity) && !compositeCategoryAxisTooltip;
+
+  // The value cell's HTML. A "% of Population" value is preceded by its
+  // fraction, muted like the fraction in experiment results.
+  const formatItemValueHtml = (item: Omit<TooltipAxisItem, "dataIndex">) => {
+    const numValue = tooltipItemNumericValue(item);
+    const formatted = numValue !== null ? formatNumber(numValue) : "";
+    const valueHtml = `<b>${formatted}</b>`;
+    if (numValue === null) return valueHtml;
+
+    const fraction = getPopulationFractionLabel(
+      populationFractionLabels,
+      item.seriesName,
+      item.axisValue,
+    );
+    if (!fraction) return valueHtml;
+    const fractionHtml = `<span style="font-size:11px;font-style:italic;opacity:0.6;margin-right:6px">${escapeHtmlForProductAnalyticsTooltip(fraction)}</span>`;
+    return fractionHtml + valueHtml;
+  };
 
   if (useDateGranularityTooltip && resolvedGranularity) {
     const dateGranularity = resolvedGranularity;
@@ -1265,10 +1337,8 @@ export function buildExplorerChartTooltipFormatter({
             )
           : items
               .map((item) => {
-                const numValue = tooltipItemNumericValue(item);
-                const formatted =
-                  numValue !== null ? formatNumber(numValue) : "";
-                return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span><b>${formatted}</b></span></div>`;
+                const valueHtml = formatItemValueHtml(item);
+                return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span>${valueHtml}</span></div>`;
               })
               .join("");
 
@@ -1331,9 +1401,8 @@ export function buildExplorerChartTooltipFormatter({
 
       const seriesRows = items
         .map((item) => {
-          const numValue = tooltipItemNumericValue(item);
-          const formatted = numValue !== null ? formatNumber(numValue) : "";
-          return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span><b>${formatted}</b></span></div>`;
+          const valueHtml = formatItemValueHtml(item);
+          return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span>${valueHtml}</span></div>`;
         })
         .join("");
 

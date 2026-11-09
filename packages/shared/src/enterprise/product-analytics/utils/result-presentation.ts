@@ -215,6 +215,12 @@ export type ExplorationColumn =
        * - "single": one column whose value respects the effective showAs.
        */
       sub: "numerator" | "denominator" | "value" | "single";
+    }
+  | {
+      /** Each row's Population member count, last when the chart has one. */
+      kind: "populationCount";
+      key: string;
+      label: string;
     };
 
 /**
@@ -312,6 +318,14 @@ export function buildExplorationColumns(
     });
   });
 
+  if (configHasPopulation(config)) {
+    cols.push({
+      kind: "populationCount",
+      key: "__population_count__",
+      label: "Population count",
+    });
+  }
+
   return cols;
 }
 
@@ -336,6 +350,9 @@ export function getExplorationCellValue(
 ): string | number | null {
   if (col.kind === "dimension") {
     return row.dimensions[col.dimIndex] ?? null;
+  }
+  if (col.kind === "populationCount") {
+    return row.populationCount ?? null;
   }
   const v = row.values?.[col.metricIndex];
   if (!v) return null;

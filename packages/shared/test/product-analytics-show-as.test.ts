@@ -1,5 +1,6 @@
 import {
   buildExplorationColumns,
+  getExplorationCellValue,
   getDefaultValueAxisName,
   getEffectiveMetricValue,
   getExplorationRenderOpts,
@@ -607,6 +608,33 @@ describe("proportions with a population", () => {
     expect(
       normalizeShowAs(withoutPopulation, getFactMetricById).dataset,
     ).toEqual({ type: "metric", values: [metricValue("converted")] });
+  });
+
+  it("adds the Population count as the last table column", () => {
+    const config = populationConfig([metricValue("converted")]);
+    const renderOpts = getExplorationRenderOpts(config, getFactMetricById);
+    const columns = buildExplorationColumns(config, renderOpts);
+    const lastColumn = columns[columns.length - 1];
+    expect(lastColumn).toEqual({
+      kind: "populationCount",
+      key: "__population_count__",
+      label: "Population count",
+    });
+    const row = {
+      dimensions: [],
+      values: [{ numerator: 25, denominator: 25 }],
+      populationCount: 200,
+    };
+    expect(getExplorationCellValue(row, lastColumn, renderOpts)).toBe(200);
+
+    const withoutPopulation = metricConfig([metricValue("converted")]);
+    const columnsWithoutPopulation = buildExplorationColumns(
+      withoutPopulation,
+      getExplorationRenderOpts(withoutPopulation, getFactMetricById),
+    );
+    for (const column of columnsWithoutPopulation) {
+      expect(column.kind).not.toBe("populationCount");
+    }
   });
 
   it("titles the value axis", () => {

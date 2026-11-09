@@ -38,6 +38,7 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
+  buildPopulationFractionLabels,
   buildExplorerChartComparisonSeriesList,
   buildExplorerCompareSparseFlatBarSeries,
   computeBigNumberComparisonTrends,
@@ -676,6 +677,7 @@ export default function ExplorerChart({
       seriesConfigsLength: seriesConfigs.length,
       formatNumber,
       comparisonAlignment,
+      populationFractionLabels: buildPopulationFractionLabels(rows, renderOpts),
     });
 
     return {

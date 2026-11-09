@@ -383,6 +383,7 @@ function buildResultCsv(
       return typeof raw === "number" ? String(raw) : raw;
     }
     if (raw == null) return "";
+    if (col.kind === "populationCount") return String(raw);
     if (col.sub === "numerator" || col.sub === "denominator") {
       return typeof raw === "number" ? String(raw) : String(raw);
     }

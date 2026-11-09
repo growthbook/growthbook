@@ -1,8 +1,10 @@
 import React, { useMemo } from "react";
 import { omit } from "lodash";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { FactMetricInterface } from "shared/types/fact-table";
+import type { AppFeatures } from "shared/types/app-features";
 import type { ApiPopulation, MetricValue } from "shared/validators";
 import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import { getMetricPopulationViolations } from "shared/enterprise";
@@ -58,7 +60,11 @@ export default function MetricTabContent() {
     project,
   } = useDefinitions();
   const { permissionsUtil } = useUser();
-  const { populations } = usePopulations(project);
+  const gb = useGrowthBook<AppFeatures>();
+  const populationsEnabled = !!gb?.isOn("populations");
+  const { populations } = usePopulations(project, {
+    enabled: populationsEnabled,
+  });
 
   const values: MetricValue[] =
     draftExploreState.dataset?.type === "metric"
@@ -95,13 +101,15 @@ export default function MetricTabContent() {
   };
   const populationOptions = populations.filter(populationCanBeCombined);
   // Keep the picker visible while a Population is set so it can be cleared.
-  const showPopulationPicker = populationFactTableId !== null || hasPopulation;
+  const showPopulationPicker =
+    populationsEnabled && (populationFactTableId !== null || hasPopulation);
   const savedPopulation = population
     ? (populations.find((p) => p.id === population.populationId) ?? null)
     : null;
 
   const getPopulationViolations = (): string[] => {
-    if (!population) return [];
+    // Without the flag the saved Populations aren't loaded to check against.
+    if (!population || !populationsEnabled) return [];
     const metricMap = new Map<string, FactMetricInterface>();
     const chosenValues: MetricValue[] = [];
     for (const value of values) {
