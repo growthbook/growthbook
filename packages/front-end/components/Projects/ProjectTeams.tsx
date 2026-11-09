@@ -47,6 +47,13 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 
+/**
+ * Narrower than this, the table scrolls sideways in its frame rather than
+ * squeezing its columns (e.g. beside the docked AI panel). Measured: at 596px
+ * the Members header breaks mid-word.
+ */
+const TEAMS_TABLE_MIN_WIDTH = 598;
+
 // The team's role fields, as PUT /teams/:id expects them.
 const teamRoleInfo = (team: Team): MemberRoleWithProjects => ({
   role: team.role,
@@ -312,7 +319,11 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           </SplitButton>
         </Box>
       </Flex>
-      <Table variant="surface" layout="fixed">
+      <Table
+        variant="surface"
+        layout="fixed"
+        minTableWidth={TEAMS_TABLE_MIN_WIDTH}
+      >
         <TableHeader>
           <TableRow>
             <TableColumnHeader width="30%">Team</TableColumnHeader>
