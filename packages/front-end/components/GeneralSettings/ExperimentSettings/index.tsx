@@ -553,7 +553,7 @@ export default function ExperimentSettings() {
           <Checkbox
             id="toggle-disablePublicSharing"
             label="Disable public sharing"
-            description="Public links to experiments and reports stop working. Turning this back off restores them."
+            description="Public links to experiments and reports stop working. Unchecking this restores them."
             value={!!form.watch("disablePublicSharing")}
             setValue={(v) => form.setValue("disablePublicSharing", v)}
           />
