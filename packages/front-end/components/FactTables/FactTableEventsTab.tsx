@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiArrowClockwise, PiCaretRightBold, PiInfo } from "react-icons/pi";
 import { ago } from "shared/dates";
 import {
@@ -27,8 +27,8 @@ import styles from "./FactTableEventsTab.module.scss";
 import columnStyles from "./FactTableDetailsPage.module.scss";
 import { CountBar, useTopValuesLookbackDays } from "./ColumnValues";
 
-// Keeps an expanded row's height close to the sample rows beside it
-const MAX_METRICS = 5;
+// Five lines of two, about the height of the sample rows beside them
+const MAX_METRICS = 10;
 
 export default function FactTableEventsTab({
   factTable,
@@ -211,23 +211,28 @@ export default function FactTableEventsTab({
                               ]}
                             />
                           </Box>
-                          <Box flexShrink="0" style={{ width: 240 }}>
+                          <Box flexShrink="0" width="33%">
                             <div className={styles.sectionLabel}>Metrics</div>
                             <Flex direction="column" align="start" gap="2">
-                              {eventMetrics.slice(0, MAX_METRICS).map((m) => (
-                                <Button
-                                  key={m.id}
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => onSelectMetric(m.id)}
-                                  title={m.name}
-                                  style={{ maxWidth: "100%" }}
-                                >
-                                  <span className={styles.truncate}>
+                              {/* Two equal buttons per line; long names truncate */}
+                              <Grid
+                                columns="repeat(2, minmax(0, 1fr))"
+                                gap="2"
+                                width="100%"
+                              >
+                                {eventMetrics.slice(0, MAX_METRICS).map((m) => (
+                                  <Button
+                                    key={m.id}
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => onSelectMetric(m.id)}
+                                    title={m.name}
+                                    className={styles.metricButton}
+                                  >
                                     {m.name}
-                                  </span>
-                                </Button>
-                              ))}
+                                  </Button>
+                                ))}
+                              </Grid>
                               {eventMetrics.length > MAX_METRICS ? (
                                 <Link
                                   onClick={() =>
