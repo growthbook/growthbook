@@ -470,7 +470,11 @@ export default function ReportMetaInfo({
               <>
                 <Callout status="warning" size="sm">
                   {publicSharingDisabled
-                    ? 'Public sharing is turned off for your organization, so this link doesn\'t work right now. It will work again if sharing is turned back on. To revoke it, set View access to "Only organization members" or "Only me".'
+                    ? `Public sharing is turned off for your organization, so this link doesn't work right now. It will work again if sharing is turned back on. ${
+                        isOwner || isAdmin
+                          ? 'To revoke it, set View access to "Only organization members" or "Only me".'
+                          : "Ask the report owner or an admin to revoke it."
+                      }`
                     : "Anyone with the link can view this report, even those outside your organization."}
                 </Callout>
               </>
