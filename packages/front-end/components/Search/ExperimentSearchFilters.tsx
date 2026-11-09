@@ -53,7 +53,7 @@ const ExperimentSearchFilters: FC<
   });
 
   return (
-    <Flex gap="5" align="center">
+    <Flex gap="5" align="center" wrap="wrap">
       {!project && projects.length > 0 && (
         <FilterDropdown
           filter="project"

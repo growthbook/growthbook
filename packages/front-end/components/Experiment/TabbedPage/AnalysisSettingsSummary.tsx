@@ -941,13 +941,13 @@ export default function AnalysisSettingsSummary({
       >
         <Box
           style={{
-            flex: "1 0 auto",
+            flex: "1 1 auto",
             display: "flex",
             justifyContent: "flex-end",
             whiteSpace: "nowrap",
           }}
         >
-          <Flex align="center" gap="4">
+          <Flex align="center" justify="end" gap="4" wrap="wrap">
             {snapshot && clusterSubUnitIdentifier ? (
               <>
                 {overallClusterUnits !== null && (

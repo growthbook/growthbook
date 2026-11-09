@@ -443,7 +443,7 @@ const FeatureSearchFilters: FC<
   );
 
   return (
-    <Flex gap="5" align="center">
+    <Flex gap="5" align="center" wrap={{ initial: "wrap", md: "nowrap" }}>
       {!project && (
         <FilterDropdown
           filter="project"

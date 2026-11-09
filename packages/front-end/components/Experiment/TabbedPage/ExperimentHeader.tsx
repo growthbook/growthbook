@@ -982,7 +982,13 @@ export default function ExperimentHeader({
       ) : null}
 
       <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-2">
-        <Flex direction="row" align="start" justify="between" gap="5">
+        <Flex
+          direction="row"
+          align="start"
+          justify="between"
+          gap="5"
+          wrap="wrap"
+        >
           {/* Raised so the name's x-height centres on the buttons' text. */}
           <Box className={revealsQuickEdit} mt="-3px">
             <Heading
