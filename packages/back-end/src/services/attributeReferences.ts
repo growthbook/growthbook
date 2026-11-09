@@ -147,7 +147,7 @@ export async function getAttributeReferences(
         projects: group.projects,
       });
     };
-    if (group.type === "list") {
+    if (group.type !== "condition") {
       if (group.attributeKey) addGroup(group.attributeKey);
       continue;
     }

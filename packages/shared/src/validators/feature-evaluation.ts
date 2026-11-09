@@ -69,7 +69,7 @@ export const postFeatureEvaluateValidator = {
         .optional()
         .describe("Defaults to every environment the flag is in"),
       evalDate: z.iso
-        .datetime()
+        .datetime({ offset: true })
         .optional()
         .describe("Evaluate scheduled rules as of this time. Defaults to now."),
       skipRulesWithPrerequisites: z

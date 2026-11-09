@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { SavedGroupType } from "shared/types/saved-group";
 import { useAuth } from "@/services/auth";
 
 export type AttributeFeatureRef = {
@@ -15,7 +16,7 @@ export type AttributeExperimentRef = {
 export type AttributeSavedGroupRef = {
   id: string;
   groupName: string;
-  type: "condition" | "list";
+  type: SavedGroupType;
   projects?: string[];
 };
 

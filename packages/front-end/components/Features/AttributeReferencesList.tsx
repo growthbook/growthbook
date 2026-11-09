@@ -2,6 +2,7 @@ import { FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
+import { SavedGroupType } from "shared/types/saved-group";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
@@ -9,6 +10,12 @@ import ProjectBadges from "@/components/ProjectBadges";
 import Pagination from "@/ui/Pagination";
 
 const PER_PAGE = 20;
+
+const SAVED_GROUP_TYPE_LABELS: Record<SavedGroupType, string> = {
+  condition: "Condition group",
+  list: "ID list",
+  remote: "Remote group",
+};
 
 type FeatureRef = { id: string; name?: string; project?: string };
 type ExperimentRef = {
@@ -20,7 +27,7 @@ type ExperimentRef = {
 type SavedGroupRef = {
   id: string;
   groupName?: string;
-  type?: "condition" | "list";
+  type?: SavedGroupType;
   projects?: string[];
 };
 
@@ -257,11 +264,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                       <Box flexShrink="0">
                         <Badge
                           variant="soft"
-                          label={
-                            savedGroup.type === "list"
-                              ? "ID list"
-                              : "Condition group"
-                          }
+                          label={SAVED_GROUP_TYPE_LABELS[savedGroup.type]}
                         />
                       </Box>
                     ) : null}

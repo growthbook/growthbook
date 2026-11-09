@@ -46,7 +46,7 @@ export const apiAttributeValidator = namedSchema(
 const disableEqualityConditionsField = z
   .boolean()
   .describe(
-    "Prevent exact-match targeting on this attribute; only regex and greater/less than comparisons are allowed. Useful for PII.",
+    "Hide exact-match operators for this attribute in the app's condition editor, leaving regex and greater/less than comparisons. Not enforced on API writes. Useful for PII.",
   )
   .optional();
 
@@ -236,7 +236,7 @@ export const getAttributeReferencesValidator = {
           id: z.string(),
           groupName: z.string(),
           type: savedGroupTypeValidator.describe(
-            "`condition` groups use the attribute in their condition; `list` groups are keyed on it",
+            "`condition` groups use the attribute in their condition; `list` and `remote` groups are keyed on it",
           ),
           projects: z.array(z.string()).optional(),
         }),
@@ -245,7 +245,7 @@ export const getAttributeReferencesValidator = {
     .strict(),
   summary: "Get what references an attribute",
   description:
-    "Feature Flag rules and experiments that target the attribute or use it as their hash or fallback attribute (for a contextual bandit rule, also as a context attribute), plus Saved Groups that use it (condition groups) or are keyed on it (ID lists). Limited to projects the caller can read. Check this before renaming or deleting it.",
+    "Feature Flag rules and experiments that target the attribute or use it as their hash or fallback attribute (for a contextual bandit rule, also as a context attribute), plus Saved Groups that use it (condition groups) or are keyed on it (ID lists and remote groups). Limited to projects the caller can read. Check this before renaming or deleting it.",
   operationId: "getAttributeReferences",
   tags: ["attributes"],
   method: "get" as const,
