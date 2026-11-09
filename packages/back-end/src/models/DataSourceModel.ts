@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep, isEqual, isNull, omitBy } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
@@ -968,8 +968,14 @@ export function toDataSourceApiInterface(
       }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
+    // Cleared form fields are stored as null, which an echoed PUT would reject
     ...(settings?.pipelineSettings
-      ? { pipelineSettings: settings.pipelineSettings }
+      ? {
+          pipelineSettings: omitBy(
+            settings.pipelineSettings,
+            isNull,
+          ) as DataSourcePipelineSettings,
+        }
       : {}),
     ...(maxConcurrentQueries !== undefined && maxConcurrentQueries >= 0
       ? { maxConcurrentQueries }

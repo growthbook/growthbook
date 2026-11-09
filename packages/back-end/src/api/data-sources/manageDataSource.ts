@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isEmpty, isEqual } from "lodash";
+import { countBy, groupBy, isEmpty, isEqual } from "lodash";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import {
   deleteDataSourceValidator,
@@ -70,20 +70,23 @@ export function applyApiDataSourceSettings(
     });
   }
   if (input.assignmentQueries) {
-    const ids = input.assignmentQueries.flatMap((q) => (q.id ? [q.id] : []));
-    const repeated = ids.find((id, i) => ids.indexOf(id) !== i);
+    // Older saves can repeat an id, so match repeats to stored queries in order
+    const prev = groupBy(existing.queries?.exposure ?? [], (q) => q.id);
+    const repeated = Object.entries(
+      countBy(
+        input.assignmentQueries.filter((q) => q.id),
+        (q) => q.id,
+      ),
+    ).find(([id, n]) => n > Math.max(1, prev[id]?.length ?? 0));
     if (repeated) {
       throw new BadRequestError(
-        `Assignment query id \`${repeated}\` appears more than once`,
+        `Assignment query id \`${repeated[0]}\` appears more than once`,
       );
     }
-    const prev = new Map(
-      (existing.queries?.exposure ?? []).map((q) => [q.id, q]),
-    );
     settings.queries = {
       ...settings.queries,
       exposure: input.assignmentQueries.map((q) => {
-        const match = q.id ? prev.get(q.id) : undefined;
+        const match = q.id ? prev[q.id]?.shift() : undefined;
         const userIdTypes =
           q.identifierTypes ??
           (q.identifierType ? [q.identifierType] : undefined);
