@@ -13,7 +13,11 @@ import {
 } from "shared/types/experiment-qa-override";
 import { SavedGroupTargeting } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { isProductionEnvironment, qaOverrideHasCondition } from "shared/util";
+import {
+  getQaOverrideWaitingFeatures,
+  isProductionEnvironment,
+  qaOverrideHasCondition,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,16 +30,14 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import VariationLabel from "@/ui/VariationLabel";
-import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import QaOverrideFeatureGate from "./QaOverrideFeatureGate";
-import { getQaOverrideWaitingFeatures } from "./QaOverrideSummary";
 
 export type QaOverrideModalExperiment = Pick<
   ExperimentInterfaceStringDates,
@@ -87,6 +89,7 @@ export default function QaOverrideModal({
   onFeatureChanged?: () => Promise<unknown> | void;
 }) {
   const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
   const { projects } = useDefinitions();
   const { data: connectionData } = useSDKConnections();
@@ -94,13 +97,19 @@ export default function QaOverrideModal({
   const variations = getLatestPhaseVariations(experiment);
   const phase = experiment.phases[experiment.phases.length - 1];
 
+  // Production stays listed (disabled, with the note below) so people learn
+  // why it's missing; environments the user can't run experiments in are
+  // left out since the server would refuse them anyway.
   const environmentOptions = useMemo(
     () =>
-      environments.map((e) => ({
-        id: e.id,
-        isProduction: isProductionEnvironment(e),
-      })),
-    [environments],
+      environments
+        .map((e) => ({ id: e.id, isProduction: isProductionEnvironment(e) }))
+        .filter(
+          (e) =>
+            e.isProduction ||
+            permissionsUtil.canRunExperiment(experiment, [e.id]),
+        ),
+    [environments, experiment, permissionsUtil],
   );
   const eligibleEnvironments = environmentOptions.filter(
     (e) => !e.isProduction,
@@ -143,7 +152,7 @@ export default function QaOverrideModal({
   const waitingFeatures = values.environment
     ? getQaOverrideWaitingFeatures(
         { environment: values.environment },
-        linkedFeatures,
+        linkedFeatures ?? [],
       )
     : [];
 
@@ -197,7 +206,11 @@ export default function QaOverrideModal({
       size="md"
       trackingEventModalType="experiment-qa-override"
       submit={form.handleSubmit(async (value) => {
-        const body = { filters: buildFilters(), assignment: buildAssignment() };
+        const body = {
+          environment: value.environment,
+          filters: buildFilters(),
+          assignment: buildAssignment(),
+        };
         if (existing) {
           await apiCall(`/qa-overrides/${existing.id}`, {
             method: "PUT",
@@ -206,7 +219,7 @@ export default function QaOverrideModal({
         } else {
           await apiCall(`/qa-overrides/experiment/${experiment.id}`, {
             method: "POST",
-            body: JSON.stringify({ ...body, environment: value.environment }),
+            body: JSON.stringify(body),
           });
         }
         await onSaved();
@@ -217,38 +230,29 @@ export default function QaOverrideModal({
           <Heading as="h3" size="sm" mb="1">
             Environment
           </Heading>
-          {existing ? (
-            <Metadata
-              label="Environment"
-              value={<Badge label={existing.environment} color="gray" />}
-            />
-          ) : (
-            <>
-              <Select
-                value={values.environment}
-                setValue={(v) => {
-                  form.setValue("environment", v);
-                  // Connections belong to one environment, so a different
-                  // environment makes any connection filter meaningless.
-                  form.setValue("sdkConnections", []);
-                }}
-                placeholder="Select an environment..."
-              >
-                {environmentOptions.map((e) => (
-                  <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
-                    {e.id}
-                    {e.isProduction ? " (production)" : ""}
-                  </SelectItem>
-                ))}
-              </Select>
-              <Text as="p" size="sm" color="text-low" mt="1">
-                QA overrides aren&apos;t available on production. To use one of
-                those environments, turn off &quot;This is a production
-                environment&quot; in{" "}
-                <Link href="/environments">Settings → Environments</Link>.
-              </Text>
-            </>
-          )}
+          <Select
+            value={values.environment}
+            setValue={(v) => {
+              form.setValue("environment", v);
+              // Connections belong to one environment, so a different
+              // environment makes any connection filter meaningless.
+              form.setValue("sdkConnections", []);
+            }}
+            placeholder="Select an environment..."
+          >
+            {environmentOptions.map((e) => (
+              <SelectItem key={e.id} value={e.id} disabled={e.isProduction}>
+                {e.id}
+                {e.isProduction ? " (production)" : ""}
+              </SelectItem>
+            ))}
+          </Select>
+          <Text as="p" size="sm" color="text-low" mt="1">
+            QA overrides aren&apos;t available on production. To use one of
+            those environments, turn off &quot;This is a production
+            environment&quot; in{" "}
+            <Link href="/environments">Settings → Environments</Link>.
+          </Text>
         </Box>
 
         <Box>
@@ -276,8 +280,8 @@ export default function QaOverrideModal({
           {activeFilters.length === 0 ? (
             <Text as="p" size="sm" color="text-low">
               No filters: every request in this environment gets the override.
-              Add one to narrow it to specific identifiers, saved groups, SDK
-              Connections or projects.
+              Add one to narrow it to specific identifiers, Saved Groups, SDK
+              Connections or Projects.
             </Text>
           ) : (
             <Flex direction="column" gap="4" mt="2">
@@ -353,6 +357,7 @@ export default function QaOverrideModal({
             </Text>
             <QaOverrideFeatureGate
               environment={values.environment}
+              waitingOn={waitingFeatures}
               linkedFeatures={linkedFeatures}
               onChanged={onFeatureChanged}
             />

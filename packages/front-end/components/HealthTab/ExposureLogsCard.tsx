@@ -81,12 +81,17 @@ export interface Props {
   /** The phase selected on the Health tab, so the log compiles the exposure
    * query for the same phase the snapshot cards show. */
   phase: number;
+  /** "qa" reads exposures served through QA overrides (`<trackingKey>::qa`). */
+  exposureSource?: "live" | "qa";
+  title?: string;
 }
 
 export default function ExposureLogsCard({
   experiment,
   isTabActive,
   phase,
+  exposureSource,
+  title = "Exposure Logs",
 }: Props) {
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -158,6 +163,7 @@ export default function ExposureLogsCard({
       rowFilters,
       phase,
       cache,
+      ...(exposureSource ? { exposureSource } : {}),
     }),
   });
 
@@ -383,7 +389,7 @@ export default function ExposureLogsCard({
 
   return (
     <RecordsPanel
-      title="Exposure Logs"
+      title={title}
       query={query}
       columns={columns}
       getRowId={(r, i) =>

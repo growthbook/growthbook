@@ -1,9 +1,11 @@
+import type { RequireReview } from "shared/types/organization";
 import {
   canBypassStartApproval,
   canCommentOnRevisionEntity,
   canDeleteArchivedEntity,
   canLandArchiveToggle,
   canEnableEnvironmentOnCreate,
+  canPublishEnvironmentToggle,
   canLandRevertToTarget,
   canReviewRevisionEntity,
   holdsFeatureMoveDestination,
@@ -441,5 +443,88 @@ describe("canReviewRevisionEntity", () => {
     ).toBe(true);
     // The live entity's project must not rescue (or block) the verdict.
     expect(canReviewRevisionEntity(util, "config", null, liveInB)).toBe(false);
+  });
+});
+
+describe("canPublishEnvironmentToggle", () => {
+  const feature = { project: "p" };
+  const util = ({
+    publish = ["dev", "production"],
+    draft = true,
+    bypass = false,
+  }: { publish?: string[]; draft?: boolean; bypass?: boolean } = {}) =>
+    ({
+      canPublishFeature: (f: { project?: string }, envs: string[]) =>
+        f.project === "p" && envs.every((e) => publish.includes(e)),
+      canEditFeatureDrafts: () => draft,
+      canBypassFlagApprovalChecks: () => bypass,
+    }) as unknown as Parameters<typeof canPublishEnvironmentToggle>[0];
+  const reviews = (overrides: Partial<RequireReview> = {}): RequireReview[] => [
+    { requireReviewOn: true, projects: [], ...overrides },
+  ];
+
+  it("publishes directly when reviews are off", () => {
+    expect(canPublishEnvironmentToggle(util(), feature, "dev", undefined)).toBe(
+      "publish",
+    );
+    expect(canPublishEnvironmentToggle(util(), feature, "dev", false)).toBe(
+      "publish",
+    );
+  });
+
+  it("stages a draft when the org requires reviews everywhere", () => {
+    expect(canPublishEnvironmentToggle(util(), feature, "dev", true)).toBe(
+      "draft",
+    );
+  });
+
+  it("gates only the environments the review setting lists", () => {
+    const setting = reviews({ environments: ["production"] });
+    expect(canPublishEnvironmentToggle(util(), feature, "dev", setting)).toBe(
+      "publish",
+    );
+    expect(
+      canPublishEnvironmentToggle(util(), feature, "production", setting),
+    ).toBe("draft");
+    // No environments listed = all of them.
+    expect(canPublishEnvironmentToggle(util(), feature, "dev", reviews())).toBe(
+      "draft",
+    );
+  });
+
+  it("ignores the gate when environment toggles are exempt from review", () => {
+    expect(
+      canPublishEnvironmentToggle(
+        util(),
+        feature,
+        "dev",
+        reviews({ featureRequireEnvironmentReview: false }),
+      ),
+    ).toBe("publish");
+  });
+
+  it("lets a user who can bypass approvals publish through the gate", () => {
+    expect(
+      canPublishEnvironmentToggle(
+        util({ bypass: true }),
+        feature,
+        "dev",
+        reviews(),
+      ),
+    ).toBe("publish");
+  });
+
+  it("falls back to a draft without publish permission, and to nothing without draft permission", () => {
+    expect(
+      canPublishEnvironmentToggle(util({ publish: [] }), feature, "dev", false),
+    ).toBe("draft");
+    expect(
+      canPublishEnvironmentToggle(
+        util({ publish: [], draft: false }),
+        feature,
+        "dev",
+        false,
+      ),
+    ).toBe("none");
   });
 });

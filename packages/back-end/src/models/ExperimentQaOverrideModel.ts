@@ -263,7 +263,7 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
       const found = await this.context.models.savedGroups.getByIds(ids);
       const missing = ids.filter((id) => !found.some((g) => g.id === id));
       if (missing.length) {
-        throw new Error(`Unknown saved group(s): ${missing.join(", ")}`);
+        throw new Error(`Unknown Saved Group(s): ${missing.join(", ")}`);
       }
     }
 

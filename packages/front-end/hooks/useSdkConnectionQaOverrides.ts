@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
+import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
 import useApi from "@/hooks/useApi";
 
 export type QaOverrideExperiment = Pick<
@@ -19,7 +19,7 @@ export default function useSdkConnectionQaOverrides(
   sdkConnectionId: string | undefined,
 ) {
   return useApi<{
-    overrides: ExperimentQaOverrideInterface[];
+    overrides: ExperimentQaOverrideWithStatus[];
     experiments: QaOverrideExperiment[];
   }>(`/qa-overrides/sdk-connection/${sdkConnectionId}`, {
     shouldRun: () => !!sdkConnectionId,

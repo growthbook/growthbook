@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
+import { ExperimentQaOverrideWithStatus } from "shared/types/experiment-qa-override";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { isProductionEnvironment } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -28,6 +28,7 @@ import QaOverrideModal from "@/components/Experiment/QaOverrides/QaOverrideModal
 import {
   QaOverrideFiltersSummary,
   QaOverrideSetBy,
+  QaOverrideStatusBadge,
   QaOverrideVariation,
 } from "@/components/Experiment/QaOverrides/QaOverrideSummary";
 
@@ -39,9 +40,10 @@ export default function SdkQaOverridesSection({
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
-  const { data, mutate } = useSdkConnectionQaOverrides(connection.id);
+  const { data, error, mutate } = useSdkConnectionQaOverrides(connection.id);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{
-    override: ExperimentQaOverrideInterface;
+    override: ExperimentQaOverrideWithStatus;
     experiment: QaOverrideExperiment;
   } | null>(null);
 
@@ -53,7 +55,8 @@ export default function SdkQaOverridesSection({
   const canEdit = (experiment: QaOverrideExperiment) =>
     permissionsUtil.canRunExperiment(experiment, [connection.environment]);
 
-  const deleteOverride = async (override: ExperimentQaOverrideInterface) => {
+  const deleteOverride = async (override: ExperimentQaOverrideWithStatus) => {
+    setActionError(null);
     await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
     await mutate();
   };
@@ -95,6 +98,17 @@ export default function SdkQaOverridesSection({
         </Box>
       </Flex>
 
+      {error && (
+        <Callout status="error" mb="3">
+          Could not load QA overrides: {error.message}
+        </Callout>
+      )}
+      {actionError && (
+        <Callout status="error" mb="3">
+          {actionError}
+        </Callout>
+      )}
+
       {!envEligible ? (
         <Callout status="info">
           <Text weight="medium">{connection.environment}</Text> is a production
@@ -102,9 +116,11 @@ export default function SdkQaOverridesSection({
           <Link href="/environments">Manage environments</Link>
         </Callout>
       ) : overrides.length === 0 ? (
-        <Text color="text-low">
-          No draft experiments are being served to this connection.
-        </Text>
+        !error && (
+          <Text color="text-low">
+            No draft experiments are being served to this connection.
+          </Text>
+        )
       ) : (
         <Table variant="ghost">
           <TableHeader>
@@ -112,6 +128,7 @@ export default function SdkQaOverridesSection({
               <TableColumnHeader>Experiment</TableColumnHeader>
               <TableColumnHeader>Filters</TableColumnHeader>
               <TableColumnHeader>Variation</TableColumnHeader>
+              <TableColumnHeader>Status</TableColumnHeader>
               <TableColumnHeader>Set by</TableColumnHeader>
               <TableColumnHeader />
             </TableRow>
@@ -140,6 +157,9 @@ export default function SdkQaOverridesSection({
                     />
                   </TableCell>
                   <TableCell>
+                    <QaOverrideStatusBadge override={override} />
+                  </TableCell>
+                  <TableCell>
                     <QaOverrideSetBy override={override} />
                   </TableCell>
                   <TableCell>
@@ -154,6 +174,7 @@ export default function SdkQaOverridesSection({
                         <Button
                           variant="ghost"
                           color="red"
+                          setError={setActionError}
                           onClick={() => deleteOverride(override)}
                         >
                           Remove

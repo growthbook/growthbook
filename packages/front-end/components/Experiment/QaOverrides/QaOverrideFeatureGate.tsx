@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import { getReviewSetting } from "shared/util";
+import { QaOverrideWaitingFeature } from "shared/types/experiment-qa-override";
+import { canPublishEnvironmentToggle } from "shared/permissions";
+import { QA_OVERRIDE_WAITING_REASONS } from "shared/util";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -10,30 +12,26 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import {
-  describeWaitingReason,
-  getQaOverrideWaitingFeatures,
-  QaOverrideWaitingFeature,
-} from "./QaOverrideSummary";
 
-// Lists each linked feature that won't serve the override in `environment`
-// yet, with the quickest way to fix it: turning the flag on in that
-// environment (published directly when no approval is required, otherwise
-// staged as a draft to approve), or a link to the feature for rule changes.
+// Each linked Feature Flag that won't serve the override in `environment` yet,
+// with the quickest fix: turning the flag on there (published directly when no
+// approval is required, otherwise staged as a draft to approve), or a link to
+// the Feature Flag for rule changes.
 export default function QaOverrideFeatureGate({
   environment,
+  waitingOn,
   linkedFeatures,
   onChanged,
 }: {
   environment: string;
+  waitingOn: QaOverrideWaitingFeature[];
   linkedFeatures: LinkedFeatureInfo[] | undefined;
   onChanged?: () => Promise<unknown> | void;
 }) {
-  const waiting = getQaOverrideWaitingFeatures({ environment }, linkedFeatures);
-  if (!waiting.length) return null;
+  if (!waitingOn.length) return null;
   return (
     <Flex direction="column" gap="2">
-      {waiting.map((w) => {
+      {waitingOn.map((w) => {
         const info = linkedFeatures?.find((f) => f.feature.id === w.featureId);
         if (!info) return null;
         return (
@@ -68,30 +66,17 @@ function WaitingFeatureRow({
   const [error, setError] = useState<string | null>(null);
 
   const featureHref = `/features/${feature.id}`;
-  const canToggleEnv = waiting.reason === "disabled-env";
-
-  // Same gate the kill-switch modal applies: an environment toggle can be
-  // published directly unless this environment requires review (and the user
-  // can't bypass it).
-  const rawRequireReviews = settings?.requireReviews;
-  const reviewSetting = Array.isArray(rawRequireReviews)
-    ? getReviewSetting(rawRequireReviews, feature)
-    : null;
-  const envIsGated = (() => {
-    if (rawRequireReviews === true) return true;
-    if (!reviewSetting?.requireReviewOn) return false;
-    if (reviewSetting.featureRequireEnvironmentReview === false) return false;
-    const gated = reviewSetting.environments ?? [];
-    return gated.length === 0 || gated.includes(environment);
-  })();
-  const canBypass = permissionsUtil.canBypassFlagApprovalChecks(
-    feature,
-    "feature",
-  );
-  const canPublish =
-    (canBypass || !envIsGated) &&
-    permissionsUtil.canPublishFeature(feature, [environment]);
-  const canDraft = permissionsUtil.canEditFeatureDrafts(feature);
+  // Only a flag that's off can be fixed with a toggle; rule problems need
+  // the Feature Flag page.
+  const path =
+    waiting.reason === "disabled-env"
+      ? canPublishEnvironmentToggle(
+          permissionsUtil,
+          feature,
+          environment,
+          settings?.requireReviews,
+        )
+      : "none";
 
   const toggle = async (autoPublish: boolean) => {
     setError(null);
@@ -119,7 +104,7 @@ function WaitingFeatureRow({
         <Link href={featureHref}>
           <code>{feature.id}</code>
         </Link>
-        : {describeWaitingReason(waiting.reason)}
+        : {QA_OVERRIDE_WAITING_REASONS[waiting.reason]}
       </Text>
       {stagedVersion !== null ? (
         <Text size="sm" color="text-mid">
@@ -129,16 +114,16 @@ function WaitingFeatureRow({
           </Link>{" "}
           to activate this override.
         </Text>
-      ) : canToggleEnv && canPublish ? (
+      ) : path === "publish" ? (
         <Button variant="soft" size="sm" onClick={() => toggle(true)}>
           Enable in {environment}
         </Button>
-      ) : canToggleEnv && canDraft ? (
+      ) : path === "draft" ? (
         <Button variant="soft" size="sm" onClick={() => toggle(false)}>
           Stage draft for approval
         </Button>
       ) : (
-        <Link href={featureHref}>Open feature</Link>
+        <Link href={featureHref}>Open Feature Flag</Link>
       )}
       {error && <Callout status="error">{error}</Callout>}
     </Flex>

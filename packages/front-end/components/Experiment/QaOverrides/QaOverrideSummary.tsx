@@ -1,12 +1,14 @@
 import { Flex } from "@radix-ui/themes";
 import {
-  LinkedFeatureEnvState,
-  LinkedFeatureInfo,
-  LinkedFeatureState,
-} from "shared/types/experiment";
-import { ExperimentQaOverrideInterface } from "shared/types/experiment-qa-override";
+  ExperimentQaOverrideInterface,
+  ExperimentQaOverrideWithStatus,
+} from "shared/types/experiment-qa-override";
 import { ago } from "shared/dates";
-import { qaOverrideFiltersAreEmpty, qaOverrideHasCondition } from "shared/util";
+import {
+  QA_OVERRIDE_WAITING_REASONS,
+  qaOverrideFiltersAreEmpty,
+  qaOverrideHasCondition,
+} from "shared/util";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -103,70 +105,28 @@ export function QaOverrideSetBy({
   );
 }
 
-export type QaOverrideWaitingFeature = {
-  featureId: string;
-  reason:
-    | Exclude<LinkedFeatureState, "live">
-    | Exclude<LinkedFeatureEnvState, "active">;
-};
-
-// Linked features that won't serve the override yet: the experiment rule isn't
-// in the live revision, or the flag / rule is off in the override's environment.
-export function getQaOverrideWaitingFeatures(
-  override: Pick<ExperimentQaOverrideInterface, "environment">,
-  linkedFeatures: LinkedFeatureInfo[] | undefined,
-): QaOverrideWaitingFeature[] {
-  return (linkedFeatures ?? []).flatMap((f): QaOverrideWaitingFeature[] => {
-    if (f.state !== "live") {
-      return [{ featureId: f.feature.id, reason: f.state }];
-    }
-    const envState = f.environmentStates[override.environment];
-    if (envState && envState !== "active") {
-      return [{ featureId: f.feature.id, reason: envState }];
-    }
-    return [];
-  });
-}
-
-const WAITING_REASONS: Record<QaOverrideWaitingFeature["reason"], string> = {
-  draft: "rule is still in a draft",
-  discarded: "rule draft was discarded",
-  archived: "feature is archived",
-  missing: "rule isn't in the live revision",
-  "disabled-env": "feature is off in this environment",
-  "disabled-rule": "rule is off in this environment",
-};
-
-export function describeWaitingReason(
-  reason: QaOverrideWaitingFeature["reason"],
-): string {
-  return WAITING_REASONS[reason];
-}
-
 export function QaOverrideStatusBadge({
   override,
-  linkedFeatures,
 }: {
-  override: ExperimentQaOverrideInterface;
-  linkedFeatures: LinkedFeatureInfo[] | undefined;
+  override: Pick<ExperimentQaOverrideWithStatus, "status" | "waitingOn">;
 }) {
-  const waiting = getQaOverrideWaitingFeatures(override, linkedFeatures);
-  if (!waiting.length) {
+  if (override.status === "active") {
     return <Badge label="Active" color="green" variant="soft" />;
   }
   return (
     <Tooltip
       body={
         <Flex direction="column" gap="1">
-          {waiting.map((w) => (
+          {override.waitingOn.map((w) => (
             <Text key={w.featureId} size="sm">
-              <code>{w.featureId}</code>: {describeWaitingReason(w.reason)}
+              <code>{w.featureId}</code>:{" "}
+              {QA_OVERRIDE_WAITING_REASONS[w.reason]}
             </Text>
           ))}
         </Flex>
       }
     >
-      <Badge label="Waiting for feature" color="amber" variant="soft" />
+      <Badge label="Waiting for Feature Flag" color="amber" variant="soft" />
     </Tooltip>
   );
 }
