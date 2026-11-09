@@ -13,7 +13,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
@@ -89,6 +88,7 @@ export default function FactTableColumnsTab({
           close={() => setEditOpen(null)}
           factTable={factTable}
           existing={editOpen}
+          canDelete={canManageVirtual}
         />
       ) : editOpen ? (
         <ColumnModal
@@ -221,28 +221,13 @@ export default function FactTableColumnsTab({
                 <div className={styles.expression}>{col.sql}</div>
               </Box>
               {canManageVirtual ? (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setEditOpen(col)}
-                  >
-                    Edit column
-                  </Button>
-                  <DeleteButton
-                    useRadix
-                    displayName="Virtual Column"
-                    text="Delete"
-                    deleteMessage="This will remove the virtual column. Metrics or filters that reference it will need to be updated."
-                    onClick={async () => {
-                      await apiCall(
-                        `/fact-tables/${factTable.id}/column/${col.column}`,
-                        { method: "DELETE" },
-                      );
-                      await mutateDefinitions();
-                    }}
-                  />
-                </>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditOpen(col)}
+                >
+                  Edit column
+                </Button>
               ) : null}
             </Flex>
           )}
