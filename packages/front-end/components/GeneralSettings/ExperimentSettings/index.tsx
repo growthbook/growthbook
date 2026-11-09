@@ -543,6 +543,23 @@ export default function ExperimentSettings() {
         <DecisionFrameworkSettings />
       </SettingsGroup>
 
+      <SettingsGroup
+        id="exp-sharing"
+        title="Public Sharing"
+        description="Whether experiments and reports can be shared with people outside your organization."
+        keywords="public share link anonymous login report"
+      >
+        <UnsavedMark name="disablePublicSharing">
+          <Checkbox
+            id="toggle-disablePublicSharing"
+            label="Disable public sharing"
+            description="Public links to experiments and reports stop working. Turning this back off restores them."
+            value={!!form.watch("disablePublicSharing")}
+            setValue={(v) => form.setValue("disablePublicSharing", v)}
+          />
+        </UnsavedMark>
+      </SettingsGroup>
+
       {editChecklistOpen ? (
         <ExperimentCheckListModal close={() => setEditChecklistOpen(false)} />
       ) : null}

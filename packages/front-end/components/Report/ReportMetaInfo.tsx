@@ -32,6 +32,7 @@ import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import { useUser } from "@/services/UserContext";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -70,6 +71,8 @@ export default function ReportMetaInfo({
     : `${HOST}/report/${report.id}`;
 
   const { apiCall } = useAuth();
+  const { settings } = useUser();
+  const publicSharingDisabled = !!settings?.disablePublicSharing;
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -207,7 +210,8 @@ export default function ReportMetaInfo({
   ]);
 
   const shareLinkButton =
-    report.shareLevel !== "public" ? null : copySuccess ? (
+    report.shareLevel !== "public" ||
+    publicSharingDisabled ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
@@ -352,7 +356,7 @@ export default function ReportMetaInfo({
               )}
               {showEditControls ? (
                 <div className="d-flex flex-column align-items-end">
-                  {shareLevel === "public" ? (
+                  {shareLevel === "public" && !publicSharingDisabled ? (
                     <SplitButton menu={shareLinkButtonTiny}>
                       <Button onClick={() => setShareModalOpen(true)}>
                         Share...
@@ -463,8 +467,9 @@ export default function ReportMetaInfo({
             ) : shareLevel === "public" ? (
               <>
                 <Callout status="warning" size="sm">
-                  Anyone with the link can view this report, even those outside
-                  your organization.
+                  {publicSharingDisabled
+                    ? "Public sharing is disabled for your organization, so this link no longer works."
+                    : "Anyone with the link can view this report, even those outside your organization."}
                 </Callout>
               </>
             ) : shareLevel === "private" ? (
@@ -486,7 +491,10 @@ export default function ReportMetaInfo({
             options={[
               { value: "private", label: "Only me" },
               { value: "organization", label: "Only organization members" },
-              { value: "public", label: "Anyone with the link" },
+              // Kept for an already-public report so it can be switched off.
+              ...(publicSharingDisabled && report.shareLevel !== "public"
+                ? []
+                : [{ value: "public", label: "Anyone with the link" }]),
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>

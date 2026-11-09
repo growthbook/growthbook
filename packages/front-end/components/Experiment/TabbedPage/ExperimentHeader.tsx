@@ -225,7 +225,7 @@ export default function ExperimentHeader({
   editSchedule,
 }: Props) {
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, settings } = useUser();
   const { watchedExperiments, refreshWatching } = useWatching();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -462,7 +462,8 @@ export default function ExperimentHeader({
   ]);
 
   const shareLinkButton =
-    experiment.shareLevel !== "public" ? null : copySuccess ? (
+    experiment.shareLevel !== "public" ||
+    settings?.disablePublicSharing ? null : copySuccess ? (
       <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
@@ -489,7 +490,7 @@ export default function ExperimentHeader({
   const showShareableReportButton =
     permissionsUtil.canCreateReport(experiment) && snapshot;
 
-  const showShareButton = canEditExperiment;
+  const showShareButton = canEditExperiment && !settings?.disablePublicSharing;
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
@@ -1141,7 +1142,7 @@ export default function ExperimentHeader({
                     ) : null}
                     {experiment.status === "stopped" && experiment.results ? (
                       <>
-                        {canEditExperiment ? (
+                        {showShareButton ? (
                           <Button onClick={() => setShareModalOpen(true)}>
                             Share...
                           </Button>

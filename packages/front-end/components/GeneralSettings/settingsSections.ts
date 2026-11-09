@@ -18,7 +18,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
     id: "experiments",
     title: "Experiments",
     description:
-      "Launch requirements, how results refresh, sticky bucketing, health checks, and shipping decisions.",
+      "Launch requirements, how results refresh, sticky bucketing, health checks, shipping decisions, and public sharing.",
   },
   {
     id: "statistics",
@@ -134,6 +134,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
     "experimentMaxLengthDays",
     "decisionFrameworkEnabled",
     "defaultDecisionCriteriaId",
+    "disablePublicSharing",
   ],
   statistics: [
     "metricDefaults.priorSettings",
