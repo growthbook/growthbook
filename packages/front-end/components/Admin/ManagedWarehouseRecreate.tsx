@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import {
@@ -42,6 +42,19 @@ const STATUSES = {
   done: { label: "Done", color: "green" },
   failed: { label: "Failed", color: "red" },
 } as const;
+
+/** What the row's remove button does, by status. */
+function removeLabel(status: ManagedWarehouseRecreateStatus) {
+  switch (status) {
+    case "running":
+      return "A running recreate can't be stopped";
+    case "failed":
+    case "done":
+      return "Dismiss (won't be retried)";
+    case "pending":
+      return "Cancel recreate";
+  }
+}
 
 function RecreateStatusBadge({
   status,
@@ -372,32 +385,29 @@ export default function ManagedWarehouseRecreates({
                   </TableCell>
                   {canRequest && (
                     <TableCell>
-                      <Tooltip
-                        content={
-                          request.status === "running"
-                            ? "A running recreate can't be stopped"
-                            : "Remove"
-                        }
-                      >
-                        <IconButton
-                          variant="ghost"
-                          color="red"
-                          radius="full"
-                          size="2"
-                          aria-label={`Remove recreate for ${organization}`}
-                          disabled={request.status === "running"}
-                          onClick={() =>
-                            run(async () => {
-                              await apiCall(
-                                `/admin/managed-warehouse/recreates/${organization}`,
-                                { method: "DELETE" },
-                              );
-                              return `Removed the recreate for ${organization}.`;
-                            })
-                          }
-                        >
-                          <PiTrash size={16} />
-                        </IconButton>
+                      <Tooltip content={removeLabel(request.status)}>
+                        {/* A disabled button gets no hover events, so the
+                            tooltip wraps a span */}
+                        <span>
+                          <Button
+                            variant="ghost"
+                            color="red"
+                            size="sm"
+                            aria-label={`${removeLabel(request.status)}: ${organization}`}
+                            disabled={request.status === "running"}
+                            onClick={() =>
+                              run(async () => {
+                                await apiCall(
+                                  `/admin/managed-warehouse/recreates/${organization}`,
+                                  { method: "DELETE" },
+                                );
+                                return `Removed the recreate for ${organization}.`;
+                              })
+                            }
+                          >
+                            <PiTrash />
+                          </Button>
+                        </span>
                       </Tooltip>
                     </TableCell>
                   )}
