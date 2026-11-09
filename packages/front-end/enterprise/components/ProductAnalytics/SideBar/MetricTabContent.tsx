@@ -175,7 +175,7 @@ export default function MetricTabContent() {
                     updateValueInDataset(idx, { ...v, showAs: next })
                   }
                   unit={v.unit}
-                  metricName={v.name}
+                  metricName={v.name.trim() || `Metric ${idx + 1}`}
                 />
               )
             }

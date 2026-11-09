@@ -39,7 +39,7 @@ export default function ShowAsInput({
           variant="ghost"
           icon={<PiCaretDown />}
           iconPosition="right"
-          aria-label={`Show ${metricName} as: ${labels[value]}`}
+          aria-label={`Show as: ${labels[value]}, ${metricName}`}
         >
           Show as: {labels[value]}
         </Button>
