@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiTrash } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import {
   MANAGED_WAREHOUSE_RECREATABLE_TABLES,
@@ -30,6 +31,7 @@ import Table, {
 } from "@/ui/Table";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
 
 // Poll while a recreate is queued or running; each one takes minutes.
 const POLL_INTERVAL_MS = 15000;
@@ -40,10 +42,6 @@ const STATUSES = {
   done: { label: "Done", color: "green" },
   failed: { label: "Failed", color: "red" },
 } as const;
-
-export const isRecreateActive = (
-  status: ManagedWarehouseRecreateStatus | undefined,
-) => status === "pending" || status === "running";
 
 function RecreateStatusBadge({
   status,
@@ -89,45 +87,8 @@ export function RecreateTablesCheckboxes({
   );
 }
 
-/** The org's latest recreate request, polled while it's queued or running. */
-export function useManagedWarehouseRecreateRequest(orgId: string) {
-  const { data, mutate } = useApi<{
-    request: ManagedWarehouseRecreateRequest | null;
-  }>(`/admin/organization/${orgId}/managed-warehouse/recreate`, {
-    refreshInterval: (latest) =>
-      isRecreateActive(latest?.request?.status) ? POLL_INTERVAL_MS : 0,
-  });
-  return { request: data?.request ?? null, mutate };
-}
-
-export function RecreateRequestSummary({
-  request,
-}: {
-  request: ManagedWarehouseRecreateRequest;
-}) {
-  return (
-    <Flex direction="column" gap="1">
-      <Flex align="center" gap="2">
-        <Text size="sm">Last recreate:</Text>
-        <RecreateStatusBadge status={request.status} />
-      </Flex>
-      <Text size="sm" color="text-mid">
-        <Text mono>{request.tables.join(", ")}</Text> · requested{" "}
-        {datetime(request.requestedAt)}
-        {request.finishedAt
-          ? ` · finished ${datetime(request.finishedAt)}`
-          : ""}
-      </Text>
-      {request.error && (
-        <HelperText status="error" size="sm">
-          {request.error}
-        </HelperText>
-      )}
-    </Flex>
-  );
-}
-
 type RecreatesResponse = {
+  provisioned: number;
   counts: Record<ManagedWarehouseRecreateStatus, number>;
   requests: {
     organization: string;
@@ -193,6 +154,11 @@ export default function ManagedWarehouseRecreates({
     });
 
   const counts = data?.counts;
+  const submitDisabledReason = !tables.length
+    ? "Select at least one table"
+    : target === "list" && !organizations.length
+      ? "Enter at least one organization ID"
+      : "";
   const targetDescription =
     target === "all"
       ? "every Managed Warehouse"
@@ -206,11 +172,13 @@ export default function ManagedWarehouseRecreates({
           content={
             <>
               Recreate <Text mono>{tables.join(", ")}</Text> for{" "}
-              {targetDescription}? Two orgs run at a time, and pending recreates
-              can be cancelled.
+              {targetDescription}? This action will run in the background,
+              iterating through batches of orgs until finished. Progress can be
+              tracked below, and recreates that haven&apos;t started yet can be
+              cancelled.
             </>
           }
-          yesText="Queue recreates"
+          yesText="Start"
           onConfirm={async () => {
             setConfirming(false);
             await request();
@@ -244,10 +212,10 @@ export default function ManagedWarehouseRecreates({
             Recreate Derived Tables
           </Heading>
           <Text as="p" mb="3" color="text-mid">
-            Each selected derived table is rebuilt and backfilled from raw
-            events, two orgs at a time. Queries keep working while it runs. Orgs
-            whose warehouse hasn&apos;t been set up, or that are already running
-            a recreate, are skipped.
+            Rebuilds the selected tables from raw event data for each
+            organization. Queries still work during the rebuild. Organizations
+            without a Managed Warehouse, or with a rebuild already in progress,
+            are skipped.
           </Text>
           <Flex direction="column" gap="4">
             <Flex direction="column" gap="2">
@@ -260,29 +228,45 @@ export default function ManagedWarehouseRecreates({
                 value={target}
                 setValue={(v) => setTarget(v as "all" | "list")}
                 options={[
-                  { value: "list", label: "These organizations" },
-                  { value: "all", label: "All Managed Warehouses" },
+                  {
+                    value: "list",
+                    label: "Selected organizations",
+                    renderOnSelect: (
+                      // Indented to line up with the option's label
+                      <Box pl="5" mb="2" width="440px" maxWidth="100%">
+                        <TextField
+                          multiline
+                          aria-label="Organization IDs"
+                          placeholder="org_abc123, org_def456"
+                          value={orgIds}
+                          onChange={(e) => setOrgIds(e.target.value)}
+                        />
+                      </Box>
+                    ),
+                    renderOutsideItem: true,
+                  },
+                  {
+                    value: "all",
+                    label: `All Managed Warehouses${data ? ` (${data.provisioned})` : ""}`,
+                  },
                 ]}
               />
-              {target === "list" && (
-                <TextField
-                  multiline
-                  label="Organization IDs"
-                  placeholder="org_abc123, org_def456"
-                  value={orgIds}
-                  onChange={(e) => setOrgIds(e.target.value)}
-                />
-              )}
             </Flex>
             <Flex>
-              <Button
-                disabled={
-                  !tables.length || (target === "list" && !organizations.length)
-                }
-                onClick={() => setConfirming(true)}
+              <Tooltip
+                content={submitDisabledReason}
+                enabled={!!submitDisabledReason}
               >
-                Queue recreates
-              </Button>
+                {/* A disabled button gets no hover events, so the span does */}
+                <span>
+                  <Button
+                    disabled={!!submitDisabledReason}
+                    onClick={() => setConfirming(true)}
+                  >
+                    Submit
+                  </Button>
+                </span>
+              </Tooltip>
             </Flex>
           </Flex>
         </Frame>
@@ -352,7 +336,8 @@ export default function ManagedWarehouseRecreates({
                 <TableColumnHeader>Status</TableColumnHeader>
                 <TableColumnHeader>Tables</TableColumnHeader>
                 <TableColumnHeader>Requested</TableColumnHeader>
-                <TableColumnHeader>Error</TableColumnHeader>
+                <TableColumnHeader>Details</TableColumnHeader>
+                {canRequest && <TableColumnHeader />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -371,12 +356,51 @@ export default function ManagedWarehouseRecreates({
                   </TableCell>
                   <TableCell>{datetime(request.requestedAt)}</TableCell>
                   <TableCell style={{ maxWidth: 400 }}>
-                    {request.error && (
+                    {request.status === "failed" ? (
                       <HelperText status="error" size="sm">
-                        {request.error}
+                        {request.error || "Failed"}
                       </HelperText>
+                    ) : request.status === "running" && request.startedAt ? (
+                      <Text size="sm" color="text-mid">
+                        Started {datetime(request.startedAt)}
+                      </Text>
+                    ) : (
+                      <Text size="sm" color="text-mid">
+                        Waiting to start
+                      </Text>
                     )}
                   </TableCell>
+                  {canRequest && (
+                    <TableCell>
+                      <Tooltip
+                        content={
+                          request.status === "running"
+                            ? "A running recreate can't be stopped"
+                            : "Remove"
+                        }
+                      >
+                        <IconButton
+                          variant="ghost"
+                          color="red"
+                          radius="full"
+                          size="2"
+                          aria-label={`Remove recreate for ${organization}`}
+                          disabled={request.status === "running"}
+                          onClick={() =>
+                            run(async () => {
+                              await apiCall(
+                                `/admin/managed-warehouse/recreates/${organization}`,
+                                { method: "DELETE" },
+                              );
+                              return `Removed the recreate for ${organization}.`;
+                            })
+                          }
+                        >
+                          <PiTrash size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

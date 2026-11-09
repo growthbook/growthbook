@@ -41,12 +41,7 @@ import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
 import KeyValues from "@/components/Admin/KeyValues";
-import {
-  isRecreateActive,
-  RecreateRequestSummary,
-  RecreateTablesCheckboxes,
-  useManagedWarehouseRecreateRequest,
-} from "@/components/Admin/ManagedWarehouseRecreate";
+import { RecreateTablesCheckboxes } from "@/components/Admin/ManagedWarehouseRecreate";
 import CardHeading, { EditLink } from "@/components/Admin/CardHeading";
 import EventForwarders from "@/components/Admin/EventForwarders";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
@@ -195,8 +190,6 @@ function OrganizationDetail({
   const [recreateTables, setRecreateTables] = useState<
     ManagedWarehouseRecreatableTable[]
   >([...MANAGED_WAREHOUSE_RECREATABLE_TABLES]);
-  const { request: recreateRequest, mutate: mutateRecreateRequest } =
-    useManagedWarehouseRecreateRequest(org.id);
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
 
   const users = new Map((membersData?.members ?? []).map((u) => [u.id, u]));
@@ -421,7 +414,6 @@ function OrganizationDetail({
                 ),
               },
             );
-            await mutateRecreateRequest();
           }}
         >
           <Text as="p" mb="3">
@@ -840,39 +832,29 @@ function OrganizationDetail({
                       {
                         label: "Managed Warehouse",
                         value: managedWarehouse ? (
-                          <Flex direction="column" gap="2">
-                            <Flex align="center" gap="2">
-                              <Box flexGrow="1">Provisioned</Box>
-                              {canProvision && (
-                                <DropdownMenu
-                                  trigger={
-                                    <MoreMenuTrigger
-                                      size="sm"
-                                      label="Managed Warehouse actions"
-                                    />
-                                  }
-                                  menuPlacement="end"
+                          <Flex align="center" gap="2">
+                            <Box flexGrow="1">Provisioned</Box>
+                            {canProvision && (
+                              <DropdownMenu
+                                trigger={
+                                  <MoreMenuTrigger
+                                    size="sm"
+                                    label="Managed Warehouse actions"
+                                  />
+                                }
+                                menuPlacement="end"
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setRecreateTables([
+                                      ...MANAGED_WAREHOUSE_RECREATABLE_TABLES,
+                                    ]);
+                                    setRecreateOpen(true);
+                                  }}
                                 >
-                                  <DropdownMenuItem
-                                    disabled={isRecreateActive(
-                                      recreateRequest?.status,
-                                    )}
-                                    onClick={() => {
-                                      setRecreateTables([
-                                        ...MANAGED_WAREHOUSE_RECREATABLE_TABLES,
-                                      ]);
-                                      setRecreateOpen(true);
-                                    }}
-                                  >
-                                    Recreate derived tables
-                                  </DropdownMenuItem>
-                                </DropdownMenu>
-                              )}
-                            </Flex>
-                            {recreateRequest && (
-                              <RecreateRequestSummary
-                                request={recreateRequest}
-                              />
+                                  Recreate derived tables
+                                </DropdownMenuItem>
+                              </DropdownMenu>
                             )}
                           </Flex>
                         ) : (

@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import type { ManagedWarehouseRecreateRequest } from "shared/validators";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   advanceManagedWarehouseRecreate,
   cancelPendingManagedWarehouseRecreates,
-  getManagedWarehouseRecreateRequest,
+  deleteManagedWarehouseRecreateRequest,
   getManagedWarehouseRecreateSummary,
   requestManagedWarehouseRecreates,
   retryFailedManagedWarehouseRecreates,
@@ -41,6 +42,14 @@ async function setLicenseServerResult(
       },
     },
   );
+}
+
+async function getManagedWarehouseRecreateRequest(organization: string) {
+  const doc = await getCollection<{
+    organization: string;
+    recreateRequest?: ManagedWarehouseRecreateRequest;
+  }>("datasources").findOne({ organization });
+  return doc?.recreateRequest;
 }
 
 const statusOf = async (organization: string) =>
@@ -189,7 +198,9 @@ test("retry requeues failed recreates; cancel drops pending ones", async () => {
     requestedBy: "u_1",
   });
 
-  expect((await getManagedWarehouseRecreateSummary()).counts).toEqual({
+  const summary = await getManagedWarehouseRecreateSummary();
+  expect(summary.provisioned).toBe(2);
+  expect(summary.counts).toEqual({
     pending: 1,
     running: 0,
     done: 0,
@@ -205,4 +216,23 @@ test("retry requeues failed recreates; cancel drops pending ones", async () => {
   expect(await cancelPendingManagedWarehouseRecreates()).toBe(2);
   expect(await statusOf("org_a")).toBeUndefined();
   expect(await statusOf("org_b")).toBeUndefined();
+});
+
+test("a request can be removed unless it's running", async () => {
+  await addWarehouse("org_a");
+  await addWarehouse("org_b");
+  await requestManagedWarehouseRecreates({
+    organizations: "all",
+    tables: ["feature_usage"],
+    requestedBy: "u_1",
+  });
+  await advanceManagedWarehouseRecreate("org_a");
+  expect(await statusOf("org_a")).toBe("running");
+
+  expect(await deleteManagedWarehouseRecreateRequest("org_a")).toBe(false);
+  expect(await statusOf("org_a")).toBe("running");
+
+  expect(await deleteManagedWarehouseRecreateRequest("org_b")).toBe(true);
+  expect(await statusOf("org_b")).toBeUndefined();
+  expect(await deleteManagedWarehouseRecreateRequest("org_b")).toBe(false);
 });

@@ -76,18 +76,12 @@ export async function requestManagedWarehouseRecreates({
   return merged.matchedCount + created.modifiedCount;
 }
 
-export async function getManagedWarehouseRecreateRequest(
-  organization: string,
-): Promise<ManagedWarehouseRecreateRequest | null> {
-  const doc = await datasources().findOne(
-    { ...MANAGED_WAREHOUSE_FILTER, organization },
-    { projection: { recreateRequest: 1 } },
-  );
-  return doc?.recreateRequest ?? null;
-}
-
-/** Counts by status, plus every request that isn't done. */
+/**
+ * How many Managed Warehouses can be recreated, counts by status, and every
+ * request that isn't done.
+ */
 export async function getManagedWarehouseRecreateSummary(): Promise<{
+  provisioned: number;
   counts: Record<ManagedWarehouseRecreateStatus, number>;
   requests: {
     organization: string;
@@ -121,7 +115,11 @@ export async function getManagedWarehouseRecreateSummary(): Promise<{
   requests.sort(
     (a, b) => a.request.requestedAt.getTime() - b.request.requestedAt.getTime(),
   );
-  return { counts, requests };
+  const provisioned = await datasources().countDocuments({
+    ...MANAGED_WAREHOUSE_FILTER,
+    "settings.hasBeenProvisioned": { $ne: false },
+  });
+  return { provisioned, counts, requests };
 }
 
 /** Put every failed request back in the queue. Returns how many. */
@@ -153,6 +151,25 @@ export async function cancelPendingManagedWarehouseRecreates(): Promise<number> 
     { $unset: { recreateRequest: "" } },
   );
   return res.modifiedCount;
+}
+
+/**
+ * Remove an org's recreate request unless it's running: the license server
+ * can't stop a recreate once it has started. Returns whether one was removed.
+ */
+export async function deleteManagedWarehouseRecreateRequest(
+  organization: string,
+): Promise<boolean> {
+  const res = await datasources().updateOne(
+    {
+      ...MANAGED_WAREHOUSE_FILTER,
+      organization,
+      recreateRequest: { $exists: true },
+      "recreateRequest.status": { $ne: "running" },
+    },
+    { $unset: { recreateRequest: "" } },
+  );
+  return res.modifiedCount > 0;
 }
 
 export async function getOrganizationsWithRecreateStatus(

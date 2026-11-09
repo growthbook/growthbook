@@ -4,11 +4,12 @@ import type { ManagedWarehouseRecreatableTable } from "shared/util";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   cancelPendingManagedWarehouseRecreates,
-  getManagedWarehouseRecreateRequest,
+  deleteManagedWarehouseRecreateRequest,
   getManagedWarehouseRecreateSummary,
   requestManagedWarehouseRecreates,
   retryFailedManagedWarehouseRecreates,
 } from "back-end/src/services/managedWarehouseRecreate";
+import { startManagedWarehouseRecreates } from "back-end/src/jobs/recreateManagedWarehouseTables";
 
 function forbidden(res: Response, permission: "view" | "provision") {
   return res.status(403).json({
@@ -27,19 +28,6 @@ export async function getRecreates(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getOrganizationRecreate(
-  req: AuthRequest<null, { orgId: string }>,
-  res: Response,
-) {
-  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
-    return forbidden(res, "view");
-  }
-  res.status(200).json({
-    status: 200,
-    request: await getManagedWarehouseRecreateRequest(req.params.orgId),
-  });
-}
-
 export async function postRecreates(
   req: AuthRequest<{
     tables: ManagedWarehouseRecreatableTable[];
@@ -55,6 +43,8 @@ export async function postRecreates(
     tables: req.body.tables,
     requestedBy: req.userId ?? "",
   });
+  // Start the first batch now rather than on the next sweep
+  await startManagedWarehouseRecreates();
   res.status(200).json({ status: 200, created });
 }
 
@@ -66,7 +56,25 @@ export async function postRetryFailedRecreates(
     return forbidden(res, "provision");
   }
   const retried = await retryFailedManagedWarehouseRecreates(req.userId ?? "");
+  await startManagedWarehouseRecreates();
   res.status(200).json({ status: 200, retried });
+}
+
+export async function deleteRecreate(
+  req: AuthRequest<null, { orgId: string }>,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "provision")) {
+    return forbidden(res, "provision");
+  }
+  if (!(await deleteManagedWarehouseRecreateRequest(req.params.orgId))) {
+    return res.status(409).json({
+      status: 409,
+      message:
+        "This recreate is running and can't be stopped, or it no longer exists.",
+    });
+  }
+  res.status(200).json({ status: 200 });
 }
 
 export async function postCancelPendingRecreates(

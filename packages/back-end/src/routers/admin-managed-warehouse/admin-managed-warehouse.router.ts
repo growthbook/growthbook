@@ -33,10 +33,10 @@ router.post(
   "/admin/managed-warehouse/recreates/cancel-pending",
   controller.postCancelPendingRecreates,
 );
-router.get(
-  "/admin/organization/:orgId/managed-warehouse/recreate",
+router.delete(
+  "/admin/managed-warehouse/recreates/:orgId",
   validateRequestMiddleware({ params: z.object({ orgId: z.string() }) }),
-  controller.getOrganizationRecreate,
+  controller.deleteRecreate,
 );
 
 export { router as adminManagedWarehouseRouter };

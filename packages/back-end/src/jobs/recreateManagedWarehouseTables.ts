@@ -14,9 +14,12 @@ import { logger } from "back-end/src/util/logger";
 const SWEEP_JOB = "sweepManagedWarehouseRecreates";
 const RECREATE_JOB = "recreateManagedWarehouseTables";
 const SWEEP_INTERVAL = "1 minute";
-// Running recreates are only checked for a result, but cap how many are queued
+// Running recreates are only checked for a result, but cap how many are checked
 // per sweep anyway.
 const MAX_RUNNING_CHECKS = 20;
+// Both jobs finish in seconds. Agenda's default 10-minute lock would stall
+// recreates for that long if a server restarts mid-run (e.g. a deploy).
+const LOCK_LIFETIME_MS = 60 * 1000;
 
 type RecreateJob = Job<{ organization: string }>;
 
@@ -31,9 +34,7 @@ export async function queueManagedWarehouseRecreate(organization: string) {
   await job.save();
 }
 
-const recreateManagedWarehouseTables = async (job: RecreateJob) => {
-  const organization = job.attrs.data?.organization;
-  if (!organization) return;
+async function advance(organization: string) {
   try {
     await advanceManagedWarehouseRecreate(organization);
   } catch (e) {
@@ -43,21 +44,35 @@ const recreateManagedWarehouseTables = async (job: RecreateJob) => {
       `Failed to advance Managed Warehouse recreate for ${organization}`,
     );
   }
+}
+
+const recreateManagedWarehouseTables = async (job: RecreateJob) => {
+  const organization = job.attrs.data?.organization;
+  if (organization) await advance(organization);
 };
 
-const sweepManagedWarehouseRecreates = async () => {
+/**
+ * Record results for running recreates, then start pending ones in the slots
+ * that frees up. Runs every minute, and right after recreates are requested.
+ */
+export async function startManagedWarehouseRecreates() {
+  // Record results first, inline, so this same pass can fill the freed slots
   const running = await getOrganizationsWithRecreateStatus(
     "running",
     MAX_RUNNING_CHECKS,
   );
+  for (const organization of running) {
+    await advance(organization);
+  }
+
   const pending = await getOrganizationsWithRecreateStatus(
     "pending",
     MAX_CONCURRENT_RECREATES - (await countRunningManagedWarehouseRecreates()),
   );
-  for (const organization of [...running, ...pending]) {
+  for (const organization of pending) {
     await queueManagedWarehouseRecreate(organization);
   }
-};
+}
 
 export default async function (ag: Agenda) {
   agenda = ag;
@@ -65,10 +80,14 @@ export default async function (ag: Agenda) {
   // call; one at a time keeps the running-count check race-free per instance.
   agenda.define(
     RECREATE_JOB,
-    { concurrency: 1, lockLimit: 1 },
+    { concurrency: 1, lockLimit: 1, lockLifetime: LOCK_LIFETIME_MS },
     recreateManagedWarehouseTables,
   );
-  agenda.define(SWEEP_JOB, sweepManagedWarehouseRecreates);
+  agenda.define(
+    SWEEP_JOB,
+    { lockLifetime: LOCK_LIFETIME_MS },
+    startManagedWarehouseRecreates,
+  );
 
   // Always scheduled; it does nothing when there are no requests.
   const job = agenda.create(SWEEP_JOB, {});
