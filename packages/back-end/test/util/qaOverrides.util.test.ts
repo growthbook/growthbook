@@ -655,4 +655,45 @@ describe("generateAutoExperimentsPayload with QA overrides", () => {
     expect(payload).toHaveLength(1);
     expect(payload[0].weights).toEqual([0, 1]);
   });
+
+  it("does not let a partial-coverage random copy block the overrides after it", () => {
+    // Random at 50% coverage, unfiltered: a feature rule would fall through to
+    // the next override for users outside the coverage, so the forced copy
+    // must still be emitted (and without an exclusion, since the random copy
+    // can't be excluded by condition).
+    const payload = build(
+      new Map([["exp_1", [randomOverride, forcedOverride]]]),
+    );
+    expect(payload).toHaveLength(2);
+    expect(payload[0]).toMatchObject({ weights: [0.5, 0.5], coverage: 0.5 });
+    expect(payload[1]).toMatchObject({ weights: [0, 1], coverage: 1 });
+    expect(payload[1].condition).toBeUndefined();
+  });
+
+  it("lets a full-coverage random copy block later overrides", () => {
+    const full = {
+      ...visualDraft,
+      phases: [{ ...visualDraft.phases[0], coverage: 1 }],
+    } as unknown as ExperimentInterface;
+    const payload = generateAutoExperimentsPayload({
+      visualExperiments: [
+        {
+          type: "visual",
+          experiment: full,
+          visualChangeset: changeset,
+        } as unknown as Parameters<
+          typeof generateAutoExperimentsPayload
+        >[0]["visualExperiments"][number],
+      ],
+      urlRedirectExperiments: [],
+      cbVisualExperiments: [],
+      groupMap: new Map(),
+      features: [],
+      environment: "dev",
+      capabilities: ["looseUnmarshalling"],
+      qaOverrides: new Map([["exp_1", [randomOverride, forcedOverride]]]),
+    });
+    expect(payload).toHaveLength(2);
+    expect(payload[1].condition).toEqual({ $not: { country: "US" } });
+  });
 });

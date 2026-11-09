@@ -846,21 +846,32 @@ export function generateAutoExperimentsPayload({
 
   // A draft with QA overrides becomes one auto experiment per override. The
   // SDK evaluates every visual experiment, so to keep "first match wins" each
-  // copy also excludes the requests earlier overrides cover; once an override
-  // matches everyone, the ones after it can never apply and are left out.
+  // copy also excludes the requests earlier overrides cover. Only a copy that
+  // serves everyone its condition matches can block the ones after it: a
+  // random copy with partial coverage or a namespace leaves some of those
+  // users unserved, and a Feature Flag rule would fall through to the next
+  // override for them. Those copies can therefore overlap with later ones,
+  // as the SDK's own visual experiments do.
   const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
     sortedAutoExperiments.flatMap((data) => {
       const { experiment: e } = data;
       const overrides =
         e.status === "draft" ? qaOverrides?.get(e.id) : undefined;
       if (!overrides?.length) return [buildAutoExperiment(data, undefined)];
+      const phase = e.phases?.slice(-1)?.[0];
+      const servesAllMatching = (override: ExperimentQaOverrideInterface) =>
+        override.assignment.type === "forced" ||
+        ((phase?.coverage ?? 1) >= 1 && !phase?.namespace?.enabled);
       const out: Array<AutoExperimentWithMetadata | null> = [];
       const earlier: (ConditionInterface | undefined)[] = [];
       for (const override of overrides) {
         const exclude = qaOverridesExclusionCondition(earlier);
         if (exclude === null) break;
-        out.push(buildAutoExperiment(data, override, exclude));
-        earlier.push(qaAutoExperimentCondition(e, override));
+        const copy = buildAutoExperiment(data, override, exclude);
+        out.push(copy);
+        if (copy && servesAllMatching(override)) {
+          earlier.push(qaAutoExperimentCondition(e, override));
+        }
       }
       return out;
     });

@@ -2,6 +2,7 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import {
   experimentSupportsQaOverrides,
   isProductionEnvironment,
+  PermissionError,
   qaOverrideAppliesToConnection,
   qaOverrideHasCondition,
   sortQaOverrides,
@@ -86,6 +87,13 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
   ) {
     const docs = await this.findByExperiment(experiment);
     await this.populateForeignRefs(docs);
+    // All or nothing: a forbidden row must not leave the others half-deleted
+    // with the payload refresh never reached.
+    if (docs.some((doc) => !this.canDelete(doc))) {
+      throw new PermissionError(
+        "You do not have access to remove every QA override on this experiment",
+      );
+    }
     for (const doc of docs) {
       await this._deleteOne(doc, { ...writeOptions, skipSDKRefresh: true });
     }
