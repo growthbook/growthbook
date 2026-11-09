@@ -72,11 +72,20 @@ export function getSubscriptionFromLicense(
 
   if (!sub) return null;
 
+  // Orb keeps the subscription active while a card is declining. Derive past due
+  // from the open payment failure instead of storing a status Orb does not own.
+  const paymentPastDue =
+    !!orbSub &&
+    !!license.paymentFailure?.invoiceId &&
+    orbSub.status === "active";
+
   return {
     billingPlatform: orbSub ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
-    status: getStripeSubscriptionStatus(sub.status),
+    status: paymentPastDue
+      ? "past_due"
+      : getStripeSubscriptionStatus(sub.status),
     hasPaymentMethod: !!sub.hasPaymentMethod,
     nextBillDate: new Date((sub.current_period_end || 0) * 1000).toDateString(),
     dateToBeCanceled: new Date((sub.cancel_at || 0) * 1000).toDateString(),
