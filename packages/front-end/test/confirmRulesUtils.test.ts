@@ -8,6 +8,7 @@ import {
   mergeConfirmRules,
   presetOf,
   toggleAction,
+  verbOf,
 } from "@/components/Settings/confirmRulesUtils";
 
 const featureActions = actionsOf("feature");
@@ -136,5 +137,12 @@ describe("mergeConfirmRules", () => {
         { actions: ["feature.*"] },
       ]),
     ).toEqual([{ actions: ["feature.*"] }]);
+  });
+});
+
+describe("verbOf", () => {
+  it("spells API keys out", () => {
+    expect(verbOf("access.apiKeys")).toBe("API keys");
+    expect(verbOf("access.teams")).toBe("teams");
   });
 });
