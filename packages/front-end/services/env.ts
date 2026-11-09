@@ -46,6 +46,10 @@ export async function initEnv() {
       sendDefaultPii: true,
       environment: env.environment,
       release: env.build?.sha,
+      ignoreErrors: [
+        // from a unknown Chrome extension that wraps window.fetch
+        /reading 'M_ID'/,
+      ],
       beforeSend: (event) => scrubSentryEvent(event),
     });
   }
