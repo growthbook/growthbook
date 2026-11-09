@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { FactTableInterface } from "shared/types/fact-table";
@@ -8,11 +8,7 @@ import type {
 } from "shared/validators";
 import { getInitialConfigByBlockType } from "shared/enterprise";
 import { ago } from "shared/dates";
-import {
-  CacheOption,
-  useExploreData,
-} from "@/enterprise/components/ProductAnalytics/useExploreData";
-import { explorationPollDelayMs } from "@/enterprise/components/ProductAnalytics/util";
+import useExploration from "@/enterprise/components/ProductAnalytics/useExploration";
 import { getDailyBuckets } from "@/components/QueryPreview/activityChart";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
@@ -66,13 +62,6 @@ export default function FactTableRowsPerDay({
 }: {
   factTable: Pick<FactTableInterface, "id" | "datasource">;
 }) {
-  const { fetchData, fetchExplorationById } = useExploreData();
-  const [exploration, setExploration] =
-    useState<ProductAnalyticsExploration | null>(null);
-  const [checkedCache, setCheckedCache] = useState(false);
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const config = useMemo((): ExplorationConfig => {
     const base = getInitialConfigByBlockType(
       "fact-table-exploration",
@@ -110,36 +99,13 @@ export default function FactTableRowsPerDay({
     };
   }, [factTable.id, factTable.datasource]);
 
-  const run = useCallback(
-    async (cache: CacheOption) => {
-      setError(null);
-      if (cache !== "required") setRunning(true);
-      try {
-        let { data, error } = await fetchData(config, { cache });
-        // Runs past the ~5s sync budget come back "running"; poll by id
-        const start = Date.now();
-        while (data?.status === "running") {
-          const delay = explorationPollDelayMs((Date.now() - start) / 1000);
-          if (!delay) {
-            error = "Timed out waiting for the query to finish.";
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          ({ data, error } = await fetchExplorationById(data.id));
-        }
-        if (error) setError(error);
-        else if (data?.status === "success") setExploration(data);
-      } finally {
-        setRunning(false);
-        setCheckedCache(true);
-      }
-    },
-    [config, fetchData, fetchExplorationById],
-  );
-
-  useEffect(() => {
-    run("required");
-  }, [run]);
+  const {
+    data: exploration,
+    checked: checkedCache,
+    loading: running,
+    error,
+    refresh: run,
+  } = useExploration(config);
 
   const chart = exploration ? getRowsPerDay(exploration) : null;
   const max = chart ? Math.max(...chart.counts, 1) : 1;
