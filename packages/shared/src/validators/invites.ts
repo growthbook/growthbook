@@ -98,7 +98,7 @@ const inviteLinkFields = {
   emailSent: z
     .boolean()
     .describe(
-      "False when an invite for this email already existed; it is returned unchanged. Use the resend endpoint to email it again.",
+      "False when no email was sent: an invite for this email already existed (returned unchanged), email isn't configured, or sending failed.",
     ),
 };
 

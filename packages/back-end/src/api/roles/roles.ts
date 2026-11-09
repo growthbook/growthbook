@@ -120,7 +120,9 @@ export const deleteRole = createApiRequestHandler(deleteRoleValidator)(async (
 ) => {
   assertCanManageCustomRoles(req.context);
   const { id } = req.params;
-  findRole(req.context, id);
+  if (RESERVED_ROLE_IDS.includes(findRole(req.context, id).id)) {
+    req.context.throwBadRequestError("Built-in roles can't be deleted.");
+  }
   await removeCustomRole(req.context, id);
   await auditRoles(req, {
     customRoles: (req.context.org.customRoles ?? []).filter((r) => r.id !== id),
