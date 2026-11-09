@@ -146,6 +146,12 @@ export default function FactTableDetailsPage() {
   // Set by an event's metric button; marks that row on the Metrics tab
   const [highlightMetric, setHighlightMetric] = useState<string | null>(null);
 
+  // `?filter=<id>` links to one Saved Filter, which that tab highlights
+  const linkedFilter = router.query.filter;
+  useEffect(() => {
+    if (typeof linkedFilter === "string") setTab("filters");
+  }, [linkedFilter]);
+
   if (!ready || (!data && !factTableError)) return <LoadingOverlay />;
 
   if (!factTable) {
