@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import { Binary } from "mongodb";
 import { isEqual } from "lodash";
 import {
   NotificationEventResource,
@@ -21,6 +22,10 @@ import { EventInterface, BaseEventInterface } from "shared/types/events/event";
 import { DiffResult } from "shared/types/events/diff";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
+import {
+  compressLargeText,
+  decompressText,
+} from "back-end/src/util/compression";
 import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 
@@ -59,7 +64,7 @@ const eventSchema = new mongoose.Schema({
   },
   data: {
     type: Object,
-    required: true,
+    required: false,
     validate: {
       validator(value: unknown) {
         const result = eventData(z.any()).safeParse(value);
@@ -81,11 +86,38 @@ const eventSchema = new mongoose.Schema({
         "Data is invalid. Must be of type NotificationEventPayload<NotificationEventName, NotificationEventResource, any>",
     },
   },
+  // Replaces `data` for large payloads: brotli-compressed JSON.
+  compressedData: {
+    type: Buffer,
+    required: false,
+  },
 });
 
 eventSchema.index({ organizationId: 1, dateCreated: -1 });
 
 type EventDocument<T, V> = mongoose.Document & BaseEventInterface<T, V>;
+
+// Dates are tagged so they come back as Dates, like an uncompressed read
+// (an invalid Date becomes null here and epoch on read, as Mongo stores it).
+const stringifyData = (data: unknown): string =>
+  JSON.stringify(
+    data,
+    function (this: Record<string, unknown>, key: string, value: unknown) {
+      const raw = this[key];
+      return raw instanceof Date ? { $date: raw.getTime() } : value;
+    },
+  );
+
+const readCompressedData = (stored: Buffer | Binary): unknown =>
+  JSON.parse(decompressText(stored), (key, value: unknown) =>
+    value !== null &&
+    typeof value === "object" &&
+    "$date" in value &&
+    (typeof value.$date === "number" || value.$date === null) &&
+    Object.keys(value).length === 1
+      ? new Date(value.$date ?? 0)
+      : value,
+  );
 
 /**
  * Convert the Mongo document to an EventInterface, omitting Mongo default fields __v, _id
@@ -94,11 +126,16 @@ type EventDocument<T, V> = mongoose.Document & BaseEventInterface<T, V>;
  */
 const toInterface = <T, V>(
   doc: EventDocument<T, V>,
-): BaseEventInterface<T, V> =>
-  omit(doc.toJSON<BaseEventInterface<T, V>>({ flattenMaps: true }), [
-    "__v",
-    "_id",
-  ]) as BaseEventInterface<T, V>;
+): BaseEventInterface<T, V> => {
+  const event = omit(
+    doc.toJSON<BaseEventInterface<T, V>>({ flattenMaps: true }),
+    ["__v", "_id", "compressedData"],
+  ) as BaseEventInterface<T, V>;
+  const compressed: unknown = doc.get("compressedData");
+  return Buffer.isBuffer(compressed)
+    ? { ...event, data: readCompressedData(compressed) as T }
+    : event;
+};
 
 export const EventModel = mongoose.model<BaseEventInterface<unknown, unknown>>(
   "Event",
@@ -128,7 +165,7 @@ export const createEventWithPayload = async <
   try {
     const eventId = `event-${randomUUID()}`;
 
-    const doc = await EventModel.create({
+    const doc = new EventModel({
       id: eventId,
       version: MODEL_VERSION,
       event: payload.event,
@@ -139,17 +176,24 @@ export const createEventWithPayload = async <
       ...(objectId ? { objectId } : {}),
     });
 
-    const event = toInterface(doc) as BaseEventInterface<
-      NotificationEventPayload<Resource, Event>,
-      typeof MODEL_VERSION
-    >;
-    savedEventId = event.id;
+    // A large JSON feature repeats its value ~20 times per event, which Mongo's
+    // own compression can't see. toObject() minimizes like a save does, so
+    // reads return the same data either way.
+    const compressedData = await compressLargeText(
+      stringifyData(doc.toObject().data),
+    );
+    if (compressedData) {
+      await doc.validate(["data"]);
+      doc.set({ data: undefined, compressedData });
+    }
+    await EventModel.create(doc);
+    savedEventId = eventId;
 
-    if (notify) await new EventNotifier(event.id).perform();
+    if (notify) await new EventNotifier(eventId).perform();
 
     // Returned so callers that record having announced something can tell a
     // swallowed failure from a delivered event.
-    return event.id;
+    return eventId;
   } catch (e) {
     logger.error(e);
   }
@@ -373,8 +417,23 @@ const applyFiltersToQuery = (
 /**
  * Stream all events for an organization, newest first, as plain objects
  */
-export const getEventsCursorForOrganization = (organizationId: string) =>
-  EventModel.find({ organizationId }, { _id: 0, __v: 0 })
+export async function* getEventsCursorForOrganization(
+  organizationId: string,
+): AsyncGenerator<EventInterface> {
+  const cursor = EventModel.find({ organizationId }, { _id: 0, __v: 0 })
     .sort([["dateCreated", -1]])
-    .lean<EventInterface>()
+    .lean()
     .cursor();
+  for await (const doc of cursor) {
+    // Mongoose 6 doesn't carry lean typing through cursor().
+    const { compressedData, ...event } = doc as unknown as EventInterface & {
+      compressedData?: Binary;
+    };
+    yield compressedData
+      ? ({
+          ...event,
+          data: readCompressedData(compressedData),
+        } as EventInterface)
+      : event;
+  }
+}
