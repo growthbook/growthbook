@@ -743,7 +743,7 @@ export async function updateDashboardSavedQueries(
         // Queries saved in the app only had their first keyword checked
         assertReadOnlySql(savedQuery.sql);
       } catch (e) {
-        // Keep the last rows, but show the block why they weren't refreshed
+        // Shown on the block until the SQL is edited; the last rows stay stored
         await context.models.savedQueries
           .update(savedQuery, {
             results: { ...savedQuery.results, error: e.message },
