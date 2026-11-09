@@ -786,7 +786,12 @@ export function getRowResults({
   const isScalableSubUnitCluster =
     !!clusterSettings &&
     isScalableClusterSubUnitMetric(metric, clusterSettings);
+  const hasStaleScaledImpact =
+    isScalableSubUnitCluster &&
+    differenceType === "scaled" &&
+    !!stats.errorMessage;
   const hasScaledImpact =
+    !hasStaleScaledImpact &&
     !quantileMetricType(metric) &&
     (isScalableSubUnitCluster ||
       (!isRatioMetric(metric, denominator) &&

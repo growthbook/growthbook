@@ -46,9 +46,9 @@ class BaseConfig:
     traffic_percentage: float = 1
     phase_length_days: float = 1
     total_users: Optional[int] = None
-    total_sub_units: Optional[int] = None
     alpha: float = 0.05
     post_stratify: bool = False
+    total_sub_units: Optional[int] = None
     scale_by_sub_unit_count: bool = False
 
 
