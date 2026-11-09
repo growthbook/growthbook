@@ -7,7 +7,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { getMetricsForEvent } from "@/services/factTables";
+import { getColumnTopValues, getMetricsForEvent } from "@/services/factTables";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
 import TextField from "@/ui/TextField";
 import Table, {
@@ -56,12 +56,12 @@ export default function FactTableEventsTab({
   // The selected column can disappear after a column refresh
   const column =
     eventColumns.find((c) => c.column === columnName) || eventColumns[0];
-  // Columns saved before counts existed show values only until refreshed
-  const counts = column.topValueCounts?.length
-    ? column.topValueCounts
-    : undefined;
-  const rows: { value: string; count?: number }[] =
-    counts ?? (column.topValues || []).map((value) => ({ value }));
+  const topValues = getColumnTopValues(
+    column,
+    valueCounts.counts[column.column],
+  );
+  const rows = topValues.values;
+  const showCounts = topValues.hasCounts;
   const q = search.trim().toLowerCase();
   const visible = rows.filter((r) => !q || r.value.toLowerCase().includes(q));
   // Total of the listed events only; the table's full row count is unknown
@@ -98,8 +98,8 @@ export default function FactTableEventsTab({
           />
         </Flex>
         <Flex align="center" gap="3">
-          {column.topValuesDate ? (
-            <Text color="text-mid">Refreshed {ago(column.topValuesDate)}</Text>
+          {topValues.refreshedAt ? (
+            <Text color="text-mid">Refreshed {ago(topValues.refreshedAt)}</Text>
           ) : null}
           {canRefresh ? (
             <Button
@@ -132,7 +132,7 @@ export default function FactTableEventsTab({
             <TableRow>
               <TableColumnHeader style={{ width: 32 }} />
               <TableColumnHeader>Event</TableColumnHeader>
-              {counts ? (
+              {showCounts ? (
                 <>
                   <TableColumnHeader>Rows</TableColumnHeader>
                   <TableColumnHeader>
@@ -181,7 +181,7 @@ export default function FactTableEventsTab({
                     <TableCell>
                       <span className={columnStyles.mono}>{r.value}</span>
                     </TableCell>
-                    {counts ? (
+                    {showCounts ? (
                       <>
                         <TableCell>{r.count?.toLocaleString()}</TableCell>
                         <TableCell>
@@ -193,7 +193,7 @@ export default function FactTableEventsTab({
                   </TableRow>
                   {isOpen ? (
                     <TableRow>
-                      <TableCell colSpan={counts ? 5 : 3}>
+                      <TableCell colSpan={showCounts ? 5 : 3}>
                         <Flex gap="5" py="3" px="4" align="start">
                           <Box flexGrow="1" minWidth="0">
                             <div className={styles.sectionLabel}>
@@ -258,7 +258,7 @@ export default function FactTableEventsTab({
             })}
             {!visible.length ? (
               <TableRow>
-                <TableCell colSpan={counts ? 5 : 3}>
+                <TableCell colSpan={showCounts ? 5 : 3}>
                   <Text color="text-mid">No events match “{search}”.</Text>
                 </TableCell>
               </TableRow>
@@ -269,7 +269,9 @@ export default function FactTableEventsTab({
       {rows.length ? (
         <Text size="sm" color="text-low">
           Top {rows.length} events over the last {lookbackDays} days
-          {counts ? ". Counts may be approximate on some data sources." : ""}
+          {showCounts
+            ? ". Counts may be approximate on some data sources."
+            : ""}
         </Text>
       ) : null}
     </Flex>

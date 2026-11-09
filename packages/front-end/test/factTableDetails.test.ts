@@ -4,6 +4,7 @@ import {
   RowFilter,
 } from "shared/types/fact-table";
 import {
+  getColumnTopValues,
   getEventColumns,
   getMetricEvents,
   getMetricsForEvent,
@@ -211,6 +212,41 @@ describe("getSqlSummaryTokens", () => {
       "::float": "cast",
       "'buy'": "string",
       t: "other",
+    });
+  });
+});
+
+describe("getColumnTopValues", () => {
+  const refreshedAt = new Date("2026-11-01T00:00:00Z");
+  const counts = [
+    { value: "a", count: 3 },
+    { value: "b", count: 1 },
+  ];
+
+  it("prefers counts from a refresh over stored ones", () => {
+    const fresh = [{ value: "c", count: 9 }];
+    expect(
+      getColumnTopValues(
+        { topValues: ["a", "b"], topValueCounts: counts },
+        fresh,
+      ),
+    ).toEqual({ values: fresh, hasCounts: true, refreshedAt: null });
+  });
+
+  it("uses stored counts, then the plain list", () => {
+    expect(
+      getColumnTopValues({
+        topValues: ["a", "b"],
+        topValueCounts: counts,
+        topValuesDate: refreshedAt,
+      }),
+    ).toEqual({ values: counts, hasCounts: true, refreshedAt });
+    expect(
+      getColumnTopValues({ topValues: ["a"], topValueCounts: [] }),
+    ).toEqual({
+      values: [{ value: "a" }],
+      hasCounts: false,
+      refreshedAt: null,
     });
   });
 });

@@ -18,6 +18,7 @@ import Table, {
 } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import { getColumnTopValues } from "@/services/factTables";
 
 const CHIPS = 4;
 
@@ -101,16 +102,11 @@ export function ColumnValuesPanel({
   const [search, setSearch] = useState("");
   const lookbackDays = useTopValuesLookbackDays();
 
-  // Columns saved before counts existed show values only until refreshed
-  const withCounts =
-    counts ??
-    (column.topValueCounts?.length ? column.topValueCounts : undefined);
-  const rows: { value: string; count?: number }[] = (
-    withCounts ?? (column.topValues || []).map((value) => ({ value }))
-  ).slice(0, MAX_VALUE_ROWS);
+  const topValues = getColumnTopValues(column, counts);
+  const rows = topValues.values.slice(0, MAX_VALUE_ROWS);
   const q = search.trim().toLowerCase();
   const visible = rows.filter((r) => !q || r.value.toLowerCase().includes(q));
-  const showCounts = !!withCounts;
+  const showCounts = topValues.hasCounts;
   // Total of the listed values only; the table's full row count is unknown
   const totalCount = Math.max(
     1,
@@ -131,9 +127,9 @@ export function ColumnValuesPanel({
         </Box>
         {onLoad ? (
           <Flex align="center" gap="3">
-            {column.topValuesDate ? (
+            {topValues.refreshedAt ? (
               <Text size="sm" color="text-mid">
-                Refreshed {ago(column.topValuesDate)}
+                Refreshed {ago(topValues.refreshedAt)}
               </Text>
             ) : null}
             <Button
