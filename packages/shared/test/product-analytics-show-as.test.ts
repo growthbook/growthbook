@@ -580,7 +580,8 @@ describe("proportions with a population", () => {
     expect(getShowAsOptions("mean", true)).toEqual(MEAN_OPTIONS);
   });
 
-  it("defaults to total", () => {
+  it("defaults to % of Population, keeping an explicit choice", () => {
+    const options = ["total", "percent_of_population"];
     expect(
       getShowAsChoice(
         metricValue("converted"),
@@ -588,7 +589,26 @@ describe("proportions with a population", () => {
         getFactMetricById,
         true,
       ),
-    ).toEqual({ options: ["total", "percent_of_population"], showAs: "total" });
+    ).toEqual({ options, showAs: "percent_of_population" });
+    expect(
+      getShowAsChoice(
+        metricValue("converted", "total"),
+        undefined,
+        getFactMetricById,
+        true,
+      ),
+    ).toEqual({ options, showAs: "total" });
+  });
+
+  it("defaults proportions to totals without a population", () => {
+    expect(
+      getShowAsChoice(
+        metricValue("converted"),
+        undefined,
+        getFactMetricById,
+        false,
+      ),
+    ).toEqual(none);
   });
 
   it("divides by the population count as a percentage", () => {

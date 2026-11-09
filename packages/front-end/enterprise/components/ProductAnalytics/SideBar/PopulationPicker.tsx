@@ -142,24 +142,11 @@ export default function PopulationPicker({
       const dateDimensions = prev.dimensions.filter(
         (d) => d.dimensionType === "date",
       );
-      // Adding a Population shows proportions as a share of it. Switching
-      // between Populations keeps each value's choice.
-      const isAddingPopulation = !prev.dataset.population;
-      const nextValues: MetricValue[] = [];
-      for (const value of prev.dataset.values) {
-        const metric = getFactMetricById(value.metricId);
-        if (isAddingPopulation && metric?.metricType === "proportion") {
-          nextValues.push({ ...value, showAs: "percent_of_population" });
-        } else {
-          nextValues.push(value);
-        }
-      }
       return {
         ...prev,
         dimensions: dateDimensions,
         dataset: {
           ...prev.dataset,
-          values: nextValues,
           population: { populationId, unit },
         },
       };

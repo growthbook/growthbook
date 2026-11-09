@@ -59,7 +59,7 @@ const metricValueValidator = baseValueValidator.extend({
   showAs: showAsValidator
     .optional()
     .describe(
-      "How a metric renders: `total` sums the numerator, `per_unit` divides it by the unit count (mean metrics only), and `percent_of_population` divides it by the population's member count as a percentage (proportion metrics with a population only). Ignored for other metric types. Omit to use the default (`per_unit` for mean metrics with `max` and `count distinct` aggregations, otherwise `total`).",
+      "How a metric renders: `total` sums the numerator, `per_unit` divides it by the unit count (mean metrics only), and `percent_of_population` divides it by the population's member count as a percentage (proportion metrics with a population only). Ignored for other metric types. Omit to use the default (`per_unit` for mean metrics with `max` and `count distinct` aggregations, `percent_of_population` for proportion metrics with a population, otherwise `total`).",
     ),
 });
 // Internal only (metric editor live preview): an unsaved metric definition to
