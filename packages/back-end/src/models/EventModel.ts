@@ -261,7 +261,7 @@ export const createEvent = async <
   environments,
   notify = true,
 }: CreateEventParams<Resource, Event>) => {
-  trackRevisionActivity(context, object, event);
+  trackRevisionActivity(context, object, event, objectId ?? null, data);
   return createEventWithPayload<Resource, Event>({
     payload: {
       event: `${object}.${event}`,

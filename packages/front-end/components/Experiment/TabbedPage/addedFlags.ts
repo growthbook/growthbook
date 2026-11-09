@@ -7,7 +7,7 @@ import type {
 } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useWatching } from "@/services/WatchProvider";
-import track from "@/services/track";
+import track, { entityTrackingHash } from "@/services/track";
 import { useStagedState } from "./ExperimentEdits";
 
 type NewFlag = NonNullable<
@@ -37,9 +37,13 @@ export function useFlagCreated() {
   const { refreshTags } = useDefinitions();
   const { refreshWatching } = useWatching();
   return (
-    feature: Pick<FeatureInterface, "valueType" | "description" | "tags">,
+    feature: Pick<
+      FeatureInterface,
+      "id" | "valueType" | "description" | "tags"
+    >,
   ) => {
     track("Feature Created", {
+      entity_id_hash: entityTrackingHash(feature.id),
       valueType: feature.valueType,
       hasDescription: !!feature.description,
       initialRule: "experiment-ref",
