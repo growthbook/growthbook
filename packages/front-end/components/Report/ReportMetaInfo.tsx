@@ -71,8 +71,10 @@ export default function ReportMetaInfo({
     : `${HOST}/report/${report.id}`;
 
   const { apiCall } = useAuth();
-  const { settings } = useUser();
-  const publicSharingDisabled = !!settings?.disablePublicSharing;
+  const { settings, organization } = useUser();
+  // Viewers of another org's public report shouldn't get their own org's setting.
+  const publicSharingDisabled =
+    organization.id === report.organization && !!settings?.disablePublicSharing;
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
