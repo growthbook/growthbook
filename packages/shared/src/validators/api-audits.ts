@@ -114,8 +114,13 @@ export const listEventsValidator = {
       events: z
         .string()
         .optional()
-        .describe('Comma-separated event names, e.g. "feature.updated"'),
-      after: z.iso.datetime().optional(),
+        .describe(
+          'Comma-separated exact event names, e.g. "feature.updated". Wildcards like "feature.*" are not supported.',
+        ),
+      after: z.iso
+        .datetime()
+        .optional()
+        .describe("Only events at or after this time"),
       ...cursorQuery,
     })
     .strict(),

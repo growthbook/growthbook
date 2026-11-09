@@ -173,7 +173,7 @@ export const postEventWebhookTestValidator = {
   summary: "Send a test event to an event webhook",
   description:
     "Delivery is asynchronous; check the webhook's logs for the result.",
-  confirmation: ["other.write"] as const,
+  confirmation: ["settings.webhooks"] as const,
   operationId: "postEventWebhookTest",
   tags: ["event-webhooks"],
   method: "post" as const,

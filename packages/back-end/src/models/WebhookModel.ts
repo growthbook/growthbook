@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import { omit, uniq } from "lodash";
 import { z } from "zod";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { WebhookInterface } from "shared/types/webhook";
@@ -247,7 +247,8 @@ export class SdkWebhookModel extends BaseClass {
     const can = (c: SDKConnectionInterface) =>
       context.permissions.canUpdateSDKWebhook(c);
     const webhook = await this.getWebhookForApiUpdate(id, can);
-    const { sdkConnections, ...updates } = body;
+    const { sdkConnections: sent, ...updates } = body;
+    const sdkConnections = sent && uniq(sent);
     // Only changed values are checked, so an echoed GET response still saves
     if (updates.headers !== (webhook.headers ?? "")) {
       this.assertHeadersJson(updates.headers);
