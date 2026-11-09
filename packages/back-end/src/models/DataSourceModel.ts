@@ -15,6 +15,7 @@ import {
   getExposureQueryIdentifierTypes,
   findColumnsNeedingQuotes,
   findFeatureUsageColumnsNeedingQuotes,
+  getFeatureUsageJsonFieldError,
   getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
 } from "shared/util";
@@ -739,6 +740,10 @@ export async function validateExposureQueriesAndAddMissingIds(
           throw new Error(
             `Feature usage query: ${getColumnsNeedingQuotesMessage(quotedColumns)}`,
           );
+        }
+        const jsonFieldError = getFeatureUsageJsonFieldError(featureUsage);
+        if (jsonFieldError) {
+          throw new Error(`Feature usage query: ${jsonFieldError}`);
         }
         if (isManagedWarehouseUnavailable(datasource)) {
           featureUsage.error = undefined;
