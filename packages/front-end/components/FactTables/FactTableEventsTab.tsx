@@ -161,10 +161,11 @@ export default function FactTableEventsTab({
               return (
                 <Fragment key={r.value}>
                   <TableRow
+                    align="center"
                     style={{ cursor: "pointer" }}
                     onClick={() => setOpen(isOpen ? null : r.value)}
                   >
-                    <TableCell>
+                    <TableCell className={columnStyles.iconCell}>
                       <IconButton
                         variant="ghost"
                         size="1"
