@@ -87,6 +87,7 @@ import { detectEventForwarderWarehouseRegion } from "back-end/src/services/event
 import {
   pauseEventForwarderThroughLicenseServer,
   provisionEventForwarderThroughLicenseServer,
+  restartEventForwarderThroughLicenseServer,
   resumeEventForwarderThroughLicenseServer,
   syncEventForwarderStatusFromLicenseServer,
 } from "back-end/src/services/eventForwarder/connector";
@@ -1275,6 +1276,57 @@ export async function postResumeEventForwarder(
     res.status(200).json({ status: 200 });
   } catch (e) {
     req.log.error(e, "Failed to resume event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postRestartEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200 }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find Data Source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  try {
+    await restartEventForwarderThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to restart event forwarder");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

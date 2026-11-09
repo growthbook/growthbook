@@ -23,7 +23,13 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
+import {
+  PiArrowClockwise,
+  PiCaretRight,
+  PiPause,
+  PiPencilSimple,
+  PiPlay,
+} from "react-icons/pi";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -86,7 +92,7 @@ const statusLabels: Record<EventForwarderStatus, string> = {
   pending: "Pending",
   ready: "Ready",
   paused: "Paused",
-  error: "Error",
+  error: "Errored",
   schema_update_error: "Schema update error",
 };
 
@@ -590,6 +596,40 @@ function EventForwarderModal({
   );
 }
 
+// First line only until expanded; error traces can run many lines.
+function EventForwarderErrorMessage({ message }: { message: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const firstLine = message.split("\n")[0];
+  const isLong = firstLine !== message || firstLine.length > 120;
+  return (
+    <Box>
+      <Box
+        style={
+          expanded
+            ? { whiteSpace: "pre-wrap" }
+            : {
+                display: "-webkit-box",
+                WebkitLineClamp: 1,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }
+        }
+      >
+        {expanded ? message : firstLine}
+      </Box>
+      {isLong ? (
+        <Link
+          size="sm"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </Link>
+      ) : null}
+    </Box>
+  );
+}
+
 function EventForwarderSetupIndicator() {
   return (
     <Box
@@ -681,7 +721,14 @@ export default function EventForwarder({
           !!primaryConnectorErrorMessage)));
   // Pause/Resume stay available while usage-blocked; a resume takes effect on the 1st
   const canToggle = canEdit && (isReady || isPaused);
-  const action = isReady ? "pause" : "resume";
+  // Restart replaces Pause once the destination errored; without a connector
+  // there is nothing to restart, so Edit is the retry path.
+  const canRestart =
+    canEdit &&
+    !isProvisioning &&
+    eventForwarderConfig?.status === "error" &&
+    !!eventForwarderConfig.connectorName;
+  const action = canRestart ? "restart" : isReady ? "pause" : "resume";
   const databricksParams =
     dataSource.params as Partial<DatabricksConnectionParams>;
   const databricksAuthBlocked =
@@ -718,11 +765,19 @@ export default function EventForwarder({
             )}
           </Flex>
 
-          {canToggle ? (
+          {canToggle || canRestart ? (
             <Button
               variant="outline"
-              color={isReady ? "red" : undefined}
-              icon={isReady ? <PiPause /> : <PiPlay />}
+              color={action === "pause" ? "red" : undefined}
+              icon={
+                action === "restart" ? (
+                  <PiArrowClockwise />
+                ) : action === "pause" ? (
+                  <PiPause />
+                ) : (
+                  <PiPlay />
+                )
+              }
               iconPosition="left"
               loading={pauseResumeLoading}
               onClick={async () => {
@@ -740,10 +795,25 @@ export default function EventForwarder({
                 }
               }}
             >
-              {isReady ? "Pause" : "Resume"}
+              {action === "restart"
+                ? "Restart"
+                : action === "pause"
+                  ? "Pause"
+                  : "Resume"}
             </Button>
           ) : null}
         </Flex>
+      ) : null}
+
+      {eventForwarderConfig &&
+      showProvisioningError &&
+      primaryConnectorErrorMessage ? (
+        <Callout status="error" mb="3">
+          <EventForwarderErrorMessage
+            key={primaryConnectorErrorMessage}
+            message={primaryConnectorErrorMessage}
+          />
+        </Callout>
       ) : null}
 
       <p>
@@ -835,16 +905,6 @@ export default function EventForwarder({
           <Text color="text-mid" size="md">
             This page will update automatically once provisioning completes.
           </Text>
-        </Callout>
-      ) : null}
-
-      {eventForwarderConfig &&
-      showProvisioningError &&
-      primaryConnectorErrorMessage ? (
-        <Callout status="error" mb="3">
-          <Box style={{ whiteSpace: "pre-wrap" }}>
-            {primaryConnectorErrorMessage}
-          </Box>
         </Callout>
       ) : null}
 
