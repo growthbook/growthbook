@@ -18,7 +18,7 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import {
   contextualBanditQueryPickerLocked,
   getDefaultContextualBanditQueryId,
-  MANAGED_WAREHOUSE_QUERY_HELP_TEXT,
+  managedWarehouseQueryHelpText,
   resolveContextualBanditQuerySelection,
 } from "@/services/contextualBandits";
 import NoMatchingContextualBanditQueryCallout from "@/components/ContextualBandit/NoMatchingContextualBanditQueryCallout";
@@ -312,6 +312,7 @@ export default function ContextualBanditAnalysisMetricsModal({
         {managedWarehouse && !defaultQueryId && !selectedQuery ? (
           <NoMatchingContextualBanditQueryCallout
             hashAttribute={cb.hashAttribute}
+            surface="edit"
           />
         ) : contextualBanditQueries.length > 0 ? (
           <SelectField
@@ -326,7 +327,7 @@ export default function ContextualBanditAnalysisMetricsModal({
             }))}
             helpText={
               managedWarehouse
-                ? MANAGED_WAREHOUSE_QUERY_HELP_TEXT
+                ? managedWarehouseQueryHelpText("edit")
                 : "The bandit assignment query for this data source."
             }
           />

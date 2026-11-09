@@ -13,7 +13,7 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import {
   contextualBanditQueryPickerLocked,
   getDefaultContextualBanditQueryId,
-  MANAGED_WAREHOUSE_QUERY_HELP_TEXT,
+  managedWarehouseQueryHelpText,
   resolveContextualBanditQuerySelection,
 } from "@/services/contextualBandits";
 import NoMatchingContextualBanditQueryCallout from "@/components/ContextualBandit/NoMatchingContextualBanditQueryCallout";
@@ -181,6 +181,7 @@ export default function ContextualBanditAnalysisFields({
             ) : managedWarehouse && !defaultCbQueryId && !selectedCbQuery ? (
               <NoMatchingContextualBanditQueryCallout
                 hashAttribute={hashAttribute}
+                surface="create"
               />
             ) : (
               <SelectField
@@ -197,7 +198,7 @@ export default function ContextualBanditAnalysisFields({
                 disabled={pickerLocked}
                 helpText={
                   managedWarehouse
-                    ? MANAGED_WAREHOUSE_QUERY_HELP_TEXT
+                    ? managedWarehouseQueryHelpText("create")
                     : undefined
                 }
                 options={cbQueries.map((q) => ({

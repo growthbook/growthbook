@@ -5,6 +5,8 @@ import type {
 import {
   contextualBanditQueryPickerLocked,
   getDefaultContextualBanditQueryId,
+  managedWarehouseHashAttributeHint,
+  managedWarehouseQueryHelpText,
   resolveContextualBanditQuerySelection,
 } from "@/services/contextualBandits";
 
@@ -258,5 +260,20 @@ describe("contextualBanditQueryPickerLocked", () => {
         queries: managedQueries,
       }),
     ).toBe(false);
+  });
+});
+
+describe("managed warehouse query copy", () => {
+  it("points at where the hash attribute lives on each surface", () => {
+    expect(managedWarehouseHashAttributeHint("create")).toBe(
+      "choose a different hash attribute on the previous step",
+    );
+    expect(managedWarehouseHashAttributeHint("edit")).toBe(
+      "change the hash attribute in Traffic & Targeting",
+    );
+    expect(managedWarehouseQueryHelpText("edit")).toContain(
+      "Traffic & Targeting",
+    );
+    expect(managedWarehouseQueryHelpText("create")).toContain("previous step");
   });
 });

@@ -12,9 +12,12 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import {
   listSessionReplays,
+  removeManagedWarehouseLegacyIdentifier,
   syncManagedWarehouseContextualBanditQueries,
   syncManagedWarehouseIdentifiers,
+  syncManagedWarehouseIdentifiersOnAttributeChange,
 } from "back-end/src/services/clickhouse";
+import { syncJsonErgonomicsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   dangerouslyGetFactTableByIdBypassPermission,
   dangerouslySyncManagedWarehouseFactTable,
@@ -28,6 +31,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 
 jest.mock("back-end/src/services/licenseServerManagedClickhouse", () => ({
   dangerousRecreateClickhouseTables: jest.fn().mockResolvedValue(undefined),
+  syncJsonErgonomicsInClickhouse: jest.fn().mockResolvedValue(true),
 }));
 
 jest.mock("back-end/src/models/FactTableModel", () => ({
@@ -55,6 +59,7 @@ const mockGetDatasource = jest.mocked(
   dangerouslyGetGrowthbookDatasourceBypassPermission,
 );
 const mockUpdateDataSource = jest.mocked(updateDataSource);
+const mockSyncJsonErgonomics = jest.mocked(syncJsonErgonomicsInClickhouse);
 
 function makeFactTableColumn(
   column: string,
@@ -320,6 +325,71 @@ describe("syncManagedWarehouseIdentifiers", () => {
     ).rejects.toThrow("boom");
 
     expect(mockSyncFactTable).toHaveBeenCalledTimes(1);
+  });
+
+  it("still applies the typed attribute columns after an attribute change when the contextual bandit sync fails", async () => {
+    const schema: SDKAttributeSchema = [
+      { property: "age", datatype: "string" },
+    ];
+    mockGetFactTableById.mockResolvedValue(makeManagedFactTable(schema));
+    mockGetManagedQueries.mockRejectedValue(new Error("boom"));
+
+    await expect(
+      syncManagedWarehouseIdentifiersOnAttributeChange(context, schema),
+    ).resolves.toBeUndefined();
+
+    expect(mockSyncJsonErgonomics).toHaveBeenCalledWith("org_test");
+  });
+
+  it("removes a legacy identifier and applies the typed columns even when the contextual bandit sync fails", async () => {
+    const legacyDatasource = {
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        migratedIdentifiers: ["legacy_key"],
+      },
+    } as unknown as GrowthbookClickhouseDataSource;
+    mockGetDatasource.mockResolvedValue(legacyDatasource);
+    mockGetFactTableById.mockResolvedValue(makeManagedFactTable([]));
+    mockGetManagedQueries.mockRejectedValue(new Error("boom"));
+
+    await expect(
+      removeManagedWarehouseLegacyIdentifier(
+        context,
+        legacyDatasource,
+        "legacy_key",
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(mockUpdateDataSource.mock.calls[0][2]).toEqual({
+      settings: expect.objectContaining({ migratedIdentifiers: [] }),
+    });
+    expect(mockSyncJsonErgonomics).toHaveBeenCalledWith("org_test");
+  });
+
+  it("still propagates fact-table sync failures from the legacy identifier removal", async () => {
+    const legacyDatasource = {
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        migratedIdentifiers: ["legacy_key"],
+      },
+    } as unknown as GrowthbookClickhouseDataSource;
+    mockGetDatasource.mockResolvedValue(legacyDatasource);
+    mockGetFactTableById.mockResolvedValue(
+      makeManagedFactTable([], (cols) => {
+        cols.push(makeFactTableColumn("legacy_key"));
+      }),
+    );
+    mockSyncFactTable.mockRejectedValue(new Error("fact table down"));
+
+    await expect(
+      removeManagedWarehouseLegacyIdentifier(
+        context,
+        legacyDatasource,
+        "legacy_key",
+      ),
+    ).rejects.toThrow("fact table down");
   });
 
   it("no-ops for legacy (materialized-column) warehouses", async () => {

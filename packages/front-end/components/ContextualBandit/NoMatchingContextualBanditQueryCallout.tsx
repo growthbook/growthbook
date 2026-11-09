@@ -1,10 +1,16 @@
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import {
+  ContextualBanditQuerySurface,
+  managedWarehouseHashAttributeHint,
+} from "@/services/contextualBandits";
 
 export default function NoMatchingContextualBanditQueryCallout({
   hashAttribute,
+  surface,
 }: {
   hashAttribute: string | undefined;
+  surface: ContextualBanditQuerySurface;
 }) {
   return (
     <Callout status="warning" mt="3">
@@ -13,7 +19,7 @@ export default function NoMatchingContextualBanditQueryCallout({
       <Link href="/attributes" external>
         Settings → Attributes
       </Link>
-      , or choose a different hash attribute.
+      , or {managedWarehouseHashAttributeHint(surface)}.
     </Callout>
   );
 }

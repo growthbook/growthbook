@@ -319,7 +319,8 @@ export async function syncManagedWarehouseIdentifiers(
       e,
       "Failed to sync managed warehouse contextual bandit queries",
     );
-    contextualBanditQuerySyncError = e;
+    contextualBanditQuerySyncError =
+      new ManagedWarehouseContextualBanditQuerySyncError(e);
   }
 
   await syncManagedWarehouseEventsFactTable(
@@ -453,6 +454,44 @@ async function syncManagedWarehouseEventsFactTable(
   });
 }
 
+export class ManagedWarehouseContextualBanditQuerySyncError extends Error {
+  readonly cause: unknown;
+
+  constructor(cause: unknown) {
+    super(
+      cause instanceof Error
+        ? cause.message
+        : "Failed to sync managed warehouse contextual bandit queries",
+    );
+    this.name = "ManagedWarehouseContextualBanditQuerySyncError";
+    this.cause = cause;
+    Object.setPrototypeOf(
+      this,
+      ManagedWarehouseContextualBanditQuerySyncError.prototype,
+    );
+  }
+}
+
+async function syncManagedWarehouseIdentifiersToleratingQueryErrors(
+  context: ReqContext | ApiReqContext,
+  attributeSchema: SDKAttributeSchema | undefined,
+  providedDatasource: DataSourceInterface | null,
+  logMessage: string,
+): Promise<void> {
+  try {
+    await syncManagedWarehouseIdentifiers(
+      context,
+      attributeSchema,
+      providedDatasource,
+    );
+  } catch (e) {
+    if (!(e instanceof ManagedWarehouseContextualBanditQuerySyncError)) {
+      throw e;
+    }
+    logger.error(e, logMessage);
+  }
+}
+
 export async function syncManagedWarehouseContextualBanditQueries(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
@@ -541,14 +580,21 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
 ): Promise<void> {
   try {
     await syncManagedWarehouseIdentifiers(context, attributeSchema);
-    // Push the (possibly changed) typed attribute columns to ClickHouse. Also
-    // best-effort: a stale column set degrades bare SQL for the new attribute,
-    // and the next attribute change or table recreate re-syncs it.
-    await applyManagedWarehouseJsonErgonomics(context);
   } catch (e) {
     logger.error(
       e,
       "Failed to sync managed warehouse identifiers after attribute change",
+    );
+  }
+  // Push the (possibly changed) typed attribute columns to ClickHouse. Also
+  // best-effort: a stale column set degrades bare SQL for the new attribute,
+  // and the next attribute change or table recreate re-syncs it.
+  try {
+    await applyManagedWarehouseJsonErgonomics(context);
+  } catch (e) {
+    logger.error(
+      e,
+      "Failed to sync typed attribute columns after attribute change",
     );
   }
 }
@@ -589,10 +635,12 @@ export async function removeManagedWarehouseLegacyIdentifier(
 
   // Reconcile the same datasource we just updated (with its post-removal settings),
   // rather than letting the sync re-select a warehouse by org.
-  await syncManagedWarehouseIdentifiers(context, undefined, {
-    ...datasource,
-    settings: updatedSettings,
-  });
+  await syncManagedWarehouseIdentifiersToleratingQueryErrors(
+    context,
+    undefined,
+    { ...datasource, settings: updatedSettings },
+    "Failed to sync contextual bandit queries after removing legacy identifier",
+  );
 
   // Drop the identifier's typed ALIAS column in ClickHouse. Best-effort: the
   // Mongo state above is already correct, and a lingering column is harmless
@@ -648,5 +696,10 @@ export async function setManagedWarehouseIdAttributeIdentifier(
   // heals the persisted SQL instead of short-circuiting on the already-persisted
   // flag, and the audit entry / definitions-version bump for the resulting
   // generated-SQL change happen through the sync's own updateDataSource.
-  await syncManagedWarehouseIdentifiers(context);
+  await syncManagedWarehouseIdentifiersToleratingQueryErrors(
+    context,
+    undefined,
+    null,
+    "Failed to sync contextual bandit queries after changing the id attribute mapping",
+  );
 }

@@ -202,8 +202,22 @@ type ContextualBanditQueryOption = {
   managedBy?: "" | "api";
 };
 
-export const MANAGED_WAREHOUSE_QUERY_HELP_TEXT =
-  "Generated queries are selected automatically to match this bandit's hash attribute. Change the hash attribute to use a different generated query.";
+export type ContextualBanditQuerySurface = "create" | "edit";
+
+export function managedWarehouseHashAttributeHint(
+  surface: ContextualBanditQuerySurface,
+): string {
+  return surface === "create"
+    ? "choose a different hash attribute on the previous step"
+    : "change the hash attribute in Traffic & Targeting";
+}
+
+export function managedWarehouseQueryHelpText(
+  surface: ContextualBanditQuerySurface,
+): string {
+  const hint = managedWarehouseHashAttributeHint(surface);
+  return `Generated queries are selected automatically to match this bandit's hash attribute. To use a different generated query, ${hint}.`;
+}
 
 export function resolveContextualBanditQuerySelection({
   datasource,
