@@ -130,7 +130,7 @@ it("does not invent a value for absent data or a zero denominator", () => {
     )?.value,
   ).toBeNull();
 });
-it("uses the selected identifier for both sides of a ratio", () => {
+it("uses the selected numerator and denominator identifiers in the query", () => {
   const base = metric();
   const config = getMetricPreviewConfig(
     {
@@ -143,6 +143,7 @@ it("uses the selected identifier for both sides of a ratio", () => {
     {
       draft: true,
       unit: "account_id",
+      denominatorUnit: "device_id",
       dateRange: getPreviewDateRange(),
     },
   );
@@ -150,7 +151,7 @@ it("uses the selected identifier for both sides of a ratio", () => {
     values: [
       {
         unit: "account_id",
-        denominatorUnit: "account_id",
+        denominatorUnit: "device_id",
         draftMetric: { metricType: "ratio" },
       },
     ],
@@ -160,6 +161,7 @@ it("keeps the query identity when only non-query fields change", () => {
   const options = {
     draft: true,
     unit: "user_id",
+    denominatorUnit: null,
     dateRange: getPreviewDateRange(new Date("2026-10-03T00:00:00Z")),
   };
   const base = metric();
@@ -208,7 +210,7 @@ it("keeps the query identity when only non-query fields change", () => {
     }),
   ).not.toThrow();
 });
-it("offers only identifiers shared by all funnel steps or ratio parts", () => {
+it("offers only identifiers shared by all funnel steps", () => {
   const tables: Record<string, Pick<FactTableDefinition, "userIdTypes">> = {
     ft1: { userIdTypes: ["user_id", "account_id"] },
     ft2: { userIdTypes: ["account_id", "device_id"] },
@@ -231,19 +233,15 @@ it("offers only identifiers shared by all funnel steps or ratio parts", () => {
       ],
     },
   };
-  expect(getMetricPreviewUnits(funnel, getTable)).toEqual(["account_id"]);
-  const ratio: FactMetricInterface = {
-    ...metric(),
-    metricType: "ratio",
-    numerator,
-    denominator: { ...numerator, factTableId: "ft2" },
-    funnelSettings: null,
-  };
-  expect(getMetricPreviewUnits(ratio, getTable)).toEqual(["account_id"]);
+  expect(getMetricPreviewUnits(funnel, getTable)).toEqual({
+    numerator: ["account_id"],
+    denominator: [],
+  });
   expect(
     getMetricPreviewConfig(funnel, {
       draft: true,
       unit: "account_id",
+      denominatorUnit: null,
       dateRange: getPreviewDateRange(),
     }).dataset,
   ).toMatchObject({ unit: "account_id" });
@@ -287,6 +285,7 @@ it("uses the per-unit scale for mean metric charts", () => {
     getMetricPreviewConfig(metric(), {
       draft: true,
       unit: "user_id",
+      denominatorUnit: null,
       dateRange: getPreviewDateRange(),
     }).showAs,
   ).toBe("per_unit");
