@@ -50,9 +50,9 @@ export class WebhookSecretDataModel extends BaseClass {
     return this.context.permissions.canManageWebhookSecrets();
   }
 
-  // Readable app-wide for webhook setup, but over REST only with webhook access
+  // Readable app-wide for webhook setup, but over REST only with some webhook access
   private assertCanViewViaApi() {
-    if (!this.context.permissions.canViewEventWebhook()) {
+    if (!this.context.permissions.canManageSomeEventWebhooks()) {
       this.context.permissions.throwPermissionError();
     }
   }

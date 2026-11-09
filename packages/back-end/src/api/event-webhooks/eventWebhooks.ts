@@ -74,13 +74,16 @@ async function getWebhook(context: ApiReqContext, id: string) {
 export const listEventWebhooks = createApiRequestHandler(
   listEventWebhooksValidator,
 )(async (req) => {
-  if (!req.context.permissions.canViewEventWebhook()) {
-    req.context.permissions.throwPermissionError();
+  const { permissions } = req.context;
+  if (!permissions.canManageSomeEventWebhooks()) {
+    permissions.throwPermissionError();
   }
   const webhooks = await getAllEventWebHooks(req.context.org.id);
   return {
     eventWebhooks: webhooks
-      .filter((w) => !isSlackAppManaged(w))
+      .filter(
+        (w) => !isSlackAppManaged(w) && permissions.canViewEventWebhook(w),
+      )
       .map((w) => toApiEventWebhook(w)),
   };
 });
@@ -88,19 +91,16 @@ export const listEventWebhooks = createApiRequestHandler(
 export const getEventWebhook = createApiRequestHandler(
   getEventWebhookValidator,
 )(async (req) => {
-  if (!req.context.permissions.canViewEventWebhook()) {
+  const webhook = await getWebhook(req.context, req.params.id);
+  if (!req.context.permissions.canViewEventWebhook(webhook)) {
     req.context.permissions.throwPermissionError();
   }
-  const webhook = await getWebhook(req.context, req.params.id);
   return { eventWebhook: toApiEventWebhook(webhook) };
 });
 
 export const postEventWebhook = createApiRequestHandler(
   postEventWebhookValidator,
 )(async (req) => {
-  if (!req.context.permissions.canCreateEventWebhook()) {
-    req.context.permissions.throwPermissionError();
-  }
   const {
     projects = [],
     tags = [],
@@ -109,6 +109,11 @@ export const postEventWebhook = createApiRequestHandler(
     headers = {},
     ...rest
   } = req.body;
+  if (
+    !req.context.permissions.canCreateEventWebhook({ projects, environments })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
   const created = await createEventWebHook({
     ...rest,
     organizationId: req.context.org.id,
@@ -124,12 +129,12 @@ export const postEventWebhook = createApiRequestHandler(
 export const putEventWebhook = createApiRequestHandler(
   putEventWebhookValidator,
 )(async (req) => {
-  if (!req.context.permissions.canUpdateEventWebhook()) {
-    req.context.permissions.throwPermissionError();
-  }
   const { id } = req.params;
   const existing = await getWebhook(req.context, id);
   const { timeoutSeconds, ...updates } = req.body;
+  if (!req.context.permissions.canUpdateEventWebhook(existing, updates)) {
+    req.context.permissions.throwPermissionError();
+  }
   await updateEventWebHook(
     { eventWebHookId: id, organizationId: req.context.org.id },
     {
@@ -148,10 +153,10 @@ export const putEventWebhook = createApiRequestHandler(
 export const deleteEventWebhook = createApiRequestHandler(
   deleteEventWebhookValidator,
 )(async (req) => {
-  if (!req.context.permissions.canDeleteEventWebhook()) {
+  const webhook = await getWebhook(req.context, req.params.id);
+  if (!req.context.permissions.canDeleteEventWebhook(webhook)) {
     req.context.permissions.throwPermissionError();
   }
-  await getWebhook(req.context, req.params.id);
   const deleted = await deleteEventWebHookById({
     eventWebHookId: req.params.id,
     organizationId: req.context.org.id,
@@ -165,14 +170,17 @@ export const deleteEventWebhook = createApiRequestHandler(
 export const listEventWebhookLogs = createApiRequestHandler(
   listEventWebhookLogsValidator,
 )(async (req) => {
-  if (!req.context.permissions.canViewEventWebhook()) {
-    req.context.permissions.throwPermissionError();
+  const { permissions } = req.context;
+  const webhook = await getWebhook(req.context, req.params.id);
+  if (!permissions.canViewEventWebhook(webhook)) {
+    permissions.throwPermissionError();
   }
-  await getWebhook(req.context, req.params.id);
+  // Filters may have narrowed since delivery, so each log is checked against its own
   const logs = await getLatestRunsForWebHook(
     req.context.org.id,
-    req.params.id,
+    webhook.id,
     50,
+    (filters) => permissions.canViewEventWebhook(filters),
   );
   return { logs: logs.map(toApiLog) };
 });
