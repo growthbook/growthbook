@@ -461,7 +461,7 @@ export const putSettingsValidator = {
     body: {
       statsEngine: "frequentist" as const,
       pValueThreshold: 0.05,
-      requireProjectForFeatures: true,
+      experimentMinLengthDays: 7,
       preferredEnvironment: null,
     },
   },

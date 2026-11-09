@@ -72,7 +72,8 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
 
   // `null` resets a field, which still needs permission for that field.
   assertCanUpdateOrgSettings(context, body);
-  if (body.defaultRole) {
+  // Plan gates only refuse turning something on, so the free default always passes
+  if (body.defaultRole && !isEqual(body.defaultRole, getDefaultRole({}))) {
     const role: OrganizationSettings = { defaultRole: body.defaultRole };
     await sanitizeDefaultRoleUpdate(context, role);
     body.defaultRole = role.defaultRole;

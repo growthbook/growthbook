@@ -103,7 +103,11 @@ function toApiNorthStar(northStar: NorthStarMetric | null) {
 // A cleared or edited hours input is stored as a string.
 function toApiUpdateSchedule(schedule: ExperimentUpdateSchedule | null) {
   if (!schedule) return null;
-  const { hours, ...rest } = schedule;
+  // The settings form stores cleared fields as null, which PUT rejects
+  const { hours, ...rest } = omitBy(
+    schedule,
+    isNull,
+  ) as ExperimentUpdateSchedule;
   const value = Number(hours);
   return value > 0 ? { ...rest, hours: value } : rest;
 }
