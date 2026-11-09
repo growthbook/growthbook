@@ -18,7 +18,7 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import ColumnModal from "./ColumnModal";
+import EditColumnModal from "./EditColumnModal";
 import VirtualColumnModal from "./VirtualColumnModal";
 import ColumnValues, { ColumnValuesPanel } from "./ColumnValues";
 import styles from "./FactTableDetailsPage.module.scss";
@@ -91,10 +91,10 @@ export default function FactTableColumnsTab({
           canDelete={canManageVirtual}
         />
       ) : editOpen ? (
-        <ColumnModal
+        <EditColumnModal
           close={() => setEditOpen(null)}
           factTable={factTable}
-          existing={editOpen}
+          column={editOpen}
         />
       ) : null}
       {newVirtualOpen && (
