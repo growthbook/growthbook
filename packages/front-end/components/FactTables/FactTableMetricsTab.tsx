@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
@@ -20,11 +20,19 @@ export default function FactTableMetricsTab({
   factTable,
   metrics,
   eventColumns,
+  highlightId,
 }: {
   factTable: FactTableInterface;
   metrics: FactMetricInterface[];
   eventColumns: ColumnInterface[];
+  // Set when arriving from an event's metric, which this row then marks
+  highlightId: string | null;
 }) {
+  const highlightRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    highlightRef.current?.scrollIntoView({ block: "center" });
+  }, [highlightId]);
+
   const { metricGroups } = useDefinitions();
   const { experiments } = useExperiments();
   const factMetricFlow = useFactMetricFlow("fact-table");
@@ -66,7 +74,13 @@ export default function FactTableMetricsTab({
           </thead>
           <tbody>
             {visible.map((m) => (
-              <tr key={m.id}>
+              <tr
+                key={m.id}
+                ref={m.id === highlightId ? highlightRef : undefined}
+                className={
+                  m.id === highlightId ? columnStyles.highlightRow : undefined
+                }
+              >
                 <td>
                   <Link weight="bold" href={`/fact-metrics/${m.id}`}>
                     {m.name}

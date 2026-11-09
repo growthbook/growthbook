@@ -118,3 +118,8 @@ table.detailsTable {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+// The metric picked from the Events tab
+.highlightRow td {
+  background: var(--violet-a3);
+}

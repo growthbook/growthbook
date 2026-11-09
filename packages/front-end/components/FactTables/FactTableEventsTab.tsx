@@ -18,7 +18,6 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Button from "@/ui/Button";
-import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Text from "@/ui/Text";
@@ -38,6 +37,7 @@ export default function FactTableEventsTab({
   valueCounts,
   canRefresh,
   onShowMetrics,
+  onSelectMetric,
 }: {
   factTable: FactTableInterface;
   eventColumns: ColumnInterface[];
@@ -45,6 +45,7 @@ export default function FactTableEventsTab({
   valueCounts: ReturnType<typeof useColumnValueCounts>;
   canRefresh: boolean;
   onShowMetrics: (column: string, value: string) => void;
+  onSelectMetric: (metricId: string) => void;
 }) {
   const [columnName, setColumnName] = useState(eventColumns[0].column);
   const [search, setSearch] = useState("");
@@ -214,18 +215,18 @@ export default function FactTableEventsTab({
                             <div className={styles.sectionLabel}>Metrics</div>
                             <Flex direction="column" align="start" gap="2">
                               {eventMetrics.slice(0, MAX_METRICS).map((m) => (
-                                <LinkButton
+                                <Button
                                   key={m.id}
                                   size="sm"
                                   variant="outline"
-                                  href={`/fact-metrics/${m.id}`}
+                                  onClick={() => onSelectMetric(m.id)}
                                   title={m.name}
                                   style={{ maxWidth: "100%" }}
                                 >
                                   <span className={styles.truncate}>
                                     {m.name}
                                   </span>
-                                </LinkButton>
+                                </Button>
                               ))}
                               {eventMetrics.length > MAX_METRICS ? (
                                 <Link

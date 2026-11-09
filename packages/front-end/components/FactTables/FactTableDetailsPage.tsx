@@ -143,6 +143,8 @@ export default function FactTableDetailsPage() {
     column: string;
     value: string;
   } | null>(null);
+  // Set by an event's metric button; marks that row on the Metrics tab
+  const [highlightMetric, setHighlightMetric] = useState<string | null>(null);
 
   if (!ready || (!data && !factTableError)) return <LoadingOverlay />;
 
@@ -510,7 +512,10 @@ export default function FactTableDetailsPage() {
         value={tab ?? (eventColumns.length > 0 ? "events" : "columns")}
         onValueChange={(value) => {
           setTab(value);
-          if (value !== "metrics") setMetricsEvent(null);
+          if (value !== "metrics") {
+            setMetricsEvent(null);
+            setHighlightMetric(null);
+          }
         }}
       >
         <TabsList>
@@ -546,6 +551,12 @@ export default function FactTableDetailsPage() {
                 canRefresh={canLoadCounts}
                 onShowMetrics={(column, value) => {
                   setMetricsEvent({ column, value });
+                  setHighlightMetric(null);
+                  setTab("metrics");
+                }}
+                onSelectMetric={(id) => {
+                  setMetricsEvent(null);
+                  setHighlightMetric(id);
                   setTab("metrics");
                 }}
               />
@@ -588,6 +599,7 @@ export default function FactTableDetailsPage() {
             <FactTableMetricsTab
               factTable={factTable}
               eventColumns={eventColumns}
+              highlightId={highlightMetric}
               metrics={
                 metricsEvent
                   ? getMetricsForEvent(
