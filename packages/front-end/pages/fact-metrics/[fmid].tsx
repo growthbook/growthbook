@@ -4,7 +4,7 @@ import { isFactFunnelMetric } from "shared/experiments";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 
 import { Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVertical } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
@@ -315,7 +315,10 @@ export default function FactMetricPage() {
                       : editDisabledReason
                 }
               >
-                <span style={{ cursor: "not-allowed", display: "inline-flex" }}>
+                <span
+                  tabIndex={0}
+                  style={{ cursor: "not-allowed", display: "inline-flex" }}
+                >
                   <Button
                     variant="soft"
                     disabled
@@ -367,7 +370,7 @@ export default function FactMetricPage() {
                 // Ghost's negative margin would eat the row gap.
                 style={{ margin: 0 }}
               >
-                <BsThreeDotsVertical size={16} />
+                <PiDotsThreeVertical size={16} />
               </IconButton>
             }
             menuPlacement="end"
@@ -405,6 +408,29 @@ export default function FactMetricPage() {
                 }}
               >
                 Convert to Official Metric
+              </DropdownMenuItem>
+            ) : null}
+            {canEdit &&
+            factMetric.managedBy === "admin" &&
+            permissionsUtil.canCreateOfficialResources(factMetric) &&
+            hasCommercialFeature("manage-official-resources") ? (
+              <DropdownMenuItem
+                confirmation={{
+                  confirmationTitle: "Remove official status",
+                  cta: "Remove",
+                  getConfirmationContent: async () =>
+                    "Anyone with edit access will be able to change this metric.",
+                  submit: async () => {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({ managedBy: "" }),
+                    });
+                    await mutateDefinitions();
+                  },
+                  closeDropdown: () => setOpenDropdown(false),
+                }}
+              >
+                Remove official status
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem

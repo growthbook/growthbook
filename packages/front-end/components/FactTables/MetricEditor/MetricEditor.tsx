@@ -105,13 +105,17 @@ export default function MetricEditor({
     !!denominator?.factTableId &&
       denominator.factTableId !== numerator.factTableId,
   );
-  // Seeded with the tables already loaded, so editing an existing metric
-  // doesn't add empty inline-filter prompts it never had. Prompts are only
-  // added when a fact table is newly picked.
-  const initializedFilterTables = useRef({
-    numerator: numerator.factTableId,
-    denominator: denominator?.factTableId ?? "",
-  });
+  // Tables that already got their inline-filter prompts:
+  // - existing metric: its saved tables, so editing adds no empty prompts
+  // - new metric, duplicate, mapped template: none, so prompts are added
+  const initializedFilterTables = useRef(
+    existingMetric
+      ? {
+          numerator: numerator.factTableId,
+          denominator: denominator?.factTableId ?? "",
+        }
+      : { numerator: "", denominator: "" },
+  );
   useEffect(() => {
     if (!canEdit || metricType === "funnel") return;
     for (const field of ["numerator", "denominator"] as const) {
