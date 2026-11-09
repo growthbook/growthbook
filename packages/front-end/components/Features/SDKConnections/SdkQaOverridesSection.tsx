@@ -45,7 +45,6 @@ export default function SdkQaOverridesSection({
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
   const { data, error, mutate } = useSdkConnectionQaOverrides(connection.id);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{
     override: ExperimentQaOverrideWithStatus;
     experiment: QaOverrideExperiment;
@@ -59,14 +58,11 @@ export default function SdkQaOverridesSection({
   const canEdit = (experiment: QaOverrideExperiment) =>
     permissionsUtil.canRunExperiment(experiment, [connection.environment]);
 
+  // Used as a confirmation `submit`: errors propagate so the dialog shows
+  // them inline instead of closing as if the remove worked.
   const deleteOverride = async (override: ExperimentQaOverrideWithStatus) => {
-    setActionError(null);
-    try {
-      await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
-      await mutate();
-    } catch (e) {
-      setActionError(e.message);
-    }
+    await apiCall(`/qa-overrides/${override.id}`, { method: "DELETE" });
+    await mutate();
   };
 
   // Most connections are production, where QA overrides can't exist; a card
@@ -113,11 +109,6 @@ export default function SdkQaOverridesSection({
       {error && (
         <Callout status="error" mb="3">
           Could not load QA overrides: {error.message}
-        </Callout>
-      )}
-      {actionError && (
-        <Callout status="error" mb="3">
-          {actionError}
         </Callout>
       )}
 

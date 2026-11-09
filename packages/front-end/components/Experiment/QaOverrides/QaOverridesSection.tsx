@@ -283,17 +283,14 @@ export default function QaOverridesSection({
                               ctaColor: "red",
                               getConfirmationContent: async () =>
                                 `This draft will stop being served to ${override.environment} through this override.`,
-                              submit: async () => {
-                                try {
-                                  await run(() =>
-                                    apiCall(`/qa-overrides/${override.id}`, {
-                                      method: "DELETE",
-                                    }),
-                                  );
-                                } catch (e) {
-                                  setActionError(e.message);
-                                }
-                              },
+                              // Let errors propagate so the confirmation
+                              // dialog shows them inline instead of closing.
+                              submit: () =>
+                                run(() =>
+                                  apiCall(`/qa-overrides/${override.id}`, {
+                                    method: "DELETE",
+                                  }),
+                                ),
                             }}
                           >
                             Remove
