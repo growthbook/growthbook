@@ -130,6 +130,7 @@ export default function ManagedWarehouseRecreates({
   const [tables, setTables] = useState<ManagedWarehouseRecreatableTable[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [confirmingRetry, setConfirmingRetry] = useState(false);
   const [target, setTarget] = useState<"all" | "list">("list");
   const [orgIds, setOrgIds] = useState("");
   const [message, setMessage] = useState("");
@@ -219,6 +220,24 @@ export default function ManagedWarehouseRecreates({
           onCancel={() => setConfirmingCancel(false)}
         />
       )}
+      {confirmingRetry && (
+        <ConfirmDialog
+          title="Retry Failed Recreates"
+          content={`Retry ${counts?.failed ?? 0} failed recreate${counts?.failed === 1 ? "" : "s"}? Their error messages will be cleared.`}
+          yesText="Retry failed"
+          onConfirm={async () => {
+            setConfirmingRetry(false);
+            await run(async () => {
+              const { retried } = await apiCall<{ retried: number }>(
+                "/admin/managed-warehouse/recreates/retry-failed",
+                { method: "POST" },
+              );
+              return `Requeued ${retried} failed recreate${retried === 1 ? "" : "s"}.`;
+            });
+          }}
+          onCancel={() => setConfirmingRetry(false)}
+        />
+      )}
       {canRequest && (
         <Frame py="4" px="5">
           <Heading as="h3" size="sm" mb="3">
@@ -300,15 +319,7 @@ export default function ManagedWarehouseRecreates({
                 size="sm"
                 variant="outline"
                 disabled={!counts?.failed}
-                onClick={() =>
-                  run(async () => {
-                    const { retried } = await apiCall<{ retried: number }>(
-                      "/admin/managed-warehouse/recreates/retry-failed",
-                      { method: "POST" },
-                    );
-                    return `Requeued ${retried} failed recreate${retried === 1 ? "" : "s"}.`;
-                  })
-                }
+                onClick={() => setConfirmingRetry(true)}
               >
                 Retry failed
               </Button>
