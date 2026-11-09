@@ -30,13 +30,13 @@ export function analysisOf(
 
 export default function EditInterleavingAnalysisModal({
   interleaving: il,
+  isInSDKPayload,
   canEditServing,
   mutate,
   close,
 }: {
   interleaving: ApiInterleavingInterface;
-  // The tracking key reaches the SDK payload, so the server wants run
-  // permission for it once this is serving.
+  isInSDKPayload: boolean;
   canEditServing: boolean;
   mutate: () => Promise<unknown>;
   close: () => void;
@@ -129,9 +129,9 @@ export default function EditInterleavingAnalysisModal({
               onChange={(e) => setTrackingKey(e.target.value)}
               disabled={!canEditServing}
               helpText={
-                canEditServing
-                  ? "Matched against experiment_id in your Interleaving Exposure Query."
-                  : "Matched against experiment_id in your Interleaving Exposure Query. Changing it while this is running needs permission to run experiments."
+                isInSDKPayload
+                  ? "Warning! Changing this while your experiment is running can break analysis as it will change the interleaving key emitted in exposure events. Requires permission to run experiments to change."
+                  : "Matched against experiment_id in your Interleaving Exposure Query."
               }
             />
           </Box>
