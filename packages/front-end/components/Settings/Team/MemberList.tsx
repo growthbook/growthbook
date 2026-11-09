@@ -278,6 +278,36 @@ const MemberList: FC<{
       lastLoginDate: new Date(0).toISOString(),
     },
   });
+  // Whether the toolbar's one line doesn't fit: the widths of its pieces, as
+  // they are, against the room it has. Those don't change when the search and
+  // filters move below, so this can't flip back and forth.
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const [toolsBelow, setToolsBelow] = useState(false);
+  useEffect(() => {
+    const bar = toolbarRef.current;
+    const tools = toolsRef.current;
+    if (!bar || !tools) return;
+    const check = () => {
+      const width = (els: Element[], gap: number) =>
+        els.reduce((sum, el) => sum + (el as HTMLElement).offsetWidth, 0) +
+        gap * Math.max(0, els.length - 1);
+      const toolsWidth = width(
+        [...tools.children],
+        parseFloat(getComputedStyle(tools).columnGap) || 0,
+      );
+      const others = [...bar.children].filter((el) => el !== tools);
+      const barGap = parseFloat(getComputedStyle(bar).columnGap) || 0;
+      const oneLine = width(others, barGap) + barGap + toolsWidth;
+      setToolsBelow(oneLine > bar.clientWidth + 0.5);
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(bar);
+    [...tools.children].forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <>
       {canInviteMembers && inviting && (
@@ -340,21 +370,21 @@ const MemberList: FC<{
       )}
 
       <div className="my-4">
-        {/* Wraps onto more lines where it doesn't fit (e.g. beside the
-            docked AI panel), rather than running off the page. */}
-        <Flex
-          align="center"
-          justify="between"
-          gap="3"
-          wrap="wrap"
-          mt="4"
-          mb="2"
-        >
-          <Flex align="center" gap="3" wrap="wrap">
-            <Heading as="h5" size="md" mb="0">
-              {project ? "Members" : "Active Members"}
-              {` (${membersList.length})`}
-            </Heading>
+        {/* One line where it fits. Where it doesn't (e.g. beside the docked
+            AI panel), the heading and Invite member keep the first line and
+            the search and filters move below it, wrapping as they need. */}
+        <Flex ref={toolbarRef} align="center" gap="3" wrap="wrap" mt="4" mb="2">
+          <Heading as="h5" size="md" mb="0">
+            {project ? "Members" : "Active Members"}
+            {` (${membersList.length})`}
+          </Heading>
+          <Flex
+            ref={toolsRef}
+            align="center"
+            gap="3"
+            wrap="wrap"
+            style={toolsBelow ? { order: 1, flexBasis: "100%" } : undefined}
+          >
             <Box width="280px" flexShrink="0">
               <TextField
                 type="search"
@@ -399,7 +429,6 @@ const MemberList: FC<{
             {filters}
           </Flex>
           {canInviteMembers && (
-            // Stays on the right when it wraps onto its own line.
             <Button onClick={onInvite} ml="auto">
               Invite member
             </Button>
