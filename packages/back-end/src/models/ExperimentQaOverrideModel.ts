@@ -32,7 +32,7 @@ const BaseClass = MakeModelClass({
     deleteEvent: "experimentQaOverride.delete",
   },
   globallyUniquePrimaryKeys: false,
-  readonlyFields: ["experiment", "environment", "createdBy"],
+  readonlyFields: ["experiment", "createdBy"],
   additionalIndexes: [
     { fields: { organization: 1, experiment: 1 } },
     { fields: { organization: 1, environment: 1 } },
@@ -77,13 +77,39 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     return this._countDocuments({ experiment });
   }
 
+  // User-triggered "remove all": every delete is permission-checked, so the
+  // experiment has to be in `foreignRefs` (reads that bypass permission checks
+  // don't load it).
   public async deleteByExperiment(
     experiment: string,
     writeOptions?: WriteOptions,
   ) {
     const docs = await this.findByExperiment(experiment);
+    await this.populateForeignRefs(docs);
     for (const doc of docs) {
       await this._deleteOne(doc, { ...writeOptions, skipSDKRefresh: true });
+    }
+    await this.refreshEnvironments(
+      docs.map((d) => d.environment),
+      writeOptions,
+    );
+    return docs;
+  }
+
+  // Cleanup when the experiment starts, is archived or deleted: no permission
+  // check, since the actor already changed the experiment itself and it may
+  // no longer exist.
+  public async deleteByExperimentForLifecycle(
+    experiment: string,
+    writeOptions?: WriteOptions,
+  ) {
+    const docs = await this.findByExperiment(experiment);
+    for (const doc of docs) {
+      await this._deleteOne(
+        doc,
+        { ...writeOptions, skipSDKRefresh: true },
+        true,
+      );
     }
     await this.refreshEnvironments(
       docs.map((d) => d.environment),
@@ -167,8 +193,13 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
   protected canCreate(doc: ExperimentQaOverrideInterface): boolean {
     return this.canWrite(doc);
   }
-  protected canUpdate(doc: ExperimentQaOverrideInterface): boolean {
-    return this.canWrite(doc);
+  protected canUpdate(
+    existing: ExperimentQaOverrideInterface,
+    updates: unknown,
+    newDoc: ExperimentQaOverrideInterface,
+  ): boolean {
+    // Moving an override needs access to both environments.
+    return this.canWrite(existing) && this.canWrite(newDoc);
   }
   protected canDelete(doc: ExperimentQaOverrideInterface): boolean {
     return this.canWrite(doc);
@@ -196,7 +227,9 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     );
     if (!env) throw new Error("Could not find environment");
     if (isProductionEnvironment(env)) {
-      throw new Error("QA overrides aren't allowed on production environments");
+      throw new Error(
+        `QA overrides aren't allowed on production environments. To use ${env.id}, turn off "This is a production environment" in Settings → Environments.`,
+      );
     }
 
     if (doc.assignment.type === "forced") {
@@ -295,6 +328,18 @@ export class ExperimentQaOverrideModel extends BaseClass<WriteOptions> {
     writeOptions?: WriteOptions,
   ) {
     await this.refreshEnvironments([doc.environment], writeOptions);
+  }
+
+  protected async afterUpdate(
+    existing: ExperimentQaOverrideInterface,
+    updates: unknown,
+    newDoc: ExperimentQaOverrideInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    // The environment it left must stop serving it too.
+    if (existing.environment !== newDoc.environment) {
+      await this.refreshEnvironments([existing.environment], writeOptions);
+    }
   }
 
   protected async afterDelete(

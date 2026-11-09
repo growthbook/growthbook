@@ -386,10 +386,7 @@ export const deleteEnvironment = async (
         environments: existingEnvs.filter((env) => env.id !== id),
       },
     });
-    await cleanupDeletedEnvironment(org.id, id);
-    await context.models.experimentQaOverrides.deleteByEnvironment(id, {
-      skipSDKRefresh: true,
-    });
+    await cleanupDeletedEnvironment(context, id);
 
     await req.audit({
       event: "environment.delete",

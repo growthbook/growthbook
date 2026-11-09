@@ -21,11 +21,18 @@ export async function assertEnvironmentDeletable(
 
 // Notification filters are derived config, not a dependency: prune, never block.
 export async function cleanupDeletedEnvironment(
-  organizationId: string,
+  context: ReqContext | ApiReqContext,
   environmentId: string,
 ): Promise<void> {
   await removeEnvironmentFromSlackIntegration({
-    organizationId,
+    organizationId: context.org.id,
     envId: environmentId,
   });
+  // Its connections are gone (assertEnvironmentDeletable), so nothing to refresh.
+  await context.models.experimentQaOverrides.deleteByEnvironment(
+    environmentId,
+    {
+      skipSDKRefresh: true,
+    },
+  );
 }

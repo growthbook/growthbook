@@ -1,4 +1,12 @@
-import { QaOverrideFilters } from "shared/types/experiment-qa-override";
+import {
+  LinkedFeatureEnvState,
+  LinkedFeatureInfo,
+  LinkedFeatureState,
+} from "shared/types/experiment";
+import {
+  QaOverrideFilters,
+  QaOverrideWaitingFeature,
+} from "shared/types/experiment-qa-override";
 
 // Exposures from QA overrides are tracked under `<trackingKey>::qa` so they
 // never mix with the experiment's real results. Generated tracking keys only
@@ -67,3 +75,37 @@ export function sortQaOverrides<
       new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
   );
 }
+
+// Linked features that won't serve an override in its environment yet: the
+// experiment rule isn't in the live revision, or the flag / rule is off there.
+export function getQaOverrideWaitingFeatures(
+  override: { environment: string },
+  linkedFeatures: Pick<
+    LinkedFeatureInfo,
+    "feature" | "state" | "environmentStates"
+  >[],
+): QaOverrideWaitingFeature[] {
+  return linkedFeatures.flatMap((f): QaOverrideWaitingFeature[] => {
+    if (f.state !== "live") {
+      return [{ featureId: f.feature.id, reason: f.state }];
+    }
+    const envState = f.environmentStates[override.environment];
+    if (envState && envState !== "active") {
+      return [{ featureId: f.feature.id, reason: envState }];
+    }
+    return [];
+  });
+}
+
+export const QA_OVERRIDE_WAITING_REASONS: Record<
+  | Exclude<LinkedFeatureState, "live">
+  | Exclude<LinkedFeatureEnvState, "active">,
+  string
+> = {
+  draft: "rule is still in a draft",
+  discarded: "rule draft was discarded",
+  archived: "Feature Flag is archived",
+  missing: "rule isn't in the live revision",
+  "disabled-env": "Feature Flag is off in this environment",
+  "disabled-rule": "rule is off in this environment",
+};

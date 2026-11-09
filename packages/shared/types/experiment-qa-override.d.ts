@@ -8,6 +8,10 @@ import {
   updateExperimentQaOverrideBodyValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import {
+  LinkedFeatureEnvState,
+  LinkedFeatureState,
+} from "shared/types/experiment";
 
 export type QaOverrideFilters = z.infer<typeof qaOverrideFiltersValidator>;
 
@@ -35,3 +39,17 @@ export type UpdateExperimentQaOverrideBody = z.infer<
 export type ReorderExperimentQaOverridesBody = z.infer<
   typeof reorderExperimentQaOverridesBodyValidator
 >;
+
+export type QaOverrideWaitingFeature = {
+  featureId: string;
+  reason:
+    | Exclude<LinkedFeatureState, "live">
+    | Exclude<LinkedFeatureEnvState, "active">;
+};
+
+// What the API returns: the stored override plus whether its linked Feature
+// Flags will serve it in its environment right now.
+export type ExperimentQaOverrideWithStatus = ExperimentQaOverrideInterface & {
+  status: "active" | "waiting";
+  waitingOn: QaOverrideWaitingFeature[];
+};

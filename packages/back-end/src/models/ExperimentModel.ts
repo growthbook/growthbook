@@ -957,7 +957,14 @@ export async function getSampleExperiment(
   return exp ? toInterface(exp) : null;
 }
 
-function assertNotQaTrackingKey(trackingKey: string) {
+// The app can't generate a key with this suffix, so the guard only protects
+// dashboard users from a confusing collision with QA exposure data. The REST
+// API keeps accepting any string, so existing integrations are unaffected.
+function assertNotQaTrackingKey(
+  context: ReqContext | ApiReqContext,
+  trackingKey: string,
+) {
+  if (context.auditUser?.type === "api_key") return;
   if (isQaTrackingKey(trackingKey)) {
     throw new Error(
       `Tracking key cannot end with "${QA_TRACKING_KEY_SUFFIX}" (reserved for QA overrides)`,
@@ -982,7 +989,7 @@ export async function createExperiment({
       async (key: string) => await getExperimentByTrackingKey(context, key),
     );
   }
-  assertNotQaTrackingKey(data.trackingKey);
+  assertNotQaTrackingKey(context, data.trackingKey);
 
   const nextUpdate = determineNextDate(
     context.org.settings?.updateSchedule || null,
@@ -1117,7 +1124,9 @@ export async function updateExperiment({
   };
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
-  if (allChanges.trackingKey) assertNotQaTrackingKey(allChanges.trackingKey);
+  if (allChanges.trackingKey) {
+    assertNotQaTrackingKey(context, allChanges.trackingKey);
+  }
 
   validateMetricOverrides(allChanges.metricOverrides);
   const startsRunning =
@@ -2727,9 +2736,8 @@ const onExperimentUpdate = async ({
     (oldExperiment.status === "draft" && newExperiment.status !== "draft") ||
     (!oldExperiment.archived && newExperiment.archived)
   ) {
-    await context.models.experimentQaOverrides.deleteByExperiment(
+    await context.models.experimentQaOverrides.deleteByExperimentForLifecycle(
       newExperiment.id,
-      { skipSDKRefresh: true },
     );
   }
 
@@ -2802,9 +2810,9 @@ const onExperimentDelete = async (
   experiment: ExperimentInterface,
 ) => {
   await logExperimentDeleted(context, experiment);
-  await context.models.experimentQaOverrides.deleteByExperiment(experiment.id, {
-    skipSDKRefresh: true,
-  });
+  await context.models.experimentQaOverrides.deleteByExperimentForLifecycle(
+    experiment.id,
+  );
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];

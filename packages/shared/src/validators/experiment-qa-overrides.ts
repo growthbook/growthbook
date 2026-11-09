@@ -22,15 +22,19 @@ export const experimentQaOverrideValidator = qaOverrideBaseValidator
 export const createExperimentQaOverrideBodyValidator = z
   .object({
     environment: z.string().min(1),
-    filters: qaOverrideFiltersValidator,
+    // Omitted = no filters: every request in the environment gets the override.
+    filters: qaOverrideFiltersValidator.optional(),
     assignment: experimentQaOverrideAssignmentValidator,
   })
   .strict();
 
 export const updateExperimentQaOverrideBodyValidator = z
   .object({
+    environment: z.string().min(1),
     filters: qaOverrideFiltersValidator,
     assignment: experimentQaOverrideAssignmentValidator,
+    // Position among the experiment's overrides; the others shift around it.
+    order: z.number().int().min(0),
   })
   .partial()
   .strict();
