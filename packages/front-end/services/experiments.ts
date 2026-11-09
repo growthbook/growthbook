@@ -48,6 +48,7 @@ import {
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
+  isScalableClusterSubUnitMetric,
   isSubUnitClusterMetric,
   isSuspiciousUplift,
   quantileMetricType,
@@ -782,11 +783,14 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
-  // Subunit cluster metrics are analyzed as ratios, which can't be scaled.
+  const isScalableSubUnitCluster =
+    !!clusterSettings &&
+    isScalableClusterSubUnitMetric(metric, clusterSettings);
   const hasScaledImpact =
-    !isRatioMetric(metric, denominator) &&
     !quantileMetricType(metric) &&
-    !(clusterSettings && isSubUnitClusterMetric(metric, clusterSettings));
+    (isScalableSubUnitCluster ||
+      (!isRatioMetric(metric, denominator) &&
+        !(clusterSettings && isSubUnitClusterMetric(metric, clusterSettings))));
   const metricSampleSize = getMetricSampleSize(
     baseline,
     stats,

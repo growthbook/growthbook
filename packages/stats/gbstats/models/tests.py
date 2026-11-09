@@ -46,8 +46,10 @@ class BaseConfig:
     traffic_percentage: float = 1
     phase_length_days: float = 1
     total_users: Optional[int] = None
+    total_sub_units: Optional[int] = None
     alpha: float = 0.05
     post_stratify: bool = False
+    scale_by_sub_unit_count: bool = False
 
 
 @staticmethod
@@ -250,6 +252,8 @@ class BaseABTest(ABC):
         self.scaled = config.difference_type == "scaled"
         self.traffic_percentage = config.traffic_percentage
         self.total_users = config.total_users
+        self.total_sub_units = config.total_sub_units
+        self.scale_by_sub_unit_count = config.scale_by_sub_unit_count
         self.phase_length_days = config.phase_length_days
         self.moments_result = self.compute_moments_result()
         self.realized_settings = RealizedSettings(
@@ -292,9 +296,22 @@ class BaseABTest(ABC):
 
     @property
     def scaled_impact_eligible(self) -> bool:
+        if self.scale_by_sub_unit_count:
+            eligible_types = (RatioStatistic, RegressionAdjustedRatioStatistic)
+            return isinstance_union(self.stat_a, eligible_types) and isinstance_union(
+                self.stat_b, eligible_types
+            )
         return isinstance_union(
             self.stat_a, ScaledImpactStatistic
         ) and isinstance_union(self.stat_b, ScaledImpactStatistic)
+
+    @property
+    def scaled_impact_count(self) -> Optional[int]:
+        """Population size used to scale the per-unit effect: sub-units for
+        sub-unit cluster metrics, otherwise the (cluster) unit count."""
+        return (
+            self.total_sub_units if self.scale_by_sub_unit_count else self.total_users
+        )
 
     @abstractmethod
     def compute_result(self) -> TestResult:

@@ -185,6 +185,7 @@ def get_dimension_column_name(dimension: str) -> str:
 @dataclass
 class InitialMetricDataStrata:
     total_units: int
+    total_sub_units: int
     data: Dict[str, Dict[str, Any]]
 
 
@@ -192,6 +193,7 @@ class InitialMetricDataStrata:
 class DimensionMetricData:
     dimension: str
     total_units: int
+    total_sub_units: int
     data: pd.DataFrame
 
 
@@ -231,6 +233,7 @@ def get_metric_dfs(
         if dim not in dimensions:
             dimensions[dim] = InitialMetricDataStrata(
                 total_units=0,
+                total_sub_units=0,
                 data={},
             )
         if strata not in dimensions[dim].data:
@@ -253,6 +256,7 @@ def get_metric_dfs(
         if key in var_id_map:
             i = var_id_map[key]
             dimensions[dim].total_units += getattr(row, "users", 0)
+            dimensions[dim].total_sub_units += getattr(row, "sub_count", 0)
             prefix = f"v{i}" if i > 0 else "baseline"
 
             # Sum here in case multiple rows per dimension
@@ -276,6 +280,7 @@ def get_metric_dfs(
         DimensionMetricData(
             dimension=dimension,
             total_units=dimension_data.total_units,
+            total_sub_units=dimension_data.total_sub_units,
             data=pd.DataFrame([s for s in dimension_data.data.values()]),
         )
         for dimension, dimension_data in dimensions.items()
@@ -307,6 +312,7 @@ def reduce_dimensionality(
             current.data["dimension"] = "(other)"
             dimension.data["dimension"] = "(other)"
             current.total_units += dimension.total_units
+            current.total_sub_units += dimension.total_sub_units
             for v in range(num_variations):
                 prefix = f"v{v}" if v > 0 else "baseline"
                 if combine_strata:
@@ -327,10 +333,13 @@ def get_configured_test(
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
     post_stratify: bool = False,
+    total_sub_units: int = 0,
 ) -> StatisticalTests:
 
     base_config = {
         "total_users": total_users,
+        "total_sub_units": total_sub_units,
+        "scale_by_sub_unit_count": metric.scale_by_sub_unit_count,
         "traffic_percentage": analysis.traffic_percentage,
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
@@ -637,6 +646,7 @@ def analyze_metric_df(
                 analysis=analysis,
                 metric=metric,
                 post_stratify=post_stratify,
+                total_sub_units=dimensionData.total_sub_units,
             )
             res = test.compute_result()
             realized_settings = test.realized_settings

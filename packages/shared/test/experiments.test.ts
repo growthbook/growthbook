@@ -36,6 +36,7 @@ import {
   isAutoSnapshotScheduled,
   getClusterMetricAnalysisLevel,
   getClusterExperimentMetricEligibility,
+  isScalableClusterSubUnitMetric,
   ExperimentMetricInterface,
   withScheduledBy,
   areVariationWeightsValid,
@@ -3260,6 +3261,67 @@ describe("getClusterExperimentMetricEligibility", () => {
         },
       ),
     ).toEqual({ allowed: true, level: "cluster" });
+  });
+});
+
+describe("isScalableClusterSubUnitMetric", () => {
+  const clusterSettings = {
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+    clusterLevelMetricIds: ["fact__cluster"],
+  };
+  const factMetric = (metricType: string, id = "fact__m") =>
+    ({
+      id,
+      metricType,
+      numerator: { factTableId: "ft", column: "value", aggregation: "sum" },
+      denominator:
+        metricType === "ratio"
+          ? { factTableId: "ft", column: "value", aggregation: "sum" }
+          : null,
+    }) as unknown as ExperimentMetricInterface;
+
+  it("is true for mean/proportion/retention sub-unit cluster metrics", () => {
+    for (const metricType of ["mean", "proportion", "retention"]) {
+      expect(
+        isScalableClusterSubUnitMetric(factMetric(metricType), clusterSettings),
+      ).toBe(true);
+    }
+  });
+
+  it("is false for ratio and quantile sub-unit cluster metrics", () => {
+    expect(
+      isScalableClusterSubUnitMetric(factMetric("ratio"), clusterSettings),
+    ).toBe(false);
+    expect(
+      isScalableClusterSubUnitMetric(factMetric("quantile"), clusterSettings),
+    ).toBe(false);
+  });
+
+  it("is false for cluster-level metrics analyzed with the cluster as the unit", () => {
+    expect(
+      isScalableClusterSubUnitMetric(
+        factMetric("mean", "fact__cluster"),
+        clusterSettings,
+      ),
+    ).toBe(false);
+  });
+
+  it("is false outside a cluster experiment or without a sub-unit identifier", () => {
+    expect(
+      isScalableClusterSubUnitMetric(factMetric("mean"), {
+        isClusterExperiment: false,
+        clusterSubUnitIdentifier: "user_id",
+        clusterLevelMetricIds: [],
+      }),
+    ).toBe(false);
+    expect(
+      isScalableClusterSubUnitMetric(factMetric("mean"), {
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "",
+        clusterLevelMetricIds: [],
+      }),
+    ).toBe(false);
   });
 });
 

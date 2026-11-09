@@ -1448,6 +1448,28 @@ export function isSubUnitClusterMetric(
   );
 }
 
+const SCALABLE_CLUSTER_SUBUNIT_METRIC_TYPES = [
+  "mean",
+  "proportion",
+  "retention",
+] as const;
+
+export function isScalableClusterSubUnitMetric(
+  m: ExperimentMetricDefinition,
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
+): boolean {
+  return (
+    isSubUnitClusterMetric(m, settings) &&
+    isFactMetric(m) &&
+    (SCALABLE_CLUSTER_SUBUNIT_METRIC_TYPES as readonly string[]).includes(
+      m.metricType,
+    )
+  );
+}
+
 export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
 
 // Aggregations that collapse to a single scalar per sub-unit, so the rollup can

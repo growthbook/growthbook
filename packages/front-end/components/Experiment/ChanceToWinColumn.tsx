@@ -29,7 +29,6 @@ interface Props
   showTimeRemaining?: boolean;
   className?: string;
   hideScaledImpact?: boolean;
-  noScaledImpactMessage?: string;
   // Props for popover
   metric?: ExperimentMetricDefinition;
   pValueThreshold: number;
@@ -47,7 +46,6 @@ export default function ChanceToWinColumn({
   showTimeRemaining = true,
   className,
   hideScaledImpact = false,
-  noScaledImpactMessage,
   metric,
   pValueThreshold,
   differenceType,
@@ -74,7 +72,7 @@ export default function ChanceToWinColumn({
     }
 
     if (hideScaledImpact) {
-      return <NoScaledImpact message={noScaledImpactMessage} />;
+      return <NoScaledImpact />;
     }
 
     if (statusType === "notEnoughData") {

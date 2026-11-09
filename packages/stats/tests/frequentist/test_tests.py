@@ -20,6 +20,7 @@ from gbstats.frequentist.tests import (
 )
 from gbstats.models.statistics import (
     ProportionStatistic,
+    RatioStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
     RegressionAdjustedRatioStatistic,
@@ -560,6 +561,138 @@ class TestSequentialOneSidedLesserTTest(TestCase):
         self.assertDictEqual(
             _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
         )
+
+
+class TestScaledImpactSubUnitCluster(TestCase):
+    """Sub-unit cluster mean/proportion metrics are analyzed as ratios but are
+    still scalable, using the sub-unit count rather than the cluster count."""
+
+    def setUp(self):
+        # cluster = unit of analysis (n), sub-units carried in the denominator
+        # baseline mean = 200/500 = 0.4, variation mean = 260/520 = 0.5
+        self.stat_a = RatioStatistic(
+            n=100,
+            m_statistic=SampleMeanStatistic(n=100, sum=200, sum_squares=600),
+            d_statistic=SampleMeanStatistic(n=100, sum=500, sum_squares=3000),
+            m_d_sum_of_products=1200,
+        )
+        self.stat_b = RatioStatistic(
+            n=100,
+            m_statistic=SampleMeanStatistic(n=100, sum=260, sum_squares=900),
+            d_statistic=SampleMeanStatistic(n=100, sum=520, sum_squares=3200),
+            m_d_sum_of_products=1500,
+        )
+        self.total_users = 200  # clusters
+        self.total_sub_units = 1020  # sub-units (500 + 520)
+
+    def _result(self, difference_type, **overrides):
+        config = FrequentistConfig(
+            difference_type=difference_type,
+            total_users=self.total_users,
+            total_sub_units=self.total_sub_units,
+            scale_by_sub_unit_count=True,
+            traffic_percentage=1.0,
+            phase_length_days=1.0,
+            **overrides,
+        )
+        return TwoSidedTTest([(self.stat_a, self.stat_b)], config).compute_result()
+
+    def test_scales_by_sub_unit_count(self):
+        absolute = self._result("absolute")
+        scaled = self._result("scaled")
+        self.assertIsNone(scaled.errorMessage)
+        self.assertAlmostEqual(absolute.expected, 0.1)
+        # Scaled by sub-units (1020), not clusters (200)
+        self.assertAlmostEqual(
+            scaled.expected, absolute.expected * self.total_sub_units
+        )
+        self.assertNotAlmostEqual(scaled.expected, absolute.expected * self.total_users)
+        assert scaled.ci is not None and absolute.ci is not None
+        scaled_lo, scaled_hi = scaled.ci
+        abs_lo, abs_hi = absolute.ci
+        assert (
+            scaled_lo is not None
+            and scaled_hi is not None
+            and abs_lo is not None
+            and abs_hi is not None
+        )
+        self.assertAlmostEqual(scaled_lo, abs_lo * self.total_sub_units)
+        self.assertAlmostEqual(scaled_hi, abs_hi * self.total_sub_units)
+        self.assertAlmostEqual(
+            scaled.uplift.stddev, absolute.uplift.stddev * self.total_sub_units
+        )
+
+    def test_ratio_ra_scales_by_sub_unit_count(self):
+        stat_a = RegressionAdjustedRatioStatistic(
+            n=100,
+            m_statistic_post=SampleMeanStatistic(
+                n=100, sum=485.112236689623, sum_squares=2715.484666118136
+            ),
+            d_statistic_post=SampleMeanStatistic(
+                n=100, sum=679.9093275844917, sum_squares=4939.424001640236
+            ),
+            m_statistic_pre=SampleMeanStatistic(
+                n=100, sum=192.59138069991536, sum_squares=460.076026390857
+            ),
+            d_statistic_pre=SampleMeanStatistic(
+                n=100, sum=290.1398399750233, sum_squares=920.9461385038898
+            ),
+            m_post_m_pre_sum_of_products=1113.6215759318352,
+            d_post_d_pre_sum_of_products=2130.9404074446747,
+            m_pre_d_pre_sum_of_products=634.239482353647,
+            m_post_d_post_sum_of_products=3602.146836776702,
+            m_post_d_pre_sum_of_products=1559.2878434944676,
+            m_pre_d_post_sum_of_products=1460.3181079276983,
+            theta=None,
+        )
+        stat_b = RegressionAdjustedRatioStatistic(
+            n=100,
+            m_statistic_post=SampleMeanStatistic(
+                n=100, sum=514.7757826608777, sum_squares=2994.897482705013
+            ),
+            d_statistic_post=SampleMeanStatistic(
+                n=100, sum=705.4090874383759, sum_squares=5291.36604146392
+            ),
+            m_statistic_pre=SampleMeanStatistic(
+                n=100, sum=206.94157227402536, sum_squares=514.2903702246757
+            ),
+            d_statistic_pre=SampleMeanStatistic(
+                n=100, sum=302.54389139107326, sum_squares=994.4506208125663
+            ),
+            m_post_m_pre_sum_of_products=1237.0953021125997,
+            d_post_d_pre_sum_of_products=2292.081739775257,
+            m_pre_d_pre_sum_of_products=698.4173425817908,
+            m_post_d_post_sum_of_products=3918.1561431600717,
+            m_post_d_pre_sum_of_products=1701.0287270040265,
+            m_pre_d_post_sum_of_products=1604.0759503266522,
+            theta=None,
+        )
+        config_abs = FrequentistConfig(
+            difference_type="absolute",
+            total_users=200,
+            total_sub_units=1000,
+            scale_by_sub_unit_count=True,
+        )
+        config_scaled = FrequentistConfig(
+            difference_type="scaled",
+            total_users=200,
+            total_sub_units=1000,
+            scale_by_sub_unit_count=True,
+        )
+        absolute = TwoSidedTTest([(stat_a, stat_b)], config_abs).compute_result()
+        scaled = TwoSidedTTest([(stat_a, stat_b)], config_scaled).compute_result()
+        self.assertIsNone(scaled.errorMessage)
+        self.assertAlmostEqual(scaled.expected, absolute.expected * 1000)
+
+    def test_errors_when_flag_not_set(self):
+        config = FrequentistConfig(
+            difference_type="scaled",
+            total_users=self.total_users,
+            total_sub_units=self.total_sub_units,
+            scale_by_sub_unit_count=False,
+        )
+        result = TwoSidedTTest([(self.stat_a, self.stat_b)], config).compute_result()
+        self.assertIsNotNone(result.errorMessage)
 
 
 if __name__ == "__main__":

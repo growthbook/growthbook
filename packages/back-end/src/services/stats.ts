@@ -19,6 +19,7 @@ import {
   isIsolatedDimension,
   isRatioMetric,
   isRegressionAdjusted,
+  isScalableClusterSubUnitMetric,
   isSubUnitClusterMetric,
   parseDimensionId,
   quantileMetricType,
@@ -400,6 +401,7 @@ export function getMetricSettingsForStatsEngine(
       settings,
     ),
     compute_uncapped_metric: eligibleForUncappedMetric(metric),
+    scale_by_sub_unit_count: isScalableClusterSubUnitMetric(metric, settings),
   };
 }
 
