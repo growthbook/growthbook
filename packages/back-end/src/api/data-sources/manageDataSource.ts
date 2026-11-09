@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isEqual } from "lodash";
+import { isEmpty, isEqual } from "lodash";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import {
   deleteDataSourceValidator,
@@ -121,6 +121,13 @@ export function applyApiDataSourceSettings(
         }
         if (q.projects && !isEqual(q.projects, match?.projects ?? [])) {
           updated.projects = q.projects;
+        }
+        if (
+          q.columnMapping &&
+          !isEqual(q.columnMapping, match?.columnMapping ?? {})
+        ) {
+          if (isEmpty(q.columnMapping)) delete updated.columnMapping;
+          else updated.columnMapping = q.columnMapping;
         }
         return updated;
       }),

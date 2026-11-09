@@ -185,11 +185,17 @@ const dataSourceSettingsInput = {
         includesNameColumns: z.boolean().optional(),
         dimensionColumns: z.array(z.string()).optional(),
         projects: z.array(z.string()).optional().describe(PROJECTS_DESCRIPTION),
+        columnMapping: exposureQueryColumnMappingValidator
+          .strict()
+          .optional()
+          .describe(
+            "Columns `sql` returns under a non-canonical name, by role. Replaces the stored mapping; send `{}` to clear it.",
+          ),
       }),
     )
     .optional()
     .describe(
-      'Replaces the list. An entry with an existing `id` keeps `description`, `identifierTypes`, `includesNameColumns`, `dimensionColumns` and `projects` if left out; clear the others with `""`, `false` or `[]`. Each query is validated against the warehouse.',
+      'Replaces the list. An entry with an existing `id` keeps `description`, `identifierTypes`, `includesNameColumns`, `dimensionColumns`, `projects` and `columnMapping` if left out; clear the others with `""`, `false` or `[]`. Each query is validated against the warehouse.',
     ),
   identifierJoinQueries: z
     .array(z.object({ identifierTypes: z.array(z.string()), sql: z.string() }))
