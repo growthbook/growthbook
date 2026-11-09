@@ -5,7 +5,9 @@ import {
   PiCalendarBold,
   PiClockBold,
   PiColumnsBold,
+  PiFlagBold,
   PiFlaskBold,
+  PiInfoBold,
   PiFunnelBold,
   PiPlus,
   PiUserBold,
@@ -13,10 +15,15 @@ import {
 } from "react-icons/pi";
 import { DetectedColumn } from "shared/types/fact-table";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
 import { TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
+
+// Select value for the "type a value" option; never a real column name
+const CUSTOM_VALUE = "__custom__";
 
 export const validColumn = (options: DetectedColumn[], column: string) =>
   options.some((c) => c.column === column) ? column : "";
@@ -47,6 +54,14 @@ const KIND_ICONS = {
     tooltip: "Other columns to include",
     icon: <PiColumnsBold />,
   },
+  feature: {
+    tooltip: "The Feature Flag's key",
+    icon: <PiFlagBold />,
+  },
+  detail: {
+    tooltip: "Extra detail about each evaluation",
+    icon: <PiInfoBold />,
+  },
 };
 
 export function ColumnKindIcon({
@@ -74,6 +89,7 @@ export default function ColumnMappingRow({
   setValue,
   onRemove,
   append,
+  customValue,
 }: {
   label: string;
   kind: keyof typeof KIND_ICONS;
@@ -85,9 +101,14 @@ export default function ColumnMappingRow({
   onRemove?: () => void;
   // Shown next to the select once a column is picked
   append?: ReactNode;
+  /** Lets the user type a value not in the options, like a JSON field path. */
+  customValue?: { label: string; placeholder: string };
 }) {
   const [adding, setAdding] = useState(false);
+  const [typing, setTyping] = useState(false);
   const selected = validColumn(options, value);
+  // A saved value that isn't an option was typed in
+  const custom = !!customValue && (typing || (!!value && !selected));
 
   return (
     <TableRow align="center">
@@ -99,26 +120,59 @@ export default function ColumnMappingRow({
           </Text>
         </Flex>
       </TableCell>
-      {selected || adding || !onRemove ? (
+      {selected || custom || adding || !onRemove ? (
         <>
           <TableCell>
             <Flex align="center" gap="2">
               <Box flexGrow="1" minWidth="0">
-                <Select
-                  size="sm"
-                  mb="0"
-                  aria-label={label}
-                  autoFocus={adding}
-                  value={selected || undefined}
-                  setValue={setValue}
-                  placeholder="Select a column..."
-                >
-                  {options.map((c) => (
-                    <SelectItem key={c.column} value={c.column}>
-                      {c.column}
-                    </SelectItem>
-                  ))}
-                </Select>
+                {custom ? (
+                  <TextField
+                    size="sm"
+                    aria-label={label}
+                    autoFocus={typing}
+                    placeholder={customValue.placeholder}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    append={
+                      <Link
+                        onClick={() => {
+                          setTyping(false);
+                          setValue("");
+                        }}
+                      >
+                        Choose a column
+                      </Link>
+                    }
+                  />
+                ) : (
+                  <Select
+                    size="sm"
+                    mb="0"
+                    aria-label={label}
+                    autoFocus={adding}
+                    value={selected || undefined}
+                    setValue={(v) => {
+                      if (v === CUSTOM_VALUE) {
+                        setTyping(true);
+                        setValue("");
+                      } else {
+                        setValue(v);
+                      }
+                    }}
+                    placeholder="Select a column..."
+                  >
+                    {options.map((c) => (
+                      <SelectItem key={c.column} value={c.column}>
+                        {c.column}
+                      </SelectItem>
+                    ))}
+                    {customValue ? (
+                      <SelectItem value={CUSTOM_VALUE}>
+                        {customValue.label}
+                      </SelectItem>
+                    ) : null}
+                  </Select>
+                )}
               </Box>
               {selected ? append : null}
             </Flex>
@@ -133,6 +187,7 @@ export default function ColumnMappingRow({
                   size="1"
                   onClick={() => {
                     setAdding(false);
+                    setTyping(false);
                     onRemove();
                   }}
                   aria-label={`Remove ${label}`}
