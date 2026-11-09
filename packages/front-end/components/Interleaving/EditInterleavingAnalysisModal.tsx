@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
@@ -128,12 +129,17 @@ export default function EditInterleavingAnalysisModal({
               value={trackingKey}
               onChange={(e) => setTrackingKey(e.target.value)}
               disabled={!canEditServing}
-              helpText={
-                isInSDKPayload
-                  ? "Warning! Changing this while your experiment is running can break analysis as it will change the interleaving key emitted in exposure events. Requires permission to run experiments to change."
-                  : "Matched against experiment_id in your Interleaving Exposure Query."
-              }
+              helpText="Matched against experiment_id in your Interleaving Exposure Query."
+              containerClassName={isInSDKPayload ? "mb-1" : undefined}
             />
+            {isInSDKPayload && (
+              <HelperText status="warning" size="sm">
+                Changing this while your experiment is running can break
+                analysis, because it changes the interleaving key emitted in
+                exposure events. Only users with permission to run experiments
+                can change this.
+              </HelperText>
+            )}
           </Box>
         </Collapse>
       </Box>
