@@ -1,5 +1,6 @@
 import { FC, ChangeEventHandler, useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
+import { Box } from "@radix-ui/themes";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import { isCloud } from "@/services/env";
@@ -100,55 +101,55 @@ const ClickHouseForm: FC<{
             placeholder={"Default: 1800"}
           />
         </div>
-        {!isCloud() && (
-          <div className="col-md-12">
-            <div className="form-group">
-              <Link onClick={() => setShowTls(!showTls)}>
-                Advanced TLS Settings{" "}
-                {showTls ? <FaCaretDown /> : <FaCaretRight />}
-              </Link>
-            </div>
-            {showTls && (
-              <>
-                <Field
-                  label="CA Certificate Path"
-                  name="caCertPath"
-                  placeholder="/etc/ssl/certs/ca.crt"
-                  value={params.caCertPath || ""}
-                  onChange={onParamChange}
-                  required={usesClientCert}
-                  helpText="PEM file on the GrowthBook server used to verify the ClickHouse server. Requires an https:// URL."
-                />
-                <Field
-                  label="Client Certificate Path"
-                  name="clientCertPath"
-                  placeholder="/etc/ssl/client/tls.crt"
-                  value={params.clientCertPath || ""}
-                  onChange={onParamChange}
-                  required={usesClientCert}
-                />
-                <Field
-                  label="Client Certificate Chain Path (optional)"
-                  name="clientCertChainPath"
-                  placeholder="/etc/ssl/client/chain.crt"
-                  value={params.clientCertChainPath || ""}
-                  onChange={onParamChange}
-                  helpText="Intermediate CA certificates sent after the client certificate. Needed when the client certificate file contains only the leaf and ClickHouse trusts only the root CA."
-                />
-                <Field
-                  label="Client Key Path"
-                  name="clientKeyPath"
-                  placeholder="/etc/ssl/client/tls.key"
-                  value={params.clientKeyPath || ""}
-                  onChange={onParamChange}
-                  required={usesClientCert}
-                  helpText="With a client certificate, ClickHouse authenticates the user by certificate and the password is not sent. Files are read for each connection, so rotated certificates are picked up automatically."
-                />
-              </>
-            )}
-          </div>
-        )}
       </div>
+      {!isCloud() && (
+        <Box>
+          <Box mb="3">
+            <Link onClick={() => setShowTls(!showTls)}>
+              Advanced TLS settings{" "}
+              {showTls ? <FaCaretDown /> : <FaCaretRight />}
+            </Link>
+          </Box>
+          {showTls && (
+            <>
+              <Field
+                label="CA certificate path"
+                name="caCertPath"
+                placeholder="/etc/ssl/certs/ca.crt"
+                value={params.caCertPath || ""}
+                onChange={onParamChange}
+                required={usesClientCert}
+                helpText="PEM file on the GrowthBook server used to verify the ClickHouse server. Requires an https:// URL."
+              />
+              <Field
+                label="Client certificate path"
+                name="clientCertPath"
+                placeholder="/etc/ssl/client/tls.crt"
+                value={params.clientCertPath || ""}
+                onChange={onParamChange}
+                required={usesClientCert}
+              />
+              <Field
+                label="Client certificate chain path (optional)"
+                name="clientCertChainPath"
+                placeholder="/etc/ssl/client/chain.crt"
+                value={params.clientCertChainPath || ""}
+                onChange={onParamChange}
+                helpText="Intermediate CA certificates sent after the client certificate. Needed when the client certificate file contains only the leaf and ClickHouse trusts only the root CA."
+              />
+              <Field
+                label="Client key path"
+                name="clientKeyPath"
+                placeholder="/etc/ssl/client/tls.key"
+                value={params.clientKeyPath || ""}
+                onChange={onParamChange}
+                required={usesClientCert}
+                helpText="With a client certificate, ClickHouse authenticates the user by certificate and the password is not sent. Files are read for each connection, so rotated certificates are picked up automatically."
+              />
+            </>
+          )}
+        </Box>
+      )}
     </>
   );
 };
