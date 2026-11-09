@@ -175,6 +175,37 @@ describe("getContextualBanditSrmQuery", () => {
     expect(compact(withoutFilter)).not.toContain("e.country");
   });
 
+  it("reads every assignment query role from its mapped column", () => {
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams(
+        { var_control: "0", var_treatment: "1" },
+        {
+          exposureQuery: {
+            ...defaultExposureQuery,
+            columnMapping: {
+              userIdColumns: { user_id: "uid_col" },
+              timestampColumn: "received_at",
+              experimentIdColumn: "exp_key",
+              variationIdColumn: "variant",
+            },
+          },
+        },
+      ),
+    );
+    const c = compact(sql);
+
+    expect(c).toContain("e.uid_colASuid");
+    expect(c).toContain("cast(e.variantasvarchar)ASvariation");
+    expect(c).toContain("e.exp_key='exp_1'");
+    expect(c).toContain("e.received_at>=");
+    expect(c).toContain("e.received_atAStimestamp");
+    // Only the CTEs after __cbExposures use the standard names
+    expect(c).not.toMatch(
+      /e\.(user_id|experiment_id|variation_id|timestamp)\b/,
+    );
+  });
+
   it("throws when there are no variations", () => {
     expect(() =>
       getContextualBanditSrmQuery(
