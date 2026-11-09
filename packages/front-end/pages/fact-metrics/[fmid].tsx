@@ -315,7 +315,7 @@ export default function FactMetricPage() {
                       : editDisabledReason
                 }
               >
-                <span style={{ cursor: "not-allowed" }}>
+                <span style={{ cursor: "not-allowed", display: "inline-flex" }}>
                   <Button
                     variant="soft"
                     disabled
@@ -364,6 +364,8 @@ export default function FactMetricPage() {
                 radius="full"
                 size="2"
                 highContrast
+                // Ghost's negative margin would eat the row gap.
+                style={{ margin: 0 }}
               >
                 <BsThreeDotsVertical size={16} />
               </IconButton>
@@ -444,7 +446,7 @@ export default function FactMetricPage() {
           </DropdownMenu>
           <div
             ref={setActionsContainer}
-            style={{ minHeight: isEditing ? 40 : 0, minWidth: 1 }}
+            style={{ minHeight: isEditing ? 32 : 0, minWidth: 1 }}
           />
         </Flex>
       </Flex>
