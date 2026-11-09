@@ -7,7 +7,6 @@ export default function NoScaledImpact({
   noStyle?: boolean;
   style?: CSSProperties;
 }) {
-  const message = "No scaled impact for this metric type";
   return (
     <div className="no-scaled-impact" style={style}>
       <div>
@@ -15,7 +14,7 @@ export default function NoScaledImpact({
           className="font-weight-normal main-text"
           style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "14px" }}
         >
-          {message}
+          No scaled impact for this metric type
         </div>
       </div>
     </div>
