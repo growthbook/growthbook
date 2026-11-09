@@ -307,11 +307,12 @@ class BaseABTest(ABC):
 
     @property
     def scaled_impact_count(self) -> Optional[int]:
-        """Population size used to scale the per-unit effect: sub-units for
-        sub-unit cluster metrics, otherwise the (cluster) unit count."""
-        return (
+        count = (
             self.total_sub_units if self.scale_by_sub_unit_count else self.total_users
         )
+        if not count:
+            return None
+        return count
 
     @abstractmethod
     def compute_result(self) -> TestResult:

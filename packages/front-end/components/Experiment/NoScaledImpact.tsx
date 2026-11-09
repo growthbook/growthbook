@@ -3,12 +3,11 @@ import { CSSProperties } from "react";
 export default function NoScaledImpact({
   noStyle = false,
   style,
-  message = "No scaled impact for this metric type",
 }: {
   noStyle?: boolean;
   style?: CSSProperties;
-  message?: string;
 }) {
+  const message = "No scaled impact for this metric type";
   return (
     <div className="no-scaled-impact" style={style}>
       <div>
