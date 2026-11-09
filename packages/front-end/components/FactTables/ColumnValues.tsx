@@ -81,6 +81,9 @@ export function CountBar({ count, max }: { count?: number; max: number }) {
   );
 }
 
+// Only the top values; the rest stay stored for auto slices
+const MAX_VALUE_ROWS = 20;
+
 export function ColumnValuesPanel({
   column,
   counts,
@@ -102,8 +105,9 @@ export function ColumnValuesPanel({
   const withCounts =
     counts ??
     (column.topValueCounts?.length ? column.topValueCounts : undefined);
-  const rows: { value: string; count?: number }[] =
-    withCounts ?? (column.topValues || []).map((value) => ({ value }));
+  const rows: { value: string; count?: number }[] = (
+    withCounts ?? (column.topValues || []).map((value) => ({ value }))
+  ).slice(0, MAX_VALUE_ROWS);
   const q = search.trim().toLowerCase();
   const visible = rows.filter((r) => !q || r.value.toLowerCase().includes(q));
   const showCounts = !!withCounts;
