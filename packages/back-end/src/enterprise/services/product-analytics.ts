@@ -18,8 +18,8 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
-  getMetricPopulationViolations,
-  resolveExplorationPopulation,
+  getMetricExplorationPopulationViolations,
+  resolveMetricExplorationPopulation,
   withRequestedDisplayConfig,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
@@ -199,7 +199,7 @@ export async function runProductAnalyticsExploration(
       const savedPopulation = await context.models.populations.getById(
         dataset.population.populationId,
       );
-      const populationViolations = getMetricPopulationViolations({
+      const populationViolations = getMetricExplorationPopulationViolations({
         population: dataset.population,
         savedPopulation,
         values: dataset.values,
@@ -213,7 +213,7 @@ export async function runProductAnalyticsExploration(
       }
       // Violations above cover a missing Population.
       if (savedPopulation) {
-        population = resolveExplorationPopulation(
+        population = resolveMetricExplorationPopulation(
           dataset.population,
           savedPopulation,
         );

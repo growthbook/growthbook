@@ -26,22 +26,16 @@ function isSupportedWithPopulation(
   return POPULATION_METRIC_TYPES.has(metric.metricType);
 }
 
-/** The parts of a saved Population an exploration reads. */
-export type ExplorationSavedPopulation = Pick<
-  PopulationInterface,
-  "datasource" | "userIdTypes" | "steps"
->;
-
 /**
  * The definition an exploration runs for its Population: the saved
  * Population's single step, counted by the exploration's identifier type.
  */
-export function resolveExplorationPopulation(
+export function resolveMetricExplorationPopulation(
   population: ExplorationPopulation,
-  savedPopulation: ExplorationSavedPopulation,
+  savedPopulation: Pick<PopulationInterface, "steps">,
 ): ResolvedExplorationPopulation {
   const step = getSinglePopulationStep(savedPopulation);
-  // getMetricPopulationViolations rejects these first.
+  // getMetricExplorationPopulationViolations rejects these first.
   if (!step) {
     throw new Error(
       "Only Populations with a single step can be combined with metrics.",
@@ -52,7 +46,7 @@ export function resolveExplorationPopulation(
 
 // The population applies to every metric in the request, so one incompatible
 // metric rejects the request.
-export function getMetricPopulationViolations({
+export function getMetricExplorationPopulationViolations({
   population,
   savedPopulation,
   values,
@@ -63,7 +57,10 @@ export function getMetricPopulationViolations({
 }: {
   population: ExplorationPopulation;
   /** Null when no saved Population with `population.populationId` can be read. */
-  savedPopulation: ExplorationSavedPopulation | null;
+  savedPopulation: Pick<
+    PopulationInterface,
+    "datasource" | "userIdTypes" | "steps"
+  > | null;
   values: MetricDataset["values"];
   dimensions: ProductAnalyticsDimension[];
   datasource: string;
@@ -86,7 +83,10 @@ export function getMetricPopulationViolations({
       `The Population doesn't support the identifier type "${population.unit}".`,
     ];
   }
-  const resolved = resolveExplorationPopulation(population, savedPopulation);
+  const resolved = resolveMetricExplorationPopulation(
+    population,
+    savedPopulation,
+  );
 
   const violations: string[] = [];
   if (values.some((value) => value.draftMetric)) {

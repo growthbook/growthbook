@@ -4,7 +4,7 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  getMetricPopulationViolations,
+  getMetricExplorationPopulationViolations,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
@@ -270,7 +270,7 @@ function violations(
   const { population, values } = config.dataset;
   const resolved = resolvedPopulations.get(config);
   if (!population || !resolved) throw new Error("Expected a population");
-  return getMetricPopulationViolations({
+  return getMetricExplorationPopulationViolations({
     population,
     savedPopulation: savedPopulationFor(resolved),
     values,
@@ -567,7 +567,7 @@ describe("metric explorations with a population", () => {
       });
       const saved = savedPopulationFor(mobileUsers());
       const check = (savedPopulation: typeof saved | null) =>
-        getMetricPopulationViolations({
+        getMetricExplorationPopulationViolations({
           population: { populationId: POPULATION_ID, unit: "user_id" },
           savedPopulation,
           values: config.dataset.values,
